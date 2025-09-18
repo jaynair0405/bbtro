@@ -2,6 +2,8 @@
 require('dotenv').config();
 const mysql = require('mysql2');
 
+//  Git workflow practice - second attempt 18-09-25
+
 const connection = mysql.createConnection({
   host: process.env.DB_HOST,
   user: process.env.DB_USER,
