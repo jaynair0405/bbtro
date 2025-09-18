@@ -1,0 +1,30 @@
+# Environment variables - NEVER commit these!
+.env
+
+# Dependencies
+node_modules/
+
+# Uploads and temporary files
+uploads/
+*.log
+
+# Database files
+*.db
+*.sqlite
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# CSV data files (you decide - are these sensitive data?)
+# csv/
+
+# Backup files
+*.bak
+*.backup

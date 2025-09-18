@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Central Railway - Train Schedule Management</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="auth-loading">
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h1>Central Railway - Mumbai Division</h1>
+                    <h2>Train Schedule Management System</h2>
+                </div>
+                <div id="userInfo" style="text-align: right; color: rgba(255,255,255,0.9); z-index: 1000; position: relative;">
+                    <div id="currentUser">Loading...</div>
+                    <button onclick="logout()" 
+                            style="margin-top: 10px; padding: 8px 16px; background: #dc3545; color: white; border: none; border-radius: 5px; cursor: pointer; z-index: 1001; position: relative;"
+                            onmouseover="this.style.background='#c82333'" 
+                            onmouseout="this.style.background='#dc3545'">
+                        Logout
+                    </button>
+                </div>
+            </div>
+        </div>
+        <!-- Navigation -->
+        <div class="nav-container">
+            <div class="nav-tabs">
+                <div class="nav-tab active" data-section="dashboard">Dashboard</div>
+                <div class="nav-tab" data-section="mainline">Main Line Schedule</div>
+                <div class="nav-tab" data-section="harbour">Harbour Line Schedule</div>
+                <div class="nav-tab" data-section="management">Schedule Management</div>
+                <div class="nav-tab" data-section="duty-roster">Daily Duty Roster</div>
+                <div class="nav-tab" data-section="train-cancellations">Train Cancellations</div>
+                <div class="nav-tab" data-section="wheel-movement">Wheel Movement Analysis</div>
+                <div class="nav-tab" data-section="jfo-console">🎯 JFO Console</div>
+            </div>
+        </div>
+
+        <!-- Dashboard Section -->
+        <div id="dashboard" class="content-section active">
+            <div class="dashboard-grid">
+                <!-- Main Line Card -->
+                <div class="card" id="mainlineCard">
+                    <div class="card-header">
+                        <h3 class="card-title">Main Line</h3>
+                        <span class="status-indicator status-active">Active</span>
+                    </div>
+                    <div class="train-count" id="mainlineCount">150</div>
+                    <div class="train-info">
+                        <div>Active: <span id="mainlineActive">120</span></div>
+                        <div>Cancelled: <span id="mainlineCancelled">20</span></div>
+                        <div>Delayed: <span id="mainlineDelayed">10</span></div>
+                    </div>
+                </div>
+        
+                <!-- Harbour Line Card -->
+                <div class="card" id="harbourCard">
+                    <div class="card-header">
+                        <h3 class="card-title">Harbour Line</h3>
+                        <span class="status-indicator status-active">Active</span>
+                    </div>
+                    <div class="train-count" id="harbourCount">100</div>
+                    <div class="train-info">
+                        <div>Active: <span id="harbourActive">85</span></div>
+                        <div>Cancelled: <span id="harbourCancelled">10</span></div>
+                        <div>Delayed: <span id="harbourDelayed">5</span></div>
+                    </div>
+                </div>
+        
+                <!-- Today's Updates Card -->
+                <div class="card" id="updatesCard">
+                    <div class="card-header">
+                        <h3 class="card-title">Today's Updates</h3>
+                        <span id="currentDate"></span>
+                    </div>
+                    <div class="train-count" id="todayUpdates">250</div>
+                    <div class="train-info">
+                        <div>Last Update: <span id="lastUpdate">-</span></div>
+                    </div>
+                </div>
+        
+                <!-- System Status Card (Optional - you can hide this) -->
+                <div class="card" id="systemCard" style="display: none;">
+                    <div class="card-header">
+                        <h3 class="card-title">System Status</h3>
+                        <span class="status-indicator" id="firebaseStatus">Connected</span>
+                    </div>
+                    <div class="train-info">
+                        <div>Database: <span id="dbMode">Firebase Live</span></div>
+                        <div>Operations: <span id="operationCount">0</span></div>
+                        <div style="margin-top: 10px;">
+                            <button class="btn-primary" onclick="app.firebaseService?.switchToEmulator()" 
+                                    style="margin: 2px; padding: 8px 12px; font-size: 0.8em;">
+                                Switch to Emulator
+                            </button>
+                            <button class="btn-primary" onclick="app.firebaseService?.switchToLive()" 
+                                    style="margin: 2px; padding: 8px 12px; font-size: 0.8em;">
+                                Switch to Live
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Line Section -->
+        <div id="mainline" class="content-section">
+            <h3>Main Line Schedule</h3>
+            
+            <div class="filters-grid">
+                <div class="filter-group">
+                    <label for="mlDate">Date</label>
+                    <input type="date" id="mlDate">
+                </div>
+                <div class="filter-group">
+                    <label for="mlStation">Station</label>
+                    <select id="mlStation">
+                        <option value="">All Stations</option>
+                        <option value="CSMT">CSMT</option>
+                        <option value="KYN">Kalyan</option>
+                        <option value="TNA">Thane</option>
+                        <option value="DR">Dadar</option>
+                        <option value="ABH">Ambarnath</option>
+                        <option value="VVH">Vashind</option>
+                        <option value="BYR">Byculla</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="mlStatus">Status</label>
+                    <select id="mlStatus">
+                        <option value="">All Status</option>
+                        <option value="active">Active</option>
+                        <option value="cancelled">Cancelled</option>
+                        <option value="delayed">Delayed</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <button class="btn-primary" id="loadMainlineBtn">Load Schedule</button>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table id="mainlineTable">
+                    <thead>
+                        <tr>
+                            <th>Schedule ID</th>
+                            <th>Train Details</th>
+                            <th>Route</th>
+                            <th>Timing</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="mainlineTableBody">
+                        <tr>
+                            <td colspan="6" style="text-align: center; padding: 20px; color: #666;">
+                                Click "Load Schedule" to view train schedules
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Harbour Line Section -->
+        <div id="harbour" class="content-section">
+            <h3>Harbour Line Schedule</h3>
+            
+            <div class="filters-grid">
+                <div class="filter-group">
+                    <label for="hbDate">Date</label>
+                    <input type="date" id="hbDate">
+                </div>
+                <div class="filter-group">
+                    <label for="hbStation">Station</label>
+                    <select id="hbStation">
+                        <option value="">All Stations</option>
+                        <option value="CSMT">CSMT</option>
+                        <option value="PNVL">Panvel</option>
+                        <option value="BYR">Byculla</option>
+                        <option value="KJT">Kurla Jn</option>
+                        <option value="NVE">Nerul</option>
+                        <option value="TNA">Thane</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="hbStatus">Status</label>
+                    <select id="hbStatus">
+                        <option value="">All Status</option>
+                        <option value="active">Active</option>
+                        <option value="cancelled">Cancelled</option>
+                        <option value="delayed">Delayed</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <button class="btn-primary" id="loadHarbourBtn">Load Schedule</button>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table id="harbourTable">
+                    <thead>
+                        <tr>
+                            <th>Schedule ID</th>
+                            <th>Train Details</th>
+                            <th>Route</th>
+                            <th>Timing</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="harbourTableBody">
+                        <tr>
+                            <td colspan="6" style="text-align: center; padding: 20px; color: #666;">
+                                Click "Load Schedule" to view train schedules
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Management Section -->
+        <div id="management" class="content-section">
+            <h3>Schedule Management</h3>
+            
+            <div class="management-buttons">
+                <button class="btn-primary" id="addScheduleBtn">Add New Schedule</button>
+                <button class="btn-primary" id="uploadCsvBtn">📁 Upload Details & Trains</button>
+                <button class="btn-primary" id="uploadDetailsBtn">Upload Details CSV</button>
+                <button class="btn-primary" id="addDetailIdBtn">Add DetailId to Existing Records</button>
+            </div>
+
+            <div class="filters-grid">
+                <div class="filter-group">
+                    <label for="mgmtLine">Line</label>
+                    <select id="mgmtLine">
+                        <option value="">All Lines</option>
+                        <option value="mainline">Main Line</option>
+                        <option value="harbour">Harbour Line</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="mgmtDate">Date</label>
+                    <input type="date" id="mgmtDate">
+                </div>
+                <div class="filter-group">
+                    <label for="mgmtSearch">Search</label>
+                    <input type="text" id="mgmtSearch" placeholder="Search by train number, station...">
+                </div>
+                <div class="filter-group">
+                    <button class="btn-primary" id="searchMgmtBtn">Search</button>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table id="managementTable">
+                    <thead>
+                        <tr>
+                            <th>Schedule ID</th>
+                            <th>Line</th>
+                            <th>Train Details</th>
+                            <th>Route</th>
+                            <th>Timing</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="managementTableBody">
+                        <tr>
+                            <td colspan="7" style="text-align: center; padding: 20px; color: #666;">
+                                Click "Search" to view and manage train schedules
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Daily Duty Roster Section -->
+        <div id="duty-roster" class="content-section">
+            <h3>Daily Duty Roster Management</h3>
+            
+            <div class="upload-section" style="background: #f8f9fa; padding: 25px; border-radius: 15px; margin-bottom: 30px;">
+                <h4 style="margin-bottom: 20px; color: #2c3e50;">📊 Upload Daily Duty Roster</h4>
+                
+                <!-- Global Date Selection -->
+                <div style="background: white; padding: 20px; border-radius: 10px; margin-bottom: 20px; border-left: 4px solid #17a2b8;">
+                    <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
+                        <div>
+                            <label for="globalRosterDate" style="font-weight: 600; color: #2c3e50; margin-bottom: 5px; display: block;">📅 Select Upload Date:</label>
+                            <input type="date" id="globalRosterDate" class="form-control" style="padding: 10px; border: 2px solid #dee2e6; border-radius: 6px; min-width: 150px;">
+                        </div>
+                        <div style="color: #666; font-size: 0.9em; margin-top: 20px;">
+                            <strong>Note:</strong> All roster uploads will use this selected date
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="office-upload-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+                    <!-- CSMT Upload -->
+                    <div class="office-upload-card" style="background: white; padding: 20px; border-radius: 10px; border-left: 4px solid #667eea;">
+                        <h5 style="color: #667eea; margin-bottom: 15px;">🏢 CSMT Office</h5>
+                        <p style="color: #666; margin-bottom: 15px; font-size: 0.9em;">Expected: ~400 records daily</p>
+                        
+                        <button class="btn-primary" onclick="app.handleDutyRosterUpload('CSMT')" style="width: 100%;">
+                            📁 Upload CSMT Duty Roster
+                        </button>
+                    </div>
+                    
+                    <!-- KYN Upload -->
+                    <div class="office-upload-card" style="background: white; padding: 20px; border-radius: 10px; border-left: 4px solid #28a745;">
+                        <h5 style="color: #28a745; margin-bottom: 15px;">🏢 KYN Office</h5>
+                        <p style="color: #666; margin-bottom: 15px; font-size: 0.9em;">Expected: ~300 records daily</p>
+                        
+                        <button class="btn-primary" onclick="app.handleDutyRosterUpload('KYN')" style="width: 100%; background: #28a745;">
+                            📁 Upload KYN Duty Roster
+                        </button>
+                    </div>
+                    
+                    <!-- PNVL Upload -->
+                    <div class="office-upload-card" style="background: white; padding: 20px; border-radius: 10px; border-left: 4px solid #ffc107;">
+                        <h5 style="color: #ffc107; margin-bottom: 15px;">🏢 PNVL Office</h5>
+                        <p style="color: #666; margin-bottom: 15px; font-size: 0.9em;">Expected: ~125 records daily</p>
+                        
+                        <button class="btn-primary" onclick="app.handleDutyRosterUpload('PNVL')" style="width: 100%; background: #ffc107; color: #212529;">
+                            📁 Upload PNVL Duty Roster
+                        </button>
+                    </div>
+                </div>
+                
+                <div style="margin-top: 20px; padding: 15px; background: #e9ecef; border-radius: 8px;">
+                    <strong>📝 Supported Formats:</strong> Excel (.xlsx) and CSV files<br>
+                    <strong>📅 Upload Frequency:</strong> Daily uploads from each office<br>
+                    <strong>📊 Expected Structure:</strong> Detail ID (Column A), Motorman Name (Column B)<br>
+                    <strong>🔒 Security:</strong> Each office can only upload for their designated area
+                </div>
+            </div>
+
+            <!-- View Section -->
+            <div class="view-section">
+                <h4 style="margin-bottom: 20px; color: #2c3e50;">📋 View Daily Duty Roster</h4>
+                
+                <div class="filters-grid">
+                    <div class="filter-group">
+                        <label for="dutyDate">Select Date</label>
+                        <input type="date" id="dutyDate">
+                    </div>
+                    <div class="filter-group">
+                        <label for="dutyOffice">Office</label>
+                        <select id="dutyOffice">
+                            <option value="">All Offices</option>
+                            <option value="CSMT">CSMT</option>
+                            <option value="KYN">KYN</option>
+                            <option value="PNVL">PNVL</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="dutySearch">Search</label>
+                        <input type="text" id="dutySearch" placeholder="Search by Detail ID or Motorman name...">
+                    </div>
+                    <div class="filter-group">
+                        <button class="btn-primary" id="loadDutyRosterBtn">Load Duty Roster</button>
+                    </div>
+                </div>
+                
+                <!-- Statistics Cards -->
+                <div class="duty-stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin: 20px 0;">
+                    <div class="stat-card" style="background: white; padding: 15px; border-radius: 10px; text-align: center; border-left: 4px solid #667eea;">
+                        <div style="font-size: 2em; font-weight: bold; color: #667eea;" id="csmtCount">-</div>
+                        <div style="color: #666;">CSMT Records</div>
+                    </div>
+                    <div class="stat-card" style="background: white; padding: 15px; border-radius: 10px; text-align: center; border-left: 4px solid #28a745;">
+                        <div style="font-size: 2em; font-weight: bold; color: #28a745;" id="kynCount">-</div>
+                        <div style="color: #666;">KYN Records</div>
+                    </div>
+                    <div class="stat-card" style="background: white; padding: 15px; border-radius: 10px; text-align: center; border-left: 4px solid #ffc107;">
+                        <div style="font-size: 2em; font-weight: bold; color: #ffc107;" id="pnvlCount">-</div>
+                        <div style="color: #666;">PNVL Records</div>
+                    </div>
+                    <div class="stat-card" style="background: white; padding: 15px; border-radius: 10px; text-align: center; border-left: 4px solid #17a2b8;">
+                        <div style="font-size: 2em; font-weight: bold; color: #17a2b8;" id="totalDutyCount">-</div>
+                        <div style="color: #666;">Total Records</div>
+                    </div>
+                </div>
+                
+                <!-- Data Table -->
+                <div class="table-container">
+                    <table id="dutyRosterTable">
+                        <thead>
+                            <tr>
+                                <th>Detail ID</th>
+                                <th>Motorman Name</th>
+                                <th>Office</th>
+                                <th>Date</th>
+                                <th>Upload Time</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dutyRosterTableBody">
+                            <tr>
+                                <td colspan="6" style="text-align: center; padding: 20px; color: #666;">
+                                    Select a date and click "Load Duty Roster" to view records
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Train Cancellations Section -->
+        <div id="train-cancellations" class="content-section">
+            <h3>Train Cancellation Management</h3>
+            
+            <!-- Cancellation Options -->
+            <div class="cancellation-options" style="background: #f8f9fa; padding: 25px; border-radius: 15px; margin-bottom: 30px;">
+                <!-- Bulk Upload Section -->
+                <div class="bulk-upload-section" style="background: white; padding: 20px; border-radius: 10px; margin-bottom: 20px; border-left: 4px solid #e67e22;">
+                    <h4 style="color: #e67e22; margin-bottom: 15px;">📁 Upload Cancelled Trains (Bulk)</h4>
+                    
+                    <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 15px;">
+                        <div class="form-group">
+                            <label for="cancelledDate" style="color: #495057; font-weight: 600; margin-bottom: 8px; display: block;">📅 Select Date:</label>
+                            <input type="date" id="cancelledDate" style="width: 100%; padding: 10px; border: 2px solid #e9ecef; border-radius: 8px;"/>
+                        </div>
+                        <div class="form-group">
+                            <label for="cancelledFileInput" style="color: #495057; font-weight: 600; margin-bottom: 8px; display: block;">📂 Select CSV/Excel File:</label>
+                            <input type="file" id="cancelledFileInput" accept=".csv,.xlsx" style="width: 100%; padding: 10px; border: 2px solid #e9ecef; border-radius: 8px;"/>
+                        </div>
+                    </div>
+                    
+                    <button class="btn-primary" onclick="uploadCancelled()" style="background: #e67e22; border-color: #e67e22; padding: 12px 24px;">
+                        ⬆️ Upload Cancelled Trains
+                    </button>
+                    
+                    <div style="margin-top: 15px; padding: 12px; background: #fff3cd; border-radius: 6px; font-size: 0.9em; color: #856404;">
+                        <strong>📝 File Format:</strong> CSV/Excel with train numbers in first column. System will automatically detect Detail IDs.
+                    </div>
+                </div>
+                
+                <!-- Single Cancellation Section -->
+                <div class="single-cancellation-section" style="background: white; padding: 20px; border-radius: 10px; border-left: 4px solid #dc3545;">
+                    <h4 style="color: #dc3545; margin-bottom: 15px;">🚫 Cancel Single Train</h4>
+                    
+                    <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-bottom: 15px;">
+                        <div class="form-group">
+                            <label for="singleCancelDate" style="color: #495057; font-weight: 600; margin-bottom: 8px; display: block;">📅 Date:</label>
+                            <input type="date" id="singleCancelDate" style="width: 100%; padding: 10px; border: 2px solid #e9ecef; border-radius: 8px;"/>
+                        </div>
+                        <div class="form-group">
+                            <label for="singleTrainNumber" style="color: #495057; font-weight: 600; margin-bottom: 8px; display: block;">🚂 Train Number:</label>
+                            <input type="text" id="singleTrainNumber" placeholder="Enter train number" style="width: 100%; padding: 10px; border: 2px solid #e9ecef; border-radius: 8px;"/>
+                        </div>
+                        <div class="form-group">
+                            <label for="cancellationReason" style="color: #495057; font-weight: 600; margin-bottom: 8px; display: block;">📝 Reason:</label>
+                            <select id="cancellationReason" style="width: 100%; padding: 10px; border: 2px solid #e9ecef; border-radius: 8px;">
+                                <option value="">Select reason</option>
+                                <option value="mechanical">Mechanical Issue</option>
+                                <option value="operational">Operational Issue</option>
+                                <option value="weather">Weather Conditions</option>
+                                <option value="maintenance">Maintenance</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group" style="margin-bottom: 15px;">
+                        <label for="additionalNotes" style="color: #495057; font-weight: 600; margin-bottom: 8px; display: block;">💬 Additional Notes (Optional):</label>
+                        <textarea id="additionalNotes" placeholder="Enter additional details..." rows="2" style="width: 100%; padding: 10px; border: 2px solid #e9ecef; border-radius: 8px; resize: vertical;"></textarea>
+                    </div>
+                    
+                    <button class="btn-primary" onclick="cancelSingleTrain()" style="background: #dc3545; border-color: #dc3545; padding: 12px 24px;">
+                        🚫 Cancel Train
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Access Control Info -->
+            <div class="access-info" style="background: #e9ecef; padding: 20px; border-radius: 10px; margin-bottom: 25px;">
+                <h5 style="margin-bottom: 15px; color: #495057;">👥 Access Levels:</h5>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; font-size: 0.9em;">
+                    <div style="background: white; padding: 15px; border-radius: 8px; border-left: 3px solid #28a745;">
+                        <strong>🏢 Office Staff (CSMT/KYN/PNVL)</strong><br>
+                        <span style="color: #666;">Can cancel trains from their schedules</span>
+                    </div>
+                    <div style="background: white; padding: 15px; border-radius: 8px; border-left: 3px solid #dc3545;">
+                        <strong>🎖️ HQ Supervisor</strong><br>
+                        <span style="color: #666;">Can cancel any train from any office</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- View Section -->
+            <div class="view-section">
+                <h4 style="margin-bottom: 20px; color: #2c3e50;">📋 View Train Cancellations</h4>
+                
+                <div class="filters-grid">
+                    <div class="filter-group">
+                        <label for="cancellationDate">Select Date</label>
+                        <input type="date" id="cancellationDate">
+                    </div>
+                    <div class="filter-group">
+                        <label for="cancellationOffice">Office</label>
+                        <select id="cancellationOffice">
+                            <option value="">All Offices</option>
+                            <option value="CSMT">CSMT</option>
+                            <option value="KYN">KYN</option>
+                            <option value="PNVL">PNVL</option>
+                            <option value="HQ">HQ</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="cancellationSearch">Search</label>
+                        <input type="text" id="cancellationSearch" placeholder="Search by train number...">
+                    </div>
+                    <div class="filter-group">
+                        <button class="btn-primary" id="loadCancellationsBtn">Load Cancellations</button>
+                    </div>
+                </div>
+                
+                <!-- Statistics Cards -->
+                <div class="cancellation-stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin: 20px 0;">
+                    <div class="stat-card" style="background: white; padding: 15px; border-radius: 10px; text-align: center; border-left: 4px solid #dc3545;">
+                        <div style="font-size: 2em; font-weight: bold; color: #dc3545;" id="totalCancellations">-</div>
+                        <div style="color: #666;">Total Cancelled</div>
+                    </div>
+                    <div class="stat-card" style="background: white; padding: 15px; border-radius: 10px; text-align: center; border-left: 4px solid #667eea;">
+                        <div style="font-size: 2em; font-weight: bold; color: #667eea;" id="csmtCancellations">-</div>
+                        <div style="color: #666;">CSMT</div>
+                    </div>
+                    <div class="stat-card" style="background: white; padding: 15px; border-radius: 10px; text-align: center; border-left: 4px solid #28a745;">
+                        <div style="font-size: 2em; font-weight: bold; color: #28a745;" id="kynCancellations">-</div>
+                        <div style="color: #666;">KYN</div>
+                    </div>
+                    <div class="stat-card" style="background: white; padding: 15px; border-radius: 10px; text-align: center; border-left: 4px solid #ffc107;">
+                        <div style="font-size: 2em; font-weight: bold; color: #ffc107;" id="pnvlCancellations">-</div>
+                        <div style="color: #666;">PNVL</div>
+                    </div>
+                    <div class="stat-card" style="background: white; padding: 15px; border-radius: 10px; text-align: center; border-left: 4px solid #6f42c1;">
+                        <div style="font-size: 2em; font-weight: bold; color: #6f42c1;" id="hqCancellations">-</div>
+                        <div style="color: #666;">HQ</div>
+                    </div>
+                </div>
+                
+                <!-- Data Table -->
+                <div class="table-container">
+                    <table id="cancellationTable">
+                        <thead>
+                            <tr>
+                                <th>Train Number</th>
+                                <th>Detail ID</th>
+                                <th>Date</th>
+                                <th>Reporting Office</th>
+                                <th>Reason</th>
+                                <th>Cancelled At</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cancellationTableBody">
+                            <tr>
+                                <td colspan="7" style="text-align: center; padding: 20px; color: #666;">
+                                    Select a date and click "Load Cancellations" to view cancelled trains
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- Hidden toast for this section -->
+            <div id="toast" class="toast hidden"></div>
+            <!-- Upload result display -->
+            <p id="cancelledUploadResult" style="display: none;"></p>
+        </div>
+
+        <!-- Wheel Movement Analysis Section -->
+        <div id="wheel-movement" class="content-section">
+            <h3>Wheel Movement & Duty Hours Analysis</h3>
+            
+            <!-- Filter Section -->
+            <div class="wheel-filters-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 25px; border-radius: 15px; margin-bottom: 30px; color: white;">
+                <h4 style="color: white; margin-bottom: 20px;">📊 Analysis Filters</h4>
+                
+                <div class="filters-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px;">
+                    <div class="filter-group">
+                        <label for="wheelFromDate" style="color: rgb(16, 15, 15);">From Date *</label>
+                        <input type="date" id="wheelFromDate" required style="width: 100%; padding: 10px; border: none; border-radius: 8px;">
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label for="wheelToDate" style="color: rgb(16, 15, 15);">To Date *</label>
+                        <input type="date" id="wheelToDate" required style="width: 100%; padding: 10px; border: none; border-radius: 8px;">
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label for="wheelDetailNumber" style="color: rgb(16, 15, 15);">Detail Number</label>
+                        <select id="wheelDetailNumber" style="width: 100%; padding: 10px; border: none; border-radius: 8px;">
+                            <option value="">All Details</option>
+                            <!-- Options will be populated dynamically -->
+                        </select>
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label for="wheelMotorman" style="color: rgb(16, 15, 15);">Motorman</label>
+                        <select id="wheelMotorman" style="width: 100%; padding: 10px; border: none; border-radius: 8px;">
+                            <option value="">All Motormen</option>
+                            <!-- Will be populated when motorman collection is created -->
+                        </select>
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label for="wheelOffice" style="color: rgb(16, 15, 15);">Lobby/Office</label>
+                        <select id="wheelOffice" style="width: 100%; padding: 10px; border: none; border-radius: 8px;">
+                            <option value="">All Lobbies</option>
+                            <option value="mainline">Main Line</option>
+                            <option value="harbour">Harbour Line</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="wheelReportType" style="color: rgb(16, 15, 15);">Report Type</label>
+                        <select id="wheelReportType" style="width: 100%; padding: 10px; border: none; border-radius: 8px;">
+                            <option value="motorman">Motorman Efficiency Report</option>
+                            <option value="detail">Detail-wise Analysis</option>
+                        </select>
+                    </div>
+                    
+                    <div class="filter-group" style="display: flex; align-items: end;">
+                        <button class="btn-primary" id="showWheelAnalysisBtn" 
+                                style="width: 100%; padding: 12px; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: rgb(16, 15, 15);">
+                            📊 Show Analysis
+                        </button>
+                    </div>
+                </div>
+                
+                <div style="margin-top: 20px; padding: 15px; background: rgba(255,255,255,0.1); border-radius: 8px; font-size: 0.9em;">
+                    <strong>📝 Analysis Info:</strong> 
+                    This report calculates net wheel movement and total duty hours. Duty hours remain constant regardless of cancellations or Sunday restrictions.
+                    Click the + symbol next to each detail to see daily breakdown.
+                </div>
+            </div>
+        
+            <!-- Summary Cards -->
+            <div class="wheel-summary-section" style="margin-bottom: 30px;">
+                <h4 style="margin-bottom: 20px; color: #2c3e50;">📈 Analysis Summary</h4>
+                
+                <div class="wheel-summary-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 20px;">
+                    <div class="summary-card" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; padding: 20px; border-radius: 12px; text-align: center;">
+                        <div style="font-size: 0.9em; opacity: 0.9; margin-bottom: 8px;">Analysis Period</div>
+                        <div style="font-size: 2.2em; font-weight: bold;" id="totalWheelMovementDays">-</div>
+                        <div style="font-size: 0.9em; opacity: 0.9;">Days</div>
+                    </div>
+                    
+                    <div class="summary-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 12px; text-align: center;">
+                        <div style="font-size: 0.9em; opacity: 0.9; margin-bottom: 8px;">Base Wheel Movement</div>
+                        <div style="font-size: 2.2em; font-weight: bold;" id="totalBaseWheelMovement">-</div>
+                        <div style="font-size: 0.9em; opacity: 0.9;">Hours</div>
+                    </div>
+                    
+                    <!-- NEW: Total Duty Hours Card -->
+                    <div class="summary-card" style="background: linear-gradient(135deg, #17a2b8 0%, #138496 100%); color: white; padding: 20px; border-radius: 12px; text-align: center;">
+                        <div style="font-size: 0.9em; opacity: 0.9; margin-bottom: 8px;">Total Duty Hours</div>
+                        <div style="font-size: 2.2em; font-weight: bold;" id="totalDutyHours">-</div>
+                        <div style="font-size: 0.9em; opacity: 0.9;">Hours</div>
+                    </div>
+                    
+                    <div class="summary-card" style="background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); color: white; padding: 20px; border-radius: 12px; text-align: center;">
+                        <div style="font-size: 0.9em; opacity: 0.9; margin-bottom: 8px;">Cancelled Deductions</div>
+                        <div style="font-size: 2.2em; font-weight: bold;" id="totalCancelledWheelMovement">-</div>
+                        <div style="font-size: 0.9em; opacity: 0.9;">Hours</div>
+                    </div>
+                    
+                    <div class="summary-card" style="background: linear-gradient(135deg, #ffc107 0%, #ffb300 100%); color: #212529; padding: 20px; border-radius: 12px; text-align: center;">
+                        <div style="font-size: 0.9em; opacity: 0.8; margin-bottom: 8px;">Sunday Deductions</div>
+                        <div style="font-size: 2.2em; font-weight: bold;" id="totalSundayDeductions">-</div>
+                        <div style="font-size: 0.9em; opacity: 0.8;">Hours</div>
+                    </div>
+                    
+                    <div class="summary-card" style="background: linear-gradient(135deg, #6f42c1 0%, #563d7c 100%); color: white; padding: 20px; border-radius: 12px; text-align: center; border: 3px solid #fff;">
+                        <div style="font-size: 0.9em; opacity: 0.9; margin-bottom: 8px;">Net Wheel Movement</div>
+                        <div style="font-size: 2.2em; font-weight: bold;" id="totalNetWheelMovement">-</div>
+                        <div style="font-size: 0.9em; opacity: 0.9;">Hours</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Data Table -->
+            <div class="wheel-data-section">
+                <h4 style="margin-bottom: 20px; color: #2c3e50;">📋 Detail-wise Analysis</h4>
+                
+                <div class="table-container">
+                    <table id="wheelMovementTable">
+                        <thead>
+                            <tr>
+                                <th style="width: 25%;">Detail ID</th>
+                                <th style="width: 15%;">Period</th>
+                                <th style="width: 25%;">Net Wheel Movement</th>
+                                <th style="width: 20%;">Total Duty Hours</th>
+                                <th style="width: 15%;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="wheelMovementTableBody">
+                            <tr>
+                                <td colspan="5" style="text-align: center; padding: 40px; color: #666;">
+                                    <div style="font-size: 1.2em; margin-bottom: 10px;">📊</div>
+                                    <div>Select date range and click "Show Analysis" to view data</div>
+                                    <div style="font-size: 0.9em; color: #999; margin-top: 5px;">
+                                        Analysis will show net wheel movement and total duty hours
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Analysis Info Section -->
+                <div class="analysis-info-section" style="margin-top: 20px; padding: 20px; background: #f8f9fa; border-radius: 10px; border-left: 4px solid #17a2b8;">
+                    <h5 style="color: #17a2b8; margin-bottom: 15px;">📖 Understanding the Analysis</h5>
+                    <div class="analysis-info-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; font-size: 0.9em;">
+                        <div class="info-card" style="background: white; padding: 15px; border-radius: 6px; border-left: 3px solid #28a745;">
+                            <strong>🚴 Wheel Movement:</strong><br>
+                            Net movement after deducting cancellations and Sunday restrictions
+                        </div>
+                        <div class="info-card" style="background: white; padding: 15px; border-radius: 6px; border-left: 3px solid #17a2b8;">
+                            <strong>⏰ Duty Hours:</strong><br>
+                            Total duty hours from ML89A data - unaffected by cancellations
+                        </div>
+                        <div class="info-card" style="background: white; padding: 15px; border-radius: 6px; border-left: 3px solid #667eea;">
+                            <strong>📊 Daily Breakdown:</strong><br>
+                            Click ➕ to see day-by-day wheel movement and duty hours
+                        </div>
+                        <div class="info-card" style="background: white; padding: 15px; border-radius: 6px; border-left: 3px solid #6f42c1;">
+                            <strong>🎯 Efficiency Ratio:</strong><br>
+                            Compare wheel movement hours vs total duty hours
+                        </div>
+                    </div>
+                    <div style="margin-top: 15px; padding: 15px; background: white; border-radius: 6px; border-left: 3px solid #ffc107;">
+                        <strong>💡 Key Insights:</strong>
+                        <ul style="margin: 10px 0 0 20px; padding: 0;">
+                            <li><strong>Duty Hours:</strong> Include all activities - driving, rest periods, preparation time</li>
+                            <li><strong>Wheel Movement:</strong> Actual train driving time (subset of duty hours)</li>
+                            <li><strong>Cancellations:</strong> Reduce wheel movement but NOT duty hours</li>
+                            <li><strong>Sunday Restrictions:</strong> Affect wheel movement calculations only</li>
+                            <li><strong>Efficiency:</strong> Higher wheel movement/duty hours ratio indicates better utilization</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal for Add/Edit Schedule -->
+        <div id="scheduleModal" class="modal">
+            <div class="modal-content">
+                <span class="close" id="closeModal">&times;</span>
+                <h2 id="modalTitle">Add New Schedule</h2>
+                <form id="scheduleForm">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="scheduleId">Schedule ID</label>
+                            <input type="text" id="scheduleId" name="scheduleId" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="line">Line</label>
+                            <select id="line" name="line" required>
+                                <option value="">Select Line</option>
+                                <option value="mainline">Main Line</option>
+                                <option value="harbour">Harbour Line</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="trainNumber">Train Number</label>
+                            <input type="text" id="trainNumber" name="trainNumber" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="status">Status</label>
+                            <select id="status" name="status">
+                                <option value="active">Active</option>
+                                <option value="cancelled">Cancelled</option>
+                                <option value="delayed">Delayed</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="startStation">Start Station</label>
+                            <input type="text" id="startStation" name="startStation" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="startTime">Start Time</label>
+                            <input type="time" id="startTime" name="startTime" required>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="endStation">End Station</label>
+                            <input type="text" id="endStation" name="endStation" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="endTime">End Time</label>
+                            <input type="time" id="endTime" name="endTime" required>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="remarks">Remarks</label>
+                        <textarea id="remarks" name="remarks" rows="3" placeholder="Optional remarks or notes"></textarea>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="button" class="btn-secondary" id="cancelBtn">Cancel</button>
+                        <button type="submit" class="btn-primary">Save Schedule</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Add JFO Console section -->
+<div id="jfo-console" class="content-section">
+    <iframe src="jfo-console/index.html" 
+            style="width: 100%; height: 90vh; border: none; border-radius: 10px;"
+            title="JFO Console - Appearance Book">
+    </iframe>
+</div>
+
+        <!-- Loading Overlay -->
+        <div id="loadingOverlay" class="loading-overlay">
+            <div class="loading-spinner"></div>
+            <div class="loading-text">Loading...</div>
+        </div>
+
+        
+
+        <!-- Toast Container -->
+        <div id="toastContainer" class="toast-container"></div>
+
+        <!-- Scripts -->
+        <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+        <script src="script.js"></script>
+    </div>
+</body>
+</html>

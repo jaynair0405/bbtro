@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JFO Console - Appearance Book</title>
+    <link rel="stylesheet" href="jfo-styles.css">
+</head>
+<body>
+    <div class="jfo-container">
+        <!-- Header -->
+        <div class="jfo-header">
+            <h1>🎯 JFO Console</h1>
+            <p style="font-size: 1.1em; color: #7f8c8d; margin-top: 10px;">
+                Appearance Book - Daily Duty Management & Reassignments
+            </p>
+        </div>
+
+        <!-- Tab Navigation (NEW) -->
+        <div class="jfo-tabs" style="display: flex; background: white; border-radius: 10px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); overflow: hidden;">
+            <button class="tab-button active" onclick="showJFOTab('appearance')" id="tab-appearance">
+                📋 Appearance Book
+            </button>
+            <button class="tab-button" onclick="showJFOTab('special-trains')" id="tab-special-trains">
+                ⭐ Special Trains
+            </button>
+            <button class="tab-button" onclick="showJFOTab('reports')" id="tab-reports">
+                📊 Reports
+            </button>
+        </div>
+
+        <!-- APPEARANCE BOOK TAB (Wrapped existing content) -->
+        <div id="appearance-tab" class="tab-content" style="display: block;">
+            <!-- Main Controls -->
+            <div class="jfo-controls">
+                <div class="controls-row">
+                    <div class="form-group">
+                        <label for="jfoDate">📅 Select Date</label>
+                        <input type="date" id="jfoDate" class="form-control" required>
+                    </div>
+                    
+                    <!-- <div style="text-align: center; color: #7f8c8d;">
+                        <div style="font-size: 0.9em; margin-bottom: 5px;">Current Status</div>
+                        <div id="currentDateDisplay" style="font-weight: 600; color: #2c3e50;">
+                            No date selected
+                        </div>
+                    </div> -->
+                    
+                    <button class="btn-primary" onclick="loadAppearanceBook()">
+                        📋 Load Appearance Book
+                    </button>
+                    
+                    <button class="btn-primary" onclick="showStatistics()" 
+                            style="background: linear-gradient(135deg, #e67e22 0%, #f39c12 100%);">
+                        📊 Statistics
+                    </button>
+                    
+                    <button class="btn-primary" onclick="exportAppearanceBook()" 
+                            style="background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);">
+                        📤 Export
+                    </button>
+                </div>
+            </div>
+
+            <!-- Summary Cards -->
+            <div class="summary-cards">
+                <div class="summary-card total-details">
+                    <h3 id="totalDetails">0</h3>
+                    <p>📋 Total Details</p>
+                </div>
+                
+                <div class="summary-card waiting-details">
+                    <h3 id="waitingDetails">0</h3>
+                    <p>⏳ Waiting Assignment</p>
+                </div>
+                
+                <div class="summary-card reassigned-details">
+                    <h3 id="reassignedDetails">0</h3>
+                    <p>🔄 Reassigned Details</p>
+                </div>
+                
+                <div class="summary-card total-reassignments">
+                    <h3 id="totalReassignments">0</h3>
+                    <p>📝 Total Changes</p>
+                </div>
+            </div>
+
+            <!-- Filter Section -->
+            <div class="filter-section">
+                <div class="filter-row">
+                    <div class="form-group search-input">
+                        <label for="searchAppearanceBook">🔍 Search</label>
+                        <input type="text" id="searchAppearanceBook" class="form-control" 
+                               placeholder="Search by detail, motorman, office, or train number">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="filterType">📂 Filter by Type</label>
+                        <select id="filterType" class="form-control">
+                            <option value="all">All Entries</option>
+                            <option value="waiting">⏳ Waiting Details</option>
+                            <option value="reassigned">🔄 Reassigned Details</option>
+                            <option value="normal">✅ Normal Assignments</option>
+                        </select>
+                    </div>
+                    
+                    <button class="btn-secondary" onclick="clearFilters()">
+                        🗑️ Clear Filters
+                    </button>
+                </div>
+            </div>
+
+            <!-- Main Table -->
+            <div class="table-container">
+                <div class="table-header">
+                    <h3>📋 Appearance Book</h3>
+                    <div class="table-actions">
+                        <button class="btn-primary" onclick="refreshAppearanceBook()" 
+                                style="background: #17a2b8; padding: 8px 15px; font-size: 0.85em;">
+                            🔄 Refresh
+                        </button>
+                        <button class="btn-primary" onclick="showBulkOperations()" 
+                                style="background: #8e44ad; padding: 8px 15px; font-size: 0.85em;">
+                            📋 Bulk Actions
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="table-wrapper">
+                    <table class="appearance-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 9%;">⏰ Sign On</th>
+                                <th style="width: 9%;">🚂 First Departure</th>
+                                <th style="width: 11%;">📋 Detail</th>
+                                <th style="width: 16%;">👤 Motorman</th>
+                                <th style="width: 13%;">📊 Status</th>
+                                <th style="width: 11%;">🚂 Trains</th>
+                                <th style="width: 13%;">🔄 Changes</th>
+                                <th style="width: 18%;">⚙️ Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="appearanceBookTableBody">
+                            <tr>
+                                <td colspan="7" style="text-align: center; padding: 40px; color: #666;">
+                                    <div style="font-size: 1.2em; margin-bottom: 10px;">📅</div>
+                                    <div>Select a date and click "Load Appearance Book"</div>
+                                    <div style="font-size: 0.9em; color: #999; margin-top: 5px;">
+                                        View and manage daily duty assignments and reassignments
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div style="text-align: center; margin-top: 25px;">
+                <button class="btn-primary" onclick="showReassignmentHistory()" 
+                        style="background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%); margin-right: 15px;">
+                    📚 View All Reassignments
+                </button>
+                
+                <button class="btn-primary" onclick="showWaitingAssignments()" 
+                        style="background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%); margin-right: 15px;">
+                    ⏳ Manage Waiting Details
+                </button>
+                
+                <button class="btn-primary" onclick="generateDailyReport()" 
+                        style="background: linear-gradient(135deg, #1abc9c 0%, #16a085 100%);">
+                    📄 Generate Daily Report
+                </button>
+            </div>
+        </div>
+
+        <!-- SPECIAL TRAINS TAB (NEW) -->
+        <div id="special-trains-tab" class="tab-content" style="display: none;">
+            <div class="special-trains-container">
+                <!-- Header -->
+                <div class="special-trains-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 25px; border-radius: 15px; margin-bottom: 25px;">
+                    <h2 style="margin: 0; font-size: 1.8em;">⭐ Special Trains Management</h2>
+                    <p style="margin: 10px 0 0 0; opacity: 0.9;">Create and manage special trains that don't exist in regular schedules</p>
+                </div>
+
+                <!-- Add Special Train Form -->
+                <div class="add-special-train-section" style="background: white; padding: 30px; border-radius: 15px; box-shadow: 0 8px 32px rgba(0,0,0,0.1); margin-bottom: 25px;">
+                    <h3 style="margin-bottom: 25px; color: #2c3e50;">🚂 Add New Special Train</h3>
+                    
+                    <form id="specialTrainForm" onsubmit="addSpecialTrain(event)">
+                        <!-- Row 1: Basic Information -->
+                        <div style="display: grid; grid-template-columns: auto 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+                            <div class="form-group">
+                                <label for="specialTrainDate">📅 Date *</label>
+                                <input type="date" id="specialTrainDate" name="date" required class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label for="specialTrainNumber">🚂 Train Number *</label>
+                                <input type="text" id="specialTrainNumber" name="trainNumber" 
+                                       placeholder="KYN SPL 001" required class="form-control"
+                                       oninput="onTrainNumberChange(this.value)">
+                            </div>
+                            <div class="form-group">
+                                <label for="specialTrainName">📝 Train Name</label>
+                                <input type="text" id="specialTrainName" name="trainName" 
+                                       placeholder="Special Local Train" class="form-control">
+                            </div>
+                        </div>
+
+                        <!-- Row 2: Train Type Selection -->
+                        <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+                            <label style="display: block; margin-bottom: 15px; font-weight: 600; color: #2c3e50;">🔧 Train Operation Type *</label>
+                            <div style="display: flex; gap: 30px; align-items: center;">
+                                <label style="display: flex; align-items: center; cursor: pointer;">
+                                    <input type="radio" name="trainTypeOperation" value="working" checked 
+                                           onchange="onTrainTypeChange()" style="margin-right: 8px; transform: scale(1.2);">
+                                    <span style="font-weight: 500;">🚂 Working Train</span>
+                                </label>
+                                <label style="display: flex; align-items: center; cursor: pointer;">
+                                    <input type="radio" name="trainTypeOperation" value="piloting" 
+                                           onchange="onTrainTypeChange()" style="margin-right: 8px; transform: scale(1.2);">
+                                    <span style="font-weight: 500;">🔄 Piloting Train</span>
+                                </label>
+                                <div id="pilotingNote" style="color: #e67e22; font-size: 0.9em; font-style: italic; display: none;">
+                                    ⚠️ Piloting trains have 0 wheel movement hours
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Row 3: Timing Information -->
+                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+                            <div class="form-group">
+                                <label for="signOnTime">⏰ Sign On Time *</label>
+                                <input type="time" id="signOnTime" name="signOnTime" required class="form-control"
+                                       onchange="calculateTimes()">
+                            </div>
+                            <div class="form-group">
+                                <label for="startTime">🚀 Start Time *</label>
+                                <input type="time" id="startTime" name="startTime" required class="form-control"
+                                       onchange="calculateTimes()">
+                            </div>
+                            <div class="form-group">
+                                <label for="endTime">🏁 End Time *</label>
+                                <input type="time" id="endTime" name="endTime" required class="form-control"
+                                       onchange="calculateTimes()">
+                            </div>
+                            <div class="form-group">
+                                <label for="signOffTime">⏰ Sign Off Time *</label>
+                                <input type="time" id="signOffTime" name="signOffTime" required class="form-control"
+                                       onchange="calculateTimes()">
+                            </div>
+                        </div>
+
+                        <!-- Row 4: Route Information -->
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+                            <div class="form-group">
+                                <label for="startStation">📍 Start Station *</label>
+                                <input type="text" id="startStation" name="startStation" 
+                                       placeholder="CSMT" required class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label for="endStation">📍 End Station *</label>
+                                <input type="text" id="endStation" name="endStation" 
+                                       placeholder="KYN, PNVL, TNA" required class="form-control">
+                            </div>
+                        </div>
+
+                        <!-- Row 5: Assignment Information -->
+                        <div style="display: grid; grid-template-columns: 1fr auto; gap: 20px; margin-bottom: 20px;">
+                            <div class="form-group">
+                                <label for="assignedMotorman">👤 Assigned Motorman</label>
+                                <input type="text" id="assignedMotorman" name="assignedMotorman" 
+                                       placeholder="Enter motorman name" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label for="specialTrainOffice">🏢 Office *</label>
+                                <select id="specialTrainOffice" name="office" required class="form-control">
+                                    <option value="CSMT">CSMT</option>
+                                    <option value="KYN">KYN</option>
+                                    <option value="PNVL">PNVL</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Row 6: Calculated Values (Read-only) -->
+                        <div style="background: #e9ecef; padding: 20px; border-radius: 10px; margin-bottom: 25px;">
+                            <h4 style="margin-bottom: 15px; color: #495057;">📊 Auto-Calculated Values</h4>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                                <div class="form-group">
+                                    <label for="calculatedDutyHours">⏱️ Duty Hours</label>
+                                    <input type="text" id="calculatedDutyHours" name="dutyHours" 
+                                           readonly class="form-control" style="background: #f8f9fa;">
+                                </div>
+                                <div class="form-group">
+                                    <label for="calculatedWheelMovement">🔄 Wheel Movement Hours</label>
+                                    <input type="text" id="calculatedWheelMovement" name="wheelMovementHours" 
+                                           readonly class="form-control" style="background: #f8f9fa;">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Row 7: Additional Notes -->
+                        <div class="form-group" style="margin-bottom: 25px;">
+                            <label for="specialTrainRemarks">📝 Remarks</label>
+                            <textarea id="specialTrainRemarks" name="remarks" rows="3" 
+                                      placeholder="Additional notes about this special train..." 
+                                      class="form-control"></textarea>
+                        </div>
+
+                        <!-- Submit Button -->
+                        <div style="text-align: center;">
+                            <button type="submit" class="btn-primary" style="padding: 15px 40px; font-size: 1.1em;">
+                                ⭐ Add Special Train
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Today's Special Trains List -->
+                <div class="special-trains-list-section" style="background: white; padding: 30px; border-radius: 15px; box-shadow: 0 8px 32px rgba(0,0,0,0.1);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h3 style="margin: 0; color: #2c3e50;">📋 Today's Special Trains</h3>
+                        <button onclick="loadSpecialTrains()" class="btn-secondary" style="padding: 8px 15px;">
+                            🔄 Refresh
+                        </button>
+                    </div>
+
+                    <div class="table-wrapper">
+                        <table class="appearance-table">
+                            <thead>
+                                <tr>
+                                    <th>🚂 Train Number</th>
+                                    <th>🔧 Type</th>
+                                    <th>⏰ Timing</th>
+                                    <th>📍 Route</th>
+                                    <th>👤 Motorman</th>
+                                    <th>📊 Hours</th>
+                                    <th>⚙️ Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="specialTrainsTableBody">
+                                <tr>
+                                    <td colspan="7" style="text-align: center; padding: 40px; color: #666;">
+                                        <div style="font-size: 1.2em; margin-bottom: 10px;">⭐</div>
+                                        <div>No special trains created for today</div>
+                                        <div style="font-size: 0.9em; color: #999; margin-top: 5px;">
+                                            Use the form above to add special trains
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- REPORTS TAB (Placeholder) -->
+        <!-- REPORTS & MANAGEMENT TAB (Enhanced) -->
+<div id="reports-tab" class="tab-content" style="display: none;">
+    <div class="reports-container">
+        <!-- Reports Header -->
+        <div class="reports-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 25px; border-radius: 15px; margin-bottom: 25px;">
+            <h2 style="margin: 0; font-size: 1.8em;">📊 Reports & System Management</h2>
+            <p style="margin: 10px 0 0 0; opacity: 0.9;">System reports, data management tools, and administrative functions</p>
+        </div>
+
+        <!-- Motorman Management Section -->
+        <div class="motorman-management-section" style="background: white; padding: 30px; border-radius: 15px; box-shadow: 0 8px 32px rgba(0,0,0,0.1); margin-bottom: 25px;">
+            <h3 style="margin-bottom: 25px; color: #2c3e50;">👥 Motorman Database Management</h3>
+            
+            <!-- Upload Section -->
+            <div style="background: #f8f9fa; padding: 25px; border-radius: 10px; margin-bottom: 25px;">
+                <h4 style="margin-bottom: 20px; color: #495057;">📤 Upload Motorman List</h4>
+                
+                <form id="motormanUploadForm" enctype="multipart/form-data" style="margin-bottom: 20px;">
+                    <div style="display: grid; grid-template-columns: 1fr auto; gap: 20px; align-items: end;">
+                        <div class="form-group">
+                            <label for="motormanFile" style="display: block; margin-bottom: 8px; font-weight: 600; color: #495057;">Select CSV File *</label>
+                            <input type="file" id="motormanFile" name="file" accept=".csv" required 
+                                   style="width: 100%; padding: 12px 15px; border: 2px solid #dee2e6; border-radius: 8px; font-size: 16px;">
+                        </div>
+                        <button type="submit" class="btn-primary" style="padding: 14px 28px; font-size: 16px; white-space: nowrap;">
+                            📤 Upload Motormen
+                        </button>
+                    </div>
+                </form>
+                
+                <div style="font-size: 0.9em; color: #666; background: #e9ecef; padding: 15px; border-radius: 8px;">
+                    <div style="margin-bottom: 8px;"><strong>📋 Expected CSV Format:</strong></div>
+                    <div style="font-family: monospace; background: white; padding: 10px; border-radius: 4px; margin: 8px 0;">
+                        cmsid,motorman,mobile number,pf number,hrms id
+                    </div>
+                    <div><strong>Note:</strong> Office will be auto-detected from CMS ID pattern (CSTS→CSMT, KYN→KYN, PNVL→PNVL)</div>
+                </div>
+            </div>
+
+            <!-- Current Statistics -->
+            <div style="background: #fff; border: 2px solid #e9ecef; border-radius: 10px; padding: 25px;">
+                <h4 style="margin-bottom: 20px; color: #495057;">📊 Current Database Statistics</h4>
+                
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px;">
+                    <div style="text-align: center; padding: 20px; background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); color: white; border-radius: 10px;">
+                        <h3 id="totalMotormenCount" style="margin: 0; font-size: 2em;">0</h3>
+                        <p style="margin: 5px 0 0 0;">Total Motormen</p>
+                    </div>
+                    <div style="text-align: center; padding: 20px; background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); color: white; border-radius: 10px;">
+                        <h3 id="csmtMotormenCount" style="margin: 0; font-size: 2em;">0</h3>
+                        <p style="margin: 5px 0 0 0;">CSMT Office</p>
+                    </div>
+                    <div style="text-align: center; padding: 20px; background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%); color: white; border-radius: 10px;">
+                        <h3 id="kynMotormenCount" style="margin: 0; font-size: 2em;">0</h3>
+                        <p style="margin: 5px 0 0 0;">KYN Office</p>
+                    </div>
+                    <div style="text-align: center; padding: 20px; background: linear-gradient(135deg, #27ae60 0%, #229954 100%); color: white; border-radius: 10px;">
+                        <h3 id="pnvlMotormenCount" style="margin: 0; font-size: 2em;">0</h3>
+                        <p style="margin: 5px 0 0 0;">PNVL Office</p>
+                    </div>
+                </div>
+                
+                <div style="text-align: center; margin-top: 25px;">
+                    <button onclick="loadMotormanStatistics()" class="btn-primary" 
+                            style="background: linear-gradient(135deg, #17a2b8 0%, #138496 100%); padding: 12px 25px;">
+                        🔄 Refresh Statistics
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Test Motorman Selection Section -->
+        <div style="background: white; padding: 30px; border-radius: 15px; box-shadow: 0 8px 32px rgba(0,0,0,0.1); margin-bottom: 25px;">
+            <h3 style="margin-bottom: 20px; color: #2c3e50;">🧪 Test Motorman Selection</h3>
+            
+            <div style="display: grid; grid-template-columns: 1fr auto; gap: 15px; align-items: end;">
+                <div class="form-group">
+                    <label for="testMotormanInput" style="display: block; margin-bottom: 8px; font-weight: 600; color: #495057;">Test Input Field</label>
+                    <input type="text" id="testMotormanInput" placeholder="Click 'Test Selection' to choose motorman" readonly 
+                           style="width: 100%; padding: 12px 15px; border: 2px solid #dee2e6; border-radius: 8px; font-size: 16px; background: #f8f9fa; cursor: pointer;"
+                           onclick="showMotormanSelectionModal('testMotormanInput')">
+                </div>
+                <button type="button" onclick="showMotormanSelectionModal('testMotormanInput')" class="btn-primary" 
+                        style="padding: 14px 20px; font-size: 16px;">
+                    👤 Test Selection
+                </button>
+            </div>
+            
+            <div style="margin-top: 15px; font-size: 0.9em; color: #666; background: #e7f3ff; padding: 12px; border-radius: 6px;">
+                <strong>💡 Test the motorman selection functionality:</strong> Click the button above to open the motorman selection modal and test the search and selection features.
+            </div>
+        </div>
+
+        <!-- Future Reports Section -->
+        <div style="background: white; padding: 30px; border-radius: 15px; box-shadow: 0 8px 32px rgba(0,0,0,0.1);">
+            <h3 style="margin-bottom: 20px; color: #2c3e50;">📈 Available Reports</h3>
+            
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px;">
+                <div style="border: 2px solid #e9ecef; border-radius: 10px; padding: 20px; text-align: center;">
+                    <div style="font-size: 2em; margin-bottom: 10px;">📅</div>
+                    <h4 style="margin-bottom: 10px;">Daily Reports</h4>
+                    <p style="color: #666; margin-bottom: 15px;">Duty assignments and changes</p>
+                    <button class="btn-secondary" disabled>Coming Soon</button>
+                </div>
+                
+                <div style="border: 2px solid #e9ecef; border-radius: 10px; padding: 20px; text-align: center;">
+                    <div style="font-size: 2em; margin-bottom: 10px;">📊</div>
+                    <h4 style="margin-bottom: 10px;">Monthly Reports</h4>
+                    <p style="color: #666; margin-bottom: 15px;">Performance analytics</p>
+                    <button class="btn-secondary" disabled>Coming Soon</button>
+                </div>
+                
+                <div style="border: 2px solid #e9ecef; border-radius: 10px; padding: 20px; text-align: center;">
+                    <div style="font-size: 2em; margin-bottom: 10px;">🔄</div>
+                    <h4 style="margin-bottom: 10px;">Reassignment Reports</h4>
+                    <p style="color: #666; margin-bottom: 15px;">Change tracking and analysis</p>
+                    <button class="btn-secondary" disabled>Coming Soon</button>
+                </div>
+                
+                <div style="border: 2px solid #e9ecef; border-radius: 10px; padding: 20px; text-align: center;">
+                    <div style="font-size: 2em; margin-bottom: 10px;">👥</div>
+                    <h4 style="margin-bottom: 10px;">Motorman Reports</h4>
+                    <p style="color: #666; margin-bottom: 15px;">Database and assignment analysis</p>
+                    <button class="btn-secondary" disabled>Coming Soon</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Motorman Selection Modal -->
+<div id="motormanSelectionModal" class="modal" style="display: none;">
+    <div class="modal-content" style="max-width: 800px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; border-bottom: 2px solid #eee; padding-bottom: 20px;">
+            <h2 style="margin: 0; font-size: 24px; color: #2c3e50;">👤 Select Motorman</h2>
+            <button onclick="closeMotormanSelectionModal()" style="background: none; border: none; font-size: 30px; cursor: pointer; color: #999; line-height: 1;">&times;</button>
+        </div>
+        
+        <!-- Search and Filter -->
+        <div style="margin-bottom: 20px;">
+            <div style="display: grid; grid-template-columns: 1fr auto auto; gap: 15px; align-items: end;">
+                <div class="form-group">
+                    <label for="motormanSearchInput" style="display: block; margin-bottom: 8px; font-weight: 600; color: #495057;">🔍 Search Motorman</label>
+                    <input type="text" id="motormanSearchInput" placeholder="Search by name, CMS ID, or mobile number..." 
+                           style="width: 100%; padding: 12px 15px; border: 2px solid #dee2e6; border-radius: 8px; font-size: 16px;"
+                           oninput="filterMotormanList()">
+                </div>
+                <div class="form-group">
+                    <label for="motormanOfficeFilter" style="display: block; margin-bottom: 8px; font-weight: 600; color: #495057;">🏢 Office</label>
+                    <select id="motormanOfficeFilter" onchange="filterMotormanList()" 
+                            style="padding: 12px 15px; border: 2px solid #dee2e6; border-radius: 8px; font-size: 16px;">
+                        <option value="">All Offices</option>
+                        <option value="CSMT">CSMT</option>
+                        <option value="KYN">KYN</option>
+                        <option value="PNVL">PNVL</option>
+                    </select>
+                </div>
+                <button onclick="clearMotormanFilters()" class="btn-secondary" style="padding: 12px 20px;">
+                    🗑️ Clear
+                </button>
+            </div>
+        </div>
+        
+        <!-- Motorman List -->
+        <div style="background: #f8f9fa; border-radius: 8px; max-height: 400px; overflow-y: auto; margin-bottom: 20px;">
+            <div id="motormanListContainer" style="padding: 15px;">
+                <div style="text-align: center; padding: 40px; color: #666;">
+                    <div style="font-size: 1.5em; margin-bottom: 10px;">👥</div>
+                    <div>Loading motorman list...</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Selected Motorman Display -->
+        <div id="selectedMotormanDisplay" style="background: #e7f3ff; padding: 15px; border-radius: 8px; margin-bottom: 20px; display: none;">
+            <h4 style="margin-bottom: 10px; color: #0056b3;">✅ Selected Motorman</h4>
+            <div id="selectedMotormanDetails"></div>
+        </div>
+        
+        <!-- Action Buttons -->
+        <div style="display: flex; gap: 15px; justify-content: flex-end;">
+            <button onclick="closeMotormanSelectionModal()" class="btn-secondary" style="padding: 12px 24px;">
+                ❌ Cancel
+            </button>
+            <button onclick="confirmMotormanSelection()" class="btn-primary" style="padding: 12px 24px;" disabled id="confirmMotormanBtn">
+                ✅ Select Motorman
+            </button>
+        </div>
+    </div>
+</div>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="spinner"></div>
+        <p style="margin-top: 20px; color: #667eea; font-weight: 600;">
+            Processing appearance book data...
+        </p>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <!-- Enhanced Reassignment Modal Template (Hidden) -->
+<div id="reassignmentModalTemplate" style="display: none;">
+    <div class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeReassignmentModal()">&times;</span>
+            <h2 id="modalTitle">🔄 Reassignment Management</h2>
+            
+            <div id="currentAssignmentInfo" class="assignment-info">
+                <!-- Current assignment details will be populated here -->
+            </div>
+
+            <!-- Reassignment Mode Selection -->
+            <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+                <h4 style="margin-bottom: 15px; color: #2c3e50;">🔧 Reassignment Mode</h4>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <label style="display: flex; align-items: center; cursor: pointer; padding: 15px; background: white; border-radius: 8px; border: 2px solid #e9ecef; transition: all 0.3s;">
+                        <input type="radio" name="reassignmentMode" value="motorman_change" checked 
+                               onchange="onReassignmentModeChange()" style="margin-right: 10px; transform: scale(1.2);">
+                        <div>
+                            <div style="font-weight: 600; color: #2c3e50;">👤 Change Motorman</div>
+                            <div style="font-size: 0.9em; color: #666;">Assign different motorman to this detail</div>
+                        </div>
+                    </label>
+                    <label style="display: flex; align-items: center; cursor: pointer; padding: 15px; background: white; border-radius: 8px; border: 2px solid #e9ecef; transition: all 0.3s;">
+                        <input type="radio" name="reassignmentMode" value="detail_change" 
+                               onchange="onReassignmentModeChange()" style="margin-right: 10px; transform: scale(1.2);">
+                        <div>
+                            <div style="font-weight: 600; color: #2c3e50;">📋 Change Detail</div>
+                            <div style="font-size: 0.9em; color: #666;">Move motorman to different detail</div>
+                        </div>
+                    </label>
+                </div>
+            </div>
+
+            <form id="reassignmentForm" onsubmit="processEnhancedReassignment(event)">
+                <!-- Motorman Change Section -->
+                <div id="motormanChangeSection" style="display: block;">
+                    <div class="form-group">
+                        <label for="reassignType">🔄 Reassignment Type *</label>
+                        <select id="reassignType" class="form-control" onchange="handleReassignmentTypeChange()" required>
+                            <option value="">Select Type</option>
+                            <option value="full_detail">Full Detail Transfer</option>
+                            <option value="partial_detail">Partial Detail Transfer</option>
+                            <option value="specific_trains">Specific Trains Only</option>
+                            <option value="waiting_to_detail">Waiting Motorman → This Detail</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="newMotorman">👤 New Motorman *</label>
+                        <!-- <input type="text" id="newMotorman" class="form-control" 
+                               placeholder="Enter motorman name" required> -->
+                               <select id="newMotorman" class="form-control" required>
+                                <option value="" disabled selected>Select motorman</option>
+                              </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="displacedAction">❓ What happens to current motorman?</label>
+                        <select id="displacedAction" class="form-control">
+                            <option value="mark_waiting">Mark as Waiting</option>
+                            <option value="assign_to_relief">Assign to Relief Detail</option>
+                            <option value="assign_to_other">Assign to Another Detail</option>
+                        </select>
+                    </div>
+
+                    <div id="reliefDetailSection" style="display: none;">
+                        <div class="form-group">
+                            <label for="reliefDetailNumber">📋 Relief Detail Number</label>
+                            <input type="text" id="reliefDetailNumber" class="form-control" 
+                                   placeholder="Enter detail number">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Detail Change Section -->
+                <div id="detailChangeSection" style="display: none;">
+                    <div class="form-group">
+                        <label for="targetDetailType">📋 Target Detail Type *</label>
+                        <select id="targetDetailType" class="form-control" onchange="handleTargetDetailChange()" required>
+                            <option value="">Select Target</option>
+                            <option value="vacant_detail">Vacant Detail (Unassigned)</option>
+                            <option value="occupied_detail">Occupied Detail (Replace Motorman)</option>
+                            <option value="waiting_detail">Waiting Detail</option>
+                        </select>
+                    </div>
+
+                    <div id="targetDetailSelection" style="display: none;">
+                        <div class="form-group">
+                            <label for="targetDetailNumber">📋 Target Detail Number *</label>
+                            <input type="text" id="targetDetailNumber" class="form-control" 
+                                   placeholder="Enter target detail number" 
+                                   onchange="loadTargetDetailInfo()">
+                        </div>
+                        
+                        <div id="targetDetailInfo" style="background: #e9ecef; padding: 15px; border-radius: 8px; margin-top: 10px; display: none;">
+                            <!-- Target detail information will be shown here -->
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="detailAssignmentScope">🔧 Assignment Scope</label>
+                        <select id="detailAssignmentScope" class="form-control">
+                            <option value="full">Full Detail Assignment</option>
+                            <option value="partial">Partial Detail Assignment</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Train Selection Section (For partial assignments) -->
+                <div id="trainSelectionSection" class="train-selection-section" style="display: none;">
+                    <label class="form-label">🚂 Select Trains *</label>
+                    <div id="trainCheckboxContainer" class="train-checkbox-container">
+                        <!-- Train checkboxes will be populated here -->
+                    </div>
+                </div>
+
+                <!-- Common Fields -->
+                <div class="form-group">
+                    <label for="newOffice">🏢 Office</label>
+                    <select id="newOffice" class="form-control">
+                        <option value="CSMT">CSMT</option>
+                        <option value="KYN">KYN</option>
+                        <option value="PNVL">PNVL</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="reassignReason">❓ Reason *</label>
+                    <select id="reassignReason" class="form-control" required>
+                        <option value="">Select Reason</option>
+                        <option value="Medical Emergency">🏥 Medical Emergency</option>
+                        <option value="Personal Emergency">🚨 Personal Emergency</option>
+                        <option value="Technical Training">📚 Technical Training</option>
+                        <option value="Administrative Work">📋 Administrative Work</option>
+                        <option value="Operational Requirements">⚙️ Operational Requirements</option>
+                        <option value="Waiting Assignment">⏳ Waiting Assignment</option>
+                        <option value="Detail Redistribution">🔄 Detail Redistribution</option>
+                        <option value="Other">📝 Other</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="reassignNotes">📝 Additional Notes</label>
+                    <textarea id="reassignNotes" class="form-control" rows="3" 
+                              placeholder="Optional additional details, approval reference, etc..."></textarea>
+                </div>
+
+                <!-- Preview Section -->
+                <div id="reassignmentPreview" style="background: #fff3cd; padding: 15px; border-radius: 8px; margin: 20px 0; display: none;">
+                    <h5 style="color: #856404; margin-bottom: 10px;">📋 Reassignment Preview</h5>
+                    <div id="previewContent" style="font-size: 0.9em; color: #856404;">
+                        <!-- Preview content will be populated here -->
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn-secondary" onclick="closeReassignmentModal()">
+                        ❌ Cancel
+                    </button>
+                    <button type="submit" class="btn-primary" style="background: #3498db;">
+                        🔄 Process Reassignment
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+    <!-- <script src="jfo-script.js"></script> -->
+     <!-- Toasts -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- Loading overlay -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="spinner"></div>
+  <div style="margin-top:12px; color:#2c3e50; font-weight:600;">Loading…</div>
+</div>
+
+<!-- Shared utilities -->
+<script src="scripts/jfo-common.js"></script>
+
+<!-- Section-specific scripts -->
+<script src="scripts/appearance.js"></script>
+<script src="scripts/partial-reassignment-functions.js"></script>
+<script src="scripts/special-trains.js"></script>
+<script src="scripts/reports.js"></script>
+
+<script>
+  function showJFOTab(tab) {
+    const keys = ['appearance', 'special-trains', 'reports'];
+    keys.forEach((k) => {
+      const content = document.getElementById(`${k}-tab`);
+      const button  = document.getElementById(`tab-${k}`);
+      if (content) content.style.display = (k === tab) ? 'block' : 'none';
+      if (button)  button.classList.toggle('active', k === tab);
+    });
+  }
+
+  // Initial tab on load
+  document.addEventListener('DOMContentLoaded', () => {
+    showJFOTab('appearance');
+    if (typeof setupSearchAndFilters === 'function') {
+      try { setupSearchAndFilters(); } catch(_) {}
+    }
+    if (typeof updateCurrentDateDisplay === 'function') {
+      try { updateCurrentDateDisplay(); } catch(_) {}
+    }
+  });
+</script>
+
+</body>
+</html>

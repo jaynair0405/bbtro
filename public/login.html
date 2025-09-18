@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Railway System - Login</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .login-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .login-card {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+        .login-card h2 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        .login-card h3 {
+            color: #666;
+            margin-bottom: 30px;
+            font-weight: 400;
+        }
+        .error-message {
+            color: #dc3545;
+            margin-top: 15px;
+            padding: 10px;
+            background: #f8d7da;
+            border-radius: 5px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-card">
+            <h2>Central Railway - Mumbai Division</h2>
+            <h3>Train Management System</h3>
+            
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <input type="text" id="username" name="username" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" required>
+                </div>
+                
+                <button type="submit" class="btn-primary" style="width: 100%;">Login</button>
+            </form>
+            
+            <div id="errorMessage" class="error-message"></div>
+            
+            <!-- Temporary dev info -->
+            <div style="margin-top: 20px; font-size: 0.8em; color: #666;">
+                <strong>Test Users:</strong><br>
+                admin / temp_password<br>
+                supervisor / temp_password<br>
+                user1 / temp_password
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.style.display = 'none';
+            
+            try {
+                const response = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        username: document.getElementById('username').value,
+                        password: document.getElementById('password').value
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Redirect to main page
+                    window.location.href = '/index.html';
+                } else {
+                    errorDiv.textContent = result.message || 'Login failed';
+                    errorDiv.style.display = 'block';
+                }
+            } catch (error) {
+                errorDiv.textContent = 'Connection error. Please try again.';
+                errorDiv.style.display = 'block';
+            }
+        });
+    </script>
+</body>
+</html>
