@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Central Railway - Division Portal</title>
+        <link rel="stylesheet" href="/div/css/division-main.css">
+    
+</head>
+<body>
+    
+<script src="/div/js/division-auth.js"></script>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-brand">Central Railway-BB Divn.</div>
+                <div class="sidebar-subtitle">Division Portal</div>
+            </div>
+            
+            <!-- Office Selector -->
+            <div class="office-selector">
+                <div class="office-selector-label">Select Office/Lobby</div>
+                <div class="office-dropdown">
+                    <div class="office-dropdown-trigger" onclick="toggleOfficeDropdown()">
+                        <div class="office-current">
+                            <div class="office-icon">CS</div>
+                            <div>
+                                <div class="office-name">CSMT</div>
+                                <div class="office-location">Chhatrapati Shivaji Maharaj Terminus</div>
+                            </div>
+                        </div>
+                        <span class="office-dropdown-arrow">▼</span>
+                    </div>
+                    
+                    <div class="office-dropdown-menu" id="officeDropdownMenu">
+                        <div class="office-option selected" onclick="selectOffice('CSMT', 'Chhatrapati Shivaji Maharaj Terminus', 'CS', 450)">
+                            <div class="office-icon">CS</div>
+                            <div class="office-details">
+                                <div class="office-name">CSMT</div>
+                                <div class="office-location">Chhatrapati Shivaji Maharaj Terminus</div>
+                            </div>
+                            <div class="office-stats">450 staff</div>
+                        </div>
+                        
+                        <div class="office-option" onclick="selectOffice('PNVL', 'Panvel', 'PV', 320)">
+                            <div class="office-icon">PV</div>
+                            <div class="office-details">
+                                <div class="office-name">PNVL</div>
+                                <div class="office-location">Panvel</div>
+                            </div>
+                            <div class="office-stats">320 staff</div>
+                        </div>
+                        
+                        <div class="office-option" onclick="selectOffice('KYN', 'Kalyan', 'KY', 280)">
+                            <div class="office-icon">KY</div>
+                            <div class="office-details">
+                                <div class="office-name">KYN</div>
+                                <div class="office-location">Kalyan</div>
+                            </div>
+                            <div class="office-stats">280 staff</div>
+                        </div>
+                        
+                        <div class="office-option" onclick="selectOffice('NRL', 'Neral', 'NR', 150)">
+                            <div class="office-icon">NR</div>
+                            <div class="office-details">
+                                <div class="office-name">NRL</div>
+                                <div class="office-location">Neral</div>
+                            </div>
+                            <div class="office-stats">150 staff</div>
+                        </div>
+                        
+                        <div class="office-option" onclick="selectOffice('LNL', 'Lonavala', 'LN', 180)">
+                            <div class="office-icon">LN</div>
+                            <div class="office-details">
+                                <div class="office-name">LNL</div>
+                                <div class="office-location">Lonavala</div>
+                            </div>
+                            <div class="office-stats">180 staff</div>
+                        </div>
+                        
+                        <div class="office-option" onclick="selectOffice('IGP', 'Igatpuri', 'IG', 120)">
+                            <div class="office-icon">IG</div>
+                            <div class="office-details">
+                                <div class="office-name">IGP</div>
+                                <div class="office-location">Igatpuri</div>
+                            </div>
+                            <div class="office-stats">120 staff</div>
+                        </div>
+                        
+                        <div class="office-option" onclick="selectOffice('CLA', 'Kurla', 'CL', 200)">
+                            <div class="office-icon">CL</div>
+                            <div class="office-details">
+                                <div class="office-name">CLA</div>
+                                <div class="office-location">Kurla</div>
+                            </div>
+                            <div class="office-stats">200 staff</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="sidebar-content">
+                <!-- Main Navigation -->
+                <div class="sidebar-section">
+                    <div class="sidebar-section-title">Main</div>
+                    <nav class="sidebar-nav">
+                        <li class="sidebar-nav-item">
+                            <a href="#" class="sidebar-nav-link active">
+                                <span class="icon">📊</span>
+                                Dashboard
+                            </a>
+                        </li>
+                        <li class="sidebar-nav-item">
+                            <a href="#" class="sidebar-nav-link">
+                                <span class="icon">👤</span>
+                                Bio-data
+                                <span class="badge blue">12</span>
+                            </a>
+                        </li>
+                        <li class="sidebar-nav-item">
+                            <a href="#" class="sidebar-nav-link">
+                                <span class="icon">🏖️</span>
+                                Leave Management
+                                <span class="badge">3</span>
+                            </a>
+                        </li>
+                        <li class="sidebar-nav-item">
+                            <a href="#" class="sidebar-nav-link">
+                                <span class="icon">💻</span>
+                                Computer Based Counselling
+                            </a>
+                        </li>
+                        <li class="sidebar-nav-item">
+                            <a href="#" class="sidebar-nav-link">
+                                <span class="icon">🌙</span>
+                                Midnight Position
+                            </a>
+                        </li>
+                    </nav>
+                </div>
+                
+                <!-- Reports Section -->
+                <div class="sidebar-section">
+                    <div class="sidebar-section-title">Reports</div>
+                    <nav class="sidebar-nav">
+                        <li class="sidebar-nav-item">
+                            <a href="#" class="sidebar-nav-link">
+                                <span class="icon">📋</span>
+                                PAD Reports
+                            </a>
+                        </li>
+                        <li class="sidebar-nav-item">
+                            <a href="#" class="sidebar-nav-link">
+                                <span class="icon">📈</span>
+                                PDD Reports
+                            </a>
+                        </li>
+                        <li class="sidebar-nav-item">
+                            <a href="#" class="sidebar-nav-link">
+                                <span class="icon">📊</span>
+                                SPM Analysis
+                                <span class="badge green">New</span>
+                            </a>
+                        </li>
+                    </nav>
+                </div>
+                
+                <!-- Management Section -->
+                <div class="sidebar-section">
+                    <div class="sidebar-section-title">Management</div>
+                    <nav class="sidebar-nav">
+                        <li class="sidebar-nav-item">
+                            <a href="#" class="sidebar-nav-link">
+                                <span class="icon">👥</span>
+                                Decategorised Crew
+                            </a>
+                        </li>
+                        <li class="sidebar-nav-item">
+                            <a href="#" class="sidebar-nav-link">
+                                <span class="icon">🔄</span>
+                                Staff Transfers
+                                <span class="badge blue">2</span>
+                            </a>
+                        </li>
+                        <li class="sidebar-nav-item">
+                            <a href="#" class="sidebar-nav-link">
+                                <span class="icon">🎓</span>
+                                Training Records
+                            </a>
+                        </li>
+                    </nav>
+                </div>
+                
+                <!-- System Section -->
+                <div class="sidebar-section">
+                    <div class="sidebar-section-title">System</div>
+                    <nav class="sidebar-nav">
+                        <li class="sidebar-nav-item">
+                            <a href="#" class="sidebar-nav-link">
+                                <span class="icon">⚙️</span>
+                                Settings
+                            </a>
+                        </li>
+                        <li class="sidebar-nav-item">
+                            <a href="#" class="sidebar-nav-link">
+                                <span class="icon">🔐</span>
+                                User Management
+                            </a>
+                        </li>
+                    </nav>
+                </div>
+            </div>
+        </aside>
+        
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Top Header -->
+            <header class="top-header">
+                <div class="header-title">
+                    <h1>CSMT Dashboard</h1>
+                    <span class="office-badge">Your Office</span>
+                </div>
+                
+                <div class="header-actions">
+                    <div class="search-box">
+                        <span class="search-icon">🔍</span>
+                        <input type="text" placeholder="Search staff, records...">
+                    </div>
+                    
+                    <div class="header-user" onclick="toggleUserMenu()">
+    <div class="user-avatar">MD</div>
+    <div class="user-info">
+        <div class="user-name">Jayakumar M D</div>
+        <div class="user-role">HR Manager</div>
+    </div>
+    <span style="color: #9ca3af; margin-left: 8px;">▼</span>
+</div>
+
+<!-- User dropdown menu -->
+<div id="userDropdownMenu" style="display: none; position: absolute; right: 32px; top: 60px; background: white; border: 1px solid #e5e7eb; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); min-width: 200px; z-index: 1000;">
+    <div style="padding: 12px 16px; border-bottom: 1px solid #f3f4f6;">
+        <div style="font-weight: 600; color: #1a1d21;">Jayakumar M D</div>
+        <div style="font-size: 12px; color: #6b7280;">HR Manager</div>
+    </div>
+    <a href="#" style="display: block; padding: 12px 16px; color: #4b5563; text-decoration: none; transition: background 0.2s;" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='white'">
+        ⚙️ Settings
+    </a>
+    <a href="#" onclick="logout(); return false;" style="display: block; padding: 12px 16px; color: #ef4444; text-decoration: none; border-top: 1px solid #f3f4f6; transition: background 0.2s;" onmouseover="this.style.background='#fef2f2'" onmouseout="this.style.background='white'">
+        🚪 Logout
+    </a>
+</div>
+                </div>
+            </header>
+            
+            <!-- Dashboard Content -->
+            <div class="dashboard-content">
+                <!-- Stats Grid -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-number">450</div>
+                        <div class="stat-label">Total Staff</div>
+                        <div class="stat-change positive">
+                            ↗ +5 this month
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-number">23</div>
+                        <div class="stat-label">Pending PME</div>
+                        <div class="stat-change neutral">
+                            → Due this month
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-number">8</div>
+                        <div class="stat-label">Leave Applications</div>
+                        <div class="stat-change neutral">
+                            → Awaiting approval
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-number">97.5%</div>
+                        <div class="stat-label">Attendance Rate</div>
+                        <div class="stat-change positive">
+                            ↗ +2.1% this week
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Quick Actions -->
+                <div class="quick-actions">
+                    <h3>Quick Actions</h3>
+                    <div class="actions-grid">
+                        <a href="#" class="action-btn">
+                            <span class="icon">➕</span>
+                            Add New Staff
+                        </a>
+                        <a href="#" class="action-btn">
+                            <span class="icon">🔄</span>
+                            Process Transfer
+                        </a>
+                        <a href="#" class="action-btn">
+                            <span class="icon">📋</span>
+                            Generate Report
+                        </a>
+                        <a href="#" class="action-btn">
+                            <span class="icon">🏥</span>
+                            Update PME Status
+                        </a>
+                        <a href="#" class="action-btn">
+                            <span class="icon">👥</span>
+                            CLI Nominations
+                        </a>
+                        <a href="#" class="action-btn">
+                            <span class="icon">📊</span>
+                            View Analytics
+                        </a>
+                    </div>
+                </div>
+                
+                <!-- Recent Activity -->
+                <div class="recent-activity">
+                    <h3>
+                        📋 Recent Activity
+                        <span style="margin-left: auto; font-size: 14px; font-weight: 400; color: #6b7280;">Last 7 days</span>
+                    </h3>
+                    <div class="activity-list">
+                        <div class="activity-item">
+                            <div class="activity-icon blue">👤</div>
+                            <div class="activity-content">
+                                <div class="activity-title">New staff bio-data updated</div>
+                                <div class="activity-subtitle">Jayakumar (GWPUMT) - Personal details updated</div>
+                            </div>
+                            <div class="activity-time">2 hours ago</div>
+                        </div>
+                        
+                        <div class="activity-item">
+                            <div class="activity-icon green">🔄</div>
+                            <div class="activity-content">
+                                <div class="activity-title">Staff transfer approved</div>
+                                <div class="activity-subtitle">Rajesh Patil transferred to PNVL office</div>
+                            </div>
+                            <div class="activity-time">1 day ago</div>
+                        </div>
+                        
+                        <div class="activity-item">
+                            <div class="activity-icon orange">🏥</div>
+                            <div class="activity-content">
+                                <div class="activity-title">PME due reminder sent</div>
+                                <div class="activity-subtitle">23 staff members reminded for upcoming medical exam</div>
+                            </div>
+                            <div class="activity-time">2 days ago</div>
+                        </div>
+                        
+                        <div class="activity-item">
+                            <div class="activity-icon blue">📋</div>
+                            <div class="activity-content">
+                                <div class="activity-title">Monthly report generated</div>
+                                <div class="activity-subtitle">CSMT staff summary report for March 2024</div>
+                            </div>
+                            <div class="activity-time">3 days ago</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+       <script src="/div/js/division-ui.js"></script>
+</body>
+</html>

@@ -21,112 +21,92 @@ function isBcryptHash(str = "") {
   return typeof str === "string" && /^\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}$/.test(str);
 }
 
-
-// Login route
+// Login route - Updated to handle realm parameter from new frontend
 router.post('/login', async (req, res) => {
   const username = (req.body.username || "").trim();
   const password = (req.body.password || "");
+  const realm = (req.body.realm || "suburban").toLowerCase();
 
+  // Missing fields → 400
   if (!username || !password) {
-    return res.json({ success: false, message: 'Username and password are required' });
+    return res.status(400).json({ success: false, message: 'Username and password are required' });
   }
 
   let conn;
   try {
     conn = await pool.getConnection();
 
+    // Look up user in the specified realm
     const [rows] = await conn.query(
-      'SELECT id, username, password, role, full_name, office FROM users WHERE username = ? LIMIT 1',
-      [username]
+      'SELECT id, username, password, role, full_name, office, realm FROM users WHERE username = ? AND realm = ? LIMIT 1',
+      [username, realm]
     );
 
+    // No such user → 401
     if (rows.length === 0) {
-      return res.json({ success: false, message: 'Invalid username or password' });
+      return res.status(401).json({ success: false, message: 'Invalid username or password' });
     }
 
     const user = rows[0];
 
-    // If stored password is bcrypt → compare
+    // Password check
     if (isBcryptHash(user.password)) {
       const ok = await bcrypt.compare(password, user.password);
       if (!ok) {
-        return res.json({ success: false, message: 'Invalid username or password' });
+        // Wrong password (bcrypt) → 401
+        return res.status(401).json({ success: false, message: 'Invalid username or password' });
       }
     } else {
-      // Legacy plaintext in DB → compare directly once, then auto-upgrade to bcrypt
+      // Legacy plaintext → compare then upgrade to bcrypt
       if (password !== user.password) {
-        return res.json({ success: false, message: 'Invalid username or password' });
+        // Wrong password (plaintext) → 401
+        return res.status(401).json({ success: false, message: 'Invalid username or password' });
       }
       try {
         const newHash = await bcrypt.hash(password, 12);
         await conn.query('UPDATE users SET password = ? WHERE id = ? LIMIT 1', [newHash, user.id]);
-        user.password = newHash; // now hashed going forward
+        user.password = newHash;
       } catch (e) {
-        // If update fails, still let them in this time—but log it
         console.error('Password upgrade failed:', e);
       }
     }
 
-    // At this point, auth succeeded
+    // Auth OK → create session
     req.session.user = {
       id: user.id,
       username: user.username,
       role: user.role,
       full_name: user.full_name,
-      office: user.office
+      office: user.office,
+      realm: user.realm
     };
+
+    // Redirect target by realm
+    let redirectUrl = '/';
+    if (user.realm === 'suburban') {
+      redirectUrl = '/index.html';
+    } else if (user.realm === 'division') {
+      redirectUrl = '/div';
+    }
 
     return res.json({
       success: true,
       role: user.role,
       office: user.office,
-      name: user.full_name
+      name: user.full_name,
+      realm: user.realm,
+      redirect: redirectUrl
     });
 
   } catch (error) {
     console.error('Login error:', error);
-    return res.json({ success: false, message: 'Login failed. Please try again.' });
+    // Server error → 500
+    return res.status(500).json({ success: false, message: 'Login failed. Please try again.' });
   } finally {
     if (conn) conn.release();
   }
 });
 
-
-
-// router.post('/login', async (req, res) => {
-//     const { username, password } = req.body;
-    
-//     try {
-//         const conn = await pool.getConnection();
-//         const [users] = await conn.query(
-//             'SELECT * FROM users WHERE username = ?', 
-//             [username]
-//         );
-//         conn.release();
-        
-//         if (users.length > 0 && password === users[0].password) {
-//             req.session.user = {
-//                 id: users[0].id,
-//                 username: users[0].username,
-//                 role: users[0].role,
-//                 full_name: users[0].full_name,
-//                 office: users[0].office
-//             };
-            
-//             res.json({ 
-//                 success: true, 
-//                 role: users[0].role,
-//                 office: users[0].office,
-//                 name: users[0].full_name
-//             });
-//         } else {
-//             res.json({ success: false, message: 'Invalid username or password' });
-//         }
-//     } catch (error) {
-//         console.error('Login error:', error);
-//         res.json({ success: false, message: 'Login failed. Please try again.' });
-//     }
-// });
 
 // Get current user info
 router.get('/current-user', (req, res) => {
@@ -137,15 +117,34 @@ router.get('/current-user', (req, res) => {
     }
 });
 
-// Logout
+// Check authentication status (for the new frontend)
+router.get('/status', (req, res) => {
+    if (req.session.user) {
+        res.json({ 
+            authenticated: true, 
+            user: req.session.user 
+        });
+    } else {
+        res.json({ authenticated: false });
+    }
+});
+
+
+// Logout (POST)
 router.post('/logout', (req, res) => {
-    req.session.destroy((err) => {
-        if (err) {
-            res.json({ success: false });
-        } else {
-            res.json({ success: true });
-        }
-    });
+  req.session.destroy((err) => {
+    if (err) return res.status(500).json({ success: false });
+    res.clearCookie('connect.sid', { path: '/' });   // 👈 clear session cookie
+    return res.json({ success: true, redirect: '/' });
+  });
+});
+// Logout (GET)
+router.get('/logout', (req, res) => {
+  req.session.destroy((err) => {
+    if (err) console.error('Session destroy error:', err);
+    res.clearCookie('connect.sid', { path: '/' });   // 👈 clear session cookie
+    return res.redirect('/');
+  });
 });
 
 module.exports = router;

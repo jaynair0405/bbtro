@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Central Railway – Operations Portal</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    :root { --bg:#0b1020; --card:#141a33; --ink:#eaf0ff; --muted:#a9b4d0; --pri:#4da3ff; --pri-ink:#041627; --success:#4ade80; --warning:#fbbf24; --danger:#f87171; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, sans-serif; color:var(--ink); background:linear-gradient(180deg,#0b1020 0%,#0d1430 100%); }
+    a { color: var(--pri); text-decoration: none; }
+    header, footer { max-width:1100px; margin:0 auto; padding:16px; display:flex; align-items:center; justify-content:space-between; }
+    .brand { display:flex; align-items:center; gap:10px; font-weight:600; }
+    .brand span { opacity:.8; font-weight:500; }
+    .btn { display:inline-flex; align-items:center; gap:8px; border:1px solid #2a335c; background:#111737; color:var(--ink); padding:10px 14px; border-radius:12px; cursor:pointer; transition: all 0.2s ease; }
+    .btn:hover { border-color:#3a4680; transform: translateY(-1px); }
+    .btn-primary { background: var(--pri); color: var(--pri-ink); border-color: transparent; }
+    .btn-primary:hover { filter: brightness(1.05); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .hero { max-width:1100px; margin:40px auto 10px; padding:0 16px; text-align:center; }
+    .hero h1 { margin:0 0 10px; font-size: clamp(28px, 3.5vw, 40px); }
+    .hero p { margin:0 auto; max-width:750px; color:var(--muted); }
+    .grid { max-width:1100px; margin:30px auto; padding:0 16px; display:grid; grid-template-columns: repeat(auto-fit, minmax(260px,1fr)); gap:18px; }
+    .card { background: linear-gradient(180deg, #121838, #0e1533); border:1px solid #1c2550; border-radius:18px; padding:18px; display:flex; flex-direction:column; gap:10px; min-height:200px; transition: all 0.3s ease; }
+    .card:hover { border-color: #2a335c; transform: translateY(-2px); box-shadow: 0 8px 25px rgba(0,0,0,0.3); }
+    .card h3 { margin:6px 0 0; font-size:1.15rem; }
+    .card p { margin:0; color:var(--muted); min-height:48px; }
+    .card .actions { margin-top:auto; display:flex; gap:10px; flex-wrap:wrap; }
+    footer { opacity:.7; font-size:.95rem; gap:12px; flex-wrap:wrap; }
+    .pill { font-size:.8rem; padding:6px 10px; border-radius:999px; background:#0c1330; border:1px solid #1c2550; color:#a9b4d0; }
+    .pill.suburban { background: #0c2a1f; border-color: #1a4d35; color: var(--success); }
+    .pill.division { background: #1f1a0c; border-color: #4d3e1a; color: var(--warning); }
+    .pill.admin { background: #2a0c1f; border-color: #4d1a35; color: var(--danger); }
+    
+    /* Modal */
+    .modal-backdrop { position:fixed; inset:0; background:rgba(0,0,0,.6); display:none; align-items:center; justify-content:center; padding:16px; backdrop-filter: blur(4px); }
+    .modal { width:min(420px, 100%); background:var(--card); border:1px solid #1c2550; border-radius:16px; padding:18px; box-shadow: 0 20px 40px rgba(0,0,0,0.4); }
+    .modal h2 { margin:4px 0 12px; font-size:1.2rem; display: flex; align-items: center; gap: 8px; }
+    .modal h2::before { content: '🔐'; }
+    .row { display:flex; flex-direction:column; gap:6px; margin-bottom:12px; }
+    label { font-size:.95rem; color:#c8d4ff; }
+    select, input { width:100%; padding:10px 12px; border-radius:10px; border:1px solid #2a335c; background:#0c1230; color:var(--ink); transition: border-color 0.2s; }
+    select:focus, input:focus { outline: none; border-color: var(--pri); }
+    .modal .actions { display:flex; gap:10px; justify-content:flex-end; margin-top: 20px; }
+    .hidden { display:none; }
+    
+    /* Loading state */
+    .loading { position: relative; overflow: hidden; }
+    .loading::after { content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 2px; background: linear-gradient(90deg, transparent, var(--pri), transparent); animation: loading 1.5s infinite; }
+    @keyframes loading { 0% { left: -100%; } 100% { left: 100%; } }
+    
+    /* Error/Success states */
+    .error { color: var(--danger); font-size: 0.9rem; padding: 8px 12px; background: rgba(248, 113, 113, 0.1); border: 1px solid rgba(248, 113, 113, 0.3); border-radius: 8px; }
+    .success { color: var(--success); font-size: 0.9rem; padding: 8px 12px; background: rgba(74, 222, 128, 0.1); border: 1px solid rgba(74, 222, 128, 0.3); border-radius: 8px; }
+    
+    /* Status indicators */
+    .status-bar { max-width:1100px; margin: 0 auto 20px; padding:0 16px; }
+    .status-item { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; color: var(--muted); }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); }
+    .status-dot.warning { background: var(--warning); }
+    .status-dot.danger { background: var(--danger); }
+    
+    /* Feature icons */
+    .feature-icon { font-size: 1.5rem; margin-bottom: 8px; }
+    
+    /* Quick stats */
+    .quick-stats { display: flex; gap: 20px; justify-content: center; margin: 20px 0; flex-wrap: wrap; }
+    .stat { text-align: center; }
+    .stat-number { font-size: 1.5rem; font-weight: bold; color: var(--pri); }
+    .stat-label { font-size: 0.8rem; color: var(--muted); }
+    
+    /* Role selector enhancement */
+    .role-selector { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin-bottom: 16px; }
+    .role-option { padding: 12px; border: 1px solid #2a335c; border-radius: 8px; text-align: center; cursor: pointer; transition: all 0.2s; background: #0c1230; }
+    .role-option:hover { border-color: var(--pri); }
+    .role-option.selected { background: var(--pri); color: var(--pri-ink); border-color: var(--pri); }
+    .role-option .role-name { font-weight: 500; }
+    .role-option .role-desc { font-size: 0.8rem; opacity: 0.7; margin-top: 4px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <img src="" alt="" width="0" height="0" style="display:none" />
+      <div>CR – Operations Portal</div>
+      <span class="pill">v2.1</span>
+    </div>
+    <nav>
+      <button class="btn" id="adminLoginBtn">
+        <span>👤</span>
+        Quick Login
+      </button>
+    </nav>
+  </header>
+
+  <!-- System Status -->
+  <div class="status-bar">
+    <div class="status-item">
+      <div class="status-dot"></div>
+      All systems operational
+      <span style="margin-left: auto; font-size: 0.8rem;">Last updated: <span id="lastUpdate"></span></span>
+    </div>
+  </div>
+
+  <main>
+    <section class="hero">
+      <h1>Central Railway - Mumbai Division Digital Workplace</h1>
+      <p>Unified access to suburban operations and divisional management. Each module maintains strict access controls and data separation.</p>
+      
+      <!-- Quick Stats -->
+      <!-- <div class="quick-stats">
+        <div class="stat">
+          <div class="stat-number">2,847</div>
+          <div class="stat-label">Active Staff</div>
+        </div>
+        <div class="stat">
+          <div class="stat-number">4</div>
+          <div class="stat-label">Office Locations</div>
+        </div>
+        <div class="stat">
+          <div class="stat-number">99.8%</div>
+          <div class="stat-label">System Uptime</div>
+        </div>
+      </div> -->
+      
+      <div style="margin-top:14px;">
+        <button class="btn btn-primary" id="openGenericLogin">
+          <span>🔐</span>
+          Sign in to Portal
+        </button>
+      </div>
+    </section>
+
+    <section class="grid">
+      <div class="card" id="subCard">
+        <div class="pill suburban">Suburban</div>
+        <div class="feature-icon">🚇</div>
+        <h3>Suburban Portal</h3>
+        <p>Duty rosters, appearance book, cancellations, JFO console, train analytics and operational dashboards.</p>
+        <div class="actions">
+          <a class="btn" href="/sub/quick">
+            <span>👁️</span>
+            Quick View
+          </a>
+          <button class="btn btn-primary" data-realm="suburban">
+            <span>🔓</span>
+            Sign in
+          </button>
+        </div>
+      </div>
+
+      <div class="card" id="divCard">
+        <div class="pill division">Divisional</div>
+        <div class="feature-icon">🏢</div>
+        <h3>Divisional Portal</h3>
+        <p>Staff master, bio-data, training &amp; medical records, promotions, office management, divisional dashboards.</p>
+        <div class="actions">
+          <a class="btn" href="/div/quick">
+            <span>👁️</span>
+            Quick View
+          </a>
+          <button class="btn btn-primary" data-realm="division">
+            <span>🔓</span>
+            Sign in
+          </button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="pill admin">Support</div>
+        <div class="feature-icon">🛠️</div>
+        <h3>User Support</h3>
+        <p>Need access or facing issues? View help documentation, system guides, or contact the technical support desk.</p>
+        <div class="actions">
+          <a class="btn" href="/help">
+            <span>📚</span>
+            Help Center
+          </a>
+          <a class="btn" href="/contact">
+            <span>📞</span>
+            Contact Support
+          </a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div>&copy; <span id="yr"></span> Central Railway</div>
+    <div><a href="/privacy">Privacy Policy</a></div>
+    <div><a href="/terms">Terms of Service</a></div>
+    <div><a href="/status">System Status</a></div>
+    <div><p>Developed by Jayakumar M D MMan CSMT</p></div>
+  </footer>
+
+  <!-- Enhanced Login Modal -->
+  <div class="modal-backdrop" id="loginModal">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
+      <h2 id="loginTitle">Sign in to Portal</h2>
+      <form id="loginForm" autocomplete="on">
+        <div class="row">
+          <label>Access Level</label>
+          <div class="role-selector">
+            <div class="role-option" data-realm="suburban">
+              <div class="role-name">Suburban</div>
+              <div class="role-desc">Operations</div>
+            </div>
+            <div class="role-option" data-realm="division">
+              <div class="role-name">Division</div>
+              <div class="role-desc">Management</div>
+            </div>
+          </div>
+          <select id="realm" name="realm" required style="display: none;">
+            <option value="suburban">Suburban</option>
+            <option value="division">Division</option>
+          </select>
+        </div>
+        <div class="row">
+          <label for="username">Username</label>
+          <input id="username" name="username" required placeholder="Enter your username" />
+        </div>
+        <div class="row">
+          <label for="password">Password</label>
+          <input id="password" name="password" type="password" required placeholder="Enter your password" />
+        </div>
+        <div class="actions">
+          <button type="button" class="btn" id="cancelLogin">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="submitLogin">
+            <span>🔐</span>
+            Sign in
+          </button>
+        </div>
+        <div class="row hidden" id="loginError"></div>
+        <div class="row hidden" id="loginSuccess"></div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById('yr').textContent = new Date().getFullYear();
+    document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
+
+    const modal = document.getElementById('loginModal');
+    const realmSel = document.getElementById('realm');
+    const roleOptions = document.querySelectorAll('.role-option');
+    const loginError = document.getElementById('loginError');
+    const loginSuccess = document.getElementById('loginSuccess');
+    const submitBtn = document.getElementById('submitLogin');
+
+    // Role selector functionality
+    roleOptions.forEach(option => {
+      option.addEventListener('click', () => {
+        roleOptions.forEach(opt => opt.classList.remove('selected'));
+        option.classList.add('selected');
+        realmSel.value = option.dataset.realm;
+      });
+    });
+
+    function openModal(realm) {
+      // Reset modal state
+      roleOptions.forEach(opt => opt.classList.remove('selected'));
+      loginError.classList.add('hidden');
+      loginSuccess.classList.add('hidden');
+      
+      if (realm) {
+        realmSel.value = realm;
+        document.querySelector(`[data-realm="${realm}"]`).classList.add('selected');
+      } else {
+        // Default to first option
+        roleOptions[0].classList.add('selected');
+        realmSel.value = roleOptions[0].dataset.realm;
+      }
+      
+      modal.style.display = 'flex';
+      setTimeout(() => document.getElementById('username').focus(), 100);
+    }
+    
+    function closeModal() { 
+      modal.style.display = 'none'; 
+      document.getElementById('loginForm').classList.remove('loading');
+    }
+
+    function showError(message) {
+      loginError.textContent = message;
+      loginError.className = 'row error';
+      loginSuccess.classList.add('hidden');
+    }
+
+    function showSuccess(message) {
+      loginSuccess.textContent = message;
+      loginSuccess.className = 'row success';
+      loginError.classList.add('hidden');
+    }
+
+    // Event listeners
+    document.getElementById('adminLoginBtn').addEventListener('click', () => openModal());
+    document.getElementById('openGenericLogin').addEventListener('click', () => openModal());
+
+    document.querySelectorAll('button[data-realm]').forEach(btn => {
+      btn.addEventListener('click', () => openModal(btn.dataset.realm));
+    });
+
+    document.getElementById('cancelLogin').addEventListener('click', closeModal);
+    modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+
+    // Enhanced login handling
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      // Show loading state
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<span>⏳</span> Signing in...';
+      document.getElementById('loginForm').classList.add('loading');
+      
+      const form = new FormData(e.target);
+      const payload = {
+        realm: form.get('realm'),
+        username: form.get('username'),
+        password: form.get('password'),
+      };
+      
+      try {
+        const res = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        
+        if (res.ok) {
+          const data = await res.json().catch(() => ({ redirect: null }));
+          showSuccess('Login successful! Redirecting...');
+          
+          setTimeout(() => {
+            // Use the redirect URL from server response, or fallback to root
+            const redirectUrl = data.redirect || '/';
+            window.location.href = redirectUrl;
+          }, 1000);
+        } else {
+          const errorData = await res.json().catch(() => ({ message: 'Login failed' }));
+          showError(errorData.message || 'Invalid username or password');
+        }
+      } catch (error) {
+        showError('Connection error. Please try again.');
+      } finally {
+        // Reset button state
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<span>🔐</span> Sign in';
+        document.getElementById('loginForm').classList.remove('loading');
+      }
+    });
+
+    // Auto-update timestamp
+    setInterval(() => {
+      document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
+    }, 60000);
+  </script>
+</body>
+</html>

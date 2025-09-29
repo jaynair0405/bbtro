@@ -20,12 +20,12 @@ const wheelMovementRoutes = require('./routes/wheelMovementRoutes');
 
 const utilityRoutes = require('./routes/utilityRoutes');
 const session = require('express-session');
+
+
 const authRoutes = require('./routes/authRoutes');
-
-
 const app = express();
 const PORT = 3000;
-app.use(express.static(path.join(__dirname, "public")));
+
 app.use(express.json());
 
 app.use(session({
@@ -39,31 +39,208 @@ app.use(session({
   }
 }));
 
-app.use('/api', authRoutes);
+// ✅ Protect /index.html so only logged-in suburban users can open it
+app.get('/index.html', (req, res) => {
+  // Not logged in → go to portal
+  if (!req.session.user) return res.redirect('/');
 
+  // Wrong realm → send them to portal (or choose another page)
+  if (req.session.user.realm !== 'suburban') return res.redirect('/');
+
+  // OK → serve the suburban app
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// ✅ Only logged-in Division users may open the Division UI file
+app.get('/div/index.html', (req, res) => {
+  if (!req.session.user) return res.redirect('/');                 // not logged in
+  if (req.session.user.realm !== 'division') return res.redirect('/'); // wrong realm
+  res.sendFile(path.join(__dirname, 'public', 'div', 'index.html'));
+});
+
+// ✅ Guarded Division entry at /div
+app.get('/div', (req, res) => {
+  if (!req.session.user) return res.redirect('/');            // not logged in
+  if (req.session.user.realm !== 'division') return res.redirect('/'); // wrong realm
+  // serve the division UI
+  res.sendFile(path.join(__dirname, 'public', 'div', 'index.html'));
+});
+
+// If a logged-in user opens /portal.html, send them to their area
+app.get('/portal.html', (req, res) => {
+  if (req.session.user) {
+    const realm = req.session.user.realm;
+    return res.redirect(realm === 'division' ? '/div' : '/index.html');
+  }
+  // Not logged in → show the portal normally
+  res.sendFile(path.join(__dirname, 'public', 'portal.html'));
+});
+
+// Disable service workers in local/dev to avoid stale pages
+app.get(['/service-worker.js', '/sw.js', '/firebase-messaging-sw.js'], (req, res) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.type('application/javascript');
+  res.status(410).send('// Service worker disabled in dev');
+});
+
+// ⛔ Prevent caching of HTML in dev (so back button can't show stale pages)
+app.disable('etag');
+app.use((req, res, next) => {
+  const isProtectedRoute =
+    req.method === 'GET' &&
+    (req.path === '/' ||
+     req.path === '/div' ||
+     req.path === '/index.html' ||
+     req.path === '/portal.html' ||
+     req.path.endsWith('.html'));
+
+  if (isProtectedRoute) {
+    res.set({
+      'Cache-Control': 'no-store, no-cache, must-revalidate, private, max-age=0',
+      'Pragma': 'no-cache',
+      'Expires': '0',
+      'Surrogate-Control': 'no-store'
+    });
+  }
+  next();
+});
+
+// Canonical root: send logged-in users to their area; others see the portal
 app.get('/', (req, res) => {
   if (req.session.user) {
-      // User is logged in, redirect to main page
-      res.redirect('/index.html');
+    const realm = req.session.user.realm;
+    return res.redirect(realm === 'division' ? '/div' : '/index.html');
+  }
+  // Not logged in → portal
+  res.sendFile(path.join(__dirname, 'public', 'portal.html'));
+});
+
+// Quick View: Suburban
+app.get('/sub/quick', (req, res) => {
+  if (!req.session.user) return res.redirect('/');                    // not logged in
+  if (req.session.user.realm !== 'suburban') return res.redirect('/'); // wrong realm
+  return res.redirect('/index.html');                                  // open suburban app
+});
+
+// Quick View: Division
+app.get('/div/quick', (req, res) => {
+  if (!req.session.user) return res.redirect('/');                   // not logged in
+  if (req.session.user.realm !== 'division') return res.redirect('/'); // wrong realm
+  return res.redirect('/div');                                        // open division portal
+});
+
+
+app.use(express.static(path.join(__dirname, "public"), { index: false }));
+
+// Add realm-based authentication middleware
+const requireRealm = (realm) => {
+    return (req, res, next) => {
+        if (!req.session.user) {
+            return res.status(401).json({ error: 'Authentication required' });
+        }
+        if (req.session.user.realm !== realm) {
+            return res.status(403).json({ error: 'Access denied to this module' });
+        }
+        next();
+    };
+};
+
+// 🔐 API auth guard (allowlist login + current-user + status)
+const apiAllowlist = new Set(['/api/login', '/api/current-user', '/api/status']);
+
+app.use((req, res, next) => {
+  // Only guard /api/* paths
+  if (!req.path.startsWith('/api/')) return next();
+
+  // Allowlisted endpoints (login & user probe)
+  if (apiAllowlist.has(req.path)) return next();
+
+  // Everything else under /api requires a session
+  if (!req.session.user) {
+    return res.status(401).json({ success: false, message: 'Not authenticated' });
+  }
+
+  next();
+});
+
+// Require a specific role
+const requireRole = (role) => (req, res, next) => {
+  if (!req.session.user) return res.status(401).json({ error: 'Authentication required' });
+  if ((req.session.user.role || '').toLowerCase() !== role.toLowerCase()) {
+    return res.status(403).json({ error: 'Access denied: insufficient role' });
+  }
+  next();
+};
+
+// Protect admin-only APIs
+app.use('/api/wheel-movement', requireRole('admin'), wheelMovementRoutes);
+
+
+
+
+
+
+
+
+
+app.use('/api', authRoutes);
+
+// Root route - landing page and smart redirects
+app.get('/', (req, res) => {
+  if (req.session.user) {
+      // User is already logged in, redirect based on their realm
+      const realm = req.session.user.realm;
+      if (realm === 'suburban') {
+          return res.redirect('/index.html'); // Your original suburban system
+      } else if (realm === 'division') {
+          return res.redirect('/div'); // Division portal
+      } else {
+          // Unknown realm, clear session and show landing page
+          req.session.destroy();
+          return res.sendFile(path.join(__dirname, 'public', 'portal.html'));
+      }
   } else {
-      // User not logged in, redirect to login
-      res.redirect('/login.html');
+      // User not logged in, serve the new landing page
+      res.sendFile(path.join(__dirname, 'public', 'portal.html'));
   }
 });
 
-// Protect the main index.html page
-app.get('/index.html', (req, res, next) => {
-  if (req.session.user) {
-      // User is authenticated, serve the file normally
-      next();
-  } else {
-      // User not authenticated, redirect to login
-      res.redirect('/login.html');
-  }
-});
+// Suburban system route - ONLY ONE, NO DUPLICATES
+// app.get('/', (req, res) => {
+//   if (req.session.user) {
+//       const realm = req.session.user.realm;
+//       if (realm === 'suburban') {
+//           return res.redirect('/index.html');
+//       } else if (realm === 'division') {
+//           return res.redirect('/div');
+//       } else {
+//           req.session.destroy();
+//           return res.sendFile(path.join(__dirname, 'public', 'portal.html'));
+//       }
+//   } else {
+//       // Check if portal.html exists before serving
+//       const portalPath = path.join(__dirname, 'public', 'portal.html');
+//       if (require('fs').existsSync(portalPath)) {
+//           res.sendFile(portalPath);
+//       } else {
+//           res.status(500).send('Portal page not found. Please check server configuration.');
+//       }
+//   }
+// });
+
+// Division portal route (guarded by session + realm)
+// app.get('/div', (req, res) => {
+//   if (req.session.user && req.session.user.realm === 'division') {
+//     return res.sendFile(path.join(__dirname, 'public', 'div', 'index.html'));
+//   } else if (req.session.user && req.session.user.realm === 'suburban') {
+//     return res.redirect('/index.html');
+//   } else {
+//     return res.redirect('/');
+//   }
+// });
+
 
 //Updated for Git workflow practice - 18-09-2025
-
 
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/schedules", scheduleRoutes);
@@ -81,17 +258,6 @@ app.use("/api", utilityRoutes);
 
 // File upload middleware
 const upload = multer({ dest: "uploads/" });
-
-// MySQL connection pool
-// const pool = mysql.createPool({
-//   host: "localhost",
-//   user: "0000",           // change as per your user
-//   password: "888888",  // change as per your password
-//   database: "bbtro",
-//   connectionLimit: 10,   // Maximum number of connections in pool
-//   queueLimit: 0,         // Maximum number of connection requests in queue (0 = unlimited)
-//   multipleStatements: false
-// });
 // MySQL connection pool
 const pool = mysql.createPool({
   host: process.env.DB_HOST,
@@ -102,6 +268,13 @@ const pool = mysql.createPool({
   queueLimit: 0,
   multipleStatements: false
 });
+
+// Make pool available to routes (add this line)
+app.locals.pool = pool;
+const divisionRoutes = require('./routes/divisionRoutes');
+// Add division routes with realm protection
+app.use("/api/division", requireRealm('division'), divisionRoutes);
+//app.use("/api/division", divisionRoutes);
 // Add this directly in server.js (temporary solution)
 app.get('/api/waiting-details', async (req, res) => {
   try {

@@ -1310,68 +1310,9 @@ function displayWheelMovementAnalysis(result) {
 
   console.log('\n🎭 === FRONTEND DEBUG START ===');
   
-  // // Check raw data from backend
-  // const madhukarRaw = result.data.filter(entry => 
-  //   entry.motormanName.includes('MADHUKAR') || 
-  //   (entry.motormanCmsId && entry.motormanCmsId.includes('1272'))
-  // );
-  
-  // console.log(`🔍 Backend sent ${madhukarRaw.length} MADHUKAR entries:`);
-  // madhukarRaw.forEach((entry, i) => {
-  //   console.log(`  ${i+1}. WM: ${entry.netWheelMovement}min (${minutesToHoursString(entry.netWheelMovement)}), Duty: ${entry.totalDutyHours}min (${minutesToHoursString(entry.totalDutyHours)})`);
-  // });
-  
-  
-  // // Check if MADHUKAR data is duplicated in the raw result
-  // const madhukarRawEntries = result.data.filter(entry => 
-  //   entry.motormanName.includes('MADHUKAR') || 
-  //   entry.motormanCmsId === 'KYNS1272'
-  // );
-  
-  // console.log(`🔍 MADHUKAR raw entries from backend: ${madhukarRawEntries.length}`);
-  // madhukarRawEntries.forEach((entry, index) => {
-  //   console.log(`  ${index + 1}. Name: ${entry.motormanName}`);
-  //   console.log(`     CMS: ${entry.motormanCmsId}`);
-  //   console.log(`     WM: ${entry.netWheelMovement} minutes`);
-  //   console.log(`     Duty: ${entry.totalDutyHours} minutes`);
-  // });
-  
-  // if (madhukarRawEntries.length > 1) {
-  //   console.error('❌ PROBLEM: Backend is sending duplicate entries!');
-  //   console.error('The issue is in the backend, not frontend merge logic');
-  // } else {
-  //   console.log('✅ Backend sending single entry - problem is in frontend merge');
-  // }
-  
   // STEP 2: Merge duplicate motorman entries BEFORE displaying
   const mergedData = mergeMotormanEntries(result.data);
   console.log(`🔀 Merged ${result.data.length} entries into ${mergedData.length} unique motormen`);
-  
-  // const madhukarMerged = mergedData.find(m => 
-  //   m.motormanName.includes('MADHUKAR') || 
-  //   (m.motormanCmsId && m.motormanCmsId.includes('1272'))
-  // );
-  
-  // if (madhukarMerged) {
-  //   console.log(`🔀 After merge: WM: ${madhukarMerged.netWheelMovement}min (${minutesToHoursString(madhukarMerged.netWheelMovement)}), Duty: ${madhukarMerged.totalDutyHours}min (${minutesToHoursString(madhukarMerged.totalDutyHours)})`);
-    
-  //   // Check if values are correct
-  //   const expectedWM = 313; // 5:13 in minutes
-  //   const expectedDuty = 819; // 13:39 in minutes
-    
-  //   if (madhukarMerged.netWheelMovement === expectedWM && madhukarMerged.totalDutyHours === expectedDuty) {
-  //     console.log('✅ Merge is correct - problem must be in display logic');
-  //   } else {
-  //     console.log(`❌ Merge is wrong! Expected WM: ${expectedWM}, Duty: ${expectedDuty}`);
-      
-  //     // Check if backend sent duplicates
-  //     if (madhukarRaw.length > 1) {
-  //       console.log('🚨 CAUSE: Backend sent duplicate entries');
-  //     } else {
-  //       console.log('🚨 CAUSE: Frontend merge logic is duplicating');
-  //     }
-  //   }
-  // }
   
   console.log('🎭 === FRONTEND DEBUG END ===\n');
   // Update summary cards with proper time conversion
@@ -1387,25 +1328,7 @@ function displayWheelMovementAnalysis(result) {
 function mergeMotormanEntries(analysisData) {
   console.log('🔀 MERGE DEBUG: Starting merge process...');
   console.log(`🔍 Input data: ${analysisData.length} entries`);
-  
-  // Debug: Log all entries for MADHUKAR before merging
-  // const madhukarEntries = analysisData.filter(entry => 
-  //   entry.motormanName.includes('MADHUKAR') || 
-  //   entry.motormanCmsId === 'KYNS1272'
-  // );
-  
-  // console.log('🔍 MADHUKAR entries BEFORE merge:');
-  // madhukarEntries.forEach((entry, index) => {
-  //   console.log(`  ${index + 1}. Name: ${entry.motormanName}`);
-  //   console.log(`     CMS: ${entry.motormanCmsId}`);
-  //   console.log(`     Details: ${entry.detailNumbers || 'N/A'}`);
-  //   console.log(`     WM: ${minutesToHoursString(entry.netWheelMovement)} (${entry.netWheelMovement} minutes)`);
-  //   console.log(`     Duty: ${minutesToHoursString(entry.totalDutyHours)} (${entry.totalDutyHours} minutes)`);
-  //   console.log(`     Days: ${entry.totalDays}`);
-  // });
-  
   const motormanMap = new Map();
-  
   for (const entry of analysisData) {
     const motormanName = entry.motormanName;
     const motormanCmsId = entry.motormanCmsId;
@@ -1413,29 +1336,11 @@ function mergeMotormanEntries(analysisData) {
     // Use CMS ID as the key for grouping
     const mapKey = motormanCmsId || `UNKNOWN_${motormanName}`;
     
-    // // Debug for MADHUKAR specifically
-    // if (motormanName.includes('MADHUKAR')) {
-    //   console.log(`\n🔍 PROCESSING MADHUKAR entry:`);
-    //   console.log(`   Name: ${motormanName}`);
-    //   console.log(`   CMS: ${motormanCmsId}`);
-    //   console.log(`   Map Key: ${mapKey}`);
-    //   console.log(`   WM: ${entry.netWheelMovement} minutes`);
-    //   console.log(`   Duty: ${entry.totalDutyHours} minutes`);
-    //   console.log(`   Details: ${entry.detailNumbers}`);
-    //   console.log(`   Already in map: ${motormanMap.has(mapKey)}`);
-    // }
-    
     if (motormanMap.has(mapKey)) {
       // MERGE with existing entry
       const existing = motormanMap.get(mapKey);
       
-      // if (motormanName.includes('MADHUKAR')) {
-      //   console.log(`🔗 MERGING MADHUKAR entries:`);
-      //   console.log(`   Existing WM: ${existing.netWheelMovement} minutes`);
-      //   console.log(`   Adding WM: ${entry.netWheelMovement} minutes`);
-      //   console.log(`   Existing Duty: ${existing.totalDutyHours} minutes`);
-      //   console.log(`   Adding Duty: ${entry.totalDutyHours} minutes`);
-      // }
+      
       
       // ❌ POTENTIAL BUG: Check if we're double-adding
       existing.totalDays += entry.totalDays;
@@ -1446,13 +1351,7 @@ function mergeMotormanEntries(analysisData) {
       existing.totalReassignmentAdjustments += (entry.totalReassignmentAdjustments || 0);
       existing.netWheelMovement += entry.netWheelMovement;
       existing.totalTrainCount += entry.totalTrainCount;
-      
-      // if (motormanName.includes('MADHUKAR')) {
-      //   console.log(`   Result WM: ${existing.netWheelMovement} minutes`);
-      //   console.log(`   Result Duty: ${existing.totalDutyHours} minutes`);
-      //   console.log(`   Expected: WM should be 313 minutes (5:13), Duty should be 819 minutes (13:39)`);
-      // }
-      
+
       // Merge daily breakdowns
       if (entry.dailyBreakdown && entry.dailyBreakdown.length > 0) {
         existing.dailyBreakdown = existing.dailyBreakdown || [];
@@ -1463,15 +1362,7 @@ function mergeMotormanEntries(analysisData) {
           if (existingDayIndex >= 0) {
             // ❌ POTENTIAL BUG: Merging same date multiple times
             const existingDay = existing.dailyBreakdown[existingDayIndex];
-            
-            // if (motormanName.includes('MADHUKAR')) {
-            //   console.log(`📅 MERGING same date ${newDay.date}:`);
-            //   console.log(`   Existing details: ${existingDay.detailNumbers}`);
-            //   console.log(`   Adding details: ${newDay.detailNumbers}`);
-            //   console.log(`   Existing WM: ${existingDay.netWheelMovement}`);
-            //   console.log(`   Adding WM: ${newDay.netWheelMovement}`);
-            // }
-            
+          
             // Combine detail numbers
             const existingDetails = existingDay.detailNumbers.split(', ').map(d => d.trim()).filter(d => d);
             const newDetails = newDay.detailNumbers.split(', ').map(d => d.trim()).filter(d => d);
@@ -2175,41 +2066,77 @@ document.addEventListener('DOMContentLoaded', function() {
   setupSearchDebouncing();
 });
 
+
 // Authentication and role-based access control
 async function initializeAuth() {
   try {
-      const response = await fetch('/api/current-user');
-      if (response.status === 401) {
-          // User not logged in, redirect to login
-          window.location.href = '/login.html';
-          return null;
+    const response = await fetch('/api/current-user');
+
+    // Not logged in
+    if (response.status === 401) {
+      const tried = sessionStorage.getItem('redirectOnce');
+      if (!tried) {
+        sessionStorage.setItem('redirectOnce', '1'); // try redirect once
+        window.location.href = '/';                  // go to portal
+      } else {
+        // Already tried once: stop looping and show a simple prompt
+        document.body.classList.remove('auth-loading');
+        document.body.innerHTML = `
+          <div style="text-align:center; padding:2em; font-family:system-ui,Arial;">
+            <h2>🔐 Please sign in</h2>
+            <p><a href="/">Open the login portal</a></p>
+          </div>`;
       }
-      
-      const user = await response.json();
-      
-      // Show user info in header
-      if (user && user.full_name) {
-          document.getElementById('currentUser').innerHTML = 
-              `<strong>${user.full_name}</strong><br>
-               <small>${user.role.toUpperCase()} - ${user.office || 'HQ'}</small>`;
-          
-          // Hide Wheel Movement section for non-admin users
-          if (user.role !== 'admin') {
-              hideWheelMovementSection();
-          }
-      }
-      
-      // Show the page content now that auth is verified
-      document.body.classList.remove('auth-loading');
-      document.body.classList.add('auth-ready');
-      
-      return user;
-  } catch (error) {
-      console.log('Auth check failed:', error);
-      window.location.href = '/login.html';
       return null;
+    }
+
+    // Logged in → render UI
+    const user = await response.json();
+
+    // Clear the one-time guard now that auth is good
+    sessionStorage.removeItem('redirectOnce');
+
+    // Show user info in header (if present)
+    if (user && user.full_name) {
+      const el = document.getElementById('currentUser');
+      if (el) {
+        el.innerHTML =
+          `<strong>${user.full_name}</strong><br>
+           <small>${(user.role || '').toUpperCase()} - ${user.office || 'HQ'}</small>`;
+      }
+
+      // Hide Wheel Movement section for non-admin users
+      if (user.role !== 'admin') {
+        if (typeof hideWheelMovementSection === 'function') hideWheelMovementSection();
+      }
+    }
+
+    // Reveal content
+    document.body.classList.remove('auth-loading');
+    document.body.classList.add('auth-ready');
+
+    return user;
+  } catch (error) {
+    console.log('Auth check failed:', error);
+
+    // Network/other error: same one-time redirect logic
+    const tried = sessionStorage.getItem('redirectOnce');
+    if (!tried) {
+      sessionStorage.setItem('redirectOnce', '1');
+      window.location.href = '/';
+    } else {
+      document.body.classList.remove('auth-loading');
+      document.body.innerHTML = `
+        <div style="text-align:center; padding:2em; font-family:system-ui,Arial;">
+          <h2>⚠️ Connection error</h2>
+          <p>Could not verify login. <a href="/">Try again</a></p>
+        </div>`;
+    }
+    return null;
   }
 }
+
+
 
 async function logout() {
   console.log('Logout clicked');
@@ -2226,21 +2153,22 @@ async function logout() {
       const result = await response.json();
       console.log('Logout result:', result);
       
-      if (result.success) {
-          console.log('Logout successful, redirecting...');
-          window.location.href = '/login.html';
-      } else {
-          console.error('Logout failed:', result);
-          // Force redirect anyway
-          window.location.href = '/login.html';
+      // Clear browser history and force redirect
+      // This prevents back button from returning to this page
+      if (window.history.replaceState) {
+          window.history.replaceState(null, null, '/');
       }
+      window.location.replace('/');
+      
   } catch (error) {
       console.error('Logout error:', error);
       // Force redirect anyway
-      window.location.href = '/login.html';
+      if (window.history.replaceState) {
+          window.history.replaceState(null, null, '/');
+      }
+      window.location.replace('/');
   }
 }
-
 function hideWheelMovementSection() {
   // Hide the wheel movement tab
   const wheelTab = document.querySelector('[data-section="wheel-movement"]');
