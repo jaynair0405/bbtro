@@ -107,6 +107,112 @@ router.post('/login', async (req, res) => {
   }
 });
 
+// Change Password route
+router.post('/change-password', async (req, res) => {
+  // Check if user is logged in
+  if (!req.session.user) {
+    return res.status(401).json({ 
+      success: false, 
+      message: 'Not authenticated' 
+    });
+  }
+
+  const { currentPassword, newPassword, confirmPassword } = req.body;
+  const userId = req.session.user.id;
+
+  // Validate input
+  if (!currentPassword || !newPassword || !confirmPassword) {
+    return res.status(400).json({ 
+      success: false, 
+      message: 'All fields are required' 
+    });
+  }
+
+  // Check if new passwords match
+  if (newPassword !== confirmPassword) {
+    return res.status(400).json({ 
+      success: false, 
+      message: 'New passwords do not match' 
+    });
+  }
+
+  // Check password length
+  if (newPassword.length < 8) {
+    return res.status(400).json({ 
+      success: false, 
+      message: 'New password must be at least 8 characters long' 
+    });
+  }
+
+  // Check if new password is same as current
+  if (currentPassword === newPassword) {
+    return res.status(400).json({ 
+      success: false, 
+      message: 'New password must be different from current password' 
+    });
+  }
+
+  let conn;
+  try {
+    conn = await pool.getConnection();
+
+    // Get user's current password from database
+    const [rows] = await conn.query(
+      'SELECT password FROM users WHERE id = ? LIMIT 1',
+      [userId]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'User not found' 
+      });
+    }
+
+    const user = rows[0];
+
+    // Verify current password
+    let currentPasswordValid = false;
+    
+    if (isBcryptHash(user.password)) {
+      currentPasswordValid = await bcrypt.compare(currentPassword, user.password);
+    } else {
+      // Legacy plaintext password
+      currentPasswordValid = (currentPassword === user.password);
+    }
+
+    if (!currentPasswordValid) {
+      return res.status(401).json({ 
+        success: false, 
+        message: 'Current password is incorrect' 
+      });
+    }
+
+    // Hash new password
+    const newPasswordHash = await bcrypt.hash(newPassword, 12);
+
+    // Update password in database
+    await conn.query(
+      'UPDATE users SET password = ? WHERE id = ? LIMIT 1',
+      [newPasswordHash, userId]
+    );
+
+    return res.json({
+      success: true,
+      message: 'Password changed successfully'
+    });
+
+  } catch (error) {
+    console.error('Change password error:', error);
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Failed to change password. Please try again.' 
+    });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
 
 // Get current user info
 router.get('/current-user', (req, res) => {

@@ -179,3 +179,122 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 });
+
+// Change Password Modal Functions
+function openChangePasswordModal() {
+    const modal = document.getElementById('changePasswordModal');
+    const form = document.getElementById('changePasswordForm');
+    const errorDiv = document.getElementById('passwordChangeError');
+    const successDiv = document.getElementById('passwordChangeSuccess');
+    
+    // Reset form and messages
+    if (form) form.reset();
+    if (errorDiv) errorDiv.style.display = 'none';
+    if (successDiv) successDiv.style.display = 'none';
+    
+    // Show modal
+    if (modal) {
+        modal.style.display = 'flex';
+    }
+    
+    // Close user menu
+    const userMenu = document.getElementById('userDropdownMenu');
+    if (userMenu) userMenu.style.display = 'none';
+}
+
+function closeChangePasswordModal() {
+    const modal = document.getElementById('changePasswordModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+// Handle Change Password Form Submission
+document.addEventListener('DOMContentLoaded', function() {
+    const changePasswordForm = document.getElementById('changePasswordForm');
+    
+    if (changePasswordForm) {
+        changePasswordForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const currentPassword = document.getElementById('currentPassword').value;
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            
+            const errorDiv = document.getElementById('passwordChangeError');
+            const successDiv = document.getElementById('passwordChangeSuccess');
+            const submitBtn = document.getElementById('changePasswordBtn');
+            
+            // Hide previous messages
+            errorDiv.style.display = 'none';
+            successDiv.style.display = 'none';
+            
+            // Client-side validation
+            if (newPassword !== confirmPassword) {
+                errorDiv.textContent = 'New passwords do not match';
+                errorDiv.style.display = 'block';
+                return;
+            }
+            
+            if (newPassword.length < 8) {
+                errorDiv.textContent = 'New password must be at least 8 characters';
+                errorDiv.style.display = 'block';
+                return;
+            }
+            
+            if (currentPassword === newPassword) {
+                errorDiv.textContent = 'New password must be different from current password';
+                errorDiv.style.display = 'block';
+                return;
+            }
+            
+            // Disable submit button and show loading
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Changing...';
+            
+            try {
+                const response = await fetch('/api/change-password', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        currentPassword,
+                        newPassword,
+                        confirmPassword
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Show success message
+                    successDiv.textContent = data.message;
+                    successDiv.style.display = 'block';
+                    
+                    // Clear form
+                    changePasswordForm.reset();
+                    
+                    // Close modal after 2 seconds
+                    setTimeout(() => {
+                        closeChangePasswordModal();
+                    }, 2000);
+                    
+                } else {
+                    // Show error message
+                    errorDiv.textContent = data.message;
+                    errorDiv.style.display = 'block';
+                }
+                
+            } catch (error) {
+                console.error('Change password error:', error);
+                errorDiv.textContent = 'Connection error. Please try again.';
+                errorDiv.style.display = 'block';
+            } finally {
+                // Re-enable submit button
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Change Password';
+            }
+        });
+    }
+});

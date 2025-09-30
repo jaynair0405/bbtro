@@ -84,15 +84,78 @@
                     <h1>Central Railway - Mumbai Division</h1>
                     <h2>Train Schedule Management System</h2>
                 </div>
-                <div id="userInfo" style="text-align: right; color: rgba(255,255,255,0.9); z-index: 1000; position: relative;">
-                    <div id="currentUser">Loading...</div>
-                    <button onclick="logout()" 
-                            style="margin-top: 10px; padding: 8px 16px; background: #dc3545; color: white; border: none; border-radius: 5px; cursor: pointer; z-index: 1001; position: relative;"
-                            onmouseover="this.style.background='#c82333'" 
-                            onmouseout="this.style.background='#dc3545'">
-                        Logout
-                    </button>
-                </div>
+                <div id="userInfo" style="position: relative; z-index: 1000;">
+    <div style="display: inline-block; position: relative;">
+        <div id="currentUser" 
+             onclick="toggleSuburbanUserMenu()" 
+             style="cursor: pointer; 
+                    padding: 10px 16px; 
+                    background: rgba(255,255,255,0.15); 
+                    border: 1px solid rgba(255,255,255,0.3);
+                    border-radius: 8px; 
+                    color: white !important;
+                    font-weight: 500;
+                    user-select: none;
+                    transition: all 0.2s ease;
+                    min-width: 200px;
+                    text-align: center;"
+             onmouseover="this.style.background='rgba(255,255,255,0.25)'" 
+             onmouseout="this.style.background='rgba(255,255,255,0.15)'">
+            Loading...
+            <span style="margin-left: 8px; font-size: 12px;">▼</span>
+        </div>
+        
+        <!-- User Dropdown Menu -->
+        <div id="suburbanUserMenu" style="display: none !important; 
+                                           position: fixed !important; 
+                                           right: 20px !important; 
+                                           top: 70px !important; 
+                                           background: white !important; 
+                                           border-radius: 8px !important; 
+                                           box-shadow: 0 8px 24px rgba(0,0,0,0.2) !important; 
+                                           min-width: 220px !important; 
+                                           z-index: 10000 !important;
+                                           overflow: visible !important;">
+            <div style="padding: 14px 16px !important; 
+                       border-bottom: 1px solid #e5e7eb !important;
+                       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;">
+                <div id="userName" style="font-weight: 600 !important; color: white !important; font-size: 15px !important;">User</div>
+                <div id="userRole" style="font-size: 12px !important; color: rgba(255,255,255,0.9) !important; margin-top: 2px !important;">Role</div>
+            </div>
+            <a href="#" onclick="openSuburbanChangePasswordModal(); return false;" 
+               style="display: flex !important; 
+                      align-items: center !important;
+                      gap: 10px !important;
+                      padding: 12px 16px !important; 
+                      color: #4b5563 !important; 
+                      text-decoration: none !important; 
+                      transition: background 0.2s !important;
+                      font-size: 14px !important;
+                      background: white !important;" 
+               onmouseover="this.style.background='#f9fafb'" 
+               onmouseout="this.style.background='white'">
+                <span style="font-size: 16px;">🔑</span>
+                Change Password
+            </a>
+            <a href="#" onclick="logout(); return false;" 
+               style="display: flex !important; 
+                      align-items: center !important;
+                      gap: 10px !important;
+                      padding: 12px 16px !important; 
+                      color: #ef4444 !important; 
+                      text-decoration: none !important; 
+                      border-top: 1px solid #f3f4f6 !important; 
+                      transition: background 0.2s !important;
+                      font-size: 14px !important;
+                      background: white !important;" 
+               onmouseover="this.style.background='#fef2f2'" 
+               onmouseout="this.style.background='white'">
+                <span style="font-size: 16px;">🚪</span>
+                Logout
+            </a>
+        </div>
+    </div>
+</div>
             </div>
         </div>
         <!-- Navigation -->

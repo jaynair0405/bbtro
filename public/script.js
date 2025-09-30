@@ -137,8 +137,273 @@ function handleKeyboardShortcuts(e) {
   if (e.key === 'Escape') {
     hideScheduleModal();
   }
+
+}
+// Toggle user dropdown menu
+function toggleSuburbanUserMenu() {
+    const menu = document.getElementById('suburbanUserMenu');
+    const currentDisplay = window.getComputedStyle(menu).display;
+    
+    if (currentDisplay === 'none') {
+        menu.style.display = 'block';
+        menu.style.setProperty('display', 'block', 'important');
+    } else {
+        menu.style.display = 'none';
+        menu.style.setProperty('display', 'none', 'important');
+    }
 }
 
+
+// Close menu when clicking outside
+document.addEventListener('click', function(event) {
+    const userInfo = document.getElementById('userInfo');
+    const menu = document.getElementById('suburbanUserMenu');
+    
+    if (userInfo && menu && !userInfo.contains(event.target)) {
+        menu.style.display = 'none';
+    }
+});
+
+// Load and display current user information
+async function loadCurrentUser() {
+    try {
+        const response = await fetch('/api/current-user', {
+            credentials: 'same-origin'
+        });
+        
+        if (response.ok) {
+            const user = await response.json();
+            
+            // Update user display
+            document.getElementById('currentUser').innerHTML = 
+                `${user.username} <span style="margin-left: 8px; font-size: 12px;">▼</span>`;
+            document.getElementById('userName').textContent = user.username;
+            document.getElementById('userRole').textContent = getRoleDisplayName(user.role);
+        }
+    } catch (error) {
+        console.error('Error loading user:', error);
+    }
+}
+
+// Get display name for role
+function getRoleDisplayName(role) {
+    const roleNames = {
+        'system-admin': 'System Administrator',
+        'admin-hq': 'Admin - HQ',
+        'hq-supervisor': 'HQ Supervisor',
+        'office-csmt': 'Office Staff - CSMT',
+        'office-kyn': 'Office Staff - KYN',
+        'office-pnvl': 'Office Staff - PNVL'
+    };
+    return roleNames[role] || role;
+}
+
+// Open change password modal
+function openSuburbanChangePasswordModal() {
+    // Close the user menu first
+    const userMenu = document.getElementById('suburbanUserMenu');
+    if (userMenu) userMenu.style.display = 'none';
+    
+    // Create modal HTML
+    const modalHTML = `
+        <div id="changePasswordModal" class="modal" style="display: flex !important; position: fixed; z-index: 99999; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); align-items: center; justify-content: center;">
+            <div class="modal-content" style="background: white; padding: 30px; border-radius: 12px; max-width: 500px; width: 90%; box-shadow: 0 10px 40px rgba(0,0,0,0.3);">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
+                    <h2 style="margin: 0; color: #2c3e50; font-size: 24px;">🔑 Change Password</h2>
+                    <span class="close" onclick="closeSuburbanChangePasswordModal()" style="cursor: pointer; font-size: 28px; color: #999; font-weight: bold;">&times;</span>
+                </div>
+                
+                <form id="changePasswordForm" onsubmit="submitSuburbanPasswordChange(event)">
+                    <div class="form-group" style="margin-bottom: 20px;">
+                        <label for="currentPassword" style="display: block; margin-bottom: 8px; color: #495057; font-weight: 600; font-size: 14px;">
+                            Current Password *
+                        </label>
+                        <input type="password" 
+                               id="currentPassword" 
+                               required 
+                               style="width: 100%; padding: 12px; border: 2px solid #e9ecef; border-radius: 8px; font-size: 14px; box-sizing: border-box;"
+                               placeholder="Enter your current password">
+                    </div>
+                    
+                    <div class="form-group" style="margin-bottom: 20px;">
+                        <label for="newPassword" style="display: block; margin-bottom: 8px; color: #495057; font-weight: 600; font-size: 14px;">
+                            New Password *
+                        </label>
+                        <input type="password" 
+                               id="newPassword" 
+                               required 
+                               minlength="8"
+                               style="width: 100%; padding: 12px; border: 2px solid #e9ecef; border-radius: 8px; font-size: 14px; box-sizing: border-box;"
+                               placeholder="Enter new password (min 8 characters)">
+                        <small style="color: #6c757d; font-size: 12px; display: block; margin-top: 5px;">
+                            Password must be at least 8 characters long
+                        </small>
+                    </div>
+                    
+                    <div class="form-group" style="margin-bottom: 25px;">
+                        <label for="confirmPassword" style="display: block; margin-bottom: 8px; color: #495057; font-weight: 600; font-size: 14px;">
+                            Confirm New Password *
+                        </label>
+                        <input type="password" 
+                               id="confirmPassword" 
+                               required 
+                               minlength="8"
+                               style="width: 100%; padding: 12px; border: 2px solid #e9ecef; border-radius: 8px; font-size: 14px; box-sizing: border-box;"
+                               placeholder="Re-enter new password">
+                    </div>
+                    
+                    <div id="passwordChangeMessage" style="margin-bottom: 20px; padding: 12px; border-radius: 6px; display: none;"></div>
+                    
+                    <div class="form-actions" style="display: flex; gap: 10px; justify-content: flex-end;">
+                        <button type="button" 
+                                class="btn-secondary" 
+                                onclick="closeSuburbanChangePasswordModal()"
+                                style="padding: 12px 24px; background: #6c757d; border: none; border-radius: 8px; color: white; cursor: pointer; font-size: 14px; font-weight: 600;">
+                            Cancel
+                        </button>
+                        <button type="submit" 
+                                id="changePasswordBtn"
+                                class="btn-primary"
+                                style="padding: 12px 24px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none; border-radius: 8px; color: white; cursor: pointer; font-size: 14px; font-weight: 600;">
+                            Change Password
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    `;
+    
+    // Add modal to page
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+}
+
+// Close change password modal
+function closeSuburbanChangePasswordModal() {
+    const modal = document.getElementById('changePasswordModal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+// Submit password change
+async function submitSuburbanPasswordChange(event) {
+    event.preventDefault();
+    
+    const currentPassword = document.getElementById('currentPassword').value;
+    const newPassword = document.getElementById('newPassword').value;
+    const confirmPassword = document.getElementById('confirmPassword').value;
+    const messageDiv = document.getElementById('passwordChangeMessage');
+    const submitBtn = document.getElementById('changePasswordBtn');
+    
+    // Hide previous messages
+    messageDiv.style.display = 'none';
+    
+    // Client-side validation
+    if (newPassword !== confirmPassword) {
+        messageDiv.style.display = 'block';
+        messageDiv.style.background = '#fff3cd';
+        messageDiv.style.color = '#856404';
+        messageDiv.style.border = '1px solid #ffeeba';
+        messageDiv.textContent = '⚠️ New passwords do not match';
+        return;
+    }
+    
+    if (newPassword.length < 8) {
+        messageDiv.style.display = 'block';
+        messageDiv.style.background = '#fff3cd';
+        messageDiv.style.color = '#856404';
+        messageDiv.style.border = '1px solid #ffeeba';
+        messageDiv.textContent = '⚠️ Password must be at least 8 characters long';
+        return;
+    }
+    
+    if (currentPassword === newPassword) {
+        messageDiv.style.display = 'block';
+        messageDiv.style.background = '#fff3cd';
+        messageDiv.style.color = '#856404';
+        messageDiv.style.border = '1px solid #ffeeba';
+        messageDiv.textContent = '⚠️ New password must be different from current password';
+        return;
+    }
+    
+    // Disable submit button and show loading
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Changing...';
+    
+    try {
+        const response = await fetch('/api/change-password', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify({
+                currentPassword,
+                newPassword,
+                confirmPassword
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            messageDiv.style.display = 'block';
+            messageDiv.style.background = '#d4edda';
+            messageDiv.style.color = '#155724';
+            messageDiv.style.border = '1px solid #c3e6cb';
+            messageDiv.textContent = '✅ ' + data.message;
+            
+            // Close modal after 2 seconds
+            setTimeout(() => {
+                closeSuburbanChangePasswordModal();
+            }, 2000);
+        } else {
+            messageDiv.style.display = 'block';
+            messageDiv.style.background = '#f8d7da';
+            messageDiv.style.color = '#721c24';
+            messageDiv.style.border = '1px solid #f5c6cb';
+            messageDiv.textContent = '❌ ' + data.message;
+        }
+    } catch (error) {
+        messageDiv.style.display = 'block';
+        messageDiv.style.background = '#f8d7da';
+        messageDiv.style.color = '#721c24';
+        messageDiv.style.border = '1px solid #f5c6cb';
+        messageDiv.textContent = '❌ Error changing password. Please try again.';
+        console.error('Error:', error);
+    } finally {
+        // Re-enable submit button
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Change Password';
+    }
+}
+
+// Load user info when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    loadCurrentUser();
+});
+
+// Logout function
+async function logout() {
+    try {
+        const response = await fetch('/api/logout', { 
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        
+        if (window.history.replaceState) {
+            window.history.replaceState(null, null, '/');
+        }
+        window.location.replace('/');
+        
+    } catch (error) {
+        console.error('Logout error:', error);
+        if (window.history.replaceState) {
+            window.history.replaceState(null, null, '/');
+        }
+        window.location.replace('/');
+    }
+}
 // ===== DASHBOARD FUNCTIONS =====
 
 async function loadDashboardData() {
