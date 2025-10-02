@@ -66,12 +66,29 @@ app.get('/div', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'div', 'index.html'));
 });
 
-// ✅ Protect all division portal HTML pages
-app.get('/div/*.html', (req, res) => {
+// ✅ Protect specific division portal HTML pages
+app.get('/div/settings.html', (req, res) => {
   if (!req.session.user) return res.redirect('/');
   if (req.session.user.realm !== 'division') return res.redirect('/');
-  // Serve the requested file
-  res.sendFile(path.join(__dirname, 'public', req.path));
+  res.sendFile(path.join(__dirname, 'public', 'div', 'settings.html'));
+});
+
+app.get('/div/training-types-manager.html', (req, res) => {
+  if (!req.session.user) return res.redirect('/');
+  if (req.session.user.realm !== 'division') return res.redirect('/');
+  res.sendFile(path.join(__dirname, 'public', 'div', 'training-types-manager.html'));
+});
+
+app.get('/div/personnel-stores-manager.html', (req, res) => {
+  if (!req.session.user) return res.redirect('/');
+  if (req.session.user.realm !== 'division') return res.redirect('/');
+  res.sendFile(path.join(__dirname, 'public', 'div', 'personnel-stores-manager.html'));
+});
+
+app.get('/div/biodata-form-design.html', (req, res) => {
+  if (!req.session.user) return res.redirect('/');
+  if (req.session.user.realm !== 'division') return res.redirect('/');
+  res.sendFile(path.join(__dirname, 'public', 'div', 'biodata-form-design.html'));
 });
 
 // If a logged-in user opens /portal.html, send them to their area
