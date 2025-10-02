@@ -55,26 +55,38 @@ function selectOffice(code, fullName, icon, staffCount) {
     showLoadingEffect();
 }
 
-function updateDashboardStats(office, staffCount) {
-    // Simulate different stats for different offices
-    const stats = {
-        'CSMT': { staff: 450, pme: 23, leave: 8, attendance: 97.5 },
-        'PNVL': { staff: 320, pme: 18, leave: 5, attendance: 96.8 },
-        'KYN': { staff: 280, pme: 15, leave: 6, attendance: 98.2 },
-        'NRL': { staff: 150, pme: 8, leave: 3, attendance: 97.1 },
-        'LNL': { staff: 180, pme: 12, leave: 4, attendance: 96.9 },
-        'IGP': { staff: 120, pme: 7, leave: 2, attendance: 98.5 },
-        'CLA': { staff: 200, pme: 11, leave: 7, attendance: 97.3 }
-    };
-    
-    const officeStats = stats[office] || stats['CSMT'];
-    
-    // Update stat cards
-    const statNumbers = document.querySelectorAll('.stat-number');
-    if (statNumbers[0]) statNumbers[0].textContent = officeStats.staff;
-    if (statNumbers[1]) statNumbers[1].textContent = officeStats.pme;
-    if (statNumbers[2]) statNumbers[2].textContent = officeStats.leave;
-    if (statNumbers[3]) statNumbers[3].textContent = officeStats.attendance + '%';
+async function updateDashboardStats(office, staffCount) {
+    try {
+        // Fetch real stats from API
+        const response = await fetch(`/api/division/dashboard-stats?office_code=${office}`, {
+            credentials: 'same-origin'
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to fetch dashboard stats');
+        }
+
+        const result = await response.json();
+
+        if (result.success) {
+            const stats = result.data;
+
+            // Update stat cards
+            const statNumbers = document.querySelectorAll('.stat-number');
+            if (statNumbers[0]) statNumbers[0].textContent = stats.totalStaff;
+            if (statNumbers[1]) statNumbers[1].textContent = stats.pendingPME;
+            if (statNumbers[2]) statNumbers[2].textContent = stats.leaveApplications;
+            if (statNumbers[3]) statNumbers[3].textContent = stats.attendanceRate.toFixed(1) + '%';
+        }
+    } catch (error) {
+        console.error('Error updating dashboard stats:', error);
+        // Fallback to showing passed staffCount or 0
+        const statNumbers = document.querySelectorAll('.stat-number');
+        if (statNumbers[0]) statNumbers[0].textContent = staffCount || '0';
+        if (statNumbers[1]) statNumbers[1].textContent = '0';
+        if (statNumbers[2]) statNumbers[2].textContent = '0';
+        if (statNumbers[3]) statNumbers[3].textContent = '97.5%';
+    }
 }
 
 function showLoadingEffect() {
@@ -126,21 +138,149 @@ function toggleSidebar() {
     document.querySelector('.sidebar').classList.toggle('open');
 }
 
+// Get proper icon/abbreviation for office
+function getOfficeIcon(officeCode) {
+    const iconMap = {
+        'CSMT-ML': 'CSMT',
+        'CSMT-SUB': 'CSTS',
+        'KYN-ML': 'KYN',
+        'KYN-SUB': 'KYNS',
+        'PNVL-ML': 'PNVL',
+        'PNVL-SUB': 'PNVS',
+        'NRL': 'NRL',
+        'IGP': 'IGP',
+        'CLA': 'CLA',
+        'LNL': 'LNLX'
+    };
+    return iconMap[officeCode] || officeCode.substring(0, 2).toUpperCase();
+}
+
+// Load offices from database and populate dropdown
+async function loadOfficeDropdown() {
+    try {
+        // Get current user info first
+        const userResponse = await fetch('/api/current-user', {
+            credentials: 'same-origin'
+        });
+
+        if (!userResponse.ok) {
+            console.error('Failed to get user info');
+            return;
+        }
+
+        const currentUser = await userResponse.json();
+        const userRole = currentUser.div_role;
+        const userOfficeCode = currentUser.div_office_code;
+
+        const response = await fetch('/api/division/offices', {
+            credentials: 'same-origin'
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to fetch offices');
+        }
+
+        const result = await response.json();
+
+        if (result.success && result.data.length > 0) {
+            let offices = result.data;
+
+            // Filter offices based on user role
+            if (userRole === 'office_hr' && userOfficeCode) {
+                // Office HR: Show only their office
+                offices = offices.filter(office => office.office_code === userOfficeCode);
+
+                // Hide dropdown arrow for office HR (only one office)
+                const dropdownTrigger = document.querySelector('.office-dropdown-trigger');
+                if (dropdownTrigger) {
+                    dropdownTrigger.style.cursor = 'default';
+                    dropdownTrigger.onclick = null; // Disable click
+                }
+                const arrow = document.querySelector('.office-dropdown-arrow');
+                if (arrow) arrow.style.display = 'none';
+            }
+            // Division admin sees all offices (no filter)
+
+            const dropdownMenu = document.getElementById('officeDropdownMenu');
+
+            // Clear existing options
+            dropdownMenu.innerHTML = '';
+
+            // Add each office
+            offices.forEach((office, index) => {
+                const officeIcon = getOfficeIcon(office.office_code);
+                const isSelected = index === 0 ? 'selected' : '';
+
+                const optionHTML = `
+                    <div class="office-option ${isSelected}" onclick="selectOffice('${office.office_code}', '${office.office_name}', '${officeIcon}', 0)">
+                        <div class="office-icon">${officeIcon}</div>
+                        <div class="office-details">
+                            <div class="office-name">${office.office_code}</div>
+                            <div class="office-location">${office.office_name}</div>
+                        </div>
+                        <div class="office-stats">Loading...</div>
+                    </div>
+                `;
+                dropdownMenu.innerHTML += optionHTML;
+            });
+
+            // Set first office as default
+            if (offices.length > 0) {
+                const firstOffice = offices[0];
+                const currentOfficeDiv = document.querySelector('.office-current');
+                const officeIcon = getOfficeIcon(firstOffice.office_code);
+
+                currentOfficeDiv.innerHTML = `
+                    <div class="office-icon">${officeIcon}</div>
+                    <div>
+                        <div class="office-name">${firstOffice.office_code}</div>
+                        <div class="office-location">${firstOffice.office_name}</div>
+                    </div>
+                `;
+
+                // Update header
+                document.querySelector('.header-title h1').textContent = `${firstOffice.office_code} Dashboard`;
+            }
+        }
+    } catch (error) {
+        console.error('Error loading offices:', error);
+    }
+}
+
+// Load initial dashboard data
+async function loadInitialDashboard() {
+    // Get current office from the UI
+    const currentOfficeCode = document.querySelector('.office-current .office-name')?.textContent || 'CSMT-SUB';
+    await updateDashboardStats(currentOfficeCode);
+}
+
 // Initialize UI on page load
 document.addEventListener('DOMContentLoaded', function() {
+    // Load offices first, then dashboard stats
+    loadOfficeDropdown().then(() => {
+        loadInitialDashboard();
+    });
+
     // Sidebar navigation
     const sidebarLinks = document.querySelectorAll('.sidebar-nav-link');
-    
+
     sidebarLinks.forEach(link => {
         link.addEventListener('click', function(e) {
+            // Allow navigation for links with actual URLs (not just "#")
+            const href = this.getAttribute('href');
+            if (href && href !== '#') {
+                // Let the browser handle the navigation
+                return;
+            }
+
             e.preventDefault();
-            
+
             // Remove active class from all links
             sidebarLinks.forEach(l => l.classList.remove('active'));
-            
+
             // Add active class to clicked link
             this.classList.add('active');
-            
+
             // Update header title based on clicked item
             const text = this.textContent.replace(/\d+/g, '').trim();
             const currentOffice = document.querySelector('.office-current .office-name').textContent;

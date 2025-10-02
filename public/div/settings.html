@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings - Division Portal</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f7fa;
+            padding: 20px;
+        }
+
+        .settings-container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .settings-header {
+            background: white;
+            padding: 24px 32px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 24px;
+        }
+
+        .settings-header h1 {
+            font-size: 28px;
+            color: #1f2937;
+            margin-bottom: 8px;
+        }
+
+        .settings-header p {
+            color: #6b7280;
+            font-size: 14px;
+        }
+
+        .settings-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 24px;
+        }
+
+        .settings-card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: all 0.2s;
+            cursor: pointer;
+            border: 2px solid transparent;
+        }
+
+        .settings-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            border-color: #2563eb;
+        }
+
+        .settings-card.admin-only {
+            border-left: 4px solid #ef4444;
+        }
+
+        .settings-card.all-access {
+            border-left: 4px solid #22c55e;
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .card-icon {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+
+        .card-icon.admin {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        }
+
+        .card-icon.general {
+            background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+        }
+
+        .card-title {
+            flex: 1;
+        }
+
+        .card-title h3 {
+            font-size: 18px;
+            color: #1f2937;
+            margin-bottom: 4px;
+        }
+
+        .card-title .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            background: #fef2f2;
+            color: #ef4444;
+            font-size: 11px;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+
+        .card-title .badge.green {
+            background: #f0fdf4;
+            color: #22c55e;
+        }
+
+        .card-description {
+            color: #6b7280;
+            font-size: 14px;
+            line-height: 1.6;
+            margin-bottom: 16px;
+        }
+
+        .card-stats {
+            display: flex;
+            gap: 16px;
+            padding-top: 16px;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .stat-item {
+            flex: 1;
+        }
+
+        .stat-value {
+            font-size: 20px;
+            font-weight: 600;
+            color: #1f2937;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #6b7280;
+            margin-top: 4px;
+        }
+
+        .card-action {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding-top: 16px;
+            border-top: 1px solid #e5e7eb;
+            color: #2563eb;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        .section-divider {
+            margin: 40px 0 24px 0;
+            padding-bottom: 12px;
+            border-bottom: 2px solid #e5e7eb;
+        }
+
+        .section-divider h2 {
+            font-size: 20px;
+            color: #1f2937;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .info-banner {
+            background: #eff6ff;
+            border-left: 4px solid #2563eb;
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 24px;
+        }
+
+        .info-banner p {
+            color: #1e40af;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        @media (max-width: 768px) {
+            .settings-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="settings-container">
+        <!-- Header -->
+        <div class="settings-header">
+            <h1>⚙️ Settings & Master Data</h1>
+            <p>Configure system settings, manage master data, and control portal behavior</p>
+        </div>
+
+        <div class="info-banner">
+            <p><strong>Access Control:</strong> Items marked with <span style="color: #ef4444; font-weight: 600;">Admin Only</span> require Division Admin role. Items marked with <span style="color: #22c55e; font-weight: 600;">All Users</span> are accessible to all roles.</p>
+        </div>
+
+        <!-- Master Data Management Section -->
+        <div class="section-divider">
+            <h2>📊 Master Data Management</h2>
+        </div>
+
+        <div class="settings-grid">
+            <!-- Training Types Card -->
+            <div class="settings-card admin-only" onclick="location.href='/div/training-types-manager.html'">
+                <div class="card-header">
+                    <div class="card-icon admin">🎓</div>
+                    <div class="card-title">
+                        <h3>Training Types</h3>
+                        <span class="badge">Admin Only</span>
+                    </div>
+                </div>
+                <div class="card-description">
+                    Manage all training types and their validity periods. Add new training courses, modify existing ones, or remove outdated training types.
+                </div>
+                <div class="card-stats">
+                    <div class="stat-item">
+                        <div class="stat-value">16</div>
+                        <div class="stat-label">Active Types</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value">3 yrs</div>
+                        <div class="stat-label">Avg. Validity</div>
+                    </div>
+                </div>
+                <div class="card-action">
+                    Manage Training Types
+                    <span>→</span>
+                </div>
+            </div>
+
+            <!-- Personnel Store Items Card -->
+            <div class="settings-card admin-only" onclick="location.href='/div/personnel-stores-manager.html'">
+                <div class="card-header">
+                    <div class="card-icon admin">🧰</div>
+                    <div class="card-title">
+                        <h3>Personnel Store Items</h3>
+                        <span class="badge">Admin Only</span>
+                    </div>
+                </div>
+                <div class="card-description">
+                    Manage personnel store items like flags, torches, detonators, and other equipment issued to staff members.
+                </div>
+                <div class="card-stats">
+                    <div class="stat-item">
+                        <div class="stat-value">3</div>
+                        <div class="stat-label">Item Types</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value">1</div>
+                        <div class="stat-label">Special Tracking</div>
+                    </div>
+                </div>
+                <div class="card-action">
+                    Manage Store Items
+                    <span>→</span>
+                </div>
+            </div>
+
+            <!-- Designation Management Card -->
+            <div class="settings-card admin-only" onclick="alert('Coming soon!')">
+                <div class="card-header">
+                    <div class="card-icon admin">👔</div>
+                    <div class="card-title">
+                        <h3>Designations</h3>
+                        <span class="badge">Admin Only</span>
+                    </div>
+                </div>
+                <div class="card-description">
+                    Manage staff designations, grade pay, and promotion hierarchy. Define career progression paths.
+                </div>
+                <div class="card-stats">
+                    <div class="stat-item">
+                        <div class="stat-value">12</div>
+                        <div class="stat-label">Designations</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value">5</div>
+                        <div class="stat-label">Grades</div>
+                    </div>
+                </div>
+                <div class="card-action">
+                    Manage Designations
+                    <span>→</span>
+                </div>
+            </div>
+
+            <!-- Office Management Card -->
+            <div class="settings-card admin-only" onclick="alert('Coming soon!')">
+                <div class="card-header">
+                    <div class="card-icon admin">🏢</div>
+                    <div class="card-title">
+                        <h3>Office Management</h3>
+                        <span class="badge">Admin Only</span>
+                    </div>
+                </div>
+                <div class="card-description">
+                    Manage office codes, names, locations, and other office-specific settings across the division.
+                </div>
+                <div class="card-stats">
+                    <div class="stat-item">
+                        <div class="stat-value">10</div>
+                        <div class="stat-label">Active Offices</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value">2500+</div>
+                        <div class="stat-label">Total Staff</div>
+                    </div>
+                </div>
+                <div class="card-action">
+                    Manage Offices
+                    <span>→</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- User & Access Management Section -->
+        <div class="section-divider">
+            <h2>🔐 User & Access Management</h2>
+        </div>
+
+        <div class="settings-grid">
+            <!-- User Management Card -->
+            <div class="settings-card admin-only" onclick="alert('Coming soon!')">
+                <div class="card-header">
+                    <div class="card-icon admin">👥</div>
+                    <div class="card-title">
+                        <h3>User Accounts</h3>
+                        <span class="badge">Admin Only</span>
+                    </div>
+                </div>
+                <div class="card-description">
+                    Create, edit, and manage user accounts. Assign roles, reset passwords, and control access permissions.
+                </div>
+                <div class="card-stats">
+                    <div class="stat-item">
+                        <div class="stat-value">11</div>
+                        <div class="stat-label">Active Users</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value">2</div>
+                        <div class="stat-label">Roles</div>
+                    </div>
+                </div>
+                <div class="card-action">
+                    Manage Users
+                    <span>→</span>
+                </div>
+            </div>
+
+            <!-- Audit Log Card -->
+            <div class="settings-card admin-only" onclick="alert('Coming soon!')">
+                <div class="card-header">
+                    <div class="card-icon admin">📜</div>
+                    <div class="card-title">
+                        <h3>Audit Log</h3>
+                        <span class="badge">Admin Only</span>
+                    </div>
+                </div>
+                <div class="card-description">
+                    View system activity logs, track changes to master data, and monitor user actions for security.
+                </div>
+                <div class="card-stats">
+                    <div class="stat-item">
+                        <div class="stat-value">Today</div>
+                        <div class="stat-label">Last Activity</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value">30 days</div>
+                        <div class="stat-label">Retention</div>
+                    </div>
+                </div>
+                <div class="card-action">
+                    View Audit Log
+                    <span>→</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Data Management Section -->
+        <div class="section-divider">
+            <h2>💾 Data Management</h2>
+        </div>
+
+        <div class="settings-grid">
+            <!-- Bulk Upload Card -->
+            <div class="settings-card admin-only" onclick="alert('Coming soon!')">
+                <div class="card-header">
+                    <div class="card-icon admin">📤</div>
+                    <div class="card-title">
+                        <h3>Bulk Data Upload</h3>
+                        <span class="badge">Admin Only</span>
+                    </div>
+                </div>
+                <div class="card-description">
+                    Import staff data, training records, and other information in bulk using CSV/Excel files.
+                </div>
+                <div class="card-action">
+                    Upload Data
+                    <span>→</span>
+                </div>
+            </div>
+
+            <!-- Export & Backup Card -->
+            <div class="settings-card all-access" onclick="alert('Coming soon!')">
+                <div class="card-header">
+                    <div class="card-icon general">📥</div>
+                    <div class="card-title">
+                        <h3>Export & Backup</h3>
+                        <span class="badge green">All Users</span>
+                    </div>
+                </div>
+                <div class="card-description">
+                    Export staff data, generate reports, and download backups of your office data.
+                </div>
+                <div class="card-action">
+                    Export Data
+                    <span>→</span>
+                </div>
+            </div>
+
+            <!-- CLI Management Card -->
+            <div class="settings-card admin-only" onclick="alert('Coming soon!')">
+                <div class="card-header">
+                    <div class="card-icon admin">👨‍✈️</div>
+                    <div class="card-title">
+                        <h3>CLI Management</h3>
+                        <span class="badge">Admin Only</span>
+                    </div>
+                </div>
+                <div class="card-description">
+                    Manage Chief Loco Inspectors, their nominations, and staff reallocations with historical tracking.
+                </div>
+                <div class="card-action">
+                    Manage CLIs
+                    <span>→</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- System Configuration Section -->
+        <div class="section-divider">
+            <h2>🛠️ System Configuration</h2>
+        </div>
+
+        <div class="settings-grid">
+            <!-- General Settings Card -->
+            <div class="settings-card admin-only" onclick="alert('Coming soon!')">
+                <div class="card-header">
+                    <div class="card-icon admin">⚙️</div>
+                    <div class="card-title">
+                        <h3>General Settings</h3>
+                        <span class="badge">Admin Only</span>
+                    </div>
+                </div>
+                <div class="card-description">
+                    Configure portal behavior, default values, notification settings, and other general preferences.
+                </div>
+                <div class="card-action">
+                    Configure Settings
+                    <span>→</span>
+                </div>
+            </div>
+
+            <!-- My Profile Card -->
+            <div class="settings-card all-access" onclick="alert('Coming soon!')">
+                <div class="card-header">
+                    <div class="card-icon general">👤</div>
+                    <div class="card-title">
+                        <h3>My Profile</h3>
+                        <span class="badge green">All Users</span>
+                    </div>
+                </div>
+                <div class="card-description">
+                    Update your profile information, change password, and manage notification preferences.
+                </div>
+                <div class="card-action">
+                    Edit Profile
+                    <span>→</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

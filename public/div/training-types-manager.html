@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Training Types Manager - Division Portal</title>
+    <link rel="stylesheet" href="/div/css/division-main.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f7fa;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .manager-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .manager-header {
+            background: white;
+            padding: 24px 32px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .manager-header h1 {
+            font-size: 24px;
+            color: #1f2937;
+            margin: 0;
+        }
+
+        .breadcrumb {
+            color: #6b7280;
+            font-size: 14px;
+            margin-top: 8px;
+        }
+
+        .breadcrumb a {
+            color: #2563eb;
+            text-decoration: none;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #2563eb;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #1d4ed8;
+        }
+
+        .btn-secondary {
+            background: white;
+            color: #374151;
+            border: 1px solid #d1d5db;
+        }
+
+        .btn-secondary:hover {
+            background: #f9fafb;
+        }
+
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 13px;
+        }
+
+        .content-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            padding: 24px;
+        }
+
+        .training-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 16px;
+        }
+
+        .training-table thead {
+            background: #f9fafb;
+        }
+
+        .training-table th {
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            color: #374151;
+            border-bottom: 2px solid #e5e7eb;
+        }
+
+        .training-table td {
+            padding: 12px;
+            border-bottom: 1px solid #e5e7eb;
+            color: #1f2937;
+        }
+
+        .training-table tbody tr:hover {
+            background: #f9fafb;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 8px;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 500px;
+            padding: 32px;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+
+        .modal-header h2 {
+            font-size: 20px;
+            color: #1f2937;
+            margin: 0;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #6b7280;
+            padding: 0;
+            width: 32px;
+            height: 32px;
+        }
+
+        .close-btn:hover {
+            color: #1f2937;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 14px;
+            font-weight: 500;
+            color: #374151;
+            margin-bottom: 6px;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+            margin-top: 24px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #6b7280;
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #6b7280;
+        }
+
+        .alert {
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .alert.success {
+            background: #f0fdf4;
+            border: 1px solid #22c55e;
+            color: #166534;
+        }
+
+        .alert.error {
+            background: #fef2f2;
+            border: 1px solid #ef4444;
+            color: #991b1b;
+        }
+
+        .alert.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="manager-container">
+        <!-- Header -->
+        <div class="manager-header">
+            <div>
+                <h1>🎓 Training Types Manager</h1>
+                <div class="breadcrumb">
+                    <a href="/div">Dashboard</a> /
+                    <a href="/div/settings.html">Settings</a> /
+                    Training Types
+                </div>
+            </div>
+            <button class="btn btn-primary" onclick="openAddModal()">
+                ➕ Add Training Type
+            </button>
+        </div>
+
+        <!-- Alert Messages -->
+        <div id="alertSuccess" class="alert success"></div>
+        <div id="alertError" class="alert error"></div>
+
+        <!-- Content -->
+        <div class="content-card">
+            <div id="loadingState" class="loading">
+                <div>Loading training types...</div>
+            </div>
+
+            <div id="emptyState" class="empty-state" style="display: none;">
+                <div class="empty-state-icon">📚</div>
+                <h3>No Training Types Found</h3>
+                <p>Get started by adding your first training type</p>
+            </div>
+
+            <table class="training-table" id="trainingTable" style="display: none;">
+                <thead>
+                    <tr>
+                        <th>Training Name</th>
+                        <th>Validity Period</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="trainingTableBody">
+                    <!-- Populated by JavaScript -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Add/Edit Modal -->
+    <div id="trainingModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">Add Training Type</h2>
+                <button class="close-btn" onclick="closeModal()">&times;</button>
+            </div>
+
+            <form id="trainingForm">
+                <input type="hidden" id="trainingId">
+
+                <div class="form-group">
+                    <label for="trainingName">Training Name <span style="color: #ef4444;">*</span></label>
+                    <input type="text" id="trainingName" required placeholder="e.g., Safety Camp, PME, Automatic">
+                </div>
+
+                <div class="form-group">
+                    <label for="validityYears">Validity Period (Years) <span style="color: #ef4444;">*</span></label>
+                    <input type="number" id="validityYears" required min="1" max="10" placeholder="e.g., 3">
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="submitBtn">Save Training Type</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="deleteModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Confirm Delete</h2>
+                <button class="close-btn" onclick="closeDeleteModal()">&times;</button>
+            </div>
+
+            <p style="color: #6b7280; margin-bottom: 24px;">
+                Are you sure you want to delete "<strong id="deleteTrainingName"></strong>"?
+                This action cannot be undone.
+            </p>
+
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeDeleteModal()">Cancel</button>
+                <button type="button" class="btn btn-danger" onclick="confirmDelete()">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let trainingTypes = [];
+        let deleteTrainingId = null;
+
+        // Load training types on page load
+        document.addEventListener('DOMContentLoaded', loadTrainingTypes);
+
+        async function loadTrainingTypes() {
+            try {
+                const response = await fetch('/api/division/training-types');
+                const data = await response.json();
+
+                if (data.success) {
+                    trainingTypes = data.data;
+                    renderTable();
+                } else {
+                    showError('Failed to load training types');
+                }
+            } catch (error) {
+                console.error('Error loading training types:', error);
+                showError('Error loading training types');
+            }
+
+            document.getElementById('loadingState').style.display = 'none';
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('trainingTableBody');
+            const table = document.getElementById('trainingTable');
+            const emptyState = document.getElementById('emptyState');
+
+            if (trainingTypes.length === 0) {
+                table.style.display = 'none';
+                emptyState.style.display = 'block';
+                return;
+            }
+
+            table.style.display = 'table';
+            emptyState.style.display = 'none';
+
+            tbody.innerHTML = trainingTypes.map(training => `
+                <tr>
+                    <td><strong>${training.training_name}</strong></td>
+                    <td>${training.validity_years} year${training.validity_years > 1 ? 's' : ''}</td>
+                    <td>
+                        <div class="action-buttons">
+                            <button class="btn btn-secondary btn-small" onclick="openEditModal(${training.id})">
+                                ✏️ Edit
+                            </button>
+                            <button class="btn btn-danger btn-small" onclick="openDeleteModal(${training.id}, '${training.training_name}')">
+                                🗑️ Delete
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function openAddModal() {
+            document.getElementById('modalTitle').textContent = 'Add Training Type';
+            document.getElementById('trainingId').value = '';
+            document.getElementById('trainingName').value = '';
+            document.getElementById('validityYears').value = '';
+            document.getElementById('submitBtn').textContent = 'Save Training Type';
+            document.getElementById('trainingModal').classList.add('active');
+        }
+
+        function openEditModal(id) {
+            const training = trainingTypes.find(t => t.id === id);
+            if (!training) return;
+
+            document.getElementById('modalTitle').textContent = 'Edit Training Type';
+            document.getElementById('trainingId').value = training.id;
+            document.getElementById('trainingName').value = training.training_name;
+            document.getElementById('validityYears').value = training.validity_years;
+            document.getElementById('submitBtn').textContent = 'Update Training Type';
+            document.getElementById('trainingModal').classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('trainingModal').classList.remove('active');
+        }
+
+        function openDeleteModal(id, name) {
+            deleteTrainingId = id;
+            document.getElementById('deleteTrainingName').textContent = name;
+            document.getElementById('deleteModal').classList.add('active');
+        }
+
+        function closeDeleteModal() {
+            deleteTrainingId = null;
+            document.getElementById('deleteModal').classList.remove('active');
+        }
+
+        // Handle form submission
+        document.getElementById('trainingForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const id = document.getElementById('trainingId').value;
+            const training_name = document.getElementById('trainingName').value.trim();
+            const validity_years = parseInt(document.getElementById('validityYears').value);
+
+            const isEdit = !!id;
+            const url = isEdit
+                ? `/api/division/training-types/${id}`
+                : '/api/division/training-types';
+            const method = isEdit ? 'PUT' : 'POST';
+
+            try {
+                const response = await fetch(url, {
+                    method: method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ training_name, validity_years })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showSuccess(data.message);
+                    closeModal();
+                    await loadTrainingTypes();
+                } else {
+                    showError(data.error || 'Operation failed');
+                }
+            } catch (error) {
+                console.error('Error saving training type:', error);
+                showError('Error saving training type');
+            }
+        });
+
+        async function confirmDelete() {
+            if (!deleteTrainingId) return;
+
+            try {
+                const response = await fetch(`/api/division/training-types/${deleteTrainingId}`, {
+                    method: 'DELETE'
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showSuccess(data.message);
+                    closeDeleteModal();
+                    await loadTrainingTypes();
+                } else {
+                    showError(data.error || 'Delete failed');
+                    if (data.details) {
+                        showError(data.details);
+                    }
+                }
+            } catch (error) {
+                console.error('Error deleting training type:', error);
+                showError('Error deleting training type');
+            }
+        }
+
+        function showSuccess(message) {
+            const alert = document.getElementById('alertSuccess');
+            alert.textContent = message;
+            alert.classList.add('active');
+            setTimeout(() => alert.classList.remove('active'), 5000);
+        }
+
+        function showError(message) {
+            const alert = document.getElementById('alertError');
+            alert.textContent = message;
+            alert.classList.add('active');
+            setTimeout(() => alert.classList.remove('active'), 5000);
+        }
+
+        // Close modals on outside click
+        window.onclick = function(event) {
+            if (event.target.classList.contains('modal')) {
+                event.target.classList.remove('active');
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,1030 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bio-data Entry Form - Design Preview</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f7fa;
+            padding: 20px;
+        }
+
+        .form-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .form-header {
+            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+            color: white;
+            padding: 24px 32px;
+            border-radius: 12px 12px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .form-header h1 {
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .form-header .office-badge {
+            background: rgba(255,255,255,0.2);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+        }
+
+        .form-tabs {
+            display: flex;
+            border-bottom: 2px solid #e5e7eb;
+            padding: 0 32px;
+            background: #f9fafb;
+        }
+
+        .form-tab {
+            padding: 16px 24px;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            margin-bottom: -2px;
+            color: #6b7280;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .form-tab.active {
+            color: #2563eb;
+            border-bottom-color: #2563eb;
+            background: white;
+        }
+
+        .form-tab:hover {
+            color: #2563eb;
+            background: white;
+        }
+
+        .form-content {
+            padding: 32px;
+        }
+
+        .section {
+            margin-bottom: 40px;
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid #e5e7eb;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .section-icon {
+            font-size: 20px;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .form-grid-3 {
+            grid-template-columns: repeat(3, 1fr);
+        }
+
+        .form-grid-2 {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group label {
+            font-size: 14px;
+            font-weight: 500;
+            color: #374151;
+            margin-bottom: 6px;
+        }
+
+        .form-group label .required {
+            color: #ef4444;
+            margin-left: 2px;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            padding: 10px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .photo-upload {
+            border: 2px dashed #d1d5db;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .photo-upload:hover {
+            border-color: #2563eb;
+            background: #f0f7ff;
+        }
+
+        .photo-preview {
+            width: 150px;
+            height: 180px;
+            background: #f3f4f6;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto;
+            color: #9ca3af;
+            font-size: 48px;
+        }
+
+        .family-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 12px;
+        }
+
+        .family-table th,
+        .family-table td {
+            padding: 12px;
+            text-align: left;
+            border: 1px solid #e5e7eb;
+        }
+
+        .family-table th {
+            background: #f9fafb;
+            font-weight: 600;
+            color: #374151;
+        }
+
+        .family-table input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+        }
+
+        .add-row-btn {
+            margin-top: 12px;
+            padding: 8px 16px;
+            background: #f3f4f6;
+            border: 1px dashed #9ca3af;
+            border-radius: 6px;
+            cursor: pointer;
+            color: #4b5563;
+            font-size: 14px;
+        }
+
+        .add-row-btn:hover {
+            background: #e5e7eb;
+        }
+
+        .training-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+        }
+
+        .training-item {
+            display: grid;
+            grid-template-columns: 200px 1fr 1fr 1fr;
+            gap: 12px;
+            align-items: center;
+            padding: 12px;
+            background: #f9fafb;
+            border-radius: 8px;
+        }
+
+        .training-label {
+            font-size: 14px;
+            font-weight: 500;
+            color: #374151;
+        }
+
+        .training-input {
+            padding: 8px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 13px;
+        }
+
+        .form-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+            padding: 24px 32px;
+            background: #f9fafb;
+            border-top: 1px solid #e5e7eb;
+            border-radius: 0 0 12px 12px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+        }
+
+        .btn-primary {
+            background: #2563eb;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #1d4ed8;
+        }
+
+        .btn-secondary {
+            background: white;
+            color: #374151;
+            border: 1px solid #d1d5db;
+        }
+
+        .btn-secondary:hover {
+            background: #f9fafb;
+        }
+
+        .info-box {
+            background: #eff6ff;
+            border-left: 4px solid #2563eb;
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .info-box p {
+            color: #1e40af;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .promotion-timeline {
+            position: relative;
+            padding-left: 40px;
+        }
+
+        .promotion-item {
+            position: relative;
+            padding-bottom: 24px;
+        }
+
+        .promotion-item::before {
+            content: '';
+            position: absolute;
+            left: -32px;
+            top: 6px;
+            width: 12px;
+            height: 12px;
+            background: #2563eb;
+            border-radius: 50%;
+            border: 3px solid white;
+            box-shadow: 0 0 0 2px #2563eb;
+        }
+
+        .promotion-item::after {
+            content: '';
+            position: absolute;
+            left: -26px;
+            top: 18px;
+            width: 2px;
+            height: calc(100% - 12px);
+            background: #e5e7eb;
+        }
+
+        .promotion-item:last-child::after {
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .form-grid,
+            .form-grid-2,
+            .form-grid-3 {
+                grid-template-columns: 1fr;
+            }
+
+            .training-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .training-item {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="form-container">
+        <!-- Header -->
+        <div class="form-header">
+            <h1>📋 Crew Bio-data Entry Form</h1>
+            <div class="office-badge">CSMT-SUB Office</div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="form-tabs">
+            <div class="form-tab active">Basic Details</div>
+            <div class="form-tab">Personal Info</div>
+            <div class="form-tab">Promotional Details</div>
+            <div class="form-tab">Training & PME</div>
+            <div class="form-tab">Family Details</div>
+            <div class="form-tab">Personnel Stores</div>
+            <div class="form-tab">Awards</div>
+            <div class="form-tab">Punishments</div>
+        </div>
+
+        <!-- Form Content -->
+        <div class="form-content">
+            <div class="info-box">
+                <p><strong>Note:</strong> Fields marked with <span style="color: #ef4444;">*</span> are mandatory. Please ensure all information is accurate before saving.</p>
+            </div>
+
+            <!-- Basic Details Section -->
+            <div class="section">
+                <div class="section-title">
+                    <span class="section-icon">👤</span>
+                    Basic Information
+                </div>
+                <div class="form-grid">
+                    <div class="form-group" style="grid-column: span 2;">
+                        <label>Name <span class="required">*</span></label>
+                        <input type="text" placeholder="Enter full name" value="Rajesh Kumar Sharma">
+                    </div>
+                    <div class="form-group">
+                        <label>Photo</label>
+                        <div class="photo-upload">
+                            <div class="photo-preview">📷</div>
+                            <p style="margin-top: 12px; color: #6b7280; font-size: 13px;">Click to upload photo</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-grid form-grid-3" style="margin-top: 20px;">
+                    <div class="form-group">
+                        <label>HRMS ID <span class="required">*</span></label>
+                        <input type="text" placeholder="6-letter HRMS ID" value="PKRLMN">
+                    </div>
+                    <div class="form-group">
+                        <label>Original CMS ID</label>
+                        <input type="text" placeholder="Original CMS ID" value="CMS12345">
+                    </div>
+                    <div class="form-group">
+                        <label>Current CMS ID</label>
+                        <input type="text" placeholder="Current CMS ID" value="CMS12345">
+                    </div>
+                    <div class="form-group">
+                        <label>PF Number <span class="required">*</span></label>
+                        <input type="text" placeholder="PF Number" value="CR123456">
+                    </div>
+                    <div class="form-group">
+                        <label>Designation <span class="required">*</span></label>
+                        <select>
+                            <option>Select Designation</option>
+                            <option selected>Assistant Loco Pilot</option>
+                            <option>Senior Assistant Loco Pilot</option>
+                            <option>Loco Pilot Shunter</option>
+                            <option>Loco Pilot Goods</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Date of Birth <span class="required">*</span></label>
+                        <input type="date" value="1985-03-15">
+                    </div>
+                    <div class="form-group">
+                        <label>Date of Appointment <span class="required">*</span></label>
+                        <input type="date" value="2010-06-01">
+                    </div>
+                    <div class="form-group">
+                        <label>Reporting Date</label>
+                        <input type="date" value="2010-06-15">
+                    </div>
+                    <div class="form-group">
+                        <label>HQ Station <span class="required">*</span></label>
+                        <input type="text" placeholder="HQ Station" value="CSMT">
+                    </div>
+                    <div class="form-group">
+                        <label>Home Office <span class="required">*</span></label>
+                        <select>
+                            <option>Select Office</option>
+                            <option selected>CSMT-SUB</option>
+                            <option>CSMT-ML</option>
+                            <option>PNVL-SUB</option>
+                            <option>KYN-SUB</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Current Office <span class="required">*</span></label>
+                        <select>
+                            <option>Select Office</option>
+                            <option selected>CSMT-SUB</option>
+                            <option>PNVL-SUB</option>
+                            <option>KYN-SUB</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Department/RRB</label>
+                        <input type="text" placeholder="Department/RRB" value="Operating / MUMBAI RRB">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Personal Details Section -->
+            <div class="section">
+                <div class="section-title">
+                    <span class="section-icon">📇</span>
+                    Personal Details
+                </div>
+                <div class="form-grid form-grid-2">
+                    <div class="form-group">
+                        <label>Father's Name</label>
+                        <input type="text" placeholder="Father's name" value="Kumar Sharma">
+                    </div>
+                    <div class="form-group">
+                        <label>Gender <span class="required">*</span></label>
+                        <select>
+                            <option selected>Male</option>
+                            <option>Female</option>
+                            <option>Other</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Marital Status</label>
+                        <select>
+                            <option selected>Married</option>
+                            <option>Unmarried</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Blood Group</label>
+                        <select>
+                            <option>Select Blood Group</option>
+                            <option selected>O+</option>
+                            <option>O-</option>
+                            <option>A+</option>
+                            <option>A-</option>
+                            <option>B+</option>
+                            <option>B-</option>
+                            <option>AB+</option>
+                            <option>AB-</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Caste</label>
+                        <select>
+                            <option selected>GEN</option>
+                            <option>OBC</option>
+                            <option>SC</option>
+                            <option>ST</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Qualification</label>
+                        <input type="text" placeholder="Educational qualification" value="Graduate">
+                    </div>
+                </div>
+
+                <div class="form-grid form-grid-3" style="margin-top: 20px;">
+                    <div class="form-group">
+                        <label>Phone Number <span class="required">*</span></label>
+                        <input type="tel" placeholder="10-digit mobile" value="9876543210">
+                    </div>
+                    <div class="form-group">
+                        <label>CUG Number</label>
+                        <input type="tel" placeholder="CUG number" value="8765432109">
+                    </div>
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" placeholder="Email address" value="rajesh@railway.gov.in">
+                    </div>
+                    <div class="form-group">
+                        <label>Aadhar Card No</label>
+                        <input type="text" placeholder="12-digit Aadhar" value="1234 5678 9012">
+                    </div>
+                    <div class="form-group">
+                        <label>PAN Card No</label>
+                        <input type="text" placeholder="PAN number" value="ABCDE1234F">
+                    </div>
+                    <div class="form-group">
+                        <label>ID Card No</label>
+                        <input type="text" placeholder="Railway ID card" value="CR/CSMT/12345">
+                    </div>
+                </div>
+
+                <div class="form-grid form-grid-2" style="margin-top: 20px;">
+                    <div class="form-group">
+                        <label>Present Address</label>
+                        <textarea placeholder="Current residential address">Room No. 5, Railway Quarter, CSMT Colony, Mumbai - 400001</textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Permanent Address</label>
+                        <textarea placeholder="Permanent address">Village Sharma, Post Kundalpur, Dist. Raipur, Chhattisgarh - 492001</textarea>
+                    </div>
+                </div>
+
+                <div class="form-grid form-grid-3" style="margin-top: 20px;">
+                    <div class="form-group">
+                        <label>Vision</label>
+                        <select>
+                            <option selected>Normal</option>
+                            <option>NV (Night Vision)</option>
+                            <option>DV (Defective Vision)</option>
+                            <option>Both</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Safety Category</label>
+                        <select>
+                            <option selected>A</option>
+                            <option>B</option>
+                            <option>C</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Nominated CLI</label>
+                        <select>
+                            <option>Select CLI</option>
+                            <option selected>CLI - Amit Kumar (CSMT)</option>
+                            <option>CLI - Suresh Patil (CSMT)</option>
+                            <option>CLI - Ramesh Yadav (PNVL)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-grid form-grid-2" style="margin-top: 20px;">
+                    <div class="form-group">
+                        <label>Identification Mark 1</label>
+                        <input type="text" placeholder="First identification mark" value="Mole on left cheek">
+                    </div>
+                    <div class="form-group">
+                        <label>Identification Mark 2</label>
+                        <input type="text" placeholder="Second identification mark" value="Scar on right hand">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Promotional Details Section -->
+            <div class="section">
+                <div class="section-title">
+                    <span class="section-icon">📈</span>
+                    Promotional Details
+                </div>
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label>Initially Appointed As</label>
+                    <select>
+                        <option>Select Initial Designation</option>
+                        <option selected>Assistant Loco Pilot</option>
+                        <option>Loco Pilot Shunter</option>
+                    </select>
+                </div>
+
+                <div class="promotion-timeline">
+                    <div class="promotion-item">
+                        <div class="form-grid form-grid-3">
+                            <div class="form-group">
+                                <label>Designation</label>
+                                <select>
+                                    <option selected>Assistant Loco Pilot</option>
+                                    <option>Loco Pilot (STR)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Posting Date</label>
+                                <input type="date" value="2010-06-01">
+                            </div>
+                            <div class="form-group">
+                                <label>Order No</label>
+                                <input type="text" placeholder="Promotion order number" value="CR/OPTG/2010/123">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="promotion-item">
+                        <div class="form-grid form-grid-3">
+                            <div class="form-group">
+                                <label>Designation</label>
+                                <select>
+                                    <option>Assistant Loco Pilot</option>
+                                    <option selected>Loco Pilot (STR)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Posting Date</label>
+                                <input type="date" value="2015-04-10">
+                            </div>
+                            <div class="form-group">
+                                <label>Order No</label>
+                                <input type="text" placeholder="Promotion order number" value="CR/OPTG/2015/456">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <button class="add-row-btn">➕ Add Promotion Record</button>
+            </div>
+
+            <!-- Training & PME Section -->
+            <div class="section">
+                <div class="section-title">
+                    <span class="section-icon">🎓</span>
+                    Training & PME Records
+                </div>
+
+                <div class="training-grid">
+                    <div class="training-item">
+                        <div class="training-label">Safety Camp</div>
+                        <input type="date" class="training-input" placeholder="Done" value="2024-06-15">
+                        <input type="date" class="training-input" placeholder="Due" value="2027-06-15">
+                        <input type="text" class="training-input" placeholder="Place" value="CSMT">
+                    </div>
+
+                    <div class="training-item">
+                        <div class="training-label">PME</div>
+                        <input type="date" class="training-input" placeholder="Done" value="2024-10-15">
+                        <input type="date" class="training-input" placeholder="Due" value="2025-10-15">
+                        <input type="text" class="training-input" placeholder="Place" value="CSMT">
+                    </div>
+
+                    <div class="training-item">
+                        <div class="training-label">Automatic</div>
+                        <input type="date" class="training-input" placeholder="Done" value="2020-03-10">
+                        <input type="date" class="training-input" placeholder="Due" value="2025-03-10">
+                        <input type="text" class="training-input" placeholder="Place" value="KYN">
+                    </div>
+
+                    <div class="training-item">
+                        <div class="training-label">Refresher Diesel</div>
+                        <input type="date" class="training-input" placeholder="Done" value="2023-01-20">
+                        <input type="date" class="training-input" placeholder="Due" value="2026-01-20">
+                        <input type="text" class="training-input" placeholder="Place" value="PNVL">
+                    </div>
+
+                    <div class="training-item">
+                        <div class="training-label">Refresher AC</div>
+                        <input type="date" class="training-input" placeholder="Done">
+                        <input type="date" class="training-input" placeholder="Due">
+                        <input type="text" class="training-input" placeholder="Place">
+                    </div>
+
+                    <div class="training-item">
+                        <div class="training-label">AC/DC</div>
+                        <input type="date" class="training-input" placeholder="Done">
+                        <input type="date" class="training-input" placeholder="Due">
+                        <input type="text" class="training-input" placeholder="Place">
+                    </div>
+
+                    <div class="training-item">
+                        <div class="training-label">Refresher IC</div>
+                        <input type="date" class="training-input" placeholder="Done" value="2024-05-01">
+                        <input type="date" class="training-input" placeholder="Due" value="2027-05-01">
+                        <input type="text" class="training-input" placeholder="Place" value="CSMT">
+                    </div>
+
+                    <div class="training-item">
+                        <div class="training-label">Kavach Training</div>
+                        <input type="date" class="training-input" placeholder="Done">
+                        <input type="date" class="training-input" placeholder="Due">
+                        <input type="text" class="training-input" placeholder="Place">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Family Details Section -->
+            <div class="section">
+                <div class="section-title">
+                    <span class="section-icon">👨‍👩‍👧‍👦</span>
+                    Family Particulars
+                </div>
+
+                <table class="family-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Relation</th>
+                            <th>Date of Birth</th>
+                            <th>Occupation</th>
+                            <th>Dependent</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><input type="text" value="Priya Sharma"></td>
+                            <td>
+                                <select>
+                                    <option selected>Spouse</option>
+                                    <option>Son</option>
+                                    <option>Daughter</option>
+                                    <option>Father</option>
+                                    <option>Mother</option>
+                                </select>
+                            </td>
+                            <td><input type="date" value="1988-07-20"></td>
+                            <td><input type="text" value="Teacher"></td>
+                            <td>
+                                <select>
+                                    <option selected>Yes</option>
+                                    <option>No</option>
+                                </select>
+                            </td>
+                            <td><button style="padding: 4px 8px; cursor: pointer;">🗑️</button></td>
+                        </tr>
+                        <tr>
+                            <td><input type="text" value="Arjun Sharma"></td>
+                            <td>
+                                <select>
+                                    <option>Spouse</option>
+                                    <option selected>Son</option>
+                                    <option>Daughter</option>
+                                </select>
+                            </td>
+                            <td><input type="date" value="2012-03-15"></td>
+                            <td><input type="text" value="Student"></td>
+                            <td>
+                                <select>
+                                    <option selected>Yes</option>
+                                    <option>No</option>
+                                </select>
+                            </td>
+                            <td><button style="padding: 4px 8px; cursor: pointer;">🗑️</button></td>
+                        </tr>
+                    </tbody>
+                </table>
+                <button class="add-row-btn">➕ Add Family Member</button>
+            </div>
+
+            <!-- Personnel Stores Section -->
+            <div class="section">
+                <div class="section-title">
+                    <span class="section-icon">🧰</span>
+                    Personnel Stores
+                </div>
+
+                <div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 16px; border-radius: 8px; margin-bottom: 20px;">
+                    <p style="color: #92400e; font-size: 14px;"><strong>Note:</strong> Detonators are managed separately with lot tracking and expiry dates.</p>
+                </div>
+
+                <div class="form-grid form-grid-3">
+                    <div class="form-group">
+                        <label>Red Flag</label>
+                        <input type="number" placeholder="Quantity" value="2">
+                    </div>
+                    <div class="form-group">
+                        <label>Issue Date</label>
+                        <input type="date" value="2024-02-01">
+                    </div>
+                    <div class="form-group">
+                        <label>Status</label>
+                        <select>
+                            <option selected>Issued</option>
+                            <option>Returned</option>
+                            <option>Damaged</option>
+                            <option>Lost</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Green Flag</label>
+                        <input type="number" placeholder="Quantity" value="1">
+                    </div>
+                    <div class="form-group">
+                        <label>Issue Date</label>
+                        <input type="date" value="2024-02-01">
+                    </div>
+                    <div class="form-group">
+                        <label>Status</label>
+                        <select>
+                            <option selected>Issued</option>
+                            <option>Returned</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Tri-Color Torch</label>
+                        <input type="number" placeholder="Quantity" value="1">
+                    </div>
+                    <div class="form-group">
+                        <label>Issue Date</label>
+                        <input type="date" value="2024-02-01">
+                    </div>
+                    <div class="form-group">
+                        <label>Status</label>
+                        <select>
+                            <option selected>Issued</option>
+                            <option>Returned</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div style="margin-top: 24px; padding: 16px; background: #f0f9ff; border-radius: 8px;">
+                    <h4 style="margin-bottom: 12px; color: #0369a1;">Detonator Stock</h4>
+                    <div class="form-grid form-grid-3">
+                        <div class="form-group">
+                            <label>Lot Number</label>
+                            <input type="text" placeholder="Lot number" value="LOT-2024-ABC123">
+                        </div>
+                        <div class="form-group">
+                            <label>Manufacturing Date</label>
+                            <input type="date" value="2024-01-15">
+                        </div>
+                        <div class="form-group">
+                            <label>Expiry Date</label>
+                            <input type="date" value="2029-01-15">
+                        </div>
+                        <div class="form-group">
+                            <label>Quantity</label>
+                            <input type="number" placeholder="Quantity" value="10">
+                        </div>
+                        <div class="form-group">
+                            <label>Issue Date</label>
+                            <input type="date" value="2024-02-01">
+                        </div>
+                        <div class="form-group">
+                            <label>Status</label>
+                            <select>
+                                <option selected>Active</option>
+                                <option>Expired</option>
+                                <option>Used</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Awards Section -->
+            <div class="section">
+                <div class="section-title">
+                    <span class="section-icon">🏆</span>
+                    Awards & Commendations
+                </div>
+
+                <div class="info-box" style="background: #f0fdf4; border-left-color: #22c55e;">
+                    <p style="color: #166534;"><strong>Access:</strong> Office HR can add/edit/view awards for their staff</p>
+                </div>
+
+                <table class="family-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Award Type</th>
+                            <th>Issuing Authority</th>
+                            <th>Remarks</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><input type="date" value="2023-08-15"></td>
+                            <td>
+                                <select>
+                                    <option selected>Punctuality Award</option>
+                                    <option>Safety Award</option>
+                                    <option>Good Work Certificate</option>
+                                    <option>Commendation Letter</option>
+                                    <option>Railway Minister Award</option>
+                                    <option>General Manager Award</option>
+                                </select>
+                            </td>
+                            <td><input type="text" value="Divisional Railway Manager"></td>
+                            <td><input type="text" value="100% attendance for year 2022-23"></td>
+                            <td><button style="padding: 4px 8px; cursor: pointer;">🗑️</button></td>
+                        </tr>
+                        <tr>
+                            <td><input type="date" value="2022-01-26"></td>
+                            <td>
+                                <select>
+                                    <option>Punctuality Award</option>
+                                    <option selected>Safety Award</option>
+                                    <option>Good Work Certificate</option>
+                                </select>
+                            </td>
+                            <td><input type="text" value="Chief Loco Inspector"></td>
+                            <td><input type="text" value="Best safety practices, zero incidents"></td>
+                            <td><button style="padding: 4px 8px; cursor: pointer;">🗑️</button></td>
+                        </tr>
+                    </tbody>
+                </table>
+                <button class="add-row-btn">➕ Add Award Record</button>
+            </div>
+
+            <!-- Punishments Section -->
+            <div class="section">
+                <div class="section-title">
+                    <span class="section-icon">⚠️</span>
+                    Punishments
+                </div>
+
+                <div class="info-box" style="background: #fef2f2; border-left-color: #ef4444;">
+                    <p style="color: #991b1b;">
+                        <strong>Access Control:</strong><br>
+                        • Office HR can add punishments for their staff<br>
+                        • Office HR can see only Type & Date (to avoid duplicate entries)<br>
+                        • Division Admin can view full details including remarks
+                    </p>
+                </div>
+
+                <table class="family-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Punishment Type</th>
+                            <th>Issuing Authority</th>
+                            <th>Remarks</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><input type="date" value="2024-03-12"></td>
+                            <td>
+                                <select>
+                                    <option selected>Warning Letter</option>
+                                    <option>Censure</option>
+                                    <option>Withholding of Increment</option>
+                                    <option>Suspension</option>
+                                    <option>Fine</option>
+                                    <option>Demotion</option>
+                                </select>
+                            </td>
+                            <td><input type="text" value="Senior Divisional Operations Manager"></td>
+                            <td><input type="text" placeholder="Visible only to Division Admin" value="Late reporting - 3 instances"></td>
+                            <td><button style="padding: 4px 8px; cursor: pointer;">🗑️</button></td>
+                        </tr>
+                    </tbody>
+                </table>
+                <button class="add-row-btn">➕ Add Punishment Record</button>
+            </div>
+        </div>
+
+        <!-- Form Actions -->
+        <div class="form-actions">
+            <button class="btn btn-secondary">Cancel</button>
+            <button class="btn btn-secondary">Save as Draft</button>
+            <button class="btn btn-primary">💾 Save Bio-data</button>
+        </div>
+    </div>
+
+    <script>
+        // Tab switching (basic demo)
+        document.querySelectorAll('.form-tab').forEach(tab => {
+            tab.addEventListener('click', function() {
+                document.querySelectorAll('.form-tab').forEach(t => t.classList.remove('active'));
+                this.classList.add('active');
+            });
+        });
+
+        // Photo upload demo
+        document.querySelector('.photo-upload').addEventListener('click', function() {
+            alert('Photo upload functionality would open file picker here');
+        });
+
+        // Add row buttons
+        document.querySelectorAll('.add-row-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                alert('Add new row functionality would work here');
+            });
+        });
+    </script>
+</body>
+</html>

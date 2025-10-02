@@ -271,10 +271,16 @@ const pool = mysql.createPool({
 
 // Make pool available to routes (add this line)
 app.locals.pool = pool;
-const divisionRoutes = require('./routes/divisionRoutes');
+
+// Division portal routes
+const divisionDashboardRoutes = require('./routes/division/dashboardRoutes');
+const trainingTypesRoutes = require('./routes/division/trainingTypesRoutes');
+const personnelStoresRoutes = require('./routes/division/personnelStoresRoutes');
+
 // Add division routes with realm protection
-app.use("/api/division", requireRealm('division'), divisionRoutes);
-//app.use("/api/division", divisionRoutes);
+app.use("/api/division", requireRealm('division'), divisionDashboardRoutes);
+app.use("/api/division/training-types", requireRealm('division'), trainingTypesRoutes);
+app.use("/api/division/personnel-stores", requireRealm('division'), personnelStoresRoutes);
 // Add this directly in server.js (temporary solution)
 app.get('/api/waiting-details', async (req, res) => {
   try {
