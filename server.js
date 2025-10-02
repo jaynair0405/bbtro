@@ -66,6 +66,14 @@ app.get('/div', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'div', 'index.html'));
 });
 
+// ✅ Protect all division portal HTML pages
+app.get('/div/*.html', (req, res) => {
+  if (!req.session.user) return res.redirect('/');
+  if (req.session.user.realm !== 'division') return res.redirect('/');
+  // Serve the requested file
+  res.sendFile(path.join(__dirname, 'public', req.path));
+});
+
 // If a logged-in user opens /portal.html, send them to their area
 app.get('/portal.html', (req, res) => {
   if (req.session.user) {
