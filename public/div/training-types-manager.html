@@ -294,7 +294,6 @@
                 <thead>
                     <tr>
                         <th>Training Name</th>
-                        <th>Validity Period</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -319,11 +318,6 @@
                 <div class="form-group">
                     <label for="trainingName">Training Name <span style="color: #ef4444;">*</span></label>
                     <input type="text" id="trainingName" required placeholder="e.g., Safety Camp, PME, Automatic">
-                </div>
-
-                <div class="form-group">
-                    <label for="validityYears">Validity Period (Years) <span style="color: #ef4444;">*</span></label>
-                    <input type="number" id="validityYears" required min="1" max="10" placeholder="e.g., 3">
                 </div>
 
                 <div class="modal-actions">
@@ -397,7 +391,6 @@
             tbody.innerHTML = trainingTypes.map(training => `
                 <tr>
                     <td><strong>${training.training_name}</strong></td>
-                    <td>${training.validity_years} year${training.validity_years > 1 ? 's' : ''}</td>
                     <td>
                         <div class="action-buttons">
                             <button class="btn btn-secondary btn-small" onclick="openEditModal(${training.id})">
@@ -416,7 +409,6 @@
             document.getElementById('modalTitle').textContent = 'Add Training Type';
             document.getElementById('trainingId').value = '';
             document.getElementById('trainingName').value = '';
-            document.getElementById('validityYears').value = '';
             document.getElementById('submitBtn').textContent = 'Save Training Type';
             document.getElementById('trainingModal').classList.add('active');
         }
@@ -428,7 +420,6 @@
             document.getElementById('modalTitle').textContent = 'Edit Training Type';
             document.getElementById('trainingId').value = training.id;
             document.getElementById('trainingName').value = training.training_name;
-            document.getElementById('validityYears').value = training.validity_years;
             document.getElementById('submitBtn').textContent = 'Update Training Type';
             document.getElementById('trainingModal').classList.add('active');
         }
@@ -454,7 +445,6 @@
 
             const id = document.getElementById('trainingId').value;
             const training_name = document.getElementById('trainingName').value.trim();
-            const validity_years = parseInt(document.getElementById('validityYears').value);
 
             const isEdit = !!id;
             const url = isEdit
@@ -466,7 +456,7 @@
                 const response = await fetch(url, {
                     method: method,
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ training_name, validity_years })
+                    body: JSON.stringify({ training_name })
                 });
 
                 const data = await response.json();

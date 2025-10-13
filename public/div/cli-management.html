@@ -1,0 +1,966 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CLI Management - Division Portal</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f7fa;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            padding: 24px 32px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            color: #1f2937;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+        }
+
+        .btn-secondary {
+            background: #f3f4f6;
+            color: #374151;
+        }
+
+        .btn-secondary:hover {
+            background: #e5e7eb;
+        }
+
+        .toolbar {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 24px;
+            display: flex;
+            gap: 16px;
+            align-items: center;
+        }
+
+        .search-box {
+            flex: 1;
+            position: relative;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 10px 16px 10px 40px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        .search-box::before {
+            content: '🔍';
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+
+        .filter-box select {
+            padding: 10px 16px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            background: white;
+        }
+
+        .cli-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        .cli-card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+
+        .cli-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 16px rgba(0,0,0,0.15);
+        }
+
+        .cli-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 16px;
+        }
+
+        .cli-cmsid {
+            font-size: 12px;
+            color: #6b7280;
+            font-weight: 500;
+        }
+
+        .cli-name {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1f2937;
+            margin: 4px 0;
+        }
+
+        .cli-office {
+            font-size: 14px;
+            color: #6b7280;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .staff-count {
+            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+            color: white;
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+            margin: 16px 0;
+        }
+
+        .staff-count .number {
+            font-size: 28px;
+            font-weight: 700;
+        }
+
+        .staff-count .label {
+            font-size: 12px;
+            opacity: 0.9;
+        }
+
+        .cli-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 16px;
+        }
+
+        .cli-actions button {
+            flex: 1;
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 1200px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+        }
+
+        .modal-header {
+            padding: 24px;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h2 {
+            font-size: 24px;
+            color: #1f2937;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 28px;
+            cursor: pointer;
+            color: #6b7280;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+        }
+
+        .close-btn:hover {
+            background: #f3f4f6;
+        }
+
+        .modal-body {
+            padding: 24px;
+        }
+
+        .info-section {
+            background: #f9fafb;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 24px;
+        }
+
+        .info-section h3 {
+            color: #1f2937;
+            font-size: 16px;
+            margin-bottom: 16px;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+        }
+
+        .info-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .info-label {
+            font-size: 12px;
+            color: #6b7280;
+            margin-bottom: 4px;
+        }
+
+        .info-value {
+            font-size: 14px;
+            color: #1f2937;
+            font-weight: 500;
+        }
+
+        .stats-section {
+            margin-bottom: 24px;
+        }
+
+        .stat-box {
+            background: #f9fafb;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+
+        .stat-box h4 {
+            font-size: 14px;
+            color: #1f2937;
+            margin-bottom: 12px;
+        }
+
+        .category-bar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 8px;
+        }
+
+        .category-label {
+            width: 100px;
+            font-size: 14px;
+            color: #6b7280;
+        }
+
+        .category-progress {
+            flex: 1;
+            background: #e5e7eb;
+            border-radius: 4px;
+            height: 24px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .category-fill {
+            height: 100%;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            color: white;
+            font-weight: 500;
+        }
+
+        .category-A { background: linear-gradient(90deg, #10b981, #059669); }
+        .category-B { background: linear-gradient(90deg, #f59e0b, #d97706); }
+        .category-C { background: linear-gradient(90deg, #ef4444, #dc2626); }
+
+        .crosstab-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 12px;
+        }
+
+        .crosstab-table th,
+        .crosstab-table td {
+            padding: 8px 12px;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .crosstab-table th {
+            background: #f3f4f6;
+            font-size: 12px;
+            font-weight: 600;
+            color: #6b7280;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 14px;
+            font-weight: 500;
+            color: #374151;
+            margin-bottom: 8px;
+        }
+
+        .form-group label .required {
+            color: #ef4444;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        .modal-footer {
+            padding: 20px 24px;
+            border-top: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+        }
+
+        .staff-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .staff-table th,
+        .staff-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .staff-table th {
+            background: #f9fafb;
+            font-size: 12px;
+            font-weight: 600;
+            color: #6b7280;
+            text-transform: uppercase;
+        }
+
+        .staff-table td {
+            font-size: 14px;
+            color: #1f2937;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .status-active {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .status-expired {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .status-transferred {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #6b7280;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #6b7280;
+        }
+
+        .empty-state-icon {
+            font-size: 64px;
+            margin-bottom: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>👨‍✈️ CLI Management</h1>
+            <button class="btn btn-primary" onclick="openAddCLIModal()">+ Add New CLI</button>
+        </div>
+
+        <!-- Toolbar -->
+        <div class="toolbar">
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="Search by name or CMSID..." onkeyup="filterCLIs()">
+            </div>
+            <div class="filter-box">
+                <select id="officeFilter" onchange="filterCLIs()">
+                    <option value="">All Offices</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- CLI Grid -->
+        <div id="cliGrid" class="cli-grid">
+            <div class="loading">Loading CLIs...</div>
+        </div>
+    </div>
+
+    <!-- CLI Details Modal -->
+    <div id="detailsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="detailsTitle">CLI Details</h2>
+                <button class="close-btn" onclick="closeModal('detailsModal')">×</button>
+            </div>
+            <div class="modal-body" id="detailsBody">
+                <!-- Populated dynamically -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Add/Edit CLI Modal -->
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="editTitle">Add New CLI</h2>
+                <button class="close-btn" onclick="closeModal('editModal')">×</button>
+            </div>
+            <div class="modal-body">
+                <form id="cliForm">
+                    <input type="hidden" id="cli_id">
+
+                    <div class="form-group">
+                        <label>CMSID <span class="required">*</span></label>
+                        <input type="text" id="cmsid" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>CLI Name <span class="required">*</span></label>
+                        <input type="text" id="cli_name" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Current Office</label>
+                        <select id="current_office_code">
+                            <option value="">Select Office</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Date of Birth</label>
+                        <input type="date" id="cli_dob">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Date of Appointment</label>
+                        <input type="date" id="cli_doa">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Date Promoted to CLI</label>
+                        <input type="date" id="date_promoted_to_cli">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Mobile Number</label>
+                        <input type="tel" id="cli_mobile" pattern="[0-9]{10}">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('editModal')">Cancel</button>
+                <button class="btn btn-primary" onclick="saveCLI()">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Staff List Modal -->
+    <div id="staffModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="staffTitle">Staff under CLI</h2>
+                <button class="close-btn" onclick="closeModal('staffModal')">×</button>
+            </div>
+            <div class="modal-body" id="staffBody">
+                <!-- Populated dynamically -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let allCLIs = [];
+        let allOffices = [];
+
+        // Load CLIs on page load
+        async function loadCLIs() {
+            try {
+                const response = await fetch('/api/division/cli');
+                allCLIs = await response.json();
+                renderCLIs(allCLIs);
+            } catch (error) {
+                console.error('Error loading CLIs:', error);
+                document.getElementById('cliGrid').innerHTML = '<div class="empty-state"><div class="empty-state-icon">❌</div><p>Failed to load CLIs</p></div>';
+            }
+        }
+
+        // Load offices for filter
+        async function loadOffices() {
+            try {
+                const response = await fetch('/api/division/offices');
+                allOffices = await response.json();
+
+                const officeFilter = document.getElementById('officeFilter');
+                const officeSelect = document.getElementById('current_office_code');
+
+                allOffices.forEach(office => {
+                    officeFilter.innerHTML += `<option value="${office.office_code}">${office.office_name}</option>`;
+                    officeSelect.innerHTML += `<option value="${office.office_code}">${office.office_name}</option>`;
+                });
+            } catch (error) {
+                console.error('Error loading offices:', error);
+            }
+        }
+
+        // Render CLI cards
+        function renderCLIs(clis) {
+            const grid = document.getElementById('cliGrid');
+
+            if (clis.length === 0) {
+                grid.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🔍</div><p>No CLIs found</p></div>';
+                return;
+            }
+
+            grid.innerHTML = clis.map(cli => {
+                const years = cli.years_as_cli || 0;
+                const months = cli.months_as_cli || 0;
+                let cliSince = '';
+                if (years > 0 && months > 0) {
+                    cliSince = `CLI: ${years}y ${months}m`;
+                } else if (years > 0) {
+                    cliSince = `CLI: ${years} year${years > 1 ? 's' : ''}`;
+                } else if (months > 0) {
+                    cliSince = `CLI: ${months} month${months > 1 ? 's' : ''}`;
+                } else {
+                    cliSince = 'Recently promoted';
+                }
+
+                return `
+                <div class="cli-card" onclick="viewCLIDetails(${cli.cli_id})">
+                    <div class="cli-card-header">
+                        <div>
+                            <div class="cli-cmsid">${cli.cmsid || 'N/A'}</div>
+                            <div class="cli-name">${cli.cli_name}</div>
+                            <div class="cli-office">🏢 ${cli.office_name || cli.current_office_code || 'N/A'}</div>
+                            <div class="cli-office" style="margin-top: 4px; color: #2563eb;">⏱️ ${cliSince}</div>
+                        </div>
+                    </div>
+                    <div class="staff-count">
+                        <div class="number">${cli.active_staff_count || 0}</div>
+                        <div class="label">Active Staff</div>
+                    </div>
+                    <div class="cli-actions">
+                        <button class="btn btn-secondary" onclick="event.stopPropagation(); editCLI(${cli.cli_id})">✏️ Edit</button>
+                        <button class="btn btn-primary" onclick="event.stopPropagation(); viewCLIDetails(${cli.cli_id})">👁️ View</button>
+                    </div>
+                </div>
+                `;
+            }).join('');
+        }
+
+        // Filter CLIs
+        function filterCLIs() {
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            const office = document.getElementById('officeFilter').value;
+
+            const filtered = allCLIs.filter(cli => {
+                const matchesSearch = !search ||
+                    cli.cli_name.toLowerCase().includes(search) ||
+                    (cli.cmsid && cli.cmsid.toLowerCase().includes(search));
+                const matchesOffice = !office || cli.current_office_code === office;
+                return matchesSearch && matchesOffice;
+            });
+
+            renderCLIs(filtered);
+        }
+
+        // View CLI details with statistics
+        async function viewCLIDetails(cliId) {
+            try {
+                const response = await fetch(`/api/division/cli/${cliId}/stats`);
+                const data = await response.json();
+
+                const cli = data.cli;
+                const nom = data.nominations;
+
+                const detailsBody = document.getElementById('detailsBody');
+                document.getElementById('detailsTitle').textContent = `CLI Details - ${cli.cli_name}`;
+
+                detailsBody.innerHTML = `
+                    <div class="info-section">
+                        <h3>Personal Details</h3>
+                        <div class="info-grid">
+                            <div class="info-item">
+                                <div class="info-label">CMSID</div>
+                                <div class="info-value">${cli.cmsid || 'N/A'}</div>
+                            </div>
+                            <div class="info-item">
+                                <div class="info-label">Name</div>
+                                <div class="info-value">${cli.cli_name}</div>
+                            </div>
+                            <div class="info-item">
+                                <div class="info-label">Office</div>
+                                <div class="info-value">${cli.office_name || 'N/A'}</div>
+                            </div>
+                            <div class="info-item">
+                                <div class="info-label">Mobile</div>
+                                <div class="info-value">${cli.cli_mobile || 'N/A'}</div>
+                            </div>
+                            <div class="info-item">
+                                <div class="info-label">DOB</div>
+                                <div class="info-value">${cli.cli_dob ? formatDate(cli.cli_dob) : 'N/A'}</div>
+                            </div>
+                            <div class="info-item">
+                                <div class="info-label">DOA</div>
+                                <div class="info-value">${cli.cli_doa ? formatDate(cli.cli_doa) : 'N/A'}</div>
+                            </div>
+                            <div class="info-item">
+                                <div class="info-label">Promoted to CLI</div>
+                                <div class="info-value">${cli.date_promoted_to_cli ? formatDate(cli.date_promoted_to_cli) : 'N/A'}</div>
+                            </div>
+                            <div class="info-item">
+                                <div class="info-label">CLI Since</div>
+                                <div class="info-value">${cli.years_as_cli || 0} years</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="stats-section">
+                        <h3>📊 Nomination Summary</h3>
+                        <p style="margin: 12px 0; color: #6b7280;">
+                            Total Nominations: ${nom.total} (Active: ${nom.active} | Expired: ${nom.expired} | Transferred: ${nom.transferred})
+                        </p>
+
+                        <div class="stat-box">
+                            <h4>🟢 By Safety Category</h4>
+                            ${nom.byCategory.map(cat => `
+                                <div class="category-bar">
+                                    <div class="category-label">Category ${cat.safety_category}</div>
+                                    <div class="category-progress">
+                                        <div class="category-fill category-${cat.safety_category}"
+                                             style="width: ${nom.active > 0 ? (cat.count / nom.active * 100) : 0}%">
+                                            ${cat.count} (${Math.round(cat.avg_days)} days avg)
+                                        </div>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+
+                        <div class="stat-box">
+                            <h4>👔 By Designation</h4>
+                            ${nom.byDesignation.map(des => `
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                                    <span>${des.designation_name}:</span>
+                                    <span><strong>${des.count}</strong> staff (${Math.round(des.avg_days)} days / ${(des.avg_days / 365).toFixed(1)} years avg)</span>
+                                </div>
+                            `).join('')}
+                        </div>
+
+                        <div class="stat-box">
+                            <h4>📋 Designation × Category Breakdown</h4>
+                            <table class="crosstab-table">
+                                <thead>
+                                    <tr>
+                                        <th>Designation</th>
+                                        <th>Category A</th>
+                                        <th>Category B</th>
+                                        <th>Category C</th>
+                                        <th>Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${generateCrosstabRows(nom.crossTabulation)}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        ${nom.longestNomination ? `
+                        <div class="stat-box">
+                            <h4>🏆 Longest Active Nomination</h4>
+                            <p>${nom.longestNomination.name} (${nom.longestNomination.hrms_id}) - ${nom.longestNomination.designation_name}</p>
+                            <p style="color: #6b7280; font-size: 14px; margin-top: 4px;">
+                                ${Math.round(nom.longestNomination.days)} days (${(nom.longestNomination.days / 365).toFixed(1)} years)
+                                since ${formatDate(nom.longestNomination.nominated_from_date)}
+                            </p>
+                        </div>
+                        ` : ''}
+
+                        <button class="btn btn-primary" style="width: 100%; margin-top: 16px;"
+                                onclick="viewStaffList(${cli.cli_id}, '${cli.cli_name}')">
+                            📋 View Full Staff List
+                        </button>
+                    </div>
+                `;
+
+                openModal('detailsModal');
+            } catch (error) {
+                console.error('Error loading CLI details:', error);
+                alert('Failed to load CLI details');
+            }
+        }
+
+        // Generate crosstab table rows
+        function generateCrosstabRows(crossTab) {
+            const grouped = {};
+            crossTab.forEach(row => {
+                if (!grouped[row.designation_name]) {
+                    grouped[row.designation_name] = { A: 0, B: 0, C: 0 };
+                }
+                grouped[row.designation_name][row.safety_category] = row.count;
+            });
+
+            return Object.entries(grouped).map(([desig, counts]) => `
+                <tr>
+                    <td>${desig}</td>
+                    <td>${counts.A || 0}</td>
+                    <td>${counts.B || 0}</td>
+                    <td>${counts.C || 0}</td>
+                    <td><strong>${(counts.A || 0) + (counts.B || 0) + (counts.C || 0)}</strong></td>
+                </tr>
+            `).join('');
+        }
+
+        // View staff list under CLI
+        async function viewStaffList(cliId, cliName) {
+            try {
+                const response = await fetch(`/api/division/cli/${cliId}/staff?status=Active`);
+                const data = await response.json();
+
+                document.getElementById('staffTitle').textContent = `👥 Staff under CLI: ${cliName} (${data.staff.length} staff)`;
+
+                const staffBody = document.getElementById('staffBody');
+                staffBody.innerHTML = `
+                    <table class="staff-table">
+                        <thead>
+                            <tr>
+                                <th>HRMS ID</th>
+                                <th>Name</th>
+                                <th>Designation</th>
+                                <th>Safety</th>
+                                <th>From Date</th>
+                                <th>To Date</th>
+                                <th>Days</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${data.staff.map(s => `
+                                <tr>
+                                    <td>${s.hrms_id}</td>
+                                    <td>${s.name}</td>
+                                    <td>${s.designation_name}</td>
+                                    <td><span class="status-badge category-${s.safety_category}">${s.safety_category}</span></td>
+                                    <td>${formatDate(s.nominated_from_date)}</td>
+                                    <td>${s.nominated_to_date ? formatDate(s.nominated_to_date) : 'Current'}</td>
+                                    <td><strong>${s.nomination_days}</strong></td>
+                                    <td><span class="status-badge status-${s.nomination_status.toLowerCase()}">${s.nomination_status}</span></td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+
+                    ${data.statistics ? `
+                        <div style="margin-top: 16px; padding: 16px; background: #f9fafb; border-radius: 8px;">
+                            <p style="color: #6b7280; font-size: 14px;">
+                                Average Nomination Duration: <strong>${data.statistics.avgDays} days (${(data.statistics.avgDays / 365).toFixed(1)} years)</strong>
+                            </p>
+                        </div>
+                    ` : ''}
+                `;
+
+                closeModal('detailsModal');
+                openModal('staffModal');
+            } catch (error) {
+                console.error('Error loading staff list:', error);
+                alert('Failed to load staff list');
+            }
+        }
+
+        // Open Add CLI Modal
+        function openAddCLIModal() {
+            document.getElementById('editTitle').textContent = 'Add New CLI';
+            document.getElementById('cliForm').reset();
+            document.getElementById('cli_id').value = '';
+            openModal('editModal');
+        }
+
+        // Edit CLI
+        async function editCLI(cliId) {
+            try {
+                const response = await fetch(`/api/division/cli/${cliId}`);
+                const cli = await response.json();
+
+                document.getElementById('editTitle').textContent = 'Edit CLI';
+                document.getElementById('cli_id').value = cli.cli_id;
+                document.getElementById('cmsid').value = cli.cmsid || '';
+                document.getElementById('cli_name').value = cli.cli_name || '';
+                document.getElementById('current_office_code').value = cli.current_office_code || '';
+                document.getElementById('cli_dob').value = cli.cli_dob || '';
+                document.getElementById('cli_doa').value = cli.cli_doa || '';
+                document.getElementById('date_promoted_to_cli').value = cli.date_promoted_to_cli || '';
+                document.getElementById('cli_mobile').value = cli.cli_mobile || '';
+
+                openModal('editModal');
+            } catch (error) {
+                console.error('Error loading CLI:', error);
+                alert('Failed to load CLI details');
+            }
+        }
+
+        // Save CLI (Add or Update)
+        async function saveCLI() {
+            const cliId = document.getElementById('cli_id').value;
+            const data = {
+                cmsid: document.getElementById('cmsid').value,
+                cli_name: document.getElementById('cli_name').value,
+                current_office_code: document.getElementById('current_office_code').value,
+                cli_dob: document.getElementById('cli_dob').value || null,
+                cli_doa: document.getElementById('cli_doa').value || null,
+                date_promoted_to_cli: document.getElementById('date_promoted_to_cli').value || null,
+                cli_mobile: document.getElementById('cli_mobile').value || null
+            };
+
+            try {
+                const url = cliId ? `/api/division/cli/${cliId}` : '/api/division/cli';
+                const method = cliId ? 'PUT' : 'POST';
+
+                const response = await fetch(url, {
+                    method: method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    alert(result.message || 'CLI saved successfully');
+                    closeModal('editModal');
+                    loadCLIs();
+                } else {
+                    alert(result.error || 'Failed to save CLI');
+                }
+            } catch (error) {
+                console.error('Error saving CLI:', error);
+                alert('Failed to save CLI');
+            }
+        }
+
+        // Utility functions
+        function formatDate(dateStr) {
+            if (!dateStr) return 'N/A';
+            const date = new Date(dateStr);
+            return date.toLocaleDateString('en-GB');
+        }
+
+        function openModal(modalId) {
+            document.getElementById(modalId).classList.add('active');
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('active');
+        }
+
+        // Initialize
+        loadCLIs();
+        loadOffices();
+    </script>
+</body>
+</html>

@@ -16,6 +16,61 @@ router.get('/offices', async (req, res) => {
     }
 });
 
+// GET /api/division/designations - Get all designations
+router.get('/designations', async (req, res) => {
+    try {
+        const conn = await req.app.locals.pool.getConnection();
+        const query = 'SELECT * FROM designations ORDER BY grade_level, designation_name';
+        const [results] = await conn.query(query);
+        conn.release();
+
+        res.json({ success: true, data: results });
+    } catch (error) {
+        console.error('Error fetching designations:', error);
+        res.status(500).json({ error: 'Database error', details: error.message });
+    }
+});
+
+// GET /api/division/training-centers - Get all training centers
+router.get('/training-centers', async (req, res) => {
+    try {
+        const conn = await req.app.locals.pool.getConnection();
+        const query = 'SELECT * FROM div_training_centers ORDER BY center_name';
+        const [results] = await conn.query(query);
+        conn.release();
+
+        res.json({ success: true, data: results });
+    } catch (error) {
+        console.error('Error fetching training centers:', error);
+        res.status(500).json({ error: 'Database error', details: error.message });
+    }
+});
+
+// GET /api/division/staff/:search - Search staff by HRMS ID or name
+router.get('/staff-search/:search', async (req, res) => {
+    try {
+        const { search } = req.params;
+        const conn = await req.app.locals.pool.getConnection();
+
+        const query = `
+            SELECT s.*, o.office_name, d.designation_name
+            FROM div_staff_master s
+            LEFT JOIN offices o ON s.current_office_code = o.office_code
+            LEFT JOIN designations d ON s.designation_id = d.id
+            WHERE s.hrms_id = ? OR s.name LIKE ?
+            LIMIT 10
+        `;
+
+        const [results] = await conn.query(query, [search, `%${search}%`]);
+        conn.release();
+
+        res.json({ success: true, data: results });
+    } catch (error) {
+        console.error('Error searching staff:', error);
+        res.status(500).json({ error: 'Database error', details: error.message });
+    }
+});
+
 // GET /api/division/staff - Get staff by office
 router.get('/staff', async (req, res) => {
     try {
@@ -67,6 +122,94 @@ router.get('/transfer-requests', async (req, res) => {
         res.json({ success: true, data: results });
     } catch (error) {
         console.error('Error fetching transfer requests:', error);
+        res.status(500).json({ error: 'Database error', details: error.message });
+    }
+});
+
+// PUT /api/division/staff/:hrms_id - Update staff biodata
+router.put('/staff/:hrms_id', async (req, res) => {
+    try {
+        const { hrms_id } = req.params;
+        const conn = await req.app.locals.pool.getConnection();
+
+        // First, get the staff's current office
+        const [staffCheck] = await conn.query(
+            'SELECT current_office_code FROM div_staff_master WHERE hrms_id = ?',
+            [hrms_id]
+        );
+
+        if (staffCheck.length === 0) {
+            conn.release();
+            return res.status(404).json({ error: 'Staff not found' });
+        }
+
+        const staffOffice = staffCheck[0].current_office_code;
+        const userOffice = req.session.user.div_office_code;
+        const userRole = req.session.user.div_role;
+
+        // Check permissions: only same office or division_admin can edit
+        if (userRole !== 'division_admin' && staffOffice !== userOffice) {
+            conn.release();
+            return res.status(403).json({
+                error: 'Access denied: You can only edit staff from your office'
+            });
+        }
+
+        const {
+            name,
+            date_of_birth,
+            gender,
+            father_name,
+            caste,
+            marital_status,
+            vision,
+            blood_group,
+            phone_number,
+            cug_number,
+            email,
+            present_address,
+            permanent_address,
+            pf_number,
+            aadhar_card_no,
+            pan_card_no,
+            date_of_appointment,
+            safety_category
+        } = req.body;
+
+        const [result] = await conn.query(
+            `UPDATE div_staff_master
+             SET name = ?, date_of_birth = ?, gender = ?, fathers_name = ?, caste = ?,
+                 marital_status = ?, vision = ?, blood_group = ?,
+                 phone_number = ?, cug_number = ?, email = ?,
+                 present_address = ?, permanent_address = ?,
+                 pf_number = ?, aadhar_card_no = ?, pan_card_no = ?,
+                 date_of_appointment = ?, safety_category = ?,
+                 updated_at = NOW()
+             WHERE hrms_id = ?`,
+            [
+                name, date_of_birth, gender, father_name, caste,
+                marital_status, vision, blood_group,
+                phone_number, cug_number, email,
+                present_address, permanent_address,
+                pf_number, aadhar_card_no, pan_card_no,
+                date_of_appointment, safety_category,
+                hrms_id
+            ]
+        );
+
+        conn.release();
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ error: 'Staff not found' });
+        }
+
+        res.json({
+            success: true,
+            message: 'Staff biodata updated successfully'
+        });
+
+    } catch (error) {
+        console.error('Error updating staff:', error);
         res.status(500).json({ error: 'Database error', details: error.message });
     }
 });

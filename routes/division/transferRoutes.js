@@ -1,0 +1,278 @@
+const express = require('express');
+const router = express.Router();
+
+// Middleware to check authentication
+function requireAuth(req, res, next) {
+    if (!req.session.user || req.session.user.realm !== 'division') {
+        return res.status(401).json({ error: 'Authentication required' });
+    }
+    next();
+}
+
+// GET /api/division/transfer-history/:hrms_id - Get transfer history for a staff
+router.get('/transfer-history/:hrms_id', requireAuth, async (req, res) => {
+    try {
+        const { hrms_id } = req.params;
+        const conn = await req.app.locals.pool.getConnection();
+
+        const query = `
+            SELECT
+                th.*,
+                o1.office_name as from_office_name,
+                o2.office_name as to_office_name
+            FROM div_transfer_history th
+            LEFT JOIN offices o1 ON th.from_office_code = o1.office_code
+            LEFT JOIN offices o2 ON th.to_office_code = o2.office_code
+            WHERE th.staff_hrms_id = ?
+            ORDER BY th.transfer_date DESC
+        `;
+
+        const [results] = await conn.query(query, [hrms_id]);
+        conn.release();
+
+        res.json({ success: true, data: results });
+    } catch (error) {
+        console.error('Error fetching transfer history:', error);
+        res.status(500).json({ error: 'Database error', details: error.message });
+    }
+});
+
+// POST /api/division/transfer-request - Create transfer request
+router.post('/transfer-request', requireAuth, async (req, res) => {
+    try {
+        const {
+            staff_hrms_id,
+            from_office_code,
+            to_office_code,
+            current_cms_id,
+            request_date,
+            remarks
+        } = req.body;
+
+        // Validation
+        if (!staff_hrms_id || !from_office_code || !to_office_code || !current_cms_id) {
+            return res.status(400).json({
+                error: 'Missing required fields: staff_hrms_id, from_office_code, to_office_code, current_cms_id'
+            });
+        }
+
+        if (from_office_code === to_office_code) {
+            return res.status(400).json({ error: 'Cannot transfer to the same office' });
+        }
+
+        const conn = await req.app.locals.pool.getConnection();
+
+        // Check if staff exists
+        const [staffCheck] = await conn.query(
+            'SELECT hrms_id, current_office_code FROM div_staff_master WHERE hrms_id = ?',
+            [staff_hrms_id]
+        );
+
+        if (staffCheck.length === 0) {
+            conn.release();
+            return res.status(404).json({ error: 'Staff not found' });
+        }
+
+        // Check for pending transfer request
+        const [pendingCheck] = await conn.query(
+            'SELECT request_id FROM div_transfer_requests WHERE staff_hrms_id = ? AND status = "Pending"',
+            [staff_hrms_id]
+        );
+
+        if (pendingCheck.length > 0) {
+            conn.release();
+            return res.status(409).json({
+                error: 'A pending transfer request already exists for this staff member'
+            });
+        }
+
+        // Insert transfer request
+        const [result] = await conn.query(
+            `INSERT INTO div_transfer_requests
+             (staff_hrms_id, from_office_code, to_office_code, current_cms_id,
+              request_date, requested_by, remarks, status, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, 'Pending', NOW())`,
+            [
+                staff_hrms_id,
+                from_office_code,
+                to_office_code,
+                current_cms_id,
+                request_date || new Date().toISOString().split('T')[0],
+                req.session.user.username,
+                remarks
+            ]
+        );
+
+        conn.release();
+
+        res.json({
+            success: true,
+            message: 'Transfer request submitted successfully',
+            request_id: result.insertId
+        });
+
+    } catch (error) {
+        console.error('Error creating transfer request:', error);
+        res.status(500).json({ error: 'Database error', details: error.message });
+    }
+});
+
+// GET /api/division/transfer-requests/pending - Get pending requests for user's office
+router.get('/transfer-requests/pending', requireAuth, async (req, res) => {
+    try {
+        const userOfficeCode = req.session.user.div_office_code;
+        const conn = await req.app.locals.pool.getConnection();
+
+        const query = `
+            SELECT
+                tr.*,
+                s.name as staff_name,
+                o1.office_name as from_office_name,
+                o2.office_name as to_office_name
+            FROM div_transfer_requests tr
+            JOIN div_staff_master s ON tr.staff_hrms_id = s.hrms_id
+            LEFT JOIN offices o1 ON tr.from_office_code = o1.office_code
+            LEFT JOIN offices o2 ON tr.to_office_code = o2.office_code
+            WHERE tr.to_office_code = ? AND tr.status = 'Pending'
+            ORDER BY tr.request_date DESC
+        `;
+
+        const [results] = await conn.query(query, [userOfficeCode]);
+        conn.release();
+
+        res.json({ success: true, data: results });
+    } catch (error) {
+        console.error('Error fetching pending transfer requests:', error);
+        res.status(500).json({ error: 'Database error', details: error.message });
+    }
+});
+
+// PUT /api/division/transfer-request/:id/accept - Accept transfer request
+router.put('/transfer-request/:id/accept', requireAuth, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { new_cms_id, remarks } = req.body;
+
+        if (!new_cms_id || !new_cms_id.trim()) {
+            return res.status(400).json({ error: 'New CMS ID is required' });
+        }
+
+        const conn = await req.app.locals.pool.getConnection();
+        await conn.beginTransaction();
+
+        try {
+            // Get transfer request details
+            const [request] = await conn.query(
+                'SELECT * FROM div_transfer_requests WHERE request_id = ?',
+                [id]
+            );
+
+            if (request.length === 0) {
+                await conn.rollback();
+                conn.release();
+                return res.status(404).json({ error: 'Transfer request not found' });
+            }
+
+            const transferReq = request[0];
+
+            if (transferReq.status !== 'Pending') {
+                await conn.rollback();
+                conn.release();
+                return res.status(400).json({
+                    error: `Cannot accept transfer request with status: ${transferReq.status}`
+                });
+            }
+
+            // Update transfer request
+            await conn.query(
+                `UPDATE div_transfer_requests
+                 SET status = 'Approved', proposed_cms_id = ?,
+                     reviewed_by = ?, review_date = CURDATE()
+                 WHERE request_id = ?`,
+                [new_cms_id.trim(), req.session.user.username, id]
+            );
+
+            // Insert into transfer history
+            await conn.query(
+                `INSERT INTO div_transfer_history
+                 (staff_hrms_id, from_office_code, to_office_code, from_cms_id, to_cms_id,
+                  transfer_date, transfer_order_no, transfer_reason,
+                  initiated_by, approved_by, status, remarks, created_at)
+                 VALUES (?, ?, ?, ?, ?, CURDATE(), '', ?, ?, ?, 'Completed', ?, NOW())`,
+                [
+                    transferReq.staff_hrms_id,
+                    transferReq.from_office_code,
+                    transferReq.to_office_code,
+                    transferReq.current_cms_id,
+                    new_cms_id.trim(),
+                    transferReq.remarks,
+                    transferReq.requested_by,
+                    req.session.user.username,
+                    remarks || ''
+                ]
+            );
+
+            // Update staff master
+            await conn.query(
+                `UPDATE div_staff_master
+                 SET current_office_code = ?, current_cms_id = ?
+                 WHERE hrms_id = ?`,
+                [transferReq.to_office_code, new_cms_id.trim(), transferReq.staff_hrms_id]
+            );
+
+            await conn.commit();
+            conn.release();
+
+            res.json({
+                success: true,
+                message: 'Transfer request accepted and staff transferred successfully'
+            });
+
+        } catch (error) {
+            await conn.rollback();
+            conn.release();
+            throw error;
+        }
+
+    } catch (error) {
+        console.error('Error accepting transfer request:', error);
+        res.status(500).json({ error: 'Database error', details: error.message });
+    }
+});
+
+// PUT /api/division/transfer-request/:id/reject - Reject transfer request
+router.put('/transfer-request/:id/reject', requireAuth, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { remarks } = req.body;
+
+        const conn = await req.app.locals.pool.getConnection();
+
+        // Update transfer request
+        const [result] = await conn.query(
+            `UPDATE div_transfer_requests
+             SET status = 'Rejected', reviewed_by = ?, review_date = CURDATE(), remarks = ?
+             WHERE request_id = ? AND status = 'Pending'`,
+            [req.session.user.username, remarks || '', id]
+        );
+
+        conn.release();
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({
+                error: 'Transfer request not found or already processed'
+            });
+        }
+
+        res.json({
+            success: true,
+            message: 'Transfer request rejected'
+        });
+
+    } catch (error) {
+        console.error('Error rejecting transfer request:', error);
+        res.status(500).json({ error: 'Database error', details: error.message });
+    }
+});
+
+module.exports = router;

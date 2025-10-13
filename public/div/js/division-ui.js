@@ -248,15 +248,65 @@ async function loadOfficeDropdown() {
 }
 
 // Load initial dashboard data
+// Load user information and display in header
+async function loadUserInfo() {
+    try {
+        const response = await fetch('/api/current-user', {
+            credentials: 'same-origin'
+        });
+
+        if (response.ok) {
+            const user = await response.json();
+
+            // Generate initials from full name
+            const nameParts = (user.full_name || user.username || '').split(' ');
+            let initials = '';
+            if (nameParts.length >= 2) {
+                // Take first letter of first name and first letter of last name
+                initials = nameParts[0].charAt(0).toUpperCase() + nameParts[nameParts.length - 1].charAt(0).toUpperCase();
+            } else if (nameParts.length === 1) {
+                // Take first two letters if only one name
+                initials = nameParts[0].substring(0, 2).toUpperCase();
+            } else {
+                initials = '--';
+            }
+
+            // Map role to display name
+            let roleDisplay = 'User';
+            if (user.div_role === 'division_admin') {
+                roleDisplay = 'Division Admin';
+            } else if (user.div_role === 'office_hr') {
+                roleDisplay = 'Office HR';
+            } else if (user.role === 'admin') {
+                roleDisplay = 'Admin';
+            }
+
+            // Update header user display
+            document.getElementById('userAvatar').textContent = initials;
+            document.getElementById('userName').textContent = user.full_name || user.username || 'User';
+            document.getElementById('userRole').textContent = roleDisplay;
+
+            // Update dropdown menu
+            document.getElementById('userNameDropdown').textContent = user.full_name || user.username || 'User';
+            document.getElementById('userRoleDropdown').textContent = roleDisplay;
+        }
+    } catch (error) {
+        console.error('Error loading user info:', error);
+    }
+}
+
 async function loadInitialDashboard() {
     // Get current office from the UI
     const currentOfficeCode = document.querySelector('.office-current .office-name')?.textContent || 'CSMT-SUB';
     await updateDashboardStats(currentOfficeCode);
+    // Load pending transfers count
+    await loadPendingTransfersCount();
 }
 
 // Initialize UI on page load
 document.addEventListener('DOMContentLoaded', function() {
-    // Load offices first, then dashboard stats
+    // Load user info, offices, then dashboard stats
+    loadUserInfo();
     loadOfficeDropdown().then(() => {
         loadInitialDashboard();
     });
@@ -301,6 +351,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const actionBtns = document.querySelectorAll('.action-btn');
     actionBtns.forEach(btn => {
         btn.addEventListener('click', function(e) {
+            // Skip if button has onclick handler (like Process Transfer)
+            if (this.hasAttribute('onclick')) {
+                return;
+            }
             e.preventDefault();
             const actionText = this.textContent.trim();
             alert(`${actionText} functionality would open here`);
@@ -320,23 +374,345 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
+// ========== TRANSFER PROCESSING FUNCTIONS ==========
+
+let pendingTransfers = [];
+let currentTransferRequest = null;
+
+// Open transfer processing modal
+async function openTransferModal() {
+    const modal = document.getElementById('transferProcessingModal');
+    if (modal) {
+        modal.style.display = 'flex';
+        await loadPendingTransfers();
+    }
+}
+
+// Close transfer processing modal
+function closeTransferModal() {
+    const modal = document.getElementById('transferProcessingModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+// Load pending transfer requests
+async function loadPendingTransfers() {
+    const loadingDiv = document.getElementById('transfersLoading');
+    const emptyDiv = document.getElementById('transfersEmpty');
+    const tableDiv = document.getElementById('transfersTable');
+    const tbody = document.getElementById('transfersTableBody');
+
+    // Show loading
+    loadingDiv.style.display = 'block';
+    emptyDiv.style.display = 'none';
+    tableDiv.style.display = 'none';
+
+    try {
+        const response = await fetch('/api/division/transfer-requests/pending', {
+            credentials: 'same-origin'
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to fetch pending transfers');
+        }
+
+        const result = await response.json();
+
+        pendingTransfers = result.data || [];
+
+        // Hide loading
+        loadingDiv.style.display = 'none';
+
+        if (pendingTransfers.length === 0) {
+            // Show empty state
+            emptyDiv.style.display = 'block';
+        } else {
+            // Show table with data
+            tableDiv.style.display = 'block';
+            renderTransferRequests();
+        }
+
+    } catch (error) {
+        console.error('Error loading pending transfers:', error);
+        loadingDiv.innerHTML = '<div style="color: #ef4444;">Error loading transfer requests. Please try again.</div>';
+    }
+}
+
+// Render transfer requests in table
+function renderTransferRequests() {
+    const tbody = document.getElementById('transfersTableBody');
+
+    tbody.innerHTML = pendingTransfers.map((transfer, index) => {
+        // Extract category from remarks
+        let category = '-';
+        if (transfer.remarks && transfer.remarks.includes('Category:')) {
+            const match = transfer.remarks.match(/Category:\s*([^.]+)/);
+            if (match) category = match[1].trim();
+        }
+
+        const requestDate = transfer.request_date ? new Date(transfer.request_date).toLocaleDateString('en-IN') : '-';
+
+        return `
+            <tr style="border-bottom: 1px solid #e5e7eb;">
+                <td style="padding: 12px;">
+                    <div style="font-weight: 500; color: #1a1d21;">${transfer.staff_name || '-'}</div>
+                    <div style="font-size: 12px; color: #6b7280;">HRMS: ${transfer.staff_hrms_id}</div>
+                </td>
+                <td style="padding: 12px;">
+                    <div style="font-weight: 500; color: #1a1d21;">${transfer.from_office_name || transfer.from_office_code}</div>
+                    <div style="font-size: 12px; color: #6b7280;">${transfer.from_office_code}</div>
+                </td>
+                <td style="padding: 12px;">
+                    <span style="font-family: monospace; background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-size: 13px;">
+                        ${transfer.current_cms_id}
+                    </span>
+                </td>
+                <td style="padding: 12px;">
+                    <span style="background: #dbeafe; color: #1e40af; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">
+                        ${category}
+                    </span>
+                </td>
+                <td style="padding: 12px; color: #6b7280; font-size: 14px;">${requestDate}</td>
+                <td style="padding: 12px;">
+                    <button onclick="openAcceptModal(${index})"
+                            style="padding: 6px 12px; background: #10b981; color: white; border: none; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; margin-right: 6px;">
+                        Accept
+                    </button>
+                    <button onclick="openRejectModal(${index})"
+                            style="padding: 6px 12px; background: #ef4444; color: white; border: none; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer;">
+                        Reject
+                    </button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+// Open accept transfer modal
+function openAcceptModal(index) {
+    const transfer = pendingTransfers[index];
+    currentTransferRequest = transfer;
+
+    const modal = document.getElementById('acceptTransferModal');
+    const infoDiv = document.getElementById('acceptTransferInfo');
+
+    // Populate staff info
+    infoDiv.innerHTML = `
+        <div style="margin-bottom: 8px;"><strong>Staff:</strong> ${transfer.staff_name} (${transfer.staff_hrms_id})</div>
+        <div style="margin-bottom: 8px;"><strong>From Office:</strong> ${transfer.from_office_name || transfer.from_office_code}</div>
+        <div><strong>Current CMS ID:</strong> ${transfer.current_cms_id}</div>
+    `;
+
+    // Clear form
+    document.getElementById('newCmsId').value = '';
+    document.getElementById('acceptRemarks').value = '';
+
+    // Show modal
+    modal.style.display = 'flex';
+}
+
+// Close accept modal
+function closeAcceptModal() {
+    const modal = document.getElementById('acceptTransferModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+    currentTransferRequest = null;
+}
+
+// Open reject transfer modal
+function openRejectModal(index) {
+    const transfer = pendingTransfers[index];
+    currentTransferRequest = transfer;
+
+    const modal = document.getElementById('rejectTransferModal');
+    const infoDiv = document.getElementById('rejectTransferInfo');
+
+    // Populate staff info
+    infoDiv.innerHTML = `
+        <div style="margin-bottom: 8px;"><strong>Staff:</strong> ${transfer.staff_name} (${transfer.staff_hrms_id})</div>
+        <div style="margin-bottom: 8px;"><strong>From Office:</strong> ${transfer.from_office_name || transfer.from_office_code}</div>
+        <div><strong>Current CMS ID:</strong> ${transfer.current_cms_id}</div>
+    `;
+
+    // Clear form
+    document.getElementById('rejectReason').value = '';
+
+    // Show modal
+    modal.style.display = 'flex';
+}
+
+// Close reject modal
+function closeRejectModal() {
+    const modal = document.getElementById('rejectTransferModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+    currentTransferRequest = null;
+}
+
+// Handle accept transfer form submission
+document.addEventListener('DOMContentLoaded', function() {
+    const acceptForm = document.getElementById('acceptTransferForm');
+
+    if (acceptForm) {
+        acceptForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            if (!currentTransferRequest) {
+                alert('No transfer request selected');
+                return;
+            }
+
+            const newCmsId = document.getElementById('newCmsId').value.trim();
+            const remarks = document.getElementById('acceptRemarks').value.trim();
+
+            if (!newCmsId) {
+                alert('Please enter the new CMS ID');
+                return;
+            }
+
+            const submitBtn = document.getElementById('acceptTransferBtn');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Processing...';
+
+            try {
+                const response = await fetch(`/api/division/transfer-request/${currentTransferRequest.request_id}/accept`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        new_cms_id: newCmsId,
+                        remarks: remarks
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    alert('Transfer request accepted successfully!\n\nStaff member has been added to your office.');
+                    closeAcceptModal();
+                    closeTransferModal();
+                    // Reload pending transfers count
+                    loadPendingTransfersCount();
+                } else {
+                    alert('Error: ' + result.error);
+                }
+
+            } catch (error) {
+                console.error('Error accepting transfer:', error);
+                alert('Error processing transfer request');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Accept Transfer';
+            }
+        });
+    }
+});
+
+// Handle reject transfer form submission
+document.addEventListener('DOMContentLoaded', function() {
+    const rejectForm = document.getElementById('rejectTransferForm');
+
+    if (rejectForm) {
+        rejectForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            if (!currentTransferRequest) {
+                alert('No transfer request selected');
+                return;
+            }
+
+            const reason = document.getElementById('rejectReason').value.trim();
+
+            if (!reason) {
+                alert('Please provide a reason for rejection');
+                return;
+            }
+
+            const submitBtn = document.getElementById('rejectTransferBtn');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Processing...';
+
+            try {
+                const response = await fetch(`/api/division/transfer-request/${currentTransferRequest.request_id}/reject`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        remarks: reason
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    alert('Transfer request rejected.\n\nThe requesting office has been notified.');
+                    closeRejectModal();
+                    closeTransferModal();
+                    // Reload pending transfers count
+                    loadPendingTransfersCount();
+                } else {
+                    alert('Error: ' + result.error);
+                }
+
+            } catch (error) {
+                console.error('Error rejecting transfer:', error);
+                alert('Error processing transfer request');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Reject Transfer';
+            }
+        });
+    }
+});
+
+// Load and update pending transfers count
+async function loadPendingTransfersCount() {
+    try {
+        const response = await fetch('/api/division/transfer-requests/pending', {
+            credentials: 'same-origin'
+        });
+
+        if (response.ok) {
+            const result = await response.json();
+            const count = result.data ? result.data.length : 0;
+
+            // Update badge in sidebar
+            const badge = document.getElementById('transferBadge');
+            if (badge) {
+                badge.textContent = count;
+                badge.style.display = count > 0 ? 'inline' : 'inline';
+            }
+
+            // Update badge in quick actions
+            const quickBadge = document.getElementById('transferQuickBadge');
+            if (quickBadge) {
+                quickBadge.textContent = count;
+                quickBadge.style.display = count > 0 ? 'inline' : 'none';
+            }
+        }
+    } catch (error) {
+        console.error('Error loading pending transfers count:', error);
+    }
+}
+
 // Change Password Modal Functions
 function openChangePasswordModal() {
     const modal = document.getElementById('changePasswordModal');
     const form = document.getElementById('changePasswordForm');
     const errorDiv = document.getElementById('passwordChangeError');
     const successDiv = document.getElementById('passwordChangeSuccess');
-    
+
     // Reset form and messages
     if (form) form.reset();
     if (errorDiv) errorDiv.style.display = 'none';
     if (successDiv) successDiv.style.display = 'none';
-    
+
     // Show modal
     if (modal) {
         modal.style.display = 'flex';
     }
-    
+
     // Close user menu
     const userMenu = document.getElementById('userDropdownMenu');
     if (userMenu) userMenu.style.display = 'none';

@@ -399,19 +399,19 @@
 
         <div class="settings-grid">
             <!-- Bulk Upload Card -->
-            <div class="settings-card admin-only" onclick="alert('Coming soon!')">
+            <div class="settings-card admin-only" onclick="location.href='/div/bulk-upload-staff.html'">
                 <div class="card-header">
                     <div class="card-icon admin">📤</div>
                     <div class="card-title">
-                        <h3>Bulk Data Upload</h3>
+                        <h3>Bulk Staff Data Upload</h3>
                         <span class="badge">Admin Only</span>
                     </div>
                 </div>
                 <div class="card-description">
-                    Import staff data, training records, and other information in bulk using CSV/Excel files.
+                    Import staff biodata, training records, awards, punishments, and equipment data in bulk using Excel files. One-time initial data load.
                 </div>
                 <div class="card-action">
-                    Upload Data
+                    Upload Staff Data
                     <span>→</span>
                 </div>
             </div>
@@ -435,7 +435,7 @@
             </div>
 
             <!-- CLI Management Card -->
-            <div class="settings-card admin-only" onclick="alert('Coming soon!')">
+            <div class="settings-card admin-only" onclick="location.href='/div/cli-management.html'">
                 <div class="card-header">
                     <div class="card-icon admin">👨‍✈️</div>
                     <div class="card-title">
@@ -444,7 +444,17 @@
                     </div>
                 </div>
                 <div class="card-description">
-                    Manage Chief Loco Inspectors, their nominations, and staff reallocations with historical tracking.
+                    Manage Chief Loco Inspectors, view nomination statistics, and track staff allocation with detailed analytics.
+                </div>
+                <div class="card-stats">
+                    <div class="stat-item">
+                        <div class="stat-value">144</div>
+                        <div class="stat-label">Total CLIs</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value">Live</div>
+                        <div class="stat-label">Nominations</div>
+                    </div>
                 </div>
                 <div class="card-action">
                     Manage CLIs

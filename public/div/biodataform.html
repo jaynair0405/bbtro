@@ -1,0 +1,2888 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Divisional Portal – Staff Bio-Data Entry</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<style>
+  body {background:#f6f7fb;}
+  .page {max-width:1300px;margin:auto;padding:20px;}
+  .id-card {background:white;padding:1rem;border-radius:1rem;box-shadow:0 1px 5px rgba(0,0,0,.1);position:sticky;top:20px;}
+  .id-photo {width:140px;height:180px;object-fit:cover;border-radius:.5rem;background:#e9ecef;}
+  .req::after {content:" *";color:#dc3545;font-weight:700;}
+  .tab-pane{padding-top:1rem;}
+  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:1rem;}
+  .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;}
+  .pill{font-size:.8rem;padding:.2rem .5rem;border-radius:50rem}
+  .status-active{background:#e7f7ef;color:#1e7e34}
+  .no-print{user-select:none}
+  @media print { .no-print{display:none!important;} .tab-content>.tab-pane{display:block!important;opacity:1!important;} }
+</style>
+</head>
+<body>
+
+<div class="page">
+  <!-- Header -->
+  <div class="d-flex justify-content-between align-items-center mb-3 no-print">
+    <div class="d-flex align-items-center gap-2">
+      <button class="btn btn-outline-secondary" onclick="window.location.href='/div'" title="Back to Dashboard">
+        ← Back
+      </button>
+      <h3 class="m-0">Staff Bio-Data Entry</h3>
+    </div>
+    <div class="d-flex gap-2">
+      <select class="form-select" id="officeSelect" style="width:180px">
+        <option value="">Select Office</option>
+      </select>
+      <input class="form-control" id="searchStaff" placeholder="Search PF / Name" list="staffSuggestions" autocomplete="off">
+      <datalist id="staffSuggestions"></datalist>
+      <button class="btn btn-outline-secondary" id="btnSearch">Find</button>
+    </div>
+  </div>
+
+  <div class="row g-3">
+    <!-- Identity Card -->
+    <div class="col-lg-3">
+      <div class="id-card text-center">
+        <img id="photo" src="" alt="Photo" class="id-photo mb-2">
+        <input type="file" id="photoInput" class="form-control form-control-sm no-print" accept="image/*">
+        <hr>
+        <div class="text-start small">
+          <div><strong>Name:</strong> <span id="showName">—</span></div>
+          <div><strong>HRMS ID:</strong> <span id="showHRMS">—</span></div>
+          <div><strong>PF No:</strong> <span id="showPF">—</span></div>
+          <div><strong>CMS ID:</strong> <span id="showCMS">—</span></div>
+          <div><strong>Office:</strong> <span id="showOffice">—</span></div>
+          <div><strong>Designation:</strong> <span id="showDesig">—</span></div>
+          <div><strong>Safety Cat:</strong> <span id="showSafety">—</span></div>
+          <div class="mt-2"><span class="pill status-active" id="showStatus">ACTIVE</span></div>
+        </div>
+        <hr>
+        <div class="d-grid gap-2 no-print">
+          <button class="btn btn-success btn-sm" id="btnSave" onclick="saveBiodata()" disabled>Save</button>
+          <button class="btn btn-outline-primary btn-sm" id="btnSaveNext" onclick="saveBiodataAndNext()" disabled>Save & Next</button>
+          <button class="btn btn-outline-secondary btn-sm" onclick="window.print()">Print</button>
+          <button class="btn btn-warning btn-sm" id="btnTransfer" data-bs-toggle="modal" data-bs-target="#transferModal" disabled>Transfer</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Form -->
+    <div class="col-lg-9">
+      <div class="card">
+        <div class="card-header">
+          <ul class="nav nav-tabs card-header-tabs" role="tablist">
+            <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-personal">Personal</button></li>
+            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-contact">Contact & Address</button></li>
+            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-ids">IDs & Service</button></li>
+            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-family">Family</button></li>
+            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-promotion">Promotions</button></li>
+            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-training">Training / PME</button></li>
+            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-store">Stores</button></li>
+            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-detonator">Detonators</button></li>
+            <li class="nav-item" id="disciplineTabNav" style="display: none;"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-discipline">Discipline</button></li>
+            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-transfer">Transfers</button></li>
+          </ul>
+        </div>
+
+        <div class="card-body tab-content">
+          <!-- PERSONAL -->
+          <div class="tab-pane fade show active" id="tab-personal">
+            <div class="grid-3">
+              <div><label class="form-label req">Name</label><input type="text" class="form-control" id="staff_name"></div>
+              <div><label class="form-label req">DOB</label><input type="date" class="form-control" id="staff_dob"></div>
+              <div><label class="form-label">Gender</label>
+                <select class="form-select" id="staff_gender"><option>Male</option><option>Female</option><option>Other</option></select>
+              </div>
+              <div><label class="form-label">Father's Name</label><input type="text" class="form-control" id="father_name"></div>
+              <div><label class="form-label">Caste</label><select class="form-select" id="caste"><option>GEN</option><option>OBC</option><option>SC</option><option>ST</option></select></div>
+              <div><label class="form-label">Marital Status</label><select class="form-select" id="marital_status"><option>Married</option><option>Unmarried</option></select></div>
+              <div><label class="form-label">Vision</label><select class="form-select" id="vision"><option>Normal</option><option>NV</option><option>DV</option><option>Both</option></select></div>
+              <div><label class="form-label">Blood Group</label>
+                <select class="form-select" id="blood_group">
+                  <option value="">Select</option>
+                  <option>A+</option>
+                  <option>A-</option>
+                  <option>B+</option>
+                  <option>B-</option>
+                  <option>AB+</option>
+                  <option>AB-</option>
+                  <option>O+</option>
+                  <option>O-</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- CONTACT -->
+          <div class="tab-pane fade" id="tab-contact">
+            <div class="grid-2">
+              <div><label class="form-label req">Mobile Number</label><input type="tel" class="form-control" id="phone_number"></div>
+              <div><label class="form-label">Alternate Number</label><input type="tel" class="form-control" id="cug_number"></div>
+              <div><label class="form-label">Email</label><input type="email" class="form-control" id="email"></div>
+            </div>
+            <div class="mt-3">
+              <label class="form-label">Present Address</label><textarea class="form-control" rows="2" id="present_address"></textarea>
+            </div>
+            <div class="mt-3">
+              <label class="form-label">Permanent Address</label><textarea class="form-control" rows="2" id="permanent_address"></textarea>
+            </div>
+          </div>
+
+          <!-- IDs & SERVICE -->
+          <div class="tab-pane fade" id="tab-ids">
+            <div class="grid-3">
+              <div><label class="form-label req">PF No</label><input type="text" class="form-control" id="pf_no"></div>
+              <div><label class="form-label">HRMS ID</label><input type="text" class="form-control" id="hrms_id" readonly></div>
+              <div><label class="form-label">Current CMS ID</label><input type="text" class="form-control" id="current_cms_id" readonly></div>
+              <div><label class="form-label">Original CMS ID</label><input type="text" class="form-control" id="original_cms_id" readonly></div>
+              <div><label class="form-label">Aadhaar</label><input type="text" class="form-control" id="aadhaar"></div>
+              <div><label class="form-label">PAN</label><input type="text" class="form-control" id="pan"></div>
+              <div><label class="form-label">Date of Appointment</label><input type="date" class="form-control" id="date_of_appointment"></div>
+              <div><label class="form-label">Safety Category</label>
+                <select class="form-select" id="safety_category"><option>A</option><option>B</option><option>C</option><option>D</option></select>
+              </div>
+            </div>
+          </div>
+
+          <!-- FAMILY -->
+          <div class="tab-pane fade" id="tab-family">
+            <!-- Dependents Scorecard -->
+            <div class="row mb-3">
+              <div class="col-md-3">
+                <div style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); padding: 20px; border-radius: 12px; color: white; text-align: center;">
+                  <div style="font-size: 32px; font-weight: 700;" id="dependentsCount">0</div>
+                  <div style="font-size: 14px; opacity: 0.9;">Total Dependents</div>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 20px; border-radius: 12px; color: white; text-align: center;">
+                  <div style="font-size: 32px; font-weight: 700;" id="familyMembersCount">0</div>
+                  <div style="font-size: 14px; opacity: 0.9;">Family Members</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Left Form + Right Table Layout -->
+            <div class="row">
+              <!-- Left: Add Family Member Form -->
+              <div class="col-md-4">
+                <div style="background: #f9fafb; padding: 20px; border-radius: 8px; border: 1px solid #e5e7eb;">
+                  <h6 class="mb-3">Add Family Member</h6>
+                  <div class="mb-3">
+                    <label class="form-label req">Name</label>
+                    <input type="text" class="form-control" id="family_name">
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label req">Relationship</label>
+                    <select class="form-select" id="family_relationship">
+                      <option value="">Select</option>
+                      <option>Spouse</option>
+                      <option>Son</option>
+                      <option>Daughter</option>
+                      <option>Father</option>
+                      <option>Mother</option>
+                      <option>Brother</option>
+                      <option>Sister</option>
+                    </select>
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label">Date of Birth</label>
+                    <input type="date" class="form-control" id="family_dob">
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label">Occupation</label>
+                    <input type="text" class="form-control" id="family_occupation" placeholder="Student, Teacher, etc.">
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label">Dependent</label>
+                    <select class="form-select" id="family_dependent">
+                      <option value="Yes">Yes</option>
+                      <option value="No">No</option>
+                    </select>
+                  </div>
+                  <button class="btn btn-primary w-100" onclick="addFamilyMember()">+ Add Member</button>
+                </div>
+              </div>
+
+              <!-- Right: Family Members Table -->
+              <div class="col-md-8">
+                <h6 class="mb-3">Family Members</h6>
+                <div style="overflow-x: auto;">
+                  <table class="table table-sm align-middle table-hover">
+                    <thead style="background: #f9fafb;">
+                      <tr>
+                        <th>Name</th>
+                        <th>Relationship</th>
+                        <th>Date of Birth</th>
+                        <th>Age</th>
+                        <th>Dependent</th>
+                        <th>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody id="familyRows">
+                      <tr>
+                        <td colspan="6" style="text-align: center; color: #9ca3af; padding: 40px;">No family members added yet</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- PROMOTIONS -->
+          <div class="tab-pane fade" id="tab-promotion">
+            <div class="row">
+              <!-- Left: Add Promotion Form -->
+              <div class="col-md-4">
+                <div style="background: #f9fafb; padding: 20px; border-radius: 8px; border: 1px solid #e5e7eb;">
+                  <h6 class="mb-3">Add Promotion Record</h6>
+                  <div class="mb-3">
+                    <label class="form-label">Change Type</label>
+                    <select class="form-select" id="promo_change_type">
+                      <option value="Promotion">Promotion</option>
+                      <option value="Demotion">Demotion</option>
+                      <option value="Lateral Transfer">Lateral Transfer</option>
+                    </select>
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label">From Designation</label>
+                    <select class="form-select" id="promo_from_designation">
+                      <option value="">Select Designation</option>
+                    </select>
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label req">To Designation</label>
+                    <select class="form-select" id="promo_to_designation">
+                      <option value="">Select Designation</option>
+                    </select>
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label req">Posting Date</label>
+                    <input type="date" class="form-control" id="promo_date">
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label">Order Number</label>
+                    <input type="text" class="form-control" id="promo_order_no">
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label">Remarks</label>
+                    <textarea class="form-control" rows="2" id="promo_remarks"></textarea>
+                  </div>
+                  <button class="btn btn-primary w-100" onclick="addPromotion()">+ Add Promotion</button>
+                </div>
+              </div>
+
+              <!-- Right: Promotions Table -->
+              <div class="col-md-8">
+                <h6 class="mb-3">Promotion History</h6>
+                <div style="overflow-x: auto;">
+                  <table class="table table-sm align-middle table-hover">
+                    <thead style="background: #f9fafb;">
+                      <tr>
+                        <th>Date</th>
+                        <th>Type</th>
+                        <th>From → To</th>
+                        <th>Order No</th>
+                        <th>Remarks</th>
+                        <th>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody id="promoRows">
+                      <tr>
+                        <td colspan="6" style="text-align: center; color: #9ca3af; padding: 40px;">No promotion records added yet</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- TRAINING -->
+          <div class="tab-pane fade" id="tab-training">
+            <!-- Overdue Alert -->
+            <div id="trainingOverdueAlert" style="display:none; background: #fee2e2; border-left: 4px solid #dc2626; padding: 12px 16px; border-radius: 6px; margin-bottom: 20px;">
+              <strong style="color: #991b1b;">⚠️ Critical:</strong>
+              <span style="color: #991b1b;">This staff has <strong id="overdueCount">0</strong> overdue training course(s). Staff cannot be booked for train operations until training is completed.</span>
+            </div>
+
+            <div class="row">
+              <!-- Left: Add Training Form -->
+              <div class="col-md-4">
+                <div style="background: #f9fafb; padding: 20px; border-radius: 8px; border: 1px solid #e5e7eb;">
+                  <h6 class="mb-3">Add Training Record</h6>
+                  <div class="mb-3">
+                    <label class="form-label req">Training Type</label>
+                    <select class="form-select" id="training_type">
+                      <option value="">Select Training</option>
+                      <!-- Populated from database -->
+                    </select>
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label req">Done Date</label>
+                    <input type="date" class="form-control" id="training_done_date">
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label req">Due Date</label>
+                    <input type="date" class="form-control" id="training_due_date">
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label">PME Done at/Training Center</label>
+                    <select class="form-select" id="training_center">
+                      <option value="">Select Center</option>
+                      <!-- Populated from database -->
+                    </select>
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label">Remarks</label>
+                    <textarea class="form-control" rows="2" id="training_remarks"></textarea>
+                  </div>
+                  <button class="btn btn-primary w-100" onclick="addTraining()">+ Add Training</button>
+                </div>
+              </div>
+
+              <!-- Right: Training Table -->
+              <div class="col-md-8">
+                <h6 class="mb-3">Training Records</h6>
+                <div style="overflow-x: auto;">
+                  <table class="table table-sm align-middle table-hover">
+                    <thead style="background: #f9fafb;">
+                      <tr>
+                        <th>Training</th>
+                        <th>Done Date</th>
+                        <th>Due Date</th>
+                        <th>Status</th>
+                        <th>Center</th>
+                        <th>Remarks</th>
+                        <th>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody id="trainingRows">
+                      <tr>
+                        <td colspan="6" style="text-align: center; color: #9ca3af; padding: 40px;">No training records added yet</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- STORES -->
+          <div class="tab-pane fade" id="tab-store">
+            <div class="row">
+              <!-- Left: Issue Store Item Form -->
+              <div class="col-md-4">
+                <div style="background: #f9fafb; padding: 20px; border-radius: 8px; border: 1px solid #e5e7eb;">
+                  <h6 class="mb-3">Issue Store Item</h6>
+                  <div class="mb-3">
+                    <label class="form-label req">Store Item</label>
+                    <select class="form-select" id="store_item">
+                      <option value="">Select Item</option>
+                    </select>
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label req">Issue Date</label>
+                    <input type="date" class="form-control" id="store_issue_date">
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label">Item Number/Serial</label>
+                    <input type="text" class="form-control" id="store_item_number">
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label">Status</label>
+                    <select class="form-select" id="store_status">
+                      <option>Issued</option>
+                      <option>Returned</option>
+                      <option>Lost</option>
+                      <option>Damaged</option>
+                    </select>
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label">Remarks</label>
+                    <textarea class="form-control" rows="2" id="store_remarks"></textarea>
+                  </div>
+                  <button class="btn btn-primary w-100" onclick="addStoreItem()">+ Issue Item</button>
+                </div>
+              </div>
+
+              <!-- Right: Store Items Table -->
+              <div class="col-md-8">
+                <h6 class="mb-3">Issued Store Items</h6>
+                <div style="overflow-x: auto;">
+                  <table class="table table-sm align-middle table-hover">
+                    <thead style="background: #f9fafb;">
+                      <tr>
+                        <th>Item</th>
+                        <th>Issue Date</th>
+                        <th>Item Number</th>
+                        <th>Status</th>
+                        <th>Remarks</th>
+                        <th>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody id="storeRows">
+                      <tr>
+                        <td colspan="6" style="text-align: center; color: #9ca3af; padding: 40px;">No store items issued yet</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- DETONATORS -->
+          <div class="tab-pane fade" id="tab-detonator">
+            <div class="row">
+              <!-- Left: Issue Detonator Form -->
+              <div class="col-md-4">
+                <div style="background: #f9fafb; padding: 20px; border-radius: 8px; border: 1px solid #e5e7eb;">
+                  <h6 class="mb-3">Issue Detonator</h6>
+                  <div class="mb-3">
+                    <label class="form-label req">Lot Number</label>
+                    <input type="text" class="form-control" id="detonator_lot_number" placeholder="e.g., LOT-2020-001">
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label req">Manufacturing Date</label>
+                    <input type="text" class="form-control" id="detonator_mfg_date" placeholder="e.g., 5/2020 or 5-2020">
+                    <small class="text-muted">Format: Month/Year (e.g., 5/2020 for May 2020)</small>
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label req">Quantity</label>
+                    <input type="number" class="form-control" id="detonator_quantity" value="10" min="1">
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label req">Issue Date</label>
+                    <input type="date" class="form-control" id="detonator_issue_date">
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label">Remarks</label>
+                    <textarea class="form-control" rows="2" id="detonator_remarks"></textarea>
+                  </div>
+                  <button class="btn btn-primary w-100" onclick="addDetonator()">+ Issue Detonator</button>
+                </div>
+              </div>
+
+              <!-- Right: Detonators Table -->
+              <div class="col-md-8">
+                <h6 class="mb-3">Detonator Issue Records</h6>
+                <div style="overflow-x: auto;">
+                  <table class="table table-sm align-middle table-hover">
+                    <thead style="background: #f9fafb;">
+                      <tr>
+                        <th>Lot Number</th>
+                        <th>Mfg Date</th>
+                        <th>Quantity</th>
+                        <th>Issue Date</th>
+                        <th>Expiry Date</th>
+                        <th>Status</th>
+                        <th>Remarks</th>
+                        <th>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody id="detonatorRows">
+                      <tr>
+                        <td colspan="8" style="text-align: center; color: #9ca3af; padding: 40px;">No detonators issued yet</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- DISCIPLINE -->
+          <div class="tab-pane fade" id="tab-discipline">
+            <!-- AWARDS SECTION -->
+            <h5 class="mb-3">🏆 Awards & Recognition</h5>
+            <div class="row mb-5">
+              <!-- Left: Add Award Form -->
+              <div class="col-md-4">
+                <div style="background: #f9fafb; padding: 20px; border-radius: 8px; border: 1px solid #e5e7eb;">
+                  <h6 class="mb-3">Add Award</h6>
+                  <div class="mb-3">
+                    <label class="form-label req">Award Name</label>
+                    <select class="form-select" id="award_name">
+                      <option value="">Select Award</option>
+                      <option>Railway Board Award</option>
+                      <option>GM Award</option>
+                      <option>PCEE Award</option>
+                      <option>PCOM Award</option>
+                      <option>PCME Award</option>
+                      <option>PCSO Award</option>
+                      <option>DRM Award</option>
+                      <option>Sr.DEE Appreciation</option>
+                      <option>Commendation</option>
+                      <option>Others</option>
+                    </select>
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label req">Award Date</label>
+                    <input type="date" class="form-control" id="award_date">
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label">Issued By</label>
+                    <input type="text" class="form-control" id="award_issued_by" placeholder="e.g., General Manager">
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label">Description</label>
+                    <textarea class="form-control" rows="2" id="award_description" placeholder="Reason for award"></textarea>
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label">Remarks</label>
+                    <textarea class="form-control" rows="2" id="award_remarks"></textarea>
+                  </div>
+                  <button class="btn btn-success w-100" id="btnAddAward" onclick="addAward()">+ Add Award</button>
+                  <button class="btn btn-secondary w-100 mt-2" id="btnClearAward" onclick="clearAwardForm()" style="display: none;">Clear</button>
+                </div>
+              </div>
+
+              <!-- Right: Awards Table -->
+              <div class="col-md-8">
+                <h6 class="mb-3">Awards History</h6>
+                <div style="overflow-x: auto;">
+                  <table class="table table-sm align-middle table-hover">
+                    <thead style="background: #f9fafb;">
+                      <tr>
+                        <th>Award Date</th>
+                        <th>Award Name</th>
+                        <th>Issued By</th>
+                        <th>Description</th>
+                        <th>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody id="awardRows">
+                      <tr>
+                        <td colspan="5" style="text-align: center; color: #9ca3af; padding: 40px;">No awards added yet</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <hr class="my-4">
+
+            <!-- PUNISHMENTS SECTION -->
+            <h5 class="mb-3">⚠️ Punishments & Disciplinary Actions</h5>
+            <div class="row">
+              <!-- Left: Add Punishment Form -->
+              <div class="col-md-4">
+                <div style="background: #fff3cd; padding: 20px; border-radius: 8px; border: 1px solid #ffc107;">
+                  <h6 class="mb-3">Add Punishment</h6>
+                  <div class="mb-3">
+                    <label class="form-label req">Punishment Type</label>
+                    <select class="form-select" id="punishment_type" onchange="toggleDemotionField()">
+                      <option value="">Select Type</option>
+                      <option>Warning</option>
+                      <option>Censure</option>
+                      <option>Suspension</option>
+                      <option>Demotion</option>
+                      <option>Dismissal</option>
+                      <option>Removal From Service</option>
+                      <option>Compulsory Retirement from Service</option>
+                      <option>Change of Safety Category</option>
+                      <option>Others</option>
+                    </select>
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label req">Punishment Date</label>
+                    <input type="date" class="form-control" id="punishment_date">
+                  </div>
+                  <div class="mb-3" id="demotion_designation_field" style="display: none;">
+                    <label class="form-label req">Demoted To Designation</label>
+                    <select class="form-select" id="demotion_designation">
+                      <option value="">Select Designation</option>
+                    </select>
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label">Order Number</label>
+                    <input type="text" class="form-control" id="punishment_order_no">
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label">Severity</label>
+                    <select class="form-select" id="punishment_severity">
+                      <option value="">Select Severity</option>
+                      <option>Minor</option>
+                      <option>Major</option>
+                      <option>Severe</option>
+                    </select>
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label">Description</label>
+                    <textarea class="form-control" rows="2" id="punishment_description" placeholder="Reason for punishment"></textarea>
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label">Issued By</label>
+                    <input type="text" class="form-control" id="punishment_issued_by">
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label">Remarks</label>
+                    <textarea class="form-control" rows="2" id="punishment_remarks"></textarea>
+                  </div>
+                  <button class="btn btn-warning w-100" id="btnAddPunishment" onclick="addPunishment()">+ Add Punishment</button>
+                  <button class="btn btn-secondary w-100 mt-2" id="btnClearPunishment" onclick="clearPunishmentForm()" style="display: none;">Clear</button>
+                </div>
+              </div>
+
+              <!-- Right: Punishments Table -->
+              <div class="col-md-8">
+                <h6 class="mb-3">Punishments History</h6>
+                <div style="overflow-x: auto;">
+                  <table class="table table-sm align-middle table-hover">
+                    <thead style="background: #f9fafb;">
+                      <tr>
+                        <th>Date</th>
+                        <th>Type</th>
+                        <th>Severity</th>
+                        <th>Order No</th>
+                        <th>Description</th>
+                        <th>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody id="punishmentRows">
+                      <tr>
+                        <td colspan="6" style="text-align: center; color: #9ca3af; padding: 40px;">No punishments added yet</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- TRANSFER -->
+          <div class="tab-pane fade" id="tab-transfer">
+            <div class="alert alert-info" role="alert">
+              <strong>ℹ️ Note:</strong> To initiate a transfer, use the <strong>"Transfer"</strong> button in the left sidebar. This tab shows the complete transfer history for this staff member.
+            </div>
+
+            <h6 class="mb-3">Transfer History</h6>
+            <div style="overflow-x: auto;">
+              <table class="table table-sm align-middle table-hover">
+                <thead style="background: #f9fafb;">
+                  <tr>
+                    <th>Transfer Date</th>
+                    <th>From Office</th>
+                    <th>From CMS ID</th>
+                    <th>To Office</th>
+                    <th>To CMS ID</th>
+                    <th>Order No</th>
+                    <th>Status</th>
+                    <th>Remarks</th>
+                  </tr>
+                </thead>
+                <tbody id="transferHistory">
+                  <tr>
+                    <td colspan="8" style="text-align: center; color: #9ca3af; padding: 40px;">No transfer records found</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Transfer Modal -->
+<div class="modal fade" id="transferModal" tabindex="-1">
+  <div class="modal-dialog">
+    <form class="modal-content" id="transferModalForm">
+      <div class="modal-header">
+        <h5 class="modal-title">Transfer Staff</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <!-- Current Posting Info -->
+        <div class="alert alert-info mb-3">
+          <strong>Current Posting:</strong><br>
+          <div class="mt-1">
+            <small>
+              <strong>Name:</strong> <span id="modal_staff_name">—</span><br>
+              <strong>HRMS ID:</strong> <span id="modal_staff_hrms">—</span><br>
+              <strong>Office:</strong> <span id="modal_current_office">—</span><br>
+              <strong>CMS ID:</strong> <span id="modal_current_cms">—</span>
+            </small>
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label req">To Office</label>
+          <select class="form-select" id="modal_to_office" required>
+            <option value="">Select Office</option>
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label req">Effective Date</label>
+          <input type="date" class="form-control" id="modal_effective_date" required>
+        </div>
+        <div class="mb-3">
+          <label class="form-label req">Category</label>
+          <select class="form-select" id="modal_category" required>
+            <option value="">Select Category</option>
+            <option>Promotion</option>
+            <option>Permanent Transfer</option>
+            <option>Temporary Transfer</option>
+            <option>Inter Railway</option>
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Order Number</label>
+          <input type="text" class="form-control" id="modal_order_no">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Reason / Remarks</label>
+          <textarea class="form-control" rows="2" id="modal_remarks"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="submit" class="btn btn-primary">Submit Transfer Request</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+let currentUser = null;
+let currentStaffOffice = null;
+
+// Check user session and permissions
+async function checkUserPermissions() {
+  try {
+    const response = await fetch('/api/current-user');
+
+    if (!response.ok) {
+      console.error('Not authenticated');
+      window.location.href = '/';
+      return;
+    }
+
+    const data = await response.json();
+    currentUser = data; // API returns user object directly
+
+    console.log('Current user:', currentUser);
+
+    // If not division_admin and staff office doesn't match user office, make read-only
+    // This will be checked when staff data is loaded
+  } catch (error) {
+    console.error('Error checking user permissions:', error);
+    window.location.href = '/';
+  }
+}
+
+// Load offices from API
+async function loadOffices() {
+  try {
+    const response = await fetch('/api/division/offices');
+    const result = await response.json();
+    const offices = result.data || result; // Handle both {data: [...]} and [...] formats
+
+    const select = document.getElementById('officeSelect');
+
+    // If user is not division_admin, only show their office
+    if (currentUser && currentUser.div_role !== 'division_admin') {
+      const userOffice = offices.find(o => o.office_code === currentUser.office_code);
+      if (userOffice) {
+        const option = document.createElement('option');
+        option.value = userOffice.office_code;
+        option.textContent = userOffice.office_name;
+        option.selected = true;
+        select.appendChild(option);
+        select.disabled = true; // User can only view their own office
+      }
+    } else {
+      // Division admin can see all offices
+      offices.forEach(office => {
+        const option = document.createElement('option');
+        option.value = office.office_code;
+        option.textContent = office.office_name;
+        select.appendChild(option);
+      });
+    }
+
+    // Also populate transfer office dropdowns
+    populateOfficeDropdowns(offices);
+  } catch (error) {
+    console.error('Error loading offices:', error);
+  }
+}
+
+// Load designations for promotions (exclude ALP - grade 4)
+async function loadDesignations() {
+  try {
+    const response = await fetch('/api/division/designations');
+    const result = await response.json();
+    const designations = result.data || result;
+
+    // Populate From Designation dropdown
+    const fromDesigSelect = document.getElementById('promo_from_designation');
+    if (fromDesigSelect) {
+      fromDesigSelect.innerHTML = '<option value="">Select Designation</option>';
+      designations.forEach(desg => {
+        const option = document.createElement('option');
+        option.value = desg.id;
+        option.textContent = desg.designation_name;
+        fromDesigSelect.appendChild(option);
+      });
+    }
+
+    // Populate To Designation dropdown
+    const toDesigSelect = document.getElementById('promo_to_designation');
+    if (toDesigSelect) {
+      toDesigSelect.innerHTML = '<option value="">Select Designation</option>';
+      designations.forEach(desg => {
+        const option = document.createElement('option');
+        option.value = desg.id;
+        option.textContent = desg.designation_name;
+        toDesigSelect.appendChild(option);
+      });
+    }
+
+    // Store all designations for later use
+    window.allDesignations = designations;
+
+  } catch (error) {
+    console.error('Error loading designations:', error);
+  }
+}
+
+// Load training types from database
+async function loadTrainingTypes() {
+  try {
+    const response = await fetch('/api/division/training-types');
+    const result = await response.json();
+    const trainingTypes = result.data || result;
+
+    const trainingTypeSelect = document.getElementById('training_type');
+    trainingTypeSelect.innerHTML = '<option value="">Select Training</option>';
+
+    trainingTypes.forEach(type => {
+      const option = document.createElement('option');
+      option.value = type.id;
+      option.textContent = type.training_name;
+      trainingTypeSelect.appendChild(option);
+    });
+
+    // Store for later use
+    window.allTrainingTypes = trainingTypes;
+
+  } catch (error) {
+    console.error('Error loading training types:', error);
+  }
+}
+
+// Load training centers from database
+async function loadTrainingCenters() {
+  try {
+    const response = await fetch('/api/division/training-centers');
+    const result = await response.json();
+    const centers = result.data || result;
+
+    const centerSelect = document.getElementById('training_center');
+    centerSelect.innerHTML = '<option value="">Select Center</option>';
+
+    centers.forEach(center => {
+      const option = document.createElement('option');
+      option.value = center.center_id;
+      option.textContent = center.center_name;
+      centerSelect.appendChild(option);
+    });
+
+    // Store for later use
+    window.allTrainingCenters = centers;
+
+  } catch (error) {
+    console.error('Error loading training centers:', error);
+  }
+}
+
+// Toggle demotion designation field visibility
+function toggleDemotionField() {
+  const type = document.getElementById('discipline_type').value;
+  const demotionField = document.getElementById('demotion_designation_field');
+
+  if (type === 'Demotion') {
+    demotionField.style.display = 'block';
+  } else {
+    demotionField.style.display = 'none';
+    document.getElementById('demotion_designation').value = '';
+  }
+}
+
+// Populate office dropdowns in Transfer tab and modal
+function populateOfficeDropdowns(offices) {
+  const fromOfficeSelect = document.getElementById('transfer_from_office');
+  const toOfficeSelect = document.getElementById('transfer_to_office');
+  const modalToOfficeSelect = document.getElementById('modal_to_office');
+
+  // Populate Transfer tab dropdowns
+  [fromOfficeSelect, toOfficeSelect].forEach(select => {
+    if (select) {
+      select.innerHTML = '<option value="">Select Office</option>';
+      offices.forEach(office => {
+        const option = document.createElement('option');
+        option.value = office.office_code;
+        option.textContent = office.office_name;
+        select.appendChild(option);
+      });
+    }
+  });
+
+  // Populate Transfer modal dropdown (same offices)
+  if (modalToOfficeSelect) {
+    modalToOfficeSelect.innerHTML = '<option value="">Select Office</option>';
+    offices.forEach(office => {
+      const option = document.createElement('option');
+      option.value = office.office_code;
+      option.textContent = office.office_name;
+      modalToOfficeSelect.appendChild(option);
+    });
+  }
+}
+
+// Check if user can edit this staff member
+function canEditStaff(staffOfficeCode) {
+  if (!currentUser) return false;
+
+  // Division admin can edit all
+  if (currentUser.div_role === 'division_admin') return true;
+
+  // Office user can only edit staff from their office
+  if (currentUser.office_code === staffOfficeCode) return true;
+
+  return false;
+}
+
+// Make form read-only
+function makeFormReadOnly() {
+  // Disable all inputs, selects, textareas, and buttons except navigation tabs
+  document.querySelectorAll('input, select, textarea, button').forEach(el => {
+    // Keep tabs and close buttons functional
+    if (!el.closest('.nav-tabs') &&
+        !el.classList.contains('btn-close') &&
+        el.id !== 'searchStaff' &&
+        el.id !== 'btnSearch') {
+      el.disabled = true;
+    }
+  });
+
+  // Hide save buttons
+  document.querySelectorAll('.btn-success, .btn-primary').forEach(btn => {
+    if (btn.textContent.includes('Save') || btn.textContent.includes('Submit')) {
+      btn.style.display = 'none';
+    }
+  });
+
+  // Hide add buttons
+  document.querySelectorAll('button.no-print').forEach(btn => {
+    if (btn.textContent.includes('Add') || btn.textContent.includes('Remove')) {
+      btn.style.display = 'none';
+    }
+  });
+
+  // Show read-only badge
+  const header = document.querySelector('h3.m-0');
+  if (header) {
+    const badge = document.createElement('span');
+    badge.style.cssText = 'background: #fef3c7; color: #92400e; padding: 4px 12px; border-radius: 50rem; font-size: 12px; margin-left: 12px;';
+    badge.textContent = '👁️ Read Only';
+    header.appendChild(badge);
+  }
+}
+
+function addRow(host, cols){
+  const tr=document.createElement('tr');
+  cols.forEach(c=>{
+    const td=document.createElement('td');
+    const input=document.createElement('input');
+    input.type=c; input.className='form-control form-control-sm';
+    td.appendChild(input); tr.appendChild(td);
+  });
+  const td=document.createElement('td');
+  const btn=document.createElement('button');
+  btn.type='button';btn.className='btn btn-link text-danger btn-sm';btn.textContent='Remove';
+  btn.onclick=()=>tr.remove();td.appendChild(btn);tr.appendChild(td);
+  document.getElementById(host).appendChild(tr);
+}
+// Family members management
+let familyMembers = [];
+
+async function addFamilyMember() {
+  const name = document.getElementById('family_name').value.trim();
+  const relationship = document.getElementById('family_relationship').value;
+  const dob = document.getElementById('family_dob').value;
+  const occupation = document.getElementById('family_occupation').value.trim();
+  const dependent = document.getElementById('family_dependent').value;
+
+  if (!name || !relationship) {
+    alert('Please enter name and relationship');
+    return;
+  }
+
+  const staffHrmsId = window.currentStaffHrmsId;
+  if (!staffHrmsId) {
+    alert('Please load a staff member first');
+    return;
+  }
+
+  try {
+    // Check if editing or adding new
+    const isEditing = window.editingFamilyId;
+    const url = isEditing
+      ? `/api/division/family/${window.editingFamilyId}`
+      : '/api/division/family';
+    const method = isEditing ? 'PUT' : 'POST';
+
+    const payload = {
+      member_name: name,
+      relation: relationship,
+      date_of_birth: dob || null,
+      occupation: occupation || null,
+      is_dependent: dependent === 'Yes' ? 1 : 0
+    };
+
+    // Add staff_hrms_id only for POST
+    if (!isEditing) {
+      payload.staff_hrms_id = staffHrmsId;
+    }
+
+    const response = await fetch(url, {
+      method: method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const result = await response.json();
+
+    if (result.success) {
+      alert(result.message);
+      clearFamilyForm();
+      loadFamilyMembers(staffHrmsId); // Reload the table
+    } else {
+      alert('Error: ' + result.error);
+    }
+  } catch (error) {
+    console.error('Error saving family member:', error);
+    alert('Error saving family member');
+  }
+}
+
+function renderFamilyMembers() {
+  const tbody = document.getElementById('familyRows');
+
+  if (familyMembers.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #9ca3af; padding: 40px;">No family members added yet</td></tr>';
+    document.getElementById('familyMembersCount').textContent = '0';
+    document.getElementById('dependentsCount').textContent = '0';
+    return;
+  }
+
+  const dependentsCount = familyMembers.filter(m => m.dependent === 'Yes').length;
+  document.getElementById('familyMembersCount').textContent = familyMembers.length;
+  document.getElementById('dependentsCount').textContent = dependentsCount;
+
+  tbody.innerHTML = familyMembers.map((member, index) => {
+    const age = member.dob ? calculateAge(member.dob) : '-';
+    const dependentBadge = member.dependent === 'Yes'
+      ? '<span class="pill status-active">Yes</span>'
+      : '<span style="background: #e5e7eb; color: #6b7280;" class="pill">No</span>';
+
+    return `
+      <tr>
+        <td>${member.name}</td>
+        <td>${member.relationship}</td>
+        <td>${formatDateDDMMYYYY(member.dob)}</td>
+        <td>${age}</td>
+        <td>${dependentBadge}</td>
+        <td><button class="btn btn-link text-danger btn-sm" onclick="removeFamilyMember(${index})">Remove</button></td>
+      </tr>
+    `;
+  }).join('');
+}
+
+async function removeFamilyMember(familyId) {
+  if (!confirm('Remove this family member?')) {
+    return;
+  }
+
+  try {
+    const response = await fetch(`/api/division/family/${familyId}`, {
+      method: 'DELETE'
+    });
+
+    const result = await response.json();
+
+    if (result.success) {
+      alert(result.message);
+      const staffHrmsId = window.currentStaffHrmsId;
+      if (staffHrmsId) {
+        loadFamilyMembers(staffHrmsId); // Reload the table
+      }
+    } else {
+      alert('Error: ' + result.error);
+    }
+  } catch (error) {
+    console.error('Error deleting family member:', error);
+    alert('Error deleting family member');
+  }
+}
+
+function calculateAge(dob) {
+  if (!dob) return '-';
+  const birthDate = new Date(dob);
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDiff = today.getMonth() - birthDate.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+    age--;
+  }
+  return age + ' yrs';
+}
+
+function formatDateDDMMYYYY(dateStr) {
+  if (!dateStr) return '-';
+  const date = new Date(dateStr);
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+  return `${day}/${month}/${year}`;
+}
+
+// Promotions management
+let promotions = [];
+
+// Load promotions for a staff
+async function loadPromotions(hrmsId) {
+  try {
+    const response = await fetch(`/api/division/promotions/${hrmsId}`);
+    const result = await response.json();
+
+    if (result.success) {
+      renderPromotions(result.data);
+    } else {
+      console.error('Failed to load promotions');
+    }
+  } catch (error) {
+    console.error('Error loading promotions:', error);
+  }
+}
+
+// Render promotions table
+function renderPromotions(promotions) {
+  const tbody = document.getElementById('promoRows');
+
+  if (promotions.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #9ca3af; padding: 40px;">No promotion records added yet</td></tr>';
+    return;
+  }
+
+  // Format date helper
+  function formatDate(dateString) {
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  }
+
+  tbody.innerHTML = promotions.map((promo, index) => {
+    // Badge color based on change type
+    let badgeClass = 'bg-success';
+    if (promo.change_type === 'Demotion') badgeClass = 'bg-danger';
+    if (promo.change_type === 'Lateral Transfer') badgeClass = 'bg-info';
+
+    // Store promotion in global array for edit access
+    window.promotionsData = window.promotionsData || [];
+    window.promotionsData[index] = promo;
+
+    return `
+      <tr>
+        <td>${formatDate(promo.posting_date)}</td>
+        <td><span class="badge ${badgeClass}">${promo.change_type}</span></td>
+        <td>
+          ${promo.from_designation_name || '-'} <br>
+          <strong style="color: #2563eb;">→ ${promo.to_designation_name}</strong>
+        </td>
+        <td>${promo.promotion_order_no || '-'}</td>
+        <td>${promo.remarks || '-'}</td>
+        <td>
+          <button class="btn btn-sm btn-outline-primary me-1" onclick="editPromotion(${index})">Edit</button>
+          <button class="btn btn-sm btn-outline-danger" onclick="removePromotion(${promo.promotion_id})">Remove</button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+// Add or update promotion
+async function addPromotion() {
+  const changeType = document.getElementById('promo_change_type').value;
+  const fromDesignationId = document.getElementById('promo_from_designation').value;
+  const toDesignationId = document.getElementById('promo_to_designation').value;
+  const postingDate = document.getElementById('promo_date').value;
+  const orderNo = document.getElementById('promo_order_no').value.trim();
+  const remarks = document.getElementById('promo_remarks').value.trim();
+
+  if (!toDesignationId || !postingDate) {
+    alert('Please enter posting date and to designation');
+    return;
+  }
+
+  const staffHrmsId = window.currentStaffHrmsId;
+  if (!staffHrmsId) {
+    alert('Please load a staff member first');
+    return;
+  }
+
+  try {
+    const isEditing = window.editingPromotionId;
+    const url = isEditing
+      ? `/api/division/promotions/${window.editingPromotionId}`
+      : '/api/division/promotions';
+    const method = isEditing ? 'PUT' : 'POST';
+
+    const payload = {
+      from_designation_id: fromDesignationId || null,
+      to_designation_id: toDesignationId,
+      change_type: changeType,
+      posting_date: postingDate,
+      promotion_order_no: orderNo || null,
+      remarks: remarks || null
+    };
+
+    if (!isEditing) {
+      payload.staff_hrms_id = staffHrmsId;
+    }
+
+    const response = await fetch(url, {
+      method: method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const result = await response.json();
+
+    if (result.success) {
+      alert(result.message);
+      clearPromotionForm();
+      loadPromotions(staffHrmsId);
+    } else {
+      alert('Error: ' + result.error);
+    }
+  } catch (error) {
+    console.error('Error saving promotion:', error);
+    alert('Error saving promotion');
+  }
+}
+
+// Edit promotion
+function editPromotion(index) {
+  const promo = window.promotionsData[index];
+  if (!promo) return;
+
+  window.editingPromotionId = promo.promotion_id;
+
+  document.getElementById('promo_change_type').value = promo.change_type || 'Promotion';
+  document.getElementById('promo_from_designation').value = promo.from_designation_id || '';
+  document.getElementById('promo_to_designation').value = promo.to_designation_id || '';
+  document.getElementById('promo_date').value = formatDateForInput(promo.posting_date);
+  document.getElementById('promo_order_no').value = promo.promotion_order_no || '';
+  document.getElementById('promo_remarks').value = promo.remarks || '';
+
+  const addButton = document.querySelector('#tab-promotion button[onclick="addPromotion()"]');
+  addButton.textContent = '✏️ Update Promotion';
+  addButton.classList.remove('btn-primary');
+  addButton.classList.add('btn-warning');
+
+  document.getElementById('promo_date').focus();
+}
+
+// Clear promotion form
+function clearPromotionForm() {
+  window.editingPromotionId = null;
+  document.getElementById('promo_change_type').value = 'Promotion';
+  document.getElementById('promo_from_designation').value = '';
+  document.getElementById('promo_to_designation').value = '';
+  document.getElementById('promo_date').value = '';
+  document.getElementById('promo_order_no').value = '';
+  document.getElementById('promo_remarks').value = '';
+
+  const addButton = document.querySelector('#tab-promotion button[onclick="addPromotion()"]');
+  addButton.textContent = '+ Add Promotion';
+  addButton.classList.remove('btn-warning');
+  addButton.classList.add('btn-primary');
+}
+
+// Remove promotion
+async function removePromotion(promotionId) {
+  if (!confirm('Remove this promotion record?')) {
+    return;
+  }
+
+  try {
+    const response = await fetch(`/api/division/promotions/${promotionId}`, {
+      method: 'DELETE'
+    });
+
+    const result = await response.json();
+
+    if (result.success) {
+      alert(result.message);
+      const staffHrmsId = window.currentStaffHrmsId;
+      if (staffHrmsId) {
+        loadPromotions(staffHrmsId);
+      }
+    } else {
+      alert('Error: ' + result.error);
+    }
+  } catch (error) {
+    console.error('Error deleting promotion:', error);
+    alert('Error deleting promotion');
+  }
+}
+
+// Training management
+let trainings = [];
+
+// Load training records for a staff
+async function loadTrainings(hrmsId) {
+  try {
+    const response = await fetch(`/api/division/training/${hrmsId}`);
+    const result = await response.json();
+
+    if (result.success) {
+      renderTrainings(result.data);
+    } else {
+      console.error('Failed to load training records');
+    }
+  } catch (error) {
+    console.error('Error loading training records:', error);
+  }
+}
+
+// Add or update training
+async function addTraining() {
+  const trainingId = document.getElementById('training_type').value;
+  const doneDate = document.getElementById('training_done_date').value;
+  const dueDate = document.getElementById('training_due_date').value;
+  const centerId = document.getElementById('training_center').value;
+  const remarks = document.getElementById('training_remarks').value.trim();
+
+  if (!trainingId || !doneDate || !dueDate) {
+    alert('Please enter training type, done date, and due date');
+    return;
+  }
+
+  const staffHrmsId = window.currentStaffHrmsId;
+  if (!staffHrmsId) {
+    alert('Please load a staff member first');
+    return;
+  }
+
+  try {
+    const isEditing = window.editingTrainingId;
+    const url = isEditing
+      ? `/api/division/training/${window.editingTrainingId}`
+      : '/api/division/training';
+    const method = isEditing ? 'PUT' : 'POST';
+
+    const payload = {
+      training_id: trainingId,
+      done_date: doneDate,
+      due_date: dueDate,
+      training_center_id: centerId || null,
+      remarks: remarks || null
+    };
+
+    if (!isEditing) {
+      payload.staff_hrms_id = staffHrmsId;
+    }
+
+    const response = await fetch(url, {
+      method: method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const result = await response.json();
+
+    if (result.success) {
+      alert(result.message);
+      clearTrainingForm();
+      loadTrainings(staffHrmsId);
+    } else {
+      alert('Error: ' + result.error);
+    }
+  } catch (error) {
+    console.error('Error saving training record:', error);
+    alert('Error saving training record');
+  }
+}
+
+// Render training records
+function renderTrainings(trainings) {
+  const tbody = document.getElementById('trainingRows');
+
+  if (trainings.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #9ca3af; padding: 40px;">No training records added yet</td></tr>';
+    document.getElementById('trainingOverdueAlert').style.display = 'none';
+    return;
+  }
+
+  const today = new Date();
+  let overdueCount = 0;
+
+  // Store training data for edit access
+  window.trainingsData = trainings;
+
+  // Format date helper
+  function formatDate(dateString) {
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  }
+
+  tbody.innerHTML = trainings.map((training, index) => {
+    const dueDate = new Date(training.due_date);
+    const daysUntilDue = Math.floor((dueDate - today) / (1000 * 60 * 60 * 24));
+
+    let statusClass = 'badge bg-success';
+    let statusText = 'Valid';
+
+    if (daysUntilDue < 0) {
+      statusClass = 'badge bg-danger';
+      statusText = `Overdue ${Math.abs(daysUntilDue)} days`;
+      overdueCount++;
+    } else if (daysUntilDue <= 30) {
+      statusClass = 'badge bg-warning';
+      statusText = `Due in ${daysUntilDue} days`;
+    }
+
+    return `
+      <tr>
+        <td><strong>${training.training_name}</strong></td>
+        <td>${formatDate(training.done_date)}</td>
+        <td>${formatDate(training.due_date)}</td>
+        <td><span class="${statusClass}">${statusText}</span></td>
+        <td>${training.center_name || '-'}</td>
+        <td>${training.remarks || '-'}</td>
+        <td>
+          <button class="btn btn-sm btn-outline-primary me-1" onclick="editTraining(${index})">Edit</button>
+          <button class="btn btn-sm btn-outline-danger" onclick="removeTraining(${training.record_id})">Remove</button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  // Show/hide overdue alert
+  if (overdueCount > 0) {
+    document.getElementById('trainingOverdueAlert').style.display = 'block';
+    document.getElementById('overdueCount').textContent = overdueCount;
+  } else {
+    document.getElementById('trainingOverdueAlert').style.display = 'none';
+  }
+}
+
+// Edit training
+function editTraining(index) {
+  const training = window.trainingsData[index];
+  if (!training) return;
+
+  window.editingTrainingId = training.record_id;
+
+  document.getElementById('training_type').value = training.training_id || '';
+  document.getElementById('training_done_date').value = formatDateForInput(training.done_date);
+  document.getElementById('training_due_date').value = formatDateForInput(training.due_date);
+  document.getElementById('training_center').value = training.training_center_id || '';
+  document.getElementById('training_remarks').value = training.remarks || '';
+
+  const addButton = document.querySelector('#tab-training button[onclick="addTraining()"]');
+  addButton.textContent = '✏️ Update Training';
+  addButton.classList.remove('btn-primary');
+  addButton.classList.add('btn-warning');
+
+  document.getElementById('training_type').focus();
+}
+
+// Clear training form
+function clearTrainingForm() {
+  window.editingTrainingId = null;
+  document.getElementById('training_type').value = '';
+  document.getElementById('training_done_date').value = '';
+  document.getElementById('training_due_date').value = '';
+  document.getElementById('training_center').value = '';
+  document.getElementById('training_remarks').value = '';
+
+  const addButton = document.querySelector('#tab-training button[onclick="addTraining()"]');
+  addButton.textContent = '+ Add Training';
+  addButton.classList.remove('btn-warning');
+  addButton.classList.add('btn-primary');
+}
+
+// Remove training
+async function removeTraining(recordId) {
+  if (!confirm('Remove this training record?')) {
+    return;
+  }
+
+  try {
+    const response = await fetch(`/api/division/training/${recordId}`, {
+      method: 'DELETE'
+    });
+
+    const result = await response.json();
+
+    if (result.success) {
+      alert(result.message);
+      const staffHrmsId = window.currentStaffHrmsId;
+      if (staffHrmsId) {
+        loadTrainings(staffHrmsId);
+      }
+    } else {
+      alert('Error: ' + result.error);
+    }
+  } catch (error) {
+    console.error('Error deleting training record:', error);
+    alert('Error deleting training record');
+  }
+}
+
+// Store items management
+let storeItems = [];
+
+function addStoreItem() {
+  const item = document.getElementById('store_item').value;
+  const issueDate = document.getElementById('store_issue_date').value;
+  const itemNumber = document.getElementById('store_item_number').value;
+  const status = document.getElementById('store_status').value;
+  const remarks = document.getElementById('store_remarks').value;
+
+  if (!item || !issueDate) {
+    alert('Please enter item and issue date');
+    return;
+  }
+
+  storeItems.push({ item, issueDate, itemNumber, status, remarks });
+
+  // Clear form
+  document.getElementById('store_item').value = '';
+  document.getElementById('store_issue_date').value = '';
+  document.getElementById('store_item_number').value = '';
+  document.getElementById('store_status').value = 'Issued';
+  document.getElementById('store_remarks').value = '';
+
+  renderStoreItems();
+}
+
+function renderStoreItems() {
+  const tbody = document.getElementById('storeRows');
+
+  if (storeItems.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #9ca3af; padding: 40px;">No store items issued yet</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = storeItems.map((store, index) => {
+    const statusColor = store.status === 'Issued' ? 'status-active' : 'pill';
+    return `
+      <tr>
+        <td>${store.item}</td>
+        <td>${formatDateDDMMYYYY(store.issueDate)}</td>
+        <td>${store.itemNumber || '-'}</td>
+        <td><span class="${statusColor}">${store.status}</span></td>
+        <td>${store.remarks || '-'}</td>
+        <td><button class="btn btn-link text-danger btn-sm" onclick="removeStoreItem(${index})">Remove</button></td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function removeStoreItem(index) {
+  if (confirm('Remove this store item?')) {
+    storeItems.splice(index, 1);
+    renderStoreItems();
+  }
+}
+
+// Detonator management
+let detonators = [];
+
+// Load detonators for a staff
+async function loadDetonators(hrmsId) {
+  try {
+    const response = await fetch(`/api/division/detonators/${hrmsId}`);
+    const result = await response.json();
+
+    if (result.success) {
+      renderDetonators(result.data);
+    } else {
+      console.error('Failed to load detonators');
+    }
+  } catch (error) {
+    console.error('Error loading detonators:', error);
+  }
+}
+
+// Add or update detonator
+async function addDetonator() {
+  const lotNumber = document.getElementById('detonator_lot_number').value.trim();
+  const mfgDate = document.getElementById('detonator_mfg_date').value.trim();
+  const quantity = document.getElementById('detonator_quantity').value;
+  const issueDate = document.getElementById('detonator_issue_date').value;
+  const remarks = document.getElementById('detonator_remarks').value.trim();
+
+  if (!lotNumber || !mfgDate || !quantity || !issueDate) {
+    alert('Please enter lot number, manufacturing date, quantity, and issue date');
+    return;
+  }
+
+  const staffHrmsId = window.currentStaffHrmsId;
+  if (!staffHrmsId) {
+    alert('Please load a staff member first');
+    return;
+  }
+
+  // Parse manufacturing date: accepts "5/2020", "5-2020", "05/2020", "05-2020"
+  const mfgParts = mfgDate.split(/[/-]/);
+  if (mfgParts.length !== 2) {
+    alert('Invalid manufacturing date format. Use MM/YYYY or MM-YYYY (e.g., 5/2020)');
+    return;
+  }
+
+  const mfgMonth = parseInt(mfgParts[0]);
+  const mfgYear = parseInt(mfgParts[1]);
+
+  if (isNaN(mfgMonth) || isNaN(mfgYear) || mfgMonth < 1 || mfgMonth > 12 || mfgYear < 2000 || mfgYear > 2099) {
+    alert('Invalid manufacturing date. Month must be 1-12 and year must be 2000-2099');
+    return;
+  }
+
+  // Calculate expiry date: same month, 5 years later
+  const expiryMonth = mfgMonth;
+  const expiryYear = mfgYear + 5;
+  const expiryDate = `${expiryYear}-${String(expiryMonth).padStart(2, '0')}-01`;
+
+  // Convert mfg_date to YYYY-MM-01 format for database
+  const mfgDateDB = `${mfgYear}-${String(mfgMonth).padStart(2, '0')}-01`;
+
+  try {
+    const isEditing = window.editingDetonatorId;
+    const url = isEditing
+      ? `/api/division/detonators/${window.editingDetonatorId}`
+      : '/api/division/detonators';
+    const method = isEditing ? 'PUT' : 'POST';
+
+    const payload = {
+      lot_number: lotNumber,
+      mfg_date: mfgDateDB,
+      expiry_date: expiryDate,
+      quantity: parseInt(quantity),
+      issue_date: issueDate,
+      status: 'Active',
+      remarks: remarks || null
+    };
+
+    if (!isEditing) {
+      payload.staff_hrms_id = staffHrmsId;
+    }
+
+    const response = await fetch(url, {
+      method: method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const result = await response.json();
+
+    if (result.success) {
+      alert(result.message);
+      clearDetonatorForm();
+      loadDetonators(staffHrmsId);
+    } else {
+      alert('Error: ' + result.error);
+    }
+  } catch (error) {
+    console.error('Error saving detonator:', error);
+    alert('Error saving detonator');
+  }
+}
+
+// Render detonators
+function renderDetonators(detonators) {
+  const tbody = document.getElementById('detonatorRows');
+
+  if (detonators.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #9ca3af; padding: 40px;">No detonators issued yet</td></tr>';
+    return;
+  }
+
+  const today = new Date();
+  window.detonatorsData = detonators;
+
+  // Format date helper
+  function formatDate(dateString) {
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  }
+
+  // Format mfg date as MM/YYYY
+  function formatMfgDate(dateString) {
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${month}/${year}`;
+  }
+
+  tbody.innerHTML = detonators.map((det, index) => {
+    const expiry = new Date(det.expiry_date);
+    const daysUntilExpiry = Math.floor((expiry - today) / (1000 * 60 * 60 * 24));
+
+    let statusClass = 'badge bg-success';
+    let statusText = det.status || 'Active';
+
+    if (det.status === 'Expired' || daysUntilExpiry < 0) {
+      statusClass = 'badge bg-danger';
+      statusText = 'Expired';
+    } else if (daysUntilExpiry <= 180) {
+      statusClass = 'badge bg-warning';
+      statusText = `Expiring in ${daysUntilExpiry} days`;
+    }
+
+    return `
+      <tr>
+        <td><strong>${det.lot_number}</strong></td>
+        <td>${formatMfgDate(det.mfg_date)}</td>
+        <td>${det.quantity}</td>
+        <td>${formatDate(det.issue_date)}</td>
+        <td>${formatDate(det.expiry_date)}</td>
+        <td><span class="${statusClass}">${statusText}</span></td>
+        <td>${det.remarks || '-'}</td>
+        <td>
+          <button class="btn btn-sm btn-outline-primary me-1" onclick="editDetonator(${index})">Edit</button>
+          <button class="btn btn-sm btn-outline-danger" onclick="removeDetonator(${det.detonator_stock_id})">Remove</button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+// Edit detonator
+function editDetonator(index) {
+  const det = window.detonatorsData[index];
+  if (!det) return;
+
+  window.editingDetonatorId = det.detonator_stock_id;
+
+  // Convert mfg_date from YYYY-MM-DD to MM/YYYY format for input
+  const mfgDate = new Date(det.mfg_date);
+  const mfgMonth = mfgDate.getMonth() + 1;
+  const mfgYear = mfgDate.getFullYear();
+  const mfgFormatted = `${mfgMonth}/${mfgYear}`;
+
+  document.getElementById('detonator_lot_number').value = det.lot_number || '';
+  document.getElementById('detonator_mfg_date').value = mfgFormatted;
+  document.getElementById('detonator_quantity').value = det.quantity || 10;
+  document.getElementById('detonator_issue_date').value = formatDateForInput(det.issue_date);
+  document.getElementById('detonator_remarks').value = det.remarks || '';
+
+  const addButton = document.querySelector('#tab-detonator button[onclick="addDetonator()"]');
+  addButton.textContent = '✏️ Update Detonator';
+  addButton.classList.remove('btn-primary');
+  addButton.classList.add('btn-warning');
+
+  document.getElementById('detonator_lot_number').focus();
+}
+
+// Clear detonator form
+function clearDetonatorForm() {
+  window.editingDetonatorId = null;
+  document.getElementById('detonator_lot_number').value = '';
+  document.getElementById('detonator_mfg_date').value = '';
+  document.getElementById('detonator_quantity').value = '10';
+  document.getElementById('detonator_issue_date').value = '';
+  document.getElementById('detonator_remarks').value = '';
+
+  const addButton = document.querySelector('#tab-detonator button[onclick="addDetonator()"]');
+  addButton.textContent = '+ Add Detonator';
+  addButton.classList.remove('btn-warning');
+  addButton.classList.add('btn-primary');
+}
+
+// Remove detonator
+async function removeDetonator(detonatorStockId) {
+  if (!confirm('Remove this detonator record?')) {
+    return;
+  }
+
+  try {
+    const response = await fetch(`/api/division/detonators/${detonatorStockId}`, {
+      method: 'DELETE'
+    });
+
+    const result = await response.json();
+
+    if (result.success) {
+      alert(result.message);
+      const staffHrmsId = window.currentStaffHrmsId;
+      if (staffHrmsId) {
+        loadDetonators(staffHrmsId);
+      }
+    } else {
+      alert('Error: ' + result.error);
+    }
+  } catch (error) {
+    console.error('Error deleting detonator:', error);
+    alert('Error deleting detonator');
+  }
+}
+
+// ========== DISCIPLINE MANAGEMENT (AWARDS & PUNISHMENTS) ==========
+
+// Load awards for a staff
+async function loadAwards(hrmsId) {
+  try {
+    const response = await fetch(`/api/division/discipline/awards/${hrmsId}`);
+    const result = await response.json();
+
+    if (result.success) {
+      renderAwards(result.data);
+    } else {
+      console.error('Failed to load awards');
+    }
+  } catch (error) {
+    console.error('Error loading awards:', error);
+  }
+}
+
+// Render awards table
+function renderAwards(awards) {
+  const tbody = document.getElementById('awardRows');
+
+  if (awards.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #9ca3af; padding: 40px;">No awards added yet</td></tr>';
+    return;
+  }
+
+  window.awardsData = awards;
+
+  function formatDate(dateString) {
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  }
+
+  tbody.innerHTML = awards.map((award, index) => `
+    <tr>
+      <td>${formatDate(award.award_date)}</td>
+      <td><strong>${award.award_name}</strong></td>
+      <td>${award.issued_by || '-'}</td>
+      <td>${award.description || '-'}</td>
+      <td>
+        <button class="btn btn-sm btn-outline-primary me-1" onclick="editAward(${index})">Edit</button>
+        <button class="btn btn-sm btn-outline-danger" onclick="removeAward(${award.award_id})">Remove</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+// Add or update award
+async function addAward() {
+  const awardName = document.getElementById('award_name').value.trim();
+  const awardDate = document.getElementById('award_date').value;
+  const issuedBy = document.getElementById('award_issued_by').value.trim();
+  const description = document.getElementById('award_description').value.trim();
+  const remarks = document.getElementById('award_remarks').value.trim();
+
+  if (!awardName || !awardDate) {
+    alert('Please enter award name and date');
+    return;
+  }
+
+  const staffHrmsId = window.currentStaffHrmsId;
+  if (!staffHrmsId) {
+    alert('Please load a staff member first');
+    return;
+  }
+
+  try {
+    const isEditing = window.editingAwardId;
+    const url = isEditing
+      ? `/api/division/discipline/awards/${window.editingAwardId}`
+      : '/api/division/discipline/awards';
+    const method = isEditing ? 'PUT' : 'POST';
+
+    const payload = {
+      award_name: awardName,
+      award_date: awardDate,
+      issued_by: issuedBy || null,
+      description: description || null,
+      remarks: remarks || null
+    };
+
+    if (!isEditing) {
+      payload.staff_hrms_id = staffHrmsId;
+    }
+
+    const response = await fetch(url, {
+      method: method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const result = await response.json();
+
+    if (result.success) {
+      alert(result.message);
+      clearAwardForm();
+      loadAwards(staffHrmsId);
+    } else {
+      alert('Error: ' + result.error);
+    }
+  } catch (error) {
+    console.error('Error saving award:', error);
+    alert('Error saving award');
+  }
+}
+
+// Edit award
+function editAward(index) {
+  const award = window.awardsData[index];
+  if (!award) return;
+
+  window.editingAwardId = award.award_id;
+
+  document.getElementById('award_name').value = award.award_name || '';
+  document.getElementById('award_date').value = formatDateForInput(award.award_date);
+  document.getElementById('award_issued_by').value = award.issued_by || '';
+  document.getElementById('award_description').value = award.description || '';
+  document.getElementById('award_remarks').value = award.remarks || '';
+
+  document.getElementById('btnAddAward').textContent = '✏️ Update Award';
+  document.getElementById('btnAddAward').classList.remove('btn-success');
+  document.getElementById('btnAddAward').classList.add('btn-warning');
+  document.getElementById('btnClearAward').style.display = 'block';
+
+  document.getElementById('award_name').focus();
+}
+
+// Clear award form
+function clearAwardForm() {
+  window.editingAwardId = null;
+  document.getElementById('award_name').value = '';
+  document.getElementById('award_date').value = '';
+  document.getElementById('award_issued_by').value = '';
+  document.getElementById('award_description').value = '';
+  document.getElementById('award_remarks').value = '';
+
+  document.getElementById('btnAddAward').textContent = '+ Add Award';
+  document.getElementById('btnAddAward').classList.remove('btn-warning');
+  document.getElementById('btnAddAward').classList.add('btn-success');
+  document.getElementById('btnClearAward').style.display = 'none';
+}
+
+// Remove award
+async function removeAward(awardId) {
+  if (!confirm('Remove this award?')) {
+    return;
+  }
+
+  try {
+    const response = await fetch(`/api/division/discipline/awards/${awardId}`, {
+      method: 'DELETE'
+    });
+
+    const result = await response.json();
+
+    if (result.success) {
+      alert(result.message);
+      const staffHrmsId = window.currentStaffHrmsId;
+      if (staffHrmsId) {
+        loadAwards(staffHrmsId);
+      }
+    } else {
+      alert('Error: ' + result.error);
+    }
+  } catch (error) {
+    console.error('Error deleting award:', error);
+    alert('Error deleting award');
+  }
+}
+
+// Load punishments for a staff
+async function loadPunishments(hrmsId) {
+  try {
+    const response = await fetch(`/api/division/discipline/punishments/${hrmsId}`);
+    const result = await response.json();
+
+    if (result.success) {
+      renderPunishments(result.data);
+    } else {
+      console.error('Failed to load punishments');
+    }
+  } catch (error) {
+    console.error('Error loading punishments:', error);
+  }
+}
+
+// Render punishments table
+function renderPunishments(punishments) {
+  const tbody = document.getElementById('punishmentRows');
+
+  if (punishments.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #9ca3af; padding: 40px;">No punishments added yet</td></tr>';
+    return;
+  }
+
+  window.punishmentsData = punishments;
+
+  // Check if current user is division_admin
+  const isDivisionAdmin = currentUser && currentUser.div_role === 'division_admin';
+
+  function formatDate(dateString) {
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  }
+
+  tbody.innerHTML = punishments.map((pun, index) => {
+    let severityBadge = '';
+    if (pun.severity) {
+      let badgeClass = 'bg-secondary';
+      if (pun.severity === 'Minor') badgeClass = 'bg-warning';
+      else if (pun.severity === 'Major') badgeClass = 'bg-orange';
+      else if (pun.severity === 'Severe') badgeClass = 'bg-danger';
+      severityBadge = `<span class="badge ${badgeClass}">${pun.severity}</span>`;
+    } else {
+      severityBadge = '-';
+    }
+
+    let typeDisplay = pun.punishment_type;
+    if (pun.punishment_type === 'Demotion' && pun.demoted_designation_name) {
+      typeDisplay = `${pun.punishment_type} → ${pun.demoted_designation_name}`;
+    }
+
+    // Only show edit/delete buttons for division_admin
+    const actionButtons = isDivisionAdmin ? `
+      <button class="btn btn-sm btn-outline-primary me-1" onclick="editPunishment(${index})">Edit</button>
+      <button class="btn btn-sm btn-outline-danger" onclick="removePunishment(${pun.punishment_id})">Remove</button>
+    ` : '<span style="color: #9ca3af; font-size: 12px;">View Only</span>';
+
+    return `
+      <tr>
+        <td>${formatDate(pun.punishment_date)}</td>
+        <td><span class="badge bg-danger">${typeDisplay}</span></td>
+        <td>${severityBadge}</td>
+        <td>${pun.order_no || '-'}</td>
+        <td>${pun.description || '-'}</td>
+        <td>${actionButtons}</td>
+      </tr>
+    `;
+  }).join('');
+}
+
+// Add or update punishment
+async function addPunishment() {
+  const punishmentType = document.getElementById('punishment_type').value;
+  const punishmentDate = document.getElementById('punishment_date').value;
+  const orderNo = document.getElementById('punishment_order_no').value.trim();
+  const severity = document.getElementById('punishment_severity').value;
+  const description = document.getElementById('punishment_description').value.trim();
+  const issuedBy = document.getElementById('punishment_issued_by').value.trim();
+  const remarks = document.getElementById('punishment_remarks').value.trim();
+  const demotionDesignationId = document.getElementById('demotion_designation').value;
+
+  if (!punishmentType || !punishmentDate) {
+    alert('Please enter punishment type and date');
+    return;
+  }
+
+  if (punishmentType === 'Demotion' && !demotionDesignationId) {
+    alert('Please select the designation to demote to');
+    return;
+  }
+
+  const staffHrmsId = window.currentStaffHrmsId;
+  if (!staffHrmsId) {
+    alert('Please load a staff member first');
+    return;
+  }
+
+  try {
+    const isEditing = window.editingPunishmentId;
+    const url = isEditing
+      ? `/api/division/discipline/punishments/${window.editingPunishmentId}`
+      : '/api/division/discipline/punishments';
+    const method = isEditing ? 'PUT' : 'POST';
+
+    const payload = {
+      punishment_type: punishmentType,
+      punishment_date: punishmentDate,
+      order_no: orderNo || null,
+      severity: severity || null,
+      demoted_to_designation_id: (punishmentType === 'Demotion' && demotionDesignationId) ? demotionDesignationId : null,
+      promotion_history_id: null,
+      description: description || null,
+      issued_by: issuedBy || null,
+      remarks: remarks || null
+    };
+
+    if (!isEditing) {
+      payload.staff_hrms_id = staffHrmsId;
+    }
+
+    const response = await fetch(url, {
+      method: method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const result = await response.json();
+
+    if (result.success) {
+      alert(result.message);
+      clearPunishmentForm();
+      loadPunishments(staffHrmsId);
+    } else {
+      alert('Error: ' + result.error);
+    }
+  } catch (error) {
+    console.error('Error saving punishment:', error);
+    alert('Error saving punishment');
+  }
+}
+
+// Edit punishment
+function editPunishment(index) {
+  const pun = window.punishmentsData[index];
+  if (!pun) return;
+
+  window.editingPunishmentId = pun.punishment_id;
+
+  document.getElementById('punishment_type').value = pun.punishment_type || '';
+  document.getElementById('punishment_date').value = formatDateForInput(pun.punishment_date);
+  document.getElementById('punishment_order_no').value = pun.order_no || '';
+  document.getElementById('punishment_severity').value = pun.severity || '';
+  document.getElementById('punishment_description').value = pun.description || '';
+  document.getElementById('punishment_issued_by').value = pun.issued_by || '';
+  document.getElementById('punishment_remarks').value = pun.remarks || '';
+
+  if (pun.punishment_type === 'Demotion' && pun.demoted_to_designation_id) {
+    document.getElementById('demotion_designation_field').style.display = 'block';
+    document.getElementById('demotion_designation').value = pun.demoted_to_designation_id;
+  }
+
+  document.getElementById('btnAddPunishment').textContent = '✏️ Update Punishment';
+  document.getElementById('btnAddPunishment').classList.remove('btn-warning');
+  document.getElementById('btnAddPunishment').classList.add('btn-danger');
+  document.getElementById('btnClearPunishment').style.display = 'block';
+
+  document.getElementById('punishment_type').focus();
+}
+
+// Clear punishment form
+function clearPunishmentForm() {
+  window.editingPunishmentId = null;
+  document.getElementById('punishment_type').value = '';
+  document.getElementById('punishment_date').value = '';
+  document.getElementById('punishment_order_no').value = '';
+  document.getElementById('punishment_severity').value = '';
+  document.getElementById('punishment_description').value = '';
+  document.getElementById('punishment_issued_by').value = '';
+  document.getElementById('punishment_remarks').value = '';
+  document.getElementById('demotion_designation').value = '';
+  document.getElementById('demotion_designation_field').style.display = 'none';
+
+  document.getElementById('btnAddPunishment').textContent = '+ Add Punishment';
+  document.getElementById('btnAddPunishment').classList.remove('btn-danger');
+  document.getElementById('btnAddPunishment').classList.add('btn-warning');
+  document.getElementById('btnClearPunishment').style.display = 'none';
+}
+
+// Remove punishment
+async function removePunishment(punishmentId) {
+  if (!confirm('Remove this punishment?')) {
+    return;
+  }
+
+  try {
+    const response = await fetch(`/api/division/discipline/punishments/${punishmentId}`, {
+      method: 'DELETE'
+    });
+
+    const result = await response.json();
+
+    if (result.success) {
+      alert(result.message);
+      const staffHrmsId = window.currentStaffHrmsId;
+      if (staffHrmsId) {
+        loadPunishments(staffHrmsId);
+      }
+    } else {
+      alert('Error: ' + result.error);
+    }
+  } catch (error) {
+    console.error('Error deleting punishment:', error);
+    alert('Error deleting punishment');
+  }
+}
+
+// Toggle demotion designation field
+function toggleDemotionField() {
+  const punishmentType = document.getElementById('punishment_type').value;
+  const field = document.getElementById('demotion_designation_field');
+  field.style.display = (punishmentType === 'Demotion') ? 'block' : 'none';
+}
+
+// Transfer history management (read-only from database)
+async function loadTransferHistory(staffHrmsId) {
+  if (!staffHrmsId) {
+    renderTransferHistory([]);
+    return;
+  }
+
+  try {
+    const response = await fetch(`/api/division/transfer-history/${staffHrmsId}`);
+    const result = await response.json();
+
+    if (result.success) {
+      renderTransferHistory(result.data);
+    } else {
+      console.error('Error loading transfer history:', result.error);
+      renderTransferHistory([]);
+    }
+  } catch (error) {
+    console.error('Error loading transfer history:', error);
+    renderTransferHistory([]);
+  }
+}
+
+function renderTransferHistory(transfers) {
+  const tbody = document.getElementById('transferHistory');
+
+  if (transfers.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #9ca3af; padding: 40px;">No transfer records found</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = transfers.map(transfer => {
+    let statusClass = 'badge bg-success';
+    if (transfer.status === 'Pending') statusClass = 'badge bg-warning';
+    if (transfer.status === 'Rejected') statusClass = 'badge bg-danger';
+    if (transfer.status === 'Approved') statusClass = 'badge bg-info';
+
+    return `
+      <tr>
+        <td>${formatDateDDMMYYYY(transfer.transfer_date)}</td>
+        <td>${transfer.from_office_name || transfer.from_office_code}</td>
+        <td>${transfer.from_cms_id || '-'}</td>
+        <td>${transfer.to_office_name || transfer.to_office_code}</td>
+        <td>${transfer.to_cms_id || '-'}</td>
+        <td>${transfer.transfer_order_no || '-'}</td>
+        <td><span class="${statusClass}">${transfer.status}</span></td>
+        <td>${transfer.remarks || '-'}</td>
+      </tr>
+    `;
+  }).join('');
+}
+
+// Store search results globally
+let searchResults = [];
+
+// Auto-populate suggestions as user types
+document.getElementById('searchStaff').addEventListener('input', async (e) => {
+  const searchTerm = e.target.value.trim();
+
+  if (searchTerm.length < 2) {
+    document.getElementById('staffSuggestions').innerHTML = '';
+    searchResults = [];
+    return;
+  }
+
+  try {
+    const response = await fetch(`/api/division/staff-search/${encodeURIComponent(searchTerm)}`);
+    const result = await response.json();
+
+    if (result.success && result.data.length > 0) {
+      searchResults = result.data;
+      const datalist = document.getElementById('staffSuggestions');
+      datalist.innerHTML = result.data.map(staff =>
+        `<option value="${staff.hrms_id}">${staff.name} - ${staff.current_cms_id} (${staff.office_name || staff.current_office_code})</option>`
+      ).join('');
+    }
+  } catch (error) {
+    console.error('Error fetching suggestions:', error);
+  }
+});
+
+// Search and load staff data (on button click)
+async function searchAndLoadStaff() {
+  const searchTerm = document.getElementById('searchStaff').value.trim();
+
+  if (!searchTerm) {
+    alert('Please enter HRMS ID or staff name to search');
+    return;
+  }
+
+  try {
+    const response = await fetch(`/api/division/staff-search/${encodeURIComponent(searchTerm)}`);
+    const result = await response.json();
+
+    if (result.success && result.data.length > 0) {
+      // Find exact match by HRMS ID first
+      let staffToLoad = result.data.find(s => s.hrms_id === searchTerm);
+
+      if (!staffToLoad) {
+        // No exact match, load first result
+        staffToLoad = result.data[0];
+      }
+
+      loadStaffData(staffToLoad);
+    } else {
+      alert('No staff found with that HRMS ID or name');
+    }
+  } catch (error) {
+    console.error('Error searching staff:', error);
+    alert('Error searching staff');
+  }
+}
+
+// Button click handler
+document.getElementById('btnSearch').addEventListener('click', searchAndLoadStaff);
+
+// Enter key handler
+document.getElementById('searchStaff').addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    searchAndLoadStaff();
+  }
+});
+
+// Helper: Convert date to YYYY-MM-DD format for input fields
+function formatDateForInput(dateString) {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return '';
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
+}
+
+// Load staff data into form
+function loadStaffData(staff) {
+  // Store current staff HRMS ID and full staff data
+  window.currentStaffHrmsId = staff.hrms_id;
+  window.currentStaffData = staff;
+
+  // Debug: log the staff object to see what fields are available
+  console.log('Staff data received:', staff);
+  console.log('Father name field:', staff.father_name);
+  console.log('Fathers name field:', staff.fathers_name);
+
+  // Personal tab
+  document.getElementById('staff_name').value = staff.name || '';
+  document.getElementById('staff_dob').value = formatDateForInput(staff.date_of_birth);
+  document.getElementById('staff_gender').value = staff.gender || '';
+  document.getElementById('father_name').value = staff.father_name || staff.fathers_name || '';
+  document.getElementById('caste').value = staff.caste || '';
+  document.getElementById('marital_status').value = staff.marital_status || '';
+  document.getElementById('vision').value = staff.vision || '';
+  document.getElementById('blood_group').value = staff.blood_group || '';
+
+  // Contact tab
+  document.getElementById('phone_number').value = staff.phone_number || '';
+  document.getElementById('cug_number').value = staff.cug_number || '';
+  document.getElementById('email').value = staff.email || '';
+  document.getElementById('present_address').value = staff.present_address || '';
+  document.getElementById('permanent_address').value = staff.permanent_address || '';
+
+  // IDs & Service tab
+  document.getElementById('hrms_id').value = staff.hrms_id || '';
+  document.getElementById('current_cms_id').value = staff.current_cms_id || '';
+  document.getElementById('original_cms_id').value = staff.original_cms_id || '';
+  document.getElementById('officeSelect').value = staff.current_office_code || '';
+  document.getElementById('safety_category').value = staff.safety_category || '';
+  document.getElementById('date_of_appointment').value = formatDateForInput(staff.date_of_appointment);
+  document.getElementById('pf_no').value = staff.pf_number || '';
+  document.getElementById('aadhaar').value = staff.aadhar_card_no || '';
+  document.getElementById('pan').value = staff.pan_card_no || '';
+
+  // Update left sidebar display
+  document.getElementById('showName').textContent = staff.name || '—';
+  document.getElementById('showHRMS').textContent = staff.hrms_id || '—';
+  document.getElementById('showPF').textContent = staff.pf_number || '—';
+  document.getElementById('showCMS').textContent = staff.current_cms_id || '—';
+  document.getElementById('showOffice').textContent = staff.office_name || staff.current_office_code || '—';
+  document.getElementById('showDesig').textContent = staff.designation_name || '—';
+  document.getElementById('showSafety').textContent = staff.safety_category || '—';
+
+  // Load transfer history
+  loadTransferHistory(staff.hrms_id);
+
+  // Load family members
+  loadFamilyMembers(staff.hrms_id);
+
+  // Load promotions
+  loadPromotions(staff.hrms_id);
+
+  // Load training records
+  loadTrainings(staff.hrms_id);
+
+  // Load detonators
+  loadDetonators(staff.hrms_id);
+
+  // Load awards and punishments
+  loadAwards(staff.hrms_id);
+  loadPunishments(staff.hrms_id);
+
+  // Check edit permissions and set form editability
+  setFormEditability();
+
+  // Show success message
+  alert(`Loaded: ${staff.name} (${staff.hrms_id}) - ${staff.office_name || staff.current_office_code}`);
+}
+
+// Load family members for a staff
+async function loadFamilyMembers(hrmsId) {
+  try {
+    const response = await fetch(`/api/division/family/${hrmsId}`);
+    const result = await response.json();
+
+    if (result.success) {
+      renderFamilyMembers(result.data);
+    } else {
+      console.error('Failed to load family members');
+    }
+  } catch (error) {
+    console.error('Error loading family members:', error);
+  }
+}
+
+// Render family members table
+function renderFamilyMembers(familyMembers) {
+  const tbody = document.getElementById('familyRows');
+
+  // Update counters
+  const totalCount = familyMembers.length;
+  const dependentCount = familyMembers.filter(m => m.is_dependent === 1).length;
+
+  document.getElementById('dependentsCount').textContent = dependentCount;
+  document.getElementById('familyMembersCount').textContent = totalCount;
+
+  if (familyMembers.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #9ca3af; padding: 40px;">No family members added yet</td></tr>';
+    return;
+  }
+
+  // Calculate age from date of birth
+  function calculateAge(dob) {
+    if (!dob) return '-';
+    const birthDate = new Date(dob);
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age;
+  }
+
+  // Format date
+  function formatDate(dateString) {
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  }
+
+  tbody.innerHTML = familyMembers.map(member => `
+    <tr>
+      <td><strong>${member.member_name}</strong><br><small style="color: #6b7280;">${member.occupation || '-'}</small></td>
+      <td><span class="badge bg-secondary">${member.relation}</span></td>
+      <td>${formatDate(member.date_of_birth)}</td>
+      <td>${calculateAge(member.date_of_birth)}</td>
+      <td>${member.is_dependent === 1 ? '<span class="badge bg-success">Yes</span>' : '<span class="badge bg-secondary">No</span>'}</td>
+      <td>
+        <button class="btn btn-sm btn-outline-primary me-1" onclick='editFamilyMember(${JSON.stringify(member)})'>Edit</button>
+        <button class="btn btn-sm btn-outline-danger" onclick="removeFamilyMember(${member.family_id})">Remove</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+// Edit family member - populate form with existing data
+function editFamilyMember(member) {
+  // Store the family_id for update
+  window.editingFamilyId = member.family_id;
+
+  // Populate the form
+  document.getElementById('family_name').value = member.member_name || '';
+  document.getElementById('family_relationship').value = member.relation || '';
+  document.getElementById('family_dob').value = formatDateForInput(member.date_of_birth);
+  document.getElementById('family_occupation').value = member.occupation || '';
+  document.getElementById('family_dependent').value = member.is_dependent === 1 ? 'Yes' : 'No';
+
+  // Change button text to "Update Member"
+  const addButton = document.querySelector('#tab-family button[onclick="addFamilyMember()"]');
+  addButton.textContent = '✏️ Update Member';
+  addButton.classList.remove('btn-primary');
+  addButton.classList.add('btn-warning');
+
+  // Scroll to form
+  document.getElementById('family_name').focus();
+}
+
+// Clear family form (cancel edit mode)
+function clearFamilyForm() {
+  window.editingFamilyId = null;
+  document.getElementById('family_name').value = '';
+  document.getElementById('family_relationship').value = '';
+  document.getElementById('family_dob').value = '';
+  document.getElementById('family_occupation').value = '';
+  document.getElementById('family_dependent').value = 'Yes';
+
+  // Reset button
+  const addButton = document.querySelector('#tab-family button[onclick="addFamilyMember()"]');
+  addButton.textContent = '+ Add Member';
+  addButton.classList.remove('btn-warning');
+  addButton.classList.add('btn-primary');
+}
+
+// Open transfer modal and populate current staff info
+document.querySelector('[data-bs-target="#transferModal"]').addEventListener('click', () => {
+  const staff = window.currentStaffData;
+
+  if (!staff || !staff.hrms_id) {
+    alert('Please load a staff member first');
+    return;
+  }
+
+  // Use staff data directly from loaded object
+  const staffName = staff.name || '—';
+  const staffHrmsId = staff.hrms_id || '—';
+  const currentOfficeCode = staff.current_office_code || '';
+  const currentOfficeName = staff.office_name || staff.current_office_code || '—';
+  const currentCmsId = staff.current_cms_id || '—';
+
+  // Validation check
+  if (!currentOfficeCode || !currentCmsId) {
+    alert('Staff office or CMS ID is missing. Please ensure staff data is complete.');
+    return;
+  }
+
+  // Display in modal
+  document.getElementById('modal_staff_name').textContent = staffName;
+  document.getElementById('modal_staff_hrms').textContent = staffHrmsId;
+  document.getElementById('modal_current_office').textContent = currentOfficeName;
+  document.getElementById('modal_current_cms').textContent = currentCmsId;
+
+  // Store in modal data for submission
+  document.getElementById('transferModal').dataset.staffHrms = staffHrmsId;
+  document.getElementById('transferModal').dataset.fromOffice = currentOfficeCode;
+  document.getElementById('transferModal').dataset.currentCms = currentCmsId;
+  document.getElementById('transferModal').dataset.staffName = staffName;
+});
+
+// Handle Transfer Modal submission
+document.getElementById('transferModalForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+
+  const toOffice = document.getElementById('modal_to_office').value;
+  const effectiveDate = document.getElementById('modal_effective_date').value;
+  const category = document.getElementById('modal_category').value;
+  const orderNo = document.getElementById('modal_order_no').value.trim();
+  const remarks = document.getElementById('modal_remarks').value.trim();
+
+  if (!toOffice || !effectiveDate || !category) {
+    alert('Please fill all required fields');
+    return;
+  }
+
+  // Get stored staff data from modal
+  const modal = document.getElementById('transferModal');
+  const staffHrmsId = modal.dataset.staffHrms;
+  const fromOffice = modal.dataset.fromOffice;
+  const currentCmsId = modal.dataset.currentCms;
+
+  if (!staffHrmsId || !fromOffice || !currentCmsId) {
+    alert('Staff information missing. Please reload the staff and try again.');
+    return;
+  }
+
+  if (fromOffice === toOffice) {
+    alert('Cannot transfer to the same office');
+    return;
+  }
+
+  try {
+    const response = await fetch('/api/division/transfer-request', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        staff_hrms_id: staffHrmsId,
+        from_office_code: fromOffice,
+        to_office_code: toOffice,
+        current_cms_id: currentCmsId,
+        request_date: effectiveDate,
+        remarks: `Category: ${category}. Order: ${orderNo || 'N/A'}. ${remarks || ''}`
+      })
+    });
+
+    const result = await response.json();
+
+    if (result.success) {
+      alert('Transfer request submitted successfully!\n\nThe destination office will receive a notification to accept or reject this transfer.');
+      // Close modal
+      bootstrap.Modal.getInstance(document.getElementById('transferModal')).hide();
+      // Clear form
+      document.getElementById('modal_to_office').value = '';
+      document.getElementById('modal_effective_date').value = '';
+      document.getElementById('modal_category').value = '';
+      document.getElementById('modal_order_no').value = '';
+      document.getElementById('modal_remarks').value = '';
+    } else {
+      alert('Error: ' + result.error);
+    }
+  } catch (error) {
+    console.error('Error submitting transfer request:', error);
+    alert('Error submitting transfer request');
+  }
+});
+
+// ========== SAVE BIODATA FUNCTIONS ==========
+
+// Check if user can edit the current staff
+function checkEditPermissions() {
+  if (!window.currentStaffData || !currentUser) {
+    return false;
+  }
+
+  const staffOffice = window.currentStaffData.current_office_code;
+  const userOffice = currentUser.div_office_code;
+  const userRole = currentUser.div_role;
+
+  // Division admin can edit all
+  if (userRole === 'division_admin') {
+    return true;
+  }
+
+  // Office users can only edit their own office staff
+  return staffOffice === userOffice;
+}
+
+// Set form to read-only or editable based on permissions
+function setFormEditability() {
+  const canEdit = checkEditPermissions();
+  const isDivisionAdmin = currentUser && currentUser.div_role === 'division_admin';
+
+  // Show Discipline tab only for division_admin
+  const disciplineTabNav = document.getElementById('disciplineTabNav');
+  if (disciplineTabNav) {
+    disciplineTabNav.style.display = isDivisionAdmin ? 'block' : 'none';
+  }
+
+  // Disable punishment form for non-admins
+  const punishmentFormElements = document.querySelectorAll('#tab-discipline input, #tab-discipline select, #tab-discipline textarea');
+  punishmentFormElements.forEach(element => {
+    // Only disable punishment form fields (not award fields)
+    if (element.id && element.id.startsWith('punishment_')) {
+      if (isDivisionAdmin) {
+        element.removeAttribute('disabled');
+        element.removeAttribute('readonly');
+      } else {
+        if (element.tagName === 'SELECT') {
+          element.setAttribute('disabled', 'disabled');
+        } else {
+          element.setAttribute('readonly', 'readonly');
+        }
+      }
+    }
+  });
+
+  // Disable punishment add button for non-admins
+  const btnAddPunishment = document.getElementById('btnAddPunishment');
+  if (btnAddPunishment) {
+    btnAddPunishment.disabled = !isDivisionAdmin;
+  }
+
+  // Get all input, select, and textarea elements in the main form
+  const formElements = document.querySelectorAll(
+    '#tab-personal input, #tab-personal select, #tab-personal textarea, ' +
+    '#tab-contact input, #tab-contact textarea, ' +
+    '#tab-ids input, #tab-ids select'
+  );
+
+  formElements.forEach(element => {
+    // Don't make HRMS ID, current CMS ID, original CMS ID readonly (they should stay readonly always)
+    if (element.id === 'hrms_id' || element.id === 'current_cms_id' || element.id === 'original_cms_id') {
+      return;
+    }
+
+    if (canEdit) {
+      element.removeAttribute('readonly');
+      element.removeAttribute('disabled');
+    } else {
+      if (element.tagName === 'SELECT') {
+        element.setAttribute('disabled', 'disabled');
+      } else {
+        element.setAttribute('readonly', 'readonly');
+      }
+    }
+  });
+
+  // Enable/disable action buttons
+  document.getElementById('btnSave').disabled = !canEdit;
+  document.getElementById('btnSaveNext').disabled = !canEdit;
+  document.getElementById('btnTransfer').disabled = !canEdit;
+
+  // Show message if read-only
+  if (!canEdit && window.currentStaffData) {
+    const message = document.createElement('div');
+    message.id = 'readOnlyMessage';
+    message.style.cssText = 'background: #fef3c7; border: 1px solid #fbbf24; padding: 12px; border-radius: 8px; margin-bottom: 16px; color: #92400e; font-size: 14px;';
+    message.innerHTML = '<strong>⚠️ Read-Only Mode:</strong> You can only edit staff from your office. This staff belongs to a different office.';
+
+    // Insert at top of form
+    const tabContent = document.querySelector('.tab-content');
+    if (tabContent && !document.getElementById('readOnlyMessage')) {
+      tabContent.insertBefore(message, tabContent.firstChild);
+    }
+  } else {
+    // Remove read-only message if exists
+    const existingMessage = document.getElementById('readOnlyMessage');
+    if (existingMessage) {
+      existingMessage.remove();
+    }
+  }
+}
+
+// Save biodata
+async function saveBiodata() {
+  const staffHrmsId = window.currentStaffHrmsId;
+
+  if (!staffHrmsId) {
+    alert('Please load a staff member first');
+    return;
+  }
+
+  if (!checkEditPermissions()) {
+    alert('You do not have permission to edit this staff member');
+    return;
+  }
+
+  try {
+    const payload = {
+      name: document.getElementById('staff_name').value.trim(),
+      date_of_birth: document.getElementById('staff_dob').value,
+      gender: document.getElementById('staff_gender').value,
+      father_name: document.getElementById('father_name').value.trim(),
+      caste: document.getElementById('caste').value.trim(),
+      marital_status: document.getElementById('marital_status').value,
+      vision: document.getElementById('vision').value,
+      blood_group: document.getElementById('blood_group').value,
+      phone_number: document.getElementById('phone_number').value.trim(),
+      cug_number: document.getElementById('cug_number').value.trim(),
+      email: document.getElementById('email').value.trim(),
+      present_address: document.getElementById('present_address').value.trim(),
+      permanent_address: document.getElementById('permanent_address').value.trim(),
+      pf_number: document.getElementById('pf_no').value.trim(),
+      aadhar_card_no: document.getElementById('aadhaar').value.trim(),
+      pan_card_no: document.getElementById('pan').value.trim(),
+      date_of_appointment: document.getElementById('date_of_appointment').value,
+      safety_category: document.getElementById('safety_category').value
+    };
+
+    // Disable save button
+    const btnSave = document.getElementById('btnSave');
+    const originalText = btnSave.textContent;
+    btnSave.disabled = true;
+    btnSave.textContent = 'Saving...';
+
+    const response = await fetch(`/api/division/staff/${staffHrmsId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const result = await response.json();
+
+    if (result.success) {
+      alert('✅ Staff biodata saved successfully!');
+    } else {
+      alert('Error: ' + result.error);
+    }
+
+    btnSave.disabled = false;
+    btnSave.textContent = originalText;
+
+  } catch (error) {
+    console.error('Error saving biodata:', error);
+    alert('Error saving biodata');
+    document.getElementById('btnSave').disabled = false;
+    document.getElementById('btnSave').textContent = 'Save';
+  }
+}
+
+// Save and move to next tab
+async function saveBiodataAndNext() {
+  await saveBiodata();
+
+  // Find active tab and switch to next
+  const activeTab = document.querySelector('.nav-link.active');
+  if (activeTab) {
+    const nextTab = activeTab.parentElement.nextElementSibling?.querySelector('.nav-link');
+    if (nextTab) {
+      nextTab.click();
+    }
+  }
+}
+
+// Initialize on page load
+async function init() {
+  await checkUserPermissions();
+  await loadOffices();
+  await loadDesignations();
+  await loadTrainingTypes();
+  await loadTrainingCenters();
+
+  // If user is not admin and not viewing their own office staff, make read-only
+  // This will be determined when staff is loaded via search
+  // For now, non-admins can only edit staff from their office
+  if (currentUser && currentUser.div_role !== 'division_admin') {
+    // Office users have limited access - will be enforced when staff loads
+    console.log('Office user mode:', currentUser.div_office_code);
+  }
+}
+
+init();
+</script>
+</body>
+</html>

@@ -91,6 +91,24 @@ app.get('/div/biodata-form-design.html', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'div', 'biodata-form-design.html'));
 });
 
+app.get('/div/bulk-upload-staff.html', (req, res) => {
+  if (!req.session.user) return res.redirect('/');
+  if (req.session.user.realm !== 'division') return res.redirect('/');
+  res.sendFile(path.join(__dirname, 'public', 'div', 'bulk-upload-staff.html'));
+});
+
+app.get('/div/cli-management.html', (req, res) => {
+  if (!req.session.user) return res.redirect('/');
+  if (req.session.user.realm !== 'division') return res.redirect('/');
+  res.sendFile(path.join(__dirname, 'public', 'div', 'cli-management.html'));
+});
+
+app.get('/div/biodataform.html', (req, res) => {
+  if (!req.session.user) return res.redirect('/');
+  if (req.session.user.realm !== 'division') return res.redirect('/');
+  res.sendFile(path.join(__dirname, 'public', 'div', 'biodataform.html'));
+});
+
 // If a logged-in user opens /portal.html, send them to their area
 app.get('/portal.html', (req, res) => {
   if (req.session.user) {
@@ -301,11 +319,27 @@ app.locals.pool = pool;
 const divisionDashboardRoutes = require('./routes/division/dashboardRoutes');
 const trainingTypesRoutes = require('./routes/division/trainingTypesRoutes');
 const personnelStoresRoutes = require('./routes/division/personnelStoresRoutes');
+const bulkUploadRoutes = require('./routes/division/bulkUploadRoutes');
+const cliRoutes = require('./routes/division/cliRoutes');
+const transferRoutes = require('./routes/division/transferRoutes');
+const familyRoutes = require('./routes/division/familyRoutes');
+const promotionRoutes = require('./routes/division/promotionRoutes');
+const trainingRoutes = require('./routes/division/trainingRoutes');
+const detonatorRoutes = require('./routes/division/detonatorRoutes');
+const disciplineRoutes = require('./routes/division/disciplineRoutes');
 
 // Add division routes with realm protection
 app.use("/api/division", requireRealm('division'), divisionDashboardRoutes);
 app.use("/api/division/training-types", requireRealm('division'), trainingTypesRoutes);
 app.use("/api/division/personnel-stores", requireRealm('division'), personnelStoresRoutes);
+app.use("/api/division/bulk-upload", requireRealm('division'), bulkUploadRoutes);
+app.use("/api/division/cli", requireRealm('division'), cliRoutes);
+app.use("/api/division", requireRealm('division'), transferRoutes);
+app.use("/api/division/family", requireRealm('division'), familyRoutes);
+app.use("/api/division/promotions", requireRealm('division'), promotionRoutes);
+app.use("/api/division/training", requireRealm('division'), trainingRoutes);
+app.use("/api/division/detonators", requireRealm('division'), detonatorRoutes);
+app.use("/api/division/discipline", requireRealm('division'), disciplineRoutes);
 // Add this directly in server.js (temporary solution)
 app.get('/api/waiting-details', async (req, res) => {
   try {

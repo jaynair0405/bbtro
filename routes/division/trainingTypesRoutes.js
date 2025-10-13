@@ -17,8 +17,7 @@ router.get('/', async (req, res) => {
     try {
         const conn = await req.app.locals.pool.getConnection();
         const query = `
-            SELECT training_id as id, training_name,
-                   ROUND(validity_months / 12, 1) as validity_years
+            SELECT training_id as id, training_name
             FROM div_training_types
             ORDER BY training_name
         `;
@@ -35,15 +34,11 @@ router.get('/', async (req, res) => {
 // POST /api/division/training-types - Add new training type (Admin only)
 router.post('/', requireDivisionAdmin, async (req, res) => {
     try {
-        const { training_name, validity_years } = req.body;
+        const { training_name } = req.body;
 
         // Validation
         if (!training_name || !training_name.trim()) {
             return res.status(400).json({ error: 'Training name is required' });
-        }
-
-        if (!validity_years || validity_years <= 0) {
-            return res.status(400).json({ error: 'Valid validity period is required' });
         }
 
         const conn = await req.app.locals.pool.getConnection();
@@ -59,13 +54,10 @@ router.post('/', requireDivisionAdmin, async (req, res) => {
             return res.status(409).json({ error: 'Training type already exists' });
         }
 
-        // Convert years to months
-        const validity_months = validity_years * 12;
-
         // Insert new training type
         const [result] = await conn.query(
-            'INSERT INTO div_training_types (training_name, validity_months) VALUES (?, ?)',
-            [training_name.trim(), validity_months]
+            'INSERT INTO div_training_types (training_name) VALUES (?)',
+            [training_name.trim()]
         );
 
         conn.release();
@@ -75,8 +67,7 @@ router.post('/', requireDivisionAdmin, async (req, res) => {
             message: 'Training type added successfully',
             data: {
                 id: result.insertId,
-                training_name: training_name.trim(),
-                validity_years: validity_years
+                training_name: training_name.trim()
             }
         });
 
@@ -90,15 +81,11 @@ router.post('/', requireDivisionAdmin, async (req, res) => {
 router.put('/:id', requireDivisionAdmin, async (req, res) => {
     try {
         const { id } = req.params;
-        const { training_name, validity_years } = req.body;
+        const { training_name } = req.body;
 
         // Validation
         if (!training_name || !training_name.trim()) {
             return res.status(400).json({ error: 'Training name is required' });
-        }
-
-        if (!validity_years || validity_years <= 0) {
-            return res.status(400).json({ error: 'Valid validity period is required' });
         }
 
         const conn = await req.app.locals.pool.getConnection();
@@ -125,13 +112,10 @@ router.put('/:id', requireDivisionAdmin, async (req, res) => {
             return res.status(409).json({ error: 'Training type with this name already exists' });
         }
 
-        // Convert years to months
-        const validity_months = validity_years * 12;
-
         // Update training type
         await conn.query(
-            'UPDATE div_training_types SET training_name = ?, validity_months = ? WHERE training_id = ?',
-            [training_name.trim(), validity_months, id]
+            'UPDATE div_training_types SET training_name = ? WHERE training_id = ?',
+            [training_name.trim(), id]
         );
 
         conn.release();
@@ -141,8 +125,7 @@ router.put('/:id', requireDivisionAdmin, async (req, res) => {
             message: 'Training type updated successfully',
             data: {
                 id: id,
-                training_name: training_name.trim(),
-                validity_years: validity_years
+                training_name: training_name.trim()
             }
         });
 
