@@ -41,6 +41,12 @@
             gap: 12px;
         }
 
+        .header-actions {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
         .btn {
             padding: 10px 20px;
             border: none;
@@ -473,7 +479,10 @@
         <!-- Header -->
         <div class="header">
             <h1>👨‍✈️ CLI Management</h1>
-            <button class="btn btn-primary" onclick="openAddCLIModal()">+ Add New CLI</button>
+            <div class="header-actions">
+                <button class="btn btn-secondary" onclick="window.location.href='/div'">← Back</button>
+                <button class="btn btn-primary" onclick="openAddCLIModal()">+ Add New CLI</button>
+            </div>
         </div>
 
         <!-- Toolbar -->
@@ -576,6 +585,96 @@
         </div>
     </div>
 
+    <!-- Nominate Staff Modal -->
+    <div id="nominateModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="nominateTitle">Nominate Staff to CLI</h2>
+                <button class="close-btn" onclick="closeNominateModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div style="margin-bottom: 16px;">
+                    <input type="text" id="staffSearchInput" placeholder="🔍 Search staff by name or HRMS ID..."
+                           style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 8px;"
+                           onkeyup="filterNominationStaff()">
+                </div>
+
+                <div style="margin-bottom: 16px; display: flex; gap: 12px; align-items: center;">
+                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                        <input type="checkbox" id="showWithoutCLI" checked onchange="filterNominationStaff()">
+                        <span>Without CLI (<span id="withoutCLICount">0</span>)</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                        <input type="checkbox" id="showWithCLI" onchange="filterNominationStaff()">
+                        <span>With CLI (<span id="withCLICount">0</span>)</span>
+                    </label>
+                </div>
+
+                <div id="staffListContainer" style="max-height: 300px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; margin-bottom: 20px;">
+                    <div id="staffListLoading">Loading staff...</div>
+                    <div id="staffListContent"></div>
+                </div>
+
+                <div style="margin-bottom: 12px; padding: 12px; background: #f9fafb; border-radius: 8px;">
+                    <strong>Selected: <span id="selectedCount">0</span> staff</strong>
+                </div>
+
+                <div class="form-group">
+                    <label>Start Date <span class="required">*</span></label>
+                    <input type="date" id="nominationStartDate" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Remarks (Optional)</label>
+                    <textarea id="nominationRemarks" rows="3" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 8px;"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeNominateModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="submitNomination()" id="nominateBtn">Nominate Selected</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Change CLI Modal -->
+    <div id="changeCLIModal" class="modal">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h2>Change CLI</h2>
+                <button class="close-btn" onclick="closeModal('changeCLIModal')">×</button>
+            </div>
+            <div class="modal-body">
+                <p style="margin-bottom: 16px;">
+                    <strong>Staff:</strong> <span id="changeStaffName"></span> (<span id="changeStaffHRMS"></span>)
+                </p>
+                <p style="margin-bottom: 20px; color: #6b7280;">
+                    <strong>Current CLI:</strong> <span id="changeCurrentCLI"></span>
+                </p>
+
+                <div class="form-group">
+                    <label>New CLI <span class="required">*</span></label>
+                    <select id="newCLISelect" required style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 8px;">
+                        <option value="">Select new CLI</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Effective Date <span class="required">*</span></label>
+                    <input type="date" id="changeEffectiveDate" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Remarks (Optional)</label>
+                    <textarea id="changeRemarks" rows="2" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 8px;"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('changeCLIModal')">Cancel</button>
+                <button class="btn btn-primary" onclick="submitCLIChange()">Change CLI</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         let allCLIs = [];
         let allOffices = [];
@@ -596,7 +695,8 @@
         async function loadOffices() {
             try {
                 const response = await fetch('/api/division/offices');
-                allOffices = await response.json();
+                const result = await response.json();
+                allOffices = result.data || result; // Handle both response formats
 
                 const officeFilter = document.getElementById('officeFilter');
                 const officeSelect = document.getElementById('current_office_code');
@@ -737,7 +837,7 @@
                                     <div class="category-progress">
                                         <div class="category-fill category-${cat.safety_category}"
                                              style="width: ${nom.active > 0 ? (cat.count / nom.active * 100) : 0}%">
-                                            ${cat.count} (${Math.round(cat.avg_days)} days avg)
+                                            ${cat.count}
                                         </div>
                                     </div>
                                 </div>
@@ -749,7 +849,7 @@
                             ${nom.byDesignation.map(des => `
                                 <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
                                     <span>${des.designation_name}:</span>
-                                    <span><strong>${des.count}</strong> staff (${Math.round(des.avg_days)} days / ${(des.avg_days / 365).toFixed(1)} years avg)</span>
+                                    <span><strong>${des.count}</strong> staff</span>
                                 </div>
                             `).join('')}
                         </div>
@@ -784,6 +884,10 @@
                         ` : ''}
 
                         <button class="btn btn-primary" style="width: 100%; margin-top: 16px;"
+                                onclick="openNominateModal(${cli.cli_id}, '${cli.cli_name}')">
+                            ➕ Nominate Staff to this CLI
+                        </button>
+                        <button class="btn btn-primary" style="width: 100%; margin-top: 12px;"
                                 onclick="viewStaffList(${cli.cli_id}, '${cli.cli_name}')">
                             📋 View Full Staff List
                         </button>
@@ -839,6 +943,7 @@
                                 <th>To Date</th>
                                 <th>Days</th>
                                 <th>Status</th>
+                                <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -852,6 +957,11 @@
                                     <td>${s.nominated_to_date ? formatDate(s.nominated_to_date) : 'Current'}</td>
                                     <td><strong>${s.nomination_days}</strong></td>
                                     <td><span class="status-badge status-${s.nomination_status.toLowerCase()}">${s.nomination_status}</span></td>
+                                    <td>
+                                        ${s.nomination_status === 'Active' ?
+                                            `<button class="btn btn-sm btn-secondary" onclick="openChangeCLIModal(${s.nomination_id}, '${s.name}', '${s.hrms_id}', '${cliName}')">🔄 Change CLI</button>`
+                                            : '<span style="color: #9ca3af; font-size: 12px;">—</span>'}
+                                    </td>
                                 </tr>
                             `).join('')}
                         </tbody>
@@ -956,6 +1066,243 @@
 
         function closeModal(modalId) {
             document.getElementById(modalId).classList.remove('active');
+        }
+
+        // ========== CLI NOMINATION FUNCTIONS ==========
+
+        let currentCLIForNomination = null;
+        let availableStaff = { withoutCLI: [], withCLI: [] };
+        let selectedStaffIds = new Set();
+        let currentNominationId = null;
+
+        // Open nominate modal
+        async function openNominateModal(cliId, cliName) {
+            currentCLIForNomination = { id: cliId, name: cliName };
+            selectedStaffIds.clear();
+
+            document.getElementById('nominateTitle').textContent = `Nominate Staff to: ${cliName}`;
+            document.getElementById('nominationStartDate').valueAsDate = new Date();
+            document.getElementById('nominationRemarks').value = '';
+            document.getElementById('staffSearchInput').value = '';
+
+            openModal('nominateModal');
+            await loadAvailableStaff(cliId);
+        }
+
+        function closeNominateModal() {
+            closeModal('nominateModal');
+            selectedStaffIds.clear();
+        }
+
+        // Load available staff for nomination
+        async function loadAvailableStaff(cliId) {
+            try {
+                document.getElementById('staffListLoading').style.display = 'block';
+                document.getElementById('staffListContent').innerHTML = '';
+
+                const response = await fetch(`/api/division/cli/available-staff?exclude_cli_id=${cliId}`);
+                const result = await response.json();
+
+                if (result.success) {
+                    availableStaff = result.data;
+                    document.getElementById('withoutCLICount').textContent = availableStaff.withoutCLI.length;
+                    document.getElementById('withCLICount').textContent = availableStaff.withCLI.length;
+                    renderAvailableStaff();
+                }
+
+                document.getElementById('staffListLoading').style.display = 'none';
+            } catch (error) {
+                console.error('Error loading available staff:', error);
+                document.getElementById('staffListLoading').innerHTML = '<p style="color: #ef4444;">Failed to load staff</p>';
+            }
+        }
+
+        // Render staff list with checkboxes
+        function renderAvailableStaff() {
+            const searchTerm = document.getElementById('staffSearchInput').value.toLowerCase();
+            const showWithoutCLI = document.getElementById('showWithoutCLI').checked;
+            const showWithCLI = document.getElementById('showWithCLI').checked;
+
+            let staffToShow = [];
+
+            if (showWithoutCLI) {
+                staffToShow = staffToShow.concat(availableStaff.withoutCLI);
+            }
+            if (showWithCLI) {
+                staffToShow = staffToShow.concat(availableStaff.withCLI);
+            }
+
+            if (searchTerm) {
+                staffToShow = staffToShow.filter(s =>
+                    s.name.toLowerCase().includes(searchTerm) ||
+                    s.hrms_id.toLowerCase().includes(searchTerm)
+                );
+            }
+
+            const content = document.getElementById('staffListContent');
+
+            if (staffToShow.length === 0) {
+                content.innerHTML = '<p style="text-align: center; color: #9ca3af; padding: 20px;">No staff available</p>';
+                return;
+            }
+
+            content.innerHTML = staffToShow.map(staff => `
+                <label style="display: flex; align-items: center; padding: 10px; border-bottom: 1px solid #f3f4f6; cursor: pointer; transition: background 0.2s;"
+                       onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='white'"
+                       onclick="toggleStaffSelection('${staff.hrms_id}')">
+                    <input type="checkbox"
+                           id="staff_${staff.hrms_id}"
+                           ${selectedStaffIds.has(staff.hrms_id) ? 'checked' : ''}
+                           style="margin-right: 12px; width: 18px; height: 18px; cursor: pointer;">
+                    <div style="flex: 1;">
+                        <div style="font-weight: 500; color: #1f2937;">${staff.name}</div>
+                        <div style="font-size: 12px; color: #6b7280;">
+                            ${staff.hrms_id} • ${staff.office_name || 'N/A'} • ${staff.designation_name || 'N/A'}
+                            ${staff.current_cli_name ? `<br>Current CLI: <strong>${staff.current_cli_name}</strong>` : '<br><span style="color: #f59e0b;">⚠️ No CLI assigned</span>'}
+                        </div>
+                    </div>
+                </label>
+            `).join('');
+
+            updateSelectedCount();
+        }
+
+        function filterNominationStaff() {
+            renderAvailableStaff();
+        }
+
+        function toggleStaffSelection(hrmsId) {
+            if (selectedStaffIds.has(hrmsId)) {
+                selectedStaffIds.delete(hrmsId);
+            } else {
+                selectedStaffIds.add(hrmsId);
+            }
+            updateSelectedCount();
+            // Update checkbox state
+            const checkbox = document.getElementById(`staff_${hrmsId}`);
+            if (checkbox) {
+                checkbox.checked = selectedStaffIds.has(hrmsId);
+            }
+        }
+
+        function updateSelectedCount() {
+            document.getElementById('selectedCount').textContent = selectedStaffIds.size;
+            document.getElementById('nominateBtn').disabled = selectedStaffIds.size === 0;
+        }
+
+        // Submit nomination
+        async function submitNomination() {
+            if (selectedStaffIds.size === 0) {
+                alert('Please select at least one staff member');
+                return;
+            }
+
+            const startDate = document.getElementById('nominationStartDate').value;
+            if (!startDate) {
+                alert('Please select start date');
+                return;
+            }
+
+            const btn = document.getElementById('nominateBtn');
+            btn.disabled = true;
+            btn.textContent = 'Nominating...';
+
+            try {
+                const response = await fetch(`/api/division/cli/${currentCLIForNomination.id}/nominate-bulk`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        staff_hrms_ids: Array.from(selectedStaffIds),
+                        nominated_from_date: startDate,
+                        remarks: document.getElementById('nominationRemarks').value || null
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    alert(`Successfully nominated ${result.results.length} staff member(s) to ${currentCLIForNomination.name}`);
+                    closeNominateModal();
+                    // Refresh CLI details if modal is open
+                    if (document.getElementById('detailsModal').classList.contains('active')) {
+                        viewCLIDetails(currentCLIForNomination.id);
+                    }
+                } else {
+                    alert(result.error || 'Failed to nominate staff');
+                }
+            } catch (error) {
+                console.error('Error nominating staff:', error);
+                alert('Failed to nominate staff');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Nominate Selected';
+            }
+        }
+
+        // Open change CLI modal
+        function openChangeCLIModal(nominationId, staffName, staffHRMS, currentCLIName) {
+            currentNominationId = nominationId;
+
+            document.getElementById('changeStaffName').textContent = staffName;
+            document.getElementById('changeStaffHRMS').textContent = staffHRMS;
+            document.getElementById('changeCurrentCLI').textContent = currentCLIName;
+            document.getElementById('changeEffectiveDate').valueAsDate = new Date();
+            document.getElementById('changeRemarks').value = '';
+
+            // Load CLIs into dropdown
+            const select = document.getElementById('newCLISelect');
+            select.innerHTML = '<option value="">Select new CLI</option>';
+            allCLIs.forEach(cli => {
+                if (cli.cli_name !== currentCLIName) {
+                    select.innerHTML += `<option value="${cli.cli_id}">${cli.cli_name} (${cli.cmsid})</option>`;
+                }
+            });
+
+            openModal('changeCLIModal');
+        }
+
+        // Submit CLI change
+        async function submitCLIChange() {
+            const newCLIId = document.getElementById('newCLISelect').value;
+            const effectiveDate = document.getElementById('changeEffectiveDate').value;
+
+            if (!newCLIId) {
+                alert('Please select new CLI');
+                return;
+            }
+
+            if (!effectiveDate) {
+                alert('Please select effective date');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/division/cli/nomination/${currentNominationId}/change`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        new_cli_id: newCLIId,
+                        nominated_from_date: effectiveDate,
+                        remarks: document.getElementById('changeRemarks').value || null
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    alert(result.message);
+                    closeModal('changeCLIModal');
+                    // Refresh staff modal
+                    closeModal('staffModal');
+                    closeModal('detailsModal');
+                    loadCLIs();
+                } else {
+                    alert(result.error || 'Failed to change CLI');
+                }
+            } catch (error) {
+                console.error('Error changing CLI:', error);
+                alert('Failed to change CLI');
+            }
         }
 
         // Initialize

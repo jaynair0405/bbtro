@@ -570,12 +570,16 @@ body {
     background: var(--success-green); 
 }
 
-.activity-icon.orange { 
-    background: var(--warning-orange); 
+.activity-icon.orange {
+    background: var(--warning-orange);
 }
 
-.activity-content { 
-    flex: 1; 
+.activity-icon.purple {
+    background: #ede9fe;
+}
+
+.activity-content {
+    flex: 1;
 }
 
 .activity-title { 

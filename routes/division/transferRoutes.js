@@ -46,6 +46,7 @@ router.post('/transfer-request', requireAuth, async (req, res) => {
             to_office_code,
             current_cms_id,
             request_date,
+            transfer_category,
             remarks
         } = req.body;
 
@@ -89,13 +90,14 @@ router.post('/transfer-request', requireAuth, async (req, res) => {
         // Insert transfer request
         const [result] = await conn.query(
             `INSERT INTO div_transfer_requests
-             (staff_hrms_id, from_office_code, to_office_code, current_cms_id,
+             (staff_hrms_id, from_office_code, to_office_code, transfer_category, current_cms_id,
               request_date, requested_by, remarks, status, created_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, 'Pending', NOW())`,
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Pending', NOW())`,
             [
                 staff_hrms_id,
                 from_office_code,
                 to_office_code,
+                transfer_category || 'Permanent Transfer',
                 current_cms_id,
                 request_date || new Date().toISOString().split('T')[0],
                 req.session.user.username,
@@ -195,14 +197,15 @@ router.put('/transfer-request/:id/accept', requireAuth, async (req, res) => {
             // Insert into transfer history
             await conn.query(
                 `INSERT INTO div_transfer_history
-                 (staff_hrms_id, from_office_code, to_office_code, from_cms_id, to_cms_id,
+                 (staff_hrms_id, from_office_code, to_office_code, transfer_category, from_cms_id, to_cms_id,
                   transfer_date, transfer_order_no, transfer_reason,
                   initiated_by, approved_by, status, remarks, created_at)
-                 VALUES (?, ?, ?, ?, ?, CURDATE(), '', ?, ?, ?, 'Completed', ?, NOW())`,
+                 VALUES (?, ?, ?, ?, ?, ?, CURDATE(), '', ?, ?, ?, 'Completed', ?, NOW())`,
                 [
                     transferReq.staff_hrms_id,
                     transferReq.from_office_code,
                     transferReq.to_office_code,
+                    transferReq.transfer_category || 'Permanent Transfer',
                     transferReq.current_cms_id,
                     new_cms_id.trim(),
                     transferReq.remarks,
@@ -212,13 +215,32 @@ router.put('/transfer-request/:id/accept', requireAuth, async (req, res) => {
                 ]
             );
 
-            // Update staff master
-            await conn.query(
-                `UPDATE div_staff_master
-                 SET current_office_code = ?, current_cms_id = ?
-                 WHERE hrms_id = ?`,
-                [transferReq.to_office_code, new_cms_id.trim(), transferReq.staff_hrms_id]
-            );
+            // Determine what to update based on transfer category
+            const category = transferReq.transfer_category || 'Permanent Transfer';
+            let staffUpdate = '';
+            let staffParams = [];
+
+            if (category === 'Inter Railway') {
+                // Inter Railway: Set office to OTHER, preserve home_office_code, set status to Transferred
+                staffUpdate = `UPDATE div_staff_master
+                               SET current_office_code = 'OTHER', current_cms_id = ?, status = 'Transferred'
+                               WHERE hrms_id = ?`;
+                staffParams = [new_cms_id.trim(), transferReq.staff_hrms_id];
+            } else if (category === 'Temporary Transfer') {
+                // Temporary: Update current_office_code only, keep home_office_code unchanged
+                staffUpdate = `UPDATE div_staff_master
+                               SET current_office_code = ?, current_cms_id = ?
+                               WHERE hrms_id = ?`;
+                staffParams = [transferReq.to_office_code, new_cms_id.trim(), transferReq.staff_hrms_id];
+            } else if (category === 'Permanent Transfer' || category === 'Promotion') {
+                // Permanent/Promotion: Update both current and home office
+                staffUpdate = `UPDATE div_staff_master
+                               SET current_office_code = ?, home_office_code = ?, current_cms_id = ?
+                               WHERE hrms_id = ?`;
+                staffParams = [transferReq.to_office_code, transferReq.to_office_code, new_cms_id.trim(), transferReq.staff_hrms_id];
+            }
+
+            await conn.query(staffUpdate, staffParams);
 
             await conn.commit();
             conn.release();
@@ -271,6 +293,57 @@ router.put('/transfer-request/:id/reject', requireAuth, async (req, res) => {
 
     } catch (error) {
         console.error('Error rejecting transfer request:', error);
+        res.status(500).json({ error: 'Database error', details: error.message });
+    }
+});
+
+// GET /api/division/transfer-activity - Get recent transfer activity (last 30 days)
+router.get('/transfer-activity', requireAuth, async (req, res) => {
+    try {
+        const userOffice = req.session.user.div_office_code;
+        const userRole = req.session.user.div_role;
+        const conn = await req.app.locals.pool.getConnection();
+
+        // For non-admin users, get incoming and outgoing for their office only
+        // For admin users, get all transfers
+        let outgoingQuery = `
+            SELECT COUNT(*) as count
+            FROM div_transfer_history
+            WHERE transfer_date >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+        `;
+
+        let incomingQuery = `
+            SELECT COUNT(*) as count
+            FROM div_transfer_history
+            WHERE transfer_date >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+        `;
+
+        const outgoingParams = [];
+        const incomingParams = [];
+
+        if (userRole !== 'division_admin') {
+            outgoingQuery += ' AND from_office_code = ?';
+            outgoingParams.push(userOffice);
+
+            incomingQuery += ' AND to_office_code = ?';
+            incomingParams.push(userOffice);
+        }
+
+        const [outgoingResult] = await conn.query(outgoingQuery, outgoingParams);
+        const [incomingResult] = await conn.query(incomingQuery, incomingParams);
+
+        conn.release();
+
+        res.json({
+            success: true,
+            outgoing: outgoingResult[0].count,
+            incoming: incomingResult[0].count,
+            total: outgoingResult[0].count + incomingResult[0].count,
+            isAdmin: userRole === 'division_admin'
+        });
+
+    } catch (error) {
+        console.error('Error fetching transfer activity:', error);
         res.status(500).json({ error: 'Database error', details: error.message });
     }
 });

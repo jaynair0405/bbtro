@@ -31,26 +31,30 @@ function selectOffice(code, fullName, icon, staffCount) {
             <div class="office-location">${fullName}</div>
         </div>
     `;
-    
-    // Update header title
+
+    // Update header title and badge
     const activeModuleName = document.querySelector('.sidebar-nav-link.active').textContent.replace(/\d+/g, '').trim();
-    document.querySelector('.header-title h1').textContent = `${code} - ${activeModuleName}`;
-    
-    // Update header badge
-    document.querySelector('.office-badge').textContent = 'Your Office';
-    
+
+    if (code === 'ALL') {
+        document.querySelector('.header-title h1').textContent = `Division ${activeModuleName}`;
+        document.querySelector('.office-badge').textContent = 'Division Admin';
+    } else {
+        document.querySelector('.header-title h1').textContent = `${code} - ${activeModuleName}`;
+        document.querySelector('.office-badge').textContent = 'Your Office';
+    }
+
     // Update stats (simulate loading new data)
     updateDashboardStats(code, staffCount);
-    
+
     // Update selected state in dropdown
     document.querySelectorAll('.office-option').forEach(option => {
         option.classList.remove('selected');
     });
     event.currentTarget.classList.add('selected');
-    
+
     // Close dropdown
     closeOfficeDropdown();
-    
+
     // Show loading effect
     showLoadingEffect();
 }
@@ -58,7 +62,12 @@ function selectOffice(code, fullName, icon, staffCount) {
 async function updateDashboardStats(office, staffCount) {
     try {
         // Fetch real stats from API
-        const response = await fetch(`/api/division/dashboard-stats?office_code=${office}`, {
+        // For "ALL", don't pass office_code to get division-wide stats
+        const url = office === 'ALL'
+            ? '/api/division/dashboard-stats'
+            : `/api/division/dashboard-stats?office_code=${office}`;
+
+        const response = await fetch(url, {
             credentials: 'same-origin'
         });
 
@@ -206,10 +215,25 @@ async function loadOfficeDropdown() {
             // Clear existing options
             dropdownMenu.innerHTML = '';
 
+            // For division admin, add "All Offices" option first
+            if (userRole === 'division_admin') {
+                const allOfficesHTML = `
+                    <div class="office-option selected" onclick="selectOffice('ALL', 'All Offices - Division View', '🏢', 0)">
+                        <div class="office-icon">🏢</div>
+                        <div class="office-details">
+                            <div class="office-name">ALL</div>
+                            <div class="office-location">All Offices - Division View</div>
+                        </div>
+                        <div class="office-stats">Division-wide</div>
+                    </div>
+                `;
+                dropdownMenu.innerHTML += allOfficesHTML;
+            }
+
             // Add each office
-            offices.forEach((office, index) => {
+            offices.forEach((office) => {
                 const officeIcon = getOfficeIcon(office.office_code);
-                const isSelected = index === 0 ? 'selected' : '';
+                const isSelected = (userRole !== 'division_admin' && offices.length === 1) ? 'selected' : '';
 
                 const optionHTML = `
                     <div class="office-option ${isSelected}" onclick="selectOffice('${office.office_code}', '${office.office_name}', '${officeIcon}', 0)">
@@ -224,10 +248,23 @@ async function loadOfficeDropdown() {
                 dropdownMenu.innerHTML += optionHTML;
             });
 
-            // Set first office as default
-            if (offices.length > 0) {
+            // Set default view
+            const currentOfficeDiv = document.querySelector('.office-current');
+
+            if (userRole === 'division_admin') {
+                // Division admin: Default to "All Offices" view
+                currentOfficeDiv.innerHTML = `
+                    <div class="office-icon">🏢</div>
+                    <div>
+                        <div class="office-name">ALL</div>
+                        <div class="office-location">All Offices - Division View</div>
+                    </div>
+                `;
+                document.querySelector('.header-title h1').textContent = 'Division Dashboard';
+                document.querySelector('.office-badge').textContent = 'Division Admin';
+            } else if (offices.length > 0) {
+                // Office HR: Show their office
                 const firstOffice = offices[0];
-                const currentOfficeDiv = document.querySelector('.office-current');
                 const officeIcon = getOfficeIcon(firstOffice.office_code);
 
                 currentOfficeDiv.innerHTML = `
@@ -238,7 +275,6 @@ async function loadOfficeDropdown() {
                     </div>
                 `;
 
-                // Update header
                 document.querySelector('.header-title h1').textContent = `${firstOffice.office_code} Dashboard`;
             }
         }
@@ -353,6 +389,11 @@ document.addEventListener('DOMContentLoaded', function() {
         btn.addEventListener('click', function(e) {
             // Skip if button has onclick handler (like Process Transfer)
             if (this.hasAttribute('onclick')) {
+                return;
+            }
+            const href = this.getAttribute('href');
+            if (href && href !== '#') {
+                // real navigation link → allow default behaviour
                 return;
             }
             e.preventDefault();
@@ -814,3 +855,443 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+
+// ========== CLI NOMINATIONS FUNCTIONALITY ==========
+let allCLIsHome = [];
+let selectedStaffForCLIChange = null;
+let staffSearchResultsChange = [];
+let staffSearchResultsHistory = [];
+
+// Load CLIs on page load
+async function loadCLIsForHome() {
+    try {
+        const response = await fetch('/api/division/cli/list-all');
+        const result = await response.json();
+        if (result.success) {
+            allCLIsHome = result.data;
+        }
+    } catch (error) {
+        console.error('Error loading CLIs:', error);
+    }
+}
+
+// Call this on page load
+loadCLIsForHome();
+
+// Load CLI recent changes count for Recent Activity
+async function loadCLIRecentChanges() {
+    try {
+        const response = await fetch('/api/division/cli/recent-changes');
+        const result = await response.json();
+
+        if (result.success && result.count > 0) {
+            document.getElementById('cliChangesCount').textContent = result.count;
+            document.getElementById('cliChangesActivity').style.display = 'flex';
+        }
+    } catch (error) {
+        console.error('Error loading CLI recent changes:', error);
+    }
+}
+
+// Load on page load
+loadCLIRecentChanges();
+
+// Load transfer activity for Recent Activity
+async function loadTransferActivity() {
+    try {
+        const response = await fetch('/api/division/transfer-activity');
+        const result = await response.json();
+
+        if (result.success && result.total > 0) {
+            const subtitleElement = document.querySelector('#transferActivity .activity-subtitle');
+
+            if (result.isAdmin) {
+                // Division admin - show total transfers across division
+                subtitleElement.innerHTML = `<strong>${result.total}</strong> staff transfers across all offices`;
+            } else {
+                // Office user - show incoming/outgoing for their office
+                subtitleElement.innerHTML = `<span id="transferOutgoing">${result.outgoing}</span> outgoing • <span id="transferIncoming">${result.incoming}</span> incoming`;
+            }
+
+            document.getElementById('transferActivity').style.display = 'flex';
+        }
+    } catch (error) {
+        console.error('Error loading transfer activity:', error);
+    }
+}
+
+// Load on page load
+loadTransferActivity();
+
+// Load PME completed for Recent Activity
+async function loadPMECompleted() {
+    try {
+        const response = await fetch('/api/division/pme-completed');
+        const result = await response.json();
+
+        if (result.success && result.count > 0) {
+            document.getElementById('pmeCompletedCount').textContent = result.count;
+            document.getElementById('pmeCompletedActivity').style.display = 'flex';
+        }
+    } catch (error) {
+        console.error('Error loading PME completed:', error);
+    }
+}
+
+// Load on page load
+loadPMECompleted();
+
+// Load P/Store activity for Recent Activity
+let pstoreStaffList = [];
+
+async function loadPStoreActivity() {
+    try {
+        const response = await fetch('/api/division/pstore-updates-today');
+        const result = await response.json();
+
+        if (result.success && result.count > 0) {
+            pstoreStaffList = result.data;
+            document.getElementById('pstoreCount').textContent = result.count;
+            document.getElementById('pstoreActivity').style.display = 'flex';
+        }
+    } catch (error) {
+        console.error('Error loading P/Store activity:', error);
+    }
+}
+
+// Show modal with staff names who updated P/Store
+function showPStoreNamesModal() {
+    const modal = document.getElementById('pstoreNamesModal');
+    const namesList = document.getElementById('pstoreNamesList');
+
+    // Generate list of staff names
+    if (pstoreStaffList.length > 0) {
+        namesList.innerHTML = pstoreStaffList.map(staff => `
+            <div style="padding: 12px; border-bottom: 1px solid #e5e7eb;">
+                <div style="font-weight: 500; color: #1a1d21;">${staff.name}</div>
+                <div style="font-size: 12px; color: #6b7280;">HRMS: ${staff.hrms_id}</div>
+            </div>
+        `).join('');
+    } else {
+        namesList.innerHTML = '<p style="text-align: center; color: #6b7280; padding: 24px;">No staff found</p>';
+    }
+
+    modal.style.display = 'flex';
+}
+
+// Close P/Store names modal
+function closePStoreNamesModal() {
+    const modal = document.getElementById('pstoreNamesModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+// Load on page load
+loadPStoreActivity();
+
+// Open CLI Nominations Options Modal
+function openCLINominationsOptionsModal() {
+    document.getElementById('cliNominationsOptionsModal').style.display = 'flex';
+}
+
+function closeCLINominationsOptionsModal() {
+    document.getElementById('cliNominationsOptionsModal').style.display = 'none';
+}
+
+// ===== CHANGE CLI FROM HOME =====
+
+function openChangeCLIFromHome() {
+    closeCLINominationsOptionsModal();
+    document.getElementById('changeCLIModalHome').style.display = 'flex';
+    document.getElementById('cliChangeEffectiveDate').valueAsDate = new Date();
+
+    // Setup staff search with debounce
+    const searchInput = document.getElementById('cliChangeStaffSearch');
+    searchInput.value = '';
+    document.getElementById('cliChangeStaffInfo').style.display = 'none';
+    document.getElementById('cliChangeFormFields').style.display = 'none';
+    document.getElementById('cliChangeSubmitBtn').disabled = true;
+    selectedStaffForCLIChange = null;
+
+    searchInput.addEventListener('input', debounce(async function() {
+        const term = this.value.trim();
+        if (term.length < 2) return;
+
+        try {
+            const response = await fetch(`/api/division/staff-search/${encodeURIComponent(term)}`);
+            const result = await response.json();
+
+            if (result.success && result.data.length > 0) {
+                staffSearchResultsChange = result.data;
+                const datalist = document.getElementById('cliChangeStaffSuggestions');
+                datalist.innerHTML = result.data.map(staff =>
+                    `<option value="${staff.hrms_id}">${staff.name} - ${staff.current_cms_id || staff.hrms_id}</option>`
+                ).join('');
+            }
+        } catch (error) {
+            console.error('Error searching staff:', error);
+        }
+    }, 300));
+
+    searchInput.addEventListener('change', function() {
+        const term = this.value.trim();
+        const staff = staffSearchResultsChange.find(s => s.hrms_id === term);
+
+        if (staff) {
+            selectStaffForCLIChange(staff);
+        }
+    });
+}
+
+function selectStaffForCLIChange(staff) {
+    selectedStaffForCLIChange = staff;
+
+    // Check if staff has a CLI
+    if (!staff.current_cli_id || !staff.cli_name) {
+        alert('This staff member does not have a CLI assigned yet. Please use CLI Management to assign one first.');
+        return;
+    }
+
+    // Check if we have nomination_id
+    if (!staff.nomination_id) {
+        alert('Unable to find active nomination for this staff member');
+        return;
+    }
+
+    // Show staff info
+    document.getElementById('cliChangeStaffName').textContent = staff.name;
+    document.getElementById('cliChangeStaffHRMS').textContent = staff.hrms_id;
+    document.getElementById('cliChangeCurrentCLI').textContent = staff.cli_name;
+    document.getElementById('cliChangeStaffInfo').style.display = 'block';
+
+    // Load CLIs into dropdown (exclude current CLI)
+    const select = document.getElementById('cliChangeNewCLI');
+    select.innerHTML = '<option value="">Select new CLI</option>';
+    allCLIsHome.forEach(cli => {
+        if (cli.cli_id !== staff.current_cli_id) {
+            select.innerHTML += `<option value="${cli.cli_id}">${cli.cli_name} (${cli.cmsid})</option>`;
+        }
+    });
+
+    // Show form fields
+    document.getElementById('cliChangeFormFields').style.display = 'block';
+    document.getElementById('cliChangeSubmitBtn').disabled = false;
+}
+
+function closeChangeCLIModalHome() {
+    document.getElementById('changeCLIModalHome').style.display = 'none';
+    selectedStaffForCLIChange = null;
+}
+
+async function submitCLIChangeFromHome() {
+    const newCLIId = document.getElementById('cliChangeNewCLI').value;
+    const effectiveDate = document.getElementById('cliChangeEffectiveDate').value;
+
+    if (!selectedStaffForCLIChange) {
+        alert('Please select a staff member');
+        return;
+    }
+
+    if (!newCLIId) {
+        alert('Please select new CLI');
+        return;
+    }
+
+    if (!effectiveDate) {
+        alert('Please select effective date');
+        return;
+    }
+
+    const btn = document.getElementById('cliChangeSubmitBtn');
+    btn.disabled = true;
+    btn.textContent = 'Changing...';
+
+    try {
+        const response = await fetch(`/api/division/cli/nomination/${selectedStaffForCLIChange.nomination_id}/change`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                new_cli_id: newCLIId,
+                nominated_from_date: effectiveDate,
+                remarks: document.getElementById('cliChangeRemarks').value || null
+            })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            alert(result.message);
+            closeChangeCLIModalHome();
+        } else {
+            alert(result.error || 'Failed to change CLI');
+        }
+    } catch (error) {
+        console.error('Error changing CLI:', error);
+        alert('Failed to change CLI');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Change CLI';
+    }
+}
+
+// ===== NOMINATION HISTORY =====
+
+function openNominationHistoryFromHome() {
+    closeCLINominationsOptionsModal();
+    document.getElementById('nominationHistoryModal').style.display = 'flex';
+
+    // Setup staff search with debounce
+    const searchInput = document.getElementById('historyStaffSearch');
+    searchInput.value = '';
+    document.getElementById('historyStaffInfo').style.display = 'none';
+    document.getElementById('nominationTimeline').style.display = 'none';
+
+    searchInput.addEventListener('input', debounce(async function() {
+        const term = this.value.trim();
+        if (term.length < 2) return;
+
+        try {
+            const response = await fetch(`/api/division/staff-search/${encodeURIComponent(term)}`);
+            const result = await response.json();
+
+            if (result.success && result.data.length > 0) {
+                staffSearchResultsHistory = result.data;
+                const datalist = document.getElementById('historyStaffSuggestions');
+                datalist.innerHTML = result.data.map(staff =>
+                    `<option value="${staff.hrms_id}">${staff.name} - ${staff.current_cms_id || staff.hrms_id}</option>`
+                ).join('');
+            }
+        } catch (error) {
+            console.error('Error searching staff:', error);
+        }
+    }, 300));
+
+    searchInput.addEventListener('change', async function() {
+        const term = this.value.trim();
+        const staff = staffSearchResultsHistory.find(s => s.hrms_id === term);
+
+        if (staff) {
+            await loadNominationHistory(staff);
+        }
+    });
+}
+
+async function loadNominationHistory(staff) {
+    // Show staff info
+    document.getElementById('historyStaffName').textContent = staff.name;
+    document.getElementById('historyStaffHRMS').textContent = staff.hrms_id;
+    document.getElementById('historyStaffOffice').textContent = staff.office_name || staff.current_office_code;
+    document.getElementById('historyStaffDesignation').textContent = staff.designation_name || 'N/A';
+    document.getElementById('historyCurrentCLI').textContent = staff.cli_name || 'Not Assigned';
+    document.getElementById('historyStaffInfo').style.display = 'block';
+
+    // Fetch nomination history
+    try {
+        const response = await fetch(`/api/division/cli/nomination-history/${staff.hrms_id}`);
+        const result = await response.json();
+
+        if (result.success && result.data && result.data.length > 0) {
+            renderNominationTimeline(result.data);
+            document.getElementById('nominationTimeline').style.display = 'block';
+        } else {
+            document.getElementById('nominationTimelineContent').innerHTML =
+                '<p style="color: #6b7280; text-align: center; padding: 32px;">No nomination history found</p>';
+            document.getElementById('nominationTimeline').style.display = 'block';
+        }
+    } catch (error) {
+        console.error('Error loading nomination history:', error);
+        document.getElementById('nominationTimelineContent').innerHTML =
+            '<p style="color: #dc2626; text-align: center; padding: 32px;">Failed to load nomination history</p>';
+        document.getElementById('nominationTimeline').style.display = 'block';
+    }
+}
+
+function getStatusDisplay(status) {
+    const statusMap = {
+        'Active': { text: 'Active', color: '#2563eb' },
+        'Expired': { text: 'Changed', color: '#f59e0b' },
+        'Transferred': { text: 'Ended', color: '#6b7280' }
+    };
+    return statusMap[status] || { text: status, color: '#6b7280' };
+}
+
+function renderNominationTimeline(nominations) {
+    const content = document.getElementById('nominationTimelineContent');
+
+    content.innerHTML = nominations.map((nom, idx) => {
+        const isActive = nom.status === 'Active';
+        const statusInfo = getStatusDisplay(nom.status);
+        const duration = calculateDuration(nom.nominated_from_date, nom.nominated_to_date);
+
+        return `
+            <div style="position: relative; padding-left: 32px; padding-bottom: 24px; ${idx === nominations.length - 1 ? '' : 'border-left: 2px solid #e5e7eb;'}">
+                <div style="position: absolute; left: -8px; top: 0; width: 14px; height: 14px; border-radius: 50%; background: ${isActive ? '#2563eb' : '#94a3b8'}; border: 3px solid white; box-shadow: 0 0 0 1px #e5e7eb;"></div>
+
+                <div style="background: ${isActive ? '#eff6ff' : '#f9fafb'}; border: 1px solid ${isActive ? '#bfdbfe' : '#e5e7eb'}; border-radius: 8px; padding: 16px;">
+                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
+                        <h4 style="margin: 0; color: #1a1d21; font-size: 16px;">${nom.cli_name}</h4>
+                        <span style="padding: 4px 8px; background: ${statusInfo.color}; color: white; border-radius: 4px; font-size: 12px; font-weight: 600;">
+                            ${statusInfo.text}
+                        </span>
+                    </div>
+
+                    <p style="margin: 4px 0; color: #6b7280; font-size: 13px;">
+                        <strong>CLI ID:</strong> ${nom.cmsid}
+                    </p>
+
+                    <p style="margin: 8px 0 4px; color: #374151; font-size: 14px;">
+                        <strong>Period:</strong> ${formatDate(nom.nominated_from_date)}
+                        ${nom.nominated_to_date ? `→ ${formatDate(nom.nominated_to_date)}` : '→ Current'}
+                    </p>
+
+                    <p style="margin: 4px 0; color: #6b7280; font-size: 13px;">
+                        <strong>Duration:</strong> ${duration}
+                    </p>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function calculateDuration(fromDate, toDate) {
+    const start = new Date(fromDate);
+    const end = toDate ? new Date(toDate) : new Date();
+
+    const diffTime = Math.abs(end - start);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    const years = Math.floor(diffDays / 365);
+    const months = Math.floor((diffDays % 365) / 30);
+    const days = diffDays % 30;
+
+    let parts = [];
+    if (years > 0) parts.push(`${years} year${years > 1 ? 's' : ''}`);
+    if (months > 0) parts.push(`${months} month${months > 1 ? 's' : ''}`);
+    if (days > 0 || parts.length === 0) parts.push(`${days} day${days !== 1 ? 's' : ''}`);
+
+    return parts.join(', ');
+}
+
+function formatDate(dateStr) {
+    if (!dateStr) return 'N/A';
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function closeNominationHistoryModal() {
+    document.getElementById('nominationHistoryModal').style.display = 'none';
+}
+
+// Debounce helper
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func.apply(this, args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}

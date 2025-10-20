@@ -9,6 +9,164 @@ function requireAuth(req, res, next) {
     next();
 }
 
+// ============================================
+// SPECIFIC ROUTES (must come before parameterized routes)
+// ============================================
+
+// GET /api/division/training/due-report - Get training due/overdue report with filters
+router.get('/due-report', requireAuth, async (req, res) => {
+    try {
+        const {
+            training_id,
+            office_code,
+            from_date,
+            to_date
+        } = req.query;
+
+        const userOffice = req.session.user.div_office_code;
+        const userRole = req.session.user.div_role;
+
+        const conn = await req.app.locals.pool.getConnection();
+
+        // Base query for selecting latest records with common filters
+        const baseQuery = `
+            SELECT
+                s.hrms_id,
+                s.name,
+                s.current_office_code,
+                o.office_name,
+                d.designation_name,
+                tt.training_id,
+                tt.training_name,
+                tr.record_id,
+                tr.done_date,
+                tr.due_date,
+                tr.status,
+                tc.center_name,
+                DATEDIFF(tr.due_date, CURDATE()) as days_remaining
+            FROM div_training_records tr
+            JOIN div_staff_master s ON tr.staff_hrms_id = s.hrms_id
+            JOIN div_training_types tt ON tr.training_id = tt.training_id
+            LEFT JOIN designations d ON s.designation_id = d.id
+            LEFT JOIN offices o ON s.current_office_code = o.office_code
+            LEFT JOIN div_training_centers tc ON tr.training_center_id = tc.center_id
+            WHERE s.status = 'Active'
+            AND tr.record_id IN (
+                SELECT MAX(record_id)
+                FROM div_training_records
+                GROUP BY staff_hrms_id, training_id
+            )
+        `;
+
+        // Build common filter conditions
+        let commonFilters = '';
+        const commonParams = [];
+
+        // Office-based access control
+        if (userRole !== 'division_admin') {
+            commonFilters += ' AND s.current_office_code = ?';
+            commonParams.push(userOffice);
+        } else if (office_code && office_code !== 'ALL') {
+            commonFilters += ' AND s.current_office_code = ?';
+            commonParams.push(office_code);
+        }
+
+        // Training type filter
+        if (training_id && training_id !== 'all') {
+            commonFilters += ' AND tr.training_id = ?';
+            commonParams.push(training_id);
+        }
+
+        // Query 1: Get OVERDUE records (due_date < TODAY)
+        const overdueQuery = baseQuery + commonFilters + ' AND tr.due_date < CURDATE() ORDER BY tr.due_date ASC';
+        const [overdueRecords] = await conn.query(overdueQuery, commonParams);
+
+        // Query 2: Get IN-RANGE records (due_date within selected range, excluding overdue)
+        let inRangeQuery = baseQuery + commonFilters;
+        const inRangeParams = [...commonParams];
+
+        if (from_date) {
+            inRangeQuery += ' AND tr.due_date >= ?';
+            inRangeParams.push(from_date);
+        }
+        if (to_date) {
+            inRangeQuery += ' AND tr.due_date <= ?';
+            inRangeParams.push(to_date);
+        }
+
+        inRangeQuery += ' ORDER BY tr.due_date ASC';
+
+        const [inRangeRecords] = await conn.query(inRangeQuery, inRangeParams);
+
+        conn.release();
+
+        res.json({
+            success: true,
+            overdue: overdueRecords,
+            inRange: inRangeRecords,
+            overdueCount: overdueRecords.length,
+            inRangeCount: inRangeRecords.length
+        });
+
+    } catch (error) {
+        console.error('Error fetching training due report:', error);
+        res.status(500).json({ error: 'Database error', details: error.message });
+    }
+});
+
+// GET /api/division/training/history/:hrms_id - Get training history for a staff member
+router.get('/history/:hrms_id', requireAuth, async (req, res) => {
+    try {
+        const { hrms_id } = req.params;
+        const { training_id } = req.query;
+
+        const conn = await req.app.locals.pool.getConnection();
+
+        let query = `
+            SELECT
+                tr.record_id,
+                tr.staff_hrms_id,
+                tr.training_id,
+                tr.done_date,
+                tr.due_date,
+                tr.status,
+                tr.training_center_id,
+                tr.general_remarks as remarks,
+                tr.created_at,
+                tt.training_name,
+                tt.training_code,
+                tc.center_name
+            FROM div_training_records tr
+            JOIN div_training_types tt ON tr.training_id = tt.training_id
+            LEFT JOIN div_training_centers tc ON tr.training_center_id = tc.center_id
+            WHERE tr.staff_hrms_id = ?
+        `;
+
+        const params = [hrms_id];
+
+        // Optional training type filter
+        if (training_id && training_id !== 'all') {
+            query += ' AND tr.training_id = ?';
+            params.push(training_id);
+        }
+
+        query += ' ORDER BY tr.done_date DESC, tr.created_at DESC';
+
+        const [results] = await conn.query(query, params);
+        conn.release();
+
+        res.json({ success: true, data: results });
+
+    } catch (error) {
+        console.error('Error fetching training history:', error);
+        res.status(500).json({ error: 'Database error', details: error.message });
+    }
+});
+
+// ============================================
+// PARAMETERIZED ROUTES (must come after specific routes)
+// ============================================
+
 // GET /api/division/training/:hrms_id - Get training records for a staff
 router.get('/:hrms_id', requireAuth, async (req, res) => {
     try {

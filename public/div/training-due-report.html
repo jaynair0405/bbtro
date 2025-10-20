@@ -1,0 +1,1940 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Training Due Report - Division Portal</title>
+    <link rel="stylesheet" href="/div/css/division-main.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        body {
+            background: #f5f7fa;
+        }
+
+        .report-page {
+            max-width: 1400px;
+            margin: 32px auto;
+            padding: 0 24px 48px;
+        }
+
+        .report-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: white;
+            border-radius: 16px;
+            padding: 24px 28px;
+            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+            margin-bottom: 24px;
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+
+        .report-header h1 {
+            margin: 0;
+            font-size: 28px;
+            color: #1f2937;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .back-link {
+            background: #eef2ff;
+            color: #4338ca;
+            border: none;
+            padding: 10px 18px;
+            border-radius: 999px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        .back-link:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 12px rgba(67, 56, 202, 0.15);
+        }
+
+        .filters-card {
+            background: white;
+            border-radius: 16px;
+            padding: 24px 28px;
+            box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
+            display: grid;
+            gap: 20px;
+            margin-bottom: 24px;
+        }
+
+        .filters-top {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .filters-top .filter {
+            flex: 1 1 220px;
+        }
+
+        .filter label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 6px;
+            letter-spacing: 0.02em;
+            text-transform: uppercase;
+        }
+
+        .filter select,
+        .filter input {
+            width: 100%;
+            padding: 11px 14px;
+            border-radius: 10px;
+            border: 1px solid #d1d5db;
+            font-size: 14px;
+            background: #f9fafb;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        .filter select:focus,
+        .filter input:focus {
+            outline: none;
+            border-color: var(--primary-blue, #2563eb);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+            background: white;
+        }
+
+        .range-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .range-chip {
+            padding: 8px 16px;
+            border-radius: 999px;
+            border: 1px solid #d1d5db;
+            background: white;
+            color: #374151;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .range-chip.active {
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            color: white;
+            border-color: transparent;
+            box-shadow: 0 8px 16px rgba(37, 99, 235, 0.25);
+        }
+
+        .range-chip:hover {
+            border-color: #2563eb;
+            color: #2563eb;
+        }
+
+        .summary-grid {
+            display: grid;
+            gap: 16px;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            margin-top: 8px;
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+
+        .summary-card {
+            position: relative;
+            background: white;
+            border-radius: 16px;
+            padding: 20px 22px;
+            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
+            overflow: hidden;
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+
+        .summary-card::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            border-radius: 16px;
+            background: linear-gradient(120deg, rgba(37, 99, 235, 0.18), transparent 55%);
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+
+        .summary-card:hover::after {
+            opacity: 1;
+        }
+
+        .summary-label {
+            font-size: 13px;
+            text-transform: uppercase;
+            font-weight: 600;
+            color: #6b7280;
+            letter-spacing: 0.04em;
+            margin-bottom: 8px;
+        }
+
+        .summary-value {
+            font-size: 32px;
+            font-weight: 700;
+            color: #111827;
+            margin-bottom: 6px;
+        }
+
+        .summary-footnote {
+            font-size: 12px;
+            color: #6b7280;
+        }
+
+        .dashboard-sections {
+            display: grid;
+            gap: 24px;
+            grid-template-columns: 320px 1fr;
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+
+        .dashboard-column {
+            display: grid;
+            gap: 24px;
+        }
+
+        .chart-card {
+            background: white;
+            border-radius: 16px;
+            padding: 20px 22px;
+            box-shadow: 0 6px 20px rgba(15, 23, 42, 0.1);
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+
+        .chart-card h3 {
+            margin: 0 0 12px;
+            font-size: 16px;
+            color: #1f2937;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .chart-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px 0;
+        }
+
+        .chart-label {
+            flex: 0 0 110px;
+            font-size: 13px;
+            color: #4b5563;
+        }
+
+        .chart-bar {
+            flex: 1;
+            background: #e5e7eb;
+            border-radius: 999px;
+            height: 10px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .chart-bar span {
+            display: block;
+            height: 100%;
+            border-radius: inherit;
+            background: linear-gradient(135deg, #2563eb, #60a5fa);
+        }
+
+        .chart-value {
+            font-size: 13px;
+            font-weight: 600;
+            color: #1f2937;
+            min-width: 46px;
+            text-align: right;
+        }
+
+        .table-card {
+            background: white;
+            border-radius: 16px;
+            padding: 20px 22px;
+            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+
+        .table-card header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+
+        .table-card h2 {
+            font-size: 18px;
+            color: #111827;
+            margin: 0;
+        }
+
+        .table-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .table-toolbar button {
+            border: none;
+            background: #1f2937;
+            color: white;
+            padding: 10px 16px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        .table-toolbar button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 16px rgba(17, 24, 39, 0.25);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        thead tr {
+            background: #f3f4f6;
+        }
+
+        th, td {
+            padding: 14px 16px;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        th {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: #6b7280;
+            font-weight: 700;
+        }
+
+        tbody tr:hover {
+            background: #f9fafb;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .badge.overdue {
+            background: #fee2e2;
+            color: #b91c1c;
+        }
+
+        .badge.soon {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .badge.safe {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .office-highlight {
+            font-size: 13px;
+            color: #3b82f6;
+            font-weight: 600;
+        }
+
+        .empty-state {
+            padding: 40px 32px;
+            text-align: center;
+            color: #6b7280;
+        }
+
+        .role-toggle {
+            display: inline-flex;
+            gap: 8px;
+            background: #f3f4f6;
+            border-radius: 999px;
+            padding: 6px;
+        }
+
+        .role-toggle button {
+            border: none;
+            background: transparent;
+            color: #4b5563;
+            font-size: 13px;
+            font-weight: 600;
+            padding: 8px 14px;
+            border-radius: 999px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .role-toggle button.active {
+            background: white;
+            color: #1f2937;
+            box-shadow: 0 10px 20px rgba(15, 23, 42, 0.12);
+        }
+
+        @media (max-width: 1100px) {
+            .dashboard-sections {
+                grid-template-columns: 1fr;
+            }
+
+            .summary-grid {
+                grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            }
+        }
+
+        @media (max-width: 768px) {
+            .report-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 16px;
+            }
+
+            .filters-top {
+                flex-direction: column;
+            }
+
+            table {
+                display: block;
+                overflow-x: auto;
+            }
+        }
+
+        /* Training History Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(4px);
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 16px;
+            width: 90%;
+            max-width: 900px;
+            max-height: 85vh;
+            overflow: hidden;
+            box-shadow: 0 24px 48px rgba(0, 0, 0, 0.25);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .modal-header {
+            padding: 24px 28px;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .modal-header h2 {
+            margin: 0;
+            font-size: 20px;
+            color: #111827;
+        }
+
+        .modal-close {
+            background: #f3f4f6;
+            border: none;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 20px;
+            color: #6b7280;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s ease;
+        }
+
+        .modal-close:hover {
+            background: #e5e7eb;
+            color: #111827;
+        }
+
+        .modal-body {
+            padding: 24px 28px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .staff-info-banner {
+            background: linear-gradient(135deg, #eef2ff, #e0e7ff);
+            padding: 20px 24px;
+            border-radius: 12px;
+            margin-bottom: 24px;
+            border-left: 4px solid #4f46e5;
+        }
+
+        .staff-info-banner h3 {
+            margin: 0 0 8px;
+            font-size: 18px;
+            color: #1f2937;
+        }
+
+        .staff-info-banner p {
+            margin: 0;
+            font-size: 14px;
+            color: #4b5563;
+        }
+
+        .history-list {
+            display: grid;
+            gap: 16px;
+        }
+
+        .history-item {
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 20px;
+            transition: all 0.15s ease;
+        }
+
+        .history-item:hover {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            border-color: #d1d5db;
+        }
+
+        .history-item-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+
+        .history-training-name {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1f2937;
+        }
+
+        .history-status-badge {
+            padding: 6px 12px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .history-status-badge.completed {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .history-status-badge.pending {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .history-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+        }
+
+        .history-detail {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .history-detail-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            font-weight: 600;
+            color: #6b7280;
+            letter-spacing: 0.05em;
+        }
+
+        .history-detail-value {
+            font-size: 14px;
+            color: #1f2937;
+            font-weight: 500;
+        }
+
+        .history-remarks {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .history-empty {
+            text-align: center;
+            padding: 48px 24px;
+            color: #6b7280;
+        }
+
+        .history-empty-icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+        }
+
+        tbody tr {
+            cursor: pointer;
+        }
+
+        tbody tr:hover {
+            background: #f3f4f6 !important;
+        }
+
+        /* Print Options Modal */
+        .print-options-group {
+            margin-bottom: 24px;
+        }
+
+        .print-options-group h3 {
+            font-size: 15px;
+            color: #1f2937;
+            margin: 0 0 12px;
+            font-weight: 600;
+        }
+
+        .print-option {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 12px;
+            border-radius: 8px;
+            transition: background 0.15s ease;
+            margin-bottom: 8px;
+        }
+
+        .print-option:hover {
+            background: #f9fafb;
+        }
+
+        .print-option input[type="checkbox"] {
+            margin-top: 2px;
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .print-option-label {
+            flex: 1;
+        }
+
+        .print-option-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 2px;
+        }
+
+        .print-option-desc {
+            font-size: 12px;
+            color: #6b7280;
+        }
+
+        .modal-footer {
+            padding: 20px 28px;
+            border-top: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+        }
+
+        .modal-footer button {
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            border: none;
+        }
+
+        .modal-footer .btn-secondary {
+            background: #f3f4f6;
+            color: #4b5563;
+        }
+
+        .modal-footer .btn-secondary:hover {
+            background: #e5e7eb;
+        }
+
+        .modal-footer .btn-primary {
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            color: white;
+        }
+
+        .modal-footer .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 16px rgba(37, 99, 235, 0.25);
+        }
+
+        /* Print styles */
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+
+            .print-area, .print-area * {
+                visibility: visible;
+            }
+
+            .print-area {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+            }
+
+            .report-header .back-link,
+            .filters-card,
+            .table-toolbar,
+            .modal-overlay {
+                display: none !important;
+            }
+
+            .report-page {
+                margin: 0;
+                padding: 0;
+            }
+
+            .summary-grid,
+            .dashboard-sections,
+            .table-card {
+                box-shadow: none !important;
+                break-inside: avoid;
+            }
+
+            @page {
+                margin: 1.5cm;
+            }
+        }
+    </style>
+</head>
+<body>
+<script src="/div/js/division-auth.js"></script>
+    <div class="report-page">
+        <div class="report-header">
+            <div>
+                <h1>🎓 Training & PME Due Report</h1>
+                <p style="margin: 4px 0 0; color: #6b7280; font-size: 14px;">
+                    Analyse upcoming and overdue training compliance across the division.
+                </p>
+            </div>
+            <button class="back-link" onclick="window.location.href='/div'">← Back to Dashboard</button>
+        </div>
+
+        <div class="filters-card">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div style="font-size: 14px; font-weight: 600; color: #374151;">Filters</div>
+                <div class="role-toggle" title="Role preview (front-end only)">
+                    <button id="viewAdmin" class="active" onclick="switchRole('admin')">Division Admin</button>
+                    <button id="viewOffice" onclick="switchRole('office')">Office HR</button>
+                </div>
+            </div>
+
+            <div class="filters-top">
+                <div class="filter">
+                    <label for="trainingSelect">Training / PME</label>
+                    <select id="trainingSelect"></select>
+                </div>
+
+                <div class="filter">
+                    <label for="officeSelect">Office Scope</label>
+                    <select id="officeSelect"></select>
+                </div>
+
+                <div class="filter">
+                    <label for="fromDate">Custom Date Range</label>
+                    <div style="display: flex; gap: 8px;">
+                        <input type="date" id="fromDate" style="flex: 1;" autocomplete="off" />
+                        <input type="date" id="toDate" style="flex: 1;" autocomplete="off" />
+                    </div>
+                    <button id="applyDateRangeBtn" style="margin-top: 8px; padding: 10px 14px; background: #2563eb; color: white; border: none; border-radius: 10px; font-size: 13px; font-weight: 600; cursor: pointer; transition: opacity 0.15s ease;" disabled>
+                        Apply Range
+                    </button>
+                </div>
+            </div>
+
+            <div>
+                <label style="display: block; font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 8px; text-transform: uppercase;">
+                    Quick Timeframe
+                </label>
+                <div class="range-chips" id="rangeChips">
+                    <button class="range-chip" data-days="7">Within 7 days</button>
+                    <button class="range-chip" data-days="10">Within 10 days</button>
+                    <button class="range-chip" data-days="15">Within 15 days</button>
+                    <button class="range-chip" data-days="30">Within 1 month</button>
+                    <button class="range-chip" data-days="90">Within 3 months</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="summary-grid" id="summaryGrid"></div>
+
+        <div class="dashboard-sections">
+            <div class="dashboard-column">
+                <div class="chart-card">
+                    <h3>👔 Designation wise break up</h3>
+                    <div id="designationChart"></div>
+                </div>
+
+                <div class="chart-card" id="officeChartCard">
+                    <h3>🏢 Office Breakdown</h3>
+                    <div id="officeChart"></div>
+                </div>
+
+                <div class="chart-card">
+                    <h3>📊 Remaining Yearly Dues</h3>
+                    <div id="yearlyDueChart"></div>
+                </div>
+
+                <div class="chart-card">
+                    <h3>📅 Upcoming Due list</h3>
+                    <div id="milestonesList" style="display: grid; gap: 12px;"></div>
+                </div>
+            </div>
+
+            <div class="table-card">
+                <header>
+                    <div>
+                        <h2>Staff Training Compliance</h2>
+                        <p style="margin: 4px 0 0; color: #6b7280; font-size: 13px;" id="tableSubtitle"></p>
+                    </div>
+                    <div class="table-toolbar">
+                        <button onclick="downloadCSV()">⬇️ Export CSV</button>
+                        <button onclick="openPrintModal('pdf')">📄 Download PDF</button>
+                        <button onclick="openPrintModal('print')">🖨️ Print</button>
+                    </div>
+                </header>
+
+                <div id="tableContainer"></div>
+            </div>
+        </div>
+    </div>
+
+    <template id="emptyStateTemplate">
+        <div class="empty-state">
+            <div style="font-size: 42px; margin-bottom: 12px;">🥳</div>
+            <div style="font-size: 16px; font-weight: 600; color: #111827; margin-bottom: 6px;">
+                You're all caught up!
+            </div>
+            <div style="font-size: 13px;">
+                No staff members match the selected filters. Try expanding your search window or including overdue records.
+            </div>
+        </div>
+    </template>
+
+    <!-- Training History Modal -->
+    <div class="modal-overlay" id="historyModal" onclick="closeHistoryModal(event)">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h2>📚 Training History</h2>
+                <button class="modal-close" onclick="closeHistoryModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="historyModalBody">
+                <div style="text-align: center; padding: 40px; color: #6b7280;">
+                    Loading training history...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Print Options Modal -->
+    <div class="modal-overlay" id="printModal" onclick="closePrintModal(event)">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h2 id="printModalTitle">🖨️ Print Options</h2>
+                <button class="modal-close" onclick="closePrintModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="print-options-group">
+                    <h3>Include in Print</h3>
+                    <div class="print-option">
+                        <input type="checkbox" id="printSummary" checked>
+                        <div class="print-option-label">
+                            <div class="print-option-title">Summary Cards</div>
+                            <div class="print-option-desc">Total staff, overdue count, due within 7/30 days, etc.</div>
+                        </div>
+                    </div>
+                    <div class="print-option">
+                        <input type="checkbox" id="printCharts" checked>
+                        <div class="print-option-label">
+                            <div class="print-option-title">Charts & Visualizations</div>
+                            <div class="print-option-desc">Designation breakdown, office chart, yearly dues, and milestones</div>
+                        </div>
+                    </div>
+                    <div class="print-option">
+                        <input type="checkbox" id="printTable" checked>
+                        <div class="print-option-label">
+                            <div class="print-option-title">Staff Compliance Table</div>
+                            <div class="print-option-desc">Detailed table with all staff members and their training status</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="print-options-group">
+                    <h3>Additional Options</h3>
+                    <div class="print-option">
+                        <input type="checkbox" id="printFilters" checked>
+                        <div class="print-option-label">
+                            <div class="print-option-title">Show Applied Filters</div>
+                            <div class="print-option-desc">Display which filters were applied to generate this report</div>
+                        </div>
+                    </div>
+                    <div class="print-option">
+                        <input type="checkbox" id="printTimestamp" checked>
+                        <div class="print-option-label">
+                            <div class="print-option-title">Include Timestamp</div>
+                            <div class="print-option-desc">Show when this report was generated</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closePrintModal()">Cancel</button>
+                <button class="btn-primary" id="printModalButton" onclick="executePrint()">🖨️ Print Report</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const dayInMs = 24 * 60 * 60 * 1000;
+        const today = new Date();
+        const todayStr = today.toISOString().split('T')[0];
+        const endOfYear = new Date(today.getFullYear(), 11, 31);
+        const endOfYearStr = endOfYear.toISOString().split('T')[0];
+
+        let trainingTypes = [];
+        let offices = [];
+        let reportData = [];
+
+        let currentRole = 'admin';
+        let activeRangeDays = null;
+        let appliedFromDate = todayStr;
+        let appliedToDate = endOfYearStr;
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const fromDateInput = document.getElementById('fromDate');
+            const toDateInput = document.getElementById('toDate');
+
+            // Force reset date inputs to defaults (clear browser cache)
+            if (fromDateInput) {
+                fromDateInput.value = '';
+                fromDateInput.value = appliedFromDate;
+            }
+            if (toDateInput) {
+                toDateInput.value = '';
+                toDateInput.value = appliedToDate;
+            }
+
+            // Clear any active range chips
+            document.querySelectorAll('.range-chip').forEach(chip => chip.classList.remove('active'));
+
+            await loadInitialData();
+            attachListeners();
+            await fetchAndRenderData();
+        });
+
+        // Also reset on page visibility change (when returning from dashboard)
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                const fromDateInput = document.getElementById('fromDate');
+                const toDateInput = document.getElementById('toDate');
+
+                // Reset to defaults when page becomes visible again
+                if (fromDateInput && toDateInput) {
+                    fromDateInput.value = todayStr;
+                    toDateInput.value = endOfYearStr;
+                    appliedFromDate = todayStr;
+                    appliedToDate = endOfYearStr;
+                    activeRangeDays = null;
+                    document.querySelectorAll('.range-chip').forEach(chip => chip.classList.remove('active'));
+                    fetchAndRenderData();
+                }
+            }
+        });
+
+        function offsetDate(days) {
+            const date = new Date(today);
+            date.setDate(date.getDate() + days);
+            return date.toISOString().split('T')[0];
+        }
+
+        async function loadInitialData() {
+            try {
+                // Load training types
+                const trainingResponse = await fetch('/api/division/training-types', {
+                    credentials: 'same-origin'
+                });
+                const trainingResult = await trainingResponse.json();
+                if (trainingResult.success) {
+                    trainingTypes = [{ id: 'all', training_name: 'All Trainings' }, ...trainingResult.data];
+                }
+
+                // Load offices
+                const officeResponse = await fetch('/api/division/offices', {
+                    credentials: 'same-origin'
+                });
+                const officeResult = await officeResponse.json();
+                if (officeResult.success) {
+                    offices = [{ office_code: 'ALL', office_name: 'All Offices' }, ...officeResult.data];
+                }
+
+                populateSelects();
+            } catch (error) {
+                console.error('Error loading initial data:', error);
+                alert('Failed to load dropdown data');
+            }
+        }
+
+        function populateSelects() {
+            const trainingSelect = document.getElementById('trainingSelect');
+            const officeSelect = document.getElementById('officeSelect');
+
+            trainingSelect.innerHTML = trainingTypes.map(type =>
+                `<option value="${type.id || type.training_id}">${type.training_name}</option>`
+            ).join('');
+
+            officeSelect.innerHTML = offices.map(office =>
+                `<option value="${office.office_code}">${office.office_name}</option>`
+            ).join('');
+        }
+
+        function attachListeners() {
+            const fromDateInput = document.getElementById('fromDate');
+            const toDateInput = document.getElementById('toDate');
+            const applyRangeBtn = document.getElementById('applyDateRangeBtn');
+
+            document.getElementById('trainingSelect').addEventListener('change', () => fetchAndRenderData());
+            document.getElementById('officeSelect').addEventListener('change', () => fetchAndRenderData());
+
+            fromDateInput.addEventListener('change', () => {
+                clearQuickRange(false);
+                updateApplyDateRangeState();
+            });
+            toDateInput.addEventListener('change', () => {
+                clearQuickRange(false);
+                updateApplyDateRangeState();
+            });
+            applyRangeBtn.addEventListener('click', () => {
+                if (applyRangeBtn.disabled) return;
+                appliedFromDate = fromDateInput.value || null;
+                appliedToDate = toDateInput.value || null;
+                document.querySelectorAll('.range-chip').forEach(c => c.classList.remove('active'));
+                activeRangeDays = null;
+                fetchAndRenderData();
+                updateApplyDateRangeState();
+            });
+
+            document.querySelectorAll('.range-chip').forEach(chip => {
+                chip.addEventListener('click', () => {
+                    document.querySelectorAll('.range-chip').forEach(c => c.classList.remove('active'));
+                    chip.classList.add('active');
+                    activeRangeDays = Number(chip.dataset.days);
+                    fromDateInput.value = '';
+                    toDateInput.value = '';
+                    appliedFromDate = null;
+                    appliedToDate = null;
+                    updateApplyDateRangeState();
+                    fetchAndRenderData();
+                });
+            });
+
+            updateApplyDateRangeState();
+        }
+
+        function updateApplyDateRangeState() {
+            const btn = document.getElementById('applyDateRangeBtn');
+            if (!btn) return;
+            const fromValue = document.getElementById('fromDate').value;
+            const toValue = document.getElementById('toDate').value;
+            const normalizedFrom = fromValue || null;
+            const normalizedTo = toValue || null;
+            const pendingChange = normalizedFrom !== appliedFromDate || normalizedTo !== appliedToDate;
+            btn.disabled = !pendingChange;
+            btn.style.opacity = btn.disabled ? '0.45' : '1';
+            btn.style.cursor = btn.disabled ? 'not-allowed' : 'pointer';
+        }
+
+        function switchRole(role) {
+            if (role === currentRole) return;
+            currentRole = role;
+            document.getElementById('viewAdmin').classList.toggle('active', role === 'admin');
+            document.getElementById('viewOffice').classList.toggle('active', role === 'office');
+
+            const officeSelect = document.getElementById('officeSelect');
+            if (role === 'office') {
+                officeSelect.value = 'CSMT-SUB';
+                officeSelect.disabled = true;
+                document.getElementById('officeChartCard').style.display = 'none';
+            } else {
+                officeSelect.disabled = false;
+                officeSelect.value = 'ALL';
+                document.getElementById('officeChartCard').style.display = 'block';
+            }
+            fetchAndRenderData();
+        }
+
+        function clearQuickRange(soft = true) {
+            if (soft && (document.getElementById('fromDate').value || document.getElementById('toDate').value)) {
+                document.querySelectorAll('.range-chip').forEach(chip => chip.classList.remove('active'));
+                activeRangeDays = null;
+            }
+        }
+
+        async function fetchAndRenderData() {
+            try {
+                const trainingId = document.getElementById('trainingSelect').value;
+                const officeCode = document.getElementById('officeSelect').value;
+
+                const fromDateValue = appliedFromDate;
+                const toDateValue = appliedToDate;
+
+                // Calculate date range
+                let fromDate = null;
+                let toDate = null;
+
+                if (fromDateValue || toDateValue) {
+                    fromDate = fromDateValue || today.toISOString().split('T')[0];
+                    toDate = toDateValue || null;
+                } else if (activeRangeDays !== null) {
+                    fromDate = today.toISOString().split('T')[0];
+                    const endDate = new Date(today);
+                    endDate.setDate(endDate.getDate() + activeRangeDays);
+                    toDate = endDate.toISOString().split('T')[0];
+                }
+
+                // Build query params
+                const params = new URLSearchParams();
+                if (trainingId) params.append('training_id', trainingId);
+                if (officeCode) params.append('office_code', officeCode);
+                if (fromDate) params.append('from_date', fromDate);
+                if (toDate) params.append('to_date', toDate);
+
+                // Fetch data
+                const response = await fetch(`/api/division/training/due-report?${params.toString()}`, {
+                    credentials: 'same-origin'
+                });
+                const result = await response.json();
+
+                if (result.success) {
+                    // Process overdue records
+                    const overdueData = result.overdue.map(record => ({
+                        ...record,
+                        proximity: getProximityTag(record.days_remaining, record.status)
+                    }));
+
+                    // Process in-range records
+                    const inRangeData = result.inRange.map(record => ({
+                        ...record,
+                        proximity: getProximityTag(record.days_remaining, record.status)
+                    }));
+
+                    // Store separately for rendering
+                    reportData = {
+                        overdue: overdueData,
+                        inRange: inRangeData,
+                        all: [...overdueData, ...inRangeData] // Combined for charts/summaries
+                    };
+
+                    renderAll(reportData);
+                } else {
+                    throw new Error(result.error || 'Failed to fetch report data');
+                }
+            } catch (error) {
+                console.error('Error fetching report data:', error);
+                alert('Failed to load report data');
+                reportData = { overdue: [], inRange: [], all: [] };
+                renderAll(reportData);
+            }
+        }
+
+        function renderAll(data) {
+            // Use combined data for summaries and charts
+            renderSummaries(data.all);
+            renderDesignationChart(data.all);
+            renderYearlyDueChart(data.all);
+            if (currentRole === 'admin') {
+                renderOfficeChart(data.all);
+            }
+            renderMilestones(data.all);
+            // Pass separate arrays to table renderer
+            renderTable(data.overdue, data.inRange);
+        }
+
+        function getProximityTag(daysRemaining, status) {
+            // Proximity based only on due date, not status
+            if (daysRemaining < 0) {
+                return { label: `${Math.abs(daysRemaining)} days overdue`, className: 'overdue' };
+            }
+            if (daysRemaining <= 7) {
+                return { label: `Due in ${daysRemaining} day${daysRemaining === 1 ? '' : 's'}`, className: 'soon' };
+            }
+            return { label: `Due in ${daysRemaining} days`, className: 'safe' };
+        }
+
+        function renderSummaries(dataset) {
+            const summaryGrid = document.getElementById('summaryGrid');
+            if (!dataset.length) {
+                summaryGrid.innerHTML = '';
+                return;
+            }
+
+            const total = dataset.length;
+            const overdue = dataset.filter(item => item.days_remaining < 0).length;
+            const due7 = dataset.filter(item => item.days_remaining >= 0 && item.days_remaining <= 7).length;
+            const due30 = dataset.filter(item => item.days_remaining >= 0 && item.days_remaining <= 30).length;
+
+            // Calculate most common training type
+            const trainingCounts = {};
+            dataset.forEach(item => {
+                const trainingName = item.training_name || 'Unknown';
+                trainingCounts[trainingName] = (trainingCounts[trainingName] || 0) + 1;
+            });
+
+            const mostCommonTraining = Object.entries(trainingCounts).reduce((max, [name, count]) => {
+                return count > max.count ? { name, count } : max;
+            }, { name: '—', count: 0 });
+
+            const earliest = dataset.sort((a, b) => new Date(a.due_date) - new Date(b.due_date))[0];
+
+            const cards = [
+                {
+                    label: 'Total Staff In Window',
+                    value: total,
+                    footnote: 'Filtered by training & office scope'
+                },
+                {
+                    label: 'Overdue',
+                    value: overdue,
+                    footnote: overdue ? `${Math.round((overdue / total) * 100)}% of filtered staff` : 'Great! No overdue staff'
+                },
+                {
+                    label: 'Due within 7 days',
+                    value: due7,
+                    footnote: due7 ? 'Immediate attention required' : 'No imminent dues'
+                },
+                {
+                    label: 'Due within 30 days',
+                    value: due30,
+                    footnote: `${due30} staff scheduled shortly`
+                },
+                {
+                    label: 'Most Common Training',
+                    value: mostCommonTraining.count,
+                    footnote: mostCommonTraining.count > 0 ? mostCommonTraining.name : 'No data available'
+                },
+                {
+                    label: 'Earliest due date',
+                    value: earliest ? formatDate(earliest.due_date) : '—',
+                    footnote: earliest ? `${earliest.name} (${earliest.current_office_code || earliest.office_name || '—'})` : 'All clear'
+                }
+            ];
+
+            summaryGrid.innerHTML = cards.map(card => `
+                <div class="summary-card">
+                    <div class="summary-label">${card.label}</div>
+                    <div class="summary-value">${card.value}</div>
+                    <div class="summary-footnote">${card.footnote}</div>
+                </div>
+            `).join('');
+        }
+
+        function renderDesignationChart(dataset) {
+            const container = document.getElementById('designationChart');
+            if (!dataset.length) {
+                container.innerHTML = '<div style="color: #9ca3af; font-size: 13px;">No data in current selection</div>';
+                return;
+            }
+
+            const counts = {};
+            dataset.forEach(item => {
+                const designation = item.designation_name || item.designation || 'Not tagged';
+                counts[designation] = (counts[designation] || 0) + 1;
+            });
+
+            const max = Math.max(...Object.values(counts));
+
+            container.innerHTML = Object.entries(counts).map(([designation, count]) => `
+                <div class="chart-item">
+                    <div class="chart-label">${designation}</div>
+                    <div class="chart-bar">
+                        <span style="width: ${(count / max) * 100}%"></span>
+                    </div>
+                    <div class="chart-value">${count}</div>
+                </div>
+            `).join('');
+        }
+
+        function renderOfficeChart(dataset) {
+            const container = document.getElementById('officeChart');
+            if (!dataset.length) {
+                container.innerHTML = '<div style="color: #9ca3af; font-size: 13px;">No data in current selection</div>';
+                return;
+            }
+
+            const counts = {};
+            dataset.forEach(item => {
+                counts[item.office_name] = (counts[item.office_name] || 0) + 1;
+            });
+
+            const max = Math.max(...Object.values(counts));
+
+            container.innerHTML = Object.entries(counts).map(([office, count]) => `
+                <div class="chart-item">
+                    <div class="chart-label">${office}</div>
+                    <div class="chart-bar">
+                        <span style="width: ${(count / max) * 100}%; background: linear-gradient(135deg, #f97316, #fbbf24);"></span>
+                    </div>
+                    <div class="chart-value">${count}</div>
+                </div>
+            `).join('');
+        }
+
+        function renderYearlyDueChart(dataset) {
+            const container = document.getElementById('yearlyDueChart');
+            if (!dataset.length) {
+                container.innerHTML = '<div style="color: #9ca3af; font-size: 13px;">No data in current selection</div>';
+                return;
+            }
+
+            const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const currentYear = today.getFullYear();
+            const startMonth = today.getMonth();
+            const monthlyCounts = [];
+
+            for (let month = startMonth; month < 12; month++) {
+                const count = dataset.filter(item => {
+                    const dueDate = new Date(item.due_date);
+                    return dueDate.getFullYear() === currentYear && dueDate.getMonth() === month;
+                }).length;
+                monthlyCounts.push({ label: monthNames[month], count });
+            }
+
+            const maxCount = Math.max(...monthlyCounts.map(item => item.count));
+
+            if (maxCount === 0) {
+                container.innerHTML = '<div style="color: #9ca3af; font-size: 13px;">No dues scheduled for remaining months.</div>';
+                return;
+            }
+
+            container.innerHTML = monthlyCounts.map(({ label, count }) => `
+                <div class="chart-item">
+                    <div class="chart-label">${label}</div>
+                    <div class="chart-bar">
+                        <span style="width: ${(count / maxCount) * 100}%; background: linear-gradient(135deg, #16a34a, #4ade80);"></span>
+                    </div>
+                    <div class="chart-value">${count}</div>
+                </div>
+            `).join('');
+        }
+
+        function renderMilestones(dataset) {
+            const container = document.getElementById('milestonesList');
+            if (!dataset.length) {
+                container.innerHTML = '<div style="color: #9ca3af; font-size: 13px;">No upcoming milestones.</div>';
+                return;
+            }
+
+            // Show earliest 4 records sorted by due date (no status filter)
+            const upcoming = dataset
+                .sort((a, b) => new Date(a.due_date) - new Date(b.due_date))
+                .slice(0, 4);
+
+            container.innerHTML = upcoming.map(item => `
+                <div style="background: linear-gradient(120deg, rgba(37, 99, 235, 0.08), rgba(37, 99, 235, 0.02)); padding: 14px 16px; border-radius: 12px;">
+                    <div style="font-weight: 600; color: #1f2937;">${item.name}</div>
+                    <div style="font-size: 13px; color: #4b5563;">${item.designation_name || item.designation || 'Not tagged'} • ${item.office_name}</div>
+                    <div style="margin-top: 8px; font-size: 13px; display: flex; justify-content: space-between; color: #6b7280;">
+                        <span>Due: <strong style="color: #1f2937;">${formatDate(item.due_date)}</strong></span>
+                        <span>${item.days_remaining >= 0 ? `in ${item.days_remaining} days` : `${Math.abs(item.days_remaining)} days overdue`}</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderTable(overdueData, inRangeData) {
+            const container = document.getElementById('tableContainer');
+            const subtitle = document.getElementById('tableSubtitle');
+
+            const totalRecords = overdueData.length + inRangeData.length;
+
+            if (totalRecords === 0) {
+                const emptyTemplate = document.getElementById('emptyStateTemplate');
+                container.innerHTML = '';
+                container.appendChild(emptyTemplate.content.cloneNode(true));
+                subtitle.textContent = 'No records found for the selected filters.';
+                return;
+            }
+
+            // Check if we should show Training column (only when "All trainings" is selected)
+            const trainingId = document.getElementById('trainingSelect').value;
+            const showTrainingColumn = trainingId === 'all';
+
+            subtitle.textContent = `${totalRecords} staff members shown (${overdueData.length} overdue, ${inRangeData.length} in range)`;
+
+            // Helper function to generate table rows
+            const generateRows = (dataset, sectionType) => {
+                return dataset.map(item => `
+                    <tr onclick="openHistoryModal('${item.hrms_id}', '${item.name.replace(/'/g, "\\'")}', '${(item.designation_name || item.designation).replace(/'/g, "\\'")}', '${item.office_name.replace(/'/g, "\\'")}')">
+                        <td>
+                            <div style="font-weight: 600; color: #111827;">${item.name}</div>
+                            <div style="font-size: 12px; color: #6b7280;">HRMS ${item.hrms_id}</div>
+                        </td>
+                        <td>${item.designation_name || item.designation}</td>
+                        ${showTrainingColumn ? `<td><span style="font-size: 13px; color: #6366f1; font-weight: 500;">${item.training_name}</span></td>` : ''}
+                        <td>
+                            <span class="office-highlight">${item.office_name}</span>
+                        </td>
+                        <td>${formatDate(item.done_date)}</td>
+                        <td>${formatDate(item.due_date)}</td>
+                        <td>
+                            <span class="badge ${item.proximity.className}">
+                                ${item.proximity.label}
+                            </span>
+                        </td>
+                    </tr>
+                `).join('');
+            };
+
+            let tableHTML = '';
+
+            // Section 1: Overdue Cases (only if there are overdue records)
+            if (overdueData.length > 0) {
+                tableHTML += `
+                    <div style="background: linear-gradient(135deg, #fef2f2, #fee2e2); border-left: 4px solid #dc2626; padding: 16px 20px; border-radius: 12px; margin-bottom: 24px;">
+                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+                            <span style="font-size: 24px;">⚠️</span>
+                            <div>
+                                <div style="font-size: 16px; font-weight: 700; color: #991b1b;">Overdue Training Cases</div>
+                                <div style="font-size: 13px; color: #7f1d1d; margin-top: 2px;">
+                                    ${overdueData.length} staff member${overdueData.length === 1 ? '' : 's'} with training overdue - Immediate attention required
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="overflow-x: auto; margin-bottom: 32px;">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Staff</th>
+                                    <th>Designation</th>
+                                    ${showTrainingColumn ? '<th>Training</th>' : ''}
+                                    <th>Office</th>
+                                    <th>Last Done</th>
+                                    <th>Due Date</th>
+                                    <th>Proximity</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${generateRows(overdueData, 'overdue')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            }
+
+            // Section 2: In-Range Cases
+            if (inRangeData.length > 0) {
+                tableHTML += `
+                    ${overdueData.length > 0 ? `
+                        <div style="background: linear-gradient(135deg, #eff6ff, #dbeafe); border-left: 4px solid #2563eb; padding: 16px 20px; border-radius: 12px; margin-bottom: 24px;">
+                            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+                                <span style="font-size: 24px;">📋</span>
+                                <div>
+                                    <div style="font-size: 16px; font-weight: 700; color: #1e40af;">Due Within Selected Range</div>
+                                    <div style="font-size: 13px; color: #1e3a8a; margin-top: 2px;">
+                                        ${inRangeData.length} staff member${inRangeData.length === 1 ? '' : 's'} with upcoming training due dates
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    ` : ''}
+                    <div style="overflow-x: auto;">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Staff</th>
+                                    <th>Designation</th>
+                                    ${showTrainingColumn ? '<th>Training</th>' : ''}
+                                    <th>Office</th>
+                                    <th>Last Done</th>
+                                    <th>Due Date</th>
+                                    <th>Proximity</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${generateRows(inRangeData, 'in-range')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            }
+
+            container.innerHTML = tableHTML;
+        }
+
+        function formatDate(dateString) {
+            if (!dateString) return '—';
+            const date = new Date(dateString);
+            if (Number.isNaN(date.getTime())) return '—';
+            return date.toLocaleDateString('en-IN', {
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric'
+            });
+        }
+
+        function downloadCSV() {
+            // Use the combined array for CSV export
+            const dataToExport = reportData.all || [];
+            if (!dataToExport.length) return;
+
+            const headers = ['HRMS ID', 'Name', 'Designation', 'Office', 'Training', 'Done Date', 'Due Date', 'Days Remaining', 'Status'];
+            const rows = dataToExport.map(item => [
+                item.hrms_id,
+                item.name,
+                item.designation_name || item.designation,
+                item.office_name,
+                item.training_name,
+                item.done_date,
+                item.due_date,
+                item.days_remaining,
+                item.status
+            ]);
+
+            const csvContent = [headers, ...rows].map(row => row.map(field => `"${String(field).replace(/"/g, '""')}"`).join(',')).join('\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `training_due_report_${today.toISOString().split('T')[0]}.csv`;
+            link.click();
+        }
+
+        // Training History Modal Functions
+        async function openHistoryModal(hrmsId, staffName, designation, office) {
+            const modal = document.getElementById('historyModal');
+            const modalBody = document.getElementById('historyModalBody');
+
+            // Show modal with loading state
+            modal.classList.add('active');
+            modalBody.innerHTML = `
+                <div style="text-align: center; padding: 40px; color: #6b7280;">
+                    <div style="font-size: 32px; margin-bottom: 12px;">⏳</div>
+                    <div>Loading training history...</div>
+                </div>
+            `;
+
+            try {
+                // Fetch training history
+                const response = await fetch(`/api/division/training/history/${hrmsId}`, {
+                    credentials: 'same-origin'
+                });
+                const result = await response.json();
+
+                if (!result.success) {
+                    throw new Error(result.error || 'Failed to fetch training history');
+                }
+
+                renderHistoryModal(result.data, staffName, hrmsId, designation, office);
+            } catch (error) {
+                console.error('Error fetching training history:', error);
+                modalBody.innerHTML = `
+                    <div class="history-empty">
+                        <div class="history-empty-icon">⚠️</div>
+                        <div style="font-size: 16px; font-weight: 600; color: #1f2937; margin-bottom: 6px;">
+                            Failed to load training history
+                        </div>
+                        <div style="font-size: 13px;">
+                            ${error.message}
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        function renderHistoryModal(historyData, staffName, hrmsId, designation, office) {
+            const modalBody = document.getElementById('historyModalBody');
+
+            if (!historyData || historyData.length === 0) {
+                modalBody.innerHTML = `
+                    <div class="staff-info-banner">
+                        <h3>${staffName}</h3>
+                        <p>HRMS ID: ${hrmsId} • ${designation} • ${office}</p>
+                    </div>
+                    <div class="history-empty">
+                        <div class="history-empty-icon">📋</div>
+                        <div style="font-size: 16px; font-weight: 600; color: #1f2937; margin-bottom: 6px;">
+                            No training records found
+                        </div>
+                        <div style="font-size: 13px;">
+                            This staff member has no training history in the system.
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+
+            const historyItems = historyData.map(record => {
+                return `
+                    <div class="history-item">
+                        <div class="history-item-header">
+                            <div class="history-training-name">${record.training_name}</div>
+                        </div>
+                        <div class="history-details">
+                            <div class="history-detail">
+                                <div class="history-detail-label">Training Code</div>
+                                <div class="history-detail-value">${record.training_code || '—'}</div>
+                            </div>
+                            <div class="history-detail">
+                                <div class="history-detail-label">Done Date</div>
+                                <div class="history-detail-value">${formatDate(record.done_date)}</div>
+                            </div>
+                            <div class="history-detail">
+                                <div class="history-detail-label">Due Date</div>
+                                <div class="history-detail-value">${formatDate(record.due_date)}</div>
+                            </div>
+                            <div class="history-detail">
+                                <div class="history-detail-label">Training Center</div>
+                                <div class="history-detail-value">${record.center_name || '—'}</div>
+                            </div>
+                        </div>
+                        ${record.remarks ? `
+                            <div class="history-remarks">
+                                <div class="history-detail-label">Remarks</div>
+                                <div style="margin-top: 6px; font-size: 13px; color: #4b5563;">${record.remarks}</div>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }).join('');
+
+            modalBody.innerHTML = `
+                <div class="staff-info-banner">
+                    <h3>${staffName}</h3>
+                    <p>HRMS ID: ${hrmsId} • ${designation} • ${office}</p>
+                </div>
+                <div style="margin-bottom: 12px; font-size: 14px; color: #6b7280;">
+                    Found ${historyData.length} training record${historyData.length === 1 ? '' : 's'}
+                </div>
+                <div class="history-list">
+                    ${historyItems}
+                </div>
+            `;
+        }
+
+        function closeHistoryModal(event) {
+            // Only close if clicking overlay or close button, not when clicking inside modal content
+            if (event && event.target.closest('.modal-content') && !event.target.classList.contains('modal-close')) {
+                return;
+            }
+            const modal = document.getElementById('historyModal');
+            modal.classList.remove('active');
+        }
+
+        // Close modal on Escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeHistoryModal();
+                closePrintModal();
+            }
+        });
+
+        // Print Options Modal Functions
+        let printMode = 'print'; // 'print' or 'pdf'
+
+        function openPrintModal(mode = 'print') {
+            printMode = mode;
+            const modal = document.getElementById('printModal');
+            const modalTitle = document.getElementById('printModalTitle');
+            const modalButton = document.getElementById('printModalButton');
+
+            if (mode === 'pdf') {
+                modalTitle.textContent = '📄 PDF Export Options';
+                modalButton.innerHTML = '📄 Download PDF';
+            } else {
+                modalTitle.textContent = '🖨️ Print Options';
+                modalButton.innerHTML = '🖨️ Print Report';
+            }
+
+            modal.classList.add('active');
+        }
+
+        function closePrintModal(event) {
+            // Only close if clicking overlay or close button
+            if (event && event.target.closest('.modal-content') && !event.target.classList.contains('modal-close')) {
+                return;
+            }
+            const modal = document.getElementById('printModal');
+            modal.classList.remove('active');
+        }
+
+        function executePrint() {
+            if (printMode === 'pdf') {
+                generatePDF();
+            } else {
+                executeBrowserPrint();
+            }
+        }
+
+        function executeBrowserPrint() {
+            const printSummary = document.getElementById('printSummary').checked;
+            const printCharts = document.getElementById('printCharts').checked;
+            const printTable = document.getElementById('printTable').checked;
+            const printFilters = document.getElementById('printFilters').checked;
+            const printTimestamp = document.getElementById('printTimestamp').checked;
+
+            // Temporarily hide/show elements based on options
+            const summaryGrid = document.getElementById('summaryGrid');
+            const dashboardSections = document.querySelector('.dashboard-sections');
+            const tableCard = document.querySelector('.table-card');
+            const reportHeader = document.querySelector('.report-header');
+
+            // Store original display values
+            const originalDisplays = {
+                summary: summaryGrid.style.display,
+                charts: dashboardSections.style.display,
+                table: tableCard.style.display
+            };
+
+            // Apply print options
+            if (!printSummary) summaryGrid.style.display = 'none';
+            if (!printCharts) dashboardSections.style.display = 'none';
+            if (!printTable) tableCard.style.display = 'none';
+
+            // Add filter and timestamp info if requested
+            let printInfoHTML = '';
+            if (printFilters || printTimestamp) {
+                const filterInfo = [];
+
+                if (printFilters) {
+                    const trainingSelect = document.getElementById('trainingSelect');
+                    const officeSelect = document.getElementById('officeSelect');
+
+                    const trainingText = trainingSelect.options[trainingSelect.selectedIndex].text;
+                    const officeText = officeSelect.options[officeSelect.selectedIndex].text;
+
+                    filterInfo.push(`<strong>Training:</strong> ${trainingText}`);
+                    filterInfo.push(`<strong>Office:</strong> ${officeText}`);
+
+                    if (activeRangeDays !== null) {
+                        filterInfo.push(`<strong>Timeframe:</strong> Within ${activeRangeDays} days`);
+                    }
+
+                    const fromDateVal = document.getElementById('fromDate').value;
+                    const toDateVal = document.getElementById('toDate').value;
+                    if (fromDateVal || toDateVal) {
+                        filterInfo.push(`<strong>Date Range:</strong> ${fromDateVal || 'Any'} to ${toDateVal || 'Any'}`);
+                    }
+                }
+
+                printInfoHTML = `
+                    <div style="background: #f9fafb; padding: 16px 20px; border-radius: 12px; margin-bottom: 20px; border-left: 4px solid #2563eb;">
+                        ${printFilters ? `<div style="margin-bottom: 12px;"><strong style="color: #1f2937; font-size: 14px;">Applied Filters:</strong><div style="font-size: 13px; color: #4b5563; margin-top: 6px;">${filterInfo.join(' • ')}</div></div>` : ''}
+                        ${printTimestamp ? `<div style="font-size: 13px; color: #6b7280;"><strong>Generated:</strong> ${new Date().toLocaleString('en-IN', { dateStyle: 'full', timeStyle: 'short' })}</div>` : ''}
+                    </div>
+                `;
+            }
+
+            // Insert print info temporarily
+            if (printInfoHTML) {
+                reportHeader.insertAdjacentHTML('afterend', `<div class="print-info-temp">${printInfoHTML}</div>`);
+            }
+
+            // Close modal and trigger print
+            closePrintModal();
+
+            // Small delay to ensure modal closes before printing
+            setTimeout(() => {
+                window.print();
+
+                // Restore original display values after print dialog
+                setTimeout(() => {
+                    summaryGrid.style.display = originalDisplays.summary;
+                    dashboardSections.style.display = originalDisplays.charts;
+                    tableCard.style.display = originalDisplays.table;
+
+                    // Remove temporary print info
+                    const printInfoTemp = document.querySelector('.print-info-temp');
+                    if (printInfoTemp) printInfoTemp.remove();
+                }, 100);
+            }, 100);
+        }
+
+        async function generatePDF() {
+            const printSummary = document.getElementById('printSummary').checked;
+            const printCharts = document.getElementById('printCharts').checked;
+            const printTable = document.getElementById('printTable').checked;
+            const printFilters = document.getElementById('printFilters').checked;
+            const printTimestamp = document.getElementById('printTimestamp').checked;
+
+            // Close modal first
+            closePrintModal();
+
+            // Show loading indicator
+            const loadingDiv = document.createElement('div');
+            loadingDiv.id = 'pdf-loading';
+            loadingDiv.innerHTML = `
+                <div style="position: fixed; inset: 0; background: rgba(0, 0, 0, 0.7); z-index: 9999; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
+                    <div style="background: white; padding: 32px 48px; border-radius: 16px; text-align: center; box-shadow: 0 24px 48px rgba(0, 0, 0, 0.3);">
+                        <div style="font-size: 48px; margin-bottom: 16px;">📄</div>
+                        <div style="font-size: 18px; font-weight: 600; color: #1f2937; margin-bottom: 8px;">Generating PDF...</div>
+                        <div style="font-size: 14px; color: #6b7280;">This may take a few moments</div>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(loadingDiv);
+
+            // Small delay to show loading indicator
+            await new Promise(resolve => setTimeout(resolve, 100));
+
+            const previousScrollY = window.pageYOffset || document.documentElement.scrollTop || 0;
+            window.scrollTo(0, 0);
+
+            try {
+                // Clone the report page for PDF generation
+                const reportPage = document.querySelector('.report-page');
+                const clone = reportPage.cloneNode(true);
+                clone.style.maxWidth = '100%';
+                clone.style.margin = '0 auto';
+                clone.style.padding = '20px 24px 32px';
+                clone.style.background = '#ffffff';
+
+                // Remove elements we don't want in PDF
+                const backLink = clone.querySelector('.back-link');
+                if (backLink) backLink.remove();
+
+                const filtersCard = clone.querySelector('.filters-card');
+                if (filtersCard) filtersCard.remove();
+
+                const tableToolbar = clone.querySelector('.table-toolbar');
+                if (tableToolbar) tableToolbar.remove();
+
+                // Apply print options
+                if (!printSummary) {
+                    const summaryGrid = clone.querySelector('.summary-grid');
+                    if (summaryGrid) summaryGrid.remove();
+                }
+
+                if (!printCharts) {
+                    const dashboardSections = clone.querySelector('.dashboard-sections');
+                    if (dashboardSections) dashboardSections.remove();
+                }
+
+                if (!printTable) {
+                    const tableCard = clone.querySelector('.table-card');
+                    if (tableCard) tableCard.remove();
+                }
+
+                // Add filter and timestamp info if requested
+                if (printFilters || printTimestamp) {
+                    const filterInfo = [];
+
+                    if (printFilters) {
+                        const trainingSelect = document.getElementById('trainingSelect');
+                        const officeSelect = document.getElementById('officeSelect');
+
+                        const trainingText = trainingSelect.options[trainingSelect.selectedIndex].text;
+                        const officeText = officeSelect.options[officeSelect.selectedIndex].text;
+
+                        filterInfo.push(`<strong>Training:</strong> ${trainingText}`);
+                        filterInfo.push(`<strong>Office:</strong> ${officeText}`);
+
+                        if (activeRangeDays !== null) {
+                            filterInfo.push(`<strong>Timeframe:</strong> Within ${activeRangeDays} days`);
+                        }
+
+                        const fromDateVal = document.getElementById('fromDate').value;
+                        const toDateVal = document.getElementById('toDate').value;
+                        if (fromDateVal || toDateVal) {
+                            filterInfo.push(`<strong>Date Range:</strong> ${fromDateVal || 'Any'} to ${toDateVal || 'Any'}`);
+                        }
+                    }
+
+                    const printInfoHTML = `
+                        <div style="background: #f9fafb; padding: 16px 20px; border-radius: 12px; margin-bottom: 20px; border-left: 4px solid #2563eb;">
+                            ${printFilters ? `<div style="margin-bottom: 12px;"><strong style="color: #1f2937; font-size: 14px;">Applied Filters:</strong><div style="font-size: 13px; color: #4b5563; margin-top: 6px;">${filterInfo.join(' • ')}</div></div>` : ''}
+                            ${printTimestamp ? `<div style="font-size: 13px; color: #6b7280;"><strong>Generated:</strong> ${new Date().toLocaleString('en-IN', { dateStyle: 'full', timeStyle: 'short' })}</div>` : ''}
+                        </div>
+                    `;
+
+                    const reportHeader = clone.querySelector('.report-header');
+                    if (reportHeader) {
+                        reportHeader.insertAdjacentHTML('afterend', printInfoHTML);
+                    }
+                }
+
+                // Remove onclick handlers from table rows
+                const tableRows = clone.querySelectorAll('tbody tr');
+                tableRows.forEach(row => {
+                    row.removeAttribute('onclick');
+                    row.style.cursor = 'default';
+                });
+
+                clone.querySelectorAll('.summary-card, .chart-card, .table-card').forEach(block => {
+                    block.style.pageBreakInside = 'avoid';
+                    block.style.breakInside = 'avoid';
+                    block.style.webkitColumnBreakInside = 'avoid';
+                });
+
+                // Configure PDF options
+                const opt = {
+                    margin: [8, 10, 8, 10],
+                    filename: `training_due_report_${today.toISOString().split('T')[0]}.pdf`,
+                    image: { type: 'jpeg', quality: 0.98 },
+                    html2canvas: {
+                        scale: 2,
+                        useCORS: true,
+                        letterRendering: true,
+                        scrollY: 0,
+                        scrollX: 0
+                    },
+                    jsPDF: {
+                        unit: 'mm',
+                        format: 'a4',
+                        orientation: 'portrait'
+                    },
+                    pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+                };
+
+                // Generate PDF
+                await html2pdf().set(opt).from(clone).save();
+
+            } catch (error) {
+                console.error('Error generating PDF:', error);
+                alert('Failed to generate PDF. Please try again.');
+            } finally {
+                // Remove loading indicator
+                const loading = document.getElementById('pdf-loading');
+                if (loading) loading.remove();
+                window.scrollTo(0, previousScrollY);
+            }
+        }
+    </script>
+</body>
+</html>

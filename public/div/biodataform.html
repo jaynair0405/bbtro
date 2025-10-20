@@ -57,6 +57,10 @@
           <div><strong>Designation:</strong> <span id="showDesig">—</span></div>
           <div><strong>Safety Cat:</strong> <span id="showSafety">—</span></div>
           <div class="mt-2"><span class="pill status-active" id="showStatus">ACTIVE</span></div>
+          <div class="mt-2">
+            <strong>NCLI:</strong> <span id="showCLI" style="color: #0066cc; font-weight: 600;">—</span>
+            <button class="btn btn-sm btn-outline-primary mt-1" id="btnChangeCLI" onclick="openChangeCLIModalBiodata()" disabled style="width: 100%; font-size: 11px;">🔄 Change CLI</button>
+          </div>
         </div>
         <hr>
         <div class="d-grid gap-2 no-print">
@@ -93,12 +97,12 @@
               <div><label class="form-label req">Name</label><input type="text" class="form-control" id="staff_name"></div>
               <div><label class="form-label req">DOB</label><input type="date" class="form-control" id="staff_dob"></div>
               <div><label class="form-label">Gender</label>
-                <select class="form-select" id="staff_gender"><option>Male</option><option>Female</option><option>Other</option></select>
+                <select class="form-select" id="staff_gender"><option value="">Select Gender</option><option>Male</option><option>Female</option><option>Other</option></select>
               </div>
               <div><label class="form-label">Father's Name</label><input type="text" class="form-control" id="father_name"></div>
-              <div><label class="form-label">Caste</label><select class="form-select" id="caste"><option>GEN</option><option>OBC</option><option>SC</option><option>ST</option></select></div>
-              <div><label class="form-label">Marital Status</label><select class="form-select" id="marital_status"><option>Married</option><option>Unmarried</option></select></div>
-              <div><label class="form-label">Vision</label><select class="form-select" id="vision"><option>Normal</option><option>NV</option><option>DV</option><option>Both</option></select></div>
+              <div><label class="form-label">Caste</label><select class="form-select" id="caste"><option value="">Select Caste</option><option>GEN</option><option>OBC</option><option>SC</option><option>ST</option></select></div>
+              <div><label class="form-label">Marital Status</label><select class="form-select" id="marital_status"><option value="">Select Status</option><option>Married</option><option>Unmarried</option></select></div>
+              <div><label class="form-label">Vision</label><select class="form-select" id="vision"><option value="">Select Vision</option><option>Normal</option><option>NV</option><option>DV</option><option>Both</option></select></div>
               <div><label class="form-label">Blood Group</label>
                 <select class="form-select" id="blood_group">
                   <option value="">Select</option>
@@ -134,15 +138,16 @@
           <div class="tab-pane fade" id="tab-ids">
             <div class="grid-3">
               <div><label class="form-label req">PF No</label><input type="text" class="form-control" id="pf_no"></div>
-              <div><label class="form-label">HRMS ID</label><input type="text" class="form-control" id="hrms_id" readonly></div>
-              <div><label class="form-label">Current CMS ID</label><input type="text" class="form-control" id="current_cms_id" readonly></div>
-              <div><label class="form-label">Original CMS ID</label><input type="text" class="form-control" id="original_cms_id" readonly></div>
+              <div><label class="form-label req">HRMS ID</label><input type="text" class="form-control" id="hrms_id" readonly required></div>
+              <div><label class="form-label req">Current CMS ID</label><input type="text" class="form-control" id="current_cms_id" readonly required></div>
               <div><label class="form-label">Aadhaar</label><input type="text" class="form-control" id="aadhaar"></div>
               <div><label class="form-label">PAN</label><input type="text" class="form-control" id="pan"></div>
               <div><label class="form-label">Date of Appointment</label><input type="date" class="form-control" id="date_of_appointment"></div>
               <div><label class="form-label">Safety Category</label>
-                <select class="form-select" id="safety_category"><option>A</option><option>B</option><option>C</option><option>D</option></select>
+                <select class="form-select" id="safety_category"><option value="">Select Category</option><option>A</option><option>B</option><option>C</option><option>D</option></select>
               </div>
+              <!-- original_cms_id hidden field for internal use -->
+              <input type="hidden" id="original_cms_id">
             </div>
           </div>
 
@@ -371,65 +376,58 @@
             </div>
           </div>
 
-          <!-- STORES -->
+          <!-- STORES - Personnel Stores Update Tracking -->
           <div class="tab-pane fade" id="tab-store">
-            <div class="row">
-              <!-- Left: Issue Store Item Form -->
-              <div class="col-md-4">
-                <div style="background: #f9fafb; padding: 20px; border-radius: 8px; border: 1px solid #e5e7eb;">
-                  <h6 class="mb-3">Issue Store Item</h6>
-                  <div class="mb-3">
-                    <label class="form-label req">Store Item</label>
-                    <select class="form-select" id="store_item">
-                      <option value="">Select Item</option>
-                    </select>
-                  </div>
-                  <div class="mb-3">
-                    <label class="form-label req">Issue Date</label>
-                    <input type="date" class="form-control" id="store_issue_date">
-                  </div>
-                  <div class="mb-3">
-                    <label class="form-label">Item Number/Serial</label>
-                    <input type="text" class="form-control" id="store_item_number">
-                  </div>
-                  <div class="mb-3">
-                    <label class="form-label">Status</label>
-                    <select class="form-select" id="store_status">
-                      <option>Issued</option>
-                      <option>Returned</option>
-                      <option>Lost</option>
-                      <option>Damaged</option>
-                    </select>
-                  </div>
-                  <div class="mb-3">
-                    <label class="form-label">Remarks</label>
-                    <textarea class="form-control" rows="2" id="store_remarks"></textarea>
-                  </div>
-                  <button class="btn btn-primary w-100" onclick="addStoreItem()">+ Issue Item</button>
-                </div>
-              </div>
+            <div class="row justify-content-center">
+              <!-- P/Store Update Form -->
+              <div class="col-md-6">
+                <div style="background: #f9fafb; padding: 24px; border-radius: 12px; border: 1px solid #e5e7eb;">
+                  <h5 class="mb-4" style="color: #1f2937; font-weight: 600;">📋 Personnel Stores Update</h5>
 
-              <!-- Right: Store Items Table -->
-              <div class="col-md-8">
-                <h6 class="mb-3">Issued Store Items</h6>
-                <div style="overflow-x: auto;">
-                  <table class="table table-sm align-middle table-hover">
-                    <thead style="background: #f9fafb;">
-                      <tr>
-                        <th>Item</th>
-                        <th>Issue Date</th>
-                        <th>Item Number</th>
-                        <th>Status</th>
-                        <th>Remarks</th>
-                        <th>Action</th>
-                      </tr>
-                    </thead>
-                    <tbody id="storeRows">
-                      <tr>
-                        <td colspan="6" style="text-align: center; color: #9ca3af; padding: 40px;">No store items issued yet</td>
-                      </tr>
-                    </tbody>
-                  </table>
+                  <div class="mb-3">
+                    <label class="form-label req">Last Updated Date</label>
+                    <input type="date" class="form-control" id="pstore_last_updated">
+                    <small class="text-muted">Date when competency book P/Store section was last verified</small>
+                  </div>
+
+                  <div class="mb-3">
+                    <label class="form-label">Next Due Date</label>
+                    <input type="date" class="form-control" id="pstore_next_due" readonly style="background: #f3f4f6;">
+                    <small class="text-muted">Automatically calculated (90 days from last updated)</small>
+                  </div>
+
+                  <div class="mb-3">
+                    <label class="form-label">Compliance Status</label>
+                    <div id="pstore_status_badge" style="padding: 8px 12px; border-radius: 6px; font-weight: 500; text-align: center;">
+                      Not Updated Yet
+                    </div>
+                  </div>
+
+                  <div class="mb-4">
+                    <label class="form-label">Remarks (Optional)</label>
+                    <textarea class="form-control" rows="2" id="pstore_remarks" placeholder="Any notes about the update"></textarea>
+                  </div>
+
+                  <button class="btn btn-primary w-100" onclick="updatePStoreDate()" style="padding: 12px; font-weight: 600;">
+                    ✓ Update P/Store Record
+                  </button>
+
+                  <!-- Current Status Display -->
+                  <div id="pstore_current_status" style="margin-top: 24px; padding-top: 20px; border-top: 2px solid #e5e7eb; display: none;">
+                    <h6 style="color: #6b7280; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px;">Current Record</h6>
+                    <div style="background: white; padding: 16px; border-radius: 8px; border: 1px solid #e5e7eb;">
+                      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 14px;">
+                        <div>
+                          <span style="color: #6b7280;">Last Updated:</span><br>
+                          <strong id="current_last_updated" style="color: #1f2937;">-</strong>
+                        </div>
+                        <div>
+                          <span style="color: #6b7280;">Next Due:</span><br>
+                          <strong id="current_next_due" style="color: #1f2937;">-</strong>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -750,10 +748,53 @@
   </div>
 </div>
 
+<!-- Change CLI Modal -->
+<div class="modal fade" id="changeCLIModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Change CLI</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p style="margin-bottom: 16px;">
+          <strong>Staff:</strong> <span id="changeStaffName"></span> (<span id="changeStaffHRMS"></span>)
+        </p>
+        <p style="margin-bottom: 20px; color: #6b7280;">
+          <strong>Current CLI:</strong> <span id="changeCurrentCLI"></span>
+        </p>
+
+        <div class="mb-3">
+          <label class="form-label req">New CLI</label>
+          <select class="form-select" id="newCLISelect" required>
+            <option value="">Select new CLI</option>
+          </select>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label req">Effective Date</label>
+          <input type="date" class="form-control" id="changeEffectiveDate" required>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Remarks (Optional)</label>
+          <textarea class="form-control" id="changeRemarks" rows="2"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" onclick="submitCLIChangeBiodata()">Change CLI</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 let currentUser = null;
 let currentStaffOffice = null;
+let allCLIs = [];
+let currentNominationId = null;
 
 // Check user session and permissions
 async function checkUserPermissions() {
@@ -922,9 +963,8 @@ function toggleDemotionField() {
 function populateOfficeDropdowns(offices) {
   const fromOfficeSelect = document.getElementById('transfer_from_office');
   const toOfficeSelect = document.getElementById('transfer_to_office');
-  const modalToOfficeSelect = document.getElementById('modal_to_office');
 
-  // Populate Transfer tab dropdowns
+  // Populate Transfer tab dropdowns (without OTHER)
   [fromOfficeSelect, toOfficeSelect].forEach(select => {
     if (select) {
       select.innerHTML = '<option value="">Select Office</option>';
@@ -937,15 +977,29 @@ function populateOfficeDropdowns(offices) {
     }
   });
 
-  // Populate Transfer modal dropdown (same offices)
-  if (modalToOfficeSelect) {
-    modalToOfficeSelect.innerHTML = '<option value="">Select Office</option>';
-    offices.forEach(office => {
-      const option = document.createElement('option');
-      option.value = office.office_code;
-      option.textContent = office.office_name;
-      modalToOfficeSelect.appendChild(option);
-    });
+  // Load transfer modal dropdown with OTHER office included
+  loadTransferModalOffices();
+}
+
+// Load offices for transfer modal (includes OTHER office)
+async function loadTransferModalOffices() {
+  try {
+    const response = await fetch('/api/division/offices?include_other=true');
+    const result = await response.json();
+    const offices = result.data || result;
+
+    const modalToOfficeSelect = document.getElementById('modal_to_office');
+    if (modalToOfficeSelect) {
+      modalToOfficeSelect.innerHTML = '<option value="">Select Office</option>';
+      offices.forEach(office => {
+        const option = document.createElement('option');
+        option.value = office.office_code;
+        option.textContent = office.office_name;
+        modalToOfficeSelect.appendChild(option);
+      });
+    }
+  } catch (error) {
+    console.error('Error loading transfer modal offices:', error);
   }
 }
 
@@ -1560,60 +1614,129 @@ async function removeTraining(recordId) {
   }
 }
 
-// Store items management
-let storeItems = [];
+// Personnel Stores Update Tracking
 
-function addStoreItem() {
-  const item = document.getElementById('store_item').value;
-  const issueDate = document.getElementById('store_issue_date').value;
-  const itemNumber = document.getElementById('store_item_number').value;
-  const status = document.getElementById('store_status').value;
-  const remarks = document.getElementById('store_remarks').value;
+// Load P/Store data when staff is loaded
+function loadPStoreData(staffData) {
+  const lastUpdated = staffData.pstore_last_updated;
+  const nextDue = staffData.pstore_next_due;
 
-  if (!item || !issueDate) {
-    alert('Please enter item and issue date');
+  if (lastUpdated) {
+    // Use formatDateForInput() like all other date fields
+    document.getElementById('pstore_last_updated').value = formatDateForInput(lastUpdated);
+    document.getElementById('pstore_next_due').value = formatDateForInput(nextDue);
+
+    // Show current status section
+    document.getElementById('pstore_current_status').style.display = 'block';
+    document.getElementById('current_last_updated').textContent = formatDateDDMMYYYY(lastUpdated);
+    document.getElementById('current_next_due').textContent = formatDateDDMMYYYY(nextDue);
+
+    updatePStoreStatusBadge(nextDue);
+  } else {
+    // Set default to today
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('pstore_last_updated').value = today;
+    calculateNextDue();
+
+    document.getElementById('pstore_current_status').style.display = 'none';
+
+    const badge = document.getElementById('pstore_status_badge');
+    badge.textContent = 'Not Updated Yet';
+    badge.style.background = '#f3f4f6';
+    badge.style.color = '#6b7280';
+  }
+}
+
+// Auto-calculate next due date when last updated changes
+document.addEventListener('DOMContentLoaded', function() {
+  const lastUpdatedInput = document.getElementById('pstore_last_updated');
+  if (lastUpdatedInput) {
+    lastUpdatedInput.addEventListener('change', calculateNextDue);
+  }
+});
+
+function calculateNextDue() {
+  const lastUpdated = document.getElementById('pstore_last_updated').value;
+  if (!lastUpdated) return;
+
+  const lastDate = new Date(lastUpdated);
+  const nextDate = new Date(lastDate);
+  nextDate.setDate(nextDate.getDate() + 90);
+
+  const nextDueDateStr = nextDate.toISOString().split('T')[0];
+  document.getElementById('pstore_next_due').value = nextDueDateStr;
+
+  updatePStoreStatusBadge(nextDueDateStr);
+}
+
+function updatePStoreStatusBadge(nextDueDate) {
+  const badge = document.getElementById('pstore_status_badge');
+  const today = new Date();
+  const dueDate = new Date(nextDueDate);
+  const daysUntilDue = Math.floor((dueDate - today) / (1000 * 60 * 60 * 24));
+
+  if (daysUntilDue < 0) {
+    // Overdue
+    badge.textContent = `🔴 Overdue by ${Math.abs(daysUntilDue)} days`;
+    badge.style.background = '#fee2e2';
+    badge.style.color = '#991b1b';
+  } else if (daysUntilDue <= 7) {
+    // Due soon
+    badge.textContent = `🟡 Due in ${daysUntilDue} days`;
+    badge.style.background = '#fef3c7';
+    badge.style.color = '#92400e';
+  } else {
+    // Current
+    badge.textContent = `🟢 Current (Due in ${daysUntilDue} days)`;
+    badge.style.background = '#d1fae5';
+    badge.style.color = '#065f46';
+  }
+}
+
+// Update P/Store record via API
+async function updatePStoreDate() {
+  const lastUpdated = document.getElementById('pstore_last_updated').value;
+  const remarks = document.getElementById('pstore_remarks').value;
+  const hrmsId = window.currentStaffHrmsId;
+
+  if (!hrmsId) {
+    alert('Please load a staff member first');
     return;
   }
 
-  storeItems.push({ item, issueDate, itemNumber, status, remarks });
-
-  // Clear form
-  document.getElementById('store_item').value = '';
-  document.getElementById('store_issue_date').value = '';
-  document.getElementById('store_item_number').value = '';
-  document.getElementById('store_status').value = 'Issued';
-  document.getElementById('store_remarks').value = '';
-
-  renderStoreItems();
-}
-
-function renderStoreItems() {
-  const tbody = document.getElementById('storeRows');
-
-  if (storeItems.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #9ca3af; padding: 40px;">No store items issued yet</td></tr>';
+  if (!lastUpdated) {
+    alert('Please select the last updated date');
     return;
   }
 
-  tbody.innerHTML = storeItems.map((store, index) => {
-    const statusColor = store.status === 'Issued' ? 'status-active' : 'pill';
-    return `
-      <tr>
-        <td>${store.item}</td>
-        <td>${formatDateDDMMYYYY(store.issueDate)}</td>
-        <td>${store.itemNumber || '-'}</td>
-        <td><span class="${statusColor}">${store.status}</span></td>
-        <td>${store.remarks || '-'}</td>
-        <td><button class="btn btn-link text-danger btn-sm" onclick="removeStoreItem(${index})">Remove</button></td>
-      </tr>
-    `;
-  }).join('');
-}
+  try {
+    const response = await fetch(`/api/division/staff/${hrmsId}/pstore`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        last_updated: lastUpdated,
+        remarks: remarks
+      })
+    });
 
-function removeStoreItem(index) {
-  if (confirm('Remove this store item?')) {
-    storeItems.splice(index, 1);
-    renderStoreItems();
+    const result = await response.json();
+
+    if (result.success) {
+      alert('✅ ' + result.message);
+
+      // Update current status display
+      document.getElementById('pstore_current_status').style.display = 'block';
+      document.getElementById('current_last_updated').textContent = formatDateDDMMYYYY(lastUpdated);
+      document.getElementById('current_next_due').textContent = formatDateDDMMYYYY(result.next_due);
+
+      // Clear remarks
+      document.getElementById('pstore_remarks').value = '';
+    } else {
+      alert('❌ Error: ' + result.error);
+    }
+  } catch (error) {
+    console.error('Error updating P/Store date:', error);
+    alert('❌ Error updating P/Store date');
   }
 }
 
@@ -2031,6 +2154,12 @@ async function removeAward(awardId) {
 
 // Load punishments for a staff
 async function loadPunishments(hrmsId) {
+  // Only load punishments if user is division_admin
+  if (!currentUser || currentUser.div_role !== 'division_admin') {
+    // Silently skip for office users - this is expected behavior
+    return;
+  }
+
   try {
     const response = await fetch(`/api/division/discipline/punishments/${hrmsId}`);
     const result = await response.json();
@@ -2330,7 +2459,7 @@ document.getElementById('searchStaff').addEventListener('input', async (e) => {
       searchResults = result.data;
       const datalist = document.getElementById('staffSuggestions');
       datalist.innerHTML = result.data.map(staff =>
-        `<option value="${staff.hrms_id}">${staff.name} - ${staff.current_cms_id} (${staff.office_name || staff.current_office_code})</option>`
+        `<option value="${staff.name}">HRMS: ${staff.hrms_id} | CMS: ${staff.current_cms_id} | ${staff.office_name || staff.current_office_code}</option>`
       ).join('');
     }
   } catch (error) {
@@ -2402,8 +2531,6 @@ function loadStaffData(staff) {
 
   // Debug: log the staff object to see what fields are available
   console.log('Staff data received:', staff);
-  console.log('Father name field:', staff.father_name);
-  console.log('Fathers name field:', staff.fathers_name);
 
   // Personal tab
   document.getElementById('staff_name').value = staff.name || '';
@@ -2441,6 +2568,7 @@ function loadStaffData(staff) {
   document.getElementById('showOffice').textContent = staff.office_name || staff.current_office_code || '—';
   document.getElementById('showDesig').textContent = staff.designation_name || '—';
   document.getElementById('showSafety').textContent = staff.safety_category || '—';
+  document.getElementById('showCLI').textContent = staff.cli_name || 'Not Assigned';
 
   // Load transfer history
   loadTransferHistory(staff.hrms_id);
@@ -2460,6 +2588,9 @@ function loadStaffData(staff) {
   // Load awards and punishments
   loadAwards(staff.hrms_id);
   loadPunishments(staff.hrms_id);
+
+  // Load P/Store compliance data
+  loadPStoreData(staff);
 
   // Check edit permissions and set form editability
   setFormEditability();
@@ -2637,12 +2768,18 @@ document.getElementById('transferModalForm').addEventListener('submit', async (e
     return;
   }
 
-  if (fromOffice === toOffice) {
+  if (fromOffice === toOffice && toOffice !== 'OTHER') {
     alert('Cannot transfer to the same office');
     return;
   }
 
   try {
+    // Build remarks with order number if provided
+    let finalRemarks = remarks || '';
+    if (orderNo) {
+      finalRemarks = `Order No: ${orderNo}. ${finalRemarks}`;
+    }
+
     const response = await fetch('/api/division/transfer-request', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -2650,9 +2787,10 @@ document.getElementById('transferModalForm').addEventListener('submit', async (e
         staff_hrms_id: staffHrmsId,
         from_office_code: fromOffice,
         to_office_code: toOffice,
+        transfer_category: category,
         current_cms_id: currentCmsId,
         request_date: effectiveDate,
-        remarks: `Category: ${category}. Order: ${orderNo || 'N/A'}. ${remarks || ''}`
+        remarks: finalRemarks
       })
     });
 
@@ -2762,6 +2900,7 @@ function setFormEditability() {
   document.getElementById('btnSave').disabled = !canEdit;
   document.getElementById('btnSaveNext').disabled = !canEdit;
   document.getElementById('btnTransfer').disabled = !canEdit;
+  document.getElementById('btnChangeCLI').disabled = !canEdit;
 
   // Show message if read-only
   if (!canEdit && window.currentStaffData) {
@@ -2786,6 +2925,11 @@ function setFormEditability() {
 
 // Save biodata
 async function saveBiodata() {
+  // Check if in create mode or edit mode
+  if (isCreateMode) {
+    return await createNewStaff();
+  }
+
   const staffHrmsId = window.currentStaffHrmsId;
 
   if (!staffHrmsId) {
@@ -2851,6 +2995,77 @@ async function saveBiodata() {
   }
 }
 
+// Create new staff
+async function createNewStaff() {
+  try {
+    // Validate required fields
+    const hrmsId = document.getElementById('hrms_id').value.trim();
+    const name = document.getElementById('staff_name').value.trim();
+    const currentCmsId = document.getElementById('current_cms_id').value.trim();
+
+    if (!hrmsId || !name || !currentCmsId) {
+      alert('Please fill in required fields: HRMS ID, Name, and Current CMS ID');
+      return;
+    }
+
+    const payload = {
+      hrms_id: hrmsId,
+      name: name,
+      current_cms_id: currentCmsId,
+      original_cms_id: document.getElementById('original_cms_id').value.trim() || currentCmsId,
+      date_of_birth: document.getElementById('staff_dob').value,
+      gender: document.getElementById('staff_gender').value,
+      father_name: document.getElementById('father_name').value.trim(),
+      caste: document.getElementById('caste').value.trim(),
+      marital_status: document.getElementById('marital_status').value,
+      vision: document.getElementById('vision').value,
+      blood_group: document.getElementById('blood_group').value,
+      phone_number: document.getElementById('phone_number').value.trim(),
+      cug_number: document.getElementById('cug_number').value.trim(),
+      email: document.getElementById('email').value.trim(),
+      present_address: document.getElementById('present_address').value.trim(),
+      permanent_address: document.getElementById('permanent_address').value.trim(),
+      pf_number: document.getElementById('pf_no').value.trim(),
+      aadhar_card_no: document.getElementById('aadhaar').value.trim(),
+      pan_card_no: document.getElementById('pan').value.trim(),
+      date_of_appointment: document.getElementById('date_of_appointment').value,
+      designation_id: document.getElementById('designation').value || null,
+      safety_category: document.getElementById('safety_category').value,
+      current_office_code: document.getElementById('officeSelect').value
+    };
+
+    // Disable save button
+    const btnSave = document.getElementById('btnSave');
+    const originalText = btnSave.textContent;
+    btnSave.disabled = true;
+    btnSave.textContent = 'Creating...';
+
+    const response = await fetch('/api/division/staff', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const result = await response.json();
+
+    if (result.success) {
+      alert(`✅ Staff created successfully!\n\nHRMS ID: ${hrmsId}\nName: ${name}\n\nRedirecting to biodata form to edit...`);
+      // Redirect to edit mode for the newly created staff
+      window.location.href = `/div/biodataform.html`;
+    } else {
+      alert('Error: ' + result.error);
+      btnSave.disabled = false;
+      btnSave.textContent = originalText;
+    }
+
+  } catch (error) {
+    console.error('Error creating staff:', error);
+    alert('Error creating staff');
+    document.getElementById('btnSave').disabled = false;
+    document.getElementById('btnSave').textContent = 'Create Staff';
+  }
+}
+
 // Save and move to next tab
 async function saveBiodataAndNext() {
   await saveBiodata();
@@ -2865,6 +3080,112 @@ async function saveBiodataAndNext() {
   }
 }
 
+// Load all CLIs
+async function loadAllCLIs() {
+  try {
+    const response = await fetch('/api/division/cli/list-all');
+    const result = await response.json();
+    if (result.success) {
+      allCLIs = result.data;
+    }
+  } catch (error) {
+    console.error('Error loading CLIs:', error);
+  }
+}
+
+// Open Change CLI Modal
+function openChangeCLIModalBiodata() {
+  if (!window.currentStaffData) {
+    alert('No staff loaded');
+    return;
+  }
+
+  const staff = window.currentStaffData;
+
+  // Check if staff has a CLI
+  if (!staff.current_cli_id || !staff.cli_name) {
+    alert('This staff member does not have a CLI assigned yet. Please use CLI Management to assign one.');
+    return;
+  }
+
+  // Check if we have nomination_id
+  if (!staff.nomination_id) {
+    alert('Unable to find active nomination for this staff member');
+    return;
+  }
+
+  currentNominationId = staff.nomination_id;
+
+  // Populate modal
+  document.getElementById('changeStaffName').textContent = staff.name;
+  document.getElementById('changeStaffHRMS').textContent = staff.hrms_id;
+  document.getElementById('changeCurrentCLI').textContent = staff.cli_name;
+  document.getElementById('changeEffectiveDate').valueAsDate = new Date();
+  document.getElementById('changeRemarks').value = '';
+
+  // Load CLIs into dropdown (exclude current CLI)
+  const select = document.getElementById('newCLISelect');
+  select.innerHTML = '<option value="">Select new CLI</option>';
+  allCLIs.forEach(cli => {
+    if (cli.cli_id !== staff.current_cli_id) {
+      select.innerHTML += `<option value="${cli.cli_id}">${cli.cli_name} (${cli.cmsid})</option>`;
+    }
+  });
+
+  // Open modal using Bootstrap
+  const modal = new bootstrap.Modal(document.getElementById('changeCLIModal'));
+  modal.show();
+}
+
+// Submit CLI Change
+async function submitCLIChangeBiodata() {
+  const newCLIId = document.getElementById('newCLISelect').value;
+  const effectiveDate = document.getElementById('changeEffectiveDate').value;
+
+  if (!newCLIId) {
+    alert('Please select new CLI');
+    return;
+  }
+
+  if (!effectiveDate) {
+    alert('Please select effective date');
+    return;
+  }
+
+  try {
+    const response = await fetch(`/api/division/cli/nomination/${currentNominationId}/change`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        new_cli_id: newCLIId,
+        nominated_from_date: effectiveDate,
+        remarks: document.getElementById('changeRemarks').value || null
+      })
+    });
+
+    const result = await response.json();
+
+    if (result.success) {
+      alert(result.message);
+      // Close modal
+      const modal = bootstrap.Modal.getInstance(document.getElementById('changeCLIModal'));
+      modal.hide();
+      // Reload staff data to refresh CLI display
+      if (window.currentStaffHrmsId) {
+        searchAndLoadStaff();
+      }
+    } else {
+      alert(result.error || 'Failed to change CLI');
+    }
+  } catch (error) {
+    console.error('Error changing CLI:', error);
+    alert('Failed to change CLI');
+  }
+}
+
+// Global state for create mode
+let isCreateMode = false;
+
 // Initialize on page load
 async function init() {
   await checkUserPermissions();
@@ -2872,6 +3193,14 @@ async function init() {
   await loadDesignations();
   await loadTrainingTypes();
   await loadTrainingCenters();
+  await loadAllCLIs();
+
+  // Check if in create mode (via URL parameter)
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('mode') === 'create') {
+    isCreateMode = true;
+    initCreateMode();
+  }
 
   // If user is not admin and not viewing their own office staff, make read-only
   // This will be determined when staff is loaded via search
@@ -2879,6 +3208,74 @@ async function init() {
   if (currentUser && currentUser.div_role !== 'division_admin') {
     // Office users have limited access - will be enforced when staff loads
     console.log('Office user mode:', currentUser.div_office_code);
+  }
+}
+
+// Initialize create mode
+function initCreateMode() {
+  console.log('Entering create mode');
+
+  // Enable all form fields
+  document.querySelectorAll('input, select, textarea').forEach(el => {
+    el.disabled = false;
+  });
+
+  // Enable save buttons
+  document.getElementById('btnSave').disabled = false;
+  document.getElementById('btnSaveNext').disabled = false;
+
+  // Disable search functionality
+  document.getElementById('searchStaff').disabled = true;
+  document.getElementById('btnSearch').disabled = true;
+
+  // Auto-set office for non-admin users
+  if (currentUser && currentUser.div_role !== 'division_admin') {
+    const officeSelect = document.getElementById('officeSelect');
+    if (officeSelect) {
+      officeSelect.value = currentUser.div_office_code;
+      officeSelect.disabled = true;
+    }
+  }
+
+  // Add HRMS ID duplicate check
+  const hrmsInput = document.getElementById('hrms_id');
+  if (hrmsInput) {
+    hrmsInput.addEventListener('blur', checkHRMSIDDuplicate);
+    hrmsInput.disabled = false;
+  }
+
+  // Update button text
+  document.getElementById('btnSave').textContent = 'Create Staff';
+  document.getElementById('btnSaveNext').textContent = 'Create & Next';
+
+  // Hide tabs that require existing staff
+  document.getElementById('disciplineTabNav').style.display = 'none';
+  const tabsToHide = ['tab-family', 'tab-promotion', 'tab-training', 'tab-store', 'tab-detonator', 'tab-transfer'];
+  tabsToHide.forEach(tabId => {
+    const tab = document.getElementById(tabId);
+    if (tab && tab.closest('.nav-item')) {
+      tab.closest('.nav-item').style.display = 'none';
+    }
+  });
+}
+
+// Check if HRMS ID already exists
+async function checkHRMSIDDuplicate() {
+  const hrmsId = document.getElementById('hrms_id').value.trim();
+
+  if (!hrmsId) return;
+
+  try {
+    const response = await fetch(`/api/division/staff/check/${hrmsId}`);
+    const result = await response.json();
+
+    if (result.success && result.exists) {
+      alert(`Staff with HRMS ID "${hrmsId}" already exists: ${result.staff.name}\n\nPlease use a different HRMS ID or search for this staff member to edit.`);
+      document.getElementById('hrms_id').value = '';
+      document.getElementById('hrms_id').focus();
+    }
+  } catch (error) {
+    console.error('Error checking HRMS ID:', error);
   }
 }
 

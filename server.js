@@ -109,6 +109,12 @@ app.get('/div/biodataform.html', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'div', 'biodataform.html'));
 });
 
+app.get('/div/training-due-report.html', (req, res) => {
+  if (!req.session.user) return res.redirect('/');
+  if (req.session.user.realm !== 'division') return res.redirect('/');
+  res.sendFile(path.join(__dirname, 'public', 'div', 'training-due-report.html'));
+});
+
 // If a logged-in user opens /portal.html, send them to their area
 app.get('/portal.html', (req, res) => {
   if (req.session.user) {

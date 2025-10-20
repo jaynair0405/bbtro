@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Staff Bio-Profile Report</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+    <style>
+        :root {
+            --surface: #ffffff;
+            --surface-muted: #f5f7fb;
+            --primary: #1d4ed8;
+            --primary-soft: rgba(37, 99, 235, 0.12);
+            --text-strong: #0f172a;
+            --text-muted: #475569;
+            --border: #e2e8f0;
+            --accent: #0ea5e9;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 32px;
+            background: linear-gradient(180deg, #f8fbff 0%, #eef2ff 100%);
+            font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            color: var(--text-strong);
+        }
+
+        .report-shell {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: var(--surface);
+            border-radius: 28px;
+            box-shadow: 0 40px 120px -60px rgba(15, 23, 42, 0.6);
+            overflow: hidden;
+        }
+
+        .report-header {
+            display: flex;
+            justify-content: space-between;
+            padding: 32px 40px;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .header-left span {
+            display: inline-block;
+            padding: 6px 14px;
+            background: var(--primary-soft);
+            color: var(--primary);
+            border-radius: 999px;
+            font-weight: 600;
+            font-size: 12px;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+        }
+
+        .header-left h1 {
+            margin: 18px 0 10px;
+            font-size: 32px;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+
+        .header-meta {
+            display: flex;
+            gap: 18px;
+            flex-wrap: wrap;
+            font-size: 14px;
+            color: var(--text-muted);
+        }
+
+        .header-meta div strong {
+            font-weight: 600;
+            color: var(--text-strong);
+        }
+
+        .profile-photo {
+            width: 160px;
+            height: 160px;
+            border-radius: 28px;
+            background: linear-gradient(135deg, rgba(37, 99, 235, 0.22), rgba(14, 165, 233, 0.22));
+            overflow: hidden;
+            border: 6px solid rgba(255, 255, 255, 0.75);
+            box-shadow: 0 20px 40px -18px rgba(37, 99, 235, 0.45);
+        }
+
+        .profile-photo img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .quick-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 16px;
+            padding: 24px 40px;
+            background: var(--surface-muted);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .stat-card {
+            background: var(--surface);
+            border-radius: 18px;
+            padding: 16px 18px;
+            border: 1px solid rgba(226, 232, 240, 0.7);
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.45);
+        }
+
+        .stat-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-muted);
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+        }
+
+        .stat-value {
+            margin-top: 6px;
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text-strong);
+        }
+
+        .content {
+            padding: 36px 40px 48px;
+            display: grid;
+            gap: 28px;
+        }
+
+        section {
+            background: var(--surface);
+            border-radius: 22px;
+            border: 1px solid rgba(226, 232, 240, 0.9);
+            box-shadow: 0 18px 40px -32px rgba(15, 23, 42, 0.3);
+            padding: 28px 32px;
+        }
+
+        section header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            margin-bottom: 22px;
+        }
+
+        section header h2 {
+            margin: 0;
+            font-size: 20px;
+            font-weight: 700;
+            letter-spacing: -0.01em;
+        }
+
+        .section-subtitle {
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 18px;
+        }
+
+        .info-card {
+            background: var(--surface-muted);
+            border-radius: 16px;
+            padding: 18px 20px;
+            border: 1px solid rgba(226, 232, 240, 0.8);
+        }
+
+        .info-card h3 {
+            margin: 0 0 12px;
+            font-size: 14px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--primary);
+        }
+
+        .info-list {
+            display: grid;
+            gap: 10px;
+        }
+
+        .info-item span {
+            display: block;
+        }
+
+        .info-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-muted);
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+
+        .info-value {
+            margin-top: 2px;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-strong);
+        }
+
+        .info-value.muted {
+            color: var(--text-muted);
+        }
+
+        .table-wrapper {
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid rgba(226, 232, 240, 0.9);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        thead {
+            background: rgba(226, 232, 240, 0.45);
+        }
+
+        th, td {
+            padding: 14px 16px;
+            font-size: 13px;
+            text-align: left;
+        }
+
+        th {
+            font-weight: 700;
+            color: var(--text-muted);
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+        }
+
+        tbody tr:nth-child(every2n) {
+            background: rgba(248, 250, 255, 0.6);
+        }
+
+        tbody tr + tr {
+            border-top: 1px solid rgba(226, 232, 240, 0.5);
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            background: rgba(14, 165, 233, 0.16);
+            color: var(--accent);
+            font-weight: 600;
+            font-size: 12px;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+
+        .signature-block {
+            margin-top: 32px;
+            text-align: right;
+            font-size: 14px;
+            color: var(--text-muted);
+        }
+
+        .signature-line {
+            display: inline-block;
+            width: 220px;
+            border-bottom: 1px dashed rgba(148, 163, 184, 0.9);
+            margin-bottom: 6px;
+        }
+
+        .back-btn {
+            background: var(--surface-muted);
+            border: 1px solid var(--border);
+            color: var(--text-strong);
+            padding: 8px 16px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 12px;
+        }
+
+        .back-btn:hover {
+            background: rgba(37, 99, 235, 0.08);
+            border-color: var(--primary);
+            color: var(--primary);
+            transform: translateX(-2px);
+        }
+
+        @media (max-width: 960px) {
+            body {
+                padding: 16px;
+            }
+
+            .report-header {
+                flex-direction: column;
+                gap: 24px;
+                align-items: flex-start;
+            }
+
+            .profile-photo {
+                width: 140px;
+                height: 140px;
+            }
+        }
+
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+            }
+
+            .report-shell {
+                border-radius: 0;
+                box-shadow: none;
+            }
+
+            section {
+                box-shadow: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="report-shell">
+        <div class="report-header">
+            <div class="header-left">
+                <button class="back-btn" onclick="window.location.href='/div'">← Back to Dashboard</button>
+                <span>Division Staff Intelligence</span>
+                <h1 id="staffName">Rahul Deshmukh</h1>
+                <div class="header-meta">
+                    <div><strong id="staffDesignation">Loco Pilot (Mail)</strong></div>
+                    <div>PF No: <strong id="pfNo">KYN 02345</strong></div>
+                    <div>HRMS ID: <strong id="hrmsId">1000123</strong></div>
+                    <div>CLI: <strong id="cliName">KYN CMS 87</strong></div>
+                </div>
+            </div>
+            <div class="profile-photo">
+                <img id="profilePhoto" src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=320&q=80" alt="Staff Portrait">
+            </div>
+        </div>
+
+        <div class="quick-stats" id="quickStats"></div>
+
+        <div class="content">
+            <section id="personalSection">
+                <header>
+                    <h2>Personal & Contact Overview</h2>
+                    <div class="section-subtitle">Primary identity, contact information, and address footprint.</div>
+                </header>
+
+                <div class="info-grid">
+                    <div class="info-card">
+                        <h3>Identity</h3>
+                        <div class="info-list">
+                            <div class="info-item">
+                                <span class="info-label">Date of Birth</span>
+                                <span class="info-value" id="dobValue">18 Oct 1987</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Date of appointment</span>
+                                <span class="info-value" id="doaValue">24 Jun 2009</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Reporting Date</span>
+                                <span class="info-value" id="reportingDateValue">01 Aug 2024</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Gender</span>
+                                <span class="info-value" id="genderValue">Male</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Blood Group</span>
+                                <span class="info-value" id="bloodGroupValue">B+</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="info-card">
+                        <h3>Contacts</h3>
+                        <div class="info-list">
+                            <div class="info-item">
+                                <span class="info-label">Mobile</span>
+                                <span class="info-value" id="mobileValue">+91 98765 43210</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">WhatsApp</span>
+                                <span class="info-value" id="whatsappValue">+91 98765 43210</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Email</span>
+                                <span class="info-value" id="emailValue">rahul.deshmukh@cr.indianrail.gov.in</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Emergency Contact</span>
+                                <span class="info-value" id="emergencyValue">Ajay Deshmukh • Brother • +91 98200 10090</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Identification</span>
+                                <span class="info-value" id="idsValue">Pan: BXXPD1234K • Aadhaar: 3985 6610 4411</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="info-card">
+                        <h3>Address</h3>
+                        <div class="info-list">
+                            <div class="info-item">
+                                <span class="info-label">Present Address</span>
+                                <span class="info-value" id="presentAddress">C-402, Shanti Towers, LBS Road<br/>Thane West, Maharashtra - 400601</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Permanent Address</span>
+                                <span class="info-value" id="permanentAddress">Plot 12, Swastik Nagar<br/>Aurangabad, Maharashtra - 431001</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Dependents</span>
+                                <span class="info-value" id="dependentsCount">03 Dependents</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="serviceSection">
+                <header>
+                    <h2>Service & Promotion Portfolio</h2>
+                    <div class="section-subtitle">Career progression across key safety categories and crew grades.</div>
+                </header>
+
+                <div class="info-grid" style="margin-bottom: 22px;">
+                    <div class="info-card">
+                        <h3>Current Posting</h3>
+                        <div class="info-list">
+                            <div class="info-item">
+                                <span class="info-label">Operating Unit</span>
+                                <span class="info-value" id="currentOffice">KYN Suburban</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Safety Category</span>
+                                <span class="info-value" id="safetyCategory">Category B</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Assignment Status</span>
+                                <span class="info-value" id="assignmentStatus">Active • Line</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Vision</span>
+                                <span class="info-value" id="visionValue">Normal • Spectacles Not Required</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="info-card">
+                        <h3>Nomination & Grade</h3>
+                        <div class="info-list">
+                            <div class="info-item">
+                                <span class="info-label">Present Grade</span>
+                                <span class="info-value" id="presentGrade">Level 6 (7th CPC)</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Grade Pay</span>
+                                <span class="info-value" id="gradePay">₹ 4,200</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Current CLI Nomination</span>
+                                <span class="info-value" id="cliNomination">Sunil Patankar • Effective 12 Feb 2024</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">KYN CMS ID</span>
+                                <span class="info-value" id="cmsId">CSMT0027</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="table-wrapper">
+                    <table id="promotionTable">
+                        <thead>
+                            <tr>
+                                <th>Date of Posting</th>
+                                <th>Posted As</th>
+                                <th>Depot / Section</th>
+                                <th>Remarks</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section id="familySection">
+                <header>
+                    <h2>Family & Dependents</h2>
+                    <div class="section-subtitle">Immediate dependents declared with the division.</div>
+                </header>
+
+                <div class="table-wrapper">
+                    <table id="familyTable">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Relationship</th>
+                                <th>Date of Birth</th>
+                                <th>Occupancy</th>
+                                <th>Contact</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section id="trainingSection">
+                <header>
+                    <h2>Refresher & PME Matrix</h2>
+                    <div class="section-subtitle">Latest compliance on statutory and competency-based programs.</div>
+                </header>
+
+                <div class="info-grid" style="margin-bottom: 26px;">
+                    <div class="info-card">
+                        <h3>Upcoming Milestone</h3>
+                        <div class="info-list">
+                            <div class="info-item">
+                                <span class="info-label">Next Due</span>
+                                <span class="info-value" id="nextTrainingDue">PME • 18 Nov 2025</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Location</span>
+                                <span class="info-value" id="nextTrainingLocation">Divisional Hospital, KYN</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Status</span>
+                                <span class="info-value" id="nextTrainingStatus">Confirmed Slot</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="info-card">
+                        <h3>Personal Store Issue</h3>
+                        <div class="info-list">
+                            <div class="info-item">
+                                <span class="info-label">Detonator Count</span>
+                                <span class="info-value" id="detonatorCount">12</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">MFD / Expiry</span>
+                                <span class="info-value" id="detonatorDetails">Nov 2024 • Batch 12B</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Safety Category</span>
+                                <span class="info-value" id="safetyCategoryBadge"><span class="badge">Safety B</span></span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Spectacles</span>
+                                <span class="info-value" id="spectaclesValue">Not Required</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="table-wrapper">
+                    <table id="trainingTable">
+                        <thead>
+                            <tr>
+                                <th>Programme</th>
+                                <th>Last Done</th>
+                                <th>Due On</th>
+                                <th>Validity</th>
+                                <th>Location</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section id="remarksSection">
+                <header>
+                    <h2>Remarks & Notes</h2>
+                    <div class="section-subtitle">Critical observations recorded by CLI / DRM.</div>
+                </header>
+
+                <div class="info-card" style="border: none; background: var(--surface-muted);">
+                    <div class="info-value" id="remarksValue">
+                        Demonstrated exceptional response during the emergency brake simulation on 12 Aug 2024.
+                        Recommended for advanced simulator mentoring. Maintain focus on communication protocol refreshers.
+                    </div>
+                </div>
+
+                <div class="signature-block">
+                    <div class="signature-line"></div>
+                    <div>Division Crew Controller</div>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <script>
+        const staffProfile = {
+            name: 'Rahul Deshmukh',
+            designation: 'Loco Pilot (Mail)',
+            photo: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=320&q=80',
+            pfNo: 'KYN 02345',
+            hrmsId: '1000123',
+            cli: 'KYN CMS 87',
+            dob: '1987-10-18',
+            doa: '2009-06-24',
+            reportingDate: '2024-08-01',
+            gender: 'Male',
+            bloodGroup: 'B+',
+            mobile: '+91 98765 43210',
+            whatsapp: '+91 98765 43210',
+            email: 'rahul.deshmukh@cr.indianrail.gov.in',
+            emergencyContact: 'Ajay Deshmukh • Brother • +91 98200 10090',
+            identifications: ['Pan: BXXPD1234K', 'Aadhaar: 3985 6610 4411'],
+            presentAddress: 'C-402, Shanti Towers, LBS Road\nThane West, Maharashtra - 400601',
+            permanentAddress: 'Plot 12, Swastik Nagar\nAurangabad, Maharashtra - 431001',
+            dependents: 3,
+            safetyCategory: 'B',
+            assignmentStatus: 'Active • Line',
+            vision: 'Normal • Spectacles Not Required',
+            currentOffice: 'KYN Suburban',
+            presentGrade: 'Level 6 (7th CPC)',
+            gradePay: '₹ 4,200',
+            cliNomination: 'Sunil Patankar • Effective 12 Feb 2024',
+            cmsId: 'CSMT0027',
+            nextTraining: {
+                title: 'PME',
+                dueOn: '2025-11-18',
+                location: 'Divisional Hospital, KYN',
+                status: 'Confirmed Slot'
+            },
+            storeDetails: {
+                detonatorCount: 12,
+                detonatorBatch: 'Nov 2024 • Batch 12B',
+                spectacles: 'Not Required'
+            },
+            quickStats: [
+                { label: 'CMS ID', value: 'CSMT0027' },
+                { label: 'Vision Grade', value: 'Normal' },
+                { label: 'Marital Status', value: 'Married' },
+                { label: 'Caste', value: 'OBC' },
+                { label: 'Vaccine Dose 1', value: '04 Mar 2021' },
+                { label: 'Vaccine Dose 2', value: '12 May 2021' },
+                { label: 'Last PME', value: '20 Nov 2023' },
+                { label: 'Status', value: 'Active' }
+            ],
+            promotions: [
+                { date: '2024-02-12', posting: 'Loco Pilot (Mail)', depot: 'KYN Suburban', remarks: 'Promotion to Mail roster' },
+                { date: '2019-09-01', posting: 'Loco Pilot (Passenger)', depot: 'PNVL Suburban', remarks: 'Transferred from freight section' },
+                { date: '2016-05-22', posting: 'Loco Pilot (Goods)', depot: 'KYN Goods', remarks: 'Regularised' },
+                { date: '2013-03-18', posting: 'Assistant Loco Pilot', depot: 'LNL', remarks: 'Initial appointment' }
+            ],
+            family: [
+                { name: 'Anita Deshmukh', relationship: 'Spouse', dob: '1989-07-18', occupation: 'Teacher', contact: '+91 98205 11223' },
+                { name: 'Vihaan Deshmukh', relationship: 'Son', dob: '2013-01-12', occupation: 'Student', contact: '—' },
+                { name: 'Meera Deshmukh', relationship: 'Mother', dob: '1963-05-20', occupation: 'Retired', contact: '+91 99200 88990' }
+            ],
+            trainings: [
+                { programme: 'Safety Camp', done: '2024-04-18', due: '2025-04-17', validity: '12 Months', place: 'KYN HQ', status: 'Compliant' },
+                { programme: 'Periodic Medical Examination', done: '2023-11-20', due: '2025-11-18', validity: '24 Months', place: 'Divisional Hospital, KYN', status: 'Upcoming' },
+                { programme: 'Simulator (TW)', done: '2024-06-04', due: '2025-06-03', validity: '12 Months', place: 'TW Training Center', status: 'Compliant' },
+                { programme: 'KAVACH', done: '2024-01-15', due: '2026-01-14', validity: '24 Months', place: 'Central Academy', status: 'Compliant' },
+                { programme: 'WAG-12 Familiarisation', done: '2023-08-22', due: '2025-08-21', validity: '24 Months', place: 'Electric Loco Shed', status: 'Compliant' }
+            ],
+            remarks: 'Demonstrated exceptional response during the emergency brake simulation on 12 Aug 2024. Recommended for advanced simulator mentoring. Maintain focus on communication protocol refreshers.'
+        };
+
+        const formatDate = (dateString, fallback = '—') => {
+            if (!dateString) return fallback;
+            const date = new Date(dateString);
+            if (Number.isNaN(date.getTime())) return fallback;
+            return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+        };
+
+        const populateReport = () => {
+            const data = staffProfile;
+
+            document.getElementById('staffName').textContent = data.name;
+            document.getElementById('staffDesignation').textContent = data.designation;
+            document.getElementById('pfNo').textContent = data.pfNo;
+            document.getElementById('hrmsId').textContent = data.hrmsId;
+            document.getElementById('cliName').textContent = data.cli;
+
+            const photoEl = document.getElementById('profilePhoto');
+            photoEl.src = data.photo;
+            photoEl.alt = `${data.name} portrait`;
+
+            document.getElementById('dobValue').textContent = formatDate(data.dob);
+            document.getElementById('doaValue').textContent = formatDate(data.doa);
+            document.getElementById('reportingDateValue').textContent = formatDate(data.reportingDate);
+            document.getElementById('genderValue').textContent = data.gender;
+            document.getElementById('bloodGroupValue').textContent = data.bloodGroup;
+
+            document.getElementById('mobileValue').textContent = data.mobile;
+            document.getElementById('whatsappValue').textContent = data.whatsapp;
+            document.getElementById('emailValue').textContent = data.email;
+            document.getElementById('emergencyValue').textContent = data.emergencyContact;
+            document.getElementById('idsValue').textContent = data.identifications.join(' • ');
+
+            document.getElementById('presentAddress').innerHTML = data.presentAddress.replace(/\n/g, '<br/>');
+            document.getElementById('permanentAddress').innerHTML = data.permanentAddress.replace(/\n/g, '<br/>');
+            document.getElementById('dependentsCount').textContent = `${String(data.dependents).padStart(2, '0')} Dependents`;
+
+            document.getElementById('safetyCategory').textContent = `Category ${data.safetyCategory}`;
+            document.getElementById('assignmentStatus').textContent = data.assignmentStatus;
+            document.getElementById('visionValue').textContent = data.vision;
+            document.getElementById('currentOffice').textContent = data.currentOffice;
+            document.getElementById('presentGrade').textContent = data.presentGrade;
+            document.getElementById('gradePay').textContent = data.gradePay;
+            document.getElementById('cliNomination').textContent = data.cliNomination;
+            document.getElementById('cmsId').textContent = data.cmsId;
+
+            document.getElementById('nextTrainingDue').textContent = `${data.nextTraining.title} • ${formatDate(data.nextTraining.dueOn)}`;
+            document.getElementById('nextTrainingLocation').textContent = data.nextTraining.location;
+            document.getElementById('nextTrainingStatus').textContent = data.nextTraining.status;
+
+            document.getElementById('detonatorCount').textContent = data.storeDetails.detonatorCount;
+            document.getElementById('detonatorDetails').textContent = data.storeDetails.detonatorBatch;
+            document.getElementById('spectaclesValue').textContent = data.storeDetails.spectacles;
+
+            if (data.safetyCategory) {
+                const badge = document.createElement('span');
+                badge.className = 'badge';
+                badge.textContent = `Safety ${data.safetyCategory}`;
+                const badgeSlot = document.getElementById('safetyCategoryBadge');
+                badgeSlot.innerHTML = '';
+                badgeSlot.appendChild(badge);
+            }
+
+            // Quick stats
+            const quickStatsContainer = document.getElementById('quickStats');
+            quickStatsContainer.innerHTML = data.quickStats.map(stat => `
+                <div class="stat-card">
+                    <div class="stat-label">${stat.label}</div>
+                    <div class="stat-value">${stat.value}</div>
+                </div>
+            `).join('');
+
+            // Promotions table
+            const promotionBody = document.querySelector('#promotionTable tbody');
+            promotionBody.innerHTML = data.promotions.map(entry => `
+                <tr>
+                    <td>${formatDate(entry.date)}</td>
+                    <td>${entry.posting}</td>
+                    <td>${entry.depot}</td>
+                    <td>${entry.remarks || '—'}</td>
+                </tr>
+            `).join('');
+
+            // Family table
+            const familyBody = document.querySelector('#familyTable tbody');
+            familyBody.innerHTML = data.family.map(member => `
+                <tr>
+                    <td>${member.name}</td>
+                    <td>${member.relationship}</td>
+                    <td>${formatDate(member.dob)}</td>
+                    <td>${member.occupation || '—'}</td>
+                    <td>${member.contact || '—'}</td>
+                </tr>
+            `).join('');
+
+            // Training table
+            const trainingBody = document.querySelector('#trainingTable tbody');
+            trainingBody.innerHTML = data.trainings.map(training => `
+                <tr>
+                    <td>${training.programme}</td>
+                    <td>${formatDate(training.done)}</td>
+                    <td>${formatDate(training.due)}</td>
+                    <td>${training.validity}</td>
+                    <td>${training.place}</td>
+                    <td>${training.status}</td>
+                </tr>
+            `).join('');
+
+            document.getElementById('remarksValue').textContent = data.remarks;
+        };
+
+        document.addEventListener('DOMContentLoaded', populateReport);
+    </script>
+</body>
+</html>

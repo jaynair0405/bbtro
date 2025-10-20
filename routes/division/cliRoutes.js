@@ -69,6 +69,157 @@ router.get('/', requireDivisionAdmin, async (req, res) => {
     }
 });
 
+// ========== CLI NOMINATION MANAGEMENT ==========
+
+// GET /api/division/cli/available-staff - Get staff available for nomination
+router.get('/available-staff', async (req, res) => {
+    const conn = await getConnection(req);
+    try {
+        const { exclude_cli_id } = req.query;
+
+        // Get all active staff with their current CLI info
+        let query = `
+            SELECT
+                s.hrms_id,
+                s.name,
+                s.current_office_code,
+                s.current_cli_id,
+                s.designation_id,
+                s.safety_category,
+                o.office_name,
+                d.designation_name,
+                c.cli_name as current_cli_name
+            FROM div_staff_master s
+            LEFT JOIN offices o ON s.current_office_code = o.office_code
+            LEFT JOIN designations d ON s.designation_id = d.id
+            LEFT JOIN div_cli_master c ON s.current_cli_id = c.cli_id
+            WHERE s.status = 'Active'
+        `;
+
+        const params = [];
+
+        // Optionally exclude staff already under a specific CLI
+        if (exclude_cli_id) {
+            query += ' AND (s.current_cli_id IS NULL OR s.current_cli_id != ?)';
+            params.push(exclude_cli_id);
+        }
+
+        query += ' ORDER BY s.current_cli_id IS NULL DESC, s.name';
+
+        const [staff] = await conn.query(query, params);
+
+        // Separate staff without CLI and staff with CLI
+        const withoutCLI = staff.filter(s => !s.current_cli_id);
+        const withCLI = staff.filter(s => s.current_cli_id);
+
+        res.json({
+            success: true,
+            data: {
+                withoutCLI: withoutCLI,
+                withCLI: withCLI,
+                total: staff.length
+            }
+        });
+
+    } catch (error) {
+        console.error('Error fetching available staff:', error);
+        res.status(500).json({ error: 'Failed to fetch available staff' });
+    } finally {
+        conn.release();
+    }
+});
+
+// GET /api/division/cli/list-all - Get simple list of all CLIs (no admin required)
+router.get('/list-all', async (req, res) => {
+    const conn = await getConnection(req);
+    try {
+        const [clis] = await conn.query(`
+            SELECT cli_id, cli_name, cmsid, current_office_code
+            FROM div_cli_master
+            WHERE 1=1
+            ORDER BY cli_name
+        `);
+
+        res.json({ success: true, data: clis });
+
+    } catch (error) {
+        console.error('Error fetching CLI list:', error);
+        res.status(500).json({ error: 'Failed to fetch CLI list' });
+    } finally {
+        conn.release();
+    }
+});
+
+// GET /api/division/cli/nomination-history/:hrms_id - Get complete nomination history for a staff member
+router.get('/nomination-history/:hrms_id', async (req, res) => {
+    const conn = await getConnection(req);
+    try {
+        const { hrms_id } = req.params;
+
+        const [nominations] = await conn.query(
+            `SELECT
+                n.nomination_id,
+                n.staff_hrms_id,
+                n.cli_id,
+                n.nominated_from_date,
+                n.nominated_to_date,
+                n.status,
+                n.remarks,
+                n.created_at,
+                c.cli_name,
+                c.cmsid
+            FROM div_cli_nominations n
+            JOIN div_cli_master c ON n.cli_id = c.cli_id
+            WHERE n.staff_hrms_id = ?
+            ORDER BY n.nominated_from_date DESC`,
+            [hrms_id]
+        );
+
+        res.json({ success: true, data: nominations });
+
+    } catch (error) {
+        console.error('Error fetching nomination history:', error);
+        res.status(500).json({ error: 'Failed to fetch nomination history' });
+    } finally {
+        conn.release();
+    }
+});
+
+// GET /api/division/cli/recent-changes - Get count of recent CLI changes (last 7 days)
+router.get('/recent-changes', async (req, res) => {
+    const conn = await getConnection(req);
+    try {
+        const userOffice = req.session.user.div_office_code;
+        const userRole = req.session.user.div_role;
+
+        let query = `
+            SELECT COUNT(*) as count
+            FROM div_cli_nominations n
+            JOIN div_staff_master s ON n.staff_hrms_id = s.hrms_id
+            WHERE n.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+            AND n.status IN ('Active', 'Expired')
+        `;
+
+        const params = [];
+
+        // If not admin, filter by office
+        if (userRole !== 'division_admin') {
+            query += ' AND s.current_office_code = ?';
+            params.push(userOffice);
+        }
+
+        const [result] = await conn.query(query, params);
+
+        res.json({ success: true, count: result[0].count });
+
+    } catch (error) {
+        console.error('Error fetching recent CLI changes:', error);
+        res.status(500).json({ error: 'Failed to fetch recent changes' });
+    } finally {
+        conn.release();
+    }
+});
+
 // GET /api/division/cli/:id - Get single CLI details
 router.get('/:id', requireDivisionAdmin, async (req, res) => {
     const conn = await getConnection(req);
@@ -250,6 +401,7 @@ router.get('/:id/staff', requireDivisionAdmin, async (req, res) => {
 
         let query = `
             SELECT
+                n.nomination_id,
                 s.hrms_id,
                 s.name,
                 d.designation_name,
@@ -429,6 +581,305 @@ router.delete('/:id', requireDivisionAdmin, async (req, res) => {
     } catch (error) {
         console.error('Error deleting CLI:', error);
         res.status(500).json({ error: 'Failed to delete CLI' });
+    } finally {
+        conn.release();
+    }
+});
+
+// POST /api/division/cli/:cli_id/nominate-bulk - Bulk nominate staff to CLI
+router.post('/:cli_id/nominate-bulk', async (req, res) => {
+    const conn = await getConnection(req);
+    try {
+        const { cli_id } = req.params;
+        const { staff_hrms_ids, nominated_from_date, remarks } = req.body;
+
+        // Validation
+        if (!staff_hrms_ids || !Array.isArray(staff_hrms_ids) || staff_hrms_ids.length === 0) {
+            return res.status(400).json({ error: 'At least one staff member must be selected' });
+        }
+
+        if (!nominated_from_date) {
+            return res.status(400).json({ error: 'Nomination start date is required' });
+        }
+
+        // Check if CLI exists and is active
+        const [cliCheck] = await conn.query(
+            'SELECT cli_id, cli_name, is_active FROM div_cli_master WHERE cli_id = ?',
+            [cli_id]
+        );
+
+        if (cliCheck.length === 0) {
+            return res.status(404).json({ error: 'CLI not found' });
+        }
+
+        if (!cliCheck[0].is_active) {
+            return res.status(400).json({ error: 'Cannot nominate to inactive CLI' });
+        }
+
+        const username = req.session.user.username;
+        const results = [];
+        const errors = [];
+
+        // Process each staff member
+        for (const hrms_id of staff_hrms_ids) {
+            try {
+                // Check if staff exists and is active
+                const [staffCheck] = await conn.query(
+                    'SELECT hrms_id, name, status, current_cli_id FROM div_staff_master WHERE hrms_id = ?',
+                    [hrms_id]
+                );
+
+                if (staffCheck.length === 0) {
+                    errors.push({ hrms_id, error: 'Staff not found' });
+                    continue;
+                }
+
+                const staff = staffCheck[0];
+
+                if (staff.status !== 'Active') {
+                    errors.push({ hrms_id, name: staff.name, error: `Staff status is ${staff.status}` });
+                    continue;
+                }
+
+                // If staff already has a CLI, end the previous nomination
+                if (staff.current_cli_id) {
+                    // Calculate end date as one day before new start date
+                    const endDate = new Date(nominated_from_date);
+                    endDate.setDate(endDate.getDate() - 1);
+                    const formattedEndDate = endDate.toISOString().split('T')[0];
+
+                    // End previous active nomination
+                    await conn.query(
+                        `UPDATE div_cli_nominations
+                         SET status = 'Expired',
+                             nominated_to_date = ?,
+                             updated_by = ?,
+                             updated_at = NOW()
+                         WHERE staff_hrms_id = ? AND status = 'Active'`,
+                        [formattedEndDate, username, hrms_id]
+                    );
+                }
+
+                // Create new nomination
+                const [nominationResult] = await conn.query(
+                    `INSERT INTO div_cli_nominations
+                     (staff_hrms_id, cli_id, nominated_from_date, nominated_to_date, status, remarks, created_by, created_at)
+                     VALUES (?, ?, ?, NULL, 'Active', ?, ?, NOW())`,
+                    [hrms_id, cli_id, nominated_from_date, remarks || null, username]
+                );
+
+                // Update staff master with new CLI
+                await conn.query(
+                    'UPDATE div_staff_master SET current_cli_id = ? WHERE hrms_id = ?',
+                    [cli_id, hrms_id]
+                );
+
+                results.push({
+                    hrms_id,
+                    name: staff.name,
+                    nomination_id: nominationResult.insertId,
+                    previous_cli_id: staff.current_cli_id,
+                    success: true
+                });
+
+            } catch (error) {
+                console.error(`Error nominating staff ${hrms_id}:`, error);
+                errors.push({ hrms_id, error: error.message });
+            }
+        }
+
+        res.json({
+            success: true,
+            message: `Successfully nominated ${results.length} staff member(s)`,
+            results: results,
+            errors: errors.length > 0 ? errors : undefined,
+            cli_name: cliCheck[0].cli_name
+        });
+
+    } catch (error) {
+        console.error('Error in bulk nomination:', error);
+        res.status(500).json({ error: 'Failed to process bulk nomination' });
+    } finally {
+        conn.release();
+    }
+});
+
+// PUT /api/division/cli/nomination/:nomination_id/change - Change staff to different CLI
+router.put('/nomination/:nomination_id/change', async (req, res) => {
+    const conn = await getConnection(req);
+    try {
+        const { nomination_id } = req.params;
+        const { new_cli_id, nominated_from_date, remarks } = req.body;
+
+        // Validation
+        if (!new_cli_id) {
+            return res.status(400).json({ error: 'New CLI ID is required' });
+        }
+
+        if (!nominated_from_date) {
+            return res.status(400).json({ error: 'New nomination start date is required' });
+        }
+
+        // Get current nomination details
+        const [currentNomination] = await conn.query(
+            `SELECT n.*, s.name as staff_name, s.current_office_code as staff_office_code, c.cli_name as current_cli_name
+             FROM div_cli_nominations n
+             JOIN div_staff_master s ON n.staff_hrms_id = s.hrms_id
+             JOIN div_cli_master c ON n.cli_id = c.cli_id
+             WHERE n.nomination_id = ? AND n.status = 'Active'`,
+            [nomination_id]
+        );
+
+        if (currentNomination.length === 0) {
+            return res.status(404).json({ error: 'Active nomination not found' });
+        }
+
+        const nomination = currentNomination[0];
+
+        // Check office permissions: only same office or division_admin can change CLI
+        const userOffice = req.session.user.div_office_code;
+        const userRole = req.session.user.div_role;
+
+        if (userRole !== 'division_admin' && nomination.staff_office_code !== userOffice) {
+            return res.status(403).json({
+                error: 'Permission denied',
+                message: 'You can only change CLI nominations for staff in your office'
+            });
+        }
+
+        // Check if new CLI is same as current
+        if (nomination.cli_id == new_cli_id) {
+            return res.status(400).json({ error: 'Staff is already under this CLI' });
+        }
+
+        // Check if new CLI exists and is active
+        const [newCliCheck] = await conn.query(
+            'SELECT cli_id, cli_name, is_active FROM div_cli_master WHERE cli_id = ?',
+            [new_cli_id]
+        );
+
+        if (newCliCheck.length === 0) {
+            return res.status(404).json({ error: 'New CLI not found' });
+        }
+
+        if (!newCliCheck[0].is_active) {
+            return res.status(400).json({ error: 'Cannot nominate to inactive CLI' });
+        }
+
+        const username = req.session.user.username;
+
+        // Calculate end date as one day before new start date
+        const endDate = new Date(nominated_from_date);
+        endDate.setDate(endDate.getDate() - 1);
+        const formattedEndDate = endDate.toISOString().split('T')[0];
+
+        // End current nomination
+        await conn.query(
+            `UPDATE div_cli_nominations
+             SET status = 'Expired',
+                 nominated_to_date = ?,
+                 updated_by = ?,
+                 updated_at = NOW()
+             WHERE nomination_id = ?`,
+            [formattedEndDate, username, nomination_id]
+        );
+
+        // Create new nomination
+        const [newNomination] = await conn.query(
+            `INSERT INTO div_cli_nominations
+             (staff_hrms_id, cli_id, nominated_from_date, nominated_to_date, status, remarks, created_by, created_at)
+             VALUES (?, ?, ?, NULL, 'Active', ?, ?, NOW())`,
+            [nomination.staff_hrms_id, new_cli_id, nominated_from_date, remarks || null, username]
+        );
+
+        // Update staff master with new CLI
+        await conn.query(
+            'UPDATE div_staff_master SET current_cli_id = ? WHERE hrms_id = ?',
+            [new_cli_id, nomination.staff_hrms_id]
+        );
+
+        res.json({
+            success: true,
+            message: `Successfully changed CLI for ${nomination.staff_name}`,
+            data: {
+                staff_hrms_id: nomination.staff_hrms_id,
+                staff_name: nomination.staff_name,
+                previous_cli: nomination.current_cli_name,
+                new_cli: newCliCheck[0].cli_name,
+                new_nomination_id: newNomination.insertId,
+                effective_date: nominated_from_date
+            }
+        });
+
+    } catch (error) {
+        console.error('Error changing CLI nomination:', error);
+        res.status(500).json({ error: 'Failed to change CLI nomination' });
+    } finally {
+        conn.release();
+    }
+});
+
+// PUT /api/division/cli/nomination/:nomination_id/end - End nomination
+router.put('/nomination/:nomination_id/end', async (req, res) => {
+    const conn = await getConnection(req);
+    try {
+        const { nomination_id } = req.params;
+        const { end_date, reason } = req.body;
+
+        // Validation
+        if (!end_date) {
+            return res.status(400).json({ error: 'End date is required' });
+        }
+
+        // Get current nomination details
+        const [currentNomination] = await conn.query(
+            `SELECT n.*, s.name as staff_name, c.cli_name
+             FROM div_cli_nominations n
+             JOIN div_staff_master s ON n.staff_hrms_id = s.hrms_id
+             JOIN div_cli_master c ON n.cli_id = c.cli_id
+             WHERE n.nomination_id = ? AND n.status = 'Active'`,
+            [nomination_id]
+        );
+
+        if (currentNomination.length === 0) {
+            return res.status(404).json({ error: 'Active nomination not found' });
+        }
+
+        const nomination = currentNomination[0];
+        const username = req.session.user.username;
+
+        // End nomination
+        await conn.query(
+            `UPDATE div_cli_nominations
+             SET status = 'Transferred',
+                 nominated_to_date = ?,
+                 remarks = ?,
+                 updated_by = ?,
+                 updated_at = NOW()
+             WHERE nomination_id = ?`,
+            [end_date, reason || nomination.remarks, username, nomination_id]
+        );
+
+        // Clear CLI from staff master
+        await conn.query(
+            'UPDATE div_staff_master SET current_cli_id = NULL WHERE hrms_id = ?',
+            [nomination.staff_hrms_id]
+        );
+
+        res.json({
+            success: true,
+            message: `Successfully ended nomination for ${nomination.staff_name}`,
+            data: {
+                staff_hrms_id: nomination.staff_hrms_id,
+                staff_name: nomination.staff_name,
+                cli_name: nomination.cli_name,
+                end_date: end_date
+            }
+        });
+
+    } catch (error) {
+        console.error('Error ending nomination:', error);
+        res.status(500).json({ error: 'Failed to end nomination' });
     } finally {
         conn.release();
     }

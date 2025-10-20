@@ -297,7 +297,7 @@
                 <div class="quick-actions">
                     <h3>Quick Actions</h3>
                     <div class="actions-grid">
-                        <a href="#" class="action-btn">
+                        <a href="/div/biodataform.html?mode=create" class="action-btn">
                             <span class="icon">➕</span>
                             Add New Staff
                         </a>
@@ -306,7 +306,7 @@
                             Process Transfer
                             <span class="badge blue" id="transferQuickBadge" style="margin-left: 8px; display: none;">0</span>
                         </a>
-                        <a href="#" class="action-btn">
+                        <a href="/div/training-due-report.html" class="action-btn">
                             <span class="icon">📋</span>
                             Generate Report
                         </a>
@@ -314,7 +314,7 @@
                             <span class="icon">🏥</span>
                             Update PME Status
                         </a>
-                        <a href="#" class="action-btn">
+                        <a href="#" class="action-btn" onclick="openCLINominationsOptionsModal(); return false;">
                             <span class="icon">👥</span>
                             CLI Nominations
                         </a>
@@ -332,6 +332,8 @@
                         <span style="margin-left: auto; font-size: 14px; font-weight: 400; color: #6b7280;">Last 7 days</span>
                     </h3>
                     <div class="activity-list">
+                        <!-- Biodata updates - hidden for now (too granular) -->
+                        <!--
                         <div class="activity-item">
                             <div class="activity-icon blue">👤</div>
                             <div class="activity-content">
@@ -340,25 +342,30 @@
                             </div>
                             <div class="activity-time">2 hours ago</div>
                         </div>
-                        
-                        <div class="activity-item">
+                        -->
+
+                        <div class="activity-item" id="transferActivity" style="display: none;">
                             <div class="activity-icon green">🔄</div>
                             <div class="activity-content">
-                                <div class="activity-title">Staff transfer approved</div>
-                                <div class="activity-subtitle">Rajesh Patil transferred to PNVL office</div>
+                                <div class="activity-title">Staff transfers</div>
+                                <div class="activity-subtitle">
+                                    <span id="transferOutgoing">0</span> outgoing • <span id="transferIncoming">0</span> incoming
+                                </div>
                             </div>
-                            <div class="activity-time">1 day ago</div>
+                            <div class="activity-time">Last 30 days</div>
                         </div>
                         
-                        <div class="activity-item">
+                        <div class="activity-item" id="pmeCompletedActivity" style="display: none;">
                             <div class="activity-icon orange">🏥</div>
                             <div class="activity-content">
-                                <div class="activity-title">PME due reminder sent</div>
-                                <div class="activity-subtitle">23 staff members reminded for upcoming medical exam</div>
+                                <div class="activity-title">PME completed</div>
+                                <div class="activity-subtitle"><span id="pmeCompletedCount">0</span> staff completed medical examination</div>
                             </div>
-                            <div class="activity-time">2 days ago</div>
+                            <div class="activity-time">This month</div>
                         </div>
-                        
+
+                        <!-- Monthly report - hidden for now (will be used later) -->
+                        <!--
                         <div class="activity-item">
                             <div class="activity-icon blue">📋</div>
                             <div class="activity-content">
@@ -366,6 +373,25 @@
                                 <div class="activity-subtitle">CSMT staff summary report for March 2024</div>
                             </div>
                             <div class="activity-time">3 days ago</div>
+                        </div>
+                        -->
+
+                        <div class="activity-item" id="cliChangesActivity" style="display: none;">
+                            <div class="activity-icon purple">👥</div>
+                            <div class="activity-content">
+                                <div class="activity-title">CLI nominations changed</div>
+                                <div class="activity-subtitle"><span id="cliChangesCount">0</span> staff members reassigned to different CLIs</div>
+                            </div>
+                            <div class="activity-time">Last 7 days</div>
+                        </div>
+
+                        <div class="activity-item" id="pstoreActivity" style="display: none; cursor: pointer;" onclick="showPStoreNamesModal()">
+                            <div class="activity-icon red">📕</div>
+                            <div class="activity-content">
+                                <div class="activity-title">Personnel Stores Updated</div>
+                                <div class="activity-subtitle"><span id="pstoreCount">0</span> staff updated their personnel stores</div>
+                            </div>
+                            <div class="activity-time">Today</div>
                         </div>
                     </div>
                 </div>
@@ -551,6 +577,168 @@
             </form>
         </div>
     </div>
-       <script src="/div/js/division-ui.js"></script>
+
+    <!-- CLI Nominations Options Modal -->
+    <div id="cliNominationsOptionsModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 9999; align-items: center; justify-content: center; padding: 16px;">
+        <div style="background: white; border-radius: 12px; padding: 32px; width: min(500px, 100%); box-shadow: 0 20px 40px rgba(0,0,0,0.3);">
+            <h2 style="margin: 0 0 24px; color: #1a1d21; font-size: 24px;">👥 CLI Nominations</h2>
+
+            <p style="margin-bottom: 24px; color: #6b7280; font-size: 14px;">
+                Select an action to manage CLI nominations:
+            </p>
+
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+                <button onclick="openChangeCLIFromHome()"
+                        style="padding: 16px 20px; border: 1px solid #d1d5db; background: white; color: #374151; border-radius: 8px; cursor: pointer; font-weight: 500; font-size: 15px; text-align: left; display: flex; align-items: center; gap: 12px; transition: all 0.2s;">
+                    <span style="font-size: 20px;">🔄</span>
+                    <div>
+                        <div style="font-weight: 600; color: #1a1d21;">Change CLI</div>
+                        <div style="font-size: 13px; color: #6b7280; font-weight: 400;">Reassign staff to a different Chief Loco Inspector</div>
+                    </div>
+                </button>
+
+                <button onclick="openNominationHistoryFromHome()"
+                        style="padding: 16px 20px; border: 1px solid #d1d5db; background: white; color: #374151; border-radius: 8px; cursor: pointer; font-weight: 500; font-size: 15px; text-align: left; display: flex; align-items: center; gap: 12px; transition: all 0.2s;">
+                    <span style="font-size: 20px;">📋</span>
+                    <div>
+                        <div style="font-weight: 600; color: #1a1d21;">View Nomination History</div>
+                        <div style="font-size: 13px; color: #6b7280; font-weight: 400;">View complete CLI nomination timeline for a staff member</div>
+                    </div>
+                </button>
+            </div>
+
+            <div style="margin-top: 24px; text-align: right;">
+                <button type="button" onclick="closeCLINominationsOptionsModal()"
+                        style="padding: 10px 20px; border: 1px solid #d1d5db; background: white; color: #374151; border-radius: 8px; cursor: pointer; font-weight: 500;">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Change CLI Modal (from home) -->
+    <div id="changeCLIModalHome" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 10000; align-items: center; justify-content: center; padding: 16px;">
+        <div style="background: white; border-radius: 12px; padding: 32px; width: min(600px, 100%); box-shadow: 0 20px 40px rgba(0,0,0,0.3);">
+            <h2 style="margin: 0 0 24px; color: #1a1d21; font-size: 24px;">🔄 Change CLI</h2>
+
+            <!-- Staff Search -->
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; font-size: 14px; font-weight: 500; color: #374151; margin-bottom: 6px;">
+                    Search Staff <span style="color: #dc2626;">*</span>
+                </label>
+                <input type="text" id="cliChangeStaffSearch" list="cliChangeStaffSuggestions"
+                       placeholder="Enter HRMS ID or name..."
+                       style="width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px;">
+                <datalist id="cliChangeStaffSuggestions"></datalist>
+            </div>
+
+            <!-- Staff Info (shown after selection) -->
+            <div id="cliChangeStaffInfo" style="display: none; margin-bottom: 20px; padding: 16px; background: #f9fafb; border-radius: 8px;">
+                <p style="margin: 0 0 8px; color: #6b7280; font-size: 13px;">Selected Staff:</p>
+                <p style="margin: 0; font-weight: 600; color: #1a1d21;"><span id="cliChangeStaffName"></span> (<span id="cliChangeStaffHRMS"></span>)</p>
+                <p style="margin: 8px 0 0; color: #6b7280; font-size: 14px;">Current CLI: <strong id="cliChangeCurrentCLI"></strong></p>
+            </div>
+
+            <!-- New CLI Selection -->
+            <div id="cliChangeFormFields" style="display: none;">
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; font-size: 14px; font-weight: 500; color: #374151; margin-bottom: 6px;">
+                        New CLI <span style="color: #dc2626;">*</span>
+                    </label>
+                    <select id="cliChangeNewCLI" required
+                            style="width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px;">
+                        <option value="">Select new CLI</option>
+                    </select>
+                </div>
+
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; font-size: 14px; font-weight: 500; color: #374151; margin-bottom: 6px;">
+                        Effective Date <span style="color: #dc2626;">*</span>
+                    </label>
+                    <input type="date" id="cliChangeEffectiveDate" required
+                           style="width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px;">
+                </div>
+
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; font-size: 14px; font-weight: 500; color: #374151; margin-bottom: 6px;">
+                        Remarks (Optional)
+                    </label>
+                    <textarea id="cliChangeRemarks" rows="2"
+                              style="width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px;"></textarea>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                <button type="button" onclick="closeChangeCLIModalHome()"
+                        style="padding: 10px 20px; border: 1px solid #d1d5db; background: white; color: #374151; border-radius: 8px; cursor: pointer; font-weight: 500;">
+                    Cancel
+                </button>
+                <button type="button" id="cliChangeSubmitBtn" onclick="submitCLIChangeFromHome()" disabled
+                        style="padding: 10px 20px; border: none; background: #2563eb; color: white; border-radius: 8px; cursor: pointer; font-weight: 500;">
+                    Change CLI
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Nomination History Modal -->
+    <div id="nominationHistoryModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 10000; align-items: center; justify-content: center; padding: 16px;">
+        <div style="background: white; border-radius: 12px; padding: 32px; width: min(800px, 100%); max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 40px rgba(0,0,0,0.3);">
+            <h2 style="margin: 0 0 24px; color: #1a1d21; font-size: 24px;">📋 CLI Nomination History</h2>
+
+            <!-- Staff Search -->
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; font-size: 14px; font-weight: 500; color: #374151; margin-bottom: 6px;">
+                    Search Staff <span style="color: #dc2626;">*</span>
+                </label>
+                <input type="text" id="historyStaffSearch" list="historyStaffSuggestions"
+                       placeholder="Enter HRMS ID or name..."
+                       style="width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px;">
+                <datalist id="historyStaffSuggestions"></datalist>
+            </div>
+
+            <!-- Staff Info -->
+            <div id="historyStaffInfo" style="display: none; margin-bottom: 20px; padding: 16px; background: #f9fafb; border-radius: 8px;">
+                <p style="margin: 0; font-weight: 600; color: #1a1d21; font-size: 16px;"><span id="historyStaffName"></span> (<span id="historyStaffHRMS"></span>)</p>
+                <p style="margin: 8px 0 0; color: #6b7280; font-size: 14px;">
+                    <span id="historyStaffOffice"></span> • <span id="historyStaffDesignation"></span>
+                </p>
+                <p style="margin: 8px 0 0; color: #2563eb; font-weight: 600;">Current CLI: <span id="historyCurrentCLI"></span></p>
+            </div>
+
+            <!-- Nomination Timeline -->
+            <div id="nominationTimeline" style="display: none;">
+                <h3 style="margin: 0 0 16px; font-size: 18px; color: #1a1d21;">Nomination Timeline</h3>
+                <div id="nominationTimelineContent"></div>
+            </div>
+
+            <div style="margin-top: 24px; text-align: right;">
+                <button type="button" onclick="closeNominationHistoryModal()"
+                        style="padding: 10px 20px; border: 1px solid #d1d5db; background: white; color: #374151; border-radius: 8px; cursor: pointer; font-weight: 500;">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- P/Store Updates Modal -->
+    <div id="pstoreNamesModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 10000; align-items: center; justify-content: center; padding: 16px;">
+        <div style="background: white; border-radius: 12px; padding: 32px; width: min(500px, 100%); max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 40px rgba(0,0,0,0.3);">
+            <h2 style="margin: 0 0 24px; color: #1a1d21; font-size: 24px;">📕 Personnel Stores Updated Today</h2>
+
+            <div id="pstoreNamesList" style="max-height: 400px; overflow-y: auto;">
+                <!-- Names will be inserted here -->
+            </div>
+
+            <div style="margin-top: 24px; text-align: right;">
+                <button type="button" onclick="closePStoreNamesModal()"
+                        style="padding: 10px 20px; border: 1px solid #d1d5db; background: white; color: #374151; border-radius: 8px; cursor: pointer; font-weight: 500;">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/div/js/division-ui.js"></script>
 </body>
 </html>

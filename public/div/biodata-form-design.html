@@ -33,6 +33,28 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            gap: 16px;
+        }
+
+        .back-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .back-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateX(-2px);
         }
 
         .form-header h1 {
@@ -361,6 +383,7 @@
     <div class="form-container">
         <!-- Header -->
         <div class="form-header">
+            <button class="back-btn" onclick="window.location.href='/div'">← Back</button>
             <h1>📋 Crew Bio-data Entry Form</h1>
             <div class="office-badge">CSMT-SUB Office</div>
         </div>
