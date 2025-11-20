@@ -58,6 +58,17 @@
           <div><strong>Safety Cat:</strong> <span id="showSafety">—</span></div>
           <div class="mt-2"><span class="pill status-active" id="showStatus">ACTIVE</span></div>
           <div class="mt-2">
+            <label class="form-label" style="font-size: 12px;">Staff Status</label>
+            <select class="form-select form-select-sm" id="staff_status">
+              <option value="Active">Active</option>
+              <option value="Transferred">Transferred</option>
+              <option value="Retired">Retired</option>
+              <option value="Suspended">Suspended</option>
+              <option value="Promoted to CLI">Promoted to CLI</option>
+              <option value="Medically Decategorised">Medically Decategorised</option>
+            </select>
+          </div>
+          <div class="mt-2">
             <strong>NCLI:</strong> <span id="showCLI" style="color: #0066cc; font-weight: 600;">—</span>
             <button class="btn btn-sm btn-outline-primary mt-1" id="btnChangeCLI" onclick="openChangeCLIModalBiodata()" disabled style="width: 100%; font-size: 11px;">🔄 Change CLI</button>
           </div>
@@ -116,6 +127,23 @@
                   <option>O-</option>
                 </select>
               </div>
+              <div>
+                <label class="form-label">Qualification</label>
+                <select class="form-select" id="qualification">
+                  <option value="">Select Qualification</option>
+                  <option>10th</option>
+                  <option>12th</option>
+                  <option>ITI/NCTVT</option>
+                  <option>Diploma</option>
+                  <option>BE/BTech</option>
+                  <option>MTech</option>
+                  <option>Graduate</option>
+                  <option>Post Graduate</option>
+                  <option>Others</option>
+                </select>
+              </div>
+              <div><label class="form-label">Identification Mark 1</label><input type="text" class="form-control" id="identification_mark_1"></div>
+              <div><label class="form-label">Identification Mark 2</label><input type="text" class="form-control" id="identification_mark_2"></div>
             </div>
           </div>
 
@@ -147,6 +175,19 @@
               <div><label class="form-label">Safety Category</label>
                 <select class="form-select" id="safety_category"><option value="">Select Category</option><option>A</option><option>B</option><option>C</option><option>D</option></select>
               </div>
+              <div>
+                <label class="form-label">Dept / RRB</label>
+                <select class="form-select" id="dept_rrb">
+                  <option value="">Select Dept / RRB</option>
+                  <option value="DEPT">DEPT</option>
+                  <option value="RRB">RRB</option>
+                </select>
+              </div>
+              <div>
+                <label class="form-label">Reporting Date</label>
+                <input type="date" class="form-control" id="reporting_date">
+              </div>
+              <div><label class="form-label">ID Card Number</label><input type="text" class="form-control" id="id_card_no"></div>
               <!-- original_cms_id hidden field for internal use -->
               <input type="hidden" id="original_cms_id">
             </div>
@@ -1654,6 +1695,10 @@ document.addEventListener('DOMContentLoaded', function() {
   if (lastUpdatedInput) {
     lastUpdatedInput.addEventListener('change', calculateNextDue);
   }
+  const statusSelect = document.getElementById('staff_status');
+  if (statusSelect) {
+    statusSelect.addEventListener('change', (event) => updateStatusDisplay(event.target.value));
+  }
 });
 
 function calculateNextDue() {
@@ -1692,6 +1737,23 @@ function updatePStoreStatusBadge(nextDueDate) {
     badge.style.background = '#d1fae5';
     badge.style.color = '#065f46';
   }
+}
+
+function updateStatusDisplay(newStatus) {
+  const badge = document.getElementById('showStatus');
+  const value = newStatus || 'Active';
+  badge.textContent = value.toUpperCase();
+  const colors = {
+    Active: { bg: '#e7f7ef', color: '#1e7e34' },
+    Transferred: { bg: '#dbeafe', color: '#1d4ed8' },
+    Retired: { bg: '#f3f4f6', color: '#111827' },
+    Suspended: { bg: '#fee2e2', color: '#991b1b' },
+    'Promoted to CLI': { bg: '#fef3c7', color: '#92400e' },
+    'Medically Decategorised': { bg: '#ffe4e6', color: '#9d174d' }
+  };
+  const palette = colors[value] || colors.Active;
+  badge.style.background = palette.bg;
+  badge.style.color = palette.color;
 }
 
 // Update P/Store record via API
@@ -2542,6 +2604,9 @@ function loadStaffData(staff) {
   document.getElementById('marital_status').value = staff.marital_status || '';
   document.getElementById('vision').value = staff.vision || '';
   document.getElementById('blood_group').value = staff.blood_group || '';
+  document.getElementById('qualification').value = staff.qualification || '';
+  document.getElementById('identification_mark_1').value = staff.identification_mark_1 || '';
+  document.getElementById('identification_mark_2').value = staff.identification_mark_2 || '';
 
   // Contact tab
   document.getElementById('phone_number').value = staff.phone_number || '';
@@ -2556,6 +2621,9 @@ function loadStaffData(staff) {
   document.getElementById('original_cms_id').value = staff.original_cms_id || '';
   document.getElementById('officeSelect').value = staff.current_office_code || '';
   document.getElementById('safety_category').value = staff.safety_category || '';
+  document.getElementById('dept_rrb').value = staff.dept_rrb || '';
+  document.getElementById('reporting_date').value = formatDateForInput(staff.reporting_date);
+  document.getElementById('id_card_no').value = staff.id_card_no || '';
   document.getElementById('date_of_appointment').value = formatDateForInput(staff.date_of_appointment);
   document.getElementById('pf_no').value = staff.pf_number || '';
   document.getElementById('aadhaar').value = staff.aadhar_card_no || '';
@@ -2570,6 +2638,9 @@ function loadStaffData(staff) {
   document.getElementById('showDesig').textContent = staff.designation_name || '—';
   document.getElementById('showSafety').textContent = staff.safety_category || '—';
   document.getElementById('showCLI').textContent = staff.cli_name || 'Not Assigned';
+  const statusValue = staff.status || 'Active';
+  document.getElementById('staff_status').value = statusValue;
+  updateStatusDisplay(statusValue);
 
   // Load transfer history
   loadTransferHistory(staff.hrms_id);
@@ -2953,6 +3024,9 @@ async function saveBiodata() {
       marital_status: document.getElementById('marital_status').value,
       vision: document.getElementById('vision').value,
       blood_group: document.getElementById('blood_group').value,
+      qualification: document.getElementById('qualification').value,
+      identification_mark_1: document.getElementById('identification_mark_1').value.trim(),
+      identification_mark_2: document.getElementById('identification_mark_2').value.trim(),
       phone_number: document.getElementById('phone_number').value.trim(),
       cug_number: document.getElementById('cug_number').value.trim(),
       email: document.getElementById('email').value.trim(),
@@ -2962,7 +3036,11 @@ async function saveBiodata() {
       aadhar_card_no: document.getElementById('aadhaar').value.trim(),
       pan_card_no: document.getElementById('pan').value.trim(),
       date_of_appointment: document.getElementById('date_of_appointment').value,
-      safety_category: document.getElementById('safety_category').value
+      safety_category: document.getElementById('safety_category').value,
+      dept_rrb: document.getElementById('dept_rrb').value.trim(),
+      reporting_date: document.getElementById('reporting_date').value,
+      id_card_no: document.getElementById('id_card_no').value.trim(),
+      status: document.getElementById('staff_status').value || 'Active'
     };
 
     // Disable save button
@@ -3032,6 +3110,13 @@ async function createNewStaff() {
       date_of_appointment: document.getElementById('date_of_appointment').value,
       designation_id: document.getElementById('designation').value || null,
       safety_category: document.getElementById('safety_category').value,
+      dept_rrb: document.getElementById('dept_rrb').value.trim(),
+      reporting_date: document.getElementById('reporting_date').value,
+      id_card_no: document.getElementById('id_card_no').value.trim(),
+      qualification: document.getElementById('qualification').value,
+      identification_mark_1: document.getElementById('identification_mark_1').value.trim(),
+      identification_mark_2: document.getElementById('identification_mark_2').value.trim(),
+      status: document.getElementById('staff_status').value || 'Active',
       current_office_code: document.getElementById('officeSelect').value
     };
 

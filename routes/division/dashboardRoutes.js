@@ -1,6 +1,15 @@
 const express = require('express');
 const router = express.Router();
 
+const STAFF_STATUS_OPTIONS = new Set([
+    'Active',
+    'Transferred',
+    'Retired',
+    'Suspended',
+    'Promoted to CLI',
+    'Medically Decategorised'
+]);
+
 // GET /api/division/offices - Get all offices
 router.get('/offices', async (req, res) => {
     try {
@@ -175,17 +184,29 @@ router.put('/staff/:hrms_id', async (req, res) => {
             marital_status,
             vision,
             blood_group,
+            identification_mark_1,
+            identification_mark_2,
+            qualification,
             phone_number,
             cug_number,
             email,
             present_address,
             permanent_address,
+            dept_rrb,
+            reporting_date,
+            id_card_no,
+            status,
             pf_number,
             aadhar_card_no,
             pan_card_no,
             date_of_appointment,
             safety_category
         } = req.body;
+        const staffStatus = (status && status.trim()) || 'Active';
+        if (!STAFF_STATUS_OPTIONS.has(staffStatus)) {
+            conn.release();
+            return res.status(400).json({ error: 'Invalid status value' });
+        }
 
         // Helper function: convert empty strings to NULL for ENUM fields
         const toNullIfEmpty = (val) => (val === '' || val === undefined) ? null : val;
@@ -194,10 +215,12 @@ router.put('/staff/:hrms_id', async (req, res) => {
             `UPDATE div_staff_master
              SET name = ?, date_of_birth = ?, gender = ?, fathers_name = ?, caste = ?,
                  marital_status = ?, vision = ?, blood_group = ?,
+                 identification_mark_1 = ?, identification_mark_2 = ?,
+                 qualification = ?,
                  phone_number = ?, cug_number = ?, email = ?,
-                 present_address = ?, permanent_address = ?,
-                 pf_number = ?, aadhar_card_no = ?, pan_card_no = ?,
-                 date_of_appointment = ?, safety_category = ?,
+                 present_address = ?, permanent_address = ?, dept_rrb = ?,
+                 id_card_no = ?, pf_number = ?, aadhar_card_no = ?, pan_card_no = ?,
+                 reporting_date = ?, date_of_appointment = ?, safety_category = ?, status = ?,
                  updated_at = NOW()
              WHERE hrms_id = ?`,
             [
@@ -209,16 +232,23 @@ router.put('/staff/:hrms_id', async (req, res) => {
                 toNullIfEmpty(marital_status),  // ENUM
                 toNullIfEmpty(vision),  // ENUM
                 toNullIfEmpty(blood_group),
+                toNullIfEmpty(identification_mark_1),
+                toNullIfEmpty(identification_mark_2),
+                toNullIfEmpty(qualification),
                 toNullIfEmpty(phone_number),
                 toNullIfEmpty(cug_number),
                 toNullIfEmpty(email),
                 toNullIfEmpty(present_address),
                 toNullIfEmpty(permanent_address),
+                toNullIfEmpty(dept_rrb),
+                toNullIfEmpty(id_card_no),
+                toNullIfEmpty(reporting_date),
                 toNullIfEmpty(pf_number),
                 toNullIfEmpty(aadhar_card_no),
                 toNullIfEmpty(pan_card_no),
                 toNullIfEmpty(date_of_appointment),
                 toNullIfEmpty(safety_category),  // ENUM
+                staffStatus,
                 hrms_id
             ]
         );
@@ -259,11 +289,18 @@ router.post('/staff', async (req, res) => {
             marital_status,
             vision,
             blood_group,
+            identification_mark_1,
+            identification_mark_2,
+            qualification,
             phone_number,
             cug_number,
             email,
             present_address,
             permanent_address,
+            dept_rrb,
+            reporting_date,
+            id_card_no,
+            status,
             pf_number,
             aadhar_card_no,
             pan_card_no,
@@ -272,6 +309,11 @@ router.post('/staff', async (req, res) => {
             safety_category,
             current_office_code
         } = req.body;
+        const staffStatus = (status && status.trim()) || 'Active';
+        if (!STAFF_STATUS_OPTIONS.has(staffStatus)) {
+            conn.release();
+            return res.status(400).json({ error: 'Invalid status value' });
+        }
 
         // Validation
         if (!hrms_id || !name || !current_cms_id) {
@@ -302,23 +344,31 @@ router.post('/staff', async (req, res) => {
         } else if (!officeCode) {
             officeCode = userOffice;
         }
+        const hqStation = officeCode; // default HQ to current office for new staff
 
         // Insert new staff
         const [result] = await conn.query(
             `INSERT INTO div_staff_master
              (hrms_id, name, current_cms_id, original_cms_id, current_office_code, home_office_code,
               date_of_birth, gender, fathers_name, caste, marital_status, vision, blood_group,
-              phone_number, cug_number, email, present_address, permanent_address,
-              pf_number, aadhar_card_no, pan_card_no, date_of_appointment,
+              identification_mark_1, identification_mark_2,
+              qualification,
+              phone_number, cug_number, email, present_address, permanent_address, dept_rrb,
+              reporting_date, hq_station,
+              id_card_no, pf_number, aadhar_card_no, pan_card_no, date_of_appointment,
               designation_id, safety_category, status, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Active', NOW(), NOW())`,
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
             [
                 hrms_id, name, current_cms_id, original_cms_id || current_cms_id,
                 officeCode, officeCode, // Set both current and home office
                 date_of_birth, gender, father_name, caste, marital_status, vision, blood_group,
-                phone_number, cug_number, email, present_address, permanent_address,
+                identification_mark_1, identification_mark_2,
+                qualification,
+                phone_number, cug_number, email, present_address, permanent_address, dept_rrb,
+                reporting_date, hqStation,
+                id_card_no,
                 pf_number, aadhar_card_no, pan_card_no, date_of_appointment,
-                designation_id, safety_category
+                designation_id, safety_category, staffStatus
             ]
         );
 

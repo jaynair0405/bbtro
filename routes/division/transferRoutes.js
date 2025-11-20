@@ -223,21 +223,21 @@ router.put('/transfer-request/:id/accept', requireAuth, async (req, res) => {
             if (category === 'Inter Railway') {
                 // Inter Railway: Set office to OTHER, preserve home_office_code, set status to Transferred
                 staffUpdate = `UPDATE div_staff_master
-                               SET current_office_code = 'OTHER', current_cms_id = ?, status = 'Transferred'
+                               SET current_office_code = 'OTHER', hq_station = NULL, current_cms_id = ?, status = 'Transferred'
                                WHERE hrms_id = ?`;
                 staffParams = [new_cms_id.trim(), transferReq.staff_hrms_id];
             } else if (category === 'Temporary Transfer') {
                 // Temporary: Update current_office_code only, keep home_office_code unchanged
                 staffUpdate = `UPDATE div_staff_master
-                               SET current_office_code = ?, current_cms_id = ?
+                               SET current_office_code = ?, hq_station = ?, current_cms_id = ?
                                WHERE hrms_id = ?`;
-                staffParams = [transferReq.to_office_code, new_cms_id.trim(), transferReq.staff_hrms_id];
+                staffParams = [transferReq.to_office_code, transferReq.to_office_code, new_cms_id.trim(), transferReq.staff_hrms_id];
             } else if (category === 'Permanent Transfer' || category === 'Promotion') {
                 // Permanent/Promotion: Update both current and home office
                 staffUpdate = `UPDATE div_staff_master
-                               SET current_office_code = ?, home_office_code = ?, current_cms_id = ?
+                               SET current_office_code = ?, home_office_code = ?, hq_station = ?, current_cms_id = ?
                                WHERE hrms_id = ?`;
-                staffParams = [transferReq.to_office_code, transferReq.to_office_code, new_cms_id.trim(), transferReq.staff_hrms_id];
+                staffParams = [transferReq.to_office_code, transferReq.to_office_code, transferReq.to_office_code, new_cms_id.trim(), transferReq.staff_hrms_id];
             }
 
             await conn.query(staffUpdate, staffParams);
