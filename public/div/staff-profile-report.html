@@ -332,21 +332,18 @@
     </style>
 </head>
 <body>
+    <script src="/div/js/division-auth.js"></script>
     <div class="report-shell">
         <div class="report-header">
             <div class="header-left">
-                <button class="back-btn" onclick="window.location.href='/div'">← Back to Dashboard</button>
-                <span>Division Staff Intelligence</span>
-                <h1 id="staffName">Rahul Deshmukh</h1>
+                <span>Staff Biodata</span>
+                <h1 id="staffName">Loading...</h1>
                 <div class="header-meta">
-                    <div><strong id="staffDesignation">Loco Pilot (Mail)</strong></div>
-                    <div>PF No: <strong id="pfNo">KYN 02345</strong></div>
-                    <div>HRMS ID: <strong id="hrmsId">1000123</strong></div>
-                    <div>CLI: <strong id="cliName">KYN CMS 87</strong></div>
+                    <div><strong id="staffDesignation">—</strong></div>
+                    <div>PF No: <strong id="pfNo">—</strong></div>
+                    <div>HRMS ID: <strong id="hrmsId">—</strong></div>
+                    <div>CLI: <strong id="cliName">—</strong></div>
                 </div>
-            </div>
-            <div class="profile-photo">
-                <img id="profilePhoto" src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=320&q=80" alt="Staff Portrait">
             </div>
         </div>
 
@@ -400,10 +397,6 @@
                             <div class="info-item">
                                 <span class="info-label">Email</span>
                                 <span class="info-value" id="emailValue">rahul.deshmukh@cr.indianrail.gov.in</span>
-                            </div>
-                            <div class="info-item">
-                                <span class="info-label">Emergency Contact</span>
-                                <span class="info-value" id="emergencyValue">Ajay Deshmukh • Brother • +91 98200 10090</span>
                             </div>
                             <div class="info-item">
                                 <span class="info-label">Identification</span>
@@ -627,7 +620,7 @@
             identifications: ['Pan: BXXPD1234K', 'Aadhaar: 3985 6610 4411'],
             presentAddress: 'C-402, Shanti Towers, LBS Road\nThane West, Maharashtra - 400601',
             permanentAddress: 'Plot 12, Swastik Nagar\nAurangabad, Maharashtra - 431001',
-            dependents: 3,
+            dependents: null,
             safetyCategory: 'B',
             assignmentStatus: 'Active • Line',
             vision: 'Normal • Spectacles Not Required',
@@ -652,8 +645,6 @@
                 { label: 'Vision Grade', value: 'Normal' },
                 { label: 'Marital Status', value: 'Married' },
                 { label: 'Caste', value: 'OBC' },
-                { label: 'Vaccine Dose 1', value: '04 Mar 2021' },
-                { label: 'Vaccine Dose 2', value: '12 May 2021' },
                 { label: 'Last PME', value: '20 Nov 2023' },
                 { label: 'Status', value: 'Active' }
             ],
@@ -685,8 +676,25 @@
             return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
         };
 
-        const populateReport = () => {
-            const data = staffProfile;
+        const populateReport = (overrides = {}) => {
+            const data = { ...staffProfile, ...overrides };
+            if (!data.hrmsId && overrides.hrmsId) {
+                data.hrmsId = overrides.hrmsId;
+            }
+
+            const updateQuickStat = (label, value) => {
+                if (!value || !Array.isArray(data.quickStats)) return;
+                const idx = data.quickStats.findIndex(stat => stat.label === label);
+                if (idx >= 0) {
+                    data.quickStats[idx] = { ...data.quickStats[idx], value };
+                }
+            };
+
+            updateQuickStat('CMS ID', data.cmsId);
+            updateQuickStat('Vision Grade', data.vision);
+            updateQuickStat('Marital Status', data.marital_status || data.maritalStatus);
+            updateQuickStat('Caste', data.caste);
+            updateQuickStat('Status', data.status);
 
             document.getElementById('staffName').textContent = data.name;
             document.getElementById('staffDesignation').textContent = data.designation;
@@ -694,25 +702,22 @@
             document.getElementById('hrmsId').textContent = data.hrmsId;
             document.getElementById('cliName').textContent = data.cli;
 
-            const photoEl = document.getElementById('profilePhoto');
-            photoEl.src = data.photo;
-            photoEl.alt = `${data.name} portrait`;
-
             document.getElementById('dobValue').textContent = formatDate(data.dob);
             document.getElementById('doaValue').textContent = formatDate(data.doa);
             document.getElementById('reportingDateValue').textContent = formatDate(data.reportingDate);
             document.getElementById('genderValue').textContent = data.gender;
             document.getElementById('bloodGroupValue').textContent = data.bloodGroup;
 
-            document.getElementById('mobileValue').textContent = data.mobile;
-            document.getElementById('whatsappValue').textContent = data.whatsapp;
+            document.getElementById('mobileValue').textContent = data.whatsapp;
+            document.getElementById('whatsappValue').textContent = data.mobile;
             document.getElementById('emailValue').textContent = data.email;
-            document.getElementById('emergencyValue').textContent = data.emergencyContact;
             document.getElementById('idsValue').textContent = data.identifications.join(' • ');
 
             document.getElementById('presentAddress').innerHTML = data.presentAddress.replace(/\n/g, '<br/>');
             document.getElementById('permanentAddress').innerHTML = data.permanentAddress.replace(/\n/g, '<br/>');
-            document.getElementById('dependentsCount').textContent = `${String(data.dependents).padStart(2, '0')} Dependents`;
+            document.getElementById('dependentsCount').textContent = (typeof data.dependents === 'number')
+                ? `${data.dependents} Dependents`
+                : 'Dependents data unavailable';
 
             document.getElementById('safetyCategory').textContent = `Category ${data.safetyCategory}`;
             document.getElementById('assignmentStatus').textContent = data.assignmentStatus;
@@ -788,7 +793,101 @@
             document.getElementById('remarksValue').textContent = data.remarks;
         };
 
-        document.addEventListener('DOMContentLoaded', populateReport);
+        async function fetchStaffData(hrmsId) {
+            try {
+                const response = await fetch(`/api/division/staff-search/${encodeURIComponent(hrmsId)}`);
+                if (!response.ok) {
+                    throw new Error('Failed to load staff profile');
+                }
+                const payload = await response.json();
+                const staff = payload?.data?.find(entry => entry.hrms_id === hrmsId) || payload?.data?.[0];
+                if (!staff) return null;
+
+                const identifications = [];
+                if (staff.pan_card_no) identifications.push(`PAN: ${staff.pan_card_no}`);
+                if (staff.aadhar_card_no) identifications.push(`Aadhaar: ${staff.aadhar_card_no}`);
+                if (!identifications.length) identifications.push('ID details unavailable');
+
+                return {
+                    name: staff.name || staffProfile.name,
+                    designation: staff.designation_name || staffProfile.designation,
+                    pfNo: staff.pf_number || staffProfile.pfNo,
+                    hrmsId: staff.hrms_id || hrmsId,
+                    cli: staff.cli_name || staffProfile.cli,
+                    photo: staff.photo_url || staffProfile.photo,
+                    dob: staff.date_of_birth || staffProfile.dob,
+                    doa: staff.date_of_appointment || staffProfile.doa,
+                    reportingDate: staff.reporting_date || staffProfile.reportingDate,
+                    gender: staff.gender || staffProfile.gender,
+                    bloodGroup: staff.blood_group || staffProfile.bloodGroup,
+                    caste: staff.caste || staffProfile.caste,
+                    marital_status: staff.marital_status || staffProfile.marital_status,
+                    mobile: staff.phone_number || staffProfile.mobile,
+                    whatsapp: staff.cug_number || staffProfile.whatsapp,
+                    email: staff.email || staffProfile.email,
+                    emergencyContact: staff.emergency_contact || staffProfile.emergencyContact,
+                    identifications,
+                    presentAddress: staff.present_address || staffProfile.presentAddress,
+                    permanentAddress: staff.permanent_address || staffProfile.permanentAddress,
+                    dependents: typeof staff.dependent_count === 'number' ? staff.dependent_count : staffProfile.dependents,
+                    safetyCategory: staff.safety_category || staffProfile.safetyCategory,
+                    assignmentStatus: staff.assignment_status || staffProfile.assignmentStatus,
+                    vision: staff.vision || staffProfile.vision,
+                    currentOffice: staff.office_name || staff.current_office_code || staffProfile.currentOffice,
+                    cmsId: staff.current_cms_id || staffProfile.cmsId,
+                    status: staff.status || staffProfile.quickStats?.find(q => q.label === 'Status')?.value
+                };
+            } catch (error) {
+                console.error('Error fetching staff data:', error);
+                return null;
+            }
+        }
+
+        async function fetchFamilyData(hrmsId) {
+            try {
+                const response = await fetch(`/api/division/family/${encodeURIComponent(hrmsId)}`);
+                if (!response.ok) {
+                    throw new Error('Failed to load family data');
+                }
+                const payload = await response.json();
+                if (!payload?.success || !Array.isArray(payload.data)) {
+                    return null;
+                }
+                const family = payload.data.map(member => ({
+                    name: member.member_name,
+                    relationship: member.relation,
+                    dob: member.date_of_birth,
+                    occupation: member.occupation || '—',
+                    contact: member.contact || '—',
+                    isDependent: Boolean(member.is_dependent)
+                }));
+                const dependentCount = family.filter(m => m.isDependent).length;
+                return { family, dependentCount };
+            } catch (error) {
+                console.error('Error fetching family data:', error);
+                return null;
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const params = new URLSearchParams(window.location.search);
+            const hrmsParam = params.get('hrms_id');
+            let overrides = {};
+            if (hrmsParam) {
+                const fetched = await fetchStaffData(hrmsParam);
+                if (fetched) {
+                    overrides = fetched;
+                } else {
+                    overrides.hrmsId = hrmsParam;
+                }
+                const familyData = await fetchFamilyData(hrmsParam);
+                if (familyData) {
+                    overrides.family = familyData.family;
+                    overrides.dependents = familyData.dependentCount;
+                }
+            }
+            populateReport(overrides);
+        });
     </script>
 </body>
 </html>

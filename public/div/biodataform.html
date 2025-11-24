@@ -77,7 +77,7 @@
         <div class="d-grid gap-2 no-print">
           <button class="btn btn-success btn-sm" id="btnSave" onclick="saveBiodata()" disabled>Save</button>
           <button class="btn btn-outline-primary btn-sm" id="btnSaveNext" onclick="saveBiodataAndNext()" disabled>Save & Next</button>
-          <button class="btn btn-outline-secondary btn-sm" onclick="window.print()">Print</button>
+          <button class="btn btn-outline-secondary btn-sm" id="btnViewReport" onclick="openStaffReport()" disabled>View / Print</button>
           <button class="btn btn-warning btn-sm" id="btnTransfer" data-bs-toggle="modal" data-bs-target="#transferModal" disabled>Transfer</button>
         </div>
       </div>
@@ -105,7 +105,14 @@
           <!-- PERSONAL -->
           <div class="tab-pane fade show active" id="tab-personal">
             <div class="grid-3">
+              <div><label class="form-label req">HRMS ID</label><input type="text" class="form-control" id="hrms_id" required></div>
               <div><label class="form-label req">Name</label><input type="text" class="form-control" id="staff_name"></div>
+              <div>
+                <label class="form-label req">Designation</label>
+                <select class="form-select" id="designation" required>
+                  <option value="">Loading...</option>
+                </select>
+              </div>
               <div><label class="form-label req">DOB</label><input type="date" class="form-control" id="staff_dob"></div>
               <div><label class="form-label">Gender</label>
                 <select class="form-select" id="staff_gender"><option value="">Select Gender</option><option>Male</option><option>Female</option><option>Other</option></select>
@@ -167,7 +174,6 @@
           <div class="tab-pane fade" id="tab-ids">
             <div class="grid-3">
               <div><label class="form-label req">PF No</label><input type="text" class="form-control" id="pf_no"></div>
-              <div><label class="form-label req">HRMS ID</label><input type="text" class="form-control" id="hrms_id" readonly required></div>
               <div><label class="form-label req">Current CMS ID</label><input type="text" class="form-control" id="current_cms_id" readonly required></div>
               <div><label class="form-label">Aadhaar</label><input type="text" class="form-control" id="aadhaar"></div>
               <div><label class="form-label">PAN</label><input type="text" class="form-control" id="pan"></div>
@@ -932,6 +938,7 @@ async function loadDesignations() {
 
     // Store all designations for later use
     window.allDesignations = designations;
+    populateDesignationSelect();
 
   } catch (error) {
     console.error('Error loading designations:', error);
@@ -1699,7 +1706,27 @@ document.addEventListener('DOMContentLoaded', function() {
   if (statusSelect) {
     statusSelect.addEventListener('change', (event) => updateStatusDisplay(event.target.value));
   }
+  if (!window.allDesignations) {
+    loadDesignations().catch(() => {});
+  }
 });
+
+function populateDesignationSelect(selectedValue) {
+  if (!window.allDesignations) return;
+  const select = document.getElementById('designation');
+  if (!select) return;
+  const currentValue = selectedValue || select.value;
+  select.innerHTML = '<option value="">Select Designation</option>';
+  window.allDesignations.forEach(desg => {
+    const option = document.createElement('option');
+    option.value = desg.id;
+    option.textContent = desg.designation_name;
+    select.appendChild(option);
+  });
+  if (currentValue) {
+    select.value = currentValue;
+  }
+}
 
 function calculateNextDue() {
   const lastUpdated = document.getElementById('pstore_last_updated').value;
@@ -1754,6 +1781,15 @@ function updateStatusDisplay(newStatus) {
   const palette = colors[value] || colors.Active;
   badge.style.background = palette.bg;
   badge.style.color = palette.color;
+}
+
+function openStaffReport() {
+  if (!window.currentStaffHrmsId) {
+    alert('Please load a staff member first');
+    return;
+  }
+  const url = `/div/staff-profile-report.html?hrms_id=${encodeURIComponent(window.currentStaffHrmsId)}`;
+  window.open(url, '_blank');
 }
 
 // Update P/Store record via API
@@ -2621,6 +2657,9 @@ function loadStaffData(staff) {
   document.getElementById('original_cms_id').value = staff.original_cms_id || '';
   document.getElementById('officeSelect').value = staff.current_office_code || '';
   document.getElementById('safety_category').value = staff.safety_category || '';
+  populateDesignationSelect(staff.designation_id);
+  const canEditHrms = currentUser && currentUser.div_role === 'division_admin';
+  document.getElementById('hrms_id').readOnly = !canEditHrms;
   document.getElementById('dept_rrb').value = staff.dept_rrb || '';
   document.getElementById('reporting_date').value = formatDateForInput(staff.reporting_date);
   document.getElementById('id_card_no').value = staff.id_card_no || '';
@@ -2641,6 +2680,8 @@ function loadStaffData(staff) {
   const statusValue = staff.status || 'Active';
   document.getElementById('staff_status').value = statusValue;
   updateStatusDisplay(statusValue);
+  const viewBtn = document.getElementById('btnViewReport');
+  if (viewBtn) viewBtn.disabled = false;
 
   // Load transfer history
   loadTransferHistory(staff.hrms_id);
@@ -3309,6 +3350,8 @@ function initCreateMode() {
   // Enable save buttons
   document.getElementById('btnSave').disabled = false;
   document.getElementById('btnSaveNext').disabled = false;
+  const viewBtn = document.getElementById('btnViewReport');
+  if (viewBtn) viewBtn.disabled = true;
 
   // Disable search functionality
   document.getElementById('searchStaff').disabled = true;

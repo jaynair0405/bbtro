@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Office Staff Listing</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+  <style>
+    :root {
+      --bg: #f4f6fb;
+      --surface: #ffffff;
+      --border: #e2e8f0;
+      --text: #0f172a;
+      --muted: #64748b;
+      --primary: #2563eb;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 24px;
+      font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    .report-shell {
+      max-width: 1100px;
+      margin: 0 auto;
+      background: var(--surface);
+      border-radius: 24px;
+      box-shadow: 0 30px 80px -40px rgba(15, 23, 42, 0.3);
+      padding: 32px 36px 42px;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    h1 {
+      margin: 0;
+      font-size: 26px;
+      font-weight: 700;
+    }
+    .office-info span {
+      display: inline-block;
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: rgba(37, 99, 235, 0.08);
+      color: var(--primary);
+      font-weight: 600;
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .controls select {
+      padding: 8px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      font-size: 14px;
+    }
+    .controls button {
+      padding: 8px 16px;
+      border-radius: 10px;
+      border: none;
+      background: var(--primary);
+      color: #fff;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .multiselect-wrapper {
+      position: relative;
+      display: inline-block;
+    }
+    .multiselect-button {
+      padding: 8px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      font-size: 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 180px;
+      justify-content: space-between;
+    }
+    .multiselect-button:hover {
+      background: rgba(37, 99, 235, 0.04);
+    }
+    .multiselect-dropdown {
+      position: absolute;
+      top: calc(100% + 4px);
+      right: 0;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: 0 10px 40px -10px rgba(15, 23, 42, 0.2);
+      min-width: 260px;
+      max-height: 400px;
+      overflow-y: auto;
+      z-index: 1000;
+      display: none;
+    }
+    .multiselect-dropdown.active {
+      display: block;
+    }
+    .multiselect-actions {
+      display: flex;
+      gap: 8px;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .multiselect-actions button {
+      flex: 1;
+      padding: 6px 10px;
+      font-size: 12px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      cursor: pointer;
+      font-weight: 500;
+    }
+    .multiselect-actions button:hover {
+      background: rgba(37, 99, 235, 0.08);
+      border-color: var(--primary);
+      color: var(--primary);
+    }
+    .multiselect-option {
+      padding: 10px 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background 0.15s;
+    }
+    .multiselect-option:hover {
+      background: rgba(37, 99, 235, 0.04);
+    }
+    .multiselect-option input[type="checkbox"] {
+      cursor: pointer;
+      width: 16px;
+      height: 16px;
+    }
+    .multiselect-option label {
+      cursor: pointer;
+      flex: 1;
+      user-select: none;
+    }
+    .multiselect-count {
+      display: inline-block;
+      padding: 2px 8px;
+      background: var(--primary);
+      color: white;
+      border-radius: 10px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 16px;
+      border: 1px solid var(--border);
+    }
+    thead {
+      background: rgba(226, 232, 240, 0.6);
+    }
+    th, td {
+      padding: 12px 14px;
+      font-size: 14px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+    th {
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    tbody tr:nth-child(odd) {
+      background: rgba(248, 250, 255, 0.6);
+    }
+    .loading, .empty {
+      text-align: center;
+      padding: 28px;
+      font-size: 15px;
+      color: var(--muted);
+    }
+    @media print {
+      body { padding: 0; background: white; }
+      .report-shell { border-radius: 0; box-shadow: none; }
+      .controls { display: none; }
+      .multiselect-dropdown { display: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <script src="/div/js/division-auth.js"></script>
+  <div class="report-shell">
+    <header>
+      <div>
+        <div class="office-info"><span>Office Staff Register</span></div>
+        <h1 id="officeTitle">Office Staff Register</h1>
+        <div id="officeSubtext" style="color: var(--muted); font-size: 14px;"></div>
+      </div>
+      <div class="controls">
+        <select id="officeFilter" style="display: none;">
+          <option value="">All Offices</option>
+        </select>
+        <div class="multiselect-wrapper">
+          <div class="multiselect-button" id="designationButton">
+            <span id="designationButtonText">All Designations</span>
+            <span>▼</span>
+          </div>
+          <div class="multiselect-dropdown" id="designationDropdown">
+            <div class="multiselect-actions">
+              <button type="button" onclick="selectAllDesignations()">Select All</button>
+              <button type="button" onclick="clearAllDesignations()">Clear All</button>
+            </div>
+            <div id="designationOptions"></div>
+          </div>
+        </div>
+        <button type="button" onclick="handleBack()">← Back</button>
+        <button type="button" onclick="window.print()">Print</button>
+      </div>
+    </header>
+
+    <div id="tableContainer">
+      <div class="loading">Fetching staff list...</div>
+    </div>
+  </div>
+
+  <script>
+    let currentUser = null;
+    let staffData = [];
+    let allDesignations = [];
+    let selectedDesignations = [];
+    let allOffices = [];
+
+    async function init() {
+      await fetchCurrentUser();
+      await fetchOffices();
+      await fetchDesignations();
+      await loadStaff();
+      document.getElementById('officeFilter').addEventListener('change', loadStaff);
+
+      // Setup designation dropdown toggle
+      document.getElementById('designationButton').addEventListener('click', toggleDesignationDropdown);
+
+      // Close dropdown when clicking outside
+      document.addEventListener('click', function(e) {
+        const wrapper = document.querySelector('.multiselect-wrapper');
+        if (!wrapper.contains(e.target)) {
+          document.getElementById('designationDropdown').classList.remove('active');
+        }
+      });
+    }
+
+    async function fetchCurrentUser() {
+      const res = await fetch('/api/current-user');
+      if (!res.ok) throw new Error('Not authenticated');
+      currentUser = await res.json();
+    }
+
+    async function fetchOffices() {
+      // Only show office filter for admin users
+      if (currentUser.div_role !== 'division_admin') {
+        return;
+      }
+
+      const res = await fetch('/api/division/offices');
+      const payload = await res.json();
+      allOffices = payload?.data || payload || [];
+
+      const select = document.getElementById('officeFilter');
+      allOffices.forEach(office => {
+        const opt = document.createElement('option');
+        opt.value = office.office_code;
+        opt.textContent = office.office_name;
+        select.appendChild(opt);
+      });
+
+      // Show the office filter for admin
+      select.style.display = 'block';
+
+      // Set initial value from URL parameter if present
+      const urlOfficeCode = new URLSearchParams(window.location.search).get('office_code');
+      if (urlOfficeCode) {
+        select.value = urlOfficeCode;
+      }
+    }
+
+    async function fetchDesignations() {
+      const res = await fetch('/api/division/designations');
+      const payload = await res.json();
+      const options = payload?.data || payload || [];
+      allDesignations = options.map(desg => desg.designation_name);
+
+      const container = document.getElementById('designationOptions');
+      allDesignations.forEach((designation, index) => {
+        const optionDiv = document.createElement('div');
+        optionDiv.className = 'multiselect-option';
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.id = `desg_${index}`;
+        checkbox.value = designation;
+        checkbox.addEventListener('change', onDesignationChange);
+
+        const label = document.createElement('label');
+        label.htmlFor = `desg_${index}`;
+        label.textContent = designation;
+
+        optionDiv.appendChild(checkbox);
+        optionDiv.appendChild(label);
+        container.appendChild(optionDiv);
+
+        // Make the whole div clickable
+        optionDiv.addEventListener('click', function(e) {
+          if (e.target !== checkbox) {
+            checkbox.checked = !checkbox.checked;
+            onDesignationChange();
+          }
+        });
+      });
+    }
+
+    async function loadStaff() {
+      let officeCode;
+
+      if (currentUser.div_role === 'division_admin') {
+        // Admin can select office or view all
+        const officeSelect = document.getElementById('officeFilter');
+        officeCode = officeSelect.value; // Empty string means "All Offices"
+      } else {
+        // Non-admin users see only their office
+        officeCode = currentUser.div_office_code;
+      }
+
+      const res = await fetch(`/api/division/staff${officeCode ? `?office_code=${encodeURIComponent(officeCode)}` : ''}`);
+      const payload = await res.json();
+      staffData = payload?.data || payload || [];
+
+      // Update title based on selection
+      if (currentUser.div_role === 'division_admin' && !officeCode) {
+        document.getElementById('officeTitle').textContent = 'All Offices';
+      } else {
+        const officeName = allOffices.find(o => o.office_code === officeCode)?.office_name || officeCode || currentUser.div_office_code;
+        document.getElementById('officeTitle').textContent = officeName;
+      }
+
+      document.getElementById('officeSubtext').textContent = `${staffData.length} staff records`;
+      renderTable();
+    }
+
+    function renderTable() {
+      const container = document.getElementById('tableContainer');
+      if (!staffData.length) {
+        container.innerHTML = '<div class="empty">No staff records found.</div>';
+        document.getElementById('officeSubtext').textContent = '0 staff records';
+        return;
+      }
+
+      // Apply designation filter (multiple selections)
+      let filtered = staffData;
+      if (selectedDesignations.length > 0) {
+        filtered = staffData.filter(s =>
+          selectedDesignations.some(desg =>
+            (s.designation_name || '').toLowerCase() === desg.toLowerCase()
+          )
+        );
+      }
+
+      // Update staff count with filtered/total
+      if (selectedDesignations.length > 0 && filtered.length !== staffData.length) {
+        document.getElementById('officeSubtext').textContent = `${filtered.length} of ${staffData.length} staff records`;
+      } else {
+        document.getElementById('officeSubtext').textContent = `${staffData.length} staff records`;
+      }
+
+      if (!filtered.length) {
+        container.innerHTML = '<div class="empty">No staff match the selected designations.</div>';
+        return;
+      }
+
+      const rows = filtered.map((staff, index) => `
+        <tr>
+          <td>${index + 1}</td>
+          <td>${staff.hrms_id || '—'}</td>
+          <td>${staff.current_cms_id || '—'}</td>
+          <td>${staff.name || '—'}</td>
+          <td>${staff.designation_name || '—'}</td>
+        </tr>
+      `).join('');
+      container.innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>Sl. No</th>
+              <th>HRMS ID</th>
+              <th>Current CMS ID</th>
+              <th>Name</th>
+              <th>Designation</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      `;
+    }
+
+    function toggleDesignationDropdown(e) {
+      e.stopPropagation();
+      document.getElementById('designationDropdown').classList.toggle('active');
+    }
+
+    function onDesignationChange() {
+      // Get all checked designations
+      const checkboxes = document.querySelectorAll('#designationOptions input[type="checkbox"]');
+      selectedDesignations = Array.from(checkboxes)
+        .filter(cb => cb.checked)
+        .map(cb => cb.value);
+
+      // Update button text
+      updateDesignationButtonText();
+
+      // Re-render table
+      renderTable();
+    }
+
+    function updateDesignationButtonText() {
+      const buttonText = document.getElementById('designationButtonText');
+      if (selectedDesignations.length === 0) {
+        buttonText.innerHTML = 'All Designations';
+      } else if (selectedDesignations.length === 1) {
+        buttonText.innerHTML = selectedDesignations[0];
+      } else {
+        buttonText.innerHTML = `<span class="multiselect-count">${selectedDesignations.length}</span> Designations`;
+      }
+    }
+
+    function selectAllDesignations() {
+      const checkboxes = document.querySelectorAll('#designationOptions input[type="checkbox"]');
+      checkboxes.forEach(cb => cb.checked = true);
+      onDesignationChange();
+    }
+
+    function clearAllDesignations() {
+      const checkboxes = document.querySelectorAll('#designationOptions input[type="checkbox"]');
+      checkboxes.forEach(cb => cb.checked = false);
+      onDesignationChange();
+    }
+
+    document.addEventListener('DOMContentLoaded', init);
+
+    function handleBack() {
+      window.location.href = '/div';
+    }
+  </script>
+</body>
+</html>
