@@ -519,6 +519,77 @@ TIMESTAMPDIFF(MONTH, c.date_promoted_to_cli, CURDATE()) % 12 as months_as_cli
 - **Expired** - Nomination period ended
 - **Transferred** - Moved to another CLI/office
 
+### 9. Data Validation & Integrity (Added 2025-11-26)
+
+#### Auto-Uppercase Conversion
+**Location:** `/public/div/biodataform.html` (lines 3472-3493)
+
+All identity fields are automatically converted to uppercase for consistency:
+- **HRMS ID:** `abcabc` → `ABCABC`
+- **CMS ID:** `csmt9999` → `CSMT9999`
+
+**Implementation:**
+```javascript
+// Real-time conversion on input (preserves cursor position)
+field.addEventListener('input', function(e) {
+  const start = this.selectionStart;
+  const end = this.selectionEnd;
+  this.value = this.value.toUpperCase();
+  this.setSelectionRange(start, end);
+});
+```
+
+#### Duplicate Prevention System
+**Purpose:** Prevent data integrity issues from duplicate HRMS IDs or CMS IDs
+
+**HRMS ID Duplication Checks:**
+1. **Frontend Real-time** (`biodataform.html:3568`)
+   - Triggers on field blur
+   - Shows alert with existing staff name
+   - Clears field and refocuses
+
+2. **Backend Check Endpoint** (`dashboardRoutes.js:408`)
+   - `GET /api/division/staff/check/:hrms_id`
+   - Returns existing staff details
+
+3. **Backend Creation Guard** (`dashboardRoutes.js:328`)
+   - Validates during `POST /api/division/staff`
+   - Returns 409 Conflict error
+
+**CMS ID Duplication Checks (NEW):**
+1. **On Staff Creation** (`dashboardRoutes.js:341-352`)
+   - Checks both `current_cms_id` AND `original_cms_id`
+   - Prevents creation if duplicate found
+   - Error format: `"CMS ID CSMT9999 is already assigned to Mahtab Alam (jistlt)"`
+
+2. **On Transfer Acceptance** (`transferRoutes.js:164-175`)
+   - Validates when receiving office assigns new CMS ID
+   - Checks before committing transaction
+   - Prevents duplicate during transfer process
+
+**SQL Check Pattern:**
+```sql
+-- Checks both current and original CMS ID
+SELECT hrms_id, name FROM div_staff_master
+WHERE current_cms_id = ? OR original_cms_id = ?
+```
+
+**Storage:** All IDs stored in uppercase in database for case-insensitive matching
+
+#### Office Selection Validation
+**Fixed Issues:**
+1. **Regular Users:** Office dropdown now uses CSS readonly (not HTML disabled) so value is submitted
+2. **Admin Users:** Added validation requiring office selection before creation
+3. **Auto-fill:** Non-admin users get their office pre-filled and locked
+
+**Implementation:**
+```javascript
+// Make readonly without disabling (so value is submitted)
+select.style.pointerEvents = 'none';
+select.style.backgroundColor = '#e9ecef';
+select.setAttribute('data-locked', 'true');
+```
+
 ---
 
 ## Future Tasks

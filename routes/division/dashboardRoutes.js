@@ -328,13 +328,26 @@ router.post('/staff', async (req, res) => {
         // Check if HRMS ID already exists
         const [existingStaff] = await conn.query(
             'SELECT hrms_id FROM div_staff_master WHERE hrms_id = ?',
-            [hrms_id]
+            [hrms_id.toUpperCase()]
         );
 
         if (existingStaff.length > 0) {
             conn.release();
             return res.status(409).json({
                 error: 'Staff with this HRMS ID already exists'
+            });
+        }
+
+        // Check if CMS ID already exists
+        const [existingCmsId] = await conn.query(
+            'SELECT hrms_id, name FROM div_staff_master WHERE current_cms_id = ? OR original_cms_id = ?',
+            [current_cms_id.toUpperCase(), current_cms_id.toUpperCase()]
+        );
+
+        if (existingCmsId.length > 0) {
+            conn.release();
+            return res.status(409).json({
+                error: `CMS ID ${current_cms_id.toUpperCase()} is already assigned to ${existingCmsId[0].name} (${existingCmsId[0].hrms_id})`
             });
         }
 
@@ -365,7 +378,7 @@ router.post('/staff', async (req, res) => {
               designation_id, safety_category, status, created_at, updated_at)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
             [
-                hrms_id, name, current_cms_id, original_cms_id || current_cms_id,
+                hrms_id.toUpperCase(), name, current_cms_id.toUpperCase(), (original_cms_id || current_cms_id).toUpperCase(),
                 officeCode, officeCode, // Set both current and home office
                 cleanDate(date_of_birth), gender, father_name, caste, marital_status, vision, blood_group,
                 identification_mark_1, identification_mark_2,
@@ -400,7 +413,7 @@ router.get('/staff/check/:hrms_id', async (req, res) => {
 
         const [result] = await conn.query(
             'SELECT hrms_id, name FROM div_staff_master WHERE hrms_id = ?',
-            [hrms_id]
+            [hrms_id.toUpperCase()]
         );
 
         conn.release();

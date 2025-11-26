@@ -160,6 +160,20 @@ router.put('/transfer-request/:id/accept', requireAuth, async (req, res) => {
         }
 
         const conn = await req.app.locals.pool.getConnection();
+
+        // Check for duplicate CMS ID
+        const [duplicateCheck] = await conn.query(
+            'SELECT hrms_id, name FROM div_staff_master WHERE current_cms_id = ? OR original_cms_id = ?',
+            [new_cms_id.trim().toUpperCase(), new_cms_id.trim().toUpperCase()]
+        );
+
+        if (duplicateCheck.length > 0) {
+            conn.release();
+            return res.status(409).json({
+                error: `CMS ID ${new_cms_id.toUpperCase()} is already assigned to ${duplicateCheck[0].name} (${duplicateCheck[0].hrms_id})`
+            });
+        }
+
         await conn.beginTransaction();
 
         try {
@@ -191,7 +205,7 @@ router.put('/transfer-request/:id/accept', requireAuth, async (req, res) => {
                  SET status = 'Approved', proposed_cms_id = ?,
                      reviewed_by = ?, review_date = CURDATE()
                  WHERE request_id = ?`,
-                [new_cms_id.trim(), req.session.user.username, id]
+                [new_cms_id.trim().toUpperCase(), req.session.user.username, id]
             );
 
             // Insert into transfer history
@@ -207,7 +221,7 @@ router.put('/transfer-request/:id/accept', requireAuth, async (req, res) => {
                     transferReq.to_office_code,
                     transferReq.transfer_category || 'Permanent Transfer',
                     transferReq.current_cms_id,
-                    new_cms_id.trim(),
+                    new_cms_id.trim().toUpperCase(),
                     transferReq.remarks,
                     transferReq.requested_by,
                     req.session.user.username,
@@ -225,19 +239,19 @@ router.put('/transfer-request/:id/accept', requireAuth, async (req, res) => {
                 staffUpdate = `UPDATE div_staff_master
                                SET current_office_code = 'OTHER', hq_station = NULL, current_cms_id = ?, status = 'Transferred'
                                WHERE hrms_id = ?`;
-                staffParams = [new_cms_id.trim(), transferReq.staff_hrms_id];
+                staffParams = [new_cms_id.trim().toUpperCase(), transferReq.staff_hrms_id];
             } else if (category === 'Temporary Transfer') {
                 // Temporary: Update current_office_code only, keep home_office_code unchanged
                 staffUpdate = `UPDATE div_staff_master
                                SET current_office_code = ?, hq_station = ?, current_cms_id = ?
                                WHERE hrms_id = ?`;
-                staffParams = [transferReq.to_office_code, transferReq.to_office_code, new_cms_id.trim(), transferReq.staff_hrms_id];
+                staffParams = [transferReq.to_office_code, transferReq.to_office_code, new_cms_id.trim().toUpperCase(), transferReq.staff_hrms_id];
             } else if (category === 'Permanent Transfer' || category === 'Promotion') {
                 // Permanent/Promotion: Update both current and home office
                 staffUpdate = `UPDATE div_staff_master
                                SET current_office_code = ?, home_office_code = ?, hq_station = ?, current_cms_id = ?
                                WHERE hrms_id = ?`;
-                staffParams = [transferReq.to_office_code, transferReq.to_office_code, transferReq.to_office_code, new_cms_id.trim(), transferReq.staff_hrms_id];
+                staffParams = [transferReq.to_office_code, transferReq.to_office_code, transferReq.to_office_code, new_cms_id.trim().toUpperCase(), transferReq.staff_hrms_id];
             }
 
             await conn.query(staffUpdate, staffParams);

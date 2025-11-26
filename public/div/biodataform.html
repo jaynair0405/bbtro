@@ -892,16 +892,29 @@ async function loadOffices() {
         option.textContent = userOffice.office_name;
         option.selected = true;
         select.appendChild(option);
-        select.disabled = true; // User can only view their own office
+        // Don't disable - instead make it readonly by preventing changes
+        select.style.pointerEvents = 'none';
+        select.style.backgroundColor = '#e9ecef';
+        select.setAttribute('data-locked', 'true');
       }
     } else {
       // Division admin can see all offices
+      // First, try to pre-select user's office if they have one
+      let userOfficeCode = currentUser?.office_code;
+
       offices.forEach(office => {
         const option = document.createElement('option');
         option.value = office.office_code;
         option.textContent = office.office_name;
+        // Pre-select user's office if available
+        if (userOfficeCode && office.office_code === userOfficeCode) {
+          option.selected = true;
+        }
         select.appendChild(option);
       });
+
+      // Make the select visually indicate it's required
+      select.setAttribute('required', 'true');
     }
 
     // Also populate transfer office dropdowns
@@ -3139,10 +3152,24 @@ async function createNewStaff() {
     const hrmsId = document.getElementById('hrms_id').value.trim();
     const name = document.getElementById('staff_name').value.trim();
     const currentCmsId = document.getElementById('current_cms_id').value.trim();
+    const officeCode = document.getElementById('officeSelect').value;
 
     if (!hrmsId || !name || !currentCmsId) {
       alert('Please fill in required fields: HRMS ID, Name, and Current CMS ID');
       return;
+    }
+
+    // Validate office is selected (only for admins, regular users have it pre-filled)
+    if (currentUser && currentUser.div_role === 'division_admin') {
+      if (!officeCode || officeCode === '') {
+        alert('Please select an Office from the dropdown at the top before creating staff.');
+        document.getElementById('officeSelect').focus();
+        document.getElementById('officeSelect').style.borderColor = 'red';
+        setTimeout(() => {
+          document.getElementById('officeSelect').style.borderColor = '';
+        }, 2000);
+        return;
+      }
     }
 
     const payload = {
@@ -3437,6 +3464,32 @@ async function init() {
     // Office users have limited access - will be enforced when staff loads
     console.log('Office user mode:', currentUser.div_office_code);
   }
+
+  // Auto-convert HRMS ID and CMS IDs to uppercase
+  setupUppercaseConversion();
+}
+
+// Setup uppercase conversion for HRMS ID and CMS ID fields
+function setupUppercaseConversion() {
+  const fieldsToUppercase = ['hrms_id', 'current_cms_id', 'original_cms_id'];
+
+  fieldsToUppercase.forEach(fieldId => {
+    const field = document.getElementById(fieldId);
+    if (field) {
+      // Convert to uppercase on input (real-time)
+      field.addEventListener('input', function(e) {
+        const start = this.selectionStart;
+        const end = this.selectionEnd;
+        this.value = this.value.toUpperCase();
+        this.setSelectionRange(start, end);
+      });
+
+      // Also convert on blur (when leaving field)
+      field.addEventListener('blur', function() {
+        this.value = this.value.toUpperCase();
+      });
+    }
+  });
 }
 
 // Initialize create mode
@@ -3482,7 +3535,10 @@ function initCreateMode() {
     const officeSelect = document.getElementById('officeSelect');
     if (officeSelect) {
       officeSelect.value = currentUser.div_office_code;
-      officeSelect.disabled = true;
+      // Don't disable - make it readonly so value is submitted
+      officeSelect.style.pointerEvents = 'none';
+      officeSelect.style.backgroundColor = '#e9ecef';
+      officeSelect.setAttribute('data-locked', 'true');
     }
   }
 
