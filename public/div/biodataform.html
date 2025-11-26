@@ -85,6 +85,12 @@
 
     <!-- Main Form -->
     <div class="col-lg-9">
+      <!-- Success Message Banner -->
+      <div id="successBanner" class="alert alert-success alert-dismissible fade" role="alert" style="display: none;">
+        <strong>✓ Success!</strong> <span id="successMessage"></span>
+        <button type="button" class="btn-close" onclick="document.getElementById('successBanner').style.display='none'"></button>
+      </div>
+
       <div class="card">
         <div class="card-header">
           <ul class="nav nav-tabs card-header-tabs" role="tablist">
@@ -107,6 +113,7 @@
             <div class="grid-3">
               <div><label class="form-label req">HRMS ID</label><input type="text" class="form-control" id="hrms_id" required></div>
               <div><label class="form-label req">Name</label><input type="text" class="form-control" id="staff_name"></div>
+              <div><label class="form-label req">Current CMS ID</label><input type="text" class="form-control" id="current_cms_id" required></div>
               <div>
                 <label class="form-label req">Designation</label>
                 <select class="form-select" id="designation" required>
@@ -174,7 +181,6 @@
           <div class="tab-pane fade" id="tab-ids">
             <div class="grid-3">
               <div><label class="form-label req">PF No</label><input type="text" class="form-control" id="pf_no"></div>
-              <div><label class="form-label req">Current CMS ID</label><input type="text" class="form-control" id="current_cms_id" readonly required></div>
               <div><label class="form-label">Aadhaar</label><input type="text" class="form-control" id="aadhaar"></div>
               <div><label class="form-label">PAN</label><input type="text" class="form-control" id="pan"></div>
               <div><label class="form-label">Date of Appointment</label><input type="date" class="form-control" id="date_of_appointment"></div>
@@ -2992,8 +2998,18 @@ function setFormEditability() {
   );
 
   formElements.forEach(element => {
-    // Don't make HRMS ID, current CMS ID, original CMS ID readonly (they should stay readonly always)
-    if (element.id === 'hrms_id' || element.id === 'current_cms_id' || element.id === 'original_cms_id') {
+    // HRMS ID and original CMS ID should always stay readonly
+    if (element.id === 'hrms_id' || element.id === 'original_cms_id') {
+      return;
+    }
+
+    // Current CMS ID: editable in CREATE mode, readonly in EDIT mode
+    if (element.id === 'current_cms_id') {
+      if (isCreateMode) {
+        element.removeAttribute('readonly');
+      } else {
+        element.setAttribute('readonly', 'readonly');
+      }
       return;
     }
 
@@ -3058,6 +3074,7 @@ async function saveBiodata() {
   try {
     const payload = {
       name: document.getElementById('staff_name').value.trim(),
+      designation_id: document.getElementById('designation').value || null,
       date_of_birth: document.getElementById('staff_dob').value,
       gender: document.getElementById('staff_gender').value,
       father_name: document.getElementById('father_name').value.trim(),
@@ -3176,9 +3193,21 @@ async function createNewStaff() {
     const result = await response.json();
 
     if (result.success) {
-      alert(`✅ Staff created successfully!\n\nHRMS ID: ${hrmsId}\nName: ${name}\n\nRedirecting to biodata form to edit...`);
-      // Redirect to edit mode for the newly created staff
-      window.location.href = `/div/biodataform.html`;
+      // Show success message
+      showSuccessBanner(`Staff profile created for ${name}. Continue filling additional details below.`);
+
+      // Switch from create mode to edit mode
+      isCreateMode = false;
+
+      // Load the newly created staff to enable editing other tabs
+      await loadStaffByHrmsId(hrmsId);
+
+      // Update button labels for edit mode
+      updateButtonLabels();
+
+      // Re-enable buttons
+      btnSave.disabled = false;
+      btnSave.textContent = 'Save Changes';
     } else {
       alert('Error: ' + result.error);
       btnSave.disabled = false;
@@ -3193,17 +3222,89 @@ async function createNewStaff() {
   }
 }
 
-// Save and move to next tab
-async function saveBiodataAndNext() {
-  await saveBiodata();
+// Show success banner
+function showSuccessBanner(message) {
+  const banner = document.getElementById('successBanner');
+  const messageSpan = document.getElementById('successMessage');
+  messageSpan.textContent = message;
+  banner.style.display = 'block';
+  banner.classList.add('show');
 
-  // Find active tab and switch to next
-  const activeTab = document.querySelector('.nav-link.active');
-  if (activeTab) {
-    const nextTab = activeTab.parentElement.nextElementSibling?.querySelector('.nav-link');
-    if (nextTab) {
-      nextTab.click();
+  // Auto-hide after 10 seconds
+  setTimeout(() => {
+    banner.classList.remove('show');
+    setTimeout(() => {
+      banner.style.display = 'none';
+    }, 150);
+  }, 10000);
+}
+
+// Load staff by HRMS ID
+async function loadStaffByHrmsId(hrmsId) {
+  try {
+    const response = await fetch(`/api/division/staff-search/${encodeURIComponent(hrmsId)}`);
+    const result = await response.json();
+    if (result.success && result.data && result.data.length > 0) {
+      // staff-search returns an array, get the first match (exact HRMS ID match)
+      const staffToLoad = result.data.find(s => s.hrms_id === hrmsId) || result.data[0];
+      await loadStaffData(staffToLoad);
     }
+  } catch (error) {
+    console.error('Error loading staff:', error);
+  }
+}
+
+// Update button labels based on mode
+function updateButtonLabels() {
+  const btnSave = document.getElementById('btnSave');
+  const btnSaveNext = document.getElementById('btnSaveNext');
+
+  if (isCreateMode) {
+    btnSave.textContent = 'Save Staff Profile';
+    btnSaveNext.style.display = 'none'; // Hide in create mode
+  } else {
+    btnSave.textContent = 'Save Changes';
+    btnSaveNext.style.display = 'block';
+    btnSaveNext.textContent = 'Save & New Staff';
+  }
+}
+
+// Validate required fields and enable/disable buttons
+function validateRequiredFields() {
+  const hrmsId = document.getElementById('hrms_id').value.trim();
+  const name = document.getElementById('staff_name').value.trim();
+  const currentCmsId = document.getElementById('current_cms_id').value.trim();
+  const designation = document.getElementById('designation').value;
+
+  const isValid = hrmsId && name && currentCmsId && designation;
+
+  // Enable/disable buttons based on validation
+  if (isCreateMode) {
+    document.getElementById('btnSave').disabled = !isValid;
+    document.getElementById('btnSaveNext').disabled = true; // Always disabled in create mode
+  }
+}
+
+// Save and move to next tab (or create new staff in edit mode)
+async function saveBiodataAndNext() {
+  if (isCreateMode) {
+    // In create mode, save and move to next tab
+    await saveBiodata();
+
+    // Find active tab and switch to next
+    const activeTab = document.querySelector('.nav-link.active');
+    if (activeTab) {
+      const nextTab = activeTab.parentElement.nextElementSibling?.querySelector('.nav-link');
+      if (nextTab) {
+        nextTab.click();
+      }
+    }
+  } else {
+    // In edit mode, this is "Save & New Staff"
+    await saveBiodata();
+
+    // Redirect to create mode
+    window.location.href = '/div/biodataform.html?mode=create';
   }
 }
 
@@ -3347,11 +3448,30 @@ function initCreateMode() {
     el.disabled = false;
   });
 
-  // Enable save buttons
-  document.getElementById('btnSave').disabled = false;
-  document.getElementById('btnSaveNext').disabled = false;
+  // Make Current CMS ID editable in create mode
+  const currentCmsIdField = document.getElementById('current_cms_id');
+  if (currentCmsIdField) {
+    currentCmsIdField.removeAttribute('readonly');
+  }
+
+  // Update button labels for create mode
+  updateButtonLabels();
+
+  // Initially disable save buttons until required fields are filled
+  document.getElementById('btnSave').disabled = true;
+  document.getElementById('btnSaveNext').disabled = true;
   const viewBtn = document.getElementById('btnViewReport');
   if (viewBtn) viewBtn.disabled = true;
+
+  // Add real-time validation for required fields
+  const requiredFields = ['hrms_id', 'staff_name', 'current_cms_id', 'designation'];
+  requiredFields.forEach(fieldId => {
+    const field = document.getElementById(fieldId);
+    if (field) {
+      field.addEventListener('input', validateRequiredFields);
+      field.addEventListener('change', validateRequiredFields);
+    }
+  });
 
   // Disable search functionality
   document.getElementById('searchStaff').disabled = true;

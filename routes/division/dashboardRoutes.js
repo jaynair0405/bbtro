@@ -71,7 +71,7 @@ router.get('/staff-search/:search', async (req, res) => {
         const conn = await req.app.locals.pool.getConnection();
 
         const query = `
-            SELECT s.*, o.office_name, d.designation_name, c.cli_name, n.nomination_id
+            SELECT s.*, o.office_name, d.designation_name, c.cli_name, n.nomination_id, n.nominated_from_date
             FROM div_staff_master s
             LEFT JOIN offices o ON s.current_office_code = o.office_code
             LEFT JOIN designations d ON s.designation_id = d.id
@@ -177,6 +177,7 @@ router.put('/staff/:hrms_id', async (req, res) => {
 
         const {
             name,
+            designation_id,
             date_of_birth,
             gender,
             father_name,
@@ -213,7 +214,7 @@ router.put('/staff/:hrms_id', async (req, res) => {
 
         const [result] = await conn.query(
             `UPDATE div_staff_master
-             SET name = ?, date_of_birth = ?, gender = ?, fathers_name = ?, caste = ?,
+             SET name = ?, designation_id = ?, date_of_birth = ?, gender = ?, fathers_name = ?, caste = ?,
                  marital_status = ?, vision = ?, blood_group = ?,
                  identification_mark_1 = ?, identification_mark_2 = ?,
                  qualification = ?,
@@ -225,6 +226,7 @@ router.put('/staff/:hrms_id', async (req, res) => {
              WHERE hrms_id = ?`,
             [
                 name,
+                designation_id,
                 toNullIfEmpty(date_of_birth),
                 toNullIfEmpty(gender),  // ENUM
                 toNullIfEmpty(father_name),
@@ -242,10 +244,10 @@ router.put('/staff/:hrms_id', async (req, res) => {
                 toNullIfEmpty(permanent_address),
                 toNullIfEmpty(dept_rrb),
                 toNullIfEmpty(id_card_no),
-                toNullIfEmpty(reporting_date),
                 toNullIfEmpty(pf_number),
                 toNullIfEmpty(aadhar_card_no),
                 toNullIfEmpty(pan_card_no),
+                toNullIfEmpty(reporting_date),
                 toNullIfEmpty(date_of_appointment),
                 toNullIfEmpty(safety_category),  // ENUM
                 staffStatus,
@@ -346,6 +348,10 @@ router.post('/staff', async (req, res) => {
         }
         const hqStation = officeCode; // default HQ to current office for new staff
 
+        // Convert empty strings to NULL for MySQL columns
+        const cleanDate = (dateStr) => (dateStr && dateStr.trim() !== '') ? dateStr : null;
+        const cleanField = (fieldStr) => (fieldStr && fieldStr.trim() !== '') ? fieldStr : null;
+
         // Insert new staff
         const [result] = await conn.query(
             `INSERT INTO div_staff_master
@@ -357,18 +363,18 @@ router.post('/staff', async (req, res) => {
               reporting_date, hq_station,
               id_card_no, pf_number, aadhar_card_no, pan_card_no, date_of_appointment,
               designation_id, safety_category, status, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
             [
                 hrms_id, name, current_cms_id, original_cms_id || current_cms_id,
                 officeCode, officeCode, // Set both current and home office
-                date_of_birth, gender, father_name, caste, marital_status, vision, blood_group,
+                cleanDate(date_of_birth), gender, father_name, caste, marital_status, vision, blood_group,
                 identification_mark_1, identification_mark_2,
                 qualification,
                 phone_number, cug_number, email, present_address, permanent_address, dept_rrb,
-                reporting_date, hqStation,
+                cleanDate(reporting_date), hqStation,
                 id_card_no,
-                pf_number, aadhar_card_no, pan_card_no, date_of_appointment,
-                designation_id, safety_category, staffStatus
+                cleanField(pf_number), aadhar_card_no, pan_card_no, cleanDate(date_of_appointment),
+                designation_id, cleanField(safety_category), staffStatus
             ]
         );
 

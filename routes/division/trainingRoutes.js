@@ -167,7 +167,7 @@ router.get('/history/:hrms_id', requireAuth, async (req, res) => {
 // PARAMETERIZED ROUTES (must come after specific routes)
 // ============================================
 
-// GET /api/division/training/:hrms_id - Get training records for a staff
+// GET /api/division/training/:hrms_id - Get latest training records for a staff (one per training type)
 router.get('/:hrms_id', requireAuth, async (req, res) => {
     try {
         const { hrms_id } = req.params;
@@ -186,13 +186,20 @@ router.get('/:hrms_id', requireAuth, async (req, res) => {
                 tt.training_name,
                 tc.center_name
             FROM div_training_records tr
+            INNER JOIN (
+                SELECT training_id, MAX(done_date) as max_done_date
+                FROM div_training_records
+                WHERE staff_hrms_id = ?
+                GROUP BY training_id
+            ) latest ON tr.training_id = latest.training_id
+                    AND tr.done_date = latest.max_done_date
+                    AND tr.staff_hrms_id = ?
             LEFT JOIN div_training_types tt ON tr.training_id = tt.training_id
             LEFT JOIN div_training_centers tc ON tr.training_center_id = tc.center_id
-            WHERE tr.staff_hrms_id = ?
             ORDER BY tr.due_date DESC, tr.done_date DESC
         `;
 
-        const [results] = await conn.query(query, [hrms_id]);
+        const [results] = await conn.query(query, [hrms_id, hrms_id]);
         conn.release();
 
         res.json({ success: true, data: results });

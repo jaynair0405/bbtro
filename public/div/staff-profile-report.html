@@ -314,19 +314,191 @@
             }
         }
 
+        @page {
+            size: A4;
+            margin: 12mm 10mm;
+        }
+
         @media print {
+            * {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+
             body {
-                background: white;
+                background: white !important;
                 padding: 0;
+                margin: 0;
+                font-size: 11px;
             }
 
             .report-shell {
                 border-radius: 0;
                 box-shadow: none;
+                max-width: 100%;
+            }
+
+            /* Hide buttons in print */
+            .report-header button,
+            .back-btn {
+                display: none !important;
+            }
+
+            /* Compact header for print */
+            .report-header {
+                padding: 16px 20px;
+            }
+
+            .header-left h1 {
+                font-size: 22px;
+                margin: 10px 0 6px;
+            }
+
+            .header-meta {
+                font-size: 11px;
+                gap: 12px;
+            }
+
+            .profile-photo {
+                width: 100px;
+                height: 100px;
+                border-radius: 12px;
+            }
+
+            /* Compact quick stats */
+            .quick-stats {
+                padding: 12px 20px;
+                gap: 8px;
+            }
+
+            .stat-card {
+                padding: 8px 10px;
+                border-radius: 8px;
+            }
+
+            .stat-label {
+                font-size: 9px;
+            }
+
+            .stat-value {
+                font-size: 13px;
+                margin-top: 2px;
+            }
+
+            /* Compact content sections */
+            .content {
+                padding: 16px 20px;
+                gap: 16px;
             }
 
             section {
+                padding: 16px 18px;
+                border-radius: 12px;
                 box-shadow: none;
+                page-break-inside: avoid;
+            }
+
+            section header {
+                margin-bottom: 12px;
+            }
+
+            section header h2 {
+                font-size: 14px;
+            }
+
+            .section-subtitle {
+                font-size: 10px;
+            }
+
+            /* Compact info cards */
+            .info-grid {
+                gap: 10px;
+            }
+
+            .info-card {
+                padding: 10px 12px;
+                border-radius: 8px;
+            }
+
+            .info-card h3 {
+                font-size: 10px;
+                margin-bottom: 8px;
+            }
+
+            .info-list {
+                gap: 6px;
+            }
+
+            .info-label {
+                font-size: 9px;
+            }
+
+            .info-value {
+                font-size: 11px;
+            }
+
+            /* Compact tables */
+            .table-wrapper {
+                border-radius: 8px;
+            }
+
+            th, td {
+                padding: 8px 10px;
+                font-size: 10px;
+            }
+
+            th {
+                font-size: 9px;
+            }
+
+            /* Prevent table rows from splitting */
+            table {
+                page-break-inside: auto;
+            }
+
+            tr {
+                page-break-inside: avoid;
+                page-break-after: auto;
+            }
+
+            thead {
+                display: table-header-group;
+            }
+
+            /* Section-specific page breaks */
+            #trainingSection {
+                page-break-before: auto;
+            }
+
+            #awardsSection,
+            #punishmentsSection,
+            #remarksSection {
+                page-break-inside: avoid;
+            }
+
+            /* Compact signature block */
+            .signature-block {
+                margin-top: 16px;
+                font-size: 11px;
+            }
+
+            .signature-line {
+                width: 160px;
+            }
+
+            /* Hide punishments section in print unless explicitly shown for admin */
+            #punishmentsSection.admin-print-visible {
+                display: block !important;
+            }
+
+            #punishmentsSection:not(.admin-print-visible) {
+                display: none !important;
+            }
+
+            /* Hide empty table messages or reduce their prominence */
+            tbody tr td[colspan] {
+                padding: 6px;
+                font-size: 9px;
             }
         }
     </style>
@@ -345,6 +517,10 @@
                     <div>CLI: <strong id="cliName">—</strong></div>
                 </div>
             </div>
+            <div style="display: flex; gap: 12px; align-items: flex-start;">
+                <button type="button" onclick="handleBack()" style="padding: 10px 20px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); color: var(--text-strong); font-weight: 600; cursor: pointer; font-size: 14px;">← Back</button>
+                <button type="button" onclick="window.print()" style="padding: 10px 20px; border-radius: 10px; border: none; background: var(--primary); color: white; font-weight: 600; cursor: pointer; font-size: 14px;">Print</button>
+            </div>
         </div>
 
         <div class="quick-stats" id="quickStats"></div>
@@ -353,32 +529,36 @@
             <section id="personalSection">
                 <header>
                     <h2>Personal & Contact Overview</h2>
-                    <div class="section-subtitle">Primary identity, contact information, and address footprint.</div>
+                    <div class="section-subtitle">Personal details, contact information, and identity documents.</div>
                 </header>
 
                 <div class="info-grid">
                     <div class="info-card">
-                        <h3>Identity</h3>
+                        <h3>Personal Details</h3>
                         <div class="info-list">
                             <div class="info-item">
                                 <span class="info-label">Date of Birth</span>
-                                <span class="info-value" id="dobValue">18 Oct 1987</span>
+                                <span class="info-value" id="dobValue">—</span>
                             </div>
                             <div class="info-item">
-                                <span class="info-label">Date of appointment</span>
-                                <span class="info-value" id="doaValue">24 Jun 2009</span>
-                            </div>
-                            <div class="info-item">
-                                <span class="info-label">Reporting Date</span>
-                                <span class="info-value" id="reportingDateValue">01 Aug 2024</span>
+                                <span class="info-label">Age</span>
+                                <span class="info-value" id="ageValue">—</span>
                             </div>
                             <div class="info-item">
                                 <span class="info-label">Gender</span>
-                                <span class="info-value" id="genderValue">Male</span>
+                                <span class="info-value" id="genderValue">—</span>
                             </div>
                             <div class="info-item">
                                 <span class="info-label">Blood Group</span>
-                                <span class="info-value" id="bloodGroupValue">B+</span>
+                                <span class="info-value" id="bloodGroupValue">—</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Caste</span>
+                                <span class="info-value" id="casteValue">—</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Dependents</span>
+                                <span class="info-value" id="dependentsCount">—</span>
                             </div>
                         </div>
                     </div>
@@ -387,20 +567,34 @@
                         <h3>Contacts</h3>
                         <div class="info-list">
                             <div class="info-item">
-                                <span class="info-label">Mobile</span>
-                                <span class="info-value" id="mobileValue">+91 98765 43210</span>
+                                <span class="info-label">Mobile / CUG</span>
+                                <span class="info-value" id="mobileValue">—</span>
                             </div>
                             <div class="info-item">
-                                <span class="info-label">WhatsApp</span>
-                                <span class="info-value" id="whatsappValue">+91 98765 43210</span>
+                                <span class="info-label">Alternate Number</span>
+                                <span class="info-value" id="alternateValue">—</span>
                             </div>
                             <div class="info-item">
                                 <span class="info-label">Email</span>
-                                <span class="info-value" id="emailValue">rahul.deshmukh@cr.indianrail.gov.in</span>
+                                <span class="info-value" id="emailValue">—</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="info-card">
+                        <h3>Identity Documents</h3>
+                        <div class="info-list">
+                            <div class="info-item">
+                                <span class="info-label">Employee ID</span>
+                                <span class="info-value" id="idCardValue">—</span>
                             </div>
                             <div class="info-item">
-                                <span class="info-label">Identification</span>
-                                <span class="info-value" id="idsValue">Pan: BXXPD1234K • Aadhaar: 3985 6610 4411</span>
+                                <span class="info-label">PAN Card</span>
+                                <span class="info-value" id="panCardValue">—</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Aadhaar Card</span>
+                                <span class="info-value" id="aadhaarCardValue">—</span>
                             </div>
                         </div>
                     </div>
@@ -410,15 +604,11 @@
                         <div class="info-list">
                             <div class="info-item">
                                 <span class="info-label">Present Address</span>
-                                <span class="info-value" id="presentAddress">C-402, Shanti Towers, LBS Road<br/>Thane West, Maharashtra - 400601</span>
+                                <span class="info-value" id="presentAddress">—</span>
                             </div>
                             <div class="info-item">
                                 <span class="info-label">Permanent Address</span>
-                                <span class="info-value" id="permanentAddress">Plot 12, Swastik Nagar<br/>Aurangabad, Maharashtra - 431001</span>
-                            </div>
-                            <div class="info-item">
-                                <span class="info-label">Dependents</span>
-                                <span class="info-value" id="dependentsCount">03 Dependents</span>
+                                <span class="info-value" id="permanentAddress">—</span>
                             </div>
                         </div>
                     </div>
@@ -428,50 +618,54 @@
             <section id="serviceSection">
                 <header>
                     <h2>Service & Promotion Portfolio</h2>
-                    <div class="section-subtitle">Career progression across key safety categories and crew grades.</div>
+                    <div class="section-subtitle">Career progression, service milestones, and promotion history.</div>
                 </header>
 
                 <div class="info-grid" style="margin-bottom: 22px;">
                     <div class="info-card">
-                        <h3>Current Posting</h3>
+                        <h3>Service Information</h3>
                         <div class="info-list">
                             <div class="info-item">
-                                <span class="info-label">Operating Unit</span>
-                                <span class="info-value" id="currentOffice">KYN Suburban</span>
+                                <span class="info-label">Date of Appointment</span>
+                                <span class="info-value" id="doaValue">—</span>
                             </div>
                             <div class="info-item">
-                                <span class="info-label">Safety Category</span>
-                                <span class="info-value" id="safetyCategory">Category B</span>
+                                <span class="info-label">Last Promoted</span>
+                                <span class="info-value" id="lastPromotedValue">—</span>
                             </div>
                             <div class="info-item">
-                                <span class="info-label">Assignment Status</span>
-                                <span class="info-value" id="assignmentStatus">Active • Line</span>
+                                <span class="info-label">Years of Service</span>
+                                <span class="info-value" id="yearsOfServiceValue">—</span>
                             </div>
                             <div class="info-item">
-                                <span class="info-label">Vision</span>
-                                <span class="info-value" id="visionValue">Normal • Spectacles Not Required</span>
+                                <span class="info-label">Date of Retirement</span>
+                                <span class="info-value" id="retirementDateValue">—</span>
                             </div>
                         </div>
                     </div>
 
                     <div class="info-card">
-                        <h3>Nomination & Grade</h3>
+                        <h3>Current Posting & CLI</h3>
                         <div class="info-list">
                             <div class="info-item">
-                                <span class="info-label">Present Grade</span>
-                                <span class="info-value" id="presentGrade">Level 6 (7th CPC)</span>
+                                <span class="info-label">Operating Unit</span>
+                                <span class="info-value" id="currentOffice">—</span>
                             </div>
                             <div class="info-item">
-                                <span class="info-label">Grade Pay</span>
-                                <span class="info-value" id="gradePay">₹ 4,200</span>
+                                <span class="info-label">Reporting Date</span>
+                                <span class="info-value" id="reportingDateValue">—</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Safety Category</span>
+                                <span class="info-value" id="safetyCategory">—</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Vision</span>
+                                <span class="info-value" id="visionValue">—</span>
                             </div>
                             <div class="info-item">
                                 <span class="info-label">Current CLI Nomination</span>
-                                <span class="info-value" id="cliNomination">Sunil Patankar • Effective 12 Feb 2024</span>
-                            </div>
-                            <div class="info-item">
-                                <span class="info-label">KYN CMS ID</span>
-                                <span class="info-value" id="cmsId">CSMT0027</span>
+                                <span class="info-value" id="cliNomination">—</span>
                             </div>
                         </div>
                     </div>
@@ -483,8 +677,6 @@
                             <tr>
                                 <th>Date of Posting</th>
                                 <th>Posted As</th>
-                                <th>Depot / Section</th>
-                                <th>Remarks</th>
                             </tr>
                         </thead>
                         <tbody></tbody>
@@ -526,15 +718,11 @@
                         <div class="info-list">
                             <div class="info-item">
                                 <span class="info-label">Next Due</span>
-                                <span class="info-value" id="nextTrainingDue">PME • 18 Nov 2025</span>
-                            </div>
-                            <div class="info-item">
-                                <span class="info-label">Location</span>
-                                <span class="info-value" id="nextTrainingLocation">Divisional Hospital, KYN</span>
+                                <span class="info-value" id="nextTrainingDue">—</span>
                             </div>
                             <div class="info-item">
                                 <span class="info-label">Status</span>
-                                <span class="info-value" id="nextTrainingStatus">Confirmed Slot</span>
+                                <span class="info-value" id="nextTrainingStatus">—</span>
                             </div>
                         </div>
                     </div>
@@ -543,35 +731,90 @@
                         <h3>Personal Store Issue</h3>
                         <div class="info-list">
                             <div class="info-item">
-                                <span class="info-label">Detonator Count</span>
-                                <span class="info-value" id="detonatorCount">12</span>
+                                <span class="info-label">Personal Store Last Updated</span>
+                                <span class="info-value" id="storeLastUpdated">—</span>
                             </div>
                             <div class="info-item">
-                                <span class="info-label">MFD / Expiry</span>
-                                <span class="info-value" id="detonatorDetails">Nov 2024 • Batch 12B</span>
+                                <span class="info-label">Next Due</span>
+                                <span class="info-value" id="storeNextDue">—</span>
                             </div>
                             <div class="info-item">
-                                <span class="info-label">Safety Category</span>
-                                <span class="info-value" id="safetyCategoryBadge"><span class="badge">Safety B</span></span>
+                                <span class="info-label">Detonator Lot No.</span>
+                                <span class="info-value" id="detonatorLotNo">—</span>
                             </div>
                             <div class="info-item">
-                                <span class="info-label">Spectacles</span>
-                                <span class="info-value" id="spectaclesValue">Not Required</span>
+                                <span class="info-label">MFG / Expiry</span>
+                                <span class="info-value" id="detonatorDetails">—</span>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <div class="table-wrapper">
-                    <table id="trainingTable">
+                <h4 style="margin: 0 0 12px 0; font-size: 14px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Major Matrices</h4>
+                <div class="table-wrapper" style="margin-bottom: 24px;">
+                    <table id="majorTrainingTable">
                         <thead>
                             <tr>
                                 <th>Programme</th>
                                 <th>Last Done</th>
                                 <th>Due On</th>
-                                <th>Validity</th>
-                                <th>Location</th>
                                 <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+
+                <h4 style="margin: 0 0 12px 0; font-size: 14px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Other Trainings</h4>
+                <div class="table-wrapper">
+                    <table id="otherTrainingTable">
+                        <thead>
+                            <tr>
+                                <th>Programme</th>
+                                <th>Last Done</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section id="awardsSection">
+                <header>
+                    <h2>Awards & Recognitions</h2>
+                    <div class="section-subtitle">Awards and commendations received by the staff member.</div>
+                </header>
+
+                <div class="table-wrapper">
+                    <table id="awardsTable">
+                        <thead>
+                            <tr>
+                                <th>Award</th>
+                                <th>Date</th>
+                                <th>Issued By</th>
+                                <th>Description</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section id="punishmentsSection" style="display: none;">
+                <header>
+                    <h2>Disciplinary Actions</h2>
+                    <div class="section-subtitle">Disciplinary records (Admin view only - not visible in regular print).</div>
+                </header>
+
+                <div class="table-wrapper">
+                    <table id="punishmentsTable">
+                        <thead>
+                            <tr>
+                                <th>Type</th>
+                                <th>Date</th>
+                                <th>Order No.</th>
+                                <th>Severity</th>
+                                <th>Issued By</th>
                             </tr>
                         </thead>
                         <tbody></tbody>
@@ -582,7 +825,7 @@
             <section id="remarksSection">
                 <header>
                     <h2>Remarks & Notes</h2>
-                    <div class="section-subtitle">Critical observations recorded by CLI / DRM.</div>
+                    <div class="section-subtitle">Critical observations recorded by CLI / Officers.</div>
                 </header>
 
                 <div class="info-card" style="border: none; background: var(--surface-muted);">
@@ -594,79 +837,62 @@
 
                 <div class="signature-block">
                     <div class="signature-line"></div>
-                    <div>Division Crew Controller</div>
+                    <div>Sr. Crew Controller</div>
                 </div>
             </section>
         </div>
     </div>
 
     <script>
+        // Fallback data structure (minimal defaults when API data unavailable)
         const staffProfile = {
-            name: 'Rahul Deshmukh',
-            designation: 'Loco Pilot (Mail)',
-            photo: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=320&q=80',
-            pfNo: 'KYN 02345',
-            hrmsId: '1000123',
-            cli: 'KYN CMS 87',
-            dob: '1987-10-18',
-            doa: '2009-06-24',
-            reportingDate: '2024-08-01',
-            gender: 'Male',
-            bloodGroup: 'B+',
-            mobile: '+91 98765 43210',
-            whatsapp: '+91 98765 43210',
-            email: 'rahul.deshmukh@cr.indianrail.gov.in',
-            emergencyContact: 'Ajay Deshmukh • Brother • +91 98200 10090',
-            identifications: ['Pan: BXXPD1234K', 'Aadhaar: 3985 6610 4411'],
-            presentAddress: 'C-402, Shanti Towers, LBS Road\nThane West, Maharashtra - 400601',
-            permanentAddress: 'Plot 12, Swastik Nagar\nAurangabad, Maharashtra - 431001',
+            name: '—',
+            designation: '—',
+            pfNo: '—',
+            hrmsId: '—',
+            cli: '—',
+            dob: null,
+            doa: null,
+            reportingDate: null,
+            gender: '—',
+            bloodGroup: '—',
+            mobile: '—',
+            whatsapp: '—',
+            email: '—',
+            identifications: ['ID details unavailable'],
+            presentAddress: 'Not available',
+            permanentAddress: 'Not available',
             dependents: null,
-            safetyCategory: 'B',
-            assignmentStatus: 'Active • Line',
-            vision: 'Normal • Spectacles Not Required',
-            currentOffice: 'KYN Suburban',
-            presentGrade: 'Level 6 (7th CPC)',
-            gradePay: '₹ 4,200',
-            cliNomination: 'Sunil Patankar • Effective 12 Feb 2024',
-            cmsId: 'CSMT0027',
+            safetyCategory: '—',
+            assignmentStatus: '—',
+            vision: '—',
+            currentOffice: '—',
+            presentGrade: '—',
+            gradePay: '—',
+            cliNomination: '—',
+            cmsId: '—',
             nextTraining: {
-                title: 'PME',
-                dueOn: '2025-11-18',
-                location: 'Divisional Hospital, KYN',
-                status: 'Confirmed Slot'
+                title: '—',
+                dueOn: null,
+                location: '—',
+                status: '—'
             },
             storeDetails: {
-                detonatorCount: 12,
-                detonatorBatch: 'Nov 2024 • Batch 12B',
-                spectacles: 'Not Required'
+                detonatorCount: 0,
+                detonatorBatch: '—',
+                spectacles: '—'
             },
             quickStats: [
-                { label: 'CMS ID', value: 'CSMT0027' },
-                { label: 'Vision Grade', value: 'Normal' },
-                { label: 'Marital Status', value: 'Married' },
-                { label: 'Caste', value: 'OBC' },
-                { label: 'Last PME', value: '20 Nov 2023' },
-                { label: 'Status', value: 'Active' }
+                { label: 'CMS ID', value: '—' },
+                { label: 'Vision Grade', value: '—' },
+                { label: 'Marital Status', value: '—' },
+                { label: 'Last PME', value: '—' },
+                { label: 'Status', value: '—' }
             ],
-            promotions: [
-                { date: '2024-02-12', posting: 'Loco Pilot (Mail)', depot: 'KYN Suburban', remarks: 'Promotion to Mail roster' },
-                { date: '2019-09-01', posting: 'Loco Pilot (Passenger)', depot: 'PNVL Suburban', remarks: 'Transferred from freight section' },
-                { date: '2016-05-22', posting: 'Loco Pilot (Goods)', depot: 'KYN Goods', remarks: 'Regularised' },
-                { date: '2013-03-18', posting: 'Assistant Loco Pilot', depot: 'LNL', remarks: 'Initial appointment' }
-            ],
-            family: [
-                { name: 'Anita Deshmukh', relationship: 'Spouse', dob: '1989-07-18', occupation: 'Teacher', contact: '+91 98205 11223' },
-                { name: 'Vihaan Deshmukh', relationship: 'Son', dob: '2013-01-12', occupation: 'Student', contact: '—' },
-                { name: 'Meera Deshmukh', relationship: 'Mother', dob: '1963-05-20', occupation: 'Retired', contact: '+91 99200 88990' }
-            ],
-            trainings: [
-                { programme: 'Safety Camp', done: '2024-04-18', due: '2025-04-17', validity: '12 Months', place: 'KYN HQ', status: 'Compliant' },
-                { programme: 'Periodic Medical Examination', done: '2023-11-20', due: '2025-11-18', validity: '24 Months', place: 'Divisional Hospital, KYN', status: 'Upcoming' },
-                { programme: 'Simulator (TW)', done: '2024-06-04', due: '2025-06-03', validity: '12 Months', place: 'TW Training Center', status: 'Compliant' },
-                { programme: 'KAVACH', done: '2024-01-15', due: '2026-01-14', validity: '24 Months', place: 'Central Academy', status: 'Compliant' },
-                { programme: 'WAG-12 Familiarisation', done: '2023-08-22', due: '2025-08-21', validity: '24 Months', place: 'Electric Loco Shed', status: 'Compliant' }
-            ],
-            remarks: 'Demonstrated exceptional response during the emergency brake simulation on 12 Aug 2024. Recommended for advanced simulator mentoring. Maintain focus on communication protocol refreshers.'
+            promotions: [],
+            family: [],
+            trainings: [],
+            remarks: 'No remarks recorded.'
         };
 
         const formatDate = (dateString, fallback = '—') => {
@@ -676,10 +902,94 @@
             return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
         };
 
+        const calculateRetirementDate = (dob) => {
+            if (!dob) return null;
+            const birthDate = new Date(dob);
+            if (isNaN(birthDate.getTime())) return null;
+
+            const birthDay = birthDate.getDate();
+            const birthMonth = birthDate.getMonth(); // 0-indexed
+            const birthYear = birthDate.getFullYear();
+
+            // Calculate year when they turn 60
+            let retirementYear = birthYear + 60;
+            let retirementMonth;
+
+            if (birthDay === 1) {
+                // Born on 1st: retire last day of previous month at age 60
+                retirementMonth = birthMonth - 1;
+                if (retirementMonth < 0) {
+                    retirementMonth = 11; // December
+                    retirementYear -= 1;
+                }
+            } else {
+                // Born on 2-31: retire last day of same month at age 60
+                retirementMonth = birthMonth;
+            }
+
+            // Get last day of retirement month: new Date(year, month + 1, 0)
+            return new Date(retirementYear, retirementMonth + 1, 0);
+        };
+
+        const calculateAge = (dob) => {
+            if (!dob) return '—';
+            const birthDate = new Date(dob);
+            if (isNaN(birthDate.getTime())) return '—';
+
+            const today = new Date();
+            let age = today.getFullYear() - birthDate.getFullYear();
+            const monthDiff = today.getMonth() - birthDate.getMonth();
+
+            if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+                age--;
+            }
+
+            return `${age} years`;
+        };
+
+        const calculateYearsOfService = (doa) => {
+            if (!doa) return '—';
+            const appointmentDate = new Date(doa);
+            if (isNaN(appointmentDate.getTime())) return '—';
+
+            const today = new Date();
+            let years = today.getFullYear() - appointmentDate.getFullYear();
+            const monthDiff = today.getMonth() - appointmentDate.getMonth();
+
+            if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < appointmentDate.getDate())) {
+                years--;
+            }
+
+            return `${years} years`;
+        };
+
+        const formatVision = (vision) => {
+            if (!vision) return '—';
+
+            const visionUpper = vision.toUpperCase().trim();
+
+            if (visionUpper === 'NORMAL') {
+                return 'Normal';
+            } else if (visionUpper === 'NV') {
+                return 'With Spectacles for NV';
+            } else if (visionUpper === 'DV') {
+                return 'With Spectacles for DV';
+            } else if (visionUpper === 'BOTH') {
+                return 'With Spectacles for both NV & DV';
+            } else {
+                return vision; // Return as-is for any other value
+            }
+        };
+
         const populateReport = (overrides = {}) => {
             const data = { ...staffProfile, ...overrides };
             if (!data.hrmsId && overrides.hrmsId) {
                 data.hrmsId = overrides.hrmsId;
+            }
+
+            // Ensure quickStats exists
+            if (!data.quickStats || !Array.isArray(data.quickStats)) {
+                data.quickStats = staffProfile.quickStats;
             }
 
             const updateQuickStat = (label, value) => {
@@ -693,8 +1003,15 @@
             updateQuickStat('CMS ID', data.cmsId);
             updateQuickStat('Vision Grade', data.vision);
             updateQuickStat('Marital Status', data.marital_status || data.maritalStatus);
-            updateQuickStat('Caste', data.caste);
             updateQuickStat('Status', data.status);
+
+            // Update Last PME from trainings data (training_id = 1 is PME)
+            if (data.trainings && Array.isArray(data.trainings)) {
+                const pmeTraining = data.trainings.find(t => t.training_id === 1);
+                if (pmeTraining && pmeTraining.done) {
+                    updateQuickStat('Last PME', formatDate(pmeTraining.done));
+                }
+            }
 
             document.getElementById('staffName').textContent = data.name;
             document.getElementById('staffDesignation').textContent = data.designation;
@@ -702,68 +1019,152 @@
             document.getElementById('hrmsId').textContent = data.hrmsId;
             document.getElementById('cliName').textContent = data.cli;
 
-            document.getElementById('dobValue').textContent = formatDate(data.dob);
+            // Service Information Card
             document.getElementById('doaValue').textContent = formatDate(data.doa);
             document.getElementById('reportingDateValue').textContent = formatDate(data.reportingDate);
-            document.getElementById('genderValue').textContent = data.gender;
-            document.getElementById('bloodGroupValue').textContent = data.bloodGroup;
+            document.getElementById('yearsOfServiceValue').textContent = calculateYearsOfService(data.doa);
+            document.getElementById('retirementDateValue').textContent = formatDate(calculateRetirementDate(data.dob));
 
-            document.getElementById('mobileValue').textContent = data.whatsapp;
-            document.getElementById('whatsappValue').textContent = data.mobile;
-            document.getElementById('emailValue').textContent = data.email;
-            document.getElementById('idsValue').textContent = data.identifications.join(' • ');
+            // Last Promoted - get from promotions array
+            if (data.promotions && data.promotions.length > 0) {
+                const latestPromotion = data.promotions[0]; // Already sorted by date DESC
+                document.getElementById('lastPromotedValue').textContent =
+                    `${formatDate(latestPromotion.date)} as ${latestPromotion.posting}`;
+            } else {
+                document.getElementById('lastPromotedValue').textContent = '—';
+            }
 
-            document.getElementById('presentAddress').innerHTML = data.presentAddress.replace(/\n/g, '<br/>');
-            document.getElementById('permanentAddress').innerHTML = data.permanentAddress.replace(/\n/g, '<br/>');
+            // Personal Details Card
+            document.getElementById('dobValue').textContent = formatDate(data.dob);
+            document.getElementById('ageValue').textContent = calculateAge(data.dob);
+            document.getElementById('genderValue').textContent = data.gender || '—';
+            document.getElementById('bloodGroupValue').textContent = data.bloodGroup || '—';
+            document.getElementById('casteValue').textContent = data.caste || '—';
             document.getElementById('dependentsCount').textContent = (typeof data.dependents === 'number')
-                ? `${data.dependents} Dependents`
-                : 'Dependents data unavailable';
+                ? `${data.dependents} Dependent${data.dependents !== 1 ? 's' : ''}`
+                : '—';
 
-            document.getElementById('safetyCategory').textContent = `Category ${data.safetyCategory}`;
-            document.getElementById('assignmentStatus').textContent = data.assignmentStatus;
-            document.getElementById('visionValue').textContent = data.vision;
-            document.getElementById('currentOffice').textContent = data.currentOffice;
-            document.getElementById('presentGrade').textContent = data.presentGrade;
-            document.getElementById('gradePay').textContent = data.gradePay;
-            document.getElementById('cliNomination').textContent = data.cliNomination;
-            document.getElementById('cmsId').textContent = data.cmsId;
+            // Contacts Card
+            document.getElementById('mobileValue').textContent = data.mobile || '—';
+            document.getElementById('alternateValue').textContent = data.alternate || '—';
+            document.getElementById('emailValue').textContent = data.email || '—';
 
-            document.getElementById('nextTrainingDue').textContent = `${data.nextTraining.title} • ${formatDate(data.nextTraining.dueOn)}`;
-            document.getElementById('nextTrainingLocation').textContent = data.nextTraining.location;
-            document.getElementById('nextTrainingStatus').textContent = data.nextTraining.status;
+            // Identity Documents Card
+            document.getElementById('idCardValue').textContent = data.id_card_no || data.idCardNo || '—';
+            document.getElementById('panCardValue').textContent = data.pan_card_no || data.panCardNo || '—';
+            document.getElementById('aadhaarCardValue').textContent = data.aadhar_card_no || data.aadhaarCardNo || '—';
 
-            document.getElementById('detonatorCount').textContent = data.storeDetails.detonatorCount;
-            document.getElementById('detonatorDetails').textContent = data.storeDetails.detonatorBatch;
-            document.getElementById('spectaclesValue').textContent = data.storeDetails.spectacles;
+            // Address Card
+            document.getElementById('presentAddress').innerHTML = (data.presentAddress || 'Not available').replace(/\n/g, '<br/>');
+            document.getElementById('permanentAddress').innerHTML = (data.permanentAddress || 'Not available').replace(/\n/g, '<br/>');
 
-            if (data.safetyCategory) {
-                const badge = document.createElement('span');
-                badge.className = 'badge';
-                badge.textContent = `Safety ${data.safetyCategory}`;
-                const badgeSlot = document.getElementById('safetyCategoryBadge');
-                badgeSlot.innerHTML = '';
-                badgeSlot.appendChild(badge);
+            // Current Posting & CLI Card
+            document.getElementById('currentOffice').textContent = data.currentOffice || '—';
+            document.getElementById('safetyCategory').textContent = data.safetyCategory ? `Category ${data.safetyCategory}` : '—';
+            document.getElementById('visionValue').textContent = formatVision(data.vision);
+
+            // Format CLI Nomination as "CLI name - from - date"
+            if (data.cli && data.cliNominationDate) {
+                document.getElementById('cliNomination').textContent =
+                    `${data.cli} - from - ${formatDate(data.cliNominationDate)}`;
+            } else if (data.cli) {
+                document.getElementById('cliNomination').textContent = data.cli;
+            } else {
+                document.getElementById('cliNomination').textContent = '—';
+            }
+
+            // Upcoming Milestone - Check for trainings due in next 60 days
+            if (data.trainings && Array.isArray(data.trainings) && data.trainings.length > 0) {
+                const today = new Date();
+                const sixtyDaysLater = new Date(today.getTime() + (60 * 24 * 60 * 60 * 1000));
+
+                // Define major training IDs based on designation
+                // Non-Motorman: 1 (PME), 2 (Refresher IC), 3 (Safety Camp), 5 (Automatic), 6 (Refresher Diesel), 7 (Refresher AC)
+                // Motorman (id=8): 1 (PME), 3 (Safety Camp), 5 (Automatic), 17 (MEMU), 26 (Mman Promotion/Refresher)
+                const isMotorman = data.designation_id === 8;
+                const relevantTrainingIds = isMotorman
+                    ? [1, 3, 5, 17, 26]
+                    : [1, 2, 3, 5, 6, 7];
+
+                // Filter trainings that are due in next 60 days and match relevant types
+                const upcomingTrainings = data.trainings.filter(training => {
+                    if (!training.due || !training.training_id) return false;
+
+                    const dueDate = new Date(training.due);
+                    if (isNaN(dueDate.getTime())) return false;
+
+                    // Check if due within 60 days
+                    if (dueDate > sixtyDaysLater) return false;
+
+                    // Check if training type is relevant using training_id
+                    return relevantTrainingIds.includes(training.training_id);
+                }).sort((a, b) => new Date(a.due) - new Date(b.due)); // Sort by earliest due date
+
+                if (upcomingTrainings.length > 0) {
+                    const nextTraining = upcomingTrainings[0];
+                    const daysUntilDue = Math.ceil((new Date(nextTraining.due) - today) / (24 * 60 * 60 * 1000));
+
+                    document.getElementById('nextTrainingDue').textContent =
+                        `${nextTraining.programme} - ${formatDate(nextTraining.due)}`;
+
+                    if (daysUntilDue < 0) {
+                        document.getElementById('nextTrainingStatus').textContent = 'Overdue';
+                    } else if (daysUntilDue <= 7) {
+                        document.getElementById('nextTrainingStatus').textContent = 'Due this week';
+                    } else if (daysUntilDue <= 30) {
+                        document.getElementById('nextTrainingStatus').textContent = 'Due this month';
+                    } else {
+                        document.getElementById('nextTrainingStatus').textContent = `Due in ${daysUntilDue} days`;
+                    }
+                } else {
+                    document.getElementById('nextTrainingDue').textContent = 'No Course due in next 60 days';
+                    document.getElementById('nextTrainingStatus').textContent = 'Compliant';
+                }
+            } else {
+                document.getElementById('nextTrainingDue').textContent = 'No training data available';
+                document.getElementById('nextTrainingStatus').textContent = '—';
+            }
+
+            // Personal Store Issue section
+            // Use pstore dates from staff master
+            document.getElementById('storeLastUpdated').textContent = formatDate(data.pstoreLastUpdated);
+            document.getElementById('storeNextDue').textContent = formatDate(data.pstoreNextDue);
+
+            // Use detonator details from detonator data
+            if (data.detonatorData) {
+                document.getElementById('detonatorLotNo').textContent = data.detonatorData.lotNumber || '—';
+                document.getElementById('detonatorDetails').textContent =
+                    `${formatDate(data.detonatorData.mfgDate)} / ${formatDate(data.detonatorData.expiryDate)}`;
+            } else {
+                document.getElementById('detonatorLotNo').textContent = '—';
+                document.getElementById('detonatorDetails').textContent = '—';
             }
 
             // Quick stats
             const quickStatsContainer = document.getElementById('quickStats');
-            quickStatsContainer.innerHTML = data.quickStats.map(stat => `
-                <div class="stat-card">
-                    <div class="stat-label">${stat.label}</div>
-                    <div class="stat-value">${stat.value}</div>
-                </div>
-            `).join('');
+            if (data.quickStats && Array.isArray(data.quickStats)) {
+                quickStatsContainer.innerHTML = data.quickStats.map(stat => `
+                    <div class="stat-card">
+                        <div class="stat-label">${stat.label}</div>
+                        <div class="stat-value">${stat.value || '—'}</div>
+                    </div>
+                `).join('');
+            } else {
+                console.error('Quick stats data is missing or invalid');
+            }
 
             // Promotions table
             const promotionBody = document.querySelector('#promotionTable tbody');
-            promotionBody.innerHTML = data.promotions.map(entry => `
-                <tr>
-                    <td>${formatDate(entry.date)}</td>
-                    <td>${entry.posting}</td>
-                    <td>${entry.depot}</td>
-                    <td>${entry.remarks || '—'}</td>
-                </tr>
-            `).join('');
+            if (data.promotions && data.promotions.length > 0) {
+                promotionBody.innerHTML = data.promotions.map(entry => `
+                    <tr>
+                        <td>${formatDate(entry.date)}</td>
+                        <td>${entry.posting}</td>
+                    </tr>
+                `).join('');
+            } else {
+                promotionBody.innerHTML = '<tr><td colspan="2" style="text-align: center; color: var(--text-muted);">No promotion records found</td></tr>';
+            }
 
             // Family table
             const familyBody = document.querySelector('#familyTable tbody');
@@ -777,18 +1178,103 @@
                 </tr>
             `).join('');
 
-            // Training table
-            const trainingBody = document.querySelector('#trainingTable tbody');
-            trainingBody.innerHTML = data.trainings.map(training => `
-                <tr>
-                    <td>${training.programme}</td>
-                    <td>${formatDate(training.done)}</td>
-                    <td>${formatDate(training.due)}</td>
-                    <td>${training.validity}</td>
-                    <td>${training.place}</td>
-                    <td>${training.status}</td>
-                </tr>
-            `).join('');
+            // Training tables - split into Major Matrices and Other Trainings
+            const majorTrainingBody = document.querySelector('#majorTrainingTable tbody');
+            const otherTrainingBody = document.querySelector('#otherTrainingTable tbody');
+
+            if (data.trainings && data.trainings.length > 0) {
+                // Define major training IDs based on designation
+                // Non-Motorman: 1 (PME), 2 (Refresher IC), 3 (Safety Camp), 5 (Automatic), 6 (Refresher Diesel), 7 (Refresher AC)
+                // Motorman (id=8): 1 (PME), 3 (Safety Camp), 5 (Automatic), 17 (MEMU), 26 (Mman Promotion/Refresher)
+                const isMotorman = data.designation_id === 8;
+                const majorTrainingIds = isMotorman
+                    ? [1, 3, 5, 17, 26]
+                    : [1, 2, 3, 5, 6, 7];
+
+                // Filter trainings into major and other using training_id
+                const majorTrainings = [];
+                const otherTrainings = [];
+
+                data.trainings.forEach(training => {
+                    const isMajor = majorTrainingIds.includes(training.training_id);
+
+                    if (isMajor) {
+                        majorTrainings.push(training);
+                    } else {
+                        otherTrainings.push(training);
+                    }
+                });
+
+                // Populate Major Matrices table
+                if (majorTrainings.length > 0) {
+                    majorTrainingBody.innerHTML = majorTrainings.map(training => `
+                        <tr>
+                            <td>${training.programme}</td>
+                            <td>${formatDate(training.done)}</td>
+                            <td>${formatDate(training.due)}</td>
+                            <td>${training.status}</td>
+                        </tr>
+                    `).join('');
+                } else {
+                    majorTrainingBody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-muted);">No major training records found</td></tr>';
+                }
+
+                // Populate Other Trainings table
+                if (otherTrainings.length > 0) {
+                    otherTrainingBody.innerHTML = otherTrainings.map(training => `
+                        <tr>
+                            <td>${training.programme}</td>
+                            <td>${formatDate(training.done)}</td>
+                        </tr>
+                    `).join('');
+                } else {
+                    otherTrainingBody.innerHTML = '<tr><td colspan="2" style="text-align: center; color: var(--text-muted);">No other training records found</td></tr>';
+                }
+            } else {
+                majorTrainingBody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-muted);">No training records found</td></tr>';
+                otherTrainingBody.innerHTML = '<tr><td colspan="2" style="text-align: center; color: var(--text-muted);">No training records found</td></tr>';
+            }
+
+            // Awards table
+            const awardsBody = document.querySelector('#awardsTable tbody');
+            if (data.awards && data.awards.length > 0) {
+                awardsBody.innerHTML = data.awards.map(award => `
+                    <tr>
+                        <td>${award.name || '—'}</td>
+                        <td>${formatDate(award.date)}</td>
+                        <td>${award.issuedBy || '—'}</td>
+                        <td>${award.description || '—'}</td>
+                    </tr>
+                `).join('');
+            } else {
+                awardsBody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-muted);">No awards on record</td></tr>';
+            }
+
+            // Punishments table (only visible for admin users)
+            const punishmentsSection = document.getElementById('punishmentsSection');
+            const punishmentsBody = document.querySelector('#punishmentsTable tbody');
+
+            if (data.isAdmin) {
+                punishmentsSection.style.display = 'block';
+                punishmentsSection.classList.add('admin-print-visible');
+
+                if (data.punishments && data.punishments.length > 0) {
+                    punishmentsBody.innerHTML = data.punishments.map(punishment => `
+                        <tr>
+                            <td>${punishment.type || '—'}</td>
+                            <td>${formatDate(punishment.date)}</td>
+                            <td>${punishment.orderNo || '—'}</td>
+                            <td>${punishment.severity || '—'}</td>
+                            <td>${punishment.issuedBy || '—'}</td>
+                        </tr>
+                    `).join('');
+                } else {
+                    punishmentsBody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted);">No disciplinary records</td></tr>';
+                }
+            } else {
+                punishmentsSection.style.display = 'none';
+                punishmentsSection.classList.remove('admin-print-visible');
+            }
 
             document.getElementById('remarksValue').textContent = data.remarks;
         };
@@ -803,17 +1289,14 @@
                 const staff = payload?.data?.find(entry => entry.hrms_id === hrmsId) || payload?.data?.[0];
                 if (!staff) return null;
 
-                const identifications = [];
-                if (staff.pan_card_no) identifications.push(`PAN: ${staff.pan_card_no}`);
-                if (staff.aadhar_card_no) identifications.push(`Aadhaar: ${staff.aadhar_card_no}`);
-                if (!identifications.length) identifications.push('ID details unavailable');
-
                 return {
                     name: staff.name || staffProfile.name,
                     designation: staff.designation_name || staffProfile.designation,
+                    designation_id: staff.designation_id || null,
                     pfNo: staff.pf_number || staffProfile.pfNo,
                     hrmsId: staff.hrms_id || hrmsId,
                     cli: staff.cli_name || staffProfile.cli,
+                    cliNominationDate: staff.nominated_from_date || null,
                     photo: staff.photo_url || staffProfile.photo,
                     dob: staff.date_of_birth || staffProfile.dob,
                     doa: staff.date_of_appointment || staffProfile.doa,
@@ -822,11 +1305,13 @@
                     bloodGroup: staff.blood_group || staffProfile.bloodGroup,
                     caste: staff.caste || staffProfile.caste,
                     marital_status: staff.marital_status || staffProfile.marital_status,
-                    mobile: staff.phone_number || staffProfile.mobile,
-                    whatsapp: staff.cug_number || staffProfile.whatsapp,
+                    mobile: staff.cug_number || staffProfile.mobile,
+                    alternate: staff.phone_number || staffProfile.alternate,
                     email: staff.email || staffProfile.email,
                     emergencyContact: staff.emergency_contact || staffProfile.emergencyContact,
-                    identifications,
+                    id_card_no: staff.id_card_no || null,
+                    pan_card_no: staff.pan_card_no || null,
+                    aadhar_card_no: staff.aadhar_card_no || null,
                     presentAddress: staff.present_address || staffProfile.presentAddress,
                     permanentAddress: staff.permanent_address || staffProfile.permanentAddress,
                     dependents: typeof staff.dependent_count === 'number' ? staff.dependent_count : staffProfile.dependents,
@@ -835,7 +1320,9 @@
                     vision: staff.vision || staffProfile.vision,
                     currentOffice: staff.office_name || staff.current_office_code || staffProfile.currentOffice,
                     cmsId: staff.current_cms_id || staffProfile.cmsId,
-                    status: staff.status || staffProfile.quickStats?.find(q => q.label === 'Status')?.value
+                    status: staff.status || staffProfile.quickStats?.find(q => q.label === 'Status')?.value,
+                    pstoreLastUpdated: staff.pstore_last_updated || null,
+                    pstoreNextDue: staff.pstore_next_due || null
                 };
             } catch (error) {
                 console.error('Error fetching staff data:', error);
@@ -869,6 +1356,141 @@
             }
         }
 
+        async function fetchPromotions(hrmsId) {
+            try {
+                const response = await fetch(`/api/division/promotions/${encodeURIComponent(hrmsId)}`);
+                if (!response.ok) {
+                    throw new Error('Failed to load promotion history');
+                }
+                const payload = await response.json();
+                if (!payload?.success || !Array.isArray(payload.data)) {
+                    return [];
+                }
+                return payload.data.map(promo => ({
+                    date: promo.posting_date,
+                    posting: promo.to_designation_name || '—'
+                }));
+            } catch (error) {
+                console.error('Error fetching promotions:', error);
+                return [];
+            }
+        }
+
+        async function fetchTrainings(hrmsId) {
+            try {
+                const response = await fetch(`/api/division/training/${encodeURIComponent(hrmsId)}`);
+                if (!response.ok) {
+                    throw new Error('Failed to load training records');
+                }
+                const payload = await response.json();
+                if (!payload?.success || !Array.isArray(payload.data)) {
+                    return [];
+                }
+                return payload.data.map(training => ({
+                    training_id: training.training_id,
+                    programme: training.training_name || '—',
+                    done: training.done_date,
+                    due: training.due_date,
+                    status: getTrainingStatus(training.due_date)
+                }));
+            } catch (error) {
+                console.error('Error fetching trainings:', error);
+                return [];
+            }
+        }
+
+        function getTrainingStatus(dueDate) {
+            if (!dueDate) return 'Unknown';
+            const due = new Date(dueDate);
+            const today = new Date();
+            const daysRemaining = Math.floor((due - today) / (1000 * 60 * 60 * 24));
+
+            if (daysRemaining < 0) return 'Overdue';
+            if (daysRemaining <= 30) return 'Upcoming';
+            return 'Compliant';
+        }
+
+        async function fetchDetonatorData(hrmsId) {
+            try {
+                const response = await fetch(`/api/division/detonators/${encodeURIComponent(hrmsId)}`);
+                if (!response.ok) {
+                    throw new Error('Failed to load detonator data');
+                }
+                const payload = await response.json();
+                if (!payload?.success || !Array.isArray(payload.data) || payload.data.length === 0) {
+                    return null;
+                }
+
+                // Get the latest active detonator stock
+                const activeStock = payload.data.find(d => d.status === 'Active') || payload.data[0];
+
+                return {
+                    lastUpdated: activeStock.issue_date,
+                    nextDue: activeStock.expiry_date,
+                    count: activeStock.quantity,
+                    mfgDate: activeStock.mfg_date,
+                    expiryDate: activeStock.expiry_date,
+                    lotNumber: activeStock.lot_number
+                };
+            } catch (error) {
+                console.error('Error fetching detonator data:', error);
+                return null;
+            }
+        }
+
+        async function fetchAwards(hrmsId) {
+            try {
+                const response = await fetch(`/api/division/discipline/awards/${encodeURIComponent(hrmsId)}`);
+                if (!response.ok) {
+                    throw new Error('Failed to load awards data');
+                }
+                const payload = await response.json();
+                if (!payload?.success || !Array.isArray(payload.data)) {
+                    return [];
+                }
+                return payload.data.map(award => ({
+                    name: award.award_name,
+                    date: award.award_date,
+                    issuedBy: award.issued_by,
+                    description: award.description
+                }));
+            } catch (error) {
+                console.error('Error fetching awards:', error);
+                return [];
+            }
+        }
+
+        async function fetchPunishments(hrmsId) {
+            try {
+                const response = await fetch(`/api/division/discipline/punishments/${encodeURIComponent(hrmsId)}`);
+                if (!response.ok) {
+                    // 403 means user is not admin - this is expected for non-admin users
+                    if (response.status === 403) {
+                        return { isAdmin: false, data: [] };
+                    }
+                    throw new Error('Failed to load punishments data');
+                }
+                const payload = await response.json();
+                if (!payload?.success || !Array.isArray(payload.data)) {
+                    return { isAdmin: true, data: [] };
+                }
+                return {
+                    isAdmin: true,
+                    data: payload.data.map(punishment => ({
+                        type: punishment.punishment_type,
+                        date: punishment.punishment_date,
+                        orderNo: punishment.order_no,
+                        severity: punishment.severity,
+                        issuedBy: punishment.issued_by,
+                        description: punishment.description
+                    }))
+                };
+            } catch (error) {
+                console.error('Error fetching punishments:', error);
+                return { isAdmin: false, data: [] };
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', async () => {
             const params = new URLSearchParams(window.location.search);
             const hrmsParam = params.get('hrms_id');
@@ -880,14 +1502,47 @@
                 } else {
                     overrides.hrmsId = hrmsParam;
                 }
+
+                // Fetch family data
                 const familyData = await fetchFamilyData(hrmsParam);
                 if (familyData) {
                     overrides.family = familyData.family;
                     overrides.dependents = familyData.dependentCount;
                 }
+
+                // Fetch promotions
+                const promotions = await fetchPromotions(hrmsParam);
+                if (promotions.length > 0) {
+                    overrides.promotions = promotions;
+                }
+
+                // Fetch trainings
+                const trainings = await fetchTrainings(hrmsParam);
+                if (trainings.length > 0) {
+                    overrides.trainings = trainings;
+                }
+
+                // Fetch detonator data
+                const detonatorData = await fetchDetonatorData(hrmsParam);
+                if (detonatorData) {
+                    overrides.detonatorData = detonatorData;
+                }
+
+                // Fetch awards
+                const awards = await fetchAwards(hrmsParam);
+                overrides.awards = awards;
+
+                // Fetch punishments (will only succeed for admin users)
+                const punishmentsResult = await fetchPunishments(hrmsParam);
+                overrides.punishments = punishmentsResult.data;
+                overrides.isAdmin = punishmentsResult.isAdmin;
             }
             populateReport(overrides);
         });
+
+        function handleBack() {
+            window.location.href = '/div';
+        }
     </script>
 </body>
 </html>

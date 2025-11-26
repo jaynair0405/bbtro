@@ -43,12 +43,21 @@ Main staff biodata table.
 **Primary Key:** `hrms_id` VARCHAR(10)
 
 **Key Fields:**
-- Personal: `name`, `cli_dob`, `gender`, `caste`, `marital_status`, `vision`
-- Contact: `mobile`, `email`, `address`, `pincode`
-- Service: `current_office_code`, `home_office_code`, `designation_id`, `current_cli_id`
-- Dates: `date_of_birth`, `date_of_appointment`, `date_of_retirement`
-- Safety: `safety_category` (A/B/C), `assignment_status`
+- Personal: `name`, `date_of_birth`, `gender`, `fathers_name`, `caste`, `marital_status`, `vision`, `blood_group`
+- Identification: `identification_mark_1`, `identification_mark_2`, `id_card_no`, `pf_number`, `aadhar_card_no`, `pan_card_no`
+- Contact: `phone_number`, `cug_number`, `email`, `present_address`, `permanent_address`
+- Service: `current_office_code`, `designation_id`, `current_cli_id`, `dept_rrb`, `reporting_date`, `qualification`
+- Dates: `date_of_birth`, `date_of_appointment`, `reporting_date`
+- Safety: `safety_category` (A/B/C)
 - Status: `status` ENUM('Active','Transferred','Retired','Suspended','Promoted to CLI','Medically Decategorised')
+
+**Staff Status Options:**
+- `Active` - Currently working
+- `Transferred` - Moved to another office
+- `Retired` - Retired from service
+- `Suspended` - Under suspension
+- `Promoted to CLI` - Promoted to Chief Loco Inspector
+- `Medically Decategorised` - Medical fitness changed
 
 **Important:**
 - Only 2 required fields: `hrms_id`, `name`
@@ -383,6 +392,40 @@ Personnel stores CRUD interface.
 ### 6. `/div/bulk-upload-staff.html`
 Staff data bulk upload interface (ready, not tested).
 
+### 7. `/div/biodataform.html` ✅
+Comprehensive staff biodata entry/edit form.
+
+**Features:**
+- Multi-tab layout (Personal, Service, Training, Family, etc.)
+- Designation dropdown (required field)
+- View/Print button → opens staff-profile-report.html
+- Promotion history management
+- Training records management
+- Family members management
+- Awards and Punishments (admin only for punishments)
+- Detonator stock tracking
+- Staff status dropdown (Active, Transferred, Retired, Suspended, Promoted to CLI, Medically Decategorised)
+
+**Fields Added (Nov 2025):**
+- `identification_mark_1`, `identification_mark_2` - Physical identification marks
+- `id_card_no` - Employee ID card number
+- `qualification` - Educational qualification
+- `dept_rrb` - Department/RRB details
+- `reporting_date` - Date of reporting to current office
+- `status` - Staff status with validation
+
+**Required Fields:** HRMS ID, Name, CMS ID, Designation
+
+### 8. `/div/staff-profile-report.html` ✅
+Printable staff bio-profile report.
+
+**Features:**
+- Real-time data from 7 API endpoints
+- Training matrix with designation-specific filtering (Motorman vs others)
+- Awards visible to all, Punishments admin-only
+- Print-optimized CSS (currently 3 pages, 2-page optimization documented)
+- Retirement date calculation per railway rules
+
 ---
 
 ## Key Implementation Notes
@@ -482,16 +525,21 @@ TIMESTAMPDIFF(MONTH, c.date_promoted_to_cli, CURDATE()) % 12 as months_as_cli
 
 ### High Priority
 1. ✅ ~~CLI Management~~ (DONE)
-2. 📝 Staff Biodata CRUD UI
-   - List staff by office
-   - Add/Edit staff form (37 fields, multi-tab)
-   - Quick Actions: "Add New Staff"
-   - Office-level access control
-3. 📝 Staff Nomination Management
+2. ✅ ~~Staff Biodata CRUD UI~~ (DONE)
+   - ✅ List staff by office (Office Staff List in Quick Actions)
+   - ✅ Add/Edit staff form (multi-tab with all fields)
+   - ✅ Designation field in biodata entry
+   - ✅ View/Print button linking to staff-profile-report
+   - ✅ Office-level access control
+3. ✅ ~~Staff Profile Report~~ (DONE)
+   - ✅ Comprehensive bio-profile with all sections
+   - ✅ Print-optimized CSS layout
+   - ✅ Admin-only disciplinary section
+4. 📝 Staff Nomination Management
    - Nominate staff under CLI
    - Transfer nominations
    - Historical tracking
-4. 📝 Staff data collection and SQL import
+5. 📝 Staff data collection and SQL import
    - Collect data from all offices
    - Use `staff_excel_to_sql_converter.js` (to be created)
    - Import in batches (100 staff per office)
@@ -585,6 +633,161 @@ TIMESTAMPDIFF(MONTH, c.date_promoted_to_cli, CURDATE()) % 12 as months_as_cli
 4. ❌ Don't JOIN on `d.designation_id` → ✅ JOIN on `d.id`
 5. ❌ Don't use YYYY-MM-DD for display → ✅ Use DD/MM/YYYY
 6. ❌ Don't show 1 year for all CLIs → ✅ Calculate from `date_promoted_to_cli`
+
+---
+
+## Staff Profile Report
+
+**File:** `/public/div/staff-profile-report.html`
+**Status:** Fully Functional
+**Last Updated:** 2025-11-26
+
+### Overview
+
+Comprehensive staff bio-profile report with real-time data from multiple tables. Displays personal info, service details, training matrix, awards, and disciplinary records.
+
+### Report Sections
+
+| Section | Data Source | Notes |
+|---------|-------------|-------|
+| Header | `div_staff_master` + `div_cli_master` | Name, Designation, PF No, HRMS ID, CLI |
+| Quick Stats | `div_staff_master` | CMS ID, Vision, Marital Status, Last PME, Status |
+| Personal & Contact Overview | `div_staff_master` + `div_staff_family` | DOB, Age, Gender, Blood Group, Caste, Contacts, Identity Docs, Address |
+| Service & Promotion Portfolio | `div_staff_master` + `div_promotion_history` + `div_cli_nominations` | DOA, Years of Service, Retirement Date, Current Posting, CLI Nomination |
+| Family & Dependents | `div_staff_family` | Family members with relationships |
+| Refresher & PME Matrix | `div_training_records` + `div_training_types` + `div_staff_detonator_stock` | Upcoming Milestone, Personal Store Issue, Major Matrices, Other Trainings |
+| Awards & Recognitions | `div_staff_awards` | Visible to all users |
+| Disciplinary Actions | `div_staff_punishments` | **Admin only** - hidden from regular users |
+| Remarks & Notes | `div_staff_master` | CLI/Officer observations |
+
+### Key Features
+
+#### 1. Training Matrix - ID-Based Filtering
+Training tables use `training_id` instead of name matching for reliability:
+
+```javascript
+// Major training IDs by designation
+// Non-Motorman: 1 (PME), 2 (Refresher IC), 3 (Safety Camp), 5 (Automatic), 6 (Refresher Diesel), 7 (Refresher AC)
+// Motorman (designation_id=8): 1 (PME), 3 (Safety Camp), 5 (Automatic), 17 (MEMU), 26 (Mman Promotion/Refresher)
+
+const majorTrainingIds = isMotorman
+    ? [1, 3, 5, 17, 26]
+    : [1, 2, 3, 5, 6, 7];
+```
+
+#### 2. Retirement Date Calculation (Railway Rules)
+```javascript
+// DOB on 1st: retire last day of previous month at age 60
+// DOB 2-31: retire last day of same month at age 60
+const calculateRetirementDate = (dob) => {
+    const birthDay = birthDate.getDate();
+    if (birthDay === 1) {
+        retirementMonth = birthMonth - 1; // Previous month
+    } else {
+        retirementMonth = birthMonth; // Same month
+    }
+    return new Date(retirementYear, retirementMonth + 1, 0); // Last day
+};
+```
+
+#### 3. Vision Formatting
+```javascript
+// Normal → "Normal"
+// NV → "With Spectacles for NV"
+// DV → "With Spectacles for DV"
+// Both → "With Spectacles for both NV & DV"
+```
+
+#### 4. Admin-Only Punishments Section
+- API `/api/division/discipline/punishments/:hrms_id` requires `division_admin` role
+- Section hidden with `display: none` for non-admin
+- Uses `admin-print-visible` CSS class for print control
+
+### API Endpoints Used
+
+| Endpoint | Purpose |
+|----------|---------|
+| `GET /api/division/staff-search/:hrms_id` | Staff master data |
+| `GET /api/division/family/:hrms_id` | Family members |
+| `GET /api/division/promotions/:hrms_id` | Promotion history |
+| `GET /api/division/training/:hrms_id` | Training records (latest per type) |
+| `GET /api/division/detonators/:hrms_id` | Detonator stock |
+| `GET /api/division/discipline/awards/:hrms_id` | Awards |
+| `GET /api/division/discipline/punishments/:hrms_id` | Punishments (admin only) |
+
+### Print Layout
+
+#### Current Implementation (3 Pages)
+CSS-based print optimization with:
+- A4 page size, 12mm/10mm margins
+- `page-break-inside: avoid` on sections and table rows
+- Compact fonts (11px base, 9-10px labels)
+- Hidden buttons in print
+- Preserved background colors
+
+#### 2-Page Optimization (TODO)
+To reduce from 3 pages to 2 pages, implement these changes:
+
+1. **Tighter Page Margins**
+   ```css
+   @page {
+       size: A4;
+       margin: 8mm 8mm;  /* Reduced from 12mm 10mm */
+   }
+   ```
+
+2. **Smaller Base Fonts**
+   ```css
+   body { font-size: 10px; }  /* Reduced from 11px */
+   .stat-value { font-size: 12px; }  /* Reduced from 13px */
+   th, td { font-size: 9px; }  /* Reduced from 10px */
+   ```
+
+3. **Reduced Section Gaps**
+   ```css
+   .content { gap: 12px; }  /* Reduced from 16px */
+   .info-grid { gap: 8px; }  /* Reduced from 10px */
+   ```
+
+4. **Hide Empty Sections**
+   ```javascript
+   // In populateReport(), hide sections with no data
+   if (!data.awards || data.awards.length === 0) {
+       document.getElementById('awardsSection').style.display = 'none';
+   }
+   ```
+
+5. **Compact Info Cards**
+   ```css
+   .info-card { padding: 8px 10px; }  /* Reduced from 10px 12px */
+   .info-list { gap: 4px; }  /* Reduced from 6px */
+   ```
+
+#### Alternative: Puppeteer PDF Generation
+For best quality PDF output, implement server-side generation:
+
+```javascript
+// /routes/division/reportRoutes.js
+const puppeteer = require('puppeteer');
+
+router.get('/staff-report-pdf/:hrms_id', async (req, res) => {
+    const browser = await puppeteer.launch();
+    const page = await browser.newPage();
+    await page.goto(`http://localhost:3000/div/staff-profile-report.html?hrms_id=${req.params.hrms_id}`, {
+        waitUntil: 'networkidle0'
+    });
+    const pdf = await page.pdf({ format: 'A4', printBackground: true });
+    await browser.close();
+    res.setHeader('Content-Type', 'application/pdf');
+    res.send(pdf);
+});
+```
+
+**Puppeteer considerations:**
+- Requires `npm install puppeteer` (~200MB Chromium download)
+- Each PDF uses ~50-100MB RAM briefly
+- Best quality output, pixel-perfect rendering
+- Need to pass session cookies for authentication
 
 ---
 
