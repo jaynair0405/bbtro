@@ -2577,7 +2577,7 @@ document.getElementById('searchStaff').addEventListener('input', async (e) => {
       searchResults = result.data;
       const datalist = document.getElementById('staffSuggestions');
       datalist.innerHTML = result.data.map(staff =>
-        `<option value="${staff.name}">HRMS: ${staff.hrms_id} | CMS: ${staff.current_cms_id} | ${staff.office_name || staff.current_office_code}</option>`
+        `<option value="${staff.hrms_id}">${staff.name} | HRMS: ${staff.hrms_id} | CMS: ${staff.current_cms_id} | ${staff.office_name || staff.current_office_code}</option>`
       ).join('');
     }
   } catch (error) {
@@ -2599,15 +2599,24 @@ async function searchAndLoadStaff() {
     const result = await response.json();
 
     if (result.success && result.data.length > 0) {
-      // Find exact match by HRMS ID first
-      let staffToLoad = result.data.find(s => s.hrms_id === searchTerm);
+      // Find exact match by HRMS ID first (from datalist selection)
+      let staffToLoad = result.data.find(s => s.hrms_id === searchTerm.toUpperCase());
 
-      if (!staffToLoad) {
-        // No exact match, load first result
+      if (!staffToLoad && result.data.length === 1) {
+        // Only one result, load it
         staffToLoad = result.data[0];
+      } else if (!staffToLoad && result.data.length > 1) {
+        // Multiple results, ask user to select
+        const names = result.data.map((s, i) =>
+          `${i + 1}. ${s.name} (${s.hrms_id}) - ${s.office_name || s.current_office_code}`
+        ).join('\n');
+        alert(`Multiple staff found:\n\n${names}\n\nPlease select from the dropdown to load the correct person.`);
+        return;
       }
 
-      loadStaffData(staffToLoad);
+      if (staffToLoad) {
+        loadStaffData(staffToLoad);
+      }
     } else {
       alert('No staff found with that HRMS ID or name');
     }
