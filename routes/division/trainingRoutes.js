@@ -230,6 +230,29 @@ router.post('/', requireAuth, async (req, res) => {
 
         const conn = await req.app.locals.pool.getConnection();
 
+        // Permission check: Get staff's office and verify access
+        const [staffCheck] = await conn.query(
+            'SELECT current_office_code FROM div_staff_master WHERE hrms_id = ?',
+            [staff_hrms_id]
+        );
+
+        if (staffCheck.length === 0) {
+            conn.release();
+            return res.status(404).json({ error: 'Staff not found' });
+        }
+
+        const staffOffice = staffCheck[0].current_office_code;
+        const userOffice = req.session.user.div_office_code;
+        const userRole = req.session.user.div_role;
+
+        // Check permissions: only same office or division_admin can add
+        if (userRole !== 'division_admin' && staffOffice !== userOffice) {
+            conn.release();
+            return res.status(403).json({
+                error: 'Access denied: You can only add training records for staff from your office'
+            });
+        }
+
         const [result] = await conn.query(
             `INSERT INTO div_training_records
              (staff_hrms_id, training_id, done_date, due_date, training_center_id, general_remarks, created_at)

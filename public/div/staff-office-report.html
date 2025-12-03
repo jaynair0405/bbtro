@@ -211,9 +211,22 @@
         <div id="officeSubtext" style="color: var(--muted); font-size: 14px;"></div>
       </div>
       <div class="controls">
-        <select id="officeFilter" style="display: none;">
-          <option value="">All Offices</option>
-        </select>
+        <!-- Office Multi-Select (Admin Only) -->
+        <div class="multiselect-wrapper" id="officeMultiselectWrapper" style="display: none;">
+          <div class="multiselect-button" id="officeButton">
+            <span id="officeButtonText">All Offices</span>
+            <span>▼</span>
+          </div>
+          <div class="multiselect-dropdown" id="officeDropdown">
+            <div class="multiselect-actions">
+              <button type="button" onclick="selectAllOffices()">Select All</button>
+              <button type="button" onclick="clearAllOffices()">Clear All</button>
+            </div>
+            <div id="officeOptions"></div>
+          </div>
+        </div>
+
+        <!-- Designation Multi-Select -->
         <div class="multiselect-wrapper">
           <div class="multiselect-button" id="designationButton">
             <span id="designationButtonText">All Designations</span>
@@ -243,21 +256,32 @@
     let allDesignations = [];
     let selectedDesignations = [];
     let allOffices = [];
+    let selectedOffices = [];
 
     async function init() {
       await fetchCurrentUser();
       await fetchOffices();
       await fetchDesignations();
       await loadStaff();
-      document.getElementById('officeFilter').addEventListener('change', loadStaff);
+
+      // Setup office dropdown toggle (admin only)
+      const officeButton = document.getElementById('officeButton');
+      if (officeButton) {
+        officeButton.addEventListener('click', toggleOfficeDropdown);
+      }
 
       // Setup designation dropdown toggle
       document.getElementById('designationButton').addEventListener('click', toggleDesignationDropdown);
 
-      // Close dropdown when clicking outside
+      // Close dropdowns when clicking outside
       document.addEventListener('click', function(e) {
-        const wrapper = document.querySelector('.multiselect-wrapper');
-        if (!wrapper.contains(e.target)) {
+        const officeWrapper = document.getElementById('officeMultiselectWrapper');
+        const designationWrapper = document.querySelector('.multiselect-wrapper:not(#officeMultiselectWrapper)');
+
+        if (officeWrapper && !officeWrapper.contains(e.target)) {
+          document.getElementById('officeDropdown').classList.remove('active');
+        }
+        if (designationWrapper && !designationWrapper.contains(e.target)) {
           document.getElementById('designationDropdown').classList.remove('active');
         }
       });
@@ -277,23 +301,50 @@
 
       const res = await fetch('/api/division/offices');
       const payload = await res.json();
-      allOffices = payload?.data || payload || [];
+      allOffices = (payload?.data || payload || []).map(o => ({
+        code: o.office_code,
+        name: o.office_name
+      }));
 
-      const select = document.getElementById('officeFilter');
-      allOffices.forEach(office => {
-        const opt = document.createElement('option');
-        opt.value = office.office_code;
-        opt.textContent = office.office_name;
-        select.appendChild(opt);
+      const container = document.getElementById('officeOptions');
+      allOffices.forEach((office, index) => {
+        const optionDiv = document.createElement('div');
+        optionDiv.className = 'multiselect-option';
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.id = `office_${index}`;
+        checkbox.value = office.code;
+        checkbox.addEventListener('change', onOfficeChange);
+
+        const label = document.createElement('label');
+        label.htmlFor = `office_${index}`;
+        label.textContent = office.name;
+
+        optionDiv.appendChild(checkbox);
+        optionDiv.appendChild(label);
+        container.appendChild(optionDiv);
+
+        // Make the whole div clickable
+        optionDiv.addEventListener('click', function(e) {
+          if (e.target !== checkbox) {
+            checkbox.checked = !checkbox.checked;
+            onOfficeChange();
+          }
+        });
       });
 
-      // Show the office filter for admin
-      select.style.display = 'block';
+      // Show the office multiselect for admin
+      document.getElementById('officeMultiselectWrapper').style.display = 'inline-block';
 
       // Set initial value from URL parameter if present
       const urlOfficeCode = new URLSearchParams(window.location.search).get('office_code');
       if (urlOfficeCode) {
-        select.value = urlOfficeCode;
+        const checkbox = document.querySelector(`#officeOptions input[value="${urlOfficeCode}"]`);
+        if (checkbox) {
+          checkbox.checked = true;
+          onOfficeChange();
+        }
       }
     }
 
@@ -333,27 +384,45 @@
     }
 
     async function loadStaff() {
-      let officeCode;
+      let staffResults = [];
 
       if (currentUser.div_role === 'division_admin') {
-        // Admin can select office or view all
-        const officeSelect = document.getElementById('officeFilter');
-        officeCode = officeSelect.value; // Empty string means "All Offices"
+        // Admin: Load staff from selected offices or all if none selected
+        if (selectedOffices.length === 0) {
+          // No offices selected, load all
+          const res = await fetch('/api/division/staff');
+          const payload = await res.json();
+          staffResults = payload?.data || payload || [];
+        } else {
+          // Load staff from each selected office
+          for (const officeCode of selectedOffices) {
+            const res = await fetch(`/api/division/staff?office_code=${encodeURIComponent(officeCode)}`);
+            const payload = await res.json();
+            staffResults = staffResults.concat(payload?.data || payload || []);
+          }
+        }
       } else {
         // Non-admin users see only their office
-        officeCode = currentUser.div_office_code;
+        const res = await fetch(`/api/division/staff?office_code=${encodeURIComponent(currentUser.div_office_code)}`);
+        const payload = await res.json();
+        staffResults = payload?.data || payload || [];
       }
 
-      const res = await fetch(`/api/division/staff${officeCode ? `?office_code=${encodeURIComponent(officeCode)}` : ''}`);
-      const payload = await res.json();
-      staffData = payload?.data || payload || [];
+      staffData = staffResults;
 
       // Update title based on selection
-      if (currentUser.div_role === 'division_admin' && !officeCode) {
-        document.getElementById('officeTitle').textContent = 'All Offices';
+      if (currentUser.div_role === 'division_admin') {
+        if (selectedOffices.length === 0) {
+          document.getElementById('officeTitle').textContent = 'All Offices';
+        } else if (selectedOffices.length === 1) {
+          const office = allOffices.find(o => o.code === selectedOffices[0]);
+          document.getElementById('officeTitle').textContent = office?.name || selectedOffices[0];
+        } else {
+          document.getElementById('officeTitle').textContent = `${selectedOffices.length} Offices Selected`;
+        }
       } else {
-        const officeName = allOffices.find(o => o.office_code === officeCode)?.office_name || officeCode || currentUser.div_office_code;
-        document.getElementById('officeTitle').textContent = officeName;
+        const office = allOffices.find(o => o.code === currentUser.div_office_code);
+        document.getElementById('officeTitle').textContent = office?.name || currentUser.div_office_code;
       }
 
       document.getElementById('officeSubtext').textContent = `${staffData.length} staff records`;
@@ -455,6 +524,50 @@
       const checkboxes = document.querySelectorAll('#designationOptions input[type="checkbox"]');
       checkboxes.forEach(cb => cb.checked = false);
       onDesignationChange();
+    }
+
+    // Office Multi-Select Functions
+    function toggleOfficeDropdown(e) {
+      e.stopPropagation();
+      document.getElementById('officeDropdown').classList.toggle('active');
+    }
+
+    function onOfficeChange() {
+      // Get all checked offices
+      const checkboxes = document.querySelectorAll('#officeOptions input[type="checkbox"]');
+      selectedOffices = Array.from(checkboxes)
+        .filter(cb => cb.checked)
+        .map(cb => cb.value);
+
+      // Update button text
+      updateOfficeButtonText();
+
+      // Reload staff data
+      loadStaff();
+    }
+
+    function updateOfficeButtonText() {
+      const buttonText = document.getElementById('officeButtonText');
+      if (selectedOffices.length === 0) {
+        buttonText.innerHTML = 'All Offices';
+      } else if (selectedOffices.length === 1) {
+        const office = allOffices.find(o => o.code === selectedOffices[0]);
+        buttonText.innerHTML = office?.name || selectedOffices[0];
+      } else {
+        buttonText.innerHTML = `<span class="multiselect-count">${selectedOffices.length}</span> Offices`;
+      }
+    }
+
+    function selectAllOffices() {
+      const checkboxes = document.querySelectorAll('#officeOptions input[type="checkbox"]');
+      checkboxes.forEach(cb => cb.checked = true);
+      onOfficeChange();
+    }
+
+    function clearAllOffices() {
+      const checkboxes = document.querySelectorAll('#officeOptions input[type="checkbox"]');
+      checkboxes.forEach(cb => cb.checked = false);
+      onOfficeChange();
     }
 
     document.addEventListener('DOMContentLoaded', init);

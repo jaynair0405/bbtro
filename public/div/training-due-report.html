@@ -1143,17 +1143,26 @@
                 const result = await response.json();
 
                 if (result.success) {
-                    // Process overdue records
-                    const overdueData = result.overdue.map(record => ({
-                        ...record,
-                        proximity: getProximityTag(record.days_remaining, record.status)
-                    }));
+                    // Filter function: Exclude Shunter designations (3, 4) for Automatic training (5)
+                    const shouldExclude = (record) => {
+                        return record.training_id === 5 && (record.designation_id === 3 || record.designation_id === 4);
+                    };
 
-                    // Process in-range records
-                    const inRangeData = result.inRange.map(record => ({
-                        ...record,
-                        proximity: getProximityTag(record.days_remaining, record.status)
-                    }));
+                    // Process overdue records (filter out excluded records)
+                    const overdueData = result.overdue
+                        .filter(record => !shouldExclude(record))
+                        .map(record => ({
+                            ...record,
+                            proximity: getProximityTag(record.days_remaining, record.status)
+                        }));
+
+                    // Process in-range records (filter out excluded records)
+                    const inRangeData = result.inRange
+                        .filter(record => !shouldExclude(record))
+                        .map(record => ({
+                            ...record,
+                            proximity: getProximityTag(record.days_remaining, record.status)
+                        }));
 
                     // Store separately for rendering
                     reportData = {

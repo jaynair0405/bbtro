@@ -1577,6 +1577,9 @@ function renderTrainings(trainings) {
     return `${day}/${month}/${year}`;
   }
 
+  // Check edit permissions
+  const canEdit = checkEditPermissions();
+
   tbody.innerHTML = trainings.map((training, index) => {
     const dueDate = new Date(training.due_date);
     const daysUntilDue = Math.floor((dueDate - today) / (1000 * 60 * 60 * 24));
@@ -1593,6 +1596,12 @@ function renderTrainings(trainings) {
       statusText = `Due in ${daysUntilDue} days`;
     }
 
+    // Show Edit/Remove buttons only if user has permission
+    const actionButtons = canEdit ? `
+      <button class="btn btn-sm btn-outline-primary me-1" onclick="editTraining(${index})">Edit</button>
+      <button class="btn btn-sm btn-outline-danger" onclick="removeTraining(${training.record_id})">Remove</button>
+    ` : '<span style="color: #9ca3af;">Read-only</span>';
+
     return `
       <tr>
         <td><strong>${training.training_name}</strong></td>
@@ -1601,10 +1610,7 @@ function renderTrainings(trainings) {
         <td><span class="${statusClass}">${statusText}</span></td>
         <td>${training.center_name || '-'}</td>
         <td>${training.remarks || '-'}</td>
-        <td>
-          <button class="btn btn-sm btn-outline-primary me-1" onclick="editTraining(${index})">Edit</button>
-          <button class="btn btn-sm btn-outline-danger" onclick="removeTraining(${training.record_id})">Remove</button>
-        </td>
+        <td>${actionButtons}</td>
       </tr>
     `;
   }).join('');
@@ -2795,19 +2801,27 @@ function renderFamilyMembers(familyMembers) {
     return `${day}/${month}/${year}`;
   }
 
-  tbody.innerHTML = familyMembers.map(member => `
-    <tr>
-      <td><strong>${member.member_name}</strong><br><small style="color: #6b7280;">${member.occupation || '-'}</small></td>
-      <td><span class="badge bg-secondary">${member.relation}</span></td>
-      <td>${formatDate(member.date_of_birth)}</td>
-      <td>${calculateAge(member.date_of_birth)}</td>
-      <td>${member.is_dependent === 1 ? '<span class="badge bg-success">Yes</span>' : '<span class="badge bg-secondary">No</span>'}</td>
-      <td>
-        <button class="btn btn-sm btn-outline-primary me-1" onclick='editFamilyMember(${JSON.stringify(member)})'>Edit</button>
-        <button class="btn btn-sm btn-outline-danger" onclick="removeFamilyMember(${member.family_id})">Remove</button>
-      </td>
-    </tr>
-  `).join('');
+  // Check edit permissions
+  const canEdit = checkEditPermissions();
+
+  tbody.innerHTML = familyMembers.map(member => {
+    // Show Edit/Remove buttons only if user has permission
+    const actionButtons = canEdit ? `
+      <button class="btn btn-sm btn-outline-primary me-1" onclick='editFamilyMember(${JSON.stringify(member)})'>Edit</button>
+      <button class="btn btn-sm btn-outline-danger" onclick="removeFamilyMember(${member.family_id})">Remove</button>
+    ` : '<span style="color: #9ca3af;">Read-only</span>';
+
+    return `
+      <tr>
+        <td><strong>${member.member_name}</strong><br><small style="color: #6b7280;">${member.occupation || '-'}</small></td>
+        <td><span class="badge bg-secondary">${member.relation}</span></td>
+        <td>${formatDate(member.date_of_birth)}</td>
+        <td>${calculateAge(member.date_of_birth)}</td>
+        <td>${member.is_dependent === 1 ? '<span class="badge bg-success">Yes</span>' : '<span class="badge bg-secondary">No</span>'}</td>
+        <td>${actionButtons}</td>
+      </tr>
+    `;
+  }).join('');
 }
 
 // Edit family member - populate form with existing data
@@ -3052,6 +3066,20 @@ function setFormEditability() {
   document.getElementById('btnSaveNext').disabled = !canEdit;
   document.getElementById('btnTransfer').disabled = !canEdit;
   document.getElementById('btnChangeCLI').disabled = !canEdit;
+
+  // Disable modal "Add" buttons for other office staff
+  const addButtons = [
+    document.querySelector('#tab-family button[onclick="addFamilyMember()"]'),
+    document.querySelector('#tab-promotion button[onclick="addPromotion()"]'),
+    document.querySelector('#tab-training button[onclick="addTraining()"]'),
+    document.querySelector('#tab-detonator button[onclick="addDetonator()"]'),
+    document.getElementById('btnAddAward'),
+    document.getElementById('btnAddPunishment')
+  ];
+
+  addButtons.forEach(btn => {
+    if (btn) btn.disabled = !canEdit;
+  });
 
   // Show message if read-only
   if (!canEdit && window.currentStaffData) {
