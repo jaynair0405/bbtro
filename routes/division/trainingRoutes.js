@@ -35,6 +35,7 @@ router.get('/due-report', requireAuth, async (req, res) => {
                 s.name,
                 s.current_office_code,
                 o.office_name,
+                s.designation_id,
                 d.designation_name,
                 tt.training_id,
                 tt.training_name,
