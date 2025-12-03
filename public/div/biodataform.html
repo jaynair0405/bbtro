@@ -384,9 +384,43 @@
                     <label class="form-label req">Done Date</label>
                     <input type="date" class="form-control" id="training_done_date">
                   </div>
-                  <div class="mb-3">
+
+                  <!-- Medical Fitness Result (only for PME) -->
+                  <div class="mb-3" id="medical_fitness_group" style="display: none;">
+                    <label class="form-label req">Medical Fitness Result</label>
+                    <div class="form-check">
+                      <input class="form-check-input" type="radio" name="medical_result" id="medical_fit" value="1" checked>
+                      <label class="form-check-label" for="medical_fit">
+                        ✅ Declared Fit (Normal)
+                      </label>
+                    </div>
+                    <div class="form-check">
+                      <input class="form-check-input" type="radio" name="medical_result" id="medical_unfit" value="0">
+                      <label class="form-check-label" for="medical_unfit">
+                        ❌ Declared Unfit (Medically Decategorised)
+                      </label>
+                    </div>
+                  </div>
+
+                  <div class="mb-3" id="due_date_group">
                     <label class="form-label req">Due Date</label>
                     <input type="date" class="form-control" id="training_due_date">
+                  </div>
+
+                  <!-- Decategorization fields (only shown when Declared Unfit) -->
+                  <div id="decategorization_fields" style="display: none;">
+                    <div class="mb-3">
+                      <label class="form-label req">Decategorized Date</label>
+                      <input type="date" class="form-control" id="decategorized_date">
+                    </div>
+                    <div class="mb-3">
+                      <label class="form-label req">Decategorized Reason</label>
+                      <input type="text" class="form-control" id="decategorized_reason" placeholder="e.g., Vision impairment, Hearing loss, etc.">
+                    </div>
+                    <div class="mb-3">
+                      <label class="form-label">Medical Remarks</label>
+                      <textarea class="form-control" rows="2" id="medical_remarks" placeholder="Additional medical details (optional)"></textarea>
+                    </div>
                   </div>
                   <div class="mb-3">
                     <label class="form-label">PME Done at/Training Center</label>
@@ -984,8 +1018,45 @@ async function loadTrainingTypes() {
     // Store for later use
     window.allTrainingTypes = trainingTypes;
 
+    // Add event listener for training type change (show medical fitness options for PME)
+    trainingTypeSelect.addEventListener('change', handleTrainingTypeChange);
+
   } catch (error) {
     console.error('Error loading training types:', error);
+  }
+}
+
+// Handle training type change - show medical fitness options for PME
+function handleTrainingTypeChange() {
+  const trainingType = document.getElementById('training_type').value;
+  const medicalFitnessGroup = document.getElementById('medical_fitness_group');
+
+  // Show medical fitness options only for PME (training_id = 1)
+  if (trainingType === '1') {
+    medicalFitnessGroup.style.display = 'block';
+  } else {
+    medicalFitnessGroup.style.display = 'none';
+    // Reset to default when hidden
+    document.getElementById('medical_fit').checked = true;
+    document.getElementById('decategorization_fields').style.display = 'none';
+    document.getElementById('due_date_group').style.display = 'block';
+  }
+}
+
+// Handle medical result change - show/hide decategorization fields
+function handleMedicalResultChange() {
+  const isUnfit = document.getElementById('medical_unfit').checked;
+  const dueDateGroup = document.getElementById('due_date_group');
+  const decategorizationFields = document.getElementById('decategorization_fields');
+
+  if (isUnfit) {
+    // Hide due date, show decategorization fields
+    dueDateGroup.style.display = 'none';
+    decategorizationFields.style.display = 'block';
+  } else {
+    // Show due date, hide decategorization fields
+    dueDateGroup.style.display = 'block';
+    decategorizationFields.style.display = 'none';
   }
 }
 
@@ -1496,13 +1567,48 @@ async function loadTrainings(hrmsId) {
 async function addTraining() {
   const trainingId = document.getElementById('training_type').value;
   const doneDate = document.getElementById('training_done_date').value;
-  const dueDate = document.getElementById('training_due_date').value;
   const centerId = document.getElementById('training_center').value;
   const remarks = document.getElementById('training_remarks').value.trim();
 
-  if (!trainingId || !doneDate || !dueDate) {
-    alert('Please enter training type, done date, and due date');
+  if (!trainingId || !doneDate) {
+    alert('Please enter training type and done date');
     return;
+  }
+
+  // Check if PME and if declared unfit
+  const isPME = trainingId === '1';
+  const isUnfit = isPME && document.getElementById('medical_unfit').checked;
+
+  let dueDate = null;
+  let medicalFit = 1;
+  let decategorizedDate = null;
+  let decategorizedReason = null;
+  let medicalRemarks = null;
+
+  if (isUnfit) {
+    // Validate decategorization fields
+    decategorizedDate = document.getElementById('decategorized_date').value;
+    decategorizedReason = document.getElementById('decategorized_reason').value.trim();
+    medicalRemarks = document.getElementById('medical_remarks').value.trim();
+
+    if (!decategorizedDate || !decategorizedReason) {
+      alert('Please enter decategorized date and reason for medically unfit staff');
+      return;
+    }
+
+    medicalFit = 0;
+
+    // Confirm with user
+    if (!confirm('⚠️ This will mark the staff as "Medically Decategorised".\n\nThey will be excluded from training reports and cannot work on trains.\n\nContinue?')) {
+      return;
+    }
+  } else {
+    // Normal flow - require due date
+    dueDate = document.getElementById('training_due_date').value;
+    if (!dueDate) {
+      alert('Please enter due date');
+      return;
+    }
   }
 
   const staffHrmsId = window.currentStaffHrmsId;
@@ -1523,7 +1629,11 @@ async function addTraining() {
       done_date: doneDate,
       due_date: dueDate,
       training_center_id: centerId || null,
-      remarks: remarks || null
+      remarks: remarks || null,
+      medical_fit: medicalFit,
+      decategorized_date: decategorizedDate,
+      decategorized_reason: decategorizedReason,
+      medical_remarks: medicalRemarks
     };
 
     if (!isEditing) {
@@ -1542,6 +1652,13 @@ async function addTraining() {
       alert(result.message);
       clearTrainingForm();
       loadTrainings(staffHrmsId);
+
+      // If staff was marked as medically decategorised, reload the page to update status
+      if (isUnfit) {
+        setTimeout(() => {
+          location.reload();
+        }, 1000);
+      }
     } else {
       alert('Error: ' + result.error);
     }
@@ -1653,6 +1770,17 @@ function clearTrainingForm() {
   document.getElementById('training_due_date').value = '';
   document.getElementById('training_center').value = '';
   document.getElementById('training_remarks').value = '';
+
+  // Reset medical fitness fields
+  document.getElementById('medical_fit').checked = true;
+  document.getElementById('decategorized_date').value = '';
+  document.getElementById('decategorized_reason').value = '';
+  document.getElementById('medical_remarks').value = '';
+
+  // Hide medical fitness and decategorization sections
+  document.getElementById('medical_fitness_group').style.display = 'none';
+  document.getElementById('decategorization_fields').style.display = 'none';
+  document.getElementById('due_date_group').style.display = 'block';
 
   const addButton = document.querySelector('#tab-training button[onclick="addTraining()"]');
   addButton.textContent = '+ Add Training';
@@ -3486,6 +3614,10 @@ async function init() {
   await loadTrainingTypes();
   await loadTrainingCenters();
   await loadAllCLIs();
+
+  // Add event listeners for medical fitness result radio buttons
+  document.getElementById('medical_fit').addEventListener('change', handleMedicalResultChange);
+  document.getElementById('medical_unfit').addEventListener('change', handleMedicalResultChange);
 
   // Check if in create mode (via URL parameter)
   const urlParams = new URLSearchParams(window.location.search);

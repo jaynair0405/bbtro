@@ -115,6 +115,24 @@ app.get('/div/training-due-report.html', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'div', 'training-due-report.html'));
 });
 
+app.get('/div/decategorized-crew-report.html', (req, res) => {
+  if (!req.session.user) return res.redirect('/');
+  if (req.session.user.realm !== 'division') return res.redirect('/');
+  res.sendFile(path.join(__dirname, 'public', 'div', 'decategorized-crew-report.html'));
+});
+
+app.get('/div/staff-office-report.html', (req, res) => {
+  if (!req.session.user) return res.redirect('/');
+  if (req.session.user.realm !== 'division') return res.redirect('/');
+  res.sendFile(path.join(__dirname, 'public', 'div', 'staff-office-report.html'));
+});
+
+app.get('/div/staff-profile-report.html', (req, res) => {
+  if (!req.session.user) return res.redirect('/');
+  if (req.session.user.realm !== 'division') return res.redirect('/');
+  res.sendFile(path.join(__dirname, 'public', 'div', 'staff-profile-report.html'));
+});
+
 // If a logged-in user opens /portal.html, send them to their area
 app.get('/portal.html', (req, res) => {
   if (req.session.user) {
@@ -333,6 +351,7 @@ const promotionRoutes = require('./routes/division/promotionRoutes');
 const trainingRoutes = require('./routes/division/trainingRoutes');
 const detonatorRoutes = require('./routes/division/detonatorRoutes');
 const disciplineRoutes = require('./routes/division/disciplineRoutes');
+const draftingRoutes = require('./routes/division/draftingRoutes');
 
 // Add division routes with realm protection
 app.use("/api/division", requireRealm('division'), divisionDashboardRoutes);
@@ -346,6 +365,7 @@ app.use("/api/division/promotions", requireRealm('division'), promotionRoutes);
 app.use("/api/division/training", requireRealm('division'), trainingRoutes);
 app.use("/api/division/detonators", requireRealm('division'), detonatorRoutes);
 app.use("/api/division/discipline", requireRealm('division'), disciplineRoutes);
+app.use("/api/division/drafting", requireRealm('division'), draftingRoutes);
 // Add this directly in server.js (temporary solution)
 app.get('/api/waiting-details', async (req, res) => {
   try {

@@ -219,14 +219,36 @@ router.post('/', requireAuth, async (req, res) => {
             done_date,
             due_date,
             training_center_id,
-            remarks
+            remarks,
+            medical_fit,
+            decategorized_date,
+            decategorized_reason,
+            medical_remarks
         } = req.body;
 
-        // Validation
-        if (!staff_hrms_id || !training_id || !done_date || !due_date) {
+        // Basic validation
+        if (!staff_hrms_id || !training_id || !done_date) {
             return res.status(400).json({
-                error: 'Missing required fields: staff_hrms_id, training_id, done_date, due_date'
+                error: 'Missing required fields: staff_hrms_id, training_id, done_date'
             });
+        }
+
+        // Validate based on medical fitness
+        const isMedicallyUnfit = medical_fit === 0;
+        if (isMedicallyUnfit) {
+            // If unfit, require decategorized date and reason
+            if (!decategorized_date || !decategorized_reason) {
+                return res.status(400).json({
+                    error: 'Decategorized date and reason are required for medically unfit staff'
+                });
+            }
+        } else {
+            // If fit, require due date
+            if (!due_date) {
+                return res.status(400).json({
+                    error: 'Due date is required'
+                });
+            }
         }
 
         const conn = await req.app.locals.pool.getConnection();
@@ -254,25 +276,43 @@ router.post('/', requireAuth, async (req, res) => {
             });
         }
 
+        // Insert training record with all fields
         const [result] = await conn.query(
             `INSERT INTO div_training_records
-             (staff_hrms_id, training_id, done_date, due_date, training_center_id, general_remarks, created_at)
-             VALUES (?, ?, ?, ?, ?, ?, NOW())`,
+             (staff_hrms_id, training_id, done_date, due_date, training_center_id, general_remarks,
+              medical_fit, decategorized_date, decategorized_reason, medical_remarks, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
             [
                 staff_hrms_id,
                 training_id,
                 done_date,
-                due_date,
+                due_date || null,
                 training_center_id || null,
-                remarks || null
+                remarks || null,
+                medical_fit !== undefined ? medical_fit : 1,
+                decategorized_date || null,
+                decategorized_reason || null,
+                medical_remarks || null
             ]
         );
+
+        // If medically unfit, update staff status to "Medically Decategorised"
+        if (isMedicallyUnfit) {
+            await conn.query(
+                `UPDATE div_staff_master
+                 SET status = 'Medically Decategorised', updated_at = NOW()
+                 WHERE hrms_id = ?`,
+                [staff_hrms_id]
+            );
+        }
 
         conn.release();
 
         res.json({
             success: true,
-            message: 'Training record added successfully',
+            message: isMedicallyUnfit
+                ? 'Training record added and staff marked as Medically Decategorised'
+                : 'Training record added successfully',
             record_id: result.insertId
         });
 

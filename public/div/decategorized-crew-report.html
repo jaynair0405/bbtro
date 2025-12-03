@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Medically Decategorised Crew - Division Portal</title>
+    <link rel="stylesheet" href="/div/css/division-main.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        body {
+            background: #f5f7fa;
+        }
+
+        .report-page {
+            max-width: 1400px;
+            margin: 32px auto;
+            padding: 0 24px 48px;
+        }
+
+        .report-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: white;
+            border-radius: 16px;
+            padding: 24px 28px;
+            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+            margin-bottom: 24px;
+        }
+
+        .report-header h1 {
+            margin: 0;
+            font-size: 28px;
+            color: #1f2937;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .back-link {
+            background: #eef2ff;
+            color: #4338ca;
+            border: none;
+            padding: 10px 18px;
+            border-radius: 999px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.15s ease;
+            text-decoration: none;
+        }
+
+        .back-link:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 12px rgba(67, 56, 202, 0.15);
+        }
+
+        .filters-card {
+            background: white;
+            border-radius: 16px;
+            padding: 24px 28px;
+            box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
+            margin-bottom: 24px;
+        }
+
+        .filter-row {
+            display: flex;
+            gap: 16px;
+            align-items: flex-end;
+        }
+
+        .filter {
+            flex: 1;
+        }
+
+        .filter label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 6px;
+            letter-spacing: 0.02em;
+            text-transform: uppercase;
+        }
+
+        .filter select {
+            width: 100%;
+            padding: 11px 14px;
+            border-radius: 10px;
+            border: 1px solid #d1d5db;
+            font-size: 14px;
+            background: #f9fafb;
+        }
+
+        .filter select:focus {
+            outline: none;
+            border-color: #4338ca;
+            box-shadow: 0 0 0 3px rgba(67, 56, 202, 0.1);
+        }
+
+        .btn-load {
+            background: linear-gradient(135deg, #4338ca 0%, #6366f1 100%);
+            color: white;
+            border: none;
+            padding: 11px 24px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        .btn-load:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 16px rgba(67, 56, 202, 0.25);
+        }
+
+        .btn-export {
+            background: #10b981;
+            color: white;
+            border: none;
+            padding: 11px 24px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.15s ease;
+        }
+
+        .btn-export:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 16px rgba(16, 185, 129, 0.25);
+        }
+
+        .results-card {
+            background: white;
+            border-radius: 16px;
+            padding: 28px;
+            box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
+        }
+
+        .results-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 16px;
+            border-bottom: 2px solid #f3f4f6;
+        }
+
+        .results-header h2 {
+            margin: 0;
+            font-size: 20px;
+            color: #1f2937;
+        }
+
+        .count-badge {
+            background: #dbeafe;
+            color: #1e40af;
+            padding: 6px 14px;
+            border-radius: 999px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        .data-table thead {
+            background: #f9fafb;
+            border-bottom: 2px solid #e5e7eb;
+        }
+
+        .data-table th {
+            text-align: left;
+            padding: 12px 14px;
+            font-weight: 600;
+            color: #374151;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.02em;
+        }
+
+        .data-table td {
+            padding: 14px;
+            border-bottom: 1px solid #f3f4f6;
+            color: #4b5563;
+        }
+
+        .data-table tbody tr:hover {
+            background: #fafbfc;
+        }
+
+        .staff-name {
+            font-weight: 600;
+            color: #1f2937;
+        }
+
+        .hrms-id {
+            font-family: 'Courier New', monospace;
+            background: #f3f4f6;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        .office-badge {
+            background: #dbeafe;
+            color: #1e40af;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .date-text {
+            color: #dc2626;
+            font-weight: 600;
+        }
+
+        .reason-text {
+            color: #ea580c;
+            font-weight: 500;
+        }
+
+        .remarks-text {
+            color: #6b7280;
+            font-style: italic;
+            font-size: 13px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #9ca3af;
+        }
+
+        .empty-state-icon {
+            font-size: 64px;
+            margin-bottom: 16px;
+        }
+
+        .empty-state-text {
+            font-size: 16px;
+            font-weight: 500;
+        }
+
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+            .report-page {
+                max-width: 100%;
+                margin: 0;
+                padding: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="report-page">
+        <!-- Header -->
+        <div class="report-header">
+            <h1>
+                <span>🩺</span>
+                Medically Decategorised Crew
+            </h1>
+            <a href="/div/" class="back-link no-print">← Back to Dashboard</a>
+        </div>
+
+        <!-- Filters -->
+        <div class="filters-card no-print">
+            <div class="filter-row">
+                <div class="filter" id="officeFilterDiv" style="display: none;">
+                    <label for="officeFilter">Office</label>
+                    <select id="officeFilter">
+                        <option value="ALL">All Offices</option>
+                    </select>
+                </div>
+                <button class="btn-load" onclick="loadData()">🔍 Load Data</button>
+                <button class="btn-export" onclick="exportToPDF()">📥 Export PDF</button>
+            </div>
+        </div>
+
+        <!-- Results -->
+        <div class="results-card">
+            <div class="results-header">
+                <h2>Decategorised Staff List</h2>
+                <span class="count-badge" id="countBadge">0 Staff</span>
+            </div>
+
+            <div id="resultsContainer">
+                <div class="empty-state">
+                    <div class="empty-state-icon">📋</div>
+                    <div class="empty-state-text">Click "Load Data" to view decategorised crew</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentUser = null;
+
+        // Check authentication and permissions
+        async function checkAuth() {
+            try {
+                const response = await fetch('/api/current-user');
+
+                if (!response.ok) {
+                    window.location.href = '/';
+                    return;
+                }
+
+                const result = await response.json();
+                currentUser = result;
+
+                // Show office filter only for admins
+                if (currentUser.div_role === 'division_admin') {
+                    document.getElementById('officeFilterDiv').style.display = 'block';
+                    await loadOffices();
+                }
+
+            } catch (error) {
+                console.error('Error checking auth:', error);
+                window.location.href = '/';
+            }
+        }
+
+        // Load offices for admin users
+        async function loadOffices() {
+            try {
+                const response = await fetch('/api/division/offices');
+                const result = await response.json();
+                const offices = result.data || result;
+
+                const select = document.getElementById('officeFilter');
+                select.innerHTML = '<option value="ALL">All Offices</option>';
+
+                offices.forEach(office => {
+                    const option = document.createElement('option');
+                    option.value = office.office_code;
+                    option.textContent = `${office.office_code} - ${office.office_name}`;
+                    select.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Error loading offices:', error);
+            }
+        }
+
+        // Load decategorized crew data
+        async function loadData() {
+            try {
+                const officeCode = document.getElementById('officeFilter').value;
+                const url = `/api/division/decategorized-crew?office_code=${officeCode}`;
+
+                const response = await fetch(url);
+                const result = await response.json();
+
+                if (result.success) {
+                    renderData(result.data);
+                } else {
+                    alert('Error loading data: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Error loading data:', error);
+                alert('Error loading data');
+            }
+        }
+
+        // Render data table
+        function renderData(data) {
+            const container = document.getElementById('resultsContainer');
+            const countBadge = document.getElementById('countBadge');
+
+            countBadge.textContent = `${data.length} Staff`;
+
+            if (data.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">✅</div>
+                        <div class="empty-state-text">No medically decategorised staff found</div>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = `
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>HRMS ID</th>
+                            <th>Office</th>
+                            <th>Designation</th>
+                            <th>Decategorized Date</th>
+                            <th>Reason</th>
+                            <th>Remarks</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            data.forEach(staff => {
+                html += `
+                    <tr>
+                        <td class="staff-name">${staff.name}</td>
+                        <td><span class="hrms-id">${staff.hrms_id}</span></td>
+                        <td><span class="office-badge">${staff.current_office_code}</span></td>
+                        <td>${staff.designation_name || '—'}</td>
+                        <td class="date-text">${staff.decategorized_date ? formatDate(staff.decategorized_date) : '—'}</td>
+                        <td class="reason-text">${staff.decategorized_reason || '—'}</td>
+                        <td class="remarks-text">${staff.medical_remarks || '—'}</td>
+                    </tr>
+                `;
+            });
+
+            html += `
+                    </tbody>
+                </table>
+            `;
+
+            container.innerHTML = html;
+        }
+
+        // Format date
+        function formatDate(dateString) {
+            if (!dateString) return '—';
+            const date = new Date(dateString);
+            return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+        }
+
+        // Export to PDF
+        function exportToPDF() {
+            const element = document.querySelector('.report-page');
+            const opt = {
+                margin: [10, 10, 10, 10],
+                filename: `Decategorised_Crew_${new Date().toISOString().split('T')[0]}.pdf`,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, useCORS: true },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
+            };
+            html2pdf().set(opt).from(element).save();
+        }
+
+        // Initialize
+        window.addEventListener('DOMContentLoaded', () => {
+            checkAuth();
+        });
+    </script>
+</body>
+</html>

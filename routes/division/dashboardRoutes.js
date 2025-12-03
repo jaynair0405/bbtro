@@ -457,6 +457,7 @@ router.get('/dashboard-stats', async (req, res) => {
             WHERE tr.training_id = 1
             AND tr.due_date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
             AND tr.due_date <= LAST_DAY(CURDATE())
+            AND s.status = 'Active'
         `;
         const pmeParams = [];
 
@@ -512,6 +513,7 @@ router.get('/pme-completed', async (req, res) => {
             AND tr.done_date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
             AND tr.done_date <= CURDATE()
             AND tr.done_date IS NOT NULL
+            AND s.status = 'Active'
         `;
 
         const params = [];
@@ -536,6 +538,73 @@ router.get('/pme-completed', async (req, res) => {
 
     } catch (error) {
         console.error('Error fetching PME completed:', error);
+        res.status(500).json({ error: 'Database error', details: error.message });
+    }
+});
+
+// GET /api/division/decategorized-crew - Get list of medically decategorized staff
+router.get('/decategorized-crew', async (req, res) => {
+    try {
+        const { office_code } = req.query;
+        const userRole = req.session.user.div_role;
+        const userOffice = req.session.user.div_office_code;
+        const conn = await req.app.locals.pool.getConnection();
+
+        let query = `
+            SELECT
+                s.hrms_id,
+                s.name,
+                s.current_office_code,
+                o.office_name,
+                s.designation_id,
+                d.designation_name,
+                s.date_of_birth,
+                s.phone_number,
+                tr.decategorized_date,
+                tr.decategorized_reason,
+                tr.medical_remarks,
+                tr.done_date as examination_date
+            FROM div_staff_master s
+            LEFT JOIN offices o ON s.current_office_code = o.office_code
+            LEFT JOIN designations d ON s.designation_id = d.id
+            LEFT JOIN (
+                SELECT
+                    staff_hrms_id,
+                    decategorized_date,
+                    decategorized_reason,
+                    medical_remarks,
+                    done_date,
+                    ROW_NUMBER() OVER (PARTITION BY staff_hrms_id ORDER BY decategorized_date DESC, record_id DESC) as rn
+                FROM div_training_records
+                WHERE medical_fit = 0
+                AND decategorized_date IS NOT NULL
+            ) tr ON s.hrms_id = tr.staff_hrms_id AND tr.rn = 1
+            WHERE s.status = 'Medically Decategorised'
+        `;
+
+        const params = [];
+
+        // Office-based access control
+        if (userRole !== 'division_admin') {
+            query += ' AND s.current_office_code = ?';
+            params.push(userOffice);
+        } else if (office_code && office_code !== 'ALL') {
+            query += ' AND s.current_office_code = ?';
+            params.push(office_code);
+        }
+
+        query += ' ORDER BY s.name ASC';
+
+        const [results] = await conn.query(query, params);
+        conn.release();
+
+        res.json({
+            success: true,
+            data: results
+        });
+
+    } catch (error) {
+        console.error('Error fetching decategorized crew:', error);
         res.status(500).json({ error: 'Database error', details: error.message });
     }
 });
