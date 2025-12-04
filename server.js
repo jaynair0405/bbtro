@@ -121,6 +121,12 @@ app.get('/div/decategorized-crew-report.html', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'div', 'decategorized-crew-report.html'));
 });
 
+app.get('/div/drafted-staff-report.html', (req, res) => {
+  if (!req.session.user) return res.redirect('/');
+  if (req.session.user.realm !== 'division') return res.redirect('/');
+  res.sendFile(path.join(__dirname, 'public', 'div', 'drafted-staff-report.html'));
+});
+
 app.get('/div/staff-office-report.html', (req, res) => {
   if (!req.session.user) return res.redirect('/');
   if (req.session.user.realm !== 'division') return res.redirect('/');

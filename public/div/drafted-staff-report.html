@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drafted/Ex-Cadre Staff - Division Portal</title>
+    <link rel="stylesheet" href="/div/css/division-main.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        body {
+            background: #f5f7fa;
+        }
+
+        .report-page {
+            max-width: 1400px;
+            margin: 32px auto;
+            padding: 0 24px 48px;
+        }
+
+        .report-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: white;
+            border-radius: 16px;
+            padding: 24px 28px;
+            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+            margin-bottom: 24px;
+        }
+
+        .report-header h1 {
+            margin: 0;
+            font-size: 28px;
+            color: #1f2937;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .back-link {
+            background: #eef2ff;
+            color: #4338ca;
+            border: none;
+            padding: 10px 18px;
+            border-radius: 999px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.15s ease;
+            text-decoration: none;
+        }
+
+        .back-link:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 12px rgba(67, 56, 202, 0.15);
+        }
+
+        .filters-card {
+            background: white;
+            border-radius: 16px;
+            padding: 24px 28px;
+            box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
+            margin-bottom: 24px;
+        }
+
+        .filter-row {
+            display: flex;
+            gap: 16px;
+            align-items: flex-end;
+            flex-wrap: wrap;
+        }
+
+        .filter {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .filter label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 6px;
+            letter-spacing: 0.02em;
+            text-transform: uppercase;
+        }
+
+        .filter select {
+            width: 100%;
+            padding: 11px 14px;
+            border-radius: 10px;
+            border: 1px solid #d1d5db;
+            font-size: 14px;
+            background: #f9fafb;
+        }
+
+        .filter select:focus {
+            outline: none;
+            border-color: #4338ca;
+            box-shadow: 0 0 0 3px rgba(67, 56, 202, 0.1);
+        }
+
+        .btn-load {
+            background: linear-gradient(135deg, #4338ca 0%, #6366f1 100%);
+            color: white;
+            border: none;
+            padding: 11px 24px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        .btn-load:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 16px rgba(67, 56, 202, 0.25);
+        }
+
+        .btn-export {
+            background: #10b981;
+            color: white;
+            border: none;
+            padding: 11px 24px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.15s ease;
+        }
+
+        .btn-export:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 16px rgba(16, 185, 129, 0.25);
+        }
+
+        .results-card {
+            background: white;
+            border-radius: 16px;
+            padding: 28px;
+            box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
+        }
+
+        .results-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 16px;
+            border-bottom: 2px solid #f3f4f6;
+        }
+
+        .results-header h2 {
+            margin: 0;
+            font-size: 20px;
+            color: #1f2937;
+        }
+
+        .count-badge {
+            background: #dbeafe;
+            color: #1e40af;
+            padding: 6px 14px;
+            border-radius: 999px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        .data-table thead {
+            background: #f9fafb;
+            border-bottom: 2px solid #e5e7eb;
+        }
+
+        .data-table th {
+            text-align: left;
+            padding: 12px 14px;
+            font-weight: 600;
+            color: #374151;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.02em;
+        }
+
+        .data-table td {
+            padding: 14px;
+            border-bottom: 1px solid #f3f4f6;
+            color: #4b5563;
+        }
+
+        .data-table tbody tr:hover {
+            background: #fafbfc;
+        }
+
+        .staff-name {
+            font-weight: 600;
+            color: #1f2937;
+        }
+
+        .hrms-id {
+            font-family: 'Courier New', monospace;
+            background: #f3f4f6;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        .office-badge {
+            background: #dbeafe;
+            color: #1e40af;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .post-badge {
+            background: #fef3c7;
+            color: #92400e;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .date-text {
+            color: #059669;
+            font-weight: 600;
+        }
+
+        .duration-text {
+            color: #6366f1;
+            font-weight: 500;
+        }
+
+        .btn-relieve {
+            background: #ef4444;
+            color: white;
+            border: none;
+            padding: 6px 14px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.15s ease;
+        }
+
+        .btn-relieve:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(239, 68, 68, 0.25);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #9ca3af;
+        }
+
+        .empty-state-icon {
+            font-size: 64px;
+            margin-bottom: 16px;
+        }
+
+        .empty-state-text {
+            font-size: 16px;
+            font-weight: 500;
+        }
+
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+            .report-page {
+                max-width: 100%;
+                margin: 0;
+                padding: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="report-page">
+        <!-- Header -->
+        <div class="report-header">
+            <h1>
+                <span>👔</span>
+                Drafted/Ex-Cadre Staff
+            </h1>
+            <a href="/div/" class="back-link no-print">← Back to Dashboard</a>
+        </div>
+
+        <!-- Filters -->
+        <div class="filters-card no-print">
+            <div class="filter-row">
+                <div class="filter" id="officeFilterDiv" style="display: none;">
+                    <label for="officeFilter">Office</label>
+                    <select id="officeFilter">
+                        <option value="ALL">All Offices</option>
+                    </select>
+                </div>
+                <div class="filter">
+                    <label for="statusFilter">Status</label>
+                    <select id="statusFilter">
+                        <option value="Active">Currently Drafted</option>
+                        <option value="ALL">All (Including Relieved)</option>
+                    </select>
+                </div>
+                <button class="btn-load" onclick="loadData()">🔍 Load Data</button>
+                <button class="btn-export" onclick="exportToPDF()">📥 Export PDF</button>
+            </div>
+        </div>
+
+        <!-- Results -->
+        <div class="results-card">
+            <div class="results-header">
+                <h2>Drafted Staff List</h2>
+                <span class="count-badge" id="countBadge">0 Staff</span>
+            </div>
+
+            <div id="resultsContainer">
+                <div class="empty-state">
+                    <div class="empty-state-icon">📋</div>
+                    <div class="empty-state-text">Click "Load Data" to view drafted staff</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Relieve Modal -->
+    <div class="modal fade" id="relieveModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Relieve from Drafted Post</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p style="margin-bottom: 16px;">
+                        <strong>Staff:</strong> <span id="relieveStaffName"></span> (<span id="relieveStaffHRMS"></span>)
+                    </p>
+                    <p style="margin-bottom: 20px; color: #6b7280;">
+                        <strong>Drafted to:</strong> <span id="relieveDraftedPost"></span>
+                    </p>
+
+                    <div class="mb-3">
+                        <label class="form-label req">Relieved Date</label>
+                        <input type="date" class="form-control" id="relievedDate" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Relieving Order Number</label>
+                        <input type="text" class="form-control" id="relievingOrderNumber" placeholder="e.g., BB/DIV/HR/2025/050">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Remarks</label>
+                        <textarea class="form-control" id="relieveRemarks" rows="2" placeholder="Optional remarks"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-danger" onclick="submitRelieve()">Relieve Staff</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let currentUser = null;
+        let currentRecordId = null;
+
+        // Check authentication and permissions
+        async function checkAuth() {
+            try {
+                const response = await fetch('/api/current-user');
+
+                if (!response.ok) {
+                    window.location.href = '/';
+                    return;
+                }
+
+                const result = await response.json();
+                currentUser = result;
+
+                // Show office filter only for admins
+                if (currentUser.div_role === 'division_admin') {
+                    document.getElementById('officeFilterDiv').style.display = 'block';
+                    await loadOffices();
+                }
+
+            } catch (error) {
+                console.error('Error checking auth:', error);
+                window.location.href = '/';
+            }
+        }
+
+        // Load offices for admin users
+        async function loadOffices() {
+            try {
+                const response = await fetch('/api/division/offices');
+                const result = await response.json();
+                const offices = result.data || result;
+
+                const select = document.getElementById('officeFilter');
+                select.innerHTML = '<option value="ALL">All Offices</option>';
+
+                offices.forEach(office => {
+                    const option = document.createElement('option');
+                    option.value = office.office_code;
+                    option.textContent = `${office.office_code} - ${office.office_name}`;
+                    select.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Error loading offices:', error);
+            }
+        }
+
+        // Load drafted staff data
+        async function loadData() {
+            try {
+                const officeCode = document.getElementById('officeFilter').value;
+                const status = document.getElementById('statusFilter').value;
+                const url = `/api/division/drafting/report/list?office_code=${officeCode}&status=${status}`;
+
+                const response = await fetch(url);
+                const result = await response.json();
+
+                if (result.success) {
+                    renderData(result.data);
+                } else {
+                    alert('Error loading data: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Error loading data:', error);
+                alert('Error loading data');
+            }
+        }
+
+        // Render data table
+        function renderData(data) {
+            const container = document.getElementById('resultsContainer');
+            const countBadge = document.getElementById('countBadge');
+
+            countBadge.textContent = `${data.length} Staff`;
+
+            if (data.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">✅</div>
+                        <div class="empty-state-text">No drafted staff found</div>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = `
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>HRMS ID</th>
+                            <th>Office</th>
+                            <th>Original Designation</th>
+                            <th>Drafted to Post</th>
+                            <th>Drafted Date</th>
+                            <th>Duration</th>
+                            <th>Type</th>
+                            <th class="no-print">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            data.forEach(staff => {
+                const daysOnPost = staff.days_on_post || 0;
+                const yearsOnPost = (daysOnPost / 365).toFixed(1);
+                const durationDisplay = staff.expected_duration_years
+                    ? `${yearsOnPost}/${staff.expected_duration_years} years`
+                    : `${yearsOnPost} years`;
+
+                html += `
+                    <tr>
+                        <td class="staff-name">${staff.name}</td>
+                        <td><span class="hrms-id">${staff.hrms_id}</span></td>
+                        <td><span class="office-badge">${staff.current_office_code}</span></td>
+                        <td>${staff.original_designation_name || '—'}</td>
+                        <td><span class="post-badge">${staff.drafted_to_designation_name}</span></td>
+                        <td class="date-text">${formatDate(staff.drafted_date)}</td>
+                        <td class="duration-text">${durationDisplay}</td>
+                        <td>${staff.drafting_type}</td>
+                        <td class="no-print">
+                            ${staff.status === 'Active'
+                                ? `<button class="btn-relieve" onclick="openRelieveModal(${staff.record_id}, '${staff.name}', '${staff.hrms_id}', '${staff.drafted_to_designation_name}')">Relieve</button>`
+                                : '<span style="color: #6b7280;">Relieved</span>'}
+                        </td>
+                    </tr>
+                `;
+            });
+
+            html += `
+                    </tbody>
+                </table>
+            `;
+
+            container.innerHTML = html;
+        }
+
+        // Format date
+        function formatDate(dateString) {
+            if (!dateString) return '—';
+            const date = new Date(dateString);
+            return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+        }
+
+        // Open relieve modal
+        function openRelieveModal(recordId, staffName, staffHrms, draftedPost) {
+            currentRecordId = recordId;
+            document.getElementById('relieveStaffName').textContent = staffName;
+            document.getElementById('relieveStaffHRMS').textContent = staffHrms;
+            document.getElementById('relieveDraftedPost').textContent = draftedPost;
+            document.getElementById('relievedDate').valueAsDate = new Date();
+
+            const modal = new bootstrap.Modal(document.getElementById('relieveModal'));
+            modal.show();
+        }
+
+        // Submit relieve
+        async function submitRelieve() {
+            const relievedDate = document.getElementById('relievedDate').value;
+            const relievingOrderNumber = document.getElementById('relievingOrderNumber').value.trim();
+            const remarks = document.getElementById('relieveRemarks').value.trim();
+
+            if (!relievedDate) {
+                alert('Please enter relieved date');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/division/drafting/${currentRecordId}/relieve`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        relieved_date: relievedDate,
+                        relieving_order_number: relievingOrderNumber || null,
+                        remarks: remarks || null
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    alert('✅ Staff relieved from drafted post successfully!');
+                    bootstrap.Modal.getInstance(document.getElementById('relieveModal')).hide();
+                    loadData(); // Reload data
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Error relieving staff:', error);
+                alert('Error relieving staff');
+            }
+        }
+
+        // Export to PDF
+        function exportToPDF() {
+            const element = document.querySelector('.report-page');
+            const opt = {
+                margin: [10, 10, 10, 10],
+                filename: `Drafted_Staff_${new Date().toISOString().split('T')[0]}.pdf`,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, useCORS: true },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
+            };
+            html2pdf().set(opt).from(element).save();
+        }
+
+        // Initialize
+        window.addEventListener('DOMContentLoaded', () => {
+            checkAuth();
+        });
+    </script>
+</body>
+</html>

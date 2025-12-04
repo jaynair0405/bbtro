@@ -7,7 +7,8 @@ const STAFF_STATUS_OPTIONS = new Set([
     'Retired',
     'Suspended',
     'Promoted to CLI',
-    'Medically Decategorised'
+    'Medically Decategorised',
+    'Drafted/Ex-Cadre'
 ]);
 
 // GET /api/division/offices - Get all offices
