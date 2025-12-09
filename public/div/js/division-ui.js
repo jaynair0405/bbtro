@@ -631,7 +631,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 const result = await response.json();
 
                 if (result.success) {
-                    alert('Transfer request accepted successfully!\n\nStaff member has been added to your office.');
+                    let message = 'Transfer request accepted successfully!\n\nStaff member has been added to your office.';
+
+                    // Add info message if staff is returning to original CMS ID
+                    if (result.info) {
+                        message += '\n\nℹ️ INFO: ' + result.info;
+                    }
+
+                    alert(message);
                     closeAcceptModal();
                     closeTransferModal();
                     // Reload pending transfers count

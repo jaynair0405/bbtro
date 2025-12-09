@@ -1,7 +1,7 @@
 -- ============================================
 -- Division Portal Office Users
 -- Generated: 2025-12-03
--- Total Users: 10
+-- Total Users: 11
 -- MySQL 8.0.20+ Compatible (No Warnings)
 -- ============================================
 
@@ -31,6 +31,17 @@ INSERT INTO users (username, password, full_name, realm, div_role, div_office_co
 VALUES ('csmtsubsrcc', '$2b$10$bjyckwU6Ard7OCmZfDkA4uKujNA9wEcIv2IF1tpd60gb149OC9TAC', 'CSMT Sub Office SRCC', 'division', 'office_hr', 'CSMT-SUB') AS new
 ON DUPLICATE KEY UPDATE
   password = new.password,
+  full_name = new.full_name,
+  div_role = new.div_role,
+  div_office_code = new.div_office_code;
+
+-- Office: CSMT-HQ
+-- Username: clicadrebb | Password: clicadre@bbtro13
+INSERT INTO users (username, password, role, full_name, realm, div_role, div_office_code)
+VALUES ('clicadrebb', '$2b$10$bjmwqA2PzsqbLDeWh3WKRe1eaSlPstApQztg6z.IFT7GCbheyxbOa', 'admin', 'CLI CADRE BB TRO', 'division', 'division_admin', 'CSMT-HQ') AS new
+ON DUPLICATE KEY UPDATE
+  password = new.password,
+  role = new.role,
   full_name = new.full_name,
   div_role = new.div_role,
   div_office_code = new.div_office_code;
@@ -114,6 +125,7 @@ ON DUPLICATE KEY UPDATE
 -- CLA            clasrcc             cla@bbtro45              office_hr
 -- CSMT-ML        csmtmlsrcc          csmtml@trobb28           office_hr
 -- CSMT-SUB       csmtsubsrcc         csmtsub@tro12            office_hr
+-- CSMT-HQ        clicadrebb          clicadre@bbtro13         division_admin
 -- IGP            igpsrcc             igp@trobb89              office_hr
 -- KYN-ML         kynmlsrcc           kynml@bbtro33            office_hr
 -- KYN-SUB        kynsubsrcc          kynsub@tro76             office_hr

@@ -167,11 +167,22 @@ router.put('/transfer-request/:id/accept', requireAuth, async (req, res) => {
             [new_cms_id.trim().toUpperCase(), new_cms_id.trim().toUpperCase()]
         );
 
+        let isReturningToOriginalCMS = false;
+
         if (duplicateCheck.length > 0) {
-            conn.release();
-            return res.status(409).json({
-                error: `CMS ID ${new_cms_id.toUpperCase()} is already assigned to ${duplicateCheck[0].name} (${duplicateCheck[0].hrms_id})`
-            });
+            // Check if the CMS ID belongs to the same staff member (same HRMS ID)
+            const existingStaff = duplicateCheck[0];
+
+            if (existingStaff.hrms_id !== staff_hrms_id) {
+                // CMS ID is assigned to a DIFFERENT staff member - BLOCK
+                conn.release();
+                return res.status(409).json({
+                    error: `CMS ID ${new_cms_id.toUpperCase()} is already assigned to ${existingStaff.name} (${existingStaff.hrms_id})`
+                });
+            } else {
+                // CMS ID was originally assigned to THIS staff member - ALLOW with info
+                isReturningToOriginalCMS = true;
+            }
         }
 
         await conn.beginTransaction();
@@ -261,7 +272,9 @@ router.put('/transfer-request/:id/accept', requireAuth, async (req, res) => {
 
             res.json({
                 success: true,
-                message: 'Transfer request accepted and staff transferred successfully'
+                message: 'Transfer request accepted and staff transferred successfully',
+                info: isReturningToOriginalCMS ?
+                    `Staff member has been reassigned their original CMS ID (${new_cms_id.toUpperCase()})` : null
             });
 
         } catch (error) {
