@@ -161,34 +161,10 @@ router.put('/transfer-request/:id/accept', requireAuth, async (req, res) => {
 
         const conn = await req.app.locals.pool.getConnection();
 
-        // Check for duplicate CMS ID
-        const [duplicateCheck] = await conn.query(
-            'SELECT hrms_id, name FROM div_staff_master WHERE current_cms_id = ? OR original_cms_id = ?',
-            [new_cms_id.trim().toUpperCase(), new_cms_id.trim().toUpperCase()]
-        );
-
-        let isReturningToOriginalCMS = false;
-
-        if (duplicateCheck.length > 0) {
-            // Check if the CMS ID belongs to the same staff member (same HRMS ID)
-            const existingStaff = duplicateCheck[0];
-
-            if (existingStaff.hrms_id !== staff_hrms_id) {
-                // CMS ID is assigned to a DIFFERENT staff member - BLOCK
-                conn.release();
-                return res.status(409).json({
-                    error: `CMS ID ${new_cms_id.toUpperCase()} is already assigned to ${existingStaff.name} (${existingStaff.hrms_id})`
-                });
-            } else {
-                // CMS ID was originally assigned to THIS staff member - ALLOW with info
-                isReturningToOriginalCMS = true;
-            }
-        }
-
         await conn.beginTransaction();
 
         try {
-            // Get transfer request details
+            // Get transfer request details FIRST
             const [request] = await conn.query(
                 'SELECT * FROM div_transfer_requests WHERE request_id = ?',
                 [id]
@@ -208,6 +184,31 @@ router.put('/transfer-request/:id/accept', requireAuth, async (req, res) => {
                 return res.status(400).json({
                     error: `Cannot accept transfer request with status: ${transferReq.status}`
                 });
+            }
+
+            // NOW check for duplicate CMS ID (after we have transferReq.staff_hrms_id)
+            const [duplicateCheck] = await conn.query(
+                'SELECT hrms_id, name FROM div_staff_master WHERE current_cms_id = ? OR original_cms_id = ?',
+                [new_cms_id.trim().toUpperCase(), new_cms_id.trim().toUpperCase()]
+            );
+
+            let isReturningToOriginalCMS = false;
+
+            if (duplicateCheck.length > 0) {
+                // Check if the CMS ID belongs to the same staff member (same HRMS ID)
+                const existingStaff = duplicateCheck[0];
+
+                if (existingStaff.hrms_id !== transferReq.staff_hrms_id) {
+                    // CMS ID is assigned to a DIFFERENT staff member - BLOCK
+                    await conn.rollback();
+                    conn.release();
+                    return res.status(409).json({
+                        error: `CMS ID ${new_cms_id.toUpperCase()} is already assigned to ${existingStaff.name} (${existingStaff.hrms_id})`
+                    });
+                } else {
+                    // CMS ID was originally assigned to THIS staff member - ALLOW with info
+                    isReturningToOriginalCMS = true;
+                }
             }
 
             // Update transfer request
