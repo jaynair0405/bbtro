@@ -20,24 +20,93 @@ const wheelMovementRoutes = require('./routes/wheelMovementRoutes');
 
 const utilityRoutes = require('./routes/utilityRoutes');
 const session = require('express-session');
-
+const MySQLStore = require('express-mysql-session')(session);
 
 const authRoutes = require('./routes/authRoutes');
 const app = express();
 const PORT = 3000;
 
-app.use(express.json());
+// app.use(express.json());
 
+// app.use(session({
+//   //secret: 'railway-bbtro-secret-key-2025',
+//   secret: process.env.SESSION_SECRET,
+//   resave: false,
+//   saveUninitialized: false,
+//   cookie: { 
+//       maxAge: 8 * 60 * 60 * 1000, // 8 hours
+//       secure: false // Keep false for development (http)
+//   }
+// }));
+
+const sessionStoreOptions = {
+  host: process.env.DB_HOST,
+  port: 3306,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+  clearExpired: true,
+  checkExpirationInterval: 900000, // 15 minutes
+  expiration: 8 * 60 * 60 * 1000, // 8 hours
+  createDatabaseTable: true,
+  schema: {
+    tableName: 'sessions',
+    columnNames: {
+      session_id: 'session_id',
+      expires: 'expires',
+      data: 'data'
+    }
+  }
+};
+
+const sessionStore = new MySQLStore(sessionStoreOptions);                                  
+                                                                                             
+  // Add error and success logging                                                           
+  sessionStore.on('error', function(error) {                                                 
+    console.error('[SESSION STORE ERROR]:', error);                                          
+  });                                                                                        
+                                                                                             
+  sessionStore.on('connect', function() {                                                    
+    console.log('[SESSION STORE] Connected to MySQL');                                       
+  });                                                                                        
+                                                                                             
+  console.log('[SESSION STORE] Initialized'); 
+
+// app.use(express.json());
+// ✅ Do NOT body-parse proxied RTIS requests; it breaks POST proxying
+app.use((req, res, next) => {
+  if (req.originalUrl.startsWith("/spm/rtis")) return next();
+  express.json()(req, res, next);
+});
+
+// Session middleware with MySQL store
 app.use(session({
-  //secret: 'railway-bbtro-secret-key-2025',
+  key: 'connect.sid',
   secret: process.env.SESSION_SECRET,
+  store: sessionStore,
   resave: false,
   saveUninitialized: false,
-  cookie: { 
+  cookie: {
       maxAge: 8 * 60 * 60 * 1000, // 8 hours
-      secure: false // Keep false for development (http)
+      secure: false, // Keep false for development (http)
+      httpOnly: true,
+      sameSite: 'lax'
   }
 }));
+// Test route - check if session works                                                     
+  app.get('/test-session', (req, res) => {                                                   
+    console.log('[TEST] Session ID:', req.sessionID);                                        
+    console.log('[TEST] Session:', req.session);                                             
+                                                                                             
+    req.session.testValue = 'Session is working!';                                           
+    req.session.testTime = new Date();                                                       
+                                                                                             
+    res.json({                                                                               
+      message: 'Session test completed',                                                     
+      sessionID: req.sessionID,                                                              
+      session: req.session                                                                   
+    });                                                                                      
+  });               
 
 // ✅ Protect /index.html so only logged-in suburban users can open it
 app.get('/index.html', (req, res) => {
@@ -202,6 +271,71 @@ app.get('/div/quick', (req, res) => {
   return res.redirect('/div');                                        // open division portal
 });
 
+// Protect all /div/* static pages (Division realm only)
+app.use("/div", (req, res, next) => {
+  const user = req.session?.user;
+  if (!user) return res.redirect("/");              // not logged in
+  if (user.realm !== "division") return res.redirect("/"); // wrong realm
+  next();
+});
+
+// ✅ Protect all /spm/rtis/* (Division realm only) — must be ABOVE proxy
+app.use("/spm/rtis", (req, res, next) => {
+  console.log("[RTIS GUARD HIT]", req.method, req.originalUrl, "session?", !!req.session?.user);
+  const user = req.session?.user;
+  if (!user) return res.redirect("/");
+  if (user.realm !== "division") return res.redirect("/");
+  next();
+});
+
+
+
+app.use("/spm/rtis", (req, res, next) => {
+  console.log("[PROXY HIT]", req.method, req.originalUrl);
+  next();
+});
+
+function fixRequestBody(proxyReq, req) {
+  if (!req.body || Object.keys(req.body).length === 0) return;
+
+  const bodyData = JSON.stringify(req.body);
+
+  proxyReq.setHeader("Content-Type", "application/json");
+  proxyReq.setHeader("Content-Length", Buffer.byteLength(bodyData));
+
+  proxyReq.write(bodyData);
+  proxyReq.end(); // ✅ important: finish the proxied request
+}
+
+
+const { createProxyMiddleware } = require("http-proxy-middleware");
+
+app.use(
+  "/spm/rtis",
+  createProxyMiddleware({
+    target: "http://localhost:8765",
+    changeOrigin: true,
+    ws: true,
+    pathRewrite: { "^/spm/rtis": "" },
+
+    timeout: 600000,
+    proxyTimeout: 600000,
+
+    onProxyReq: (proxyReq, req) => {
+  if (["POST", "PUT", "PATCH"].includes(req.method)) {
+    fixRequestBody(proxyReq, req);
+  }
+},
+
+    onError(err, req, res) {
+      console.error("[RTIS PROXY ERROR]", err.message, req.method, req.originalUrl);
+      if (!res.headersSent) res.writeHead(502, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ success: false, message: "RTIS proxy error", error: err.message }));
+    },
+  })
+);
+
+
 
 app.use(express.static(path.join(__dirname, "public"), { index: false }));
 
@@ -358,6 +492,8 @@ const trainingRoutes = require('./routes/division/trainingRoutes');
 const detonatorRoutes = require('./routes/division/detonatorRoutes');
 const disciplineRoutes = require('./routes/division/disciplineRoutes');
 const draftingRoutes = require('./routes/division/draftingRoutes');
+const rtisRoutes = require("./routes/division/rtisRoutes");
+
 
 // Add division routes with realm protection
 app.use("/api/division", requireRealm('division'), divisionDashboardRoutes);
@@ -372,6 +508,7 @@ app.use("/api/division/training", requireRealm('division'), trainingRoutes);
 app.use("/api/division/detonators", requireRealm('division'), detonatorRoutes);
 app.use("/api/division/discipline", requireRealm('division'), disciplineRoutes);
 app.use("/api/division/drafting", requireRealm('division'), draftingRoutes);
+app.use("/api/division/rtis", requireRealm("division"), rtisRoutes);
 // Add this directly in server.js (temporary solution)
 app.get('/api/waiting-details', async (req, res) => {
   try {
