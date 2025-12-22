@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>SPM / RTIS Hub</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  
+
   <style>
     /* Global Reset & Font */
     body {
@@ -19,6 +19,35 @@
       max-width: 1200px;
       margin: 0 auto;
       padding: 40px 20px;
+    }
+
+    /* Back Button */
+    .back-button-container {
+      margin-bottom: 20px;
+    }
+
+    .back-button {
+      background: white;
+      color: #4f46e5;
+      border: 1px solid #e5e7eb;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      text-decoration: none;
+      font-weight: 500;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    .back-button:hover {
+      background: #f9fafb;
+      border-color: #4f46e5;
+      transform: translateX(-2px);
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
     }
 
     /* Header Styles */
@@ -76,7 +105,7 @@
       font-size: 40px;
       position: relative;
     }
-    
+
     /* If you use real images, utilize this class */
     .card-image img {
       width: 100%;
@@ -141,7 +170,7 @@
     .theme-suburban { border-top: 4px solid #8b5cf6; } /* Purple */
     .theme-goods { border-top: 4px solid #f59e0b; } /* Orange */
     .theme-ghat { border-top: 4px solid #10b981; } /* Green */
-    .theme-future { border-top: 4px solid #94a3b8; border-style: dashed;} 
+    .theme-future { border-top: 4px solid #94a3b8; border-style: dashed;}
 
     .badge {
         font-size: 10px;
@@ -157,6 +186,14 @@
 <body>
 
   <div class="container">
+    <!-- Back Button -->
+    <div class="back-button-container">
+      <a href="/div/" class="back-button">
+        <i class="fa-solid fa-arrow-left"></i>
+        Back to Dashboard
+      </a>
+    </div>
+
     <div class="dashboard-header">
       <h2>SPM / RTIS Analysis Hub</h2>
       <p>Select a module below to view detailed reports and analytics.</p>
@@ -321,11 +358,11 @@
       </a>
 
     </div>
-    
+
     <div style="margin-top: 30px; text-align: center; color: #888; font-size: 13px;">
       <i class="fa-solid fa-lock"></i> Access restricted to Mumbai Division Operating Officers.
     </div>
   </div>
 
 </body>
-</html> 
+</html>
