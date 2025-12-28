@@ -203,6 +203,7 @@
 
       <a href="/spm/rtis/rtis" class="analysis-card theme-mail">
 
+
         <div class="card-image">
            <i class="fa-solid fa-train-subway"></i>
         </div>
@@ -218,14 +219,14 @@
         <div class="card-stats">
           <div class="stat-box">
             <span class="stat-label">Yesterday</span>
-            <span class="stat-value">124</span> </div>
+            <span class="stat-value" id="rtis-yesterday-count">-</span> </div>
           <div class="stat-box" style="text-align: right;">
             <span class="stat-label">Total Analyzed</span>
-            <span class="stat-value">4,520</span> </div>
+            <span class="stat-value" id="rtis-total-count">-</span> </div>
         </div>
       </a>
 
-      <a href="link_to_suburban" class="analysis-card theme-suburban">
+      <a href="/spm/sub-spm/spm.html"  class="analysis-card theme-suburban">
         <div class="card-image" style="color: #8b5cf6; background: #f5f3ff;">
           <i class="fa-solid fa-users"></i>
         </div>
@@ -363,6 +364,38 @@
       <i class="fa-solid fa-lock"></i> Access restricted to Mumbai Division Operating Officers.
     </div>
   </div>
+
+  <script>
+    // Fetch and update RTIS statistics on page load
+    async function loadRTISStats() {
+      try {
+        const response = await fetch('/spm/rtis/api/rtis-stats');
+        const data = await response.json();
+
+        if (data.success) {
+          // Update yesterday count
+          const yesterdayEl = document.getElementById('rtis-yesterday-count');
+          if (yesterdayEl) {
+            yesterdayEl.textContent = data.yesterday.toLocaleString();
+          }
+
+          // Update total count
+          const totalEl = document.getElementById('rtis-total-count');
+          if (totalEl) {
+            totalEl.textContent = data.total.toLocaleString();
+          }
+        } else {
+          console.error('Failed to load RTIS stats:', data.error);
+        }
+      } catch (error) {
+        console.error('Error fetching RTIS stats:', error);
+        // Keep the "-" placeholder on error
+      }
+    }
+
+    // Load stats when page loads
+    document.addEventListener('DOMContentLoaded', loadRTISStats);
+  </script>
 
 </body>
 </html>

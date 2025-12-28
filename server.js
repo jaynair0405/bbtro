@@ -25,6 +25,7 @@ const MySQLStore = require('express-mysql-session')(session);
 const authRoutes = require('./routes/authRoutes');
 const app = express();
 const PORT = 3000;
+console.log("✅ server.js loaded — Sub-SPM change marker v1");
 
 // app.use(express.json());
 
@@ -74,8 +75,13 @@ const sessionStore = new MySQLStore(sessionStoreOptions);
 
 // app.use(express.json());
 // ✅ Do NOT body-parse proxied RTIS requests; it breaks POST proxying
+// app.use((req, res, next) => {
+//   if (req.originalUrl.startsWith("/spm/rtis")) return next();
+//   express.json()(req, res, next);
+// });
 app.use((req, res, next) => {
   if (req.originalUrl.startsWith("/spm/rtis")) return next();
+  if (req.originalUrl.startsWith("/spm/sub-spm")) return next();
   express.json()(req, res, next);
 });
 
@@ -287,7 +293,19 @@ app.use("/spm/rtis", (req, res, next) => {
   if (user.realm !== "division") return res.redirect("/");
   next();
 });
+// Guard for Sub-SPM (division only)
+app.use("/spm/sub-spm", (req, res, next) => {
+  const user = req.session?.user;
+  if (!user) return res.redirect("/");
+  if (user.realm !== "division") return res.redirect("/");
 
+  // allow if flag present and truthy
+  if (!user.can_access_sub_spm) {
+    return res.status(403).send("Sub-SPM access denied");
+  }
+
+  next();
+});
 
 
 app.use("/spm/rtis", (req, res, next) => {
@@ -335,6 +353,30 @@ app.use(
   })
 );
 
+// ---- Sub-SPM reverse proxy (local) ----
+console.log("✅ Sub-SPM proxy mounted at /spm/sub-spm");
+
+app.use(
+  "/spm/sub-spm",
+  createProxyMiddleware({
+    target: "http://127.0.0.1:8766",
+    changeOrigin: true,
+    ws: true,
+    pathRewrite: { "^/spm/sub-spm": "" },
+    timeout: 600000,
+    proxyTimeout: 600000,
+    onProxyReq: (proxyReq, req) => {
+      if (["POST", "PUT", "PATCH"].includes(req.method)) {
+        fixRequestBody(proxyReq, req);
+      }
+    },
+    onError(err, req, res) {
+      console.error("[SUB-SPM PROXY ERROR]", err.message, req.method, req.originalUrl);
+      if (!res.headersSent) res.writeHead(502, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ success: false, message: "Sub-SPM proxy error", error: err.message }));
+    },
+  })
+);
 
 
 app.use(express.static(path.join(__dirname, "public"), { index: false }));

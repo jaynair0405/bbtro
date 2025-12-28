@@ -38,7 +38,8 @@ router.post('/login', async (req, res) => {
 
     // Look up user in the specified realm
     const [rows] = await conn.query(
-      'SELECT id, username, password, role, full_name, office, realm, div_role, div_office_code FROM users WHERE username = ? AND realm = ? LIMIT 1',
+      'SELECT id, username, password, role, full_name, office, realm, div_role, div_office_code, can_access_sub_spm FROM users WHERE username = ? AND realm = ? LIMIT 1',
+
       [username, realm]
     );
 
@@ -81,7 +82,8 @@ router.post('/login', async (req, res) => {
       realm: user.realm,
       // Division-specific fields
       div_role: user.div_role,
-      div_office_code: user.div_office_code
+      div_office_code: user.div_office_code,
+      can_access_sub_spm: !!user.can_access_sub_spm
     };
 
     // Redirect target by realm
