@@ -13,9 +13,10 @@ const STAFF_STATUS_OPTIONS = new Set([
 
 // GET /api/division/offices - Get all offices
 router.get('/offices', async (req, res) => {
+    let conn;
     try {
         const { include_other } = req.query;
-        const conn = await req.app.locals.pool.getConnection();
+        conn = await req.app.locals.pool.getConnection();
 
         // By default, exclude 'OTHER' office from the list
         // Only include it if include_other=true is passed
@@ -31,14 +32,16 @@ router.get('/offices', async (req, res) => {
         res.json({ success: true, data: results });
     } catch (error) {
         console.error('Error fetching offices:', error);
+        if (conn) conn.release();
         res.status(500).json({ error: 'Database error', details: error.message });
     }
 });
 
 // GET /api/division/designations - Get all designations
 router.get('/designations', async (req, res) => {
+    let conn;
     try {
-        const conn = await req.app.locals.pool.getConnection();
+        conn = await req.app.locals.pool.getConnection();
         const query = 'SELECT * FROM designations ORDER BY grade_level, designation_name';
         const [results] = await conn.query(query);
         conn.release();
@@ -46,14 +49,16 @@ router.get('/designations', async (req, res) => {
         res.json({ success: true, data: results });
     } catch (error) {
         console.error('Error fetching designations:', error);
+        if (conn) conn.release();
         res.status(500).json({ error: 'Database error', details: error.message });
     }
 });
 
 // GET /api/division/training-centers - Get all training centers
 router.get('/training-centers', async (req, res) => {
+    let conn;
     try {
-        const conn = await req.app.locals.pool.getConnection();
+        conn = await req.app.locals.pool.getConnection();
         const query = 'SELECT * FROM div_training_centers ORDER BY center_name';
         const [results] = await conn.query(query);
         conn.release();
@@ -61,15 +66,17 @@ router.get('/training-centers', async (req, res) => {
         res.json({ success: true, data: results });
     } catch (error) {
         console.error('Error fetching training centers:', error);
+        if (conn) conn.release();
         res.status(500).json({ error: 'Database error', details: error.message });
     }
 });
 
 // GET /api/division/staff/:search - Search staff by HRMS ID or name
 router.get('/staff-search/:search', async (req, res) => {
+    let conn;
     try {
         const { search } = req.params;
-        const conn = await req.app.locals.pool.getConnection();
+        conn = await req.app.locals.pool.getConnection();
 
         const query = `
             SELECT s.*, o.office_name, d.designation_name, c.cli_name, n.nomination_id, n.nominated_from_date
@@ -88,15 +95,17 @@ router.get('/staff-search/:search', async (req, res) => {
         res.json({ success: true, data: results });
     } catch (error) {
         console.error('Error searching staff:', error);
+        if (conn) conn.release();
         res.status(500).json({ error: 'Database error', details: error.message });
     }
 });
 
 // GET /api/division/staff - Get staff by office
 router.get('/staff', async (req, res) => {
+    let conn;
     try {
         const { office_code } = req.query;
-        const conn = await req.app.locals.pool.getConnection();
+        conn = await req.app.locals.pool.getConnection();
 
         let query = `
             SELECT s.hrms_id, s.name, s.current_cms_id, o.office_name, d.designation_name,
@@ -120,14 +129,16 @@ router.get('/staff', async (req, res) => {
         res.json({ success: true, data: results });
     } catch (error) {
         console.error('Error fetching staff:', error);
+        if (conn) conn.release();
         res.status(500).json({ error: 'Database error', details: error.message });
     }
 });
 
 // GET /api/division/transfer-requests - Get pending transfers
 router.get('/transfer-requests', async (req, res) => {
+    let conn;
     try {
-        const conn = await req.app.locals.pool.getConnection();
+        conn = await req.app.locals.pool.getConnection();
         const query = `
             SELECT tr.request_id, tr.staff_hrms_id, s.name,
                    tr.from_office_code, tr.to_office_code, tr.request_date, tr.status
@@ -143,15 +154,17 @@ router.get('/transfer-requests', async (req, res) => {
         res.json({ success: true, data: results });
     } catch (error) {
         console.error('Error fetching transfer requests:', error);
+        if (conn) conn.release();
         res.status(500).json({ error: 'Database error', details: error.message });
     }
 });
 
 // PUT /api/division/staff/:hrms_id - Update staff biodata
 router.put('/staff/:hrms_id', async (req, res) => {
+    let conn;
     try {
         const { hrms_id } = req.params;
-        const conn = await req.app.locals.pool.getConnection();
+        conn = await req.app.locals.pool.getConnection();
 
         // First, get the staff's current office
         const [staffCheck] = await conn.query(
@@ -269,14 +282,21 @@ router.put('/staff/:hrms_id', async (req, res) => {
 
     } catch (error) {
         console.error('Error updating staff:', error);
+        if (conn) conn.release();
         res.status(500).json({ error: 'Database error', details: error.message });
     }
 });
 
 // POST /api/division/staff - Create new staff
 router.post('/staff', async (req, res) => {
+    let conn;
     try {
-        const conn = await req.app.locals.pool.getConnection();
+        // Check session first
+        if (!req.session.user) {
+            return res.status(401).json({ error: 'Session expired. Please login again.' });
+        }
+
+        conn = await req.app.locals.pool.getConnection();
         const userOffice = req.session.user.div_office_code;
         const userRole = req.session.user.div_role;
 
@@ -402,15 +422,17 @@ router.post('/staff', async (req, res) => {
 
     } catch (error) {
         console.error('Error creating staff:', error);
+        if (conn) conn.release();
         res.status(500).json({ error: 'Database error', details: error.message });
     }
 });
 
 // GET /api/division/staff/check/:hrms_id - Check if HRMS ID exists
 router.get('/staff/check/:hrms_id', async (req, res) => {
+    let conn;
     try {
         const { hrms_id } = req.params;
-        const conn = await req.app.locals.pool.getConnection();
+        conn = await req.app.locals.pool.getConnection();
 
         const [result] = await conn.query(
             'SELECT hrms_id, name FROM div_staff_master WHERE hrms_id = ?',
@@ -427,15 +449,17 @@ router.get('/staff/check/:hrms_id', async (req, res) => {
 
     } catch (error) {
         console.error('Error checking HRMS ID:', error);
+        if (conn) conn.release();
         res.status(500).json({ error: 'Database error', details: error.message });
     }
 });
 
 // GET /api/division/dashboard-stats - Get dashboard statistics by office
 router.get('/dashboard-stats', async (req, res) => {
+    let conn;
     try {
         const { office_code } = req.query;
-        const conn = await req.app.locals.pool.getConnection();
+        conn = await req.app.locals.pool.getConnection();
 
         // Total staff count for the office
         let staffQuery = 'SELECT COUNT(*) as total_staff FROM div_staff_master';
@@ -492,17 +516,19 @@ router.get('/dashboard-stats', async (req, res) => {
 
     } catch (error) {
         console.error('Error fetching dashboard stats:', error);
+        if (conn) conn.release();
         res.status(500).json({ error: 'Database error', details: error.message });
     }
 });
 
 // GET /api/division/pme-completed - Get PME completed this month
 router.get('/pme-completed', async (req, res) => {
+    let conn;
     try {
         const office_code = req.query.office_code;
         const userRole = req.session.user.div_role;
         const userOffice = req.session.user.div_office_code;
-        const conn = await req.app.locals.pool.getConnection();
+        conn = await req.app.locals.pool.getConnection();
 
         // Get PMEs completed this month (month-to-date)
         // PME training_id = 1
@@ -539,17 +565,19 @@ router.get('/pme-completed', async (req, res) => {
 
     } catch (error) {
         console.error('Error fetching PME completed:', error);
+        if (conn) conn.release();
         res.status(500).json({ error: 'Database error', details: error.message });
     }
 });
 
 // GET /api/division/decategorized-crew - Get list of medically decategorized staff
 router.get('/decategorized-crew', async (req, res) => {
+    let conn;
     try {
         const { office_code } = req.query;
         const userRole = req.session.user.div_role;
         const userOffice = req.session.user.div_office_code;
-        const conn = await req.app.locals.pool.getConnection();
+        conn = await req.app.locals.pool.getConnection();
 
         let query = `
             SELECT
@@ -606,21 +634,23 @@ router.get('/decategorized-crew', async (req, res) => {
 
     } catch (error) {
         console.error('Error fetching decategorized crew:', error);
+        if (conn) conn.release();
         res.status(500).json({ error: 'Database error', details: error.message });
     }
 });
 
 // PUT /api/division/staff/:hrms_id/pstore - Update personnel stores compliance date
 router.put('/staff/:hrms_id/pstore', async (req, res) => {
+    let conn;
     try {
         const { hrms_id } = req.params;
-        const { last_updated, remarks } = req.body;
+        const { last_updated } = req.body;
 
         if (!last_updated) {
             return res.status(400).json({ error: 'Last updated date is required' });
         }
 
-        const conn = await req.app.locals.pool.getConnection();
+        conn = await req.app.locals.pool.getConnection();
 
         // Get staff's current office for permission check
         const [staffCheck] = await conn.query(
@@ -675,16 +705,18 @@ router.put('/staff/:hrms_id/pstore', async (req, res) => {
 
     } catch (error) {
         console.error('Error updating P/Store date:', error);
+        if (conn) conn.release();
         res.status(500).json({ error: 'Database error', details: error.message });
     }
 });
 
 // GET /api/division/pstore-updates-today - Get staff who updated P/Store today
 router.get('/pstore-updates-today', async (req, res) => {
+    let conn;
     try {
         const userOffice = req.session.user.div_office_code;
         const userRole = req.session.user.div_role;
-        const conn = await req.app.locals.pool.getConnection();
+        conn = await req.app.locals.pool.getConnection();
 
         // Get staff who updated P/Store today
         let query = `
@@ -714,6 +746,7 @@ router.get('/pstore-updates-today', async (req, res) => {
 
     } catch (error) {
         console.error('Error fetching P/Store updates:', error);
+        if (conn) conn.release();
         res.status(500).json({ error: 'Database error', details: error.message });
     }
 });
