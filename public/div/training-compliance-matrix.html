@@ -617,17 +617,20 @@
     // Configuration
     // =====================
     const ALL_TRAININGS = [
-        { id: 4,  key: 'KAVACH',      label: 'KAVACH' },
-        { id: 10, key: 'WAG12',       label: 'WAG-12' },
-        { id: 22, key: 'GHAT_UP',     label: 'GHAT UP' },
-        { id: 23, key: 'GHAT_DN',     label: 'GHAT DN' },
-        { id: 11, key: 'SPIC',        label: 'SPIC' },
-        { id: 16, key: 'VANDE_T18',   label: 'Vande Bharat' },
-        { id: 18, key: 'PUSHPULL',    label: 'Push Pull' },
-        { id: 17, key: 'MEMU',        label: 'MEMU' },
-        { id: 9,  key: 'AC_DC',       label: 'AC/DC' },
-        { id: 21, key: 'WDS6',        label: 'WDS6' },
-        { id: 12, key: 'HS_SPART',    label: 'HS-SPART' },
+        { id: 4,  key: 'KAVACH',      label: 'KAVACH',       desc: 'Kavach Training' },
+        { id: 10, key: 'WAG12',       label: 'WAG-12',       desc: 'WAG-12 Loco Training' },
+        { id: 22, key: 'NEGHAT_UP',   label: 'NE GHAT UP',   desc: 'Up NE Ghat Training' },
+        { id: 23, key: 'NEGHAT_DN',   label: 'NE GHAT DN',   desc: 'Down NE Ghat Training' },
+        { id: 24, key: 'SEGHAT_UP',   label: 'SE GHAT UP',   desc: 'Up SE Ghat Training' },
+        { id: 25, key: 'SEGHAT_DN',   label: 'SE GHAT DN',   desc: 'Down SE Ghat Training' },
+        { id: 11, key: 'SPIC',        label: 'SPIC',         desc: 'SPIC Training' },
+        { id: 16, key: 'VANDE_T18',   label: 'Vande Bharat', desc: 'Vande Bharat T-18 Training' },
+        { id: 18, key: 'PUSHPULL',    label: 'Push Pull',    desc: 'Push-Pull Training (Rajdhani)' },
+        { id: 17, key: 'MEMU',        label: 'MEMU',         desc: 'MEMU Training (4 types)' },
+        { id: 9,  key: 'AC_DC',       label: 'AC/DC',        desc: 'AC/DC Operations Training' },
+        { id: 21, key: 'WDS6',        label: 'WDS6',         desc: 'Capsule Course For WDS6' },
+        { id: 12, key: 'HS_SPART',    label: 'HS-SPART',     desc: 'HS-SPART Training' },
+        { id: 19, key: 'HSTAT',       label: 'HSTAT',        desc: 'High Speed Train Aptitude Test' },
     ];
 
     // Default trainings by designation (id or name)
@@ -635,17 +638,17 @@
         // By designation ID
         '3': ['VANDE_T18', 'PUSHPULL', 'AC_DC', 'SPIC', 'WDS6', 'HS_SPART', 'WAG12'],  // LP Goods
         '4': ['VANDE_T18', 'PUSHPULL', 'AC_DC', 'SPIC', 'WDS6', 'HS_SPART', 'WAG12'],  // ALP
-        '6': ['KAVACH', 'VANDE_T18', 'PUSHPULL'],  // LP Mail
-        '7': ['KAVACH', 'VANDE_T18', 'PUSHPULL'],  // LP Passenger
+        '6': ['KAVACH', 'VANDE_T18', 'PUSHPULL', 'HSTAT'],  // LP Mail
+        '7': ['KAVACH', 'VANDE_T18', 'PUSHPULL', 'HSTAT'],  // LP Passenger
         '8': ['MEMU'],  // Motorman
         // By designation name (fallback)
         'LP Goods': ['VANDE_T18', 'PUSHPULL', 'AC_DC', 'SPIC', 'WDS6', 'HS_SPART', 'WAG12'],
-        'LP Mail': ['KAVACH', 'VANDE_T18', 'PUSHPULL'],
-        'LP Mail/Express': ['KAVACH', 'VANDE_T18', 'PUSHPULL'],
-        'LP Passenger': ['KAVACH', 'VANDE_T18', 'PUSHPULL'],
+        'LP Mail': ['KAVACH', 'VANDE_T18', 'PUSHPULL', 'HSTAT'],
+        'LP Mail/Express': ['KAVACH', 'VANDE_T18', 'PUSHPULL', 'HSTAT'],
+        'LP Passenger': ['KAVACH', 'VANDE_T18', 'PUSHPULL', 'HSTAT'],
         'Motorman': ['MEMU'],
-        'ALP': ['KAVACH', 'WAG12', 'GHAT_UP', 'GHAT_DN'],
-        'default': ['KAVACH', 'WAG12', 'GHAT_UP', 'GHAT_DN', 'SPIC']
+        'ALP': ['KAVACH', 'WAG12', 'NEGHAT_UP', 'NEGHAT_DN'],
+        'default': ['KAVACH', 'WAG12', 'NEGHAT_UP', 'NEGHAT_DN', 'SPIC']
     };
 
     let staffData = [];
@@ -667,7 +670,7 @@
     function buildTrainingToggles() {
         const container = document.getElementById('trainingToggles');
         container.innerHTML = ALL_TRAININGS.map(t => `
-            <div class="toggle-chip" data-key="${t.key}" onclick="toggleTraining(this)">
+            <div class="toggle-chip" data-key="${t.key}" title="${t.desc}" onclick="toggleTraining(this)">
                 <i class="fa-solid fa-plus"></i>
                 <span>${t.label}</span>
             </div>
@@ -709,8 +712,8 @@
             icon.classList.remove('fa-check');
             icon.classList.add('fa-plus');
         }
-        // Re-render table with updated columns
-        renderTable();
+        // Fetch updated data with new training columns
+        loadMatrix();
     }
 
     function selectAllTrainings() {
@@ -720,7 +723,7 @@
             icon.classList.remove('fa-plus');
             icon.classList.add('fa-check');
         });
-        renderTable();
+        loadMatrix();
     }
 
     function clearAllTrainings() {
@@ -730,6 +733,7 @@
             icon.classList.remove('fa-check');
             icon.classList.add('fa-plus');
         });
+        // No trainings selected - just show message
         renderTable();
     }
 
@@ -870,7 +874,7 @@
         headerRow.innerHTML = '<th>Staff Details</th>' +
             trainings.map(key => {
                 const t = ALL_TRAININGS.find(x => x.key === key);
-                return `<th>${t ? t.label : key}</th>`;
+                return `<th title="${t ? t.desc : key}">${t ? t.label : key}</th>`;
             }).join('');
 
         // Build rows

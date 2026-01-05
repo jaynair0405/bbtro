@@ -166,9 +166,10 @@ router.get('/matrix', requireAuth, async (req, res) => {
 
         // Map training keys to IDs
         const trainingKeyToId = {
-            'KAVACH': 4, 'WAG12': 10, 'GHAT_UP': 22, 'GHAT_DN': 23,
-            'SPIC': 11, 'VANDE_T18': 16, 'PUSHPULL': 18, 'MEMU': 17,
-            'AC_DC': 9, 'WDS6': 21, 'HS_SPART': 12
+            'KAVACH': 4, 'WAG12': 10, 'NEGHAT_UP': 22, 'NEGHAT_DN': 23,
+            'SEGHAT_UP': 24, 'SEGHAT_DN': 25, 'SPIC': 11, 'VANDE_T18': 16,
+            'PUSHPULL': 18, 'MEMU': 17, 'AC_DC': 9, 'WDS6': 21,
+            'HS_SPART': 12, 'HSTAT': 19
         };
 
         const conn = await req.app.locals.pool.getConnection();
@@ -399,6 +400,11 @@ router.post('/', requireAuth, async (req, res) => {
             });
         }
 
+        // Lifetime trainings - no due date required
+        // KAVACH(4), AC_DC(9), WAG12(10), SPIC(11), HS_SPART(12), VANDE(16), PUSHPULL(18), HSTAT(19), WDS6(21), GHAT_UP(22), GHAT_DN(23), SEGHAT_UP(24), SEGHAT_DN(25)
+        const LIFETIME_TRAININGS = [4, 9, 10, 11, 12, 16, 18, 19, 21, 22, 23, 24, 25];
+        const isLifetimeTraining = LIFETIME_TRAININGS.includes(parseInt(training_id));
+
         // Validate based on medical fitness
         const isMedicallyUnfit = medical_fit === 0;
         if (isMedicallyUnfit) {
@@ -408,8 +414,8 @@ router.post('/', requireAuth, async (req, res) => {
                     error: 'Decategorized date and reason are required for medically unfit staff'
                 });
             }
-        } else {
-            // If fit, require due date
+        } else if (!isLifetimeTraining) {
+            // If fit and NOT a lifetime training, require due date
             if (!due_date) {
                 return res.status(400).json({
                     error: 'Due date is required'
