@@ -1,0 +1,1051 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Training Compliance Matrix</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --brand: #0b3d91;
+            --brand-light: #eff6ff;
+            --bg: #f4f7fc;
+            --surface: #ffffff;
+            --border: #e2e8f0;
+            --text-main: #1e293b;
+            --text-light: #64748b;
+
+            --success-bg: #dcfce7;
+            --success-text: #166534;
+            --success-border: #86efac;
+            --danger-bg: #fee2e2;
+            --danger-text: #991b1b;
+            --danger-border: #fca5a5;
+            --neutral-bg: #f1f5f9;
+            --neutral-text: #64748b;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg);
+            color: var(--text-main);
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+        }
+
+        /* Page Header */
+        .page-header {
+            background: var(--surface);
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .page-title h1 {
+            margin: 0;
+            font-size: 20px;
+            color: var(--brand);
+            font-weight: 700;
+        }
+        .page-title p {
+            margin: 4px 0 0 0;
+            font-size: 13px;
+            color: var(--text-light);
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            background: white;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s;
+        }
+        .btn:hover { background: #f8fafc; }
+        .btn-primary { background: var(--brand); color: white; border: none; }
+        .btn-primary:hover { background: #062356; }
+
+        /* Filter Section */
+        .filter-section {
+            background: var(--surface);
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .filter-row {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            align-items: flex-end;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .filter-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-light);
+            font-weight: 600;
+        }
+
+        .form-control, .form-select {
+            padding: 8px 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 13px;
+            color: var(--text-main);
+            background: white;
+            min-width: 160px;
+        }
+        .form-control:focus, .form-select:focus {
+            outline: none;
+            border-color: var(--brand);
+            box-shadow: 0 0 0 2px rgba(11, 61, 145, 0.1);
+        }
+
+        /* Training Toggles Section */
+        .training-section {
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border);
+        }
+
+        .training-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .training-toggles {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .toggle-chip {
+            padding: 6px 12px;
+            border-radius: 20px;
+            border: 1px solid var(--border);
+            background: white;
+            font-size: 12px;
+            cursor: pointer;
+            color: var(--text-light);
+            transition: all 0.2s;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .toggle-chip:hover { background: #f8fafc; }
+        .toggle-chip.active {
+            background: var(--brand-light);
+            border-color: var(--brand);
+            color: var(--brand);
+            font-weight: 600;
+        }
+
+        /* Legend */
+        .legend {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+            margin-left: auto;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: var(--text-light);
+        }
+
+        .legend-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 3px;
+        }
+        .legend-dot.trained { background: var(--success-bg); border: 1px solid var(--success-border); }
+        .legend-dot.not-trained { background: var(--danger-bg); border: 1px solid var(--danger-border); }
+        .legend-dot.na { background: var(--neutral-bg); border: 1px solid var(--border); }
+
+        /* Matrix Container */
+        .matrix-container {
+            padding: 20px 24px;
+            overflow-x: auto;
+        }
+
+        .matrix-card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            border: 1px solid var(--border);
+            overflow: hidden;
+        }
+
+        .table-wrap {
+            overflow: auto;
+            max-height: calc(100vh - 320px);
+        }
+
+        .matrix-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            min-width: 800px;
+        }
+
+        .matrix-table th {
+            background: #f8fafc;
+            padding: 12px 16px;
+            text-align: center;
+            font-weight: 600;
+            font-size: 12px;
+            color: var(--text-light);
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            border-bottom: 2px solid var(--border);
+            border-right: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .matrix-table th:first-child,
+        .matrix-table td:first-child {
+            position: sticky;
+            left: 0;
+            z-index: 20;
+            text-align: left;
+            border-right: 2px solid var(--border);
+            min-width: 240px;
+            background: white;
+        }
+        .matrix-table th:first-child {
+            z-index: 30;
+            background: #f8fafc;
+        }
+
+        .matrix-table td {
+            border-bottom: 1px solid var(--border);
+            border-right: 1px solid var(--border);
+            padding: 0;
+            height: 52px;
+            text-align: center;
+        }
+
+        /* Staff Cell */
+        .staff-cell {
+            padding: 10px 16px;
+            display: flex;
+            flex-direction: column;
+            text-align: left;
+        }
+        .staff-name {
+            font-weight: 600;
+            color: var(--text-main);
+            font-size: 13px;
+        }
+        .staff-meta {
+            font-size: 11px;
+            color: var(--text-light);
+            margin-top: 2px;
+        }
+
+        /* Status Cells */
+        .status-cell {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.15s;
+            position: relative;
+        }
+
+        .status-cell.trained {
+            background: var(--success-bg);
+            color: var(--success-text);
+        }
+        .status-cell.not-trained {
+            background: var(--danger-bg);
+            color: var(--danger-text);
+        }
+        .status-cell.na {
+            background: var(--neutral-bg);
+            color: var(--neutral-text);
+            cursor: default;
+            font-size: 11px;
+        }
+
+        .status-cell:not(.na):hover {
+            opacity: 0.85;
+        }
+
+        /* Tooltip on hover */
+        .status-cell[data-date]:hover::after {
+            content: attr(data-date);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1e293b;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            white-space: nowrap;
+            z-index: 100;
+            margin-bottom: 4px;
+        }
+
+        /* Row hover */
+        .matrix-table tbody tr:hover td:first-child {
+            background: #fafafa;
+        }
+
+        /* Summary footer */
+        .matrix-footer {
+            padding: 12px 16px;
+            background: #f8fafc;
+            border-top: 1px solid var(--border);
+            font-size: 13px;
+            color: var(--text-light);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-overlay.show { display: flex; }
+
+        .modal-box {
+            background: white;
+            border-radius: 12px;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+        }
+
+        .modal-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .modal-header h3 {
+            margin: 0;
+            font-size: 16px;
+            color: var(--text-main);
+        }
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 20px;
+            color: var(--text-light);
+            cursor: pointer;
+        }
+
+        .modal-body {
+            padding: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+        .form-group label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-light);
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+        .form-group .form-control,
+        .form-group .form-select {
+            width: 100%;
+        }
+        .form-group .readonly {
+            background: #f8fafc;
+            color: var(--text-main);
+            font-weight: 500;
+        }
+
+        .modal-footer {
+            padding: 16px 20px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        /* Print Styles */
+        @media print {
+            body { background: white; }
+            .page-header .header-actions,
+            .filter-section,
+            .modal-overlay { display: none !important; }
+
+            .matrix-container { padding: 0; }
+            .matrix-card { box-shadow: none; border: 1px solid #ddd; }
+            .table-wrap { max-height: none; overflow: visible; }
+
+            .matrix-table th,
+            .matrix-table td,
+            .matrix-table th:first-child,
+            .matrix-table td:first-child {
+                position: static !important;
+                background: white !important;
+            }
+            .matrix-table th {
+                background: #f5f5f5 !important;
+            }
+
+            /* B&W friendly icons */
+            .status-cell.trained {
+                background: white !important;
+                border: 1px solid #333;
+            }
+            .status-cell.trained::before {
+                content: "\2713"; /* Checkmark */
+                font-weight: bold;
+            }
+            .status-cell.trained i { display: none; }
+
+            .status-cell.not-trained {
+                background: white !important;
+                color: #999;
+            }
+            .status-cell.not-trained::before {
+                content: "\2014"; /* Dash */
+            }
+            .status-cell.not-trained i { display: none; }
+
+            .status-cell.na {
+                background: white !important;
+            }
+
+            .status-cell[data-date]::after { display: none !important; }
+            .matrix-footer { display: none; }
+        }
+
+        /* No data state */
+        .no-data {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-light);
+        }
+        .no-data i {
+            font-size: 48px;
+            margin-bottom: 16px;
+            opacity: 0.3;
+        }
+    </style>
+</head>
+<body>
+    <script src="/div/js/division-auth.js"></script>
+
+    <header class="page-header">
+        <div class="page-title">
+            <h1>Training Compliance Matrix</h1>
+            <p>Special training status for running staff</p>
+        </div>
+        <div class="header-actions">
+            <button class="btn" onclick="window.location.href='/div'">
+                <i class="fa-solid fa-arrow-left"></i> Back
+            </button>
+            <button class="btn" onclick="resetFilters()">
+                <i class="fa-solid fa-rotate-left"></i> Reset
+            </button>
+            <button class="btn" onclick="window.print()">
+                <i class="fa-solid fa-print"></i> Print
+            </button>
+            <button class="btn btn-primary" onclick="applyFilters()">
+                <i class="fa-solid fa-filter"></i> Apply Filters
+            </button>
+        </div>
+    </header>
+
+    <section class="filter-section">
+        <div class="filter-row">
+            <div class="filter-group">
+                <span class="filter-label">Search Staff</span>
+                <input type="text" id="searchInput" class="form-control" placeholder="Name / HRMS / PF...">
+            </div>
+
+            <div class="filter-group">
+                <span class="filter-label">Designation (Ctrl+click for multi)</span>
+                <select id="designationFilter" class="form-select" multiple size="3" onchange="onDesignationChange()" style="min-height: 70px;">
+                </select>
+            </div>
+
+            <div class="filter-group" id="officeFilterGroup" style="display: none;">
+                <span class="filter-label">Office</span>
+                <select id="officeFilter" class="form-select" onchange="applyFilters()">
+                    <option value="">All Offices</option>
+                </select>
+            </div>
+
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-dot trained"></div>
+                    <span>Trained</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-dot not-trained"></div>
+                    <span>Not Trained</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-dot na"></div>
+                    <span>N/A</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="training-section">
+            <div class="training-header">
+                <span class="filter-label">Training Columns</span>
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn" onclick="selectAllTrainings()">Select All</button>
+                    <button class="btn" onclick="clearAllTrainings()">Clear All</button>
+                </div>
+            </div>
+            <div class="training-toggles" id="trainingToggles"></div>
+        </div>
+    </section>
+
+    <main class="matrix-container">
+        <div class="matrix-card">
+            <div class="table-wrap">
+                <table class="matrix-table" id="matrixTable">
+                    <thead>
+                        <tr id="headerRow">
+                            <th>Staff Details</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+            </div>
+            <div class="matrix-footer" id="matrixFooter">
+                <span id="recordCount">Showing 0 records</span>
+                <span id="lastUpdated"></span>
+            </div>
+        </div>
+    </main>
+
+    <!-- Add Training Modal -->
+    <div class="modal-overlay" id="addTrainingModal">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h3>Add Training Record</h3>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Staff</label>
+                    <input type="text" class="form-control readonly" id="modalStaffName" readonly>
+                </div>
+                <div class="form-group">
+                    <label>Training</label>
+                    <input type="text" class="form-control readonly" id="modalTrainingName" readonly>
+                </div>
+                <div class="form-group">
+                    <label>Done Date</label>
+                    <input type="date" class="form-control" id="modalDoneDate">
+                </div>
+                <div class="form-group">
+                    <label>Training Center (Optional)</label>
+                    <select class="form-select" id="modalCenter">
+                        <option value="">Select Center</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn" onclick="closeModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="saveTraining()">
+                    <i class="fa-solid fa-check"></i> Save
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <input type="hidden" id="modalStaffHrms">
+    <input type="hidden" id="modalTrainingId">
+
+<script>
+    // =====================
+    // Configuration
+    // =====================
+    const ALL_TRAININGS = [
+        { id: 4,  key: 'KAVACH',      label: 'KAVACH' },
+        { id: 10, key: 'WAG12',       label: 'WAG-12' },
+        { id: 22, key: 'GHAT_UP',     label: 'GHAT UP' },
+        { id: 23, key: 'GHAT_DN',     label: 'GHAT DN' },
+        { id: 11, key: 'SPIC',        label: 'SPIC' },
+        { id: 16, key: 'VANDE_T18',   label: 'Vande Bharat' },
+        { id: 18, key: 'PUSHPULL',    label: 'Push Pull' },
+        { id: 17, key: 'MEMU',        label: 'MEMU' },
+        { id: 9,  key: 'AC_DC',       label: 'AC/DC' },
+        { id: 21, key: 'WDS6',        label: 'WDS6' },
+        { id: 12, key: 'HS_SPART',    label: 'HS-SPART' },
+    ];
+
+    // Default trainings by designation (id or name)
+    const DEFAULT_TRAININGS = {
+        // By designation ID
+        '3': ['VANDE_T18', 'PUSHPULL', 'AC_DC', 'SPIC', 'WDS6', 'HS_SPART', 'WAG12'],  // LP Goods
+        '4': ['VANDE_T18', 'PUSHPULL', 'AC_DC', 'SPIC', 'WDS6', 'HS_SPART', 'WAG12'],  // ALP
+        '6': ['KAVACH', 'VANDE_T18', 'PUSHPULL'],  // LP Mail
+        '7': ['KAVACH', 'VANDE_T18', 'PUSHPULL'],  // LP Passenger
+        '8': ['MEMU'],  // Motorman
+        // By designation name (fallback)
+        'LP Goods': ['VANDE_T18', 'PUSHPULL', 'AC_DC', 'SPIC', 'WDS6', 'HS_SPART', 'WAG12'],
+        'LP Mail': ['KAVACH', 'VANDE_T18', 'PUSHPULL'],
+        'LP Mail/Express': ['KAVACH', 'VANDE_T18', 'PUSHPULL'],
+        'LP Passenger': ['KAVACH', 'VANDE_T18', 'PUSHPULL'],
+        'Motorman': ['MEMU'],
+        'ALP': ['KAVACH', 'WAG12', 'GHAT_UP', 'GHAT_DN'],
+        'default': ['KAVACH', 'WAG12', 'GHAT_UP', 'GHAT_DN', 'SPIC']
+    };
+
+    let staffData = [];
+    let trainingMatrix = {};
+    let selectedTrainings = [];
+
+    // =====================
+    // Initialization
+    // =====================
+    document.addEventListener('DOMContentLoaded', async () => {
+        buildTrainingToggles();
+        await loadFilters();
+        await loadMatrix();
+
+        // Live search
+        document.getElementById('searchInput').addEventListener('input', debounce(applyFilters, 300));
+    });
+
+    function buildTrainingToggles() {
+        const container = document.getElementById('trainingToggles');
+        container.innerHTML = ALL_TRAININGS.map(t => `
+            <div class="toggle-chip" data-key="${t.key}" onclick="toggleTraining(this)">
+                <i class="fa-solid fa-plus"></i>
+                <span>${t.label}</span>
+            </div>
+        `).join('');
+
+        // Select defaults
+        setDefaultTrainings('default');
+    }
+
+    function setDefaultTrainings(designationId, designationName) {
+        // Try ID first, then name, then default
+        const defaults = DEFAULT_TRAININGS[designationId] ||
+                        DEFAULT_TRAININGS[designationName] ||
+                        DEFAULT_TRAININGS['default'];
+
+        document.querySelectorAll('.toggle-chip').forEach(chip => {
+            const key = chip.dataset.key;
+            const icon = chip.querySelector('i');
+
+            if (defaults.includes(key)) {
+                chip.classList.add('active');
+                icon.classList.remove('fa-plus');
+                icon.classList.add('fa-check');
+            } else {
+                chip.classList.remove('active');
+                icon.classList.remove('fa-check');
+                icon.classList.add('fa-plus');
+            }
+        });
+    }
+
+    function toggleTraining(chip) {
+        chip.classList.toggle('active');
+        const icon = chip.querySelector('i');
+        if (chip.classList.contains('active')) {
+            icon.classList.remove('fa-plus');
+            icon.classList.add('fa-check');
+        } else {
+            icon.classList.remove('fa-check');
+            icon.classList.add('fa-plus');
+        }
+        // Re-render table with updated columns
+        renderTable();
+    }
+
+    function selectAllTrainings() {
+        document.querySelectorAll('.toggle-chip').forEach(chip => {
+            chip.classList.add('active');
+            const icon = chip.querySelector('i');
+            icon.classList.remove('fa-plus');
+            icon.classList.add('fa-check');
+        });
+        renderTable();
+    }
+
+    function clearAllTrainings() {
+        document.querySelectorAll('.toggle-chip').forEach(chip => {
+            chip.classList.remove('active');
+            const icon = chip.querySelector('i');
+            icon.classList.remove('fa-check');
+            icon.classList.add('fa-plus');
+        });
+        renderTable();
+    }
+
+    function getSelectedTrainings() {
+        return [...document.querySelectorAll('.toggle-chip.active')].map(c => c.dataset.key);
+    }
+
+    function onDesignationChange() {
+        const select = document.getElementById('designationFilter');
+        const selectedValues = getSelectedDesignations();
+
+        if (selectedValues.length === 1) {
+            // Single selection - set defaults by ID first, then name
+            const id = selectedValues[0];
+            const selectedText = select.options[select.selectedIndex].text;
+            setDefaultTrainings(id, selectedText);
+        }
+        // Auto-apply filters
+        applyFilters();
+    }
+
+    function getSelectedDesignations() {
+        const select = document.getElementById('designationFilter');
+        return [...select.selectedOptions].map(opt => opt.value).filter(v => v);
+    }
+
+    // =====================
+    // Data Loading
+    // =====================
+    async function loadFilters() {
+        try {
+            // Load designations
+            const desRes = await fetch('/api/division/designations');
+            const desData = await desRes.json();
+            const desSelect = document.getElementById('designationFilter');
+            (desData.data || desData).forEach(d => {
+                const id = d.id || d.designation_id;
+                if (id && d.designation_name) {
+                    desSelect.innerHTML += `<option value="${id}">${d.designation_name}</option>`;
+                }
+            });
+
+            // Check if admin - show office filter only for admin
+            try {
+                const userRes = await fetch('/api/current-user');
+                const userData = await userRes.json();
+                if (userData.div_role === 'admin' || userData.div_role === 'division_admin') {
+                    document.getElementById('officeFilterGroup').style.display = 'block';
+                    // Load offices
+                    const offRes = await fetch('/api/division/offices');
+                    const offData = await offRes.json();
+                    const offSelect = document.getElementById('officeFilter');
+                    (offData.data || offData).forEach(o => {
+                        const code = o.office_code || o.code;
+                        const name = o.office_name || o.name || code;
+                        if (code) {
+                            offSelect.innerHTML += `<option value="${code}">${name}</option>`;
+                        }
+                    });
+                }
+            } catch (userErr) {
+                console.error('Error checking user role:', userErr);
+            }
+
+            // Load training centers for modal
+            try {
+                const centerRes = await fetch('/api/division/training-centers');
+                const centerData = await centerRes.json();
+                const centerSelect = document.getElementById('modalCenter');
+                (centerData.data || centerData).forEach(c => {
+                    if (c.center_id && c.center_name) {
+                        centerSelect.innerHTML += `<option value="${c.center_id}">${c.center_name}</option>`;
+                    }
+                });
+            } catch (e) {
+                console.log('Training centers not available');
+            }
+        } catch (err) {
+            console.error('Error loading filters:', err);
+        }
+    }
+
+    async function loadMatrix() {
+        const search = document.getElementById('searchInput').value.trim();
+        const designations = getSelectedDesignations();
+        const office = document.getElementById('officeFilter').value;
+        const trainings = getSelectedTrainings();
+
+        if (trainings.length === 0) {
+            document.getElementById('tableBody').innerHTML = `
+                <tr><td colspan="10" class="no-data">
+                    <i class="fa-solid fa-filter"></i>
+                    <p>Please select at least one training column</p>
+                </td></tr>
+            `;
+            return;
+        }
+
+        try {
+            // Build query params
+            const params = new URLSearchParams();
+            if (search) params.append('search', search);
+            if (designations.length > 0) params.append('designation_ids', designations.join(','));
+            if (office) params.append('office', office);
+            params.append('trainings', trainings.join(','));
+
+            const res = await fetch(`/api/division/training/matrix?${params.toString()}`);
+            const data = await res.json();
+
+            if (data.success) {
+                staffData = data.staff || [];
+                trainingMatrix = data.matrix || {};
+                renderTable();
+            } else {
+                throw new Error(data.error || 'Failed to load');
+            }
+        } catch (err) {
+            console.error('Error loading matrix:', err);
+            document.getElementById('tableBody').innerHTML = `
+                <tr><td colspan="10" class="no-data">
+                    <i class="fa-solid fa-exclamation-triangle"></i>
+                    <p>Error loading data: ${err.message}</p>
+                    <p style="font-size: 11px;">Please restart the server if you just added the API endpoint</p>
+                </td></tr>
+            `;
+        }
+    }
+
+    // =====================
+    // Rendering
+    // =====================
+    function renderTable() {
+        const trainings = getSelectedTrainings();
+        const headerRow = document.getElementById('headerRow');
+        const tableBody = document.getElementById('tableBody');
+
+        // Build header
+        headerRow.innerHTML = '<th>Staff Details</th>' +
+            trainings.map(key => {
+                const t = ALL_TRAININGS.find(x => x.key === key);
+                return `<th>${t ? t.label : key}</th>`;
+            }).join('');
+
+        // Build rows
+        if (staffData.length === 0) {
+            tableBody.innerHTML = `
+                <tr><td colspan="${trainings.length + 1}" class="no-data">
+                    <i class="fa-solid fa-users-slash"></i>
+                    <p>No staff found matching the filters</p>
+                </td></tr>
+            `;
+        } else {
+            tableBody.innerHTML = staffData.map(staff => {
+                const staffCell = `
+                    <td>
+                        <div class="staff-cell">
+                            <span class="staff-name">${escapeHtml(staff.name)}</span>
+                            <span class="staff-meta">${escapeHtml(staff.designation)} | ${escapeHtml(staff.cli_name || '-')} | ${escapeHtml(staff.hrms_id)}</span>
+                        </div>
+                    </td>
+                `;
+
+                const statusCells = trainings.map(key => {
+                    const record = trainingMatrix[staff.hrms_id];
+                    const value = record ? record[key] : undefined;
+                    const training = ALL_TRAININGS.find(t => t.key === key);
+
+                    if (value === undefined) {
+                        // N/A - training not applicable for this designation
+                        return `<td><div class="status-cell na">N/A</div></td>`;
+                    } else if (value) {
+                        // Trained
+                        const dateStr = formatDate(value);
+                        return `<td><div class="status-cell trained" data-date="Done: ${dateStr}"
+                            onclick="openEditModal('${staff.hrms_id}', '${key}', '${value}')">
+                            <i class="fa-solid fa-check"></i>
+                        </div></td>`;
+                    } else {
+                        // Not trained - clickable to add
+                        return `<td><div class="status-cell not-trained"
+                            onclick="openAddModal('${staff.hrms_id}', '${staff.name}', '${key}')">
+                            <i class="fa-solid fa-xmark"></i>
+                        </div></td>`;
+                    }
+                }).join('');
+
+                return `<tr>${staffCell}${statusCells}</tr>`;
+            }).join('');
+        }
+
+        // Update footer
+        document.getElementById('recordCount').textContent = `Showing ${staffData.length} records`;
+        document.getElementById('lastUpdated').textContent = `Updated: ${new Date().toLocaleString('en-IN')}`;
+    }
+
+    // =====================
+    // Modal Functions
+    // =====================
+    function openAddModal(hrmsId, staffName, trainingKey) {
+        const training = ALL_TRAININGS.find(t => t.key === trainingKey);
+
+        document.getElementById('modalStaffHrms').value = hrmsId;
+        document.getElementById('modalTrainingId').value = training ? training.id : '';
+        document.getElementById('modalStaffName').value = staffName;
+        document.getElementById('modalTrainingName').value = training ? training.label : trainingKey;
+        document.getElementById('modalDoneDate').value = '';
+        document.getElementById('modalCenter').value = '';
+
+        document.getElementById('addTrainingModal').classList.add('show');
+    }
+
+    function openEditModal(hrmsId, trainingKey, existingDate) {
+        // For now, just show info. Could allow editing later.
+        const training = ALL_TRAININGS.find(t => t.key === trainingKey);
+        alert(`Training already completed on ${formatDate(existingDate)}`);
+    }
+
+    function closeModal() {
+        document.getElementById('addTrainingModal').classList.remove('show');
+    }
+
+    async function saveTraining() {
+        const hrmsId = document.getElementById('modalStaffHrms').value;
+        const trainingId = document.getElementById('modalTrainingId').value;
+        const doneDate = document.getElementById('modalDoneDate').value;
+        const centerId = document.getElementById('modalCenter').value;
+
+        if (!doneDate) {
+            alert('Please select a done date');
+            return;
+        }
+
+        try {
+            const res = await fetch('/api/division/training', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    staff_hrms_id: hrmsId,
+                    training_id: trainingId,
+                    done_date: doneDate,
+                    center_id: centerId || null,
+                    due_date: null // Lifetime training, no due date
+                })
+            });
+
+            const data = await res.json();
+            if (data.success) {
+                closeModal();
+                await loadMatrix(); // Refresh table
+                showToast('Training record added successfully', 'success');
+            } else {
+                throw new Error(data.error || 'Failed to save');
+            }
+        } catch (err) {
+            console.error('Error saving training:', err);
+            alert('Error saving training: ' + err.message);
+        }
+    }
+
+    // =====================
+    // Filter Actions
+    // =====================
+    function applyFilters() {
+        loadMatrix();
+    }
+
+    function resetFilters() {
+        document.getElementById('searchInput').value = '';
+        // Clear multi-select
+        const desSelect = document.getElementById('designationFilter');
+        [...desSelect.options].forEach(opt => opt.selected = false);
+        document.getElementById('officeFilter').value = '';
+        setDefaultTrainings('default', 'default');
+        loadMatrix();
+    }
+
+    // =====================
+    // Utilities
+    // =====================
+    function escapeHtml(str) {
+        if (!str) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    function formatDate(dateStr) {
+        if (!dateStr) return '-';
+        const d = new Date(dateStr);
+        return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' });
+    }
+
+    function debounce(fn, delay) {
+        let timer;
+        return function(...args) {
+            clearTimeout(timer);
+            timer = setTimeout(() => fn.apply(this, args), delay);
+        };
+    }
+
+    function showToast(message, type = 'info') {
+        // Simple toast - can be enhanced
+        const toast = document.createElement('div');
+        toast.style.cssText = `
+            position: fixed; bottom: 20px; right: 20px; padding: 12px 20px;
+            background: ${type === 'success' ? '#166534' : '#1e293b'}; color: white;
+            border-radius: 8px; font-size: 14px; z-index: 2000;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        `;
+        toast.textContent = message;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 3000);
+    }
+</script>
+
+</body>
+</html>

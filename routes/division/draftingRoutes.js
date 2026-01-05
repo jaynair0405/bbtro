@@ -1,6 +1,31 @@
 const express = require('express');
 const router = express.Router();
 
+// Special office access rules - for sister lobbies etc.
+const OFFICE_ACCESS_RULES = {
+    'VVH': {
+        accessOffice: 'CSMT-ML',
+        allowedDesignations: [3, 4]
+    },
+    'VVH-ML': {
+        accessOffice: 'CSMT-ML',
+        allowedDesignations: [3, 4]
+    }
+};
+
+// Check if user can access staff based on office rules
+function canAccessStaff(userOffice, userRole, staffOffice, staffDesignationId) {
+    if (userRole === 'division_admin') return true;
+    if (userOffice === staffOffice) return true;
+    const accessRule = OFFICE_ACCESS_RULES[userOffice];
+    if (accessRule && staffOffice === accessRule.accessOffice) {
+        if (accessRule.allowedDesignations.includes(parseInt(staffDesignationId))) {
+            return true;
+        }
+    }
+    return false;
+}
+
 // Middleware to check authentication
 function requireAuth(req, res, next) {
     if (!req.session.user || req.session.user.realm !== 'division') {
@@ -72,7 +97,7 @@ router.post('/', requireAuth, async (req, res) => {
 
         // Permission check: Get staff's office and verify access
         const [staffCheck] = await conn.query(
-            'SELECT current_office_code FROM div_staff_master WHERE hrms_id = ?',
+            'SELECT current_office_code, designation_id FROM div_staff_master WHERE hrms_id = ?',
             [staff_hrms_id]
         );
 
@@ -82,11 +107,12 @@ router.post('/', requireAuth, async (req, res) => {
         }
 
         const staffOffice = staffCheck[0].current_office_code;
+        const staffDesignationId = staffCheck[0].designation_id;
         const userOffice = req.session.user.div_office_code;
         const userRole = req.session.user.div_role;
 
-        // Check permissions: only same office or division_admin can add
-        if (userRole !== 'division_admin' && staffOffice !== userOffice) {
+        // Check permissions using special access rules
+        if (!canAccessStaff(userOffice, userRole, staffOffice, staffDesignationId)) {
             conn.release();
             return res.status(403).json({
                 error: 'Access denied: You can only add drafting records for staff from your office'
@@ -158,7 +184,7 @@ router.put('/:record_id/relieve', requireAuth, async (req, res) => {
 
         // Permission check
         const [recordCheck] = await conn.query(
-            `SELECT dr.staff_hrms_id, s.current_office_code
+            `SELECT dr.staff_hrms_id, s.current_office_code, s.designation_id
              FROM div_staff_drafting_records dr
              JOIN div_staff_master s ON dr.staff_hrms_id = s.hrms_id
              WHERE dr.record_id = ?`,
@@ -171,10 +197,11 @@ router.put('/:record_id/relieve', requireAuth, async (req, res) => {
         }
 
         const staffOffice = recordCheck[0].current_office_code;
+        const staffDesignationId = recordCheck[0].designation_id;
         const userOffice = req.session.user.div_office_code;
         const userRole = req.session.user.div_role;
 
-        if (userRole !== 'division_admin' && staffOffice !== userOffice) {
+        if (!canAccessStaff(userOffice, userRole, staffOffice, staffDesignationId)) {
             conn.release();
             return res.status(403).json({
                 error: 'Access denied: You can only relieve staff from your office'

@@ -1,6 +1,31 @@
 const express = require('express');
 const router = express.Router();
 
+// Special office access rules - for sister lobbies etc.
+const OFFICE_ACCESS_RULES = {
+    'VVH': {
+        accessOffice: 'CSMT-ML',
+        allowedDesignations: [3, 4]
+    },
+    'VVH-ML': {
+        accessOffice: 'CSMT-ML',
+        allowedDesignations: [3, 4]
+    }
+};
+
+// Check if user can access staff based on office rules
+function canAccessStaff(userOffice, userRole, staffOffice, staffDesignationId) {
+    if (userRole === 'division_admin') return true;
+    if (userOffice === staffOffice) return true;
+    const accessRule = OFFICE_ACCESS_RULES[userOffice];
+    if (accessRule && staffOffice === accessRule.accessOffice) {
+        if (accessRule.allowedDesignations.includes(parseInt(staffDesignationId))) {
+            return true;
+        }
+    }
+    return false;
+}
+
 // Middleware to check if user is division admin
 function requireDivisionAdmin(req, res, next) {
     if (!req.session.user || req.session.user.realm !== 'division') {
@@ -722,7 +747,8 @@ router.put('/nomination/:nomination_id/change', async (req, res) => {
 
         // Get current nomination details
         const [currentNomination] = await conn.query(
-            `SELECT n.*, s.name as staff_name, s.current_office_code as staff_office_code, c.cli_name as current_cli_name
+            `SELECT n.*, s.name as staff_name, s.current_office_code as staff_office_code,
+                    s.designation_id, c.cli_name as current_cli_name
              FROM div_cli_nominations n
              JOIN div_staff_master s ON n.staff_hrms_id = s.hrms_id
              JOIN div_cli_master c ON n.cli_id = c.cli_id
@@ -736,11 +762,11 @@ router.put('/nomination/:nomination_id/change', async (req, res) => {
 
         const nomination = currentNomination[0];
 
-        // Check office permissions: only same office or division_admin can change CLI
+        // Check office permissions using special access rules
         const userOffice = req.session.user.div_office_code;
         const userRole = req.session.user.div_role;
 
-        if (userRole !== 'division_admin' && nomination.staff_office_code !== userOffice) {
+        if (!canAccessStaff(userOffice, userRole, nomination.staff_office_code, nomination.designation_id)) {
             return res.status(403).json({
                 error: 'Permission denied',
                 message: 'You can only change CLI nominations for staff in your office'

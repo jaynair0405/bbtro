@@ -115,6 +115,172 @@ router.get('/due-report', requireAuth, async (req, res) => {
     }
 });
 
+// Special office access rules - for sister lobbies etc.
+const OFFICE_ACCESS_RULES = {
+    'VVH': {
+        accessOffice: 'CSMT-ML',      // See CSMT-ML staff instead of VVH
+        allowedDesignations: [3, 4]    // Only these designation IDs
+    },
+    'VVH-ML': {
+        accessOffice: 'CSMT-ML',      // See CSMT-ML staff
+        allowedDesignations: [3, 4]    // Only these designation IDs
+    }
+    // Add more special cases here as needed
+};
+
+// Check if user can access staff based on office rules
+function canAccessStaff(userOffice, userRole, staffOffice, staffDesignationId) {
+    // Division admin can access all
+    if (userRole === 'division_admin') return true;
+
+    // Same office can access
+    if (userOffice === staffOffice) return true;
+
+    // Check special access rules
+    const accessRule = OFFICE_ACCESS_RULES[userOffice];
+    if (accessRule && staffOffice === accessRule.accessOffice) {
+        if (accessRule.allowedDesignations.includes(parseInt(staffDesignationId))) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+// GET /api/division/training/matrix - Get training compliance matrix for special trainings
+router.get('/matrix', requireAuth, async (req, res) => {
+    try {
+        const { search, designation_id, designation_ids, cli_id, office, trainings } = req.query;
+        let userOffice = req.session.user.div_office_code;
+        const userRole = req.session.user.div_role;
+
+        // Check for special office access rules
+        const accessRule = OFFICE_ACCESS_RULES[userOffice];
+        let restrictedDesignations = null;
+        if (accessRule) {
+            userOffice = accessRule.accessOffice;  // Override office
+            restrictedDesignations = accessRule.allowedDesignations;  // Restrict designations
+        }
+
+        const trainingKeys = trainings ? trainings.split(',') : [];
+
+        // Map training keys to IDs
+        const trainingKeyToId = {
+            'KAVACH': 4, 'WAG12': 10, 'GHAT_UP': 22, 'GHAT_DN': 23,
+            'SPIC': 11, 'VANDE_T18': 16, 'PUSHPULL': 18, 'MEMU': 17,
+            'AC_DC': 9, 'WDS6': 21, 'HS_SPART': 12
+        };
+
+        const conn = await req.app.locals.pool.getConnection();
+
+        try {
+            let staffQuery = `
+                SELECT s.hrms_id, s.name, d.designation_name as designation,
+                       c.cli_name, o.office_name as office, s.designation_id
+                FROM div_staff_master s
+                LEFT JOIN designations d ON s.designation_id = d.id
+                LEFT JOIN div_cli_master c ON s.current_cli_id = c.cli_id
+                LEFT JOIN offices o ON s.current_office_code = o.office_code
+                WHERE s.status = 'Active'
+            `;
+            const params = [];
+
+            if (userRole !== 'admin' && userOffice) {
+                staffQuery += ' AND s.current_office_code = ?';
+                params.push(userOffice);
+            }
+            if (search) {
+                staffQuery += ' AND (s.name LIKE ? OR s.hrms_id LIKE ? OR s.pf_number LIKE ?)';
+                params.push(`%${search}%`, `%${search}%`, `%${search}%`);
+            }
+            // Handle single or multiple designation IDs
+            let desIds = designation_ids ? designation_ids.split(',').filter(id => id && id !== 'undefined') :
+                          (designation_id ? [designation_id] : []);
+
+            // Apply restricted designations from access rules (if any)
+            if (restrictedDesignations && restrictedDesignations.length > 0) {
+                if (desIds.length > 0) {
+                    // Intersect user selection with allowed designations
+                    desIds = desIds.filter(id => restrictedDesignations.includes(parseInt(id)));
+                }
+                // If no selection OR intersection resulted in empty, use restricted list
+                if (desIds.length === 0) {
+                    desIds = restrictedDesignations.map(String);
+                }
+            }
+
+            if (desIds.length > 0) {
+                const placeholders = desIds.map(() => '?').join(',');
+                staffQuery += ` AND s.designation_id IN (${placeholders})`;
+                params.push(...desIds);
+            }
+            if (cli_id) {
+                staffQuery += ' AND s.current_cli_id = ?';
+                params.push(cli_id);
+            }
+            if (office) {
+                staffQuery += ' AND s.current_office_code = ?';
+                params.push(office);
+            }
+
+            staffQuery += ' ORDER BY s.name LIMIT 200';
+            const [staffRows] = await conn.query(staffQuery, params);
+
+            let matrix = {};
+            const hrmsIds = staffRows.map(s => s.hrms_id);
+
+            if (hrmsIds.length > 0 && trainingKeys.length > 0) {
+                const trainingIds = trainingKeys.map(k => trainingKeyToId[k]).filter(id => id);
+
+                if (trainingIds.length > 0) {
+                    const hPlaceholders = hrmsIds.map(() => '?').join(',');
+                    const tPlaceholders = trainingIds.map(() => '?').join(',');
+
+                    const trainingQuery = `
+                        SELECT tr.staff_hrms_id, tr.training_id, tr.done_date
+                        FROM div_training_records tr
+                        WHERE tr.staff_hrms_id IN (${hPlaceholders})
+                        AND tr.training_id IN (${tPlaceholders})
+                        AND tr.record_id IN (
+                            SELECT MAX(record_id) FROM div_training_records
+                            WHERE staff_hrms_id IN (${hPlaceholders})
+                            AND training_id IN (${tPlaceholders})
+                            GROUP BY staff_hrms_id, training_id
+                        )
+                    `;
+                    const [trainingRows] = await conn.query(trainingQuery,
+                        [...hrmsIds, ...trainingIds, ...hrmsIds, ...trainingIds]);
+
+                    // Initialize matrix - all selected trainings applicable for now
+                    staffRows.forEach(staff => {
+                        matrix[staff.hrms_id] = {};
+                        trainingKeys.forEach(key => {
+                            matrix[staff.hrms_id][key] = null; // Not trained
+                        });
+                    });
+
+                    // Fill in training records
+                    trainingRows.forEach(tr => {
+                        const key = Object.keys(trainingKeyToId).find(k => trainingKeyToId[k] === tr.training_id);
+                        if (key && matrix[tr.staff_hrms_id]) {
+                            matrix[tr.staff_hrms_id][key] = tr.done_date;
+                        }
+                    });
+                }
+            }
+
+            res.json({ success: true, staff: staffRows, matrix });
+
+        } finally {
+            conn.release();
+        }
+
+    } catch (error) {
+        console.error('Error fetching training matrix:', error);
+        res.status(500).json({ error: 'Database error', details: error.message });
+    }
+});
+
 // GET /api/division/training/history/:hrms_id - Get training history for a staff member
 router.get('/history/:hrms_id', requireAuth, async (req, res) => {
     try {
@@ -255,7 +421,7 @@ router.post('/', requireAuth, async (req, res) => {
 
         // Permission check: Get staff's office and verify access
         const [staffCheck] = await conn.query(
-            'SELECT current_office_code FROM div_staff_master WHERE hrms_id = ?',
+            'SELECT current_office_code, designation_id FROM div_staff_master WHERE hrms_id = ?',
             [staff_hrms_id]
         );
 
@@ -265,11 +431,12 @@ router.post('/', requireAuth, async (req, res) => {
         }
 
         const staffOffice = staffCheck[0].current_office_code;
+        const staffDesignationId = staffCheck[0].designation_id;
         const userOffice = req.session.user.div_office_code;
         const userRole = req.session.user.div_role;
 
-        // Check permissions: only same office or division_admin can add
-        if (userRole !== 'division_admin' && staffOffice !== userOffice) {
+        // Check permissions using special access rules
+        if (!canAccessStaff(userOffice, userRole, staffOffice, staffDesignationId)) {
             conn.release();
             return res.status(403).json({
                 error: 'Access denied: You can only add training records for staff from your office'

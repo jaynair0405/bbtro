@@ -325,6 +325,20 @@ async function loadUserInfo() {
             // Update dropdown menu
             document.getElementById('userNameDropdown').textContent = user.full_name || user.username || 'User';
             document.getElementById('userRoleDropdown').textContent = roleDisplay;
+
+            // Update dashboard title based on user's office
+            const dashboardTitle = document.getElementById('dashboardTitle');
+            const officeBadge = document.getElementById('officeBadge');
+            if (dashboardTitle) {
+                if (user.div_role === 'division_admin' || user.role === 'admin') {
+                    dashboardTitle.textContent = 'Division Dashboard';
+                    if (officeBadge) officeBadge.textContent = 'Division Admin';
+                } else {
+                    const officeCode = user.div_office_code || 'Office';
+                    dashboardTitle.textContent = `${officeCode} Dashboard`;
+                    if (officeBadge) officeBadge.textContent = 'Your Office';
+                }
+            }
         }
     } catch (error) {
         console.error('Error loading user info:', error);

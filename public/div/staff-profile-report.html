@@ -500,6 +500,159 @@
                 padding: 6px;
                 font-size: 9px;
             }
+
+            /* Hide print options in print */
+            .print-options {
+                display: none !important;
+            }
+        }
+
+        /* ===== CONCISE PRINT VIEW ===== */
+        @media print {
+            body.concise-print {
+                font-size: 9px !important;
+            }
+
+            body.concise-print .report-shell {
+                max-width: 100%;
+            }
+
+            /* Ultra-compact header */
+            body.concise-print .report-header {
+                padding: 8px 16px;
+                flex-direction: row;
+                align-items: center;
+            }
+
+            body.concise-print .header-left span {
+                font-size: 9px;
+                padding: 3px 8px;
+            }
+
+            body.concise-print .header-left h1 {
+                font-size: 16px;
+                margin: 4px 0 2px;
+            }
+
+            body.concise-print .header-meta {
+                font-size: 9px;
+                gap: 8px;
+            }
+
+            /* Hide photo in concise view */
+            body.concise-print .profile-photo {
+                display: none !important;
+            }
+
+            /* Hide quick stats in concise view */
+            body.concise-print .quick-stats {
+                display: none !important;
+            }
+
+            /* Ultra-compact content */
+            body.concise-print .content {
+                padding: 8px 16px;
+                gap: 8px;
+            }
+
+            body.concise-print section {
+                padding: 8px 12px;
+                border-radius: 6px;
+                page-break-inside: auto;
+            }
+
+            body.concise-print section header {
+                margin-bottom: 6px;
+            }
+
+            body.concise-print section header h2 {
+                font-size: 11px;
+            }
+
+            body.concise-print .section-subtitle {
+                display: none;
+            }
+
+            /* Compact info grid - 3 columns */
+            body.concise-print .info-grid {
+                grid-template-columns: repeat(3, 1fr);
+                gap: 6px;
+            }
+
+            body.concise-print .info-card {
+                padding: 6px 8px;
+                border-radius: 4px;
+            }
+
+            body.concise-print .info-card h3 {
+                font-size: 8px;
+                margin-bottom: 4px;
+            }
+
+            body.concise-print .info-list {
+                gap: 2px;
+            }
+
+            body.concise-print .info-label {
+                font-size: 7px;
+            }
+
+            body.concise-print .info-value {
+                font-size: 9px;
+            }
+
+            /* Compact tables */
+            body.concise-print th,
+            body.concise-print td {
+                padding: 4px 6px;
+                font-size: 8px;
+            }
+
+            body.concise-print th {
+                font-size: 7px;
+            }
+
+            body.concise-print .table-wrapper {
+                border-radius: 4px;
+            }
+
+            /* Hide sections in concise view */
+            body.concise-print #awardsSection,
+            body.concise-print #punishmentsSection,
+            body.concise-print #remarksSection {
+                display: none !important;
+            }
+
+            /* Hide Other Trainings table in concise */
+            body.concise-print #otherTrainingTable {
+                display: none !important;
+            }
+
+            body.concise-print h4 {
+                display: none !important;
+            }
+
+            /* Hide training info cards (Upcoming Milestone & Personal Store) in concise */
+            body.concise-print #trainingSection .info-grid {
+                display: none !important;
+            }
+
+            /* Limit family table rows */
+            body.concise-print #familyTable tbody tr:nth-child(n+4) {
+                display: none;
+            }
+
+            /* Limit promotion table rows */
+            body.concise-print #promotionTable tbody tr:nth-child(n+4) {
+                display: none;
+            }
+
+            /* No page breaks */
+            body.concise-print section {
+                page-break-inside: auto !important;
+                page-break-before: auto !important;
+                page-break-after: auto !important;
+            }
         }
     </style>
 </head>
@@ -517,9 +670,20 @@
                     <div>CLI: <strong id="cliName">—</strong></div>
                 </div>
             </div>
-            <div style="display: flex; gap: 12px; align-items: flex-start;">
+            <div style="display: flex; gap: 12px; align-items: flex-start; flex-wrap: wrap;">
+                <div class="print-options" style="display: flex; gap: 16px; align-items: center; padding: 8px 16px; background: var(--surface-muted); border-radius: 10px; border: 1px solid var(--border);">
+                    <span style="font-size: 13px; font-weight: 600; color: var(--text-muted);">Print:</span>
+                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px;">
+                        <input type="radio" name="printView" value="concise" checked style="accent-color: var(--primary);">
+                        <span>Concise (1 page)</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px;">
+                        <input type="radio" name="printView" value="detailed">
+                        <span>Detailed</span>
+                    </label>
+                </div>
                 <button type="button" onclick="handleBack()" style="padding: 10px 20px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); color: var(--text-strong); font-weight: 600; cursor: pointer; font-size: 14px;">← Back</button>
-                <button type="button" onclick="window.print()" style="padding: 10px 20px; border-radius: 10px; border: none; background: var(--primary); color: white; font-weight: 600; cursor: pointer; font-size: 14px;">Print</button>
+                <button type="button" onclick="handlePrint()" style="padding: 10px 20px; border-radius: 10px; border: none; background: var(--primary); color: white; font-weight: 600; cursor: pointer; font-size: 14px;">Print</button>
             </div>
         </div>
 
@@ -1543,6 +1707,26 @@
         function handleBack() {
             window.location.href = '/div';
         }
+
+        function handlePrint() {
+            const printView = document.querySelector('input[name="printView"]:checked').value;
+
+            if (printView === 'concise') {
+                document.body.classList.add('concise-print');
+            } else {
+                document.body.classList.remove('concise-print');
+            }
+
+            // Small delay to ensure class is applied before print dialog
+            setTimeout(() => {
+                window.print();
+            }, 100);
+        }
+
+        // Clean up class after print
+        window.addEventListener('afterprint', () => {
+            document.body.classList.remove('concise-print');
+        });
     </script>
 </body>
 </html>

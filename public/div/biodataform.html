@@ -18,6 +18,45 @@
   .status-active{background:#e7f7ef;color:#1e7e34}
   .no-print{user-select:none}
   @media print { .no-print{display:none!important;} .tab-content>.tab-pane{display:block!important;opacity:1!important;} }
+  /* Toast styles */
+  .toast-container{position:fixed;top:20px;right:20px;z-index:9999;}
+  .custom-toast{min-width:300px;padding:12px 20px;border-radius:8px;color:#fff;font-weight:500;box-shadow:0 4px 12px rgba(0,0,0,.15);animation:slideIn .3s ease;}
+  .custom-toast.success{background:linear-gradient(135deg,#28a745,#20c997);}
+  .custom-toast.error{background:linear-gradient(135deg,#dc3545,#c82333);}
+  .custom-toast.info{background:linear-gradient(135deg,#17a2b8,#138496);}
+  @keyframes slideIn{from{transform:translateX(100%);opacity:0;}to{transform:translateX(0);opacity:1;}}
+  @keyframes fadeOut{from{opacity:1;}to{opacity:0;}}
+  /* Autocomplete dropdown styles */
+  .search-wrapper{position:relative;}
+  .search-dropdown{position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid #dee2e6;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.15);max-height:300px;overflow-y:auto;z-index:1000;display:none;}
+  .search-dropdown.show{display:block;}
+  .search-item{padding:10px 14px;cursor:pointer;border-bottom:1px solid #f0f0f0;transition:background .15s;}
+  .search-item:last-child{border-bottom:none;}
+  .search-item:hover,.search-item.active{background:#e7f3ff;}
+  .search-item .name{font-weight:600;color:#333;}
+  .search-item .details{font-size:12px;color:#666;margin-top:2px;}
+  .search-item .cms{color:#0066cc;font-weight:500;}
+  .search-loading{padding:15px;text-align:center;color:#666;}
+  .search-no-results{padding:15px;text-align:center;color:#999;}
+  /* Keyboard shortcut hints */
+  kbd{display:inline-block;padding:2px 5px;font-size:10px;font-family:SFMono-Regular,Consolas,monospace;background:#343a40;color:#fff;border:1px solid #495057;border-radius:3px;box-shadow:0 1px 0 #212529;}
+  /* View All mode */
+  .view-all-mode .tab-pane{display:block!important;opacity:1!important;margin-bottom:20px;padding:20px;border:1px solid #e9ecef;border-radius:8px;background:#fff;}
+  .view-all-mode .tab-pane::before{content:attr(data-section);display:block;font-weight:600;font-size:14px;color:#495057;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid #0d6efd;}
+  .view-all-mode .nav-tabs{display:none;}
+  .view-toggle{display:flex;align-items:center;gap:6px;font-size:12px;color:#666;cursor:pointer;padding:4px 10px;border:1px solid #dee2e6;border-radius:6px;background:#f8f9fa;transition:all .2s;}
+  .view-toggle:hover{background:#e9ecef;border-color:#adb5bd;}
+  .view-toggle.active{background:#0d6efd;color:#fff;border-color:#0d6efd;}
+  /* Profile completion progress */
+  .progress-ring{display:flex;align-items:center;gap:12px;padding:10px;background:#f8f9fa;border-radius:10px;margin:10px 0;}
+  .progress-circle{position:relative;width:50px;height:50px;}
+  .progress-circle svg{transform:rotate(-90deg);}
+  .progress-circle .bg{fill:none;stroke:#e9ecef;stroke-width:5;}
+  .progress-circle .progress{fill:none;stroke:#28a745;stroke-width:5;stroke-linecap:round;transition:stroke-dashoffset 0.5s ease;}
+  .progress-circle .percentage{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:11px;font-weight:700;color:#333;}
+  .progress-info{flex:1;text-align:left;}
+  .progress-info .label{font-size:11px;color:#666;margin-bottom:2px;}
+  .progress-info .filled{font-size:12px;font-weight:600;color:#333;}
 </style>
 </head>
 <body>
@@ -35,9 +74,19 @@
       <select class="form-select" id="officeSelect" style="width:180px">
         <option value="">Select Office</option>
       </select>
-      <input class="form-control" id="searchStaff" placeholder="Search PF / Name" list="staffSuggestions" autocomplete="off">
-      <datalist id="staffSuggestions"></datalist>
-      <button class="btn btn-outline-secondary" id="btnSearch">Find</button>
+      <div class="search-wrapper" style="width:280px;">
+        <input class="form-control" id="searchStaff" placeholder="Search Name / HRMS / CMS ID" autocomplete="off">
+        <div class="search-dropdown" id="searchDropdown"></div>
+      </div>
+      <button class="btn btn-success" id="btnAddNewStaff" onclick="startNewStaff()">
+        ➕ Add New Staff
+      </button>
+      <button class="btn btn-outline-secondary" id="btnCancelCreate" onclick="cancelCreateMode()" style="display:none;">
+        ✖ Cancel
+      </button>
+      <span class="text-muted small ms-2" style="font-size:11px; opacity:0.7;">
+        ⌨️ <kbd>Ctrl+S</kbd> Save · <kbd>Ctrl+N</kbd> New · <kbd>Ctrl+F</kbd> Search · <kbd>Esc</kbd> Cancel
+      </span>
     </div>
   </div>
 
@@ -69,6 +118,20 @@
               <option value="Drafted/Ex-Cadre">Drafted/Ex-Cadre</option>
             </select>
           </div>
+          <!-- Profile Completion Progress -->
+          <div class="progress-ring" id="progressRing" style="display:none;">
+            <div class="progress-circle">
+              <svg width="50" height="50">
+                <circle class="bg" cx="25" cy="25" r="20"></circle>
+                <circle class="progress" id="progressCircle" cx="25" cy="25" r="20" stroke-dasharray="125.6" stroke-dashoffset="125.6"></circle>
+              </svg>
+              <span class="percentage" id="progressPercent">0%</span>
+            </div>
+            <div class="progress-info">
+              <div class="label">Key Fields Status</div>
+              <div class="filled"><span id="filledCount">0</span> of <span id="totalCount">0</span> filled</div>
+            </div>
+          </div>
           <div class="mt-2">
             <strong>NCLI:</strong> <span id="showCLI" style="color: #0066cc; font-weight: 600;">—</span>
             <button class="btn btn-sm btn-outline-primary mt-1" id="btnChangeCLI" onclick="openChangeCLIModalBiodata()" disabled style="width: 100%; font-size: 11px;">🔄 Change CLI</button>
@@ -92,8 +155,8 @@
         <button type="button" class="btn-close" onclick="document.getElementById('successBanner').style.display='none'"></button>
       </div>
 
-      <div class="card">
-        <div class="card-header">
+      <div class="card" id="biodataCard">
+        <div class="card-header d-flex justify-content-between align-items-center">
           <ul class="nav nav-tabs card-header-tabs" role="tablist">
             <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-personal">Personal</button></li>
             <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-contact">Contact & Address</button></li>
@@ -106,11 +169,14 @@
             <li class="nav-item" id="disciplineTabNav" style="display: none;"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-discipline">Discipline</button></li>
             <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-transfer">Transfers</button></li>
           </ul>
+          <button class="view-toggle no-print" id="viewToggle" onclick="toggleViewMode()" title="Toggle between Tab and Scroll view">
+            📋 View All
+          </button>
         </div>
 
-        <div class="card-body tab-content">
+        <div class="card-body tab-content" id="tabContent">
           <!-- PERSONAL -->
-          <div class="tab-pane fade show active" id="tab-personal">
+          <div class="tab-pane fade show active" id="tab-personal" data-section="Personal Details">
             <div class="grid-3">
               <div><label class="form-label req">HRMS ID</label><input type="text" class="form-control" id="hrms_id" required></div>
               <div><label class="form-label req">Name</label><input type="text" class="form-control" id="staff_name"></div>
@@ -163,7 +229,7 @@
           </div>
 
           <!-- CONTACT -->
-          <div class="tab-pane fade" id="tab-contact">
+          <div class="tab-pane fade" id="tab-contact" data-section="Contact & Address">
             <div class="grid-2">
               <div><label class="form-label">Mobile Number / CUG Number</label><input type="tel" class="form-control" id="cug_number"></div>
               <div><label class="form-label">Alternate Number</label><input type="tel" class="form-control" id="phone_number"></div>
@@ -179,7 +245,7 @@
           </div>
 
           <!-- IDs & SERVICE -->
-          <div class="tab-pane fade" id="tab-ids">
+          <div class="tab-pane fade" id="tab-ids" data-section="IDs & Service Details">
             <div class="grid-3">
               <div><label class="form-label req">PF No</label><input type="text" class="form-control" id="pf_no"></div>
               <div><label class="form-label">Aadhaar</label><input type="text" class="form-control" id="aadhaar"></div>
@@ -207,7 +273,7 @@
           </div>
 
           <!-- FAMILY -->
-          <div class="tab-pane fade" id="tab-family">
+          <div class="tab-pane fade" id="tab-family" data-section="Family Members">
             <!-- Dependents Scorecard -->
             <div class="row mb-3">
               <div class="col-md-3">
@@ -293,7 +359,7 @@
           </div>
 
           <!-- PROMOTIONS -->
-          <div class="tab-pane fade" id="tab-promotion">
+          <div class="tab-pane fade" id="tab-promotion" data-section="Promotions & Postings">
             <div class="row">
               <!-- Left: Add Promotion Form -->
               <div class="col-md-4">
@@ -362,7 +428,7 @@
           </div>
 
           <!-- TRAINING -->
-          <div class="tab-pane fade" id="tab-training">
+          <div class="tab-pane fade" id="tab-training" data-section="Training & PME Records">
             <!-- Overdue Alert -->
             <div id="trainingOverdueAlert" style="display:none; background: #fee2e2; border-left: 4px solid #dc2626; padding: 12px 16px; border-radius: 6px; margin-bottom: 20px;">
               <strong style="color: #991b1b;">⚠️ Critical:</strong>
@@ -466,7 +532,7 @@
           </div>
 
           <!-- STORES - Personnel Stores Update Tracking -->
-          <div class="tab-pane fade" id="tab-store">
+          <div class="tab-pane fade" id="tab-store" data-section="Personal Stores">
             <div class="row justify-content-center">
               <!-- P/Store Update Form -->
               <div class="col-md-6">
@@ -523,7 +589,7 @@
           </div>
 
           <!-- DETONATORS -->
-          <div class="tab-pane fade" id="tab-detonator">
+          <div class="tab-pane fade" id="tab-detonator" data-section="Detonators">
             <div class="row">
               <!-- Left: Issue Detonator Form -->
               <div class="col-md-4">
@@ -583,7 +649,7 @@
           </div>
 
           <!-- DISCIPLINE -->
-          <div class="tab-pane fade" id="tab-discipline">
+          <div class="tab-pane fade" id="tab-discipline" data-section="Awards & Discipline">
             <!-- AWARDS SECTION -->
             <h5 class="mb-3">🏆 Awards & Recognition</h5>
             <div class="row mb-5">
@@ -743,7 +809,7 @@
           </div>
 
           <!-- TRANSFER -->
-          <div class="tab-pane fade" id="tab-transfer">
+          <div class="tab-pane fade" id="tab-transfer" data-section="Transfer History">
             <div class="alert alert-info" role="alert">
               <strong>ℹ️ Note:</strong> To initiate a transfer, use the <strong>"Transfer"</strong> button in the left sidebar. This tab shows the complete transfer history for this staff member.
             </div>
@@ -1088,10 +1154,30 @@ async function loadTrainingTypes() {
   }
 }
 
+// Training validity periods (in months) - 0 means lifetime/no due date
+const trainingValidityPeriods = {
+  'PME': 12,                    // Will be overridden by special calculation
+  'Refresher': 36,              // 3 years
+  'Motorman Refresher': 36,     // 3 years
+  'Promotion Course': 36,       // 3 years
+  'Safety Camp': 36,            // 3 years
+  'Automatic Competency': 6,    // 6 months
+  // Lifetime trainings (no due date)
+  'Ghat': 0,
+  'SPIC': 0,
+  'WAG12': 0,
+  'WAG 12': 0
+};
+
 // Handle training type change - show medical fitness options for PME
 function handleTrainingTypeChange() {
   const trainingType = document.getElementById('training_type').value;
   const medicalFitnessGroup = document.getElementById('medical_fitness_group');
+  const dueDateGroup = document.getElementById('due_date_group');
+
+  // Get training name from selected option
+  const selectedOption = document.querySelector(`#training_type option[value="${trainingType}"]`);
+  const trainingName = selectedOption ? selectedOption.textContent.trim() : '';
 
   // Show medical fitness options only for PME (training_id = 1)
   if (trainingType === '1') {
@@ -1101,9 +1187,172 @@ function handleTrainingTypeChange() {
     // Reset to default when hidden
     document.getElementById('medical_fit').checked = true;
     document.getElementById('decategorization_fields').style.display = 'none';
-    document.getElementById('due_date_group').style.display = 'block';
+  }
+
+  // Check if this is a lifetime training (no due date needed)
+  const isLifetimeTraining = isTrainingLifetime(trainingName);
+  if (isLifetimeTraining) {
+    dueDateGroup.style.display = 'none';
+    document.getElementById('training_due_date').value = '';
+  } else {
+    dueDateGroup.style.display = 'block';
+    // Auto-calculate due date if done date is already filled
+    autoCalculateDueDate();
   }
 }
+
+// Get validity period in months for a training type
+// Returns: -1 = PME (special calc), 0 = lifetime (no due date), >0 = months
+function getTrainingValidityMonths(trainingName) {
+  const nameLower = trainingName.toLowerCase();
+
+  // PME - special age-based calculation
+  if (nameLower.includes('pme') || nameLower.includes('periodic medical')) return -1;
+
+  // 6 months validity
+  if (nameLower.includes('automatic')) return 6;
+  if (nameLower.includes('tower') || nameLower.includes('tw_trg') || nameLower.includes('tw trg')) return 6;
+
+  // 3 years (36 months) validity
+  if (nameLower.includes('refresher') || nameLower.includes('ref_')) return 36;
+  if (nameLower.includes('safety camp') || nameLower.includes('safety_camp')) return 36;
+  if (nameLower.includes('memu')) return 36;
+  if (nameLower.includes('mmprc') || nameLower.includes('motorman promotion')) return 36;
+
+  // All other trainings - lifetime (no due date)
+  return 0;
+}
+
+// Check if training is lifetime (no due date)
+function isTrainingLifetime(trainingName) {
+  return getTrainingValidityMonths(trainingName) === 0;
+}
+
+// PME due date calculation based on age milestones
+function calculatePMEDueDate(pmeDate, dateOfBirth) {
+  const pme = new Date(pmeDate);
+  const dob = new Date(dateOfBirth);
+
+  // Calculate age at PME date
+  let ageAtPME = pme.getFullYear() - dob.getFullYear();
+  const monthDiff = pme.getMonth() - dob.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && pme.getDate() < dob.getDate())) {
+    ageAtPME--;
+  }
+
+  // Calculate milestone birthdays
+  const age45Birthday = new Date(dob);
+  age45Birthday.setFullYear(dob.getFullYear() + 45);
+
+  const age55Birthday = new Date(dob);
+  age55Birthday.setFullYear(dob.getFullYear() + 55);
+
+  // Standard validity based on age
+  let standardValidityYears;
+  if (ageAtPME < 45) {
+    standardValidityYears = 4;
+  } else if (ageAtPME < 55) {
+    standardValidityYears = 2;
+  } else {
+    standardValidityYears = 1;
+  }
+
+  // Calculate standard due date
+  const standardDueDate = new Date(pme);
+  standardDueDate.setFullYear(pme.getFullYear() + standardValidityYears);
+
+  let finalDueDate = standardDueDate;
+
+  // Check if crossing age 45
+  if (ageAtPME < 45 && age45Birthday <= standardDueDate) {
+    const yearsFromPMETo45 = (age45Birthday - pme) / (365.25 * 24 * 60 * 60 * 1000);
+
+    if (yearsFromPMETo45 >= 2) {
+      finalDueDate = age45Birthday;
+    } else {
+      finalDueDate = new Date(pme);
+      finalDueDate.setFullYear(pme.getFullYear() + 2);
+    }
+  }
+
+  // Check if crossing age 55
+  if (ageAtPME < 55 && age55Birthday <= finalDueDate) {
+    const yearsFromPMETo55 = (age55Birthday - pme) / (365.25 * 24 * 60 * 60 * 1000);
+
+    if (yearsFromPMETo55 >= 1) {
+      finalDueDate = age55Birthday;
+    } else {
+      finalDueDate = new Date(pme);
+      finalDueDate.setFullYear(pme.getFullYear() + 1);
+    }
+  }
+
+  // Subtract 1 day (due date is one day before anniversary)
+  finalDueDate.setDate(finalDueDate.getDate() - 1);
+
+  return finalDueDate;
+}
+
+// Auto-calculate due date based on done date and training type
+function autoCalculateDueDate() {
+  const trainingTypeSelect = document.getElementById('training_type');
+  const doneDateInput = document.getElementById('training_done_date');
+  const dueDateInput = document.getElementById('training_due_date');
+
+  const selectedOption = trainingTypeSelect.options[trainingTypeSelect.selectedIndex];
+  if (!selectedOption || !selectedOption.value) return;
+
+  const trainingName = selectedOption.textContent.trim();
+  const doneDate = doneDateInput.value;
+
+  if (!doneDate) return;
+
+  // Check if lifetime training
+  if (isTrainingLifetime(trainingName)) {
+    dueDateInput.value = '';
+    return;
+  }
+
+  // Get validity period
+  const validityMonths = getTrainingValidityMonths(trainingName);
+  if (validityMonths === 0) {
+    dueDateInput.value = '';
+    return;
+  }
+
+  let finalDueDate;
+
+  // PME uses special age-based calculation
+  if (validityMonths === -1) {
+    const staffDob = document.getElementById('staff_dob').value;
+    if (!staffDob) {
+      showToast('DOB required for PME due date calculation', 'warning');
+      dueDateInput.value = '';
+      return;
+    }
+    finalDueDate = calculatePMEDueDate(doneDate, staffDob);
+  } else {
+    // Standard calculation for other trainings
+    finalDueDate = new Date(doneDate);
+    finalDueDate.setMonth(finalDueDate.getMonth() + validityMonths);
+    finalDueDate.setDate(finalDueDate.getDate() - 1); // Due date is one day before the anniversary
+  }
+
+  // Format as YYYY-MM-DD
+  const year = finalDueDate.getFullYear();
+  const month = String(finalDueDate.getMonth() + 1).padStart(2, '0');
+  const day = String(finalDueDate.getDate()).padStart(2, '0');
+
+  dueDateInput.value = `${year}-${month}-${day}`;
+}
+
+// Add event listener for done date change
+document.addEventListener('DOMContentLoaded', function() {
+  const doneDateInput = document.getElementById('training_done_date');
+  if (doneDateInput) {
+    doneDateInput.addEventListener('change', autoCalculateDueDate);
+  }
+});
 
 // Handle medical result change - show/hide decategorization fields
 function handleMedicalResultChange() {
@@ -1224,7 +1473,7 @@ async function submitDraftingRecord() {
     const statusResult = await statusResponse.json();
 
     if (statusResult.success) {
-      alert('✅ Staff successfully drafted to ex-cadre post!');
+      showToast('Staff successfully drafted to ex-cadre post!', 'success');
 
       // Close modal
       bootstrap.Modal.getInstance(document.getElementById('draftingModal')).hide();
@@ -1873,6 +2122,11 @@ function renderTrainings(trainings) {
   // Store training data for edit access
   window.trainingsData = trainings;
 
+  // Update profile progress (training affects completion)
+  if (typeof updateProfileProgress === 'function') {
+    updateProfileProgress();
+  }
+
   // Format date helper
   function formatDate(dateString) {
     if (!dateString) return '-';
@@ -2163,7 +2417,7 @@ async function updatePStoreDate() {
     const result = await response.json();
 
     if (result.success) {
-      alert('✅ ' + result.message);
+      showToast(result.message, 'success');
 
       // Update current status display
       document.getElementById('pstore_current_status').style.display = 'block';
@@ -2881,82 +3135,176 @@ function renderTransferHistory(transfers) {
 
 // Store search results globally
 let searchResults = [];
+let searchTimeout = null;
+let selectedIndex = -1;
 
-// Auto-populate suggestions as user types
-document.getElementById('searchStaff').addEventListener('input', async (e) => {
+const searchInput = document.getElementById('searchStaff');
+const searchDropdown = document.getElementById('searchDropdown');
+
+// Show dropdown with results
+function showSearchDropdown(results) {
+  if (results.length === 0) {
+    searchDropdown.innerHTML = '<div class="search-no-results">No staff found</div>';
+    searchDropdown.classList.add('show');
+    return;
+  }
+
+  searchDropdown.innerHTML = results.map((staff, index) => `
+    <div class="search-item" data-index="${index}">
+      <div class="name">${staff.name}</div>
+      <div class="details">
+        HRMS: ${staff.hrms_id} | CMS: <span class="cms">${staff.current_cms_id}</span> | ${staff.office_name || staff.current_office_code}
+      </div>
+    </div>
+  `).join('');
+
+  searchDropdown.classList.add('show');
+  selectedIndex = -1;
+
+  // Add click handlers to items
+  searchDropdown.querySelectorAll('.search-item').forEach(item => {
+    item.addEventListener('click', () => {
+      const index = parseInt(item.dataset.index);
+      selectSearchResult(index);
+    });
+  });
+}
+
+// Hide dropdown
+function hideSearchDropdown() {
+  searchDropdown.classList.remove('show');
+  selectedIndex = -1;
+}
+
+// Select and load a search result
+function selectSearchResult(index) {
+  if (searchResults[index]) {
+    const staff = searchResults[index];
+    searchInput.value = '';
+    hideSearchDropdown();
+    loadStaffData(staff);
+  }
+}
+
+// Auto-search as user types (with debounce)
+searchInput.addEventListener('input', async (e) => {
   const searchTerm = e.target.value.trim();
 
+  // Clear previous timeout
+  if (searchTimeout) clearTimeout(searchTimeout);
+
   if (searchTerm.length < 2) {
-    document.getElementById('staffSuggestions').innerHTML = '';
+    hideSearchDropdown();
     searchResults = [];
     return;
   }
 
-  try {
-    const response = await fetch(`/api/division/staff-search/${encodeURIComponent(searchTerm)}`);
-    const result = await response.json();
+  // Show loading state
+  searchDropdown.innerHTML = '<div class="search-loading">Searching...</div>';
+  searchDropdown.classList.add('show');
 
-    if (result.success && result.data.length > 0) {
-      searchResults = result.data;
-      const datalist = document.getElementById('staffSuggestions');
-      datalist.innerHTML = result.data.map(staff =>
-        `<option value="${staff.hrms_id}">${staff.name} | HRMS: ${staff.hrms_id} | CMS: ${staff.current_cms_id} | ${staff.office_name || staff.current_office_code}</option>`
-      ).join('');
+  // Debounce search by 300ms
+  searchTimeout = setTimeout(async () => {
+    try {
+      const response = await fetch(`/api/division/staff-search/${encodeURIComponent(searchTerm)}`);
+      const result = await response.json();
+
+      if (result.success) {
+        searchResults = result.data;
+
+        // If exactly one result and it's an exact CMS ID match, load directly
+        if (result.data.length === 1 && result.data[0].current_cms_id === searchTerm) {
+          selectSearchResult(0);
+          return;
+        }
+
+        showSearchDropdown(result.data);
+      } else {
+        showSearchDropdown([]);
+      }
+    } catch (error) {
+      console.error('Error fetching suggestions:', error);
+      searchDropdown.innerHTML = '<div class="search-no-results">Error searching</div>';
     }
-  } catch (error) {
-    console.error('Error fetching suggestions:', error);
+  }, 300);
+});
+
+// Keyboard navigation
+searchInput.addEventListener('keydown', (e) => {
+  const items = searchDropdown.querySelectorAll('.search-item');
+
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    selectedIndex = Math.min(selectedIndex + 1, items.length - 1);
+    updateSelectedItem(items);
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    selectedIndex = Math.max(selectedIndex - 1, 0);
+    updateSelectedItem(items);
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    if (selectedIndex >= 0 && searchResults[selectedIndex]) {
+      selectSearchResult(selectedIndex);
+    } else if (searchResults.length === 1) {
+      selectSearchResult(0);
+    }
+  } else if (e.key === 'Escape') {
+    hideSearchDropdown();
   }
 });
 
-// Search and load staff data (on button click)
-async function searchAndLoadStaff() {
-  const searchTerm = document.getElementById('searchStaff').value.trim();
-
-  if (!searchTerm) {
-    alert('Please enter HRMS ID or staff name to search');
-    return;
-  }
-
-  try {
-    const response = await fetch(`/api/division/staff-search/${encodeURIComponent(searchTerm)}`);
-    const result = await response.json();
-
-    if (result.success && result.data.length > 0) {
-      // Find exact match by HRMS ID first (from datalist selection)
-      let staffToLoad = result.data.find(s => s.hrms_id === searchTerm.toUpperCase());
-
-      if (!staffToLoad && result.data.length === 1) {
-        // Only one result, load it
-        staffToLoad = result.data[0];
-      } else if (!staffToLoad && result.data.length > 1) {
-        // Multiple results, ask user to select
-        const names = result.data.map((s, i) =>
-          `${i + 1}. ${s.name} (${s.hrms_id}) - ${s.office_name || s.current_office_code}`
-        ).join('\n');
-        alert(`Multiple staff found:\n\n${names}\n\nPlease select from the dropdown to load the correct person.`);
-        return;
-      }
-
-      if (staffToLoad) {
-        loadStaffData(staffToLoad);
-      }
-    } else {
-      alert('No staff found with that HRMS ID or name');
-    }
-  } catch (error) {
-    console.error('Error searching staff:', error);
-    alert('Error searching staff');
+function updateSelectedItem(items) {
+  items.forEach((item, i) => {
+    item.classList.toggle('active', i === selectedIndex);
+  });
+  if (items[selectedIndex]) {
+    items[selectedIndex].scrollIntoView({ block: 'nearest' });
   }
 }
 
-// Button click handler
-document.getElementById('btnSearch').addEventListener('click', searchAndLoadStaff);
+// Hide dropdown when clicking outside
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.search-wrapper')) {
+    hideSearchDropdown();
+  }
+});
 
-// Enter key handler
-document.getElementById('searchStaff').addEventListener('keypress', (e) => {
-  if (e.key === 'Enter') {
+// Keyboard shortcuts
+document.addEventListener('keydown', (e) => {
+  // Ctrl+S = Save
+  if (e.ctrlKey && e.key === 's') {
     e.preventDefault();
-    searchAndLoadStaff();
+    const btnSave = document.getElementById('btnSave');
+    if (!btnSave.disabled) {
+      btnSave.click();
+      showToast('Saving...', 'info', 1500);
+    }
+  }
+
+  // Ctrl+N = New Staff
+  if (e.ctrlKey && e.key === 'n') {
+    e.preventDefault();
+    startNewStaff();
+  }
+
+  // Ctrl+F = Focus search
+  if (e.ctrlKey && e.key === 'f') {
+    e.preventDefault();
+    searchInput.focus();
+    searchInput.select();
+  }
+
+  // Escape = Close dropdown, clear search, or cancel create mode
+  if (e.key === 'Escape') {
+    const dropdown = document.getElementById('searchDropdown');
+    if (dropdown.classList.contains('show')) {
+      hideSearchDropdown();
+    } else if (document.activeElement === searchInput) {
+      searchInput.value = '';
+      searchInput.blur();
+    } else if (isCreateMode) {
+      cancelCreateMode();
+    }
   }
 });
 
@@ -2975,6 +3323,14 @@ function formatDateForInput(dateString) {
 
 // Load staff data into form
 function loadStaffData(staff) {
+  // Exit create mode if active
+  if (isCreateMode) {
+    isCreateMode = false;
+    document.getElementById('btnCancelCreate').style.display = 'none';
+    document.getElementById('btnAddNewStaff').style.display = 'inline-block';
+    updateButtonLabels();
+  }
+
   // Store current staff HRMS ID and full staff data
   window.currentStaffHrmsId = staff.hrms_id;
   window.currentStaffData = staff;
@@ -3059,8 +3415,16 @@ function loadStaffData(staff) {
   // Check edit permissions and set form editability
   setFormEditability();
 
-  // Show success message
-  alert(`Loaded: ${staff.name} (${staff.hrms_id}) - ${staff.office_name || staff.current_office_code}`);
+  // Update profile completion progress
+  updateProfileProgress();
+
+  // Reset form modified state and check for saved draft
+  formModified = false;
+  updateSaveButtonIndicator();
+  checkForSavedDraft(staff.hrms_id);
+
+  // Show success message as toast
+  showToast(`Loaded: ${staff.name} (${staff.hrms_id}) - ${staff.office_name || staff.current_office_code}`, 'success');
 }
 
 // Load family members for a staff
@@ -3289,6 +3653,18 @@ document.getElementById('transferModalForm').addEventListener('submit', async (e
 
 // ========== SAVE BIODATA FUNCTIONS ==========
 
+// Special office access rules - for sister lobbies etc.
+const OFFICE_ACCESS_RULES = {
+  'VVH': {
+    accessOffice: 'CSMT-ML',
+    allowedDesignations: [3, 4]
+  },
+  'VVH-ML': {
+    accessOffice: 'CSMT-ML',
+    allowedDesignations: [3, 4]
+  }
+};
+
 // Check if user can edit the current staff
 function checkEditPermissions() {
   if (!window.currentStaffData || !currentUser) {
@@ -3296,6 +3672,7 @@ function checkEditPermissions() {
   }
 
   const staffOffice = window.currentStaffData.current_office_code;
+  const staffDesignation = parseInt(window.currentStaffData.designation_id);
   const userOffice = currentUser.div_office_code;
   const userRole = currentUser.div_role;
 
@@ -3304,8 +3681,20 @@ function checkEditPermissions() {
     return true;
   }
 
-  // Office users can only edit their own office staff
-  return staffOffice === userOffice;
+  // Office users can edit their own office staff
+  if (staffOffice === userOffice) {
+    return true;
+  }
+
+  // Check special office access rules (e.g., VVH-ML can edit CSMT-ML staff with designation 3,4)
+  const accessRule = OFFICE_ACCESS_RULES[userOffice];
+  if (accessRule && staffOffice === accessRule.accessOffice) {
+    if (accessRule.allowedDesignations.includes(staffDesignation)) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 // Set form to read-only or editable based on permissions
@@ -3384,6 +3773,14 @@ function setFormEditability() {
   document.getElementById('btnTransfer').disabled = !canEdit;
   document.getElementById('btnChangeCLI').disabled = !canEdit;
 
+  // Update CLI button text based on whether staff has CLI
+  const cliBtn = document.getElementById('btnChangeCLI');
+  if (window.currentStaffData && window.currentStaffData.current_cli_id) {
+    cliBtn.innerHTML = '🔄 Change CLI';
+  } else {
+    cliBtn.innerHTML = '➕ Assign CLI';
+  }
+
   // Disable modal "Add" buttons for other office staff
   const addButtons = [
     document.querySelector('#tab-family button[onclick="addFamilyMember()"]'),
@@ -3429,12 +3826,12 @@ async function saveBiodata() {
   const staffHrmsId = window.currentStaffHrmsId;
 
   if (!staffHrmsId) {
-    alert('Please load a staff member first');
+    showToast('Please load a staff member first', 'error');
     return;
   }
 
   if (!checkEditPermissions()) {
-    alert('You do not have permission to edit this staff member');
+    showToast('You do not have permission to edit this staff member', 'error');
     return;
   }
 
@@ -3483,9 +3880,10 @@ async function saveBiodata() {
     const result = await response.json();
 
     if (result.success) {
-      alert('✅ Staff biodata saved successfully!');
+      showToast('Staff biodata saved successfully!', 'success');
+      clearDraftAfterSave();
     } else {
-      alert('Error: ' + result.error);
+      showToast('Error: ' + result.error, 'error');
     }
 
     btnSave.disabled = false;
@@ -3493,7 +3891,7 @@ async function saveBiodata() {
 
   } catch (error) {
     console.error('Error saving biodata:', error);
-    alert('Error saving biodata');
+    showToast('Error saving biodata', 'error');
     document.getElementById('btnSave').disabled = false;
     document.getElementById('btnSave').textContent = 'Save';
   }
@@ -3509,14 +3907,14 @@ async function createNewStaff() {
     const officeCode = document.getElementById('officeSelect').value;
 
     if (!hrmsId || !name || !currentCmsId) {
-      alert('Please fill in required fields: HRMS ID, Name, and Current CMS ID');
+      showToast('Please fill in required fields: HRMS ID, Name, and Current CMS ID', 'error');
       return;
     }
 
     // Validate office is selected (only for admins, regular users have it pre-filled)
     if (currentUser && currentUser.div_role === 'division_admin') {
       if (!officeCode || officeCode === '') {
-        alert('Please select an Office from the dropdown at the top before creating staff.');
+        showToast('Please select an Office from the dropdown at the top before creating staff.', 'error');
         document.getElementById('officeSelect').focus();
         document.getElementById('officeSelect').style.borderColor = 'red';
         setTimeout(() => {
@@ -3577,6 +3975,9 @@ async function createNewStaff() {
       // Show success message
       showSuccessBanner(`Staff profile created for ${name}. Continue filling additional details below.`);
 
+      // Clear any draft and reset modified state
+      formModified = false;
+
       // Switch from create mode to edit mode
       isCreateMode = false;
 
@@ -3590,14 +3991,14 @@ async function createNewStaff() {
       btnSave.disabled = false;
       btnSave.textContent = 'Save Changes';
     } else {
-      alert('Error: ' + result.error);
+      showToast('Error: ' + result.error, 'error');
       btnSave.disabled = false;
       btnSave.textContent = originalText;
     }
 
   } catch (error) {
     console.error('Error creating staff:', error);
-    alert('Error creating staff');
+    showToast('Error creating staff', 'error');
     document.getElementById('btnSave').disabled = false;
     document.getElementById('btnSave').textContent = 'Create Staff';
   }
@@ -3641,12 +4042,13 @@ function updateButtonLabels() {
   const btnSaveNext = document.getElementById('btnSaveNext');
 
   if (isCreateMode) {
-    btnSave.textContent = 'Save Staff Profile';
-    btnSaveNext.style.display = 'none'; // Hide in create mode
+    btnSave.textContent = 'Create Staff';
+    btnSaveNext.textContent = 'Create & Next';
+    btnSaveNext.style.display = 'block';
   } else {
     btnSave.textContent = 'Save Changes';
+    btnSaveNext.textContent = 'Save & Next';
     btnSaveNext.style.display = 'block';
-    btnSaveNext.textContent = 'Save & New Staff';
   }
 }
 
@@ -3705,36 +4107,35 @@ async function loadAllCLIs() {
 // Open Change CLI Modal
 function openChangeCLIModalBiodata() {
   if (!window.currentStaffData) {
-    alert('No staff loaded');
+    showToast('No staff loaded', 'error');
     return;
   }
 
   const staff = window.currentStaffData;
 
-  // Check if staff has a CLI
-  if (!staff.current_cli_id || !staff.cli_name) {
-    alert('This staff member does not have a CLI assigned yet. Please use CLI Management to assign one.');
-    return;
-  }
+  // Store nomination ID if exists (may be null for staff with CLI but no nomination record)
+  currentNominationId = staff.nomination_id || null;
 
-  // Check if we have nomination_id
-  if (!staff.nomination_id) {
-    alert('Unable to find active nomination for this staff member');
-    return;
-  }
-
-  currentNominationId = staff.nomination_id;
+  // Determine mode: 'assign' (no CLI) or 'change' (has CLI)
+  const isAssignMode = !staff.current_cli_id;
+  window.cliModalMode = isAssignMode ? 'assign' : 'change';
 
   // Populate modal
   document.getElementById('changeStaffName').textContent = staff.name;
   document.getElementById('changeStaffHRMS').textContent = staff.hrms_id;
-  document.getElementById('changeCurrentCLI').textContent = staff.cli_name;
+  document.getElementById('changeCurrentCLI').textContent = staff.cli_name || 'Not Assigned';
   document.getElementById('changeEffectiveDate').valueAsDate = new Date();
   document.getElementById('changeRemarks').value = '';
 
-  // Load CLIs into dropdown (exclude current CLI)
+  // Update modal title based on mode
+  const modalTitle = document.querySelector('#changeCLIModal .modal-title');
+  if (modalTitle) {
+    modalTitle.textContent = isAssignMode ? 'Assign CLI' : 'Change CLI';
+  }
+
+  // Load CLIs into dropdown (exclude current CLI if changing)
   const select = document.getElementById('newCLISelect');
-  select.innerHTML = '<option value="">Select new CLI</option>';
+  select.innerHTML = '<option value="">Select CLI</option>';
   allCLIs.forEach(cli => {
     if (cli.cli_id !== staff.current_cli_id) {
       select.innerHTML += `<option value="${cli.cli_id}">${cli.cli_name} (${cli.cmsid})</option>`;
@@ -3750,45 +4151,69 @@ function openChangeCLIModalBiodata() {
 async function submitCLIChangeBiodata() {
   const newCLIId = document.getElementById('newCLISelect').value;
   const effectiveDate = document.getElementById('changeEffectiveDate').value;
+  const remarks = document.getElementById('changeRemarks').value || null;
 
   if (!newCLIId) {
-    alert('Please select new CLI');
+    showToast('Please select CLI', 'error');
     return;
   }
 
   if (!effectiveDate) {
-    alert('Please select effective date');
+    showToast('Please select effective date', 'error');
     return;
   }
 
   try {
-    const response = await fetch(`/api/division/cli/nomination/${currentNominationId}/change`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        new_cli_id: newCLIId,
-        nominated_from_date: effectiveDate,
-        remarks: document.getElementById('changeRemarks').value || null
-      })
-    });
+    let response, result;
 
-    const result = await response.json();
+    // If we have a nomination_id, use the change endpoint
+    // Otherwise, use the bulk nominate endpoint (works for single staff too)
+    if (currentNominationId) {
+      response = await fetch(`/api/division/cli/nomination/${currentNominationId}/change`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          new_cli_id: newCLIId,
+          nominated_from_date: effectiveDate,
+          remarks: remarks
+        })
+      });
+    } else {
+      // No nomination record exists - use bulk nominate endpoint
+      response = await fetch(`/api/division/cli/${newCLIId}/nominate-bulk`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          staff_hrms_ids: [window.currentStaffHrmsId],
+          nominated_from_date: effectiveDate,
+          remarks: remarks
+        })
+      });
+    }
+
+    result = await response.json();
+    console.log('CLI update response:', result);
 
     if (result.success) {
-      alert(result.message);
+      // Check if there were any errors in bulk operation
+      if (result.errors && result.errors.length > 0) {
+        showToast('Error: ' + result.errors[0].error, 'error');
+        return;
+      }
+      showToast(result.message || 'CLI updated successfully', 'success');
       // Close modal
       const modal = bootstrap.Modal.getInstance(document.getElementById('changeCLIModal'));
       modal.hide();
       // Reload staff data to refresh CLI display
       if (window.currentStaffHrmsId) {
-        searchAndLoadStaff();
+        await loadStaffByHrmsId(window.currentStaffHrmsId);
       }
     } else {
-      alert(result.error || 'Failed to change CLI');
+      showToast(result.error || 'Failed to update CLI', 'error');
     }
   } catch (error) {
-    console.error('Error changing CLI:', error);
-    alert('Failed to change CLI');
+    console.error('Error updating CLI:', error);
+    showToast('Failed to update CLI', 'error');
   }
 }
 
@@ -3853,6 +4278,79 @@ function setupUppercaseConversion() {
   });
 }
 
+// Start new staff entry (called from button)
+function startNewStaff() {
+  // Clear any loaded staff data first
+  clearForm();
+  isCreateMode = true;
+  window.currentStaffData = null;
+  initCreateMode();
+
+  // Show Cancel button, hide Add New Staff button
+  document.getElementById('btnAddNewStaff').style.display = 'none';
+  document.getElementById('btnCancelCreate').style.display = 'inline-block';
+
+  showToast('Ready to add new staff', 'info');
+}
+
+// Cancel create mode and return to search/view mode
+function cancelCreateMode() {
+  isCreateMode = false;
+  window.currentStaffData = null;
+  window.currentStaffHrmsId = null;
+
+  // Clear form
+  clearForm();
+
+  // Hide Cancel button, show Add New Staff button
+  document.getElementById('btnCancelCreate').style.display = 'none';
+  document.getElementById('btnAddNewStaff').style.display = 'inline-block';
+
+  // Reset button labels
+  updateButtonLabels();
+
+  // Re-enable search field
+  document.getElementById('searchStaff').disabled = false;
+
+  // Disable form fields until staff is loaded (but keep search and office enabled)
+  document.querySelectorAll('input, select, textarea').forEach(el => {
+    if (el.id !== 'searchStaff' && el.id !== 'officeSelect') {
+      el.disabled = true;
+    }
+  });
+
+  // Hide progress ring
+  document.getElementById('progressRing').style.display = 'none';
+
+  // Focus search field
+  document.getElementById('searchStaff').focus();
+
+  showToast('Create mode cancelled. Search for a staff to view/edit.', 'info');
+}
+
+// Clear all form fields
+function clearForm() {
+  // Clear all input fields
+  document.querySelectorAll('input[type="text"], input[type="date"], input[type="email"], input[type="tel"], textarea').forEach(el => {
+    el.value = '';
+  });
+  // Reset select fields to first option
+  document.querySelectorAll('select').forEach(el => {
+    if (el.id !== 'officeSelect') el.selectedIndex = 0;
+  });
+  // Clear ID card display
+  document.getElementById('showName').textContent = '—';
+  document.getElementById('showHRMS').textContent = '—';
+  document.getElementById('showPF').textContent = '—';
+  document.getElementById('showCMS').textContent = '—';
+  document.getElementById('showOffice').textContent = '—';
+  document.getElementById('showDesig').textContent = '—';
+  document.getElementById('showSafety').textContent = '—';
+  document.getElementById('showCLI').textContent = '—';
+  document.getElementById('showStatus').textContent = 'NEW';
+  document.getElementById('photo').src = '';
+}
+
 // Initialize create mode
 function initCreateMode() {
   console.log('Entering create mode');
@@ -3889,7 +4387,6 @@ function initCreateMode() {
 
   // Disable search functionality
   document.getElementById('searchStaff').disabled = true;
-  document.getElementById('btnSearch').disabled = true;
 
   // Auto-set office for non-admin users
   if (currentUser && currentUser.div_role !== 'division_admin') {
@@ -3923,6 +4420,83 @@ function initCreateMode() {
       tab.closest('.nav-item').style.display = 'none';
     }
   });
+
+  // Hide progress ring in create mode
+  document.getElementById('progressRing').style.display = 'none';
+}
+
+// Calculate and update profile completion progress
+function updateProfileProgress() {
+  // Define form fields to track (basic biodata fields)
+  const formFields = [
+    { id: 'staff_name', label: 'Name' },
+    { id: 'hrms_id', label: 'HRMS ID' },
+    { id: 'current_cms_id', label: 'CMS ID' },
+    { id: 'staff_dob', label: 'Date of Birth' },
+    { id: 'staff_gender', label: 'Gender' },
+    { id: 'father_name', label: 'Father Name' },
+    { id: 'designation', label: 'Designation' },
+    { id: 'date_of_appointment', label: 'Date of Appointment' },
+    { id: 'cug_number', label: 'CUG Number' },
+    { id: 'present_address', label: 'Present Address' },
+    { id: 'pf_no', label: 'PF Number' },
+    { id: 'aadhaar', label: 'Aadhaar' },
+    { id: 'blood_group', label: 'Blood Group' },
+    { id: 'safety_category', label: 'Safety Category' },
+    { id: 'caste', label: 'Caste' },
+    { id: 'marital_status', label: 'Marital Status' },
+    { id: 'pstore_last_updated', label: 'P/Store Updated' }
+  ];
+
+  // Training types to check (from trainingsData)
+  const requiredTrainings = ['PME', 'Refresher', 'Safety Camp'];
+
+  let filledCount = 0;
+  let totalCount = formFields.length + requiredTrainings.length; // Form fields + training types
+
+  // Check form fields
+  formFields.forEach(field => {
+    const el = document.getElementById(field.id);
+    if (el && el.value && el.value.trim() !== '') {
+      filledCount++;
+    }
+  });
+
+  // Check training records
+  const trainings = window.trainingsData || [];
+  requiredTrainings.forEach(trainingType => {
+    const hasTraining = trainings.some(t =>
+      t.training_type && t.training_type.toLowerCase().includes(trainingType.toLowerCase())
+    );
+    if (hasTraining) {
+      filledCount++;
+    }
+  });
+
+  const percentage = Math.round((filledCount / totalCount) * 100);
+
+  // Update UI
+  document.getElementById('progressRing').style.display = 'flex';
+  document.getElementById('filledCount').textContent = filledCount;
+  document.getElementById('totalCount').textContent = totalCount;
+  document.getElementById('progressPercent').textContent = percentage + '%';
+
+  // Update circular progress (circumference = 2 * PI * r = 2 * 3.14159 * 20 = 125.6)
+  const circumference = 125.6;
+  const offset = circumference - (percentage / 100) * circumference;
+  const progressCircle = document.getElementById('progressCircle');
+  progressCircle.style.strokeDashoffset = offset;
+
+  // Change color based on percentage
+  if (percentage < 40) {
+    progressCircle.style.stroke = '#dc3545'; // Red
+  } else if (percentage < 70) {
+    progressCircle.style.stroke = '#ffc107'; // Yellow
+  } else if (percentage < 100) {
+    progressCircle.style.stroke = '#28a745'; // Green
+  } else {
+    progressCircle.style.stroke = '#0d6efd'; // Blue for 100%
+  }
 }
 
 // Check if HRMS ID already exists
@@ -3936,7 +4510,7 @@ async function checkHRMSIDDuplicate() {
     const result = await response.json();
 
     if (result.success && result.exists) {
-      alert(`Staff with HRMS ID "${hrmsId}" already exists: ${result.staff.name}\n\nPlease use a different HRMS ID or search for this staff member to edit.`);
+      showToast(`Staff with HRMS ID "${hrmsId}" already exists: ${result.staff.name}. Please use a different HRMS ID or search for this staff.`, 'error', 5000);
       document.getElementById('hrms_id').value = '';
       document.getElementById('hrms_id').focus();
     }
@@ -3945,7 +4519,239 @@ async function checkHRMSIDDuplicate() {
   }
 }
 
+// Toggle between Tab view and View All (scroll) mode
+let isViewAllMode = false;
+function toggleViewMode() {
+  isViewAllMode = !isViewAllMode;
+  const card = document.getElementById('biodataCard');
+  const toggle = document.getElementById('viewToggle');
+
+  if (isViewAllMode) {
+    card.classList.add('view-all-mode');
+    toggle.classList.add('active');
+    toggle.innerHTML = '📑 Tab View';
+  } else {
+    card.classList.remove('view-all-mode');
+    toggle.classList.remove('active');
+    toggle.innerHTML = '📋 View All';
+  }
+}
+
+// ========== DRAFT & UNSAVED CHANGES FUNCTIONALITY ==========
+let formModified = false;
+let autoSaveInterval = null;
+const DRAFT_KEY_PREFIX = 'biodata_draft_';
+
+// Track form changes
+function initFormChangeTracking() {
+  const formFields = document.querySelectorAll('#tabContent input, #tabContent select, #tabContent textarea');
+  formFields.forEach(field => {
+    field.addEventListener('input', markFormAsModified);
+    field.addEventListener('change', markFormAsModified);
+  });
+}
+
+function markFormAsModified() {
+  if (!formModified && window.currentStaffHrmsId) {
+    formModified = true;
+    updateSaveButtonIndicator();
+  }
+}
+
+function updateSaveButtonIndicator() {
+  const btnSave = document.getElementById('btnSave');
+  if (formModified && !isCreateMode) {
+    btnSave.innerHTML = '💾 Save Changes*';
+    btnSave.title = 'You have unsaved changes';
+  } else if (!isCreateMode) {
+    btnSave.textContent = 'Save Changes';
+    btnSave.title = '';
+  }
+}
+
+function resetFormModified() {
+  formModified = false;
+  updateSaveButtonIndicator();
+}
+
+// Warn before leaving with unsaved changes
+window.addEventListener('beforeunload', function(e) {
+  if (formModified) {
+    e.preventDefault();
+    e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
+    return e.returnValue;
+  }
+});
+
+// Auto-save to localStorage
+function startAutoSave() {
+  if (autoSaveInterval) clearInterval(autoSaveInterval);
+
+  autoSaveInterval = setInterval(() => {
+    if (formModified && window.currentStaffHrmsId && !isCreateMode) {
+      saveDraftToLocalStorage();
+    }
+  }, 30000); // Save every 30 seconds
+}
+
+function saveDraftToLocalStorage() {
+  if (!window.currentStaffHrmsId) return;
+
+  const draftData = collectFormData();
+  draftData._savedAt = new Date().toISOString();
+  draftData._hrmsId = window.currentStaffHrmsId;
+
+  try {
+    localStorage.setItem(DRAFT_KEY_PREFIX + window.currentStaffHrmsId, JSON.stringify(draftData));
+    console.log('Draft auto-saved for:', window.currentStaffHrmsId);
+  } catch (e) {
+    console.error('Failed to save draft:', e);
+  }
+}
+
+function collectFormData() {
+  return {
+    staff_name: document.getElementById('staff_name').value,
+    staff_dob: document.getElementById('staff_dob').value,
+    staff_gender: document.getElementById('staff_gender').value,
+    father_name: document.getElementById('father_name').value,
+    caste: document.getElementById('caste').value,
+    marital_status: document.getElementById('marital_status').value,
+    vision: document.getElementById('vision').value,
+    blood_group: document.getElementById('blood_group').value,
+    qualification: document.getElementById('qualification').value,
+    identification_mark_1: document.getElementById('identification_mark_1').value,
+    identification_mark_2: document.getElementById('identification_mark_2').value,
+    cug_number: document.getElementById('cug_number').value,
+    phone_number: document.getElementById('phone_number').value,
+    email: document.getElementById('email').value,
+    present_address: document.getElementById('present_address').value,
+    permanent_address: document.getElementById('permanent_address').value,
+    pf_no: document.getElementById('pf_no').value,
+    aadhaar: document.getElementById('aadhaar').value,
+    pan: document.getElementById('pan').value,
+    safety_category: document.getElementById('safety_category').value,
+    designation: document.getElementById('designation').value,
+    dept_rrb: document.getElementById('dept_rrb').value,
+    reporting_date: document.getElementById('reporting_date').value,
+    id_card_no: document.getElementById('id_card_no').value,
+    date_of_appointment: document.getElementById('date_of_appointment').value
+  };
+}
+
+function checkForSavedDraft(hrmsId) {
+  try {
+    const draftJson = localStorage.getItem(DRAFT_KEY_PREFIX + hrmsId);
+    if (!draftJson) return;
+
+    const draft = JSON.parse(draftJson);
+    const savedAt = new Date(draft._savedAt);
+    const timeDiff = (new Date() - savedAt) / 1000 / 60; // minutes ago
+
+    // Only offer to restore if draft is less than 24 hours old
+    if (timeDiff > 1440) {
+      localStorage.removeItem(DRAFT_KEY_PREFIX + hrmsId);
+      return;
+    }
+
+    const timeAgo = timeDiff < 60
+      ? `${Math.round(timeDiff)} minutes ago`
+      : `${Math.round(timeDiff / 60)} hours ago`;
+
+    // Show restore prompt
+    showDraftRestorePrompt(draft, timeAgo);
+  } catch (e) {
+    console.error('Failed to check draft:', e);
+  }
+}
+
+function showDraftRestorePrompt(draft, timeAgo) {
+  // Create restore banner
+  const banner = document.createElement('div');
+  banner.id = 'draftRestoreBanner';
+  banner.style.cssText = 'position:fixed;top:70px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1f2937;padding:12px 20px;border-radius:10px;box-shadow:0 4px 15px rgba(0,0,0,0.2);z-index:9999;display:flex;align-items:center;gap:15px;font-size:14px;';
+  banner.innerHTML = `
+    <span>📝 Unsaved draft found (${timeAgo})</span>
+    <button onclick="restoreDraft()" style="background:#1f2937;color:#fff;border:none;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:13px;">Restore</button>
+    <button onclick="discardDraft()" style="background:transparent;color:#1f2937;border:1px solid #1f2937;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:13px;">Discard</button>
+  `;
+  document.body.appendChild(banner);
+
+  // Store draft for restore
+  window._pendingDraft = draft;
+}
+
+function restoreDraft() {
+  const draft = window._pendingDraft;
+  if (!draft) return;
+
+  // Restore form values
+  Object.keys(draft).forEach(key => {
+    if (key.startsWith('_')) return; // Skip metadata
+    const el = document.getElementById(key);
+    if (el && draft[key]) {
+      el.value = draft[key];
+    }
+  });
+
+  // Mark as modified since we restored unsaved changes
+  formModified = true;
+  updateSaveButtonIndicator();
+
+  // Remove banner
+  const banner = document.getElementById('draftRestoreBanner');
+  if (banner) banner.remove();
+
+  showToast('Draft restored. Remember to save your changes!', 'info', 4000);
+  window._pendingDraft = null;
+}
+
+function discardDraft() {
+  if (window.currentStaffHrmsId) {
+    localStorage.removeItem(DRAFT_KEY_PREFIX + window.currentStaffHrmsId);
+  }
+
+  const banner = document.getElementById('draftRestoreBanner');
+  if (banner) banner.remove();
+
+  window._pendingDraft = null;
+  showToast('Draft discarded', 'info');
+}
+
+function clearDraftAfterSave() {
+  if (window.currentStaffHrmsId) {
+    localStorage.removeItem(DRAFT_KEY_PREFIX + window.currentStaffHrmsId);
+  }
+  resetFormModified();
+}
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+  initFormChangeTracking();
+  startAutoSave();
+});
+
 init();
+
+// Toast notification function
+function showToast(message, type = 'success', duration = 3000) {
+  let container = document.querySelector('.toast-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.className = 'toast-container';
+    document.body.appendChild(container);
+  }
+
+  const toast = document.createElement('div');
+  toast.className = `custom-toast ${type}`;
+  toast.textContent = message;
+  container.appendChild(toast);
+
+  setTimeout(() => {
+    toast.style.animation = 'fadeOut 0.3s ease forwards';
+    setTimeout(() => toast.remove(), 300);
+  }, duration);
+}
 </script>
 </body>
 </html>

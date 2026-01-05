@@ -1,6 +1,37 @@
 const express = require('express');
 const router = express.Router();
 
+// Special office access rules - for sister lobbies etc.
+const OFFICE_ACCESS_RULES = {
+    'VVH': {
+        accessOffice: 'CSMT-ML',
+        allowedDesignations: [3, 4]
+    },
+    'VVH-ML': {
+        accessOffice: 'CSMT-ML',
+        allowedDesignations: [3, 4]
+    }
+};
+
+// Check if user can access staff based on office rules
+function canAccessStaff(userOffice, userRole, staffOffice, staffDesignationId) {
+    // Division admin can access all
+    if (userRole === 'division_admin') return true;
+
+    // Same office can access
+    if (userOffice === staffOffice) return true;
+
+    // Check special access rules
+    const accessRule = OFFICE_ACCESS_RULES[userOffice];
+    if (accessRule && staffOffice === accessRule.accessOffice) {
+        if (accessRule.allowedDesignations.includes(parseInt(staffDesignationId))) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 const STAFF_STATUS_OPTIONS = new Set([
     'Active',
     'Transferred',
@@ -85,11 +116,11 @@ router.get('/staff-search/:search', async (req, res) => {
             LEFT JOIN designations d ON s.designation_id = d.id
             LEFT JOIN div_cli_master c ON s.current_cli_id = c.cli_id
             LEFT JOIN div_cli_nominations n ON s.hrms_id = n.staff_hrms_id AND n.status = 'Active'
-            WHERE s.hrms_id = ? OR s.name LIKE ?
+            WHERE s.hrms_id LIKE ? OR s.name LIKE ? OR s.current_cms_id LIKE ?
             LIMIT 10
         `;
 
-        const [results] = await conn.query(query, [search, `%${search}%`]);
+        const [results] = await conn.query(query, [`%${search}%`, `%${search}%`, `%${search}%`]);
         conn.release();
 
         res.json({ success: true, data: results });
@@ -166,9 +197,9 @@ router.put('/staff/:hrms_id', async (req, res) => {
         const { hrms_id } = req.params;
         conn = await req.app.locals.pool.getConnection();
 
-        // First, get the staff's current office
+        // First, get the staff's current office and designation
         const [staffCheck] = await conn.query(
-            'SELECT current_office_code FROM div_staff_master WHERE hrms_id = ?',
+            'SELECT current_office_code, designation_id FROM div_staff_master WHERE hrms_id = ?',
             [hrms_id]
         );
 
@@ -178,11 +209,12 @@ router.put('/staff/:hrms_id', async (req, res) => {
         }
 
         const staffOffice = staffCheck[0].current_office_code;
+        const staffDesignationId = staffCheck[0].designation_id;
         const userOffice = req.session.user.div_office_code;
         const userRole = req.session.user.div_role;
 
-        // Check permissions: only same office or division_admin can edit
-        if (userRole !== 'division_admin' && staffOffice !== userOffice) {
+        // Check permissions using special access rules
+        if (!canAccessStaff(userOffice, userRole, staffOffice, staffDesignationId)) {
             conn.release();
             return res.status(403).json({
                 error: 'Access denied: You can only edit staff from your office'
@@ -652,9 +684,9 @@ router.put('/staff/:hrms_id/pstore', async (req, res) => {
 
         conn = await req.app.locals.pool.getConnection();
 
-        // Get staff's current office for permission check
+        // Get staff's current office and designation for permission check
         const [staffCheck] = await conn.query(
-            'SELECT current_office_code FROM div_staff_master WHERE hrms_id = ?',
+            'SELECT current_office_code, designation_id FROM div_staff_master WHERE hrms_id = ?',
             [hrms_id]
         );
 
@@ -664,11 +696,12 @@ router.put('/staff/:hrms_id/pstore', async (req, res) => {
         }
 
         const staffOffice = staffCheck[0].current_office_code;
+        const staffDesignationId = staffCheck[0].designation_id;
         const userOffice = req.session.user.div_office_code;
         const userRole = req.session.user.div_role;
 
-        // Check permissions: only same office or division_admin can update
-        if (userRole !== 'division_admin' && staffOffice !== userOffice) {
+        // Check permissions using special access rules
+        if (!canAccessStaff(userOffice, userRole, staffOffice, staffDesignationId)) {
             conn.release();
             return res.status(403).json({
                 error: 'Access denied: You can only update staff from your office'
