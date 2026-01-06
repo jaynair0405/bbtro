@@ -184,6 +184,13 @@
         .info-list {
             display: grid;
             gap: 10px;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        }
+
+        /* Tighter columns for personal overview cards */
+        #personalSection .info-list {
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 8px;
         }
 
         .info-item span {
@@ -273,6 +280,22 @@
             margin-bottom: 6px;
         }
 
+        .special-training-check {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+            font-weight: 700;
+            color: #15803d;
+            letter-spacing: 0.03em;
+        }
+
+        .special-training-check small {
+            font-weight: 600;
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
         .back-btn {
             background: var(--surface-muted);
             border: 1px solid var(--border);
@@ -316,7 +339,7 @@
 
         @page {
             size: A4;
-            margin: 12mm 10mm;
+            margin: 10mm 8mm;
         }
 
         @media print {
@@ -346,109 +369,122 @@
 
             /* Compact header for print */
             .report-header {
-                padding: 16px 20px;
+                padding: 10px 16px;
             }
 
             .header-left h1 {
-                font-size: 22px;
-                margin: 10px 0 6px;
+                font-size: 18px;
+                margin: 6px 0 4px;
+            }
+
+            .header-left span {
+                font-size: 10px;
+                padding: 3px 8px;
             }
 
             .header-meta {
-                font-size: 11px;
-                gap: 12px;
+                font-size: 10px;
+                gap: 10px;
             }
 
             .profile-photo {
-                width: 100px;
-                height: 100px;
-                border-radius: 12px;
+                width: 80px;
+                height: 80px;
+                border-radius: 10px;
             }
 
             /* Compact quick stats */
             .quick-stats {
-                padding: 12px 20px;
-                gap: 8px;
+                padding: 8px 16px;
+                gap: 6px;
             }
 
             .stat-card {
-                padding: 8px 10px;
-                border-radius: 8px;
+                padding: 6px 8px;
+                border-radius: 6px;
             }
 
             .stat-label {
-                font-size: 9px;
+                font-size: 8px;
             }
 
             .stat-value {
-                font-size: 13px;
+                font-size: 11px;
                 margin-top: 2px;
             }
 
-            /* Compact content sections */
+            /* Compact content sections - 2 columns */
             .content {
-                padding: 16px 20px;
-                gap: 16px;
+                padding: 10px 16px;
+                gap: 10px;
+                display: grid;
+                grid-template-columns: 1fr 1fr;
             }
 
             section {
-                padding: 16px 18px;
-                border-radius: 12px;
+                padding: 10px 12px;
+                border-radius: 8px;
                 box-shadow: none;
                 page-break-inside: avoid;
             }
 
             section header {
-                margin-bottom: 12px;
+                margin-bottom: 6px;
             }
 
             section header h2 {
-                font-size: 14px;
+                font-size: 12px;
             }
 
             .section-subtitle {
-                font-size: 10px;
+                display: none;
             }
 
-            /* Compact info cards */
+            /* Compact info cards - 2 columns */
             .info-grid {
-                gap: 10px;
+                gap: 6px;
+                grid-template-columns: 1fr 1fr;
             }
 
             .info-card {
-                padding: 10px 12px;
-                border-radius: 8px;
+                padding: 6px 8px;
+                border-radius: 6px;
             }
 
             .info-card h3 {
-                font-size: 10px;
-                margin-bottom: 8px;
+                font-size: 9px;
+                margin-bottom: 4px;
             }
 
             .info-list {
-                gap: 6px;
+                gap: 3px;
+                grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+            }
+
+            #personalSection .info-list {
+                grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)) !important;
             }
 
             .info-label {
-                font-size: 9px;
+                font-size: 8px;
             }
 
             .info-value {
-                font-size: 11px;
+                font-size: 10px;
             }
 
             /* Compact tables */
             .table-wrapper {
-                border-radius: 8px;
+                border-radius: 6px;
             }
 
             th, td {
-                padding: 8px 10px;
-                font-size: 10px;
+                padding: 4px 6px;
+                font-size: 9px;
             }
 
             th {
-                font-size: 9px;
+                font-size: 8px;
             }
 
             /* Prevent table rows from splitting */
@@ -505,6 +541,18 @@
             .print-options {
                 display: none !important;
             }
+
+            /* Monitoring section inputs - show as text in print */
+            #monitoringSection input {
+                border: none !important;
+                background: transparent !important;
+                padding: 4px 0 !important;
+                font-size: 12px !important;
+            }
+
+            #monitoringSection input::placeholder {
+                color: var(--text-muted);
+            }
         }
 
         /* ===== CONCISE PRINT VIEW ===== */
@@ -549,16 +597,19 @@
                 display: none !important;
             }
 
-            /* Ultra-compact content */
+            /* Ultra-compact content - 2 columns */
             body.concise-print .content {
-                padding: 8px 16px;
-                gap: 8px;
+                padding: 4px 10px;
+                gap: 4px;
+                display: grid;
+                grid-template-columns: 1fr 1fr;
             }
 
             body.concise-print section {
-                padding: 8px 12px;
-                border-radius: 6px;
+                padding: 4px 6px;
+                border-radius: 4px;
                 page-break-inside: auto;
+                margin: 0;
             }
 
             body.concise-print section header {
@@ -573,10 +624,10 @@
                 display: none;
             }
 
-            /* Compact info grid - 3 columns */
+            /* Compact info grid - 2 columns */
             body.concise-print .info-grid {
-                grid-template-columns: repeat(3, 1fr);
-                gap: 6px;
+                grid-template-columns: 1fr 1fr;
+                gap: 4px;
             }
 
             body.concise-print .info-card {
@@ -591,6 +642,8 @@
 
             body.concise-print .info-list {
                 gap: 2px;
+                line-height: 1.2;
+                grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
             }
 
             body.concise-print .info-label {
@@ -604,8 +657,9 @@
             /* Compact tables */
             body.concise-print th,
             body.concise-print td {
-                padding: 4px 6px;
+                padding: 3px 5px;
                 font-size: 8px;
+                line-height: 1.15;
             }
 
             body.concise-print th {
@@ -614,6 +668,7 @@
 
             body.concise-print .table-wrapper {
                 border-radius: 4px;
+                margin-top: 2px;
             }
 
             /* Hide sections in concise view */
@@ -638,12 +693,17 @@
             }
 
             /* Limit family table rows */
-            body.concise-print #familyTable tbody tr:nth-child(n+4) {
+            body.concise-print #familyTable tbody tr:nth-child(n+3) {
                 display: none;
             }
 
             /* Limit promotion table rows */
-            body.concise-print #promotionTable tbody tr:nth-child(n+4) {
+            body.concise-print #promotionTable tbody tr:nth-child(n+3) {
+                display: none;
+            }
+
+            /* Limit major training rows */
+            body.concise-print #majorTrainingTable tbody tr:nth-child(n+6) {
                 display: none;
             }
 
@@ -794,15 +854,15 @@
                                 <span class="info-value" id="doaValue">—</span>
                             </div>
                             <div class="info-item">
-                                <span class="info-label">Last Promoted</span>
-                                <span class="info-value" id="lastPromotedValue">—</span>
-                            </div>
-                            <div class="info-item">
                                 <span class="info-label">Years of Service</span>
                                 <span class="info-value" id="yearsOfServiceValue">—</span>
                             </div>
                             <div class="info-item">
-                                <span class="info-label">Date of Retirement</span>
+                                <span class="info-label">Last Promoted</span>
+                                <span class="info-value" id="lastPromotedValue">—</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Retirement Date</span>
                                 <span class="info-value" id="retirementDateValue">—</span>
                             </div>
                         </div>
@@ -828,7 +888,7 @@
                                 <span class="info-value" id="visionValue">—</span>
                             </div>
                             <div class="info-item">
-                                <span class="info-label">Current CLI Nomination</span>
+                                <span class="info-label">CLI Nomination</span>
                                 <span class="info-value" id="cliNomination">—</span>
                             </div>
                         </div>
@@ -1004,6 +1064,63 @@
                     <div>Sr. Crew Controller</div>
                 </div>
             </section>
+
+            <section id="monitoringSection">
+                <header>
+                    <h2>Monitoring & Learning Records</h2>
+                    <div class="section-subtitle">Foot plate monitoring and road learning details.</div>
+                </header>
+
+                <div class="info-grid" style="grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <div class="info-card">
+                        <div class="info-label">Last Foot Plate Monitoring</div>
+                        <div class="info-value">
+                            <div style="margin-bottom: 8px;">
+                                <span style="color: var(--text-muted); font-size: 12px;">Section:</span>
+                                <input type="text" id="fpmSection" placeholder="Enter section..."
+                                    style="width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; margin-top: 4px;">
+                            </div>
+                            <div>
+                                <span style="color: var(--text-muted); font-size: 12px;">Date:</span>
+                                <input type="date" id="fpmDate"
+                                    style="width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; margin-top: 4px;">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="info-card">
+                        <div class="info-label">Learning Road Sections</div>
+                        <div class="info-value">
+                            <div style="margin-bottom: 8px;">
+                                <span style="color: var(--text-muted); font-size: 12px;">Section 1:</span>
+                                <input type="text" id="learningSection1" placeholder="Enter section..."
+                                    style="width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; margin-top: 4px;">
+                            </div>
+                            <div>
+                                <span style="color: var(--text-muted); font-size: 12px;">Section 2:</span>
+                                <input type="text" id="learningSection2" placeholder="Enter section..."
+                                    style="width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; margin-top: 4px;">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="specialTrainingSection">
+                <header>
+                    <h2>Special Training Compliance</h2>
+                    <div class="section-subtitle">Additional trainings captured in the Training Compliance Matrix.</div>
+                </header>
+
+                <div class="table-wrapper">
+                    <table id="specialTrainingTable">
+                        <thead>
+                            <tr id="specialTrainingHeader"></tr>
+                        </thead>
+                        <tbody id="specialTrainingBody"></tbody>
+                    </table>
+                </div>
+            </section>
         </div>
     </div>
 
@@ -1058,6 +1175,29 @@
             trainings: [],
             remarks: 'No remarks recorded.'
         };
+
+        const SPECIAL_TRAININGS = [
+            { id: 4, label: 'KAVACH' },
+            { id: 10, label: 'WAG-12' },
+            { id: 22, label: 'NE GHAT UP' },
+            { id: 23, label: 'NE GHAT DN' },
+            { id: 24, label: 'SE GHAT UP' },
+            { id: 25, label: 'SE GHAT DN' },
+            { id: 11, label: 'SPIC' },
+            { id: 16, label: 'Vande Bharat' },
+            { id: 18, label: 'Push Pull' },
+            { id: 17, label: 'MEMU' },
+            { id: 9, label: 'AC/DC' },
+            { id: 21, label: 'WDS6' },
+            { id: 12, label: 'HS-SPART' },
+            { id: 19, label: 'HSTAT' }
+        ];
+
+        const SPECIAL_TRAINING_IDS = new Set(SPECIAL_TRAININGS.map(t => t.id));
+        const SPECIAL_TRAINING_ORDER = SPECIAL_TRAININGS.reduce((acc, t, index) => {
+            acc[t.id] = index;
+            return acc;
+        }, {});
 
         const formatDate = (dateString, fallback = '—') => {
             if (!dateString) return fallback;
@@ -1145,6 +1285,39 @@
             }
         };
 
+        const renderSpecialTrainingTable = (trainings) => {
+            const headerRow = document.getElementById('specialTrainingHeader');
+            const body = document.getElementById('specialTrainingBody');
+
+            if (!headerRow || !body) return;
+
+            const completed = Array.isArray(trainings)
+                ? trainings
+                    .filter(t => SPECIAL_TRAINING_IDS.has(t.training_id) && t.done)
+                    .sort((a, b) => (SPECIAL_TRAINING_ORDER[a.training_id] ?? 999) - (SPECIAL_TRAINING_ORDER[b.training_id] ?? 999))
+                : [];
+
+            if (completed.length === 0) {
+                headerRow.innerHTML = '<th>Special Trainings</th>';
+                body.innerHTML = '<tr><td style="text-align: center; color: var(--text-muted);">No special training records</td></tr>';
+                return;
+            }
+
+            headerRow.innerHTML = completed.map(entry => {
+                const meta = SPECIAL_TRAININGS.find(t => t.id === entry.training_id);
+                return `<th title="${entry.programme || meta?.label || 'Training'}">${meta?.label || entry.programme || 'Training'}</th>`;
+            }).join('');
+
+            body.innerHTML = `<tr>${completed.map(entry => `
+                <td style="text-align: center;">
+                    <span class="special-training-check">
+                        <span>&#10003;</span>
+                        <small>${formatDate(entry.done)}</small>
+                    </span>
+                </td>
+            `).join('')}</tr>`;
+        };
+
         const populateReport = (overrides = {}) => {
             const data = { ...staffProfile, ...overrides };
             if (!data.hrmsId && overrides.hrmsId) {
@@ -1205,7 +1378,7 @@
             document.getElementById('bloodGroupValue').textContent = data.bloodGroup || '—';
             document.getElementById('casteValue').textContent = data.caste || '—';
             document.getElementById('dependentsCount').textContent = (typeof data.dependents === 'number')
-                ? `${data.dependents} Dependent${data.dependents !== 1 ? 's' : ''}`
+                ? data.dependents
                 : '—';
 
             // Contacts Card
@@ -1398,6 +1571,8 @@
                 majorTrainingBody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-muted);">No training records found</td></tr>';
                 otherTrainingBody.innerHTML = '<tr><td colspan="2" style="text-align: center; color: var(--text-muted);">No training records found</td></tr>';
             }
+
+            renderSpecialTrainingTable(data.trainings);
 
             // Awards table
             const awardsBody = document.querySelector('#awardsTable tbody');
