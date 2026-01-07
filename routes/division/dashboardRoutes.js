@@ -13,6 +13,30 @@ const OFFICE_ACCESS_RULES = {
     }
 };
 
+// Offices that identify their staff by CMS ID prefix
+const CMS_PREFIX_OFFICES = {
+    'VVH': 'VVH',
+    'VVH-ML': 'VVH'
+};
+
+// Helper to build office filter condition for queries
+// Returns { condition: string, params: array }
+function buildOfficeFilter(officeCode, tableAlias = 's') {
+    const cmsPrefix = CMS_PREFIX_OFFICES[officeCode];
+    if (cmsPrefix) {
+        // For VVH offices: filter by CMS ID prefix
+        return {
+            condition: `${tableAlias}.current_cms_id LIKE ?`,
+            params: [`${cmsPrefix}%`]
+        };
+    }
+    // For regular offices, filter by office code
+    return {
+        condition: `${tableAlias}.current_office_code = ?`,
+        params: [officeCode]
+    };
+}
+
 // Check if user can access staff based on office rules
 function canAccessStaff(userOffice, userRole, staffOffice, staffDesignationId) {
     // Division admin can access all
@@ -144,12 +168,14 @@ router.get('/staff', async (req, res) => {
             FROM div_staff_master s
             JOIN offices o ON s.current_office_code = o.office_code
             JOIN designations d ON s.designation_id = d.id
+            WHERE s.status = 'Active'
         `;
 
         const params = [];
         if (office_code) {
-            query += ' WHERE s.current_office_code = ?';
-            params.push(office_code);
+            const filter = buildOfficeFilter(office_code, 's');
+            query += ' AND ' + filter.condition;
+            params.push(...filter.params);
         }
 
         query += ' ORDER BY o.office_name, s.name';
@@ -491,15 +517,23 @@ router.get('/dashboard-stats', async (req, res) => {
     let conn;
     try {
         const { office_code } = req.query;
+        const userOffice = req.session.user?.div_office_code;
+        const userRole = req.session.user?.div_role;
+
         conn = await req.app.locals.pool.getConnection();
 
         // Total staff count for the office
-        let staffQuery = 'SELECT COUNT(*) as total_staff FROM div_staff_master';
+        let staffQuery = 'SELECT COUNT(*) as total_staff FROM div_staff_master s WHERE s.status = "Active"';
         const staffParams = [];
 
-        if (office_code) {
-            staffQuery += ' WHERE current_office_code = ?';
-            staffParams.push(office_code);
+        if (userRole !== 'division_admin') {
+            const filter = buildOfficeFilter(userOffice, 's');
+            staffQuery += ' AND ' + filter.condition;
+            staffParams.push(...filter.params);
+        } else if (office_code) {
+            const filter = buildOfficeFilter(office_code, 's');
+            staffQuery += ' AND ' + filter.condition;
+            staffParams.push(...filter.params);
         }
 
         const [staffResult] = await conn.query(staffQuery, staffParams);
@@ -519,8 +553,9 @@ router.get('/dashboard-stats', async (req, res) => {
         const pmeParams = [];
 
         if (office_code) {
-            pmeQuery += ' AND s.current_office_code = ?';
-            pmeParams.push(office_code);
+            const filter = buildOfficeFilter(office_code, 's');
+            pmeQuery += ' AND ' + filter.condition;
+            pmeParams.push(...filter.params);
         }
 
         const [pmeResult] = await conn.query(pmeQuery, pmeParams);
@@ -579,11 +614,13 @@ router.get('/pme-completed', async (req, res) => {
 
         // Apply office filter
         if (userRole !== 'division_admin') {
-            query += ' AND s.current_office_code = ?';
-            params.push(userOffice);
+            const filter = buildOfficeFilter(userOffice, 's');
+            query += ' AND ' + filter.condition;
+            params.push(...filter.params);
         } else if (office_code) {
-            query += ' AND s.current_office_code = ?';
-            params.push(office_code);
+            const filter = buildOfficeFilter(office_code, 's');
+            query += ' AND ' + filter.condition;
+            params.push(...filter.params);
         }
 
         const [result] = await conn.query(query, params);
@@ -647,11 +684,13 @@ router.get('/decategorized-crew', async (req, res) => {
 
         // Office-based access control
         if (userRole !== 'division_admin') {
-            query += ' AND s.current_office_code = ?';
-            params.push(userOffice);
+            const filter = buildOfficeFilter(userOffice, 's');
+            query += ' AND ' + filter.condition;
+            params.push(...filter.params);
         } else if (office_code && office_code !== 'ALL') {
-            query += ' AND s.current_office_code = ?';
-            params.push(office_code);
+            const filter = buildOfficeFilter(office_code, 's');
+            query += ' AND ' + filter.condition;
+            params.push(...filter.params);
         }
 
         query += ' ORDER BY s.name ASC';
@@ -753,8 +792,8 @@ router.get('/pstore-updates-today', async (req, res) => {
 
         // Get staff who updated P/Store today
         let query = `
-            SELECT hrms_id, name, pstore_last_updated, current_office_code
-            FROM div_staff_master
+            SELECT hrms_id, name, pstore_last_updated, current_office_code, current_cms_id
+            FROM div_staff_master s
             WHERE DATE(pstore_last_updated) = CURDATE()
         `;
 
@@ -762,8 +801,9 @@ router.get('/pstore-updates-today', async (req, res) => {
 
         // Filter by office for non-admin users
         if (userRole !== 'division_admin') {
-            query += ' AND current_office_code = ?';
-            params.push(userOffice);
+            const filter = buildOfficeFilter(userOffice, 's');
+            query += ' AND ' + filter.condition;
+            params.push(...filter.params);
         }
 
         query += ' ORDER BY name';

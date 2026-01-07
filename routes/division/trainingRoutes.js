@@ -9,6 +9,52 @@ function requireAuth(req, res, next) {
     next();
 }
 
+// Special office access rules - for sister lobbies etc.
+const OFFICE_ACCESS_RULES = {
+    'VVH': {
+        accessOffice: 'CSMT-ML',
+        allowedDesignations: [3, 4]
+    },
+    'VVH-ML': {
+        accessOffice: 'CSMT-ML',
+        allowedDesignations: [3, 4]
+    }
+};
+
+// Offices that identify their staff by CMS ID prefix
+const CMS_PREFIX_OFFICES = {
+    'VVH': 'VVH',
+    'VVH-ML': 'VVH'
+};
+
+// Helper to build office filter condition for queries
+function buildOfficeFilter(officeCode, tableAlias = 's') {
+    const cmsPrefix = CMS_PREFIX_OFFICES[officeCode];
+    if (cmsPrefix) {
+        return {
+            condition: `${tableAlias}.current_cms_id LIKE ?`,
+            params: [`${cmsPrefix}%`]
+        };
+    }
+    return {
+        condition: `${tableAlias}.current_office_code = ?`,
+        params: [officeCode]
+    };
+}
+
+// Check if user can access staff based on office rules
+function canAccessStaff(userOffice, userRole, staffOffice, staffDesignationId) {
+    if (userRole === 'division_admin') return true;
+    if (userOffice === staffOffice) return true;
+    const accessRule = OFFICE_ACCESS_RULES[userOffice];
+    if (accessRule && staffOffice === accessRule.accessOffice) {
+        if (accessRule.allowedDesignations.includes(parseInt(staffDesignationId))) {
+            return true;
+        }
+    }
+    return false;
+}
+
 // ============================================
 // SPECIFIC ROUTES (must come before parameterized routes)
 // ============================================
@@ -63,13 +109,15 @@ router.get('/due-report', requireAuth, async (req, res) => {
         let commonFilters = '';
         const commonParams = [];
 
-        // Office-based access control
+        // Office-based access control using CMS prefix for VVH offices
         if (userRole !== 'division_admin') {
-            commonFilters += ' AND s.current_office_code = ?';
-            commonParams.push(userOffice);
+            const filter = buildOfficeFilter(userOffice, 's');
+            commonFilters += ' AND ' + filter.condition;
+            commonParams.push(...filter.params);
         } else if (office_code && office_code !== 'ALL') {
-            commonFilters += ' AND s.current_office_code = ?';
-            commonParams.push(office_code);
+            const filter = buildOfficeFilter(office_code, 's');
+            commonFilters += ' AND ' + filter.condition;
+            commonParams.push(...filter.params);
         }
 
         // Training type filter
@@ -115,51 +163,18 @@ router.get('/due-report', requireAuth, async (req, res) => {
     }
 });
 
-// Special office access rules - for sister lobbies etc.
-const OFFICE_ACCESS_RULES = {
-    'VVH': {
-        accessOffice: 'CSMT-ML',      // See CSMT-ML staff instead of VVH
-        allowedDesignations: [3, 4]    // Only these designation IDs
-    },
-    'VVH-ML': {
-        accessOffice: 'CSMT-ML',      // See CSMT-ML staff
-        allowedDesignations: [3, 4]    // Only these designation IDs
-    }
-    // Add more special cases here as needed
-};
-
-// Check if user can access staff based on office rules
-function canAccessStaff(userOffice, userRole, staffOffice, staffDesignationId) {
-    // Division admin can access all
-    if (userRole === 'division_admin') return true;
-
-    // Same office can access
-    if (userOffice === staffOffice) return true;
-
-    // Check special access rules
-    const accessRule = OFFICE_ACCESS_RULES[userOffice];
-    if (accessRule && staffOffice === accessRule.accessOffice) {
-        if (accessRule.allowedDesignations.includes(parseInt(staffDesignationId))) {
-            return true;
-        }
-    }
-
-    return false;
-}
-
 // GET /api/division/training/matrix - Get training compliance matrix for special trainings
 router.get('/matrix', requireAuth, async (req, res) => {
     try {
         const { search, designation_id, designation_ids, cli_id, office, trainings } = req.query;
-        let userOffice = req.session.user.div_office_code;
+        const userOffice = req.session.user.div_office_code;
         const userRole = req.session.user.div_role;
 
-        // Check for special office access rules
+        // Check for special office access rules (for designation restrictions)
         const accessRule = OFFICE_ACCESS_RULES[userOffice];
         let restrictedDesignations = null;
         if (accessRule) {
-            userOffice = accessRule.accessOffice;  // Override office
-            restrictedDesignations = accessRule.allowedDesignations;  // Restrict designations
+            restrictedDesignations = accessRule.allowedDesignations;
         }
 
         const trainingKeys = trainings ? trainings.split(',') : [];
@@ -186,9 +201,11 @@ router.get('/matrix', requireAuth, async (req, res) => {
             `;
             const params = [];
 
-            if (userRole !== 'admin' && userOffice) {
-                staffQuery += ' AND s.current_office_code = ?';
-                params.push(userOffice);
+            // Apply office filter using CMS prefix for VVH offices
+            if (userRole !== 'division_admin' && userOffice) {
+                const filter = buildOfficeFilter(userOffice, 's');
+                staffQuery += ' AND ' + filter.condition;
+                params.push(...filter.params);
             }
             if (search) {
                 staffQuery += ' AND (s.name LIKE ? OR s.hrms_id LIKE ? OR s.pf_number LIKE ?)';
@@ -220,8 +237,9 @@ router.get('/matrix', requireAuth, async (req, res) => {
                 params.push(cli_id);
             }
             if (office) {
-                staffQuery += ' AND s.current_office_code = ?';
-                params.push(office);
+                const officeFilter = buildOfficeFilter(office, 's');
+                staffQuery += ' AND ' + officeFilter.condition;
+                params.push(...officeFilter.params);
             }
 
             staffQuery += ' ORDER BY s.name LIMIT 200';
