@@ -242,7 +242,7 @@ router.get('/matrix', requireAuth, async (req, res) => {
                 params.push(...officeFilter.params);
             }
 
-            staffQuery += ' ORDER BY s.name LIMIT 200';
+            staffQuery += ' ORDER BY s.name LIMIT 500';
             const [staffRows] = await conn.query(staffQuery, params);
 
             let matrix = {};
