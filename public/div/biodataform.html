@@ -57,6 +57,14 @@
   .progress-info{flex:1;text-align:left;}
   .progress-info .label{font-size:11px;color:#666;margin-bottom:2px;}
   .progress-info .filled{font-size:12px;font-weight:600;color:#333;}
+  /* Retired staff styling */
+  .id-card.retired{background:linear-gradient(135deg,#f5f5f5,#e8e8e8);border:2px solid #9ca3af;}
+  .id-card.retired .id-photo{opacity:0.7;filter:grayscale(30%);}
+  .retired-banner{background:linear-gradient(135deg,#6b7280,#4b5563);color:#fff;padding:12px 16px;border-radius:8px;margin-bottom:16px;display:flex;align-items:center;gap:12px;box-shadow:0 2px 8px rgba(0,0,0,0.15);}
+  .retired-banner .retired-icon{font-size:24px;}
+  .retired-banner .retired-text{flex:1;}
+  .retired-banner .retired-title{font-weight:600;font-size:14px;}
+  .retired-banner .retired-details{font-size:12px;opacity:0.9;margin-top:2px;}
 </style>
 </head>
 <body>
@@ -153,6 +161,15 @@
       <div id="successBanner" class="alert alert-success alert-dismissible fade" role="alert" style="display: none;">
         <strong>✓ Success!</strong> <span id="successMessage"></span>
         <button type="button" class="btn-close" onclick="document.getElementById('successBanner').style.display='none'"></button>
+      </div>
+
+      <!-- Retired Staff Banner -->
+      <div id="retiredBanner" class="retired-banner" style="display: none;">
+        <div class="retired-icon">🏁</div>
+        <div class="retired-text">
+          <div class="retired-title">This staff member has retired</div>
+          <div class="retired-details" id="retiredDetails">Retirement Date: --</div>
+        </div>
       </div>
 
       <div class="card" id="biodataCard">
@@ -3772,6 +3789,38 @@ function setFormEditability() {
   document.getElementById('btnSaveNext').disabled = !canEdit;
   document.getElementById('btnTransfer').disabled = !canEdit;
   document.getElementById('btnChangeCLI').disabled = !canEdit;
+
+  // Handle retired/transferred staff visual styling
+  const staffStatus = window.currentStaffData?.status;
+  const idCard = document.querySelector('.id-card');
+  const retiredBanner = document.getElementById('retiredBanner');
+  const retiredDetails = document.getElementById('retiredDetails');
+
+  // Reset retired styling first
+  idCard.classList.remove('retired');
+  retiredBanner.style.display = 'none';
+
+  if (staffStatus === 'Retired' || staffStatus === 'Transferred') {
+    // Disable Transfer and CLI buttons
+    document.getElementById('btnTransfer').disabled = true;
+    document.getElementById('btnChangeCLI').disabled = true;
+
+    // Add visual styling for retired staff
+    if (staffStatus === 'Retired') {
+      idCard.classList.add('retired');
+      retiredBanner.style.display = 'flex';
+
+      // Show retirement details
+      const retDate = window.currentStaffData?.retirement_date;
+      const retType = window.currentStaffData?.retirement_type;
+      if (retDate) {
+        const formattedDate = new Date(retDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+        retiredDetails.textContent = `${retType || 'Superannuation'} on ${formattedDate}`;
+      } else {
+        retiredDetails.textContent = retType ? `Retired via ${retType}` : 'Retirement date not recorded';
+      }
+    }
+  }
 
   // Update CLI button text based on whether staff has CLI
   const cliBtn = document.getElementById('btnChangeCLI');

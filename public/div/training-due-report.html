@@ -1409,16 +1409,20 @@
 
             // Helper function to generate table rows
             const generateRows = (dataset, sectionType) => {
-                return dataset.map(item => `
-                    <tr onclick="openHistoryModal('${item.hrms_id}', '${item.name.replace(/'/g, "\\'")}', '${(item.designation_name || item.designation).replace(/'/g, "\\'")}', '${item.office_name.replace(/'/g, "\\'")}')">
+                return dataset.map(item => {
+                    const safeName = (item.name || '').replace(/'/g, "\\'");
+                    const safeDesig = (item.designation_name || item.designation || '').replace(/'/g, "\\'");
+                    const safeOffice = (item.office_name || '').replace(/'/g, "\\'");
+                    return `
+                    <tr onclick="openHistoryModal('${item.hrms_id}', '${safeName}', '${safeDesig}', '${safeOffice}')">
                         <td>
-                            <div style="font-weight: 600; color: #111827;">${item.name}</div>
+                            <div style="font-weight: 600; color: #111827;">${item.name || '-'}</div>
                             <div style="font-size: 12px; color: #6b7280;">HRMS ${item.hrms_id}</div>
                         </td>
-                        <td>${item.designation_name || item.designation}</td>
-                        ${showTrainingColumn ? `<td><span style="font-size: 13px; color: #6366f1; font-weight: 500;">${item.training_name}</span></td>` : ''}
+                        <td>${item.designation_name || item.designation || '-'}</td>
+                        ${showTrainingColumn ? `<td><span style="font-size: 13px; color: #6366f1; font-weight: 500;">${item.training_name || '-'}</span></td>` : ''}
                         <td>
-                            <span class="office-highlight">${item.office_name}</span>
+                            <span class="office-highlight">${item.office_name || '-'}</span>
                         </td>
                         <td>${formatDate(item.done_date)}</td>
                         <td>${formatDate(item.due_date)}</td>
@@ -1428,7 +1432,7 @@
                             </span>
                         </td>
                     </tr>
-                `).join('');
+                `}).join('');
             };
 
             let tableHTML = '';
