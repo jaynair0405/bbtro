@@ -20,12 +20,17 @@
 
 ## New Features
 - [ ] User management page - needs discussion
-- [ ] Leave management page design
-- [ ] Add Slate entry link in left sidebar
-- [ ] Slate entry page design
+- [x] Leave management page (table: div_leave_tracking exists) - Frontend + API routes complete
+- [ ] Slate entry page (depends on leave data)
+- [ ] CTR entry page
 
 ## Future Enhancements
 - [ ] Staff profile report - add Foot plate monitoring, Learning road sections (tables to be created)
 
+## Server Database Pending
+SQL scripts to run on production server:
+- [ ] `sql/add_retirement_date_column.sql` - Add retirement_date and retirement_type columns to div_staff_master
+
 ---
-*Last updated: 2026-01-04*
+*Last updated: 2026-01-09*
+

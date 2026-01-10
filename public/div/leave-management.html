@@ -1,0 +1,2476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leave Management Console</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="/div/js/division-auth.js"></script>
+    <style>
+        :root {
+            --brand: #0b3d91;
+            --bg: #f3f4f6;
+            --surface: #ffffff;
+            --border: #e5e7eb;
+            --text-main: #1f2937;
+            --text-light: #6b7280;
+            --input-bg: #f9fafb;
+
+            /* Status Colors */
+            --approved: #059669;
+            --applied: #dc2626;
+            --pending: #d97706;
+            --forwarded: #6366f1;
+            --absent: #be123c;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background-color: var(--bg);
+            color: var(--text-main);
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header */
+        header {
+            background: var(--surface);
+            padding: 12px 24px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            z-index: 10;
+        }
+        .app-title h1 { margin: 0; font-size: 18px; color: var(--brand); font-weight: 700; }
+        .app-title small { color: var(--text-light); font-size: 12px; }
+        .header-right { display: flex; align-items: center; gap: 15px; }
+        .back-link { color: var(--brand); text-decoration: none; font-size: 13px; }
+        .back-link:hover { text-decoration: underline; }
+
+        /* Main Layout Grid */
+        .layout-grid {
+            display: grid;
+            grid-template-columns: 400px 1fr;
+            gap: 20px;
+            padding: 20px;
+            min-height: calc(100vh - 65px);
+        }
+
+        /* --- LEFT PANEL --- */
+        .left-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            height: 100%;
+            overflow-y: auto;
+        }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        .card-header {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--brand);
+            margin-bottom: 16px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* Form Styling */
+        .form-group { margin-bottom: 14px; }
+        .form-label { display: block; font-size: 12px; color: var(--text-light); margin-bottom: 5px; font-weight: 600; }
+
+        .form-control {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-family: inherit;
+            font-size: 14px;
+            background: var(--input-bg);
+            transition: border-color 0.2s;
+        }
+        .form-control:focus { outline: none; border-color: var(--brand); background: #fff; }
+        .form-control[readonly] { background: #e5e7eb; cursor: not-allowed; font-weight: 600; color: var(--text-main); }
+
+        .row-group { display: flex; gap: 10px; }
+        .col { flex: 1; }
+
+        /* Staff Search Dropdown */
+        .search-wrapper { position: relative; }
+        .search-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: #fff;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            max-height: 250px;
+            overflow-y: auto;
+            z-index: 100;
+            display: none;
+        }
+        .search-dropdown.show { display: block; }
+        .search-item {
+            padding: 10px 12px;
+            cursor: pointer;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .search-item:hover { background: #eff6ff; }
+        .search-item .name { font-weight: 600; color: #333; }
+        .search-item .details { font-size: 12px; color: #666; margin-top: 2px; }
+
+        .staff-selected {
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            padding: 10px 12px;
+            border-radius: 6px;
+            margin-top: 8px;
+            display: none;
+        }
+        .staff-selected.show { display: block; }
+        .staff-selected .name { font-weight: 600; color: var(--brand); }
+        .staff-selected .info { font-size: 12px; color: var(--text-light); margin-top: 2px; }
+        .staff-selected .clear-btn {
+            float: right;
+            background: none;
+            border: none;
+            color: #ef4444;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .btn-submit {
+            width: 100%;
+            padding: 12px;
+            background: var(--brand);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .btn-submit:hover { background: #062356; }
+        .btn-submit:disabled { background: #9ca3af; cursor: not-allowed; }
+
+        .btn-absent {
+            width: 100%;
+            padding: 12px;
+            background: var(--absent);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 8px;
+        }
+        .btn-absent:hover { background: #9f1239; }
+
+        /* History Table */
+        .history-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        .history-table th { text-align: left; padding: 8px; background: #f9fafb; border-bottom: 1px solid var(--border); color: var(--text-light); font-weight: 600; }
+        .history-table td { padding: 8px; border-bottom: 1px solid var(--border); }
+        .status-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 10px;
+            font-weight: 600;
+        }
+        .status-approved { background: #d1fae5; color: #065f46; }
+        .status-pending { background: #fef3c7; color: #92400e; }
+        .status-forwarded { background: #e0e7ff; color: #3730a3; }
+        .status-rejected { background: #fee2e2; color: #991b1b; }
+        .status-absent { background: #fce7f3; color: #9d174d; }
+        .status-cancelled { background: #f3f4f6; color: #6b7280; }
+
+        /* Action buttons in history */
+        .action-btn {
+            padding: 3px 8px;
+            border: none;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-right: 3px;
+        }
+        .btn-approve { background: #d1fae5; color: #065f46; }
+        .btn-approve:hover { background: #a7f3d0; }
+        .btn-forward { background: #e0e7ff; color: #3730a3; }
+        .btn-forward:hover { background: #c7d2fe; }
+        .btn-reject { background: #fee2e2; color: #991b1b; }
+        .btn-reject:hover { background: #fecaca; }
+        .btn-regularize { background: #dbeafe; color: #1e40af; }
+        .btn-regularize:hover { background: #bfdbfe; }
+        .btn-edit { background: #f3f4f6; color: #374151; }
+        .btn-edit:hover { background: #e5e7eb; }
+
+        /* --- RIGHT PANEL --- */
+        .right-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            height: 100%;
+            overflow-y: auto;
+            padding-right: 5px;
+        }
+
+        /* Filter Bar */
+        .filter-bar {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        .filter-bar label { font-size: 12px; color: var(--text-light); font-weight: 600; }
+        .filter-bar select, .filter-bar input[type="date"] {
+            padding: 6px 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 13px;
+            background: var(--input-bg);
+        }
+        .filter-bar .btn-apply {
+            padding: 6px 16px;
+            background: var(--brand);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        /* KPI Row */
+        .kpi-row {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 10px;
+        }
+        .kpi-card {
+            background: white;
+            padding: 12px 8px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            text-align: center;
+        }
+        .kpi-val { font-size: 22px; font-weight: 700; }
+        .kpi-lbl { font-size: 9px; color: var(--text-light); text-transform: uppercase; font-weight: 600; margin-top: 4px; line-height: 1.2; }
+
+        .kpi-pending { border-bottom: 3px solid var(--pending); }
+        .kpi-pending .kpi-val { color: var(--pending); }
+        .kpi-approved { border-bottom: 3px solid var(--approved); }
+        .kpi-approved .kpi-val { color: var(--approved); }
+        .kpi-today { border-bottom: 3px solid var(--brand); }
+        .kpi-today .kpi-val { color: var(--brand); }
+        .kpi-forwarded { border-bottom: 3px solid var(--forwarded); }
+        .kpi-forwarded .kpi-val { color: var(--forwarded); }
+        .kpi-absent { border-bottom: 3px solid var(--absent); }
+        .kpi-absent .kpi-val { color: var(--absent); }
+        .kpi-returning { border-bottom: 3px solid #10b981; }
+        .kpi-returning .kpi-val { color: #10b981; }
+
+        /* Clickable KPI cards */
+        .kpi-card.clickable {
+            cursor: pointer;
+            transition: transform 0.15s, box-shadow 0.15s;
+        }
+        .kpi-card.clickable:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .kpi-card.clickable:active {
+            transform: translateY(0);
+        }
+
+        /* KPI Popup Staff List */
+        .kpi-staff-list {
+            max-height: 350px;
+            overflow-y: auto;
+        }
+        .kpi-staff-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin-bottom: 8px;
+            background: #fafafa;
+        }
+        .kpi-staff-item:hover {
+            background: #f0f0f0;
+        }
+        .kpi-staff-info {
+            flex: 1;
+        }
+        .kpi-staff-name {
+            font-weight: 600;
+            color: var(--text-main);
+        }
+        .kpi-staff-details {
+            font-size: 11px;
+            color: var(--text-light);
+            margin-top: 3px;
+        }
+        .kpi-staff-actions {
+            display: flex;
+            gap: 5px;
+        }
+
+        /* Report Link */
+        .report-link {
+            color: var(--brand);
+            text-decoration: none;
+            font-size: 12px;
+            font-weight: 600;
+            padding: 6px 12px;
+            border: 1px solid var(--brand);
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+        .report-link:hover {
+            background: var(--brand);
+            color: white;
+        }
+
+        /* Report Section */
+        .report-section {
+            margin: 0 20px 20px 20px;
+            padding-top: 20px;
+            border-top: 2px solid var(--border);
+        }
+        .report-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .report-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-main);
+        }
+        .back-to-top {
+            color: var(--brand);
+            text-decoration: none;
+            font-size: 12px;
+        }
+        .back-to-top:hover {
+            text-decoration: underline;
+        }
+        .report-filters {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            align-items: center;
+        }
+        .report-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .report-card {
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .report-card-header {
+            background: #f9fafb;
+            padding: 12px 15px;
+            font-weight: 600;
+            font-size: 13px;
+            border-bottom: 1px solid var(--border);
+        }
+        .report-card-body {
+            padding: 0;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .report-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+        .report-table th {
+            background: #f3f4f6;
+            padding: 10px;
+            text-align: left;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+        }
+        .report-table td {
+            padding: 10px;
+            border-bottom: 1px solid var(--border);
+        }
+        .report-table tr:hover {
+            background: #f9fafb;
+        }
+        .rank-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            font-size: 11px;
+            font-weight: 700;
+        }
+        .rank-1 { background: #fef3c7; color: #92400e; }
+        .rank-2 { background: #e5e7eb; color: #374151; }
+        .rank-3 { background: #fed7aa; color: #9a3412; }
+        .rank-other { background: #f3f4f6; color: #6b7280; }
+        .report-stat-row {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .report-stat {
+            flex: 1;
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+        }
+        .report-stat-val {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--brand);
+        }
+        .report-stat-lbl {
+            font-size: 11px;
+            color: var(--text-light);
+            margin-top: 5px;
+        }
+
+        /* Chart Section */
+        .chart-container {
+            height: 250px;
+            position: relative;
+        }
+
+        /* Calendar Section */
+        .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .calendar-nav { display: flex; gap: 8px; align-items: center; }
+        .calendar-nav button {
+            background: var(--input-bg);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 4px 10px;
+            cursor: pointer;
+        }
+        .calendar-nav span { font-weight: 600; min-width: 120px; text-align: center; }
+
+        .calendar-wrapper {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 4px;
+        }
+        .cal-day-header {
+            text-align: center;
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--text-light);
+            padding: 5px 0;
+        }
+        .cal-day {
+            aspect-ratio: 1.3;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .cal-day:hover { border-color: var(--brand); }
+        .cal-day.empty { background: transparent; border: none; cursor: default; }
+        .cal-day.today { border: 2px solid var(--brand); font-weight: 700; }
+
+        /* Heatmap Colors */
+        .load-low { background: #f0fdf4; border-color: #bbf7d0; }
+        .load-med { background: #fffbeb; border-color: #fde68a; }
+        .load-high { background: #fef2f2; border-color: #fecaca; }
+
+        .absent-count {
+            font-size: 9px;
+            font-weight: 700;
+            color: var(--text-light);
+        }
+        .load-high .absent-count { color: var(--applied); }
+
+        /* Day Detail Popup */
+        .day-popup {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            padding: 20px;
+            z-index: 1000;
+            min-width: 350px;
+            max-height: 400px;
+            overflow-y: auto;
+            display: none;
+        }
+        .day-popup.show { display: block; }
+        .day-popup-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.3);
+            z-index: 999;
+            display: none;
+        }
+        .day-popup-overlay.show { display: block; }
+        .day-popup h3 { margin: 0 0 15px; color: var(--brand); }
+        .day-popup-close {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            background: none;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            color: var(--text-light);
+        }
+
+        .legend {
+            display: flex;
+            gap: 15px;
+            font-size: 10px;
+            color: #666;
+            margin-bottom: 10px;
+        }
+        .legend-item { display: flex; align-items: center; gap: 4px; }
+        .legend-box { width: 12px; height: 12px; border-radius: 2px; border: 1px solid; }
+
+        /* Calendar Controls */
+        .calendar-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .calendar-filters { display: flex; gap: 10px; align-items: center; }
+        .cal-select {
+            padding: 6px 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 12px;
+            background: var(--input-bg);
+            cursor: pointer;
+        }
+        .designation-selector {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+        .top-desig-btns {
+            display: flex;
+            gap: 4px;
+            background: var(--input-bg);
+            padding: 4px;
+            border-radius: 8px;
+        }
+        .desig-btn {
+            padding: 6px 14px;
+            border: none;
+            background: transparent;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            color: var(--text-light);
+            transition: all 0.2s;
+        }
+        .desig-btn:hover { color: var(--text-main); background: rgba(0,0,0,0.05); }
+        .desig-btn.active {
+            background: var(--brand);
+            color: white;
+        }
+        .more-dropdown {
+            font-size: 11px;
+            padding: 5px 8px;
+        }
+    </style>
+</head>
+<body id="top">
+
+    <header>
+        <div class="app-title">
+            <h1><i class="fa-solid fa-calendar-check"></i> Leave Management Console</h1>
+            <small>Central Railway - BB Division</small>
+        </div>
+        <div class="header-right">
+            <a href="/div/index.html" class="back-link"><i class="fa-solid fa-arrow-left"></i> Back to Dashboard</a>
+            <span style="font-size:13px; font-weight:600; color:#374151;">
+                <i class="fa-solid fa-user-circle"></i> <span id="currentUserName">Loading...</span>
+            </span>
+        </div>
+    </header>
+
+    <div class="layout-grid">
+
+        <!-- LEFT PANEL: Entry & History -->
+        <div class="left-panel">
+            <div class="card">
+                <div class="card-header">
+                    <span><i class="fa-solid fa-pen-to-square"></i> Leave Entry</span>
+                </div>
+                <form id="leaveForm">
+                    <div class="form-group">
+                        <label class="form-label">Search Staff (Name / HRMS / CMS)</label>
+                        <div class="search-wrapper">
+                            <input type="text" id="staffSearch" class="form-control" placeholder="Type to search..." autocomplete="off">
+                            <div class="search-dropdown" id="searchDropdown"></div>
+                        </div>
+                        <div class="staff-selected" id="staffSelected">
+                            <button type="button" class="clear-btn" onclick="clearStaffSelection()"><i class="fa-solid fa-times"></i></button>
+                            <div class="name" id="selectedName">-</div>
+                            <div class="info" id="selectedInfo">-</div>
+                            <input type="hidden" id="selectedHrmsId">
+                            <input type="hidden" id="selectedOfficeCode">
+                            <input type="hidden" id="selectedDesignationId">
+                        </div>
+                    </div>
+
+                    <div class="row-group">
+                        <div class="col form-group">
+                            <label class="form-label">Leave Type</label>
+                            <select class="form-control" id="leaveType">
+                                <option value="">-- Select --</option>
+                                <option value="CL">CL (Casual Leave)</option>
+                                <option value="LAP">LAP (Leave Avg Pay)</option>
+                                <option value="LHAP">LHAP (Leave Half Avg Pay)</option>
+                                <option value="ML">ML (Maternity Leave)</option>
+                                <option value="PL">PL (Paternity Leave)</option>
+                                <option value="CCL">CCL (Child Care Leave)</option>
+                                <option value="Ex India Leave">Ex India Leave</option>
+                                <option value="Spl CL">Spl CL (Special Casual)</option>
+                                <option value="IOD">IOD (Injury on Duty)</option>
+                                <option value="LWP">LWP (Leave Without Pay)</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                        <div class="col form-group">
+                            <label class="form-label">Office</label>
+                            <input type="text" id="officeDisplay" class="form-control" readonly placeholder="Auto-filled">
+                        </div>
+                    </div>
+
+                    <div class="row-group">
+                        <div class="col form-group">
+                            <label class="form-label">From Date</label>
+                            <input type="date" id="fromDate" class="form-control">
+                        </div>
+                        <div class="col form-group">
+                            <label class="form-label">To Date</label>
+                            <input type="date" id="toDate" class="form-control">
+                        </div>
+                        <div class="col form-group">
+                            <label class="form-label">Days</label>
+                            <input type="text" id="totalDays" class="form-control" readonly placeholder="0">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Reason</label>
+                        <input type="text" id="reason" class="form-control" placeholder="Reason for leave...">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Remarks (Optional)</label>
+                        <textarea id="remarks" class="form-control" rows="2" placeholder="Any additional remarks..."></textarea>
+                    </div>
+
+                    <button type="button" class="btn-submit" id="btnSubmit" onclick="submitLeave()">
+                        <i class="fa-solid fa-paper-plane"></i> Submit Leave Application
+                    </button>
+                    <button type="button" class="btn-absent" onclick="markAbsent()">
+                        <i class="fa-solid fa-user-xmark"></i> Mark as Absent
+                    </button>
+                </form>
+            </div>
+
+            <!-- Staff Leave History -->
+            <div class="card" id="historyCard" style="display:none; flex:1;">
+                <div class="card-header">
+                    <span><i class="fa-solid fa-clock-rotate-left"></i> Leave History</span>
+                    <small id="historyStaffName">-</small>
+                </div>
+                <div style="overflow-y:auto; max-height:280px;">
+                    <table class="history-table">
+                        <thead>
+                            <tr>
+                                <th>Period</th>
+                                <th>Type</th>
+                                <th>Days</th>
+                                <th>Status</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historyBody">
+                            <tr><td colspan="5" style="text-align:center; color:#999;">Select a staff member</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- RIGHT PANEL: Dashboard -->
+        <div class="right-panel">
+
+            <!-- Filter Bar -->
+            <div class="filter-bar">
+                <div>
+                    <label>Office</label>
+                    <select id="filterOffice">
+                        <option value="ALL">All Offices</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Designation</label>
+                    <select id="filterDesignation">
+                        <option value="ALL">All</option>
+                        <option value="8">LPG</option>
+                        <option value="1">ALP</option>
+                        <option value="5">Sr. ALP</option>
+                    </select>
+                </div>
+                <div>
+                    <label>From</label>
+                    <input type="date" id="filterFromDate">
+                </div>
+                <div>
+                    <label>To</label>
+                    <input type="date" id="filterToDate">
+                </div>
+                <button class="btn-apply" onclick="applyFilters()"><i class="fa-solid fa-filter"></i> Apply</button>
+            </div>
+
+            <!-- KPI Cards -->
+            <div class="kpi-row">
+                <div class="kpi-card kpi-pending clickable" onclick="openKpiPopup('pending')">
+                    <div class="kpi-val" id="kpiPending">0</div>
+                    <div class="kpi-lbl">Pending</div>
+                </div>
+                <div class="kpi-card kpi-forwarded clickable" onclick="openKpiPopup('forwarded')">
+                    <div class="kpi-val" id="kpiForwarded">0</div>
+                    <div class="kpi-lbl">Forwarded</div>
+                </div>
+                <div class="kpi-card kpi-approved clickable" onclick="openKpiPopup('approved')">
+                    <div class="kpi-val" id="kpiApproved">0</div>
+                    <div class="kpi-lbl">Approved</div>
+                </div>
+                <div class="kpi-card kpi-today clickable" onclick="openKpiPopup('on-leave-today')">
+                    <div class="kpi-val" id="kpiOnLeave">0</div>
+                    <div class="kpi-lbl">On Leave Today</div>
+                </div>
+                <div class="kpi-card kpi-absent clickable" onclick="openKpiPopup('absent')">
+                    <div class="kpi-val" id="kpiAbsent">0</div>
+                    <div class="kpi-lbl">Absent (Unreg.)</div>
+                </div>
+                <div class="kpi-card kpi-returning clickable" onclick="openKpiPopup('returning')">
+                    <div class="kpi-val" id="kpiReturning">0</div>
+                    <div class="kpi-lbl">Returning Tomorrow</div>
+                </div>
+            </div>
+
+            <!-- Reports Link -->
+            <div style="text-align: right; margin-top: 10px;">
+                <a href="#absenteeism-report" class="report-link" onclick="loadAbsenteeismReport()">
+                    <i class="fa-solid fa-chart-bar"></i> Absenteeism Report
+                </a>
+            </div>
+
+            <!-- Chart -->
+            <div class="card">
+                <div class="card-header">
+                    <span><i class="fa-solid fa-chart-line"></i> Leave Trends (Applied vs Approved)</span>
+                </div>
+                <div class="chart-container">
+                    <canvas id="leaveChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Calendar Heatmap -->
+            <div class="card" style="flex:1;">
+                <div class="card-header">
+                    <span><i class="fa-solid fa-calendar-days"></i> Availability Calendar</span>
+                </div>
+
+                <!-- Calendar Controls -->
+                <div class="calendar-controls">
+                    <div class="calendar-filters">
+                        <select id="calendarStatus" class="cal-select" onchange="renderCalendar()">
+                            <option value="Applied" selected>Applied (Planning)</option>
+                            <option value="Approved">Approved</option>
+                            <option value="Approved+Absent">Approved + Absent</option>
+                        </select>
+                    </div>
+                    <div class="designation-selector">
+                        <!-- Top 2 buttons populated dynamically -->
+                        <div class="top-desig-btns" id="topDesigBtns"></div>
+                        <!-- More dropdown for remaining -->
+                        <select id="moreDesigDropdown" class="cal-select more-dropdown" onchange="selectDesigFromDropdown(this)">
+                            <option value="">More...</option>
+                        </select>
+                    </div>
+                    <div class="calendar-nav">
+                        <button onclick="changeMonth(-1)"><i class="fa-solid fa-chevron-left"></i></button>
+                        <span id="calendarMonth">January 2026</span>
+                        <button onclick="changeMonth(1)"><i class="fa-solid fa-chevron-right"></i></button>
+                    </div>
+                </div>
+
+                <!-- Legend -->
+                <div class="legend">
+                    <div class="legend-item"><span class="legend-box" style="background:#f0fdf4; border-color:#bbf7d0;"></span> Low (0-5)</div>
+                    <div class="legend-item"><span class="legend-box" style="background:#fffbeb; border-color:#fde68a;"></span> Medium (6-10)</div>
+                    <div class="legend-item"><span class="legend-box" style="background:#fef2f2; border-color:#fecaca;"></span> High (>10)</div>
+                </div>
+
+                <div class="calendar-wrapper" id="calendarGrid"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Absenteeism Report Section -->
+    <div id="absenteeism-report" class="report-section" style="display:none;">
+        <div class="report-header">
+            <div class="report-title"><i class="fa-solid fa-chart-bar"></i> Absenteeism Report</div>
+            <a href="javascript:void(0)" class="back-to-top" onclick="scrollToTop()"><i class="fa-solid fa-arrow-up"></i> Back to Top</a>
+        </div>
+
+        <!-- Report Filters -->
+        <div class="report-filters">
+            <div class="form-group" style="margin:0;">
+                <label class="form-label">Period</label>
+                <select class="form-control" id="reportPeriod" onchange="loadAbsenteeismReport()" style="width:150px;">
+                    <option value="this-month">This Month</option>
+                    <option value="last-month">Last Month</option>
+                    <option value="this-year">This Year</option>
+                    <option value="last-year">Last Year</option>
+                    <option value="all">All Time</option>
+                </select>
+            </div>
+            <div class="form-group" style="margin:0;">
+                <label class="form-label">Office</label>
+                <select class="form-control" id="reportOffice" onchange="loadAbsenteeismReport()" style="width:150px;">
+                    <option value="ALL">All Offices</option>
+                </select>
+            </div>
+            <button class="btn-apply" onclick="loadAbsenteeismReport()"><i class="fa-solid fa-sync"></i> Refresh</button>
+        </div>
+
+        <!-- Report Stats -->
+        <div class="report-stat-row">
+            <div class="report-stat">
+                <div class="report-stat-val" id="reportTotalAbsent">0</div>
+                <div class="report-stat-lbl">Total Absent Days</div>
+            </div>
+            <div class="report-stat">
+                <div class="report-stat-val" id="reportTotalInstances">0</div>
+                <div class="report-stat-lbl">Absence Instances</div>
+            </div>
+            <div class="report-stat">
+                <div class="report-stat-val" id="reportStaffAffected">0</div>
+                <div class="report-stat-lbl">Staff Affected</div>
+            </div>
+            <div class="report-stat">
+                <div class="report-stat-val" id="reportRegularized">0%</div>
+                <div class="report-stat-lbl">Regularization Rate</div>
+            </div>
+        </div>
+
+        <!-- Report Tables -->
+        <div class="report-grid">
+            <!-- Top Absentees by Days -->
+            <div class="report-card">
+                <div class="report-card-header"><i class="fa-solid fa-calendar-xmark"></i> Top Absentees (by Days)</div>
+                <div class="report-card-body">
+                    <table class="report-table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Staff</th>
+                                <th>Days</th>
+                                <th>Instances</th>
+                            </tr>
+                        </thead>
+                        <tbody id="reportTopByDays">
+                            <tr><td colspan="4" style="text-align:center; color:#999;">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Chronic Absentees by Instances -->
+            <div class="report-card">
+                <div class="report-card-header"><i class="fa-solid fa-repeat"></i> Chronic Absentees (by Frequency)</div>
+                <div class="report-card-body">
+                    <table class="report-table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Staff</th>
+                                <th>Instances</th>
+                                <th>Days</th>
+                            </tr>
+                        </thead>
+                        <tbody id="reportTopByInstances">
+                            <tr><td colspan="4" style="text-align:center; color:#999;">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Absence by Designation -->
+            <div class="report-card">
+                <div class="report-card-header"><i class="fa-solid fa-users"></i> Absence by Designation</div>
+                <div class="report-card-body">
+                    <table class="report-table">
+                        <thead>
+                            <tr>
+                                <th>Designation</th>
+                                <th>Staff</th>
+                                <th>Days</th>
+                                <th>Avg/Staff</th>
+                            </tr>
+                        </thead>
+                        <tbody id="reportByDesignation">
+                            <tr><td colspan="4" style="text-align:center; color:#999;">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Unregularized Absences -->
+            <div class="report-card">
+                <div class="report-card-header"><i class="fa-solid fa-exclamation-triangle"></i> Pending Regularization</div>
+                <div class="report-card-body">
+                    <table class="report-table">
+                        <thead>
+                            <tr>
+                                <th>Staff</th>
+                                <th>Period</th>
+                                <th>Days</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="reportUnregularized">
+                            <tr><td colspan="4" style="text-align:center; color:#999;">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Leave Modal -->
+    <div class="day-popup-overlay" id="editLeaveOverlay" onclick="closeEditLeaveModal()"></div>
+    <div class="day-popup" id="editLeaveModal" style="min-width:400px;">
+        <button class="day-popup-close" onclick="closeEditLeaveModal()"><i class="fa-solid fa-times"></i></button>
+        <h3><i class="fa-solid fa-edit"></i> Edit Leave</h3>
+        <div id="editLeaveContent">
+            <div class="form-group">
+                <label class="form-label">Leave Type</label>
+                <select class="form-control" id="editLeaveType">
+                    <option value="CL">CL (Casual Leave)</option>
+                    <option value="LAP">LAP (Leave Avg Pay)</option>
+                    <option value="LHAP">LHAP (Leave Half Avg Pay)</option>
+                    <option value="ML">ML (Maternity Leave)</option>
+                    <option value="PL">PL (Paternity Leave)</option>
+                    <option value="CCL">CCL (Child Care Leave)</option>
+                    <option value="Ex India Leave">Ex India Leave</option>
+                    <option value="Spl CL">Spl CL (Special Casual)</option>
+                    <option value="IOD">IOD (Injury on Duty)</option>
+                    <option value="LWP">LWP (Leave Without Pay)</option>
+                    <option value="Other">Other</option>
+                </select>
+            </div>
+
+            <div class="row-group">
+                <div class="col form-group">
+                    <label class="form-label">From Date</label>
+                    <input type="date" class="form-control" id="editFromDate" onchange="calculateEditDays()">
+                </div>
+                <div class="col form-group">
+                    <label class="form-label">To Date</label>
+                    <input type="date" class="form-control" id="editToDate" onchange="calculateEditDays()">
+                </div>
+                <div class="col form-group">
+                    <label class="form-label">Days</label>
+                    <input type="text" class="form-control" id="editDays" readonly style="width:60px; text-align:center; font-weight:600;">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Reason</label>
+                <input type="text" class="form-control" id="editReason" placeholder="Reason...">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Remarks</label>
+                <input type="text" class="form-control" id="editRemarks" placeholder="Remarks...">
+            </div>
+
+            <button type="button" class="btn-submit" onclick="saveLeaveEdit()" style="margin-top:10px;">
+                <i class="fa-solid fa-save"></i> Save Changes
+            </button>
+        </div>
+        <input type="hidden" id="editLeaveId">
+    </div>
+
+    <!-- Regularize Modal -->
+    <div class="day-popup-overlay" id="regularizeOverlay" onclick="closeRegularizeModal()"></div>
+    <div class="day-popup" id="regularizeModal" style="min-width:400px;">
+        <button class="day-popup-close" onclick="closeRegularizeModal()"><i class="fa-solid fa-times"></i></button>
+        <h3><i class="fa-solid fa-file-medical"></i> Regularize Absence</h3>
+        <div id="regularizeContent">
+            <div style="background:#fef2f2; padding:12px; border-radius:8px; margin-bottom:15px;">
+                <div style="font-weight:600; color:#991b1b;">Absent Period</div>
+                <div style="font-size:13px; margin-top:5px;">
+                    <span id="regFromDate">-</span> to <span id="regToDate">-</span>
+                    (<span id="regTotalDays">0</span> days)
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Leave Type</label>
+                <select class="form-control" id="regLeaveType">
+                    <option value="">-- Select --</option>
+                    <option value="CL">CL (Casual Leave)</option>
+                    <option value="LAP">LAP (Leave Avg Pay)</option>
+                    <option value="LHAP">LHAP (Leave Half Avg Pay)</option>
+                    <option value="ML">ML (Maternity Leave)</option>
+                    <option value="PL">PL (Paternity Leave)</option>
+                    <option value="CCL">CCL (Child Care Leave)</option>
+                    <option value="Ex India Leave">Ex India Leave</option>
+                    <option value="Spl CL">Spl CL (Special Casual)</option>
+                    <option value="IOD">IOD (Injury on Duty)</option>
+                    <option value="LWP">LWP (Leave Without Pay)</option>
+                </select>
+            </div>
+
+            <div class="row-group">
+                <div class="col form-group">
+                    <label class="form-label">Regularize From</label>
+                    <input type="date" class="form-control" id="regFromDateInput" onchange="calculateRegDays()">
+                </div>
+                <div class="col form-group">
+                    <label class="form-label">Regularize To</label>
+                    <input type="date" class="form-control" id="regToDateInput" onchange="calculateRegDays()">
+                </div>
+                <div class="col form-group">
+                    <label class="form-label">Days</label>
+                    <input type="text" class="form-control" id="regDays" readonly style="width:60px; text-align:center; font-weight:600;">
+                </div>
+            </div>
+            <small style="color:#666; font-size:11px; display:block; margin-bottom:12px;">Select dates within the absent period. Remaining days will stay as Absent.</small>
+
+            <div class="form-group">
+                <label class="form-label">Remarks</label>
+                <input type="text" class="form-control" id="regRemarks" placeholder="Regularization remarks...">
+            </div>
+
+            <button type="button" class="btn-submit" onclick="submitRegularization()" style="margin-top:10px;">
+                <i class="fa-solid fa-check"></i> Regularize
+            </button>
+        </div>
+        <input type="hidden" id="regLeaveId">
+        <input type="hidden" id="regOrigFromDate">
+        <input type="hidden" id="regOrigToDate">
+    </div>
+
+    <!-- KPI Staff List Popup -->
+    <div class="day-popup-overlay" id="kpiPopupOverlay" onclick="closeKpiPopup()"></div>
+    <div class="day-popup" id="kpiPopup" style="min-width:450px; max-width:550px;">
+        <button class="day-popup-close" onclick="closeKpiPopup()"><i class="fa-solid fa-times"></i></button>
+        <h3 id="kpiPopupTitle">-</h3>
+        <div id="kpiPopupContent" class="kpi-staff-list">Loading...</div>
+    </div>
+
+    <!-- Day Detail Popup -->
+    <div class="day-popup-overlay" id="dayPopupOverlay" onclick="closeDayPopup()"></div>
+    <div class="day-popup" id="dayPopup">
+        <button class="day-popup-close" onclick="closeDayPopup()"><i class="fa-solid fa-times"></i></button>
+        <h3 id="dayPopupTitle">-</h3>
+        <div id="dayPopupContent">Loading...</div>
+    </div>
+
+    <script>
+        // ============================================
+        // GLOBAL STATE
+        // ============================================
+        let currentUser = null;
+        let selectedStaff = null;
+        let currentCalendarDate = new Date();
+        let leaveChart = null;
+        let searchTimeout = null;
+        let calendarDesignation = null; // Will be set from office's top designation
+
+        // Designation grouping: ALP includes Sr.ALP, LPS includes Sr.LPS
+        const DESIGNATION_GROUPS = {
+            '1': { ids: [1, 2], label: 'ALP', name: 'ALP + Sr.ALP' },      // ALP group
+            '3': { ids: [3, 4], label: 'LPS', name: 'LPS + Sr.LPS' },      // LPS group
+            '5': { ids: [5], label: 'LPG', name: 'LPG' },                   // LPG
+            '6': { ids: [6], label: 'LPP', name: 'LPP' },                   // LPP
+            '7': { ids: [7], label: 'LPM', name: 'LPM' },                   // LPM
+            '8': { ids: [8], label: 'Motorman', name: 'Motorman' },         // Motorman
+            '9': { ids: [9], label: 'LP Ghat', name: 'LP Ghat' },           // LP Ghat
+            '10': { ids: [10], label: 'Jr.CC', name: 'Jr.CC' }              // Jr.CC
+        };
+
+        // All designation options for dropdown (IDs 1-10, grouped)
+        const ALL_DESIGNATIONS = [
+            { key: '1', label: 'ALP' },
+            { key: '3', label: 'LPS' },
+            { key: '5', label: 'LPG' },
+            { key: '6', label: 'LPP' },
+            { key: '7', label: 'LPM' },
+            { key: '8', label: 'Motorman' },
+            { key: '9', label: 'LP Ghat' },
+            { key: '10', label: 'Jr.CC' }
+        ];
+
+        // ============================================
+        // INITIALIZATION
+        // ============================================
+        document.addEventListener('DOMContentLoaded', async () => {
+            await checkAuth();
+            initializeDateDefaults();
+            setupEventListeners();
+            await loadOffices();
+            await loadCalendarDesignations();
+            await loadDashboardData();
+            renderCalendar();
+        });
+
+        async function checkAuth() {
+            try {
+                const response = await fetch('/api/current-user');
+                if (!response.ok) {
+                    window.location.href = '/';
+                    return;
+                }
+                currentUser = await response.json();
+                document.getElementById('currentUserName').textContent = currentUser.name || currentUser.username;
+
+                // Show office filter only for admin
+                if (currentUser.div_role !== 'division_admin') {
+                    document.getElementById('filterOffice').style.display = 'none';
+                }
+            } catch (error) {
+                console.error('Auth error:', error);
+                window.location.href = '/';
+            }
+        }
+
+        function initializeDateDefaults() {
+            const today = new Date();
+            const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+            const lastOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+
+            document.getElementById('filterFromDate').value = formatDateForInput(firstOfMonth);
+            document.getElementById('filterToDate').value = formatDateForInput(lastOfMonth);
+            document.getElementById('fromDate').value = formatDateForInput(today);
+            document.getElementById('toDate').value = formatDateForInput(today);
+            calculateDays();
+        }
+
+        function setupEventListeners() {
+            // Staff search
+            document.getElementById('staffSearch').addEventListener('input', debounce(searchStaff, 300));
+            document.getElementById('staffSearch').addEventListener('focus', () => {
+                if (document.getElementById('searchDropdown').innerHTML) {
+                    document.getElementById('searchDropdown').classList.add('show');
+                }
+            });
+
+            // Date change
+            document.getElementById('fromDate').addEventListener('change', calculateDays);
+            document.getElementById('toDate').addEventListener('change', calculateDays);
+
+            // Close dropdown on outside click
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('.search-wrapper')) {
+                    document.getElementById('searchDropdown').classList.remove('show');
+                }
+            });
+        }
+
+        // ============================================
+        // STAFF SEARCH
+        // ============================================
+        function debounce(func, wait) {
+            return function(...args) {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(() => func.apply(this, args), wait);
+            };
+        }
+
+        async function searchStaff() {
+            const query = document.getElementById('staffSearch').value.trim();
+            const dropdown = document.getElementById('searchDropdown');
+
+            if (query.length < 2) {
+                dropdown.classList.remove('show');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/division/staff-search/${encodeURIComponent(query)}`);
+                const result = await response.json();
+
+                if (result.success && result.data.length > 0) {
+                    dropdown.innerHTML = result.data.map(staff => `
+                        <div class="search-item" onclick="selectStaff(${JSON.stringify(staff).replace(/"/g, '&quot;')})">
+                            <div class="name">${staff.name}</div>
+                            <div class="details">HRMS: ${staff.hrms_id} | CMS: ${staff.current_cms_id || '-'} | ${staff.designation_name || '-'} | ${staff.office_name || staff.current_office_code || '-'}</div>
+                        </div>
+                    `).join('');
+                    dropdown.classList.add('show');
+                } else {
+                    dropdown.innerHTML = '<div class="search-item"><div class="details">No results found</div></div>';
+                    dropdown.classList.add('show');
+                }
+            } catch (error) {
+                console.error('Search error:', error);
+            }
+        }
+
+        function selectStaff(staff) {
+            selectedStaff = staff;
+
+            document.getElementById('searchDropdown').classList.remove('show');
+            document.getElementById('staffSearch').value = '';
+
+            document.getElementById('staffSelected').classList.add('show');
+            document.getElementById('selectedName').textContent = staff.name;
+            document.getElementById('selectedInfo').textContent = `HRMS: ${staff.hrms_id} | ${staff.designation_name || '-'} | ${staff.office_name || staff.current_office_code || '-'}`;
+            document.getElementById('selectedHrmsId').value = staff.hrms_id;
+            document.getElementById('selectedOfficeCode').value = staff.current_office_code;
+            document.getElementById('selectedDesignationId').value = staff.designation_id;
+            document.getElementById('officeDisplay').value = staff.office_name || staff.current_office_code || '';
+
+            // Show history card and load history
+            document.getElementById('historyCard').style.display = 'block';
+            document.getElementById('historyStaffName').textContent = staff.name;
+            loadStaffLeaveHistory(staff.hrms_id);
+        }
+
+        function clearStaffSelection() {
+            selectedStaff = null;
+            document.getElementById('staffSelected').classList.remove('show');
+            document.getElementById('selectedHrmsId').value = '';
+            document.getElementById('selectedOfficeCode').value = '';
+            document.getElementById('selectedDesignationId').value = '';
+            document.getElementById('officeDisplay').value = '';
+            document.getElementById('historyCard').style.display = 'none';
+        }
+
+        // ============================================
+        // LEAVE HISTORY
+        // ============================================
+        async function loadStaffLeaveHistory(hrmsId) {
+            const tbody = document.getElementById('historyBody');
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#999;">Loading...</td></tr>';
+
+            try {
+                const response = await fetch(`/api/division/leave/history/${hrmsId}`);
+                const result = await response.json();
+
+                if (result.success && result.data.length > 0) {
+                    tbody.innerHTML = result.data.map(leave => {
+                        // Determine which action buttons to show
+                        let actionBtns = '';
+                        const canEdit = ['Pending', 'Forwarded', 'Approved'].includes(leave.status);
+                        const editBtn = canEdit ? `<button class="action-btn btn-edit" onclick="openEditLeaveModal(${leave.id}, '${leave.leave_type}', '${leave.from_date}', '${leave.to_date}', ${leave.days}, '${(leave.reason || '').replace(/'/g, "\\'")}', '${(leave.remarks || '').replace(/'/g, "\\'")}')"><i class="fa-solid fa-pen"></i></button>` : '';
+
+                        if (leave.status === 'Pending') {
+                            actionBtns = `
+                                ${editBtn}
+                                <button class="action-btn btn-forward" onclick="updateLeaveStatus(${leave.id}, 'Forwarded')">Forward</button>
+                                <button class="action-btn btn-approve" onclick="updateLeaveStatus(${leave.id}, 'Approved')">Approve</button>
+                                <button class="action-btn btn-reject" onclick="updateLeaveStatus(${leave.id}, 'Rejected')">Reject</button>
+                            `;
+                        } else if (leave.status === 'Forwarded') {
+                            actionBtns = `
+                                ${editBtn}
+                                <button class="action-btn btn-approve" onclick="updateLeaveStatus(${leave.id}, 'Approved')">Approve</button>
+                                <button class="action-btn btn-reject" onclick="updateLeaveStatus(${leave.id}, 'Rejected')">Reject</button>
+                            `;
+                        } else if (leave.status === 'Approved') {
+                            actionBtns = editBtn || '<span style="color:#999; font-size:10px;">-</span>';
+                        } else if (leave.status === 'Absent' && !leave.is_regularized) {
+                            actionBtns = `
+                                <button class="action-btn btn-regularize" onclick="openRegularizeModal(${leave.id}, '${leave.from_date}', '${leave.to_date}', ${leave.days})">Regularize</button>
+                            `;
+                        } else {
+                            actionBtns = '<span style="color:#999; font-size:10px;">-</span>';
+                        }
+
+                        return `
+                            <tr>
+                                <td>${formatDate(leave.from_date)} - ${formatDate(leave.to_date)}</td>
+                                <td>${leave.leave_type}</td>
+                                <td>${leave.days}</td>
+                                <td><span class="status-badge status-${leave.status.toLowerCase()}">${leave.status}${leave.is_regularized ? ' (Reg.)' : ''}</span></td>
+                                <td>${actionBtns}</td>
+                            </tr>
+                        `;
+                    }).join('');
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#999;">No leave records</td></tr>';
+                }
+            } catch (error) {
+                console.error('Error loading history:', error);
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#ef4444;">Error loading history</td></tr>';
+            }
+        }
+
+        // ============================================
+        // EDIT LEAVE FUNCTIONS
+        // ============================================
+        function formatDateForEdit(dateStr) {
+            if (!dateStr) return '';
+            // Handle ISO date strings like "2026-01-01T00:00:00.000Z"
+            return dateStr.split('T')[0];
+        }
+
+        function openEditLeaveModal(leaveId, leaveType, fromDate, toDate, days, reason, remarks) {
+            // Format dates properly
+            fromDate = formatDateForEdit(fromDate);
+            toDate = formatDateForEdit(toDate);
+            document.getElementById('editLeaveId').value = leaveId;
+            document.getElementById('editLeaveType').value = leaveType;
+            document.getElementById('editFromDate').value = fromDate;
+            document.getElementById('editToDate').value = toDate;
+            document.getElementById('editDays').value = days;
+            document.getElementById('editReason').value = reason || '';
+            document.getElementById('editRemarks').value = remarks || '';
+
+            document.getElementById('editLeaveOverlay').classList.add('show');
+            document.getElementById('editLeaveModal').classList.add('show');
+        }
+
+        function closeEditLeaveModal() {
+            document.getElementById('editLeaveOverlay').classList.remove('show');
+            document.getElementById('editLeaveModal').classList.remove('show');
+        }
+
+        function calculateEditDays() {
+            const fromDate = document.getElementById('editFromDate').value;
+            const toDate = document.getElementById('editToDate').value;
+
+            if (fromDate && toDate) {
+                const start = new Date(fromDate);
+                const end = new Date(toDate);
+                const diffDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
+
+                if (diffDays > 0) {
+                    document.getElementById('editDays').value = diffDays;
+                } else {
+                    document.getElementById('editDays').value = 'Invalid';
+                }
+            }
+        }
+
+        async function saveLeaveEdit() {
+            const leaveId = document.getElementById('editLeaveId').value;
+            const leaveType = document.getElementById('editLeaveType').value;
+            const fromDate = document.getElementById('editFromDate').value;
+            const toDate = document.getElementById('editToDate').value;
+            const days = parseInt(document.getElementById('editDays').value);
+            const reason = document.getElementById('editReason').value.trim();
+            const remarks = document.getElementById('editRemarks').value.trim();
+
+            if (!fromDate || !toDate || days < 1 || isNaN(days)) {
+                alert('Please enter valid dates');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/division/leave/${leaveId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        leave_type: leaveType,
+                        from_date: fromDate,
+                        to_date: toDate,
+                        days: days,
+                        reason: reason,
+                        remarks: remarks
+                    })
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    alert('Leave updated successfully!');
+                    closeEditLeaveModal();
+                    // Reload history
+                    if (selectedStaff) {
+                        loadStaffLeaveHistory(selectedStaff.hrms_id);
+                    }
+                    loadDashboardData();
+                    renderCalendar();
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Error updating leave:', error);
+                alert('Error updating leave');
+            }
+        }
+
+        // Update leave status (Forward/Approve/Reject)
+        async function updateLeaveStatus(leaveId, newStatus) {
+            const action = newStatus === 'Rejected' ? 'reject' : newStatus === 'Approved' ? 'approve' : 'forward';
+            if (!confirm(`Are you sure you want to ${action} this leave?`)) return;
+
+            try {
+                const response = await fetch(`/api/division/leave/${leaveId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        status: newStatus,
+                        approved_by: currentUser?.username || 'system'
+                    })
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    alert(`Leave ${action}ed successfully!`);
+                    // Reload history
+                    if (selectedStaff) {
+                        loadStaffLeaveHistory(selectedStaff.hrms_id);
+                    }
+                    loadDashboardData();
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Error updating leave:', error);
+                alert('Error updating leave status');
+            }
+        }
+
+        // Open regularize modal for absent staff
+        function openRegularizeModal(leaveId, fromDate, toDate, days) {
+            // Store original absent period
+            document.getElementById('regLeaveId').value = leaveId;
+            document.getElementById('regOrigFromDate').value = fromDate;
+            document.getElementById('regOrigToDate').value = toDate;
+
+            // Display absent period info
+            document.getElementById('regFromDate').textContent = formatDate(fromDate);
+            document.getElementById('regToDate').textContent = formatDate(toDate);
+            document.getElementById('regTotalDays').textContent = days;
+
+            // Set date inputs to full absent period (default: regularize all)
+            document.getElementById('regFromDateInput').value = fromDate;
+            document.getElementById('regFromDateInput').min = fromDate;
+            document.getElementById('regFromDateInput').max = toDate;
+
+            document.getElementById('regToDateInput').value = toDate;
+            document.getElementById('regToDateInput').min = fromDate;
+            document.getElementById('regToDateInput').max = toDate;
+
+            // Calculate days
+            document.getElementById('regDays').value = days;
+
+            // Reset form
+            document.getElementById('regLeaveType').value = '';
+            document.getElementById('regRemarks').value = '';
+
+            // Show modal
+            document.getElementById('regularizeOverlay').classList.add('show');
+            document.getElementById('regularizeModal').classList.add('show');
+        }
+
+        // Calculate days when date inputs change
+        function calculateRegDays() {
+            const fromDate = document.getElementById('regFromDateInput').value;
+            const toDate = document.getElementById('regToDateInput').value;
+
+            if (fromDate && toDate) {
+                const start = new Date(fromDate);
+                const end = new Date(toDate);
+                const diffDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
+
+                if (diffDays > 0) {
+                    document.getElementById('regDays').value = diffDays;
+                } else {
+                    document.getElementById('regDays').value = 'Invalid';
+                }
+            }
+        }
+
+        function closeRegularizeModal() {
+            document.getElementById('regularizeOverlay').classList.remove('show');
+            document.getElementById('regularizeModal').classList.remove('show');
+        }
+
+        // Submit regularization
+        async function submitRegularization() {
+            const leaveId = document.getElementById('regLeaveId').value;
+            const leaveType = document.getElementById('regLeaveType').value;
+            const regFromDate = document.getElementById('regFromDateInput').value;
+            const regToDate = document.getElementById('regToDateInput').value;
+            const daysToRegularize = parseInt(document.getElementById('regDays').value);
+            const totalDays = parseInt(document.getElementById('regTotalDays').textContent);
+            const origFromDate = document.getElementById('regOrigFromDate').value;
+            const origToDate = document.getElementById('regOrigToDate').value;
+            const remarks = document.getElementById('regRemarks').value.trim();
+
+            if (!leaveType) {
+                alert('Please select a leave type');
+                return;
+            }
+            if (!regFromDate || !regToDate) {
+                alert('Please select dates');
+                return;
+            }
+            if (daysToRegularize < 1 || isNaN(daysToRegularize)) {
+                alert('Invalid date range');
+                return;
+            }
+
+            // Validate dates are within absent period
+            if (regFromDate < origFromDate || regToDate > origToDate) {
+                alert('Selected dates must be within the absent period');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/division/leave/${leaveId}/regularize`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        leave_type: leaveType,
+                        reg_from_date: regFromDate,
+                        reg_to_date: regToDate,
+                        days_to_regularize: daysToRegularize,
+                        total_days: totalDays,
+                        orig_from_date: origFromDate,
+                        orig_to_date: origToDate,
+                        remarks: remarks || `Regularized to ${leaveType}`,
+                        approved_by: currentUser?.username || 'system'
+                    })
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    alert(result.message || 'Absence regularized successfully!');
+                    closeRegularizeModal();
+                    if (selectedStaff) {
+                        loadStaffLeaveHistory(selectedStaff.hrms_id);
+                    }
+                    loadDashboardData();
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Error regularizing:', error);
+                alert('Error regularizing absence');
+            }
+        }
+
+        // ============================================
+        // ABSENTEEISM REPORT FUNCTIONS
+        // ============================================
+        async function loadAbsenteeismReport() {
+            // Show the report section
+            document.getElementById('absenteeism-report').style.display = 'block';
+
+            // Populate office dropdown if not done
+            const reportOfficeSelect = document.getElementById('reportOffice');
+            if (reportOfficeSelect.options.length <= 1) {
+                const filterOffice = document.getElementById('filterOffice');
+                for (let i = 0; i < filterOffice.options.length; i++) {
+                    if (filterOffice.options[i].value !== 'ALL') {
+                        const opt = document.createElement('option');
+                        opt.value = filterOffice.options[i].value;
+                        opt.textContent = filterOffice.options[i].textContent;
+                        reportOfficeSelect.appendChild(opt);
+                    }
+                }
+            }
+
+            const period = document.getElementById('reportPeriod').value;
+            const officeCode = document.getElementById('reportOffice').value;
+
+            // Show loading state
+            document.getElementById('reportTopByDays').innerHTML = '<tr><td colspan="4" style="text-align:center; color:#999;"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</td></tr>';
+            document.getElementById('reportTopByInstances').innerHTML = '<tr><td colspan="4" style="text-align:center; color:#999;"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</td></tr>';
+            document.getElementById('reportByDesignation').innerHTML = '<tr><td colspan="4" style="text-align:center; color:#999;"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</td></tr>';
+            document.getElementById('reportUnregularized').innerHTML = '<tr><td colspan="4" style="text-align:center; color:#999;"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</td></tr>';
+
+            try {
+                const params = new URLSearchParams();
+                params.append('period', period);
+                if (officeCode && officeCode !== 'ALL') {
+                    params.append('office_code', officeCode);
+                }
+
+                const response = await fetch(`/api/division/leave/absenteeism-report?${params.toString()}`);
+                const result = await response.json();
+
+                if (result.success) {
+                    renderAbsenteeismReport(result);
+                } else {
+                    alert('Error loading report: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Error loading absenteeism report:', error);
+                alert('Error loading report');
+            }
+
+            // Scroll to report section
+            document.getElementById('absenteeism-report').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function renderAbsenteeismReport(data) {
+            // Update stats
+            document.getElementById('reportTotalAbsent').textContent = data.stats.total_days || 0;
+            document.getElementById('reportTotalInstances').textContent = data.stats.total_instances || 0;
+            document.getElementById('reportStaffAffected').textContent = data.stats.staff_affected || 0;
+            document.getElementById('reportRegularized').textContent = (data.stats.regularization_rate || 0) + '%';
+
+            // Top absentees by days
+            const byDaysBody = document.getElementById('reportTopByDays');
+            if (data.top_by_days && data.top_by_days.length > 0) {
+                byDaysBody.innerHTML = data.top_by_days.map((item, idx) => `
+                    <tr>
+                        <td><span class="rank-badge rank-${idx < 3 ? idx + 1 : 'other'}">${idx + 1}</span></td>
+                        <td>
+                            <div style="font-weight:600;">${item.name}</div>
+                            <div style="font-size:10px; color:#666;">${item.current_cms_id || item.staff_hrms_id}</div>
+                        </td>
+                        <td><strong>${item.total_days}</strong></td>
+                        <td>${item.instance_count}</td>
+                    </tr>
+                `).join('');
+            } else {
+                byDaysBody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#999;">No data</td></tr>';
+            }
+
+            // Top absentees by instances (chronic)
+            const byInstancesBody = document.getElementById('reportTopByInstances');
+            if (data.top_by_instances && data.top_by_instances.length > 0) {
+                byInstancesBody.innerHTML = data.top_by_instances.map((item, idx) => `
+                    <tr>
+                        <td><span class="rank-badge rank-${idx < 3 ? idx + 1 : 'other'}">${idx + 1}</span></td>
+                        <td>
+                            <div style="font-weight:600;">${item.name}</div>
+                            <div style="font-size:10px; color:#666;">${item.current_cms_id || item.staff_hrms_id}</div>
+                        </td>
+                        <td><strong>${item.instance_count}</strong></td>
+                        <td>${item.total_days}</td>
+                    </tr>
+                `).join('');
+            } else {
+                byInstancesBody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#999;">No data</td></tr>';
+            }
+
+            // By designation
+            const byDesigBody = document.getElementById('reportByDesignation');
+            if (data.by_designation && data.by_designation.length > 0) {
+                byDesigBody.innerHTML = data.by_designation.map(item => `
+                    <tr>
+                        <td>${item.designation_name || 'Unknown'}</td>
+                        <td>${item.staff_count}</td>
+                        <td>${item.total_days}</td>
+                        <td>${item.avg_per_staff}</td>
+                    </tr>
+                `).join('');
+            } else {
+                byDesigBody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#999;">No data</td></tr>';
+            }
+
+            // Unregularized absences
+            const unregBody = document.getElementById('reportUnregularized');
+            if (data.unregularized && data.unregularized.length > 0) {
+                unregBody.innerHTML = data.unregularized.map(item => `
+                    <tr>
+                        <td>
+                            <div style="font-weight:600;">${item.name}</div>
+                            <div style="font-size:10px; color:#666;">${item.current_cms_id || item.staff_hrms_id}</div>
+                        </td>
+                        <td>${formatDate(item.from_date)} - ${formatDate(item.to_date)}</td>
+                        <td>${item.days}</td>
+                        <td>
+                            <button class="action-btn btn-regularize" onclick="reportOpenRegularize(${item.id}, '${item.from_date}', '${item.to_date}', ${item.days})">Regularize</button>
+                        </td>
+                    </tr>
+                `).join('');
+            } else {
+                unregBody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#10b981;"><i class="fa-solid fa-check"></i> All absences regularized</td></tr>';
+            }
+        }
+
+        function reportOpenRegularize(leaveId, fromDate, toDate, days) {
+            openRegularizeModal(leaveId, fromDate, toDate, days);
+        }
+
+        function scrollToTop() {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // ============================================
+        // KPI POPUP FUNCTIONS
+        // ============================================
+        const KPI_TITLES = {
+            'pending': 'Pending Leave Applications',
+            'forwarded': 'Forwarded Leave Applications',
+            'approved': 'Approved Leaves',
+            'on-leave-today': 'Staff On Leave Today',
+            'absent': 'Absent Staff (Unregularized)',
+            'returning': 'Staff Returning Tomorrow'
+        };
+
+        async function openKpiPopup(type) {
+            document.getElementById('kpiPopupOverlay').classList.add('show');
+            document.getElementById('kpiPopup').classList.add('show');
+            document.getElementById('kpiPopupTitle').innerHTML = `<i class="fa-solid fa-list"></i> ${KPI_TITLES[type] || 'Staff List'}`;
+            document.getElementById('kpiPopupContent').innerHTML = '<div style="text-align:center; padding:30px; color:#999;"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</div>';
+
+            try {
+                const officeCode = document.getElementById('filterOffice').value;
+                const params = new URLSearchParams();
+                if (officeCode && officeCode !== 'ALL') {
+                    params.append('office_code', officeCode);
+                }
+
+                const response = await fetch(`/api/division/leave/kpi-list/${type}?${params.toString()}`);
+                const result = await response.json();
+
+                if (result.success) {
+                    renderKpiStaffList(type, result.data);
+                } else {
+                    document.getElementById('kpiPopupContent').innerHTML = '<div style="text-align:center; padding:30px; color:#ef4444;">Error loading data</div>';
+                }
+            } catch (error) {
+                console.error('Error loading KPI list:', error);
+                document.getElementById('kpiPopupContent').innerHTML = '<div style="text-align:center; padding:30px; color:#ef4444;">Error loading data</div>';
+            }
+        }
+
+        function closeKpiPopup() {
+            document.getElementById('kpiPopupOverlay').classList.remove('show');
+            document.getElementById('kpiPopup').classList.remove('show');
+        }
+
+        function renderKpiStaffList(type, data) {
+            const container = document.getElementById('kpiPopupContent');
+
+            if (!data || data.length === 0) {
+                container.innerHTML = '<div style="text-align:center; padding:30px; color:#999;">No records found</div>';
+                return;
+            }
+
+            let html = '';
+            data.forEach(item => {
+                const periodText = `${formatDate(item.from_date)} - ${formatDate(item.to_date)} (${item.days} days)`;
+                let actionsHtml = '';
+
+                // Different actions based on type
+                const editBtnHtml = `<button class="action-btn btn-edit" onclick="kpiOpenEdit(${item.id}, '${item.leave_type}', '${item.from_date}', '${item.to_date}', ${item.days}, '${(item.reason || '').replace(/'/g, "\\'")}', '${(item.remarks || '').replace(/'/g, "\\'")}')"><i class="fa-solid fa-pen"></i></button>`;
+
+                if (type === 'pending') {
+                    actionsHtml = `
+                        ${editBtnHtml}
+                        <button class="action-btn btn-forward" onclick="kpiUpdateStatus(${item.id}, 'Forwarded')">Forward</button>
+                        <button class="action-btn btn-approve" onclick="kpiUpdateStatus(${item.id}, 'Approved')">Approve</button>
+                        <button class="action-btn btn-reject" onclick="kpiUpdateStatus(${item.id}, 'Rejected')">Reject</button>
+                    `;
+                } else if (type === 'forwarded') {
+                    actionsHtml = `
+                        ${editBtnHtml}
+                        <button class="action-btn btn-approve" onclick="kpiUpdateStatus(${item.id}, 'Approved')">Approve</button>
+                        <button class="action-btn btn-reject" onclick="kpiUpdateStatus(${item.id}, 'Rejected')">Reject</button>
+                    `;
+                } else if (type === 'approved') {
+                    actionsHtml = `
+                        ${editBtnHtml}
+                        <span class="status-badge status-approved">${item.leave_type}</span>
+                    `;
+                } else if (type === 'absent') {
+                    actionsHtml = `
+                        <button class="action-btn btn-regularize" onclick="kpiOpenRegularize(${item.id}, '${item.from_date}', '${item.to_date}', ${item.days})">Regularize</button>
+                    `;
+                } else {
+                    // For on-leave-today, returning - show edit + info
+                    actionsHtml = `
+                        ${editBtnHtml}
+                        <span class="status-badge status-${(item.status || 'approved').toLowerCase()}">${item.leave_type}</span>
+                    `;
+                }
+
+                html += `
+                    <div class="kpi-staff-item">
+                        <div class="kpi-staff-info">
+                            <div class="kpi-staff-name">${item.name}</div>
+                            <div class="kpi-staff-details">
+                                ${item.current_cms_id || item.staff_hrms_id} | ${item.designation_name || ''} | ${periodText}
+                                ${item.reason ? `<br><i>${item.reason}</i>` : ''}
+                            </div>
+                        </div>
+                        <div class="kpi-staff-actions">
+                            ${actionsHtml}
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        // Update status from KPI popup
+        async function kpiUpdateStatus(leaveId, newStatus) {
+            const action = newStatus === 'Rejected' ? 'reject' : newStatus === 'Approved' ? 'approve' : 'forward';
+            if (!confirm(`Are you sure you want to ${action} this leave?`)) return;
+
+            try {
+                const response = await fetch(`/api/division/leave/${leaveId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        status: newStatus,
+                        approved_by: currentUser?.username || 'system'
+                    })
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    alert(`Leave ${action}ed successfully!`);
+                    // Refresh the popup and dashboard
+                    closeKpiPopup();
+                    loadDashboardData();
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Error updating leave:', error);
+                alert('Error updating leave status');
+            }
+        }
+
+        // Open regularize modal from KPI popup
+        function kpiOpenRegularize(leaveId, fromDate, toDate, days) {
+            closeKpiPopup();
+            openRegularizeModal(leaveId, fromDate, toDate, days);
+        }
+
+        // Open edit modal from KPI popup
+        function kpiOpenEdit(leaveId, leaveType, fromDate, toDate, days, reason, remarks) {
+            closeKpiPopup();
+            openEditLeaveModal(leaveId, leaveType, fromDate, toDate, days, reason, remarks);
+        }
+
+        // ============================================
+        // DATE CALCULATIONS
+        // ============================================
+        function calculateDays() {
+            const fromDate = document.getElementById('fromDate').value;
+            const toDate = document.getElementById('toDate').value;
+            const output = document.getElementById('totalDays');
+
+            if (fromDate && toDate) {
+                const start = new Date(fromDate);
+                const end = new Date(toDate);
+                const diffDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
+
+                if (diffDays > 0) {
+                    output.value = diffDays;
+                } else {
+                    output.value = 'Invalid';
+                }
+            } else {
+                output.value = '';
+            }
+        }
+
+        // ============================================
+        // SUBMIT LEAVE
+        // ============================================
+        async function submitLeave() {
+            const hrmsId = document.getElementById('selectedHrmsId').value;
+            const leaveType = document.getElementById('leaveType').value;
+            const fromDate = document.getElementById('fromDate').value;
+            const toDate = document.getElementById('toDate').value;
+            const days = parseInt(document.getElementById('totalDays').value);
+            const reason = document.getElementById('reason').value.trim();
+            const remarks = document.getElementById('remarks').value.trim();
+            const officeCode = document.getElementById('selectedOfficeCode').value;
+            const designationId = document.getElementById('selectedDesignationId').value;
+
+            if (!hrmsId) {
+                alert('Please select a staff member');
+                return;
+            }
+            if (!leaveType) {
+                alert('Please select leave type');
+                return;
+            }
+            if (!fromDate || !toDate || days <= 0) {
+                alert('Please enter valid dates');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/division/leave', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        staff_hrms_id: hrmsId,
+                        leave_type: leaveType,
+                        from_date: fromDate,
+                        to_date: toDate,
+                        days: days,
+                        office_code: officeCode,
+                        designation_id: designationId,
+                        reason: reason,
+                        remarks: remarks,
+                        status: 'Pending'
+                    })
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    alert('Leave application submitted successfully!');
+                    resetForm();
+                    loadStaffLeaveHistory(hrmsId);
+                    loadDashboardData();
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Submit error:', error);
+                alert('Error submitting leave application');
+            }
+        }
+
+        async function markAbsent() {
+            const hrmsId = document.getElementById('selectedHrmsId').value;
+            const fromDate = document.getElementById('fromDate').value;
+            const toDate = document.getElementById('toDate').value;
+            const days = parseInt(document.getElementById('totalDays').value);
+            const officeCode = document.getElementById('selectedOfficeCode').value;
+            const designationId = document.getElementById('selectedDesignationId').value;
+
+            if (!hrmsId) {
+                alert('Please select a staff member');
+                return;
+            }
+            if (!fromDate || !toDate || days <= 0) {
+                alert('Please enter valid dates');
+                return;
+            }
+
+            if (!confirm(`Mark ${selectedStaff.name} as ABSENT from ${fromDate} to ${toDate}?`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/division/leave', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        staff_hrms_id: hrmsId,
+                        leave_type: 'Unknown',
+                        from_date: fromDate,
+                        to_date: toDate,
+                        days: days,
+                        office_code: officeCode,
+                        designation_id: designationId,
+                        reason: 'Marked absent - pending regularization',
+                        status: 'Absent'
+                    })
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    alert('Staff marked as absent. Please regularize later.');
+                    resetForm();
+                    loadStaffLeaveHistory(hrmsId);
+                    loadDashboardData();
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Mark absent error:', error);
+                alert('Error marking absent');
+            }
+        }
+
+        function resetForm() {
+            document.getElementById('leaveType').value = '';
+            document.getElementById('reason').value = '';
+            document.getElementById('remarks').value = '';
+            const today = formatDateForInput(new Date());
+            document.getElementById('fromDate').value = today;
+            document.getElementById('toDate').value = today;
+            calculateDays();
+        }
+
+        // ============================================
+        // DASHBOARD DATA
+        // ============================================
+        async function loadOffices() {
+            try {
+                const response = await fetch('/api/division/offices');
+                const result = await response.json();
+                const offices = result.data || result;
+
+                const select = document.getElementById('filterOffice');
+                offices.forEach(office => {
+                    const option = document.createElement('option');
+                    option.value = office.office_code;
+                    option.textContent = `${office.office_code} - ${office.office_name}`;
+                    select.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Error loading offices:', error);
+            }
+        }
+
+        // Load top 2 designations for calendar based on office staff count
+        async function loadCalendarDesignations() {
+            try {
+                const officeCode = currentUser?.div_office_code || '';
+                const response = await fetch(`/api/division/leave/top-designations?office_code=${officeCode}`);
+                const result = await response.json();
+
+                const topDesigBtns = document.getElementById('topDesigBtns');
+                const moreDropdown = document.getElementById('moreDesigDropdown');
+
+                // Get top 2 designation keys from API (or fallback to ALP, LPG)
+                let top2Keys = ['1', '5']; // Default: ALP, LPG
+                if (result.success && result.data && result.data.length >= 2) {
+                    top2Keys = result.data.slice(0, 2).map(d => mapDesignationToGroup(d.designation_id));
+                } else if (result.success && result.data && result.data.length === 1) {
+                    top2Keys = [mapDesignationToGroup(result.data[0].designation_id), '1'];
+                }
+
+                // Remove duplicates and get unique top 2
+                top2Keys = [...new Set(top2Keys)].slice(0, 2);
+
+                // Render top 2 buttons
+                topDesigBtns.innerHTML = top2Keys.map((key, idx) => {
+                    const group = DESIGNATION_GROUPS[key];
+                    return `<button class="desig-btn ${idx === 0 ? 'active' : ''}" data-key="${key}" onclick="selectDesigBtn(this)">${group?.label || key}</button>`;
+                }).join('');
+
+                // Set default selection to first button
+                calendarDesignation = top2Keys[0];
+
+                // Populate "More" dropdown with remaining designations
+                moreDropdown.innerHTML = '<option value="">More...</option>';
+                ALL_DESIGNATIONS.forEach(d => {
+                    if (!top2Keys.includes(d.key)) {
+                        const option = document.createElement('option');
+                        option.value = d.key;
+                        option.textContent = d.label;
+                        moreDropdown.appendChild(option);
+                    }
+                });
+
+            } catch (error) {
+                console.error('Error loading calendar designations:', error);
+                // Fallback: show default buttons
+                document.getElementById('topDesigBtns').innerHTML = `
+                    <button class="desig-btn active" data-key="1" onclick="selectDesigBtn(this)">ALP</button>
+                    <button class="desig-btn" data-key="5" onclick="selectDesigBtn(this)">LPG</button>
+                `;
+                calendarDesignation = '1';
+            }
+        }
+
+        // Map actual designation_id to group key (Sr.ALP -> ALP group, Sr.LPS -> LPS group)
+        function mapDesignationToGroup(desigId) {
+            const id = parseInt(desigId);
+            if (id === 1 || id === 2) return '1';  // ALP group
+            if (id === 3 || id === 4) return '3';  // LPS group
+            return String(id);
+        }
+
+        // Select designation from button click
+        function selectDesigBtn(btn) {
+            document.querySelectorAll('.desig-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            document.getElementById('moreDesigDropdown').value = '';
+            calendarDesignation = btn.dataset.key;
+            renderCalendar();
+        }
+
+        // Select designation from dropdown
+        function selectDesigFromDropdown(select) {
+            if (!select.value) return;
+            document.querySelectorAll('.desig-btn').forEach(b => b.classList.remove('active'));
+            calendarDesignation = select.value;
+            renderCalendar();
+        }
+
+        // Get designation IDs for query (handles grouping)
+        function getDesignationIds(key) {
+            const group = DESIGNATION_GROUPS[key];
+            return group ? group.ids : [parseInt(key)];
+        }
+
+        async function loadDashboardData() {
+            const officeCode = document.getElementById('filterOffice').value;
+            const designationId = document.getElementById('filterDesignation').value;
+            const fromDate = document.getElementById('filterFromDate').value;
+            const toDate = document.getElementById('filterToDate').value;
+
+            const params = new URLSearchParams();
+            if (officeCode && officeCode !== 'ALL') params.append('office_code', officeCode);
+            if (designationId && designationId !== 'ALL') params.append('designation_id', designationId);
+            if (fromDate) params.append('from_date', fromDate);
+            if (toDate) params.append('to_date', toDate);
+
+            try {
+                const response = await fetch(`/api/division/leave/dashboard?${params.toString()}`);
+                const result = await response.json();
+
+                if (result.success) {
+                    // Update KPIs
+                    document.getElementById('kpiPending').textContent = result.stats.pending || 0;
+                    document.getElementById('kpiForwarded').textContent = result.stats.forwarded || 0;
+                    document.getElementById('kpiApproved').textContent = result.stats.approved || 0;
+                    document.getElementById('kpiOnLeave').textContent = result.stats.on_leave_today || 0;
+                    document.getElementById('kpiAbsent').textContent = result.stats.absent_unregularized || 0;
+                    document.getElementById('kpiReturning').textContent = result.stats.returning_tomorrow || 0;
+
+                    // Update chart
+                    updateChart(result.chartData);
+                }
+            } catch (error) {
+                console.error('Error loading dashboard:', error);
+            }
+        }
+
+        function applyFilters() {
+            loadDashboardData();
+            renderCalendar();
+        }
+
+        // ============================================
+        // CHART
+        // ============================================
+        function updateChart(chartData) {
+            const ctx = document.getElementById('leaveChart').getContext('2d');
+
+            if (leaveChart) {
+                leaveChart.destroy();
+            }
+
+            // Default data if none provided
+            const labels = chartData?.labels || Array.from({length: 30}, (_, i) => `${i+1}`);
+            const appliedData = chartData?.applied || [];
+            const approvedData = chartData?.approved || [];
+
+            leaveChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Applied',
+                            data: appliedData,
+                            borderColor: '#dc2626',
+                            backgroundColor: 'rgba(220, 38, 38, 0.05)',
+                            borderWidth: 2,
+                            tension: 0.3,
+                            pointRadius: 2,
+                            fill: true
+                        },
+                        {
+                            label: 'Approved',
+                            data: approvedData,
+                            borderColor: '#059669',
+                            backgroundColor: 'rgba(5, 150, 105, 0.05)',
+                            borderWidth: 2,
+                            tension: 0.3,
+                            pointRadius: 2,
+                            fill: true
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'top', align: 'end' }
+                    },
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: '#f3f4f6' } },
+                        x: { grid: { display: false }, ticks: { maxTicksLimit: 15 } }
+                    }
+                }
+            });
+        }
+
+        // ============================================
+        // CALENDAR
+        // ============================================
+        let calendarData = {}; // Store fetched calendar data
+
+        async function renderCalendar() {
+            const grid = document.getElementById('calendarGrid');
+            const year = currentCalendarDate.getFullYear();
+            const month = currentCalendarDate.getMonth() + 1; // API expects 1-indexed month
+            const status = document.getElementById('calendarStatus').value;
+            const desigGroup = DESIGNATION_GROUPS[calendarDesignation];
+            const designationIds = desigGroup ? desigGroup.ids.join(',') : calendarDesignation;
+
+            document.getElementById('calendarMonth').textContent =
+                new Date(year, month - 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+            // Fetch calendar data from API
+            try {
+                const officeCode = document.getElementById('filterOffice').value;
+                const params = new URLSearchParams();
+                params.append('status', status);
+                params.append('designation_ids', designationIds);
+                if (officeCode && officeCode !== 'ALL') {
+                    params.append('office_code', officeCode);
+                }
+
+                const response = await fetch(`/api/division/leave/calendar/${year}/${month}?${params.toString()}`);
+                const result = await response.json();
+
+                if (result.success) {
+                    calendarData = result.data || {};
+                }
+            } catch (error) {
+                console.error('Error fetching calendar data:', error);
+                calendarData = {};
+            }
+
+            const firstDay = new Date(year, month - 1, 1).getDay();
+            const daysInMonth = new Date(year, month, 0).getDate();
+            const today = new Date();
+
+            // Adjust for Monday start (0 = Sunday, so we shift)
+            const startOffset = firstDay === 0 ? 6 : firstDay - 1;
+
+            grid.innerHTML = '';
+
+            // Day headers
+            ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].forEach(day => {
+                const el = document.createElement('div');
+                el.className = 'cal-day-header';
+                el.textContent = day;
+                grid.appendChild(el);
+            });
+
+            // Empty slots before first day
+            for (let i = 0; i < startOffset; i++) {
+                const el = document.createElement('div');
+                el.className = 'cal-day empty';
+                grid.appendChild(el);
+            }
+
+            // Days
+            for (let day = 1; day <= daysInMonth; day++) {
+                const el = document.createElement('div');
+                const date = new Date(year, month - 1, day);
+                const dateStr = formatDateForInput(date);
+                const isToday = date.toDateString() === today.toDateString();
+
+                // Get count from fetched data
+                const leaveCount = calendarData[day] || 0;
+
+                let loadClass = 'load-low';
+                if (leaveCount > 5 && leaveCount <= 10) loadClass = 'load-med';
+                if (leaveCount > 10) loadClass = 'load-high';
+
+                el.className = `cal-day ${loadClass}${isToday ? ' today' : ''}`;
+                el.innerHTML = `
+                    <span>${day}</span>
+                    <span class="absent-count">${leaveCount}</span>
+                `;
+                el.onclick = () => openDayPopup(date, leaveCount);
+                grid.appendChild(el);
+            }
+        }
+
+        function changeMonth(delta) {
+            currentCalendarDate.setMonth(currentCalendarDate.getMonth() + delta);
+            renderCalendar();
+        }
+
+        async function openDayPopup(date, count) {
+            document.getElementById('dayPopupOverlay').classList.add('show');
+            document.getElementById('dayPopup').classList.add('show');
+
+            const status = document.getElementById('calendarStatus').value;
+            const desigGroup = DESIGNATION_GROUPS[calendarDesignation];
+            const designationIds = desigGroup ? desigGroup.ids.join(',') : calendarDesignation;
+            const statusLabel = status === 'Approved+Absent' ? 'Approved + Absent' : status;
+            const dateStr = formatDateForInput(date);
+
+            document.getElementById('dayPopupTitle').textContent = date.toLocaleDateString('en-IN', {
+                weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+            });
+
+            // Show loading
+            document.getElementById('dayPopupContent').innerHTML = `
+                <div style="text-align:center; color:#999; padding:20px;">
+                    <i class="fa-solid fa-spinner fa-spin"></i> Loading...
+                </div>
+            `;
+
+            try {
+                const officeCode = document.getElementById('filterOffice').value;
+                const params = new URLSearchParams();
+                params.append('status', status);
+                params.append('designation_ids', designationIds);
+                if (officeCode && officeCode !== 'ALL') {
+                    params.append('office_code', officeCode);
+                }
+
+                const response = await fetch(`/api/division/leave/day-details/${dateStr}?${params.toString()}`);
+                const result = await response.json();
+
+                let staffListHtml = '';
+                if (result.success && result.data && result.data.length > 0) {
+                    staffListHtml = '<table style="width:100%; font-size:12px; border-collapse:collapse;">' +
+                        '<thead><tr style="background:#f9fafb;">' +
+                        '<th style="text-align:left; padding:6px;">Name</th>' +
+                        '<th style="text-align:left; padding:6px;">Type</th>' +
+                        '<th style="text-align:left; padding:6px;">Status</th>' +
+                        '<th style="text-align:center; padding:6px;">Action</th>' +
+                        '</tr></thead><tbody>';
+
+                    result.data.forEach(staff => {
+                        const canEdit = ['Pending', 'Forwarded', 'Approved'].includes(staff.status);
+                        let editBtn = '-';
+                        if (canEdit) {
+                            const reason = (staff.reason || '').replace(/'/g, "\\'");
+                            const remarks = (staff.remarks || '').replace(/'/g, "\\'");
+                            editBtn = '<button class="action-btn btn-edit" onclick="dayPopupOpenEdit(' + staff.leave_id + ", '" + staff.leave_type + "', '" + staff.from_date + "', '" + staff.to_date + "', " + staff.days + ", '" + reason + "', '" + remarks + "')\"><i class=\"fa-solid fa-pen\"></i></button>";
+                        } else if (staff.status === 'Absent' && !staff.is_regularized) {
+                            editBtn = '<button class="action-btn btn-regularize" onclick="dayPopupOpenRegularize(' + staff.leave_id + ", '" + staff.from_date + "', '" + staff.to_date + "', " + staff.days + ')\">Reg.</button>';
+                        }
+
+                        staffListHtml += '<tr style="border-bottom:1px solid #e5e7eb;">' +
+                            '<td style="padding:6px;"><div style="font-weight:600;">' + staff.name + '</div>' +
+                            '<div style="font-size:10px; color:#666;">' + (staff.current_cms_id || staff.staff_hrms_id) + '</div></td>' +
+                            '<td style="padding:6px;">' + staff.leave_type + '</td>' +
+                            '<td style="padding:6px;"><span class="status-badge status-' + staff.status.toLowerCase() + '">' + staff.status + '</span></td>' +
+                            '<td style="padding:6px; text-align:center;">' + editBtn + '</td></tr>';
+                    });
+
+                    staffListHtml += '</tbody></table>';
+                } else {
+                    staffListHtml = '<p style="color:#999; font-size:12px; text-align:center; padding:20px;">No staff on leave</p>';
+                }
+
+                document.getElementById('dayPopupContent').innerHTML = `
+                    <div style="margin-bottom:12px;">
+                        <span style="background:#eff6ff; padding:4px 10px; border-radius:4px; font-size:12px; font-weight:600; color:var(--brand);">${desigGroup?.label || 'Staff'}</span>
+                        <span style="background:#f3f4f6; padding:4px 10px; border-radius:4px; font-size:12px; margin-left:5px;">${statusLabel}</span>
+                    </div>
+                    <p style="font-size:28px; font-weight:700; color:var(--text-main); margin:10px 0;">${result.count || 0}</p>
+                    <p style="color:#666; font-size:12px; margin-bottom:15px;">${desigGroup?.name || ''} on leave</p>
+                    <hr style="margin:15px 0; border:none; border-top:1px solid #e5e7eb;">
+                    ${staffListHtml}
+                `;
+            } catch (error) {
+                console.error('Error fetching day details:', error);
+                document.getElementById('dayPopupContent').innerHTML = `
+                    <div style="margin-bottom:12px;">
+                        <span style="background:#eff6ff; padding:4px 10px; border-radius:4px; font-size:12px; font-weight:600; color:var(--brand);">${desigGroup?.label || 'Staff'}</span>
+                        <span style="background:#f3f4f6; padding:4px 10px; border-radius:4px; font-size:12px; margin-left:5px;">${statusLabel}</span>
+                    </div>
+                    <p style="font-size:28px; font-weight:700; color:var(--text-main); margin:10px 0;">${count}</p>
+                    <p style="color:#666; font-size:12px; margin-bottom:15px;">${desigGroup?.name || ''} on leave</p>
+                    <hr style="margin:15px 0; border:none; border-top:1px solid #e5e7eb;">
+                    <p style="color:#ef4444; font-size:11px;">Error loading details</p>
+                `;
+            }
+        }
+
+        function closeDayPopup() {
+            document.getElementById('dayPopupOverlay').classList.remove('show');
+            document.getElementById('dayPopup').classList.remove('show');
+        }
+
+        // Open edit modal from day popup
+        function dayPopupOpenEdit(leaveId, leaveType, fromDate, toDate, days, reason, remarks) {
+            closeDayPopup();
+            openEditLeaveModal(leaveId, leaveType, fromDate, toDate, days, reason, remarks);
+        }
+
+        // Open regularize modal from day popup
+        function dayPopupOpenRegularize(leaveId, fromDate, toDate, days) {
+            closeDayPopup();
+            openRegularizeModal(leaveId, fromDate, toDate, days);
+        }
+
+        // ============================================
+        // UTILITY FUNCTIONS
+        // ============================================
+        function formatDateForInput(date) {
+            // Keep local date components to avoid timezone shifting a day backwards
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '-';
+            const date = new Date(dateStr);
+            return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' });
+        }
+
+        // Initialize chart with empty data
+        updateChart(null);
+    </script>
+</body>
+</html>

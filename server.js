@@ -535,6 +535,8 @@ const detonatorRoutes = require('./routes/division/detonatorRoutes');
 const disciplineRoutes = require('./routes/division/disciplineRoutes');
 const draftingRoutes = require('./routes/division/draftingRoutes');
 const rtisRoutes = require("./routes/division/rtisRoutes");
+const retirementRoutes = require("./routes/division/retirementRoutes");
+const leaveRoutes = require("./routes/division/leaveRoutes");
 
 
 // Add division routes with realm protection
@@ -551,6 +553,8 @@ app.use("/api/division/detonators", requireRealm('division'), detonatorRoutes);
 app.use("/api/division/discipline", requireRealm('division'), disciplineRoutes);
 app.use("/api/division/drafting", requireRealm('division'), draftingRoutes);
 app.use("/api/division/rtis", requireRealm("division"), rtisRoutes);
+app.use("/api/division/retirement", requireRealm("division"), retirementRoutes);
+app.use("/api/division/leave", requireRealm("division"), leaveRoutes);
 // Add this directly in server.js (temporary solution)
 app.get('/api/waiting-details', async (req, res) => {
   try {
