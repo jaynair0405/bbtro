@@ -540,6 +540,7 @@ const leaveRoutes = require("./routes/division/leaveRoutes");
 
 
 // Add division routes with realm protection
+app.use("/api/division/leave", requireRealm("division"), leaveRoutes); // mount early to avoid any catch-alls
 app.use("/api/division", requireRealm('division'), divisionDashboardRoutes);
 app.use("/api/division/training-types", requireRealm('division'), trainingTypesRoutes);
 app.use("/api/division/personnel-stores", requireRealm('division'), personnelStoresRoutes);
@@ -554,7 +555,6 @@ app.use("/api/division/discipline", requireRealm('division'), disciplineRoutes);
 app.use("/api/division/drafting", requireRealm('division'), draftingRoutes);
 app.use("/api/division/rtis", requireRealm("division"), rtisRoutes);
 app.use("/api/division/retirement", requireRealm("division"), retirementRoutes);
-app.use("/api/division/leave", requireRealm("division"), leaveRoutes);
 // Add this directly in server.js (temporary solution)
 app.get('/api/waiting-details', async (req, res) => {
   try {
@@ -602,5 +602,4 @@ app.listen(PORT, () => {
   console.log("📊 MySQL Railway Management System");
   console.log("✅ All API endpoints configured");
 });
-
 

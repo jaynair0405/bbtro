@@ -569,7 +569,6 @@ router.get('/top-designations', async (req, res) => {
                         ELSE designation_id
                     END
                 ORDER BY total_count DESC
-                LIMIT 2
             `;
             params = [targetOffice];
         } else {
@@ -596,7 +595,6 @@ router.get('/top-designations', async (req, res) => {
                         ELSE designation_id
                     END
                 ORDER BY total_count DESC
-                LIMIT 2
             `;
             params = [];
         }
@@ -797,6 +795,98 @@ router.get('/day-details/:date', async (req, res) => {
 
     } catch (error) {
         console.error('Error fetching day details:', error);
+        if (conn) conn.release();
+        res.status(500).json({ error: 'Database error', details: error.message });
+    }
+});
+
+// GET /api/division/leave/submitted - List submitted leaves (grouping-ready)
+router.get('/submitted', async (req, res) => {
+    let conn;
+    try {
+        const { from_date, to_date, status, designation_ids, office_code } = req.query;
+        const userOffice = req.session.user?.div_office_code;
+        const userRole = req.session.user?.div_role;
+
+        // Default to current month range if not provided
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = now.getMonth() + 1;
+        const paddedMonth = month.toString().padStart(2, '0');
+        const defaultFrom = from_date || `${year}-${paddedMonth}-01`;
+        const defaultTo = to_date || `${year}-${paddedMonth}-${new Date(year, month, 0).getDate().toString().padStart(2, '0')}`;
+
+        conn = await req.app.locals.pool.getConnection();
+
+        let conditions = ['DATE(l.from_date) <= ?', 'DATE(l.to_date) >= ?'];
+        let params = [defaultTo, defaultFrom];
+
+        // Office filter
+        if (userRole !== 'division_admin') {
+            conditions.push('l.office_code = ?');
+            params.push(userOffice);
+        } else if (office_code && office_code !== 'ALL') {
+            conditions.push('l.office_code = ?');
+            params.push(office_code);
+        }
+
+        // Designation filter
+        if (designation_ids) {
+            const ids = designation_ids.split(',').map(id => parseInt(id)).filter(id => !isNaN(id));
+            if (ids.length > 0) {
+                conditions.push(`l.designation_id IN (${ids.map(() => '?').join(',')})`);
+                params.push(...ids);
+            }
+        }
+
+        // Status filter
+        if (status && status !== 'ALL') {
+            if (status === 'Applied') {
+                conditions.push("l.status NOT IN ('Rejected', 'Cancelled')");
+            } else if (status === 'Approved+Absent') {
+                conditions.push("l.status IN ('Approved', 'Absent')");
+            } else {
+                conditions.push('l.status = ?');
+                params.push(status);
+            }
+        }
+
+        const whereClause = 'WHERE ' + conditions.join(' AND ');
+
+        const [results] = await conn.query(`
+            SELECT
+                l.id AS leave_id,
+                l.staff_hrms_id,
+                s.name,
+                s.current_cms_id,
+                l.from_date,
+                l.to_date,
+                l.days,
+                l.status,
+                l.designation_id,
+                l.leave_type,
+                l.reason,
+                l.remarks,
+                l.is_regularized,
+                l.created_at
+            FROM div_leave_tracking l
+            JOIN div_staff_master s ON l.staff_hrms_id = s.hrms_id
+            ${whereClause}
+            ORDER BY l.designation_id, l.from_date
+        `, params);
+
+        conn.release();
+
+        res.json({
+            success: true,
+            from_date: defaultFrom,
+            to_date: defaultTo,
+            count: results.length,
+            data: results
+        });
+
+    } catch (error) {
+        console.error('Error fetching submitted leaves:', error);
         if (conn) conn.release();
         res.status(500).json({ error: 'Database error', details: error.message });
     }

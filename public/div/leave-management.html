@@ -430,6 +430,127 @@
         .report-table tr:hover {
             background: #f9fafb;
         }
+
+        /* Submitted Leaves */
+        .submitted-card-body {
+            padding: 0 15px 15px 15px;
+        }
+        .submitted-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            padding: 10px 15px;
+            border-bottom: 1px solid var(--border);
+            background: #f9fafb;
+        }
+        .submitted-controls .form-control {
+            width: auto;
+            min-width: 130px;
+        }
+        .submitted-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            padding: 15px 0;
+        }
+        .submitted-group {
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: white;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+        .submitted-group-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 12px;
+            background: #f9fafb;
+            border-bottom: 1px solid var(--border);
+            font-weight: 700;
+            font-size: 13px;
+            color: var(--text-main);
+        }
+        .submitted-group-header .tag {
+            background: #e0e7ff;
+            color: #1f2937;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .submitted-row {
+            display: grid;
+            grid-template-columns: 1.5fr 1fr 0.7fr;
+            align-items: center;
+            padding: 12px;
+            border-bottom: 1px solid var(--border);
+            gap: 10px;
+        }
+        .submitted-row:last-child {
+            border-bottom: none;
+        }
+        .submitted-row.overdue {
+            background: linear-gradient(90deg, #fef2f2 0%, #fff 100%);
+            border-left: 3px solid #ef4444;
+        }
+        .overdue-badge {
+            font-size: 10px;
+            color: #ef4444;
+            font-weight: 600;
+            margin-left: 6px;
+        }
+        .submitted-person {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .submitted-name {
+            font-weight: 700;
+            color: var(--text-main);
+            font-size: 14px;
+        }
+        .submitted-ids {
+            font-size: 11px;
+            color: var(--text-light);
+        }
+        .submitted-dates {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            font-size: 12px;
+            color: var(--text-main);
+        }
+        .submitted-days {
+            font-weight: 700;
+            color: var(--brand);
+        }
+        .submitted-status {
+            display: flex;
+            justify-content: flex-end;
+        }
+        .submitted-actions {
+            display: flex;
+            gap: 4px;
+            justify-content: flex-end;
+            align-items: center;
+            min-width: 120px;
+        }
+        .status-pill {
+            padding: 6px 12px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            border: 1px solid transparent;
+        }
+        .status-pill.pending { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+        .status-pill.forwarded { background: #e0e7ff; color: #4338ca; border-color: #c7d2fe; }
+        .status-pill.approved { background: #d1fae5; color: #065f46; border-color: #a7f3d0; }
+        .status-pill.rejected { background: #fee2e2; color: #991b1b; border-color: #fecdd3; }
+        .status-pill.cancelled { background: #f3f4f6; color: #374151; border-color: #e5e7eb; }
+        .status-pill.absent { background: #ffe4e6; color: #9f1239; border-color: #fecdd3; }
         .rank-badge {
             display: inline-flex;
             align-items: center;
@@ -816,8 +937,11 @@
                 </div>
             </div>
 
-            <!-- Reports Link -->
-            <div style="text-align: right; margin-top: 10px;">
+            <!-- Reports Links -->
+            <div style="text-align: right; margin-top: 10px; display: flex; gap: 20px; justify-content: flex-end;">
+                <a href="javascript:void(0)" class="report-link" onclick="scrollToSubmittedLeaves()">
+                    <i class="fa-solid fa-list-check"></i> Submitted Leaves
+                </a>
                 <a href="#absenteeism-report" class="report-link" onclick="loadAbsenteeismReport()">
                     <i class="fa-solid fa-chart-bar"></i> Absenteeism Report
                 </a>
@@ -825,8 +949,9 @@
 
             <!-- Chart -->
             <div class="card">
-                <div class="card-header">
+                <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
                     <span><i class="fa-solid fa-chart-line"></i> Leave Trends (Applied vs Approved)</span>
+                    <button class="btn-apply" onclick="printLeaveChart()" style="padding:6px 12px; font-size:12px; background:#6366f1;"><i class="fa-solid fa-print"></i> Print</button>
                 </div>
                 <div class="chart-container">
                     <canvas id="leaveChart"></canvas>
@@ -1005,6 +1130,71 @@
                 </div>
             </div>
         </div>
+
+        <!-- Submitted Leaves List -->
+        <div id="submitted-leaves-section" class="report-card" style="margin-top:20px;">
+            <div class="report-card-header" style="display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <i class="fa-solid fa-list-check"></i> Submitted Leaves
+                    <span style="font-size:12px; color:var(--text-light); margin-left:8px;">Grouped by designation (office order)</span>
+                </div>
+                <a href="javascript:void(0)" class="back-to-top" onclick="scrollToTop()"><i class="fa-solid fa-arrow-up"></i> Back to Top</a>
+            </div>
+            <div class="submitted-controls">
+                <div class="form-group" style="margin:0;">
+                    <label class="form-label">Search</label>
+                    <input type="text" class="form-control" id="submittedSearch" placeholder="Staff name..." oninput="renderSubmittedLeaves()" style="width:140px;">
+                </div>
+                <div class="form-group" style="margin:0;">
+                    <label class="form-label">Status</label>
+                    <select class="form-control" id="submittedStatus" onchange="loadSubmittedLeaves()">
+                        <option value="ALL">All</option>
+                        <option value="Pending">Pending</option>
+                        <option value="Forwarded">Forwarded</option>
+                        <option value="Approved">Approved</option>
+                        <option value="Rejected">Rejected</option>
+                        <option value="Cancelled">Cancelled</option>
+                        <option value="Absent">Absent</option>
+                        <option value="Approved+Absent">Approved + Absent</option>
+                        <option value="Applied">Applied (All except Rej/Cancel)</option>
+                    </select>
+                </div>
+                <div class="form-group" style="margin:0;">
+                    <label class="form-label">From</label>
+                    <input type="date" class="form-control" id="submittedFromDate" onchange="loadSubmittedLeaves()">
+                </div>
+                <div class="form-group" style="margin:0;">
+                    <label class="form-label">To</label>
+                    <input type="date" class="form-control" id="submittedToDate" onchange="loadSubmittedLeaves()">
+                </div>
+                <div class="form-group" style="margin:0;">
+                    <label class="form-label">Sort Within Groups</label>
+                    <select class="form-control" id="submittedSort" onchange="renderSubmittedLeaves()">
+                        <option value="from_asc">From Date ↑ (default)</option>
+                        <option value="from_desc">From Date ↓</option>
+                        <option value="to_asc">To Date ↑</option>
+                        <option value="to_desc">To Date ↓</option>
+                        <option value="days_desc">Total Days ↓</option>
+                        <option value="days_asc">Total Days ↑</option>
+                        <option value="status">Status (Pending→Approved→Rejected→Absent)</option>
+                    </select>
+                </div>
+                <button class="btn-apply" onclick="loadSubmittedLeaves()" style="height:38px; align-self:flex-end;"><i class="fa-solid fa-sync"></i> Refresh</button>
+                <div class="form-group" style="margin:0;">
+                    <label class="form-label">Print</label>
+                    <select class="form-control" id="printFilter" style="width:130px;">
+                        <option value="all">All Entries</option>
+                        <option value="pending_absent">Pending & Absent</option>
+                    </select>
+                </div>
+                <button class="btn-apply" onclick="printSubmittedLeaves()" style="height:38px; align-self:flex-end; background:#6366f1;"><i class="fa-solid fa-print"></i> Print</button>
+            </div>
+            <div class="submitted-card-body">
+                <div id="submittedLeavesList" class="submitted-list">
+                    <div style="text-align:center; color:#999;">Loading...</div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Edit Leave Modal -->
@@ -1149,6 +1339,8 @@
         let leaveChart = null;
         let searchTimeout = null;
         let calendarDesignation = null; // Will be set from office's top designation
+        let designationOrder = []; // Will be set after DESIGNATION_GROUPS is defined
+        let submittedLeaves = []; // Cached submitted leaves list
 
         // Designation grouping: ALP includes Sr.ALP, LPS includes Sr.LPS
         const DESIGNATION_GROUPS = {
@@ -1174,6 +1366,9 @@
             { key: '10', label: 'Jr.CC' }
         ];
 
+        // Default designation order fallback
+        designationOrder = Object.keys(DESIGNATION_GROUPS);
+
         // ============================================
         // INITIALIZATION
         // ============================================
@@ -1184,6 +1379,7 @@
             await loadOffices();
             await loadCalendarDesignations();
             await loadDashboardData();
+            await loadSubmittedLeaves();
             renderCalendar();
         });
 
@@ -1216,6 +1412,8 @@
             document.getElementById('filterToDate').value = formatDateForInput(lastOfMonth);
             document.getElementById('fromDate').value = formatDateForInput(today);
             document.getElementById('toDate').value = formatDateForInput(today);
+            document.getElementById('submittedFromDate').value = formatDateForInput(firstOfMonth);
+            document.getElementById('submittedToDate').value = formatDateForInput(lastOfMonth);
             calculateDays();
         }
 
@@ -1758,6 +1956,440 @@
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
+        function scrollToSubmittedLeaves() {
+            // Show the parent container first (it's inside absenteeism-report section)
+            document.getElementById('absenteeism-report').style.display = 'block';
+            // Load data then scroll
+            loadSubmittedLeaves();
+            setTimeout(() => {
+                const section = document.getElementById('submitted-leaves-section');
+                if (section) {
+                    section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            }, 300);
+        }
+
+        // ============================================
+        // SUBMITTED LEAVES LIST
+        // ============================================
+        async function loadSubmittedLeaves() {
+            const container = document.getElementById('submittedLeavesList');
+            container.innerHTML = '<div style="text-align:center; color:#999;"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</div>';
+
+            const status = document.getElementById('submittedStatus').value;
+            const fromDate = document.getElementById('submittedFromDate').value;
+            const toDate = document.getElementById('submittedToDate').value;
+            const officeCode = document.getElementById('filterOffice').value;
+
+            try {
+                const params = new URLSearchParams();
+                if (fromDate) params.append('from_date', fromDate);
+                if (toDate) params.append('to_date', toDate);
+                if (status) params.append('status', status);
+                if (officeCode && officeCode !== 'ALL') {
+                    params.append('office_code', officeCode);
+                }
+
+                const response = await fetch(`/api/division/leave/submitted?${params.toString()}`);
+                const result = await response.json();
+
+                if (result.success) {
+                    submittedLeaves = result.data || [];
+                    renderSubmittedLeaves();
+                } else {
+                    container.innerHTML = '<div style="text-align:center; color:#ef4444;">Error loading list</div>';
+                }
+            } catch (error) {
+                console.error('Error loading submitted leaves:', error);
+                container.innerHTML = '<div style="text-align:center; color:#ef4444;">Error loading list</div>';
+            }
+        }
+
+        function renderSubmittedLeaves() {
+            const container = document.getElementById('submittedLeavesList');
+            if (!submittedLeaves || submittedLeaves.length === 0) {
+                container.innerHTML = '<div style="text-align:center; color:#999;">No submissions found</div>';
+                return;
+            }
+
+            // Search filter
+            const searchTerm = (document.getElementById('submittedSearch')?.value || '').toLowerCase().trim();
+            let filteredLeaves = submittedLeaves;
+            if (searchTerm) {
+                filteredLeaves = submittedLeaves.filter(item => {
+                    const name = (item.name || '').toLowerCase();
+                    const cmsId = (item.current_cms_id || '').toLowerCase();
+                    const hrmsId = (item.staff_hrms_id || '').toLowerCase();
+                    return name.includes(searchTerm) || cmsId.includes(searchTerm) || hrmsId.includes(searchTerm);
+                });
+            }
+
+            if (filteredLeaves.length === 0) {
+                container.innerHTML = '<div style="text-align:center; color:#999;">No matches found</div>';
+                return;
+            }
+
+            const sortOption = document.getElementById('submittedSort').value;
+            const statusOrder = {
+                'Pending': 1,
+                'Forwarded': 2,
+                'Approved': 3,
+                'Absent': 4,
+                'Rejected': 5,
+                'Cancelled': 6
+            };
+
+            const sortWithinGroup = (a, b) => {
+                const aFrom = new Date(a.from_date);
+                const bFrom = new Date(b.from_date);
+                const aTo = new Date(a.to_date);
+                const bTo = new Date(b.to_date);
+
+                switch (sortOption) {
+                    case 'from_desc': return bFrom - aFrom || bTo - aTo;
+                    case 'to_asc': return aTo - bTo || aFrom - bFrom;
+                    case 'to_desc': return bTo - aTo || bFrom - aFrom;
+                    case 'days_desc': return (b.days || 0) - (a.days || 0) || aFrom - bFrom;
+                    case 'days_asc': return (a.days || 0) - (b.days || 0) || aFrom - bFrom;
+                    case 'status': return (statusOrder[a.status] || 99) - (statusOrder[b.status] || 99) || aFrom - bFrom;
+                    case 'from_asc':
+                    default:
+                        return aFrom - bFrom || aTo - bTo;
+                }
+            };
+
+            // Group by designation group key
+            const grouped = {};
+            filteredLeaves.forEach(item => {
+                const key = mapDesignationToGroup(item.designation_id);
+                if (!grouped[key]) grouped[key] = [];
+                grouped[key].push(item);
+            });
+
+            // Helper to check if pending item is overdue (>3 days old)
+            const isOverdue = (item) => {
+                if (item.status !== 'Pending') return false;
+                if (!item.created_at) return false;
+                const created = new Date(item.created_at);
+                const now = new Date();
+                const diffDays = Math.floor((now - created) / (1000 * 60 * 60 * 24));
+                return diffDays > 3;
+            };
+
+            // Respect office order; fallback to default order
+            const orderedKeys = designationOrder.filter(k => grouped[k] && grouped[k].length > 0);
+            const unusedKeys = Object.keys(DESIGNATION_GROUPS).filter(k => grouped[k] && grouped[k].length > 0 && !orderedKeys.includes(k));
+            const finalKeys = [...orderedKeys, ...unusedKeys];
+
+            let html = '';
+            finalKeys.forEach(key => {
+                const group = grouped[key];
+                group.sort(sortWithinGroup);
+                const groupMeta = DESIGNATION_GROUPS[key];
+
+                const rows = group.map(item => {
+                    const statusClass = (item.status || '').toLowerCase();
+                    const cmsId = item.current_cms_id || '-';
+                    const daysLabel = `${item.days || 0} day${(item.days || 0) === 1 ? '' : 's'}`;
+                    const itemOverdue = isOverdue(item);
+                    const overdueClass = itemOverdue ? ' overdue' : '';
+                    const overdueBadge = itemOverdue ? '<span class="overdue-badge"><i class="fa-solid fa-clock"></i> Overdue</span>' : '';
+
+                    // Build action buttons based on status
+                    let actionBtns = '';
+                    const reason = (item.reason || '').replace(/'/g, "\\'");
+                    const remarks = (item.remarks || '').replace(/'/g, "\\'");
+                    const canEdit = ['Pending', 'Forwarded', 'Approved'].includes(item.status);
+                    const editBtn = canEdit ? '<button class="action-btn btn-edit" onclick="submittedOpenEdit(' + item.leave_id + ", '" + item.leave_type + "', '" + item.from_date + "', '" + item.to_date + "', " + item.days + ", '" + reason + "', '" + remarks + "')" + '"><i class="fa-solid fa-pen"></i></button>' : '';
+
+                    if (item.status === 'Pending') {
+                        actionBtns = editBtn +
+                            '<button class="action-btn btn-forward" onclick="submittedUpdateStatus(' + item.leave_id + ", 'Forwarded')" + '">Fwd</button>' +
+                            '<button class="action-btn btn-approve" onclick="submittedUpdateStatus(' + item.leave_id + ", 'Approved')" + '"><i class="fa-solid fa-check"></i></button>' +
+                            '<button class="action-btn btn-reject" onclick="submittedUpdateStatus(' + item.leave_id + ", 'Rejected')" + '"><i class="fa-solid fa-times"></i></button>';
+                    } else if (item.status === 'Forwarded') {
+                        actionBtns = editBtn +
+                            '<button class="action-btn btn-approve" onclick="submittedUpdateStatus(' + item.leave_id + ", 'Approved')" + '"><i class="fa-solid fa-check"></i></button>' +
+                            '<button class="action-btn btn-reject" onclick="submittedUpdateStatus(' + item.leave_id + ", 'Rejected')" + '"><i class="fa-solid fa-times"></i></button>';
+                    } else if (item.status === 'Approved') {
+                        actionBtns = editBtn;
+                    } else if (item.status === 'Absent' && !item.is_regularized) {
+                        actionBtns = '<button class="action-btn btn-forward" onclick="submittedUpdateStatus(' + item.leave_id + ", 'Forwarded')" + '">Fwd</button>' +
+                            '<button class="action-btn btn-regularize" onclick="submittedOpenRegularize(' + item.leave_id + ", '" + item.from_date + "', '" + item.to_date + "', " + item.days + ')">Reg.</button>';
+                    }
+
+                    return `
+                        <div class="submitted-row${overdueClass}">
+                            <div class="submitted-person">
+                                <div class="submitted-name">${item.name || item.staff_hrms_id}</div>
+                                <div class="submitted-ids">CMS: ${cmsId} • HRMS: ${item.staff_hrms_id}</div>
+                            </div>
+                            <div class="submitted-dates">
+                                <div>${formatDate(item.from_date)} → ${formatDate(item.to_date)}</div>
+                                <div class="submitted-days">${daysLabel}</div>
+                            </div>
+                            <div class="submitted-status">
+                                <span class="status-pill ${statusClass}">${item.status || '-'}</span>${overdueBadge}
+                            </div>
+                            <div class="submitted-actions">
+                                ${actionBtns || '<span style="color:#999;">-</span>'}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+                html += `
+                    <div class="submitted-group">
+                        <div class="submitted-group-header">
+                            <span>${groupMeta?.name || groupMeta?.label || key}</span>
+                            <span class="tag">${group.length} submission${group.length === 1 ? '' : 's'}</span>
+                        </div>
+                        ${rows}
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        // Submitted list action helpers
+        function submittedOpenEdit(leaveId, leaveType, fromDate, toDate, days, reason, remarks) {
+            openEditLeaveModal(leaveId, leaveType, fromDate, toDate, days, reason, remarks);
+        }
+
+        function submittedOpenRegularize(leaveId, fromDate, toDate, days) {
+            openRegularizeModal(leaveId, fromDate, toDate, days);
+        }
+
+        async function submittedUpdateStatus(leaveId, newStatus) {
+            const action = newStatus === 'Rejected' ? 'reject' : newStatus === 'Approved' ? 'approve' : 'forward';
+            if (!confirm(`Are you sure you want to ${action} this leave?`)) return;
+
+            try {
+                const response = await fetch(`/api/division/leave/${leaveId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        status: newStatus,
+                        approved_by: currentUser?.username || 'system'
+                    })
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    alert(`Leave ${action}ed successfully!`);
+                    loadSubmittedLeaves();
+                    loadDashboardData();
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Error updating leave:', error);
+                alert('Error updating leave status');
+            }
+        }
+
+        // ============================================
+        // PRINT FUNCTIONS
+        // ============================================
+        function printSubmittedLeaves() {
+            const printFilter = document.getElementById('printFilter').value;
+            let dataToprint = submittedLeaves || [];
+
+            // Get office name for header
+            let officeName = '';
+            if (currentUser?.div_role === 'division_admin') {
+                const officeSelect = document.getElementById('filterOffice');
+                const selectedOffice = officeSelect.options[officeSelect.selectedIndex];
+                officeName = selectedOffice && selectedOffice.value !== 'ALL' ? selectedOffice.text : 'All Offices';
+            } else {
+                officeName = (currentUser?.div_office_code || 'Office') + ' Lobby';
+            }
+
+            if (printFilter === 'pending_absent') {
+                dataToprint = dataToprint.filter(item => ['Pending', 'Absent'].includes(item.status));
+            }
+
+            // Apply search filter if active
+            const searchTerm = (document.getElementById('submittedSearch')?.value || '').toLowerCase().trim();
+            if (searchTerm) {
+                dataToprint = dataToprint.filter(item => {
+                    const name = (item.name || '').toLowerCase();
+                    const cmsId = (item.current_cms_id || '').toLowerCase();
+                    const hrmsId = (item.staff_hrms_id || '').toLowerCase();
+                    return name.includes(searchTerm) || cmsId.includes(searchTerm) || hrmsId.includes(searchTerm);
+                });
+            }
+
+            if (dataToprint.length === 0) {
+                alert('No data to print');
+                return;
+            }
+
+            // Group by designation
+            const grouped = {};
+            dataToprint.forEach(item => {
+                const key = mapDesignationToGroup(item.designation_id);
+                if (!grouped[key]) grouped[key] = [];
+                grouped[key].push(item);
+            });
+
+            const orderedKeys = designationOrder.filter(k => grouped[k] && grouped[k].length > 0);
+            const unusedKeys = Object.keys(DESIGNATION_GROUPS).filter(k => grouped[k] && grouped[k].length > 0 && !orderedKeys.includes(k));
+            const finalKeys = [...orderedKeys, ...unusedKeys];
+
+            // Build print HTML
+            let printHtml = `
+                <html>
+                <head>
+                    <title>Submitted Leaves - ${printFilter === 'pending_absent' ? 'Pending & Absent' : 'All'}</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; font-size: 12px; margin: 20px; }
+                        h1 { font-size: 16px; margin-bottom: 5px; }
+                        .subtitle { color: #666; font-size: 11px; margin-bottom: 15px; }
+                        .group { margin-bottom: 15px; }
+                        .group-header { background: #f0f0f0; padding: 6px 10px; font-weight: bold; font-size: 13px; border-bottom: 2px solid #333; }
+                        table { width: 100%; border-collapse: collapse; margin-top: 5px; }
+                        th, td { border: 1px solid #ddd; padding: 5px 8px; text-align: left; }
+                        th { background: #f8f8f8; font-size: 11px; }
+                        .status-pending { color: #f59e0b; font-weight: bold; }
+                        .status-absent { color: #ef4444; font-weight: bold; }
+                        .status-approved { color: #10b981; }
+                        .status-forwarded { color: #3b82f6; }
+                        .overdue { background: #fef2f2; }
+                        .print-footer { margin-top: 20px; font-size: 10px; color: #666; border-top: 1px solid #ddd; padding-top: 10px; display: flex; justify-content: space-between; align-items: flex-end; }
+                        .footer-left { text-align: left; }
+                        .footer-right { text-align: right; font-size: 8px; color: #999; }
+                        @media print { .no-print { display: none; } }
+                    </style>
+                </head>
+                <body>
+                    <h1>${officeName}</h1>
+                    <h2 style="font-size:14px; margin:5px 0 10px 0; font-weight:normal;">Submitted Leaves Report - ${printFilter === 'pending_absent' ? 'Pending & Absent Only' : 'All Entries'}</h2>
+                    <div class="subtitle">Generated on ${new Date().toLocaleDateString('en-IN')} at ${new Date().toLocaleTimeString('en-IN')} | Total: ${dataToprint.length} entries</div>
+            `;
+
+            finalKeys.forEach(key => {
+                const group = grouped[key];
+                const groupMeta = DESIGNATION_GROUPS[key];
+
+                printHtml += `
+                    <div class="group">
+                        <div class="group-header">${groupMeta?.name || key} (${group.length})</div>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Name</th>
+                                    <th>CMS ID</th>
+                                    <th>From</th>
+                                    <th>To</th>
+                                    <th>Days</th>
+                                    <th>Type</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                `;
+
+                group.forEach((item, idx) => {
+                    const statusClass = 'status-' + (item.status || '').toLowerCase();
+                    const isOverdue = item.status === 'Pending' && item.created_at &&
+                        (Math.floor((new Date() - new Date(item.created_at)) / (1000 * 60 * 60 * 24)) > 3);
+                    const rowClass = isOverdue ? 'overdue' : '';
+
+                    printHtml += `
+                        <tr class="${rowClass}">
+                            <td>${idx + 1}</td>
+                            <td>${item.name || item.staff_hrms_id}</td>
+                            <td>${item.current_cms_id || '-'}</td>
+                            <td>${formatDate(item.from_date)}</td>
+                            <td>${formatDate(item.to_date)}</td>
+                            <td>${item.days || 0}</td>
+                            <td>${item.leave_type || '-'}</td>
+                            <td class="${statusClass}">${item.status}${isOverdue ? ' (Overdue)' : ''}</td>
+                        </tr>
+                    `;
+                });
+
+                printHtml += `
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            });
+
+            printHtml += `
+                    <div class="print-footer">
+                        <div class="footer-left">
+                            <div>Sr DEE TRSO-BB</div>
+                            <div>report from crtms.in</div>
+                        </div>
+                        <div class="footer-right">developed by Jayakumar M D MMan KYN</div>
+                    </div>
+                </body>
+                </html>
+            `;
+
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write(printHtml);
+            printWindow.document.close();
+            printWindow.focus();
+            setTimeout(() => printWindow.print(), 300);
+        }
+
+        function printLeaveChart() {
+            const canvas = document.getElementById('leaveChart');
+            const chartImage = canvas.toDataURL('image/png');
+
+            // Get office name for header
+            let officeName = '';
+            if (currentUser?.div_role === 'division_admin') {
+                const officeSelect = document.getElementById('filterOffice');
+                const selectedOffice = officeSelect.options[officeSelect.selectedIndex];
+                officeName = selectedOffice && selectedOffice.value !== 'ALL' ? selectedOffice.text : 'All Offices';
+            } else {
+                officeName = (currentUser?.div_office_code || 'Office') + ' Lobby';
+            }
+
+            const printHtml = `
+                <html>
+                <head>
+                    <title>Leave Trends Chart</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; margin: 20px; text-align: center; }
+                        h1 { font-size: 16px; margin-bottom: 5px; }
+                        h2 { font-size: 14px; margin: 5px 0 10px 0; font-weight: normal; }
+                        .subtitle { color: #666; font-size: 11px; margin-bottom: 20px; }
+                        img { max-width: 100%; height: auto; border: 1px solid #ddd; }
+                        .print-footer { margin-top: 20px; font-size: 10px; color: #666; border-top: 1px solid #ddd; padding-top: 10px; display: flex; justify-content: space-between; align-items: flex-end; }
+                        .footer-left { text-align: left; }
+                        .footer-right { text-align: right; font-size: 8px; color: #999; }
+                    </style>
+                </head>
+                <body>
+                    <h1>${officeName}</h1>
+                    <h2>Leave Trends - Applied vs Approved</h2>
+                    <div class="subtitle">Generated on ${new Date().toLocaleDateString('en-IN')} at ${new Date().toLocaleTimeString('en-IN')}</div>
+                    <img src="${chartImage}" alt="Leave Trends Chart">
+                    <div class="print-footer">
+                        <div class="footer-left">
+                            <div>Sr DEE TRSO-BB</div>
+                            <div>report from crtms.in</div>
+                        </div>
+                        <div class="footer-right">developed by Jayakumar M D MMan KYN</div>
+                    </div>
+                </body>
+                </html>
+            `;
+
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write(printHtml);
+            printWindow.document.close();
+            printWindow.focus();
+            setTimeout(() => printWindow.print(), 300);
+        }
+
         // ============================================
         // KPI POPUP FUNCTIONS
         // ============================================
@@ -2094,6 +2726,14 @@
                     top2Keys = [mapDesignationToGroup(result.data[0].designation_id), '1'];
                 }
 
+                // Capture full office order for grouping (remove duplicates, keep order)
+                if (result.success && result.data) {
+                    const ordered = result.data.map(d => mapDesignationToGroup(d.designation_id));
+                    designationOrder = [...new Set([...ordered, ...Object.keys(DESIGNATION_GROUPS)])];
+                } else {
+                    designationOrder = Object.keys(DESIGNATION_GROUPS);
+                }
+
                 // Remove duplicates and get unique top 2
                 top2Keys = [...new Set(top2Keys)].slice(0, 2);
 
@@ -2125,6 +2765,7 @@
                     <button class="desig-btn" data-key="5" onclick="selectDesigBtn(this)">LPG</button>
                 `;
                 calendarDesignation = '1';
+                designationOrder = Object.keys(DESIGNATION_GROUPS);
             }
         }
 
@@ -2195,6 +2836,7 @@
         function applyFilters() {
             loadDashboardData();
             renderCalendar();
+            loadSubmittedLeaves();
         }
 
         // ============================================
