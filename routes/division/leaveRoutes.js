@@ -36,7 +36,8 @@ router.post('/', async (req, res) => {
             designation_id,
             reason,
             remarks,
-            status
+            status,
+            force_submit  // If true, skip overlap check (user confirmed)
         } = req.body;
 
         if (!staff_hrms_id || !from_date || !to_date || !days) {
@@ -44,6 +45,30 @@ router.post('/', async (req, res) => {
         }
 
         conn = await req.app.locals.pool.getConnection();
+
+        // Check for overlapping leaves (unless force_submit is true)
+        if (!force_submit) {
+            const [overlaps] = await conn.query(
+                `SELECT id, leave_type, DATE_FORMAT(from_date, '%Y-%m-%d') as from_date,
+                        DATE_FORMAT(to_date, '%Y-%m-%d') as to_date, days, status
+                 FROM div_leave_tracking
+                 WHERE staff_hrms_id = ?
+                   AND status NOT IN ('Rejected', 'Cancelled')
+                   AND DATE(from_date) <= DATE(?)
+                   AND DATE(to_date) >= DATE(?)`,
+                [staff_hrms_id, to_date, from_date]
+            );
+
+            if (overlaps.length > 0) {
+                conn.release();
+                return res.json({
+                    success: false,
+                    overlap: true,
+                    message: 'Overlapping leave entries found',
+                    overlapping_entries: overlaps
+                });
+            }
+        }
 
         const [result] = await conn.query(
             `INSERT INTO div_leave_tracking
@@ -176,10 +201,11 @@ router.get('/dashboard', async (req, res) => {
         const chartToDate = to_date || new Date().toISOString().slice(0, 10);
 
         // Get all leave entries that overlap with the chart date range
+        // Exclude Rejected and Cancelled from chart (they shouldn't count as applied)
         // Use DATE() to extract date strings and avoid timezone issues
         const chartWhereClause = whereClause
-            ? whereClause + ' AND DATE(l.from_date) <= ? AND DATE(l.to_date) >= ?'
-            : 'WHERE DATE(l.from_date) <= ? AND DATE(l.to_date) >= ?';
+            ? whereClause + " AND l.status NOT IN ('Rejected', 'Cancelled') AND DATE(l.from_date) <= ? AND DATE(l.to_date) >= ?"
+            : "WHERE l.status NOT IN ('Rejected', 'Cancelled') AND DATE(l.from_date) <= ? AND DATE(l.to_date) >= ?";
         const chartParams = [...params, chartToDate, chartFromDate];
 
         const [allEntries] = await conn.query(`
@@ -840,15 +866,17 @@ router.get('/submitted', async (req, res) => {
         }
 
         // Status filter
-        if (status && status !== 'ALL') {
-            if (status === 'Applied') {
-                conditions.push("l.status NOT IN ('Rejected', 'Cancelled')");
-            } else if (status === 'Approved+Absent') {
-                conditions.push("l.status IN ('Approved', 'Absent')");
-            } else {
-                conditions.push('l.status = ?');
-                params.push(status);
-            }
+        if (status === 'ALL' || !status) {
+            // Default view excludes Cancelled (user must explicitly filter to see)
+            conditions.push("l.status != 'Cancelled'");
+        } else if (status === 'Applied') {
+            conditions.push("l.status NOT IN ('Rejected', 'Cancelled')");
+        } else if (status === 'Approved+Absent') {
+            conditions.push("l.status IN ('Approved', 'Absent')");
+        } else {
+            // Specific status filter (including 'Cancelled' when explicitly selected)
+            conditions.push('l.status = ?');
+            params.push(status);
         }
 
         const whereClause = 'WHERE ' + conditions.join(' AND ');

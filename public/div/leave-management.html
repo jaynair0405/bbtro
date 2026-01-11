@@ -221,6 +221,8 @@
         .btn-reject:hover { background: #fecaca; }
         .btn-regularize { background: #dbeafe; color: #1e40af; }
         .btn-regularize:hover { background: #bfdbfe; }
+        .btn-cancel { background: #fef3c7; color: #92400e; }
+        .btn-cancel:hover { background: #fde68a; }
         .btn-edit { background: #f3f4f6; color: #374151; }
         .btn-edit:hover { background: #e5e7eb; }
 
@@ -1252,6 +1254,28 @@
         <input type="hidden" id="editLeaveId">
     </div>
 
+    <!-- Overlap Warning Modal -->
+    <div class="day-popup-overlay" id="overlapOverlay" onclick="closeOverlapModal()"></div>
+    <div class="day-popup" id="overlapModal" style="min-width:450px;">
+        <button class="day-popup-close" onclick="closeOverlapModal()"><i class="fa-solid fa-times"></i></button>
+        <h3 style="color:#dc2626;"><i class="fa-solid fa-exclamation-triangle"></i> Date Overlap Detected</h3>
+        <div style="background:#fef2f2; padding:12px; border-radius:8px; margin-bottom:15px;">
+            <div style="font-size:13px; color:#991b1b;">
+                This staff already has leave entries for the selected dates. Duplicate entries may cause incorrect counts.
+            </div>
+        </div>
+        <div style="font-weight:600; margin-bottom:10px;">Existing Entries:</div>
+        <div id="overlapEntriesList" style="max-height:200px; overflow-y:auto; margin-bottom:15px;"></div>
+        <div style="display:flex; gap:10px; justify-content:flex-end;">
+            <button type="button" class="btn-submit" onclick="editOverlappingEntry()" style="background:#3b82f6;">
+                <i class="fa-solid fa-edit"></i> Edit Existing
+            </button>
+            <button type="button" class="btn-submit" onclick="closeOverlapModal()" style="background:#6b7280;">
+                <i class="fa-solid fa-times"></i> Cancel
+            </button>
+        </div>
+    </div>
+
     <!-- Regularize Modal -->
     <div class="day-popup-overlay" id="regularizeOverlay" onclick="closeRegularizeModal()"></div>
     <div class="day-popup" id="regularizeModal" style="min-width:400px;">
@@ -1524,7 +1548,9 @@
                         // Determine which action buttons to show
                         let actionBtns = '';
                         const canEdit = ['Pending', 'Forwarded', 'Approved'].includes(leave.status);
+                        const canCancel = ['Pending', 'Forwarded', 'Approved'].includes(leave.status);
                         const editBtn = canEdit ? `<button class="action-btn btn-edit" onclick="openEditLeaveModal(${leave.id}, '${leave.leave_type}', '${leave.from_date}', '${leave.to_date}', ${leave.days}, '${(leave.reason || '').replace(/'/g, "\\'")}', '${(leave.remarks || '').replace(/'/g, "\\'")}')"><i class="fa-solid fa-pen"></i></button>` : '';
+                        const cancelBtn = canCancel ? `<button class="action-btn btn-cancel" onclick="updateLeaveStatus(${leave.id}, 'Cancelled')" title="Cancel"><i class="fa-solid fa-ban"></i></button>` : '';
 
                         if (leave.status === 'Pending') {
                             actionBtns = `
@@ -1532,15 +1558,17 @@
                                 <button class="action-btn btn-forward" onclick="updateLeaveStatus(${leave.id}, 'Forwarded')">Forward</button>
                                 <button class="action-btn btn-approve" onclick="updateLeaveStatus(${leave.id}, 'Approved')">Approve</button>
                                 <button class="action-btn btn-reject" onclick="updateLeaveStatus(${leave.id}, 'Rejected')">Reject</button>
+                                ${cancelBtn}
                             `;
                         } else if (leave.status === 'Forwarded') {
                             actionBtns = `
                                 ${editBtn}
                                 <button class="action-btn btn-approve" onclick="updateLeaveStatus(${leave.id}, 'Approved')">Approve</button>
                                 <button class="action-btn btn-reject" onclick="updateLeaveStatus(${leave.id}, 'Rejected')">Reject</button>
+                                ${cancelBtn}
                             `;
                         } else if (leave.status === 'Approved') {
-                            actionBtns = editBtn || '<span style="color:#999; font-size:10px;">-</span>';
+                            actionBtns = (editBtn + cancelBtn) || '<span style="color:#999; font-size:10px;">-</span>';
                         } else if (leave.status === 'Absent' && !leave.is_regularized) {
                             actionBtns = `
                                 <button class="action-btn btn-regularize" onclick="openRegularizeModal(${leave.id}, '${leave.from_date}', '${leave.to_date}', ${leave.days})">Regularize</button>
@@ -1573,8 +1601,14 @@
         // ============================================
         function formatDateForEdit(dateStr) {
             if (!dateStr) return '';
-            // Handle ISO date strings like "2026-01-01T00:00:00.000Z"
-            return dateStr.split('T')[0];
+            // If already in YYYY-MM-DD format, return as is
+            if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
+            // Parse and use local date components to avoid timezone shift
+            const date = new Date(dateStr);
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
         }
 
         function openEditLeaveModal(leaveId, leaveType, fromDate, toDate, days, reason, remarks) {
@@ -1596,6 +1630,60 @@
         function closeEditLeaveModal() {
             document.getElementById('editLeaveOverlay').classList.remove('show');
             document.getElementById('editLeaveModal').classList.remove('show');
+        }
+
+        // ============================================
+        // OVERLAP WARNING MODAL
+        // ============================================
+        let overlapEntries = [];  // Store overlap entries for edit
+
+        function showOverlapModal(entries, hrmsId) {
+            overlapEntries = entries;  // Store for later use
+            const listContainer = document.getElementById('overlapEntriesList');
+
+            let html = '<table style="width:100%; border-collapse:collapse; font-size:13px;">';
+            html += '<tr style="background:#f3f4f6;"><th style="padding:8px; text-align:left; border:1px solid #ddd;">ID</th><th style="padding:8px; text-align:left; border:1px solid #ddd;">Type</th><th style="padding:8px; text-align:left; border:1px solid #ddd;">From</th><th style="padding:8px; text-align:left; border:1px solid #ddd;">To</th><th style="padding:8px; text-align:left; border:1px solid #ddd;">Days</th><th style="padding:8px; text-align:left; border:1px solid #ddd;">Status</th></tr>';
+
+            entries.forEach(entry => {
+                const statusColor = entry.status === 'Pending' ? '#f59e0b' : entry.status === 'Approved' ? '#10b981' : entry.status === 'Absent' ? '#ef4444' : '#6b7280';
+                html += `<tr>
+                    <td style="padding:8px; border:1px solid #ddd;">${entry.id}</td>
+                    <td style="padding:8px; border:1px solid #ddd;">${entry.leave_type || '-'}</td>
+                    <td style="padding:8px; border:1px solid #ddd;">${formatDate(entry.from_date)}</td>
+                    <td style="padding:8px; border:1px solid #ddd;">${formatDate(entry.to_date)}</td>
+                    <td style="padding:8px; border:1px solid #ddd;">${entry.days}</td>
+                    <td style="padding:8px; border:1px solid #ddd; color:${statusColor}; font-weight:600;">${entry.status}</td>
+                </tr>`;
+            });
+            html += '</table>';
+
+            listContainer.innerHTML = html;
+
+            document.getElementById('overlapOverlay').classList.add('show');
+            document.getElementById('overlapModal').classList.add('show');
+        }
+
+        function closeOverlapModal() {
+            document.getElementById('overlapOverlay').classList.remove('show');
+            document.getElementById('overlapModal').classList.remove('show');
+        }
+
+        function editOverlappingEntry() {
+            closeOverlapModal();
+
+            // Use the stored overlap entries
+            if (overlapEntries.length > 0) {
+                const entry = overlapEntries[0];
+                openEditLeaveModal(
+                    entry.id,
+                    entry.leave_type || '',
+                    entry.from_date,
+                    entry.to_date,
+                    entry.days,
+                    '',  // reason not returned from overlap check
+                    ''   // remarks not returned from overlap check
+                );
+            }
         }
 
         function calculateEditDays() {
@@ -1662,9 +1750,15 @@
             }
         }
 
-        // Update leave status (Forward/Approve/Reject)
+        // Update leave status (Forward/Approve/Reject/Cancel)
         async function updateLeaveStatus(leaveId, newStatus) {
-            const action = newStatus === 'Rejected' ? 'reject' : newStatus === 'Approved' ? 'approve' : 'forward';
+            const actionMap = {
+                'Rejected': 'reject',
+                'Approved': 'approve',
+                'Forwarded': 'forward',
+                'Cancelled': 'cancel'
+            };
+            const action = actionMap[newStatus] || 'update';
             if (!confirm(`Are you sure you want to ${action} this leave?`)) return;
 
             try {
@@ -1679,7 +1773,7 @@
 
                 const result = await response.json();
                 if (result.success) {
-                    alert(`Leave ${action}ed successfully!`);
+                    alert(`Leave ${action}led successfully!`);
                     // Reload history
                     if (selectedStaff) {
                         loadStaffLeaveHistory(selectedStaff.hrms_id);
@@ -2102,17 +2196,21 @@
                     const canEdit = ['Pending', 'Forwarded', 'Approved'].includes(item.status);
                     const editBtn = canEdit ? '<button class="action-btn btn-edit" onclick="submittedOpenEdit(' + item.leave_id + ", '" + item.leave_type + "', '" + item.from_date + "', '" + item.to_date + "', " + item.days + ", '" + reason + "', '" + remarks + "')" + '"><i class="fa-solid fa-pen"></i></button>' : '';
 
+                    const cancelBtn = '<button class="action-btn btn-cancel" onclick="submittedUpdateStatus(' + item.leave_id + ", 'Cancelled')" + '" title="Cancel"><i class="fa-solid fa-ban"></i></button>';
+
                     if (item.status === 'Pending') {
                         actionBtns = editBtn +
                             '<button class="action-btn btn-forward" onclick="submittedUpdateStatus(' + item.leave_id + ", 'Forwarded')" + '">Fwd</button>' +
                             '<button class="action-btn btn-approve" onclick="submittedUpdateStatus(' + item.leave_id + ", 'Approved')" + '"><i class="fa-solid fa-check"></i></button>' +
-                            '<button class="action-btn btn-reject" onclick="submittedUpdateStatus(' + item.leave_id + ", 'Rejected')" + '"><i class="fa-solid fa-times"></i></button>';
+                            '<button class="action-btn btn-reject" onclick="submittedUpdateStatus(' + item.leave_id + ", 'Rejected')" + '"><i class="fa-solid fa-times"></i></button>' +
+                            cancelBtn;
                     } else if (item.status === 'Forwarded') {
                         actionBtns = editBtn +
                             '<button class="action-btn btn-approve" onclick="submittedUpdateStatus(' + item.leave_id + ", 'Approved')" + '"><i class="fa-solid fa-check"></i></button>' +
-                            '<button class="action-btn btn-reject" onclick="submittedUpdateStatus(' + item.leave_id + ", 'Rejected')" + '"><i class="fa-solid fa-times"></i></button>';
+                            '<button class="action-btn btn-reject" onclick="submittedUpdateStatus(' + item.leave_id + ", 'Rejected')" + '"><i class="fa-solid fa-times"></i></button>' +
+                            cancelBtn;
                     } else if (item.status === 'Approved') {
-                        actionBtns = editBtn;
+                        actionBtns = editBtn + cancelBtn;
                     } else if (item.status === 'Absent' && !item.is_regularized) {
                         actionBtns = '<button class="action-btn btn-forward" onclick="submittedUpdateStatus(' + item.leave_id + ", 'Forwarded')" + '">Fwd</button>' +
                             '<button class="action-btn btn-regularize" onclick="submittedOpenRegularize(' + item.leave_id + ", '" + item.from_date + "', '" + item.to_date + "', " + item.days + ')">Reg.</button>';
@@ -2162,7 +2260,13 @@
         }
 
         async function submittedUpdateStatus(leaveId, newStatus) {
-            const action = newStatus === 'Rejected' ? 'reject' : newStatus === 'Approved' ? 'approve' : 'forward';
+            const actionMap = {
+                'Rejected': 'reject',
+                'Approved': 'approve',
+                'Forwarded': 'forward',
+                'Cancelled': 'cancel'
+            };
+            const action = actionMap[newStatus] || 'update';
             if (!confirm(`Are you sure you want to ${action} this leave?`)) return;
 
             try {
@@ -2177,7 +2281,7 @@
 
                 const result = await response.json();
                 if (result.success) {
-                    alert(`Leave ${action}ed successfully!`);
+                    alert(`Leave ${action}led successfully!`);
                     loadSubmittedLeaves();
                     loadDashboardData();
                 } else {
@@ -2449,6 +2553,7 @@
 
                 // Different actions based on type
                 const editBtnHtml = `<button class="action-btn btn-edit" onclick="kpiOpenEdit(${item.id}, '${item.leave_type}', '${item.from_date}', '${item.to_date}', ${item.days}, '${(item.reason || '').replace(/'/g, "\\'")}', '${(item.remarks || '').replace(/'/g, "\\'")}')"><i class="fa-solid fa-pen"></i></button>`;
+                const cancelBtnHtml = `<button class="action-btn btn-cancel" onclick="kpiUpdateStatus(${item.id}, 'Cancelled')" title="Cancel"><i class="fa-solid fa-ban"></i></button>`;
 
                 if (type === 'pending') {
                     actionsHtml = `
@@ -2456,16 +2561,19 @@
                         <button class="action-btn btn-forward" onclick="kpiUpdateStatus(${item.id}, 'Forwarded')">Forward</button>
                         <button class="action-btn btn-approve" onclick="kpiUpdateStatus(${item.id}, 'Approved')">Approve</button>
                         <button class="action-btn btn-reject" onclick="kpiUpdateStatus(${item.id}, 'Rejected')">Reject</button>
+                        ${cancelBtnHtml}
                     `;
                 } else if (type === 'forwarded') {
                     actionsHtml = `
                         ${editBtnHtml}
                         <button class="action-btn btn-approve" onclick="kpiUpdateStatus(${item.id}, 'Approved')">Approve</button>
                         <button class="action-btn btn-reject" onclick="kpiUpdateStatus(${item.id}, 'Rejected')">Reject</button>
+                        ${cancelBtnHtml}
                     `;
-                } else if (type === 'approved') {
+                } else if (type === 'approved' || type === 'on-leave-today' || type === 'returning') {
                     actionsHtml = `
                         ${editBtnHtml}
+                        ${cancelBtnHtml}
                         <span class="status-badge status-approved">${item.leave_type}</span>
                     `;
                 } else if (type === 'absent') {
@@ -2473,7 +2581,6 @@
                         <button class="action-btn btn-regularize" onclick="kpiOpenRegularize(${item.id}, '${item.from_date}', '${item.to_date}', ${item.days})">Regularize</button>
                     `;
                 } else {
-                    // For on-leave-today, returning - show edit + info
                     actionsHtml = `
                         ${editBtnHtml}
                         <span class="status-badge status-${(item.status || 'approved').toLowerCase()}">${item.leave_type}</span>
@@ -2501,7 +2608,13 @@
 
         // Update status from KPI popup
         async function kpiUpdateStatus(leaveId, newStatus) {
-            const action = newStatus === 'Rejected' ? 'reject' : newStatus === 'Approved' ? 'approve' : 'forward';
+            const actionMap = {
+                'Rejected': 'reject',
+                'Approved': 'approve',
+                'Forwarded': 'forward',
+                'Cancelled': 'cancel'
+            };
+            const action = actionMap[newStatus] || 'update';
             if (!confirm(`Are you sure you want to ${action} this leave?`)) return;
 
             try {
@@ -2516,7 +2629,7 @@
 
                 const result = await response.json();
                 if (result.success) {
-                    alert(`Leave ${action}ed successfully!`);
+                    alert(`Leave ${action}led successfully!`);
                     // Refresh the popup and dashboard
                     closeKpiPopup();
                     loadDashboardData();
@@ -2615,8 +2728,11 @@
                     resetForm();
                     loadStaffLeaveHistory(hrmsId);
                     loadDashboardData();
+                } else if (result.overlap) {
+                    // Show overlap warning modal
+                    showOverlapModal(result.overlapping_entries, hrmsId);
                 } else {
-                    alert('Error: ' + result.error);
+                    alert('Error: ' + (result.error || result.message));
                 }
             } catch (error) {
                 console.error('Submit error:', error);
@@ -2668,8 +2784,11 @@
                     resetForm();
                     loadStaffLeaveHistory(hrmsId);
                     loadDashboardData();
+                } else if (result.overlap) {
+                    // Show overlap warning modal
+                    showOverlapModal(result.overlapping_entries, hrmsId);
                 } else {
-                    alert('Error: ' + result.error);
+                    alert('Error: ' + (result.error || result.message));
                 }
             } catch (error) {
                 console.error('Mark absent error:', error);
