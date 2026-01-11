@@ -225,6 +225,8 @@
         .btn-cancel:hover { background: #fde68a; }
         .btn-edit { background: #f3f4f6; color: #374151; }
         .btn-edit:hover { background: #e5e7eb; }
+        .btn-history { background: #ede9fe; color: #5b21b6; }
+        .btn-history:hover { background: #ddd6fe; }
 
         /* --- RIGHT PANEL --- */
         .right-panel {
@@ -553,6 +555,42 @@
         .status-pill.rejected { background: #fee2e2; color: #991b1b; border-color: #fecdd3; }
         .status-pill.cancelled { background: #f3f4f6; color: #374151; border-color: #e5e7eb; }
         .status-pill.absent { background: #ffe4e6; color: #9f1239; border-color: #fecdd3; }
+
+        /* Toasts */
+        .toast-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            z-index: 2000;
+        }
+        .toast {
+            min-width: 220px;
+            max-width: 360px;
+            padding: 10px 14px;
+            border-radius: 10px;
+            color: #1f2937;
+            background: #f3f4f6;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border-left: 4px solid #9ca3af;
+            animation: slide-in 0.2s ease, fade-out 0.2s ease 4.3s forwards;
+        }
+        .toast.success { background: #ecfdf3; border-left-color: #22c55e; }
+        .toast.error { background: #fef2f2; border-left-color: #ef4444; }
+        .toast.warning { background: #fffbeb; border-left-color: #f59e0b; }
+        .toast .icon { font-size: 14px; }
+        @keyframes slide-in {
+            from { transform: translateX(12px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes fade-out {
+            to { opacity: 0; transform: translateX(12px); }
+        }
         .rank-badge {
             display: inline-flex;
             align-items: center;
@@ -1345,6 +1383,14 @@
         <div id="kpiPopupContent" class="kpi-staff-list">Loading...</div>
     </div>
 
+    <!-- Status History Popup -->
+    <div class="day-popup-overlay" id="historyPopupOverlay" onclick="closeHistoryPopup()"></div>
+    <div class="day-popup" id="historyPopup" style="min-width:400px; max-width:500px;">
+        <button class="day-popup-close" onclick="closeHistoryPopup()"><i class="fa-solid fa-times"></i></button>
+        <h3><i class="fa-solid fa-clock-rotate-left"></i> Status History</h3>
+        <div id="historyPopupContent" style="max-height:350px; overflow-y:auto;">Loading...</div>
+    </div>
+
     <!-- Day Detail Popup -->
     <div class="day-popup-overlay" id="dayPopupOverlay" onclick="closeDayPopup()"></div>
     <div class="day-popup" id="dayPopup">
@@ -1352,6 +1398,9 @@
         <h3 id="dayPopupTitle">-</h3>
         <div id="dayPopupContent">Loading...</div>
     </div>
+
+    <!-- Toast Container -->
+    <div id="toastContainer" class="toast-container"></div>
 
     <script>
         // ============================================
@@ -1428,14 +1477,15 @@
         }
 
         function initializeDateDefaults() {
-            const today = new Date();
-            const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-            const lastOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+            // Use the calendar's current month for defaults
+            const base = currentCalendarDate || new Date();
+            const firstOfMonth = new Date(base.getFullYear(), base.getMonth(), 1);
+            const lastOfMonth = new Date(base.getFullYear(), base.getMonth() + 1, 0);
 
             document.getElementById('filterFromDate').value = formatDateForInput(firstOfMonth);
             document.getElementById('filterToDate').value = formatDateForInput(lastOfMonth);
-            document.getElementById('fromDate').value = formatDateForInput(today);
-            document.getElementById('toDate').value = formatDateForInput(today);
+            document.getElementById('fromDate').value = formatDateForInput(base);
+            document.getElementById('toDate').value = formatDateForInput(base);
             document.getElementById('submittedFromDate').value = formatDateForInput(firstOfMonth);
             document.getElementById('submittedToDate').value = formatDateForInput(lastOfMonth);
             calculateDays();
@@ -1713,7 +1763,7 @@
             const remarks = document.getElementById('editRemarks').value.trim();
 
             if (!fromDate || !toDate || days < 1 || isNaN(days)) {
-                alert('Please enter valid dates');
+                showToast('Please enter valid dates', 'warning');
                 return;
             }
 
@@ -1733,7 +1783,7 @@
 
                 const result = await response.json();
                 if (result.success) {
-                    alert('Leave updated successfully!');
+                    showToast('Leave updated successfully', 'success');
                     closeEditLeaveModal();
                     // Reload history
                     if (selectedStaff) {
@@ -1742,11 +1792,11 @@
                     loadDashboardData();
                     renderCalendar();
                 } else {
-                    alert('Error: ' + result.error);
+                    showToast('Error: ' + result.error, 'error');
                 }
             } catch (error) {
                 console.error('Error updating leave:', error);
-                alert('Error updating leave');
+                showToast('Error updating leave', 'error');
             }
         }
 
@@ -1759,7 +1809,9 @@
                 'Cancelled': 'cancel'
             };
             const action = actionMap[newStatus] || 'update';
-            if (!confirm(`Are you sure you want to ${action} this leave?`)) return;
+            if (newStatus === 'Cancelled') {
+                if (!confirm('Are you sure you want to cancel this leave?')) return;
+            }
 
             try {
                 const response = await fetch(`/api/division/leave/${leaveId}`, {
@@ -1773,18 +1825,18 @@
 
                 const result = await response.json();
                 if (result.success) {
-                    alert(`Leave ${action}led successfully!`);
+                    showToast(`Leave ${action}ed successfully`, 'success');
                     // Reload history
                     if (selectedStaff) {
                         loadStaffLeaveHistory(selectedStaff.hrms_id);
                     }
                     loadDashboardData();
                 } else {
-                    alert('Error: ' + result.error);
+                    showToast('Error: ' + result.error, 'error');
                 }
             } catch (error) {
                 console.error('Error updating leave:', error);
-                alert('Error updating leave status');
+                showToast('Error updating leave status', 'error');
             }
         }
 
@@ -1857,21 +1909,21 @@
             const remarks = document.getElementById('regRemarks').value.trim();
 
             if (!leaveType) {
-                alert('Please select a leave type');
+                showToast('Please select a leave type', 'warning');
                 return;
             }
             if (!regFromDate || !regToDate) {
-                alert('Please select dates');
+                showToast('Please select dates', 'warning');
                 return;
             }
             if (daysToRegularize < 1 || isNaN(daysToRegularize)) {
-                alert('Invalid date range');
+                showToast('Invalid date range', 'warning');
                 return;
             }
 
             // Validate dates are within absent period
             if (regFromDate < origFromDate || regToDate > origToDate) {
-                alert('Selected dates must be within the absent period');
+                showToast('Selected dates must be within the absent period', 'warning');
                 return;
             }
 
@@ -1894,18 +1946,18 @@
 
                 const result = await response.json();
                 if (result.success) {
-                    alert(result.message || 'Absence regularized successfully!');
+                    showToast(result.message || 'Absence regularized successfully!', 'success');
                     closeRegularizeModal();
                     if (selectedStaff) {
                         loadStaffLeaveHistory(selectedStaff.hrms_id);
                     }
                     loadDashboardData();
                 } else {
-                    alert('Error: ' + result.error);
+                    showToast('Error: ' + result.error, 'error');
                 }
             } catch (error) {
                 console.error('Error regularizing:', error);
-                alert('Error regularizing absence');
+                showToast('Error regularizing absence', 'error');
             }
         }
 
@@ -1952,11 +2004,11 @@
                 if (result.success) {
                     renderAbsenteeismReport(result);
                 } else {
-                    alert('Error loading report: ' + result.error);
+                    showToast('Error loading report: ' + result.error, 'error');
                 }
             } catch (error) {
                 console.error('Error loading absenteeism report:', error);
-                alert('Error loading report');
+                showToast('Error loading report', 'error');
             }
 
             // Scroll to report section
@@ -2197,23 +2249,27 @@
                     const editBtn = canEdit ? '<button class="action-btn btn-edit" onclick="submittedOpenEdit(' + item.leave_id + ", '" + item.leave_type + "', '" + item.from_date + "', '" + item.to_date + "', " + item.days + ", '" + reason + "', '" + remarks + "')" + '"><i class="fa-solid fa-pen"></i></button>' : '';
 
                     const cancelBtn = '<button class="action-btn btn-cancel" onclick="submittedUpdateStatus(' + item.leave_id + ", 'Cancelled')" + '" title="Cancel"><i class="fa-solid fa-ban"></i></button>';
+                    const historyBtn = '<button class="action-btn btn-history" onclick="showStatusHistory(' + item.leave_id + ')" title="View History"><i class="fa-solid fa-clock-rotate-left"></i></button>';
 
                     if (item.status === 'Pending') {
                         actionBtns = editBtn +
                             '<button class="action-btn btn-forward" onclick="submittedUpdateStatus(' + item.leave_id + ", 'Forwarded')" + '">Fwd</button>' +
                             '<button class="action-btn btn-approve" onclick="submittedUpdateStatus(' + item.leave_id + ", 'Approved')" + '"><i class="fa-solid fa-check"></i></button>' +
                             '<button class="action-btn btn-reject" onclick="submittedUpdateStatus(' + item.leave_id + ", 'Rejected')" + '"><i class="fa-solid fa-times"></i></button>' +
-                            cancelBtn;
+                            cancelBtn + historyBtn;
                     } else if (item.status === 'Forwarded') {
                         actionBtns = editBtn +
                             '<button class="action-btn btn-approve" onclick="submittedUpdateStatus(' + item.leave_id + ", 'Approved')" + '"><i class="fa-solid fa-check"></i></button>' +
                             '<button class="action-btn btn-reject" onclick="submittedUpdateStatus(' + item.leave_id + ", 'Rejected')" + '"><i class="fa-solid fa-times"></i></button>' +
-                            cancelBtn;
+                            cancelBtn + historyBtn;
                     } else if (item.status === 'Approved') {
-                        actionBtns = editBtn + cancelBtn;
+                        actionBtns = editBtn + cancelBtn + historyBtn;
                     } else if (item.status === 'Absent' && !item.is_regularized) {
                         actionBtns = '<button class="action-btn btn-forward" onclick="submittedUpdateStatus(' + item.leave_id + ", 'Forwarded')" + '">Fwd</button>' +
-                            '<button class="action-btn btn-regularize" onclick="submittedOpenRegularize(' + item.leave_id + ", '" + item.from_date + "', '" + item.to_date + "', " + item.days + ')">Reg.</button>';
+                            '<button class="action-btn btn-regularize" onclick="submittedOpenRegularize(' + item.leave_id + ", '" + item.from_date + "', '" + item.to_date + "', " + item.days + ')">Reg.</button>' + historyBtn;
+                    } else {
+                        // For Rejected, Cancelled, or regularized entries - still show history button
+                        actionBtns = historyBtn;
                     }
 
                     return `
@@ -2267,7 +2323,9 @@
                 'Cancelled': 'cancel'
             };
             const action = actionMap[newStatus] || 'update';
-            if (!confirm(`Are you sure you want to ${action} this leave?`)) return;
+            if (newStatus === 'Cancelled') {
+                if (!confirm('Are you sure you want to cancel this leave?')) return;
+            }
 
             try {
                 const response = await fetch(`/api/division/leave/${leaveId}`, {
@@ -2281,15 +2339,15 @@
 
                 const result = await response.json();
                 if (result.success) {
-                    alert(`Leave ${action}led successfully!`);
+                    showToast(`Leave ${action}ed successfully`, 'success');
                     loadSubmittedLeaves();
                     loadDashboardData();
                 } else {
-                    alert('Error: ' + result.error);
+                    showToast('Error: ' + result.error, 'error');
                 }
             } catch (error) {
                 console.error('Error updating leave:', error);
-                alert('Error updating leave status');
+                showToast('Error updating leave status', 'error');
             }
         }
 
@@ -2326,7 +2384,7 @@
             }
 
             if (dataToprint.length === 0) {
-                alert('No data to print');
+                showToast('No data to print', 'warning');
                 return;
             }
 
@@ -2494,6 +2552,18 @@
             setTimeout(() => printWindow.print(), 300);
         }
 
+        // Toast helper
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            if (!container) return;
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            const icon = type === 'success' ? 'fa-circle-check' : type === 'error' ? 'fa-circle-xmark' : type === 'warning' ? 'fa-triangle-exclamation' : 'fa-circle-info';
+            toast.innerHTML = `<i class="fa-solid ${icon} icon"></i><span>${message}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), 4800);
+        }
+
         // ============================================
         // KPI POPUP FUNCTIONS
         // ============================================
@@ -2514,10 +2584,18 @@
 
             try {
                 const officeCode = document.getElementById('filterOffice').value;
+                const designationId = document.getElementById('filterDesignation').value;
+                const fromDate = document.getElementById('filterFromDate').value;
+                const toDate = document.getElementById('filterToDate').value;
                 const params = new URLSearchParams();
                 if (officeCode && officeCode !== 'ALL') {
                     params.append('office_code', officeCode);
                 }
+                if (designationId && designationId !== 'ALL') {
+                    params.append('designation_id', designationId);
+                }
+                if (fromDate) params.append('from_date', fromDate);
+                if (toDate) params.append('to_date', toDate);
 
                 const response = await fetch(`/api/division/leave/kpi-list/${type}?${params.toString()}`);
                 const result = await response.json();
@@ -2536,6 +2614,83 @@
         function closeKpiPopup() {
             document.getElementById('kpiPopupOverlay').classList.remove('show');
             document.getElementById('kpiPopup').classList.remove('show');
+        }
+
+        // ============================================
+        // STATUS HISTORY POPUP FUNCTIONS
+        // ============================================
+        async function showStatusHistory(leaveId) {
+            document.getElementById('historyPopupOverlay').classList.add('show');
+            document.getElementById('historyPopup').classList.add('show');
+            document.getElementById('historyPopupContent').innerHTML = '<div style="text-align:center; padding:20px; color:#999;"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</div>';
+
+            try {
+                const response = await fetch(`/api/division/leave/${leaveId}/history`);
+                const result = await response.json();
+
+                if (result.success && result.history) {
+                    renderStatusHistory(result.history);
+                } else {
+                    document.getElementById('historyPopupContent').innerHTML = '<div style="text-align:center; padding:20px; color:#999;">No history available</div>';
+                }
+            } catch (error) {
+                console.error('Error fetching history:', error);
+                document.getElementById('historyPopupContent').innerHTML = '<div style="text-align:center; padding:20px; color:#ef4444;">Error loading history</div>';
+            }
+        }
+
+        function closeHistoryPopup() {
+            document.getElementById('historyPopupOverlay').classList.remove('show');
+            document.getElementById('historyPopup').classList.remove('show');
+        }
+
+        function renderStatusHistory(history) {
+            const container = document.getElementById('historyPopupContent');
+
+            if (!history || history.length === 0) {
+                container.innerHTML = '<div style="text-align:center; padding:20px; color:#999;">No status changes recorded yet</div>';
+                return;
+            }
+
+            const statusColors = {
+                'Pending': '#f59e0b',
+                'Forwarded': '#6366f1',
+                'Approved': '#10b981',
+                'Rejected': '#ef4444',
+                'Cancelled': '#6b7280',
+                'Absent': '#be123c'
+            };
+
+            let html = '<div style="display:flex; flex-direction:column; gap:12px; padding:10px 0;">';
+
+            history.forEach((item, index) => {
+                const oldColor = statusColors[item.old_status] || '#999';
+                const newColor = statusColors[item.new_status] || '#999';
+                const isFirst = index === 0;
+
+                html += `
+                    <div style="display:flex; align-items:center; gap:10px; padding:10px; background:#f9fafb; border-radius:8px; border-left:3px solid ${newColor};">
+                        <div style="flex:1;">
+                            <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+                                ${isFirst && !item.old_status ?
+                                    `<span style="color:${newColor}; font-weight:600;">Created as ${item.new_status}</span>` :
+                                    `<span style="color:${oldColor}; font-weight:500;">${item.old_status || '-'}</span>
+                                     <i class="fa-solid fa-arrow-right" style="color:#999; font-size:10px;"></i>
+                                     <span style="color:${newColor}; font-weight:600;">${item.new_status}</span>`
+                                }
+                            </div>
+                            <div style="font-size:11px; color:#6b7280;">
+                                <i class="fa-solid fa-user" style="margin-right:4px;"></i>${item.changed_by || 'System'}
+                                <span style="margin-left:10px;"><i class="fa-solid fa-clock" style="margin-right:4px;"></i>${item.changed_at_formatted}</span>
+                            </div>
+                            ${item.remarks ? `<div style="font-size:11px; color:#6b7280; margin-top:4px;"><i class="fa-solid fa-comment" style="margin-right:4px;"></i>${item.remarks}</div>` : ''}
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += '</div>';
+            container.innerHTML = html;
         }
 
         function renderKpiStaffList(type, data) {
@@ -2615,7 +2770,9 @@
                 'Cancelled': 'cancel'
             };
             const action = actionMap[newStatus] || 'update';
-            if (!confirm(`Are you sure you want to ${action} this leave?`)) return;
+            if (newStatus === 'Cancelled') {
+                if (!confirm('Are you sure you want to cancel this leave?')) return;
+            }
 
             try {
                 const response = await fetch(`/api/division/leave/${leaveId}`, {
@@ -2629,16 +2786,16 @@
 
                 const result = await response.json();
                 if (result.success) {
-                    alert(`Leave ${action}led successfully!`);
+                    showToast(`Leave ${action}ed successfully`, 'success');
                     // Refresh the popup and dashboard
                     closeKpiPopup();
                     loadDashboardData();
                 } else {
-                    alert('Error: ' + result.error);
+                    showToast('Error: ' + result.error, 'error');
                 }
             } catch (error) {
                 console.error('Error updating leave:', error);
-                alert('Error updating leave status');
+                showToast('Error updating leave status', 'error');
             }
         }
 
@@ -2692,15 +2849,23 @@
             const designationId = document.getElementById('selectedDesignationId').value;
 
             if (!hrmsId) {
-                alert('Please select a staff member');
+                showToast('Please select a staff member', 'warning');
                 return;
             }
             if (!leaveType) {
-                alert('Please select leave type');
+                showToast('Please select leave type', 'warning');
                 return;
             }
-            if (!fromDate || !toDate || days <= 0) {
-                alert('Please enter valid dates');
+            if (!fromDate || !toDate) {
+                showToast('Please enter valid dates', 'warning');
+                return;
+            }
+            if (new Date(toDate) < new Date(fromDate)) {
+                showToast('To date cannot be before From date', 'warning');
+                return;
+            }
+            if (!Number.isFinite(days) || days <= 0) {
+                showToast('Please enter valid dates', 'warning');
                 return;
             }
 
@@ -2724,7 +2889,7 @@
 
                 const result = await response.json();
                 if (result.success) {
-                    alert('Leave application submitted successfully!');
+                    showToast('Leave application submitted successfully!', 'success');
                     resetForm();
                     loadStaffLeaveHistory(hrmsId);
                     loadDashboardData();
@@ -2732,11 +2897,11 @@
                     // Show overlap warning modal
                     showOverlapModal(result.overlapping_entries, hrmsId);
                 } else {
-                    alert('Error: ' + (result.error || result.message));
+                    showToast('Error: ' + (result.error || result.message), 'error');
                 }
             } catch (error) {
                 console.error('Submit error:', error);
-                alert('Error submitting leave application');
+                showToast('Error submitting leave application', 'error');
             }
         }
 
@@ -2749,15 +2914,19 @@
             const designationId = document.getElementById('selectedDesignationId').value;
 
             if (!hrmsId) {
-                alert('Please select a staff member');
+                showToast('Please select a staff member', 'warning');
                 return;
             }
-            if (!fromDate || !toDate || days <= 0) {
-                alert('Please enter valid dates');
+            if (!fromDate || !toDate) {
+                showToast('Please enter valid dates', 'warning');
                 return;
             }
-
-            if (!confirm(`Mark ${selectedStaff.name} as ABSENT from ${fromDate} to ${toDate}?`)) {
+            if (new Date(toDate) < new Date(fromDate)) {
+                showToast('To date cannot be before From date', 'warning');
+                return;
+            }
+            if (!Number.isFinite(days) || days <= 0) {
+                showToast('Please enter valid dates', 'warning');
                 return;
             }
 
@@ -2774,13 +2943,13 @@
                         office_code: officeCode,
                         designation_id: designationId,
                         reason: 'Marked absent - pending regularization',
-                        status: 'Absent'
-                    })
-                });
+                    status: 'Absent'
+                })
+            });
 
-                const result = await response.json();
-                if (result.success) {
-                    alert('Staff marked as absent. Please regularize later.');
+            const result = await response.json();
+            if (result.success) {
+                    showToast('Staff marked as absent. Please regularize later.', 'success');
                     resetForm();
                     loadStaffLeaveHistory(hrmsId);
                     loadDashboardData();
@@ -2788,11 +2957,11 @@
                     // Show overlap warning modal
                     showOverlapModal(result.overlapping_entries, hrmsId);
                 } else {
-                    alert('Error: ' + (result.error || result.message));
+                    showToast('Error: ' + (result.error || result.message), 'error');
                 }
             } catch (error) {
                 console.error('Mark absent error:', error);
-                alert('Error marking absent');
+                showToast('Error marking absent', 'error');
             }
         }
 
@@ -3101,6 +3270,9 @@
 
         function changeMonth(delta) {
             currentCalendarDate.setMonth(currentCalendarDate.getMonth() + delta);
+            // Sync filters to the calendar month
+            initializeDateDefaults();
+            applyFilters();
             renderCalendar();
         }
 

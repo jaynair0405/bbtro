@@ -22,6 +22,30 @@ function buildOfficeFilter(officeCode, tableAlias = 's') {
     };
 }
 
+// Normalize date range (swap if inverted)
+function normalizeDateRange(from, to) {
+    if (from && to && to < from) {
+        return { from: to, to: from };
+    }
+    return { from, to };
+}
+
+// Format date to YYYY-MM-DD string to avoid timezone issues
+// This ensures dates are stored without time component shift
+function formatDateForDB(dateStr) {
+    if (!dateStr) return null;
+    // If already in YYYY-MM-DD format, return as-is
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+        return dateStr;
+    }
+    // Parse and extract local date components to avoid UTC shift
+    const d = new Date(dateStr);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
 // POST /api/division/leave - Create leave entry
 router.post('/', async (req, res) => {
     let conn;
@@ -40,9 +64,28 @@ router.post('/', async (req, res) => {
             force_submit  // If true, skip overlap check (user confirmed)
         } = req.body;
 
+        const allowedStatuses = new Set(['Pending', 'Forwarded', 'Approved', 'Rejected', 'Cancelled', 'Absent']);
+
+        // Basic validation
         if (!staff_hrms_id || !from_date || !to_date || !days) {
             return res.status(400).json({ error: 'Missing required fields' });
         }
+
+        if (new Date(to_date) < new Date(from_date)) {
+            return res.status(400).json({ error: 'Invalid date range (to_date before from_date)' });
+        }
+
+        if (!Number.isFinite(days) || days <= 0) {
+            return res.status(400).json({ error: 'Invalid days value' });
+        }
+
+        if (status && !allowedStatuses.has(status)) {
+            return res.status(400).json({ error: 'Invalid status value' });
+        }
+
+        // Format dates to avoid timezone shift
+        const formattedFromDate = formatDateForDB(from_date);
+        const formattedToDate = formatDateForDB(to_date);
 
         conn = await req.app.locals.pool.getConnection();
 
@@ -56,7 +99,7 @@ router.post('/', async (req, res) => {
                    AND status NOT IN ('Rejected', 'Cancelled')
                    AND DATE(from_date) <= DATE(?)
                    AND DATE(to_date) >= DATE(?)`,
-                [staff_hrms_id, to_date, from_date]
+                [staff_hrms_id, formattedToDate, formattedFromDate]
             );
 
             if (overlaps.length > 0) {
@@ -70,11 +113,20 @@ router.post('/', async (req, res) => {
             }
         }
 
+        const initialStatus = status || 'Pending';
         const [result] = await conn.query(
             `INSERT INTO div_leave_tracking
              (staff_hrms_id, leave_type, from_date, to_date, days, office_code, designation_id, reason, remarks, status, created_at)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
-            [staff_hrms_id, leave_type, from_date, to_date, days, office_code, designation_id, reason, remarks || null, status || 'Pending']
+            [staff_hrms_id, leave_type, formattedFromDate, formattedToDate, days, office_code, designation_id, reason, remarks || null, initialStatus]
+        );
+
+        // Log initial status in history
+        const changedBy = req.session.user?.name || req.session.user?.username || 'System';
+        await conn.query(
+            `INSERT INTO div_leave_status_history (leave_id, old_status, new_status, changed_by)
+             VALUES (?, NULL, ?, ?)`,
+            [result.insertId, initialStatus, changedBy]
         );
 
         conn.release();
@@ -123,13 +175,14 @@ router.get('/history/:hrmsId', async (req, res) => {
 router.get('/dashboard', async (req, res) => {
     let conn;
     try {
-        const { office_code, designation_id, from_date, to_date } = req.query;
+        const { office_code, designation_id } = req.query;
+        const { from: normFrom, to: normTo } = normalizeDateRange(req.query.from_date, req.query.to_date);
         const userOffice = req.session.user?.div_office_code;
         const userRole = req.session.user?.div_role;
 
         conn = await req.app.locals.pool.getConnection();
 
-        // Build filter conditions
+        // Build filter conditions (use overlap logic for date range)
         let conditions = [];
         let params = [];
 
@@ -148,14 +201,18 @@ router.get('/dashboard', async (req, res) => {
             params.push(designation_id);
         }
 
-        // Date range filter
-        if (from_date) {
-            conditions.push('l.from_date >= ?');
-            params.push(from_date);
-        }
-        if (to_date) {
-            conditions.push('l.to_date <= ?');
-            params.push(to_date);
+        // Date overlap filter: leave touches the window
+        if (normFrom && normTo) {
+            conditions.push('(DATE(l.from_date) <= DATE(?) AND DATE(l.to_date) >= DATE(?))');
+            params.push(normTo, normFrom);
+        } else if (normFrom) {
+            // Any leave that ends on/after from_date
+            conditions.push('DATE(l.to_date) >= DATE(?)');
+            params.push(normFrom);
+        } else if (normTo) {
+            // Any leave that starts on/before to_date
+            conditions.push('DATE(l.from_date) <= DATE(?)');
+            params.push(normTo);
         }
 
         const whereClause = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
@@ -197,8 +254,8 @@ router.get('/dashboard', async (req, res) => {
         `, returningParams);
 
         // Chart data - count all days covered by each leave entry
-        const chartFromDate = from_date || new Date().toISOString().slice(0, 8) + '01';
-        const chartToDate = to_date || new Date().toISOString().slice(0, 10);
+        const chartFromDate = normFrom || new Date().toISOString().slice(0, 8) + '01';
+        const chartToDate = normTo || new Date().toISOString().slice(0, 10);
 
         // Get all leave entries that overlap with the chart date range
         // Exclude Rejected and Cancelled from chart (they shouldn't count as applied)
@@ -439,14 +496,16 @@ router.get('/kpi-list/:type', async (req, res) => {
     let conn;
     try {
         const { type } = req.params;
-        const { office_code } = req.query;
+        const { office_code, from_date, to_date } = req.query;
+        const { from: normFrom, to: normTo } = normalizeDateRange(from_date, to_date);
         const userOffice = req.session.user?.div_office_code;
         const userRole = req.session.user?.div_role;
 
         conn = await req.app.locals.pool.getConnection();
 
-        // Build office filter
+        // Build office + date filters (overlap)
         let officeCondition = '';
+        let dateCondition = '';
         let params = [];
 
         if (userRole !== 'division_admin') {
@@ -457,6 +516,17 @@ router.get('/kpi-list/:type', async (req, res) => {
             params.push(office_code);
         }
 
+        if (normFrom && normTo) {
+            dateCondition = 'AND DATE(l.from_date) <= DATE(?) AND DATE(l.to_date) >= DATE(?)';
+            params.push(normTo, normFrom);
+        } else if (normFrom) {
+            dateCondition = 'AND DATE(l.to_date) >= DATE(?)';
+            params.push(normFrom);
+        } else if (normTo) {
+            dateCondition = 'AND DATE(l.from_date) <= DATE(?)';
+            params.push(normTo);
+        }
+
         let query = '';
         switch (type) {
             case 'pending':
@@ -465,7 +535,7 @@ router.get('/kpi-list/:type', async (req, res) => {
                     FROM div_leave_tracking l
                     JOIN div_staff_master s ON l.staff_hrms_id = s.hrms_id
                     LEFT JOIN designations d ON l.designation_id = d.id
-                    WHERE l.status = 'Pending' ${officeCondition}
+                    WHERE l.status = 'Pending' ${officeCondition} ${dateCondition}
                     ORDER BY l.from_date ASC
                 `;
                 break;
@@ -476,7 +546,7 @@ router.get('/kpi-list/:type', async (req, res) => {
                     FROM div_leave_tracking l
                     JOIN div_staff_master s ON l.staff_hrms_id = s.hrms_id
                     LEFT JOIN designations d ON l.designation_id = d.id
-                    WHERE l.status = 'Forwarded' ${officeCondition}
+                    WHERE l.status = 'Forwarded' ${officeCondition} ${dateCondition}
                     ORDER BY l.from_date ASC
                 `;
                 break;
@@ -487,7 +557,7 @@ router.get('/kpi-list/:type', async (req, res) => {
                     FROM div_leave_tracking l
                     JOIN div_staff_master s ON l.staff_hrms_id = s.hrms_id
                     LEFT JOIN designations d ON l.designation_id = d.id
-                    WHERE l.status = 'Approved' ${officeCondition}
+                    WHERE l.status = 'Approved' ${officeCondition} ${dateCondition}
                     ORDER BY l.from_date DESC
                     LIMIT 50
                 `;
@@ -501,7 +571,7 @@ router.get('/kpi-list/:type', async (req, res) => {
                     LEFT JOIN designations d ON l.designation_id = d.id
                     WHERE l.status = 'Approved'
                     AND CURDATE() BETWEEN DATE(l.from_date) AND DATE(l.to_date)
-                    ${officeCondition}
+                    ${officeCondition} ${dateCondition}
                     ORDER BY s.name ASC
                 `;
                 break;
@@ -513,7 +583,7 @@ router.get('/kpi-list/:type', async (req, res) => {
                     JOIN div_staff_master s ON l.staff_hrms_id = s.hrms_id
                     LEFT JOIN designations d ON l.designation_id = d.id
                     WHERE l.status = 'Absent' AND l.is_regularized = 0
-                    ${officeCondition}
+                    ${officeCondition} ${dateCondition}
                     ORDER BY l.from_date DESC
                 `;
                 break;
@@ -527,7 +597,7 @@ router.get('/kpi-list/:type', async (req, res) => {
                     LEFT JOIN designations d ON l.designation_id = d.id
                     WHERE l.status = 'Approved'
                     AND DATE(l.to_date) = CURDATE()
-                    ${officeCondition}
+                    ${officeCondition} ${dateCondition}
                     ORDER BY s.name ASC
                 `;
                 break;
@@ -929,6 +999,18 @@ router.put('/:id', async (req, res) => {
 
         conn = await req.app.locals.pool.getConnection();
 
+        // Get current status before update (for history logging)
+        let oldStatus = null;
+        if (status !== undefined) {
+            const [current] = await conn.query(
+                'SELECT status FROM div_leave_tracking WHERE id = ?',
+                [id]
+            );
+            if (current.length > 0) {
+                oldStatus = current[0].status;
+            }
+        }
+
         // Build update fields
         let updates = [];
         let params = [];
@@ -951,11 +1033,11 @@ router.put('/:id', async (req, res) => {
         }
         if (to_date !== undefined) {
             updates.push('to_date = ?');
-            params.push(to_date);
+            params.push(formatDateForDB(to_date));
         }
         if (req.body.from_date !== undefined) {
             updates.push('from_date = ?');
-            params.push(req.body.from_date);
+            params.push(formatDateForDB(req.body.from_date));
         }
         if (days !== undefined) {
             updates.push('days = ?');
@@ -982,11 +1064,22 @@ router.put('/:id', async (req, res) => {
             params
         );
 
-        conn.release();
-
         if (result.affectedRows === 0) {
+            conn.release();
             return res.status(404).json({ error: 'Leave entry not found' });
         }
+
+        // Log status change in history if status was updated
+        if (status !== undefined && oldStatus !== null && oldStatus !== status) {
+            const changedBy = req.session.user?.name || req.session.user?.username || 'System';
+            await conn.query(
+                `INSERT INTO div_leave_status_history (leave_id, old_status, new_status, changed_by)
+                 VALUES (?, ?, ?, ?)`,
+                [id, oldStatus, status, changedBy]
+            );
+        }
+
+        conn.release();
 
         res.json({
             success: true,
@@ -995,6 +1088,44 @@ router.put('/:id', async (req, res) => {
 
     } catch (error) {
         console.error('Error updating leave entry:', error);
+        if (conn) conn.release();
+        res.status(500).json({ error: 'Database error', details: error.message });
+    }
+});
+
+// GET /api/division/leave/:id/history - Get status change history for a leave
+router.get('/:id/history', async (req, res) => {
+    let conn;
+    try {
+        const { id } = req.params;
+
+        conn = await req.app.locals.pool.getConnection();
+
+        const [history] = await conn.query(
+            `SELECT
+                h.id,
+                h.old_status,
+                h.new_status,
+                h.changed_by,
+                DATE_FORMAT(h.changed_at, '%d-%m-%Y %H:%i') as changed_at_formatted,
+                h.changed_at,
+                h.remarks
+             FROM div_leave_status_history h
+             WHERE h.leave_id = ?
+             ORDER BY h.changed_at ASC`,
+            [id]
+        );
+
+        conn.release();
+
+        res.json({
+            success: true,
+            leave_id: id,
+            history: history
+        });
+
+    } catch (error) {
+        console.error('Error fetching leave history:', error);
         if (conn) conn.release();
         res.status(500).json({ error: 'Database error', details: error.message });
     }
@@ -1010,6 +1141,12 @@ router.post('/:id/regularize', async (req, res) => {
         if (!leave_type || !reg_from_date || !reg_to_date) {
             return res.status(400).json({ error: 'Missing required fields' });
         }
+
+        // Format dates to avoid timezone shift
+        const formattedRegFromDate = formatDateForDB(reg_from_date);
+        const formattedRegToDate = formatDateForDB(reg_to_date);
+        const formattedOrigFromDate = formatDateForDB(orig_from_date);
+        const formattedOrigToDate = formatDateForDB(orig_to_date);
 
         conn = await req.app.locals.pool.getConnection();
 
@@ -1027,7 +1164,7 @@ router.post('/:id/regularize', async (req, res) => {
         const absentRecord = original[0];
 
         // Check if full regularization (selected dates cover entire absent period)
-        const isFullRegularization = (reg_from_date === orig_from_date && reg_to_date === orig_to_date);
+        const isFullRegularization = (formattedRegFromDate === formattedOrigFromDate && formattedRegToDate === formattedOrigToDate);
 
         if (isFullRegularization) {
             // Full regularization - just update the existing record
@@ -1050,8 +1187,8 @@ router.post('/:id/regularize', async (req, res) => {
         }
 
         // Partial regularization - need to handle different scenarios
-        const hasAbsentBefore = reg_from_date > orig_from_date;
-        const hasAbsentAfter = reg_to_date < orig_to_date;
+        const hasAbsentBefore = formattedRegFromDate > formattedOrigFromDate;
+        const hasAbsentAfter = formattedRegToDate < formattedOrigToDate;
 
         // Helper to calculate days between dates
         const daysBetween = (start, end) => {
@@ -1060,18 +1197,18 @@ router.post('/:id/regularize', async (req, res) => {
             return Math.ceil((e - s) / (1000 * 60 * 60 * 24)) + 1;
         };
 
-        // Helper to add days to date
+        // Helper to add days to date (using local date to avoid timezone shift)
         const addDays = (dateStr, days) => {
-            const d = new Date(dateStr);
+            const d = new Date(dateStr + 'T00:00:00'); // Parse as local midnight
             d.setDate(d.getDate() + days);
-            return d.toISOString().slice(0, 10);
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
         };
 
         if (hasAbsentBefore && hasAbsentAfter) {
             // Regularizing middle portion: Absent-Before | Regularized | Absent-After
             // Update original record for "before" portion
-            const beforeToDate = addDays(reg_from_date, -1);
-            const beforeDays = daysBetween(orig_from_date, beforeToDate);
+            const beforeToDate = addDays(formattedRegFromDate, -1);
+            const beforeDays = daysBetween(formattedOrigFromDate, beforeToDate);
 
             await conn.query(
                 `UPDATE div_leave_tracking SET
@@ -1087,26 +1224,26 @@ router.post('/:id/regularize', async (req, res) => {
                 `INSERT INTO div_leave_tracking
                  (staff_hrms_id, leave_type, from_date, to_date, days, office_code, designation_id, reason, remarks, status, is_regularized, approved_by, created_at)
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Approved', 1, ?, NOW())`,
-                [absentRecord.staff_hrms_id, leave_type, reg_from_date, reg_to_date, days_to_regularize,
+                [absentRecord.staff_hrms_id, leave_type, formattedRegFromDate, formattedRegToDate, days_to_regularize,
                  absentRecord.office_code, absentRecord.designation_id, absentRecord.reason, remarks, approved_by]
             );
 
             // Create record for "after" portion (still absent)
-            const afterFromDate = addDays(reg_to_date, 1);
-            const afterDays = daysBetween(afterFromDate, orig_to_date);
+            const afterFromDate = addDays(formattedRegToDate, 1);
+            const afterDays = daysBetween(afterFromDate, formattedOrigToDate);
 
             await conn.query(
                 `INSERT INTO div_leave_tracking
                  (staff_hrms_id, leave_type, from_date, to_date, days, office_code, designation_id, reason, remarks, status, is_regularized, created_at)
                  VALUES (?, 'Unknown', ?, ?, ?, ?, ?, ?, 'Remaining absent after partial regularization', 'Absent', 0, NOW())`,
-                [absentRecord.staff_hrms_id, afterFromDate, orig_to_date, afterDays,
+                [absentRecord.staff_hrms_id, afterFromDate, formattedOrigToDate, afterDays,
                  absentRecord.office_code, absentRecord.designation_id, absentRecord.reason]
             );
 
         } else if (hasAbsentBefore) {
             // Regularizing end portion: Absent-Before | Regularized
-            const beforeToDate = addDays(reg_from_date, -1);
-            const beforeDays = daysBetween(orig_from_date, beforeToDate);
+            const beforeToDate = addDays(formattedRegFromDate, -1);
+            const beforeDays = daysBetween(formattedOrigFromDate, beforeToDate);
 
             // Update original for "before" portion
             await conn.query(
@@ -1123,7 +1260,7 @@ router.post('/:id/regularize', async (req, res) => {
                 `INSERT INTO div_leave_tracking
                  (staff_hrms_id, leave_type, from_date, to_date, days, office_code, designation_id, reason, remarks, status, is_regularized, approved_by, created_at)
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Approved', 1, ?, NOW())`,
-                [absentRecord.staff_hrms_id, leave_type, reg_from_date, reg_to_date, days_to_regularize,
+                [absentRecord.staff_hrms_id, leave_type, formattedRegFromDate, formattedRegToDate, days_to_regularize,
                  absentRecord.office_code, absentRecord.designation_id, absentRecord.reason, remarks, approved_by]
             );
 
@@ -1140,18 +1277,18 @@ router.post('/:id/regularize', async (req, res) => {
                     remarks = ?,
                     approved_by = ?
                 WHERE id = ?`,
-                [leave_type, reg_to_date, days_to_regularize, remarks, approved_by, id]
+                [leave_type, formattedRegToDate, days_to_regularize, remarks, approved_by, id]
             );
 
             // Create record for "after" portion (still absent)
-            const afterFromDate = addDays(reg_to_date, 1);
-            const afterDays = daysBetween(afterFromDate, orig_to_date);
+            const afterFromDate = addDays(formattedRegToDate, 1);
+            const afterDays = daysBetween(afterFromDate, formattedOrigToDate);
 
             await conn.query(
                 `INSERT INTO div_leave_tracking
                  (staff_hrms_id, leave_type, from_date, to_date, days, office_code, designation_id, reason, remarks, status, is_regularized, created_at)
                  VALUES (?, 'Unknown', ?, ?, ?, ?, ?, ?, 'Remaining absent after partial regularization', 'Absent', 0, NOW())`,
-                [absentRecord.staff_hrms_id, afterFromDate, orig_to_date, afterDays,
+                [absentRecord.staff_hrms_id, afterFromDate, formattedOrigToDate, afterDays,
                  absentRecord.office_code, absentRecord.designation_id, absentRecord.reason]
             );
         }
