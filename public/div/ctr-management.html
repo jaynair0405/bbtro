@@ -1,0 +1,1601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CTR Management Console</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --brand: #0b3d91;
+            --brand-dark: #062356;
+            --bg: #f8fafc;
+            --surface: #ffffff;
+            --border: #e2e8f0;
+            --text-main: #1e293b;
+            --text-light: #64748b;
+            --input-bg: #f1f5f9;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background-color: var(--bg);
+            color: var(--text-main);
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container { max-width: 1200px; margin: 0 auto; }
+
+        /* --- Header --- */
+        .back-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+            background: var(--input-bg);
+            color: var(--text-main);
+            text-decoration: none;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        .back-btn:hover { background: var(--brand); color: white; }
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            gap: 16px;
+        }
+        .title h1 { margin: 0; font-size: 22px; color: var(--brand); }
+        .title p { margin: 4px 0 0; color: var(--text-light); font-size: 13px; }
+
+        /* --- Tabs --- */
+        .tabs {
+            display: flex;
+            gap: 4px;
+            background: white;
+            padding: 8px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .tab-btn {
+            padding: 10px 20px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-light);
+            border-radius: 8px;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .tab-btn:hover { background: var(--input-bg); color: var(--text-main); }
+        .tab-btn.active { background: var(--brand); color: white; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* --- Cards --- */
+        .card {
+            background: white;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            overflow: hidden;
+        }
+        .card-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .card-title { font-weight: 600; font-size: 15px; }
+        .card-body { padding: 20px; }
+
+        /* --- Upload Section --- */
+        .upload-card {
+            background: white;
+            border: 2px dashed #cbd5e1;
+            border-radius: 12px;
+            padding: 40px;
+            text-align: center;
+            transition: all 0.2s;
+            cursor: pointer;
+            margin-bottom: 20px;
+        }
+        .upload-card:hover { border-color: var(--brand); background: #f8fafc; }
+        .upload-card.dragover { border-color: var(--brand); background: #e0e7ff; }
+        .upload-icon { font-size: 48px; color: #94a3b8; margin-bottom: 16px; }
+        .upload-text { font-size: 16px; font-weight: 600; color: var(--text-main); }
+        .upload-sub { font-size: 13px; color: var(--text-light); margin-top: 6px; }
+
+        /* --- Forms --- */
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+        .input-group label {
+            display: block;
+            font-size: 11px;
+            text-transform: uppercase;
+            color: var(--text-light);
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+        .input-control {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: white;
+            font-size: 14px;
+        }
+        .input-control:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 3px rgba(11,61,145,0.1); }
+        select.input-control { cursor: pointer; }
+
+        /* --- Inline flex inputs --- */
+        .input-row { display: flex; gap: 8px; }
+        .input-row .input-control { flex: 1; }
+
+        /* --- Manual Entry Form --- */
+        .manual-form-container {
+            display: none;
+            background: white;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+            overflow: hidden;
+            animation: slideDown 0.3s ease-out;
+        }
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .form-header {
+            background: var(--brand);
+            color: white;
+            padding: 15px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .form-title { font-weight: 600; font-size: 15px; }
+        .duty-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            padding: 24px;
+            border-bottom: 1px solid var(--border);
+            background: #f8fafc;
+        }
+
+        /* --- Journey Legs Table --- */
+        .legs-container { padding: 20px; }
+        .legs-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        .legs-table th {
+            text-align: left;
+            padding: 10px 8px;
+            background: #f1f5f9;
+            color: var(--text-light);
+            font-size: 11px;
+            text-transform: uppercase;
+            border-bottom: 2px solid var(--border);
+        }
+        .legs-table td {
+            padding: 6px 4px;
+            border-bottom: 1px solid var(--border);
+        }
+        .tbl-input {
+            width: 100%;
+            padding: 6px 8px;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+        .tbl-input:focus { border-color: var(--brand); outline: none; }
+        .time-input { width: 90px; }
+        .stn-input { width: 65px; text-transform: uppercase; }
+        .km-input { width: 55px; text-align: right; }
+
+        /* --- Footer Actions --- */
+        .form-footer {
+            padding: 16px 20px;
+            background: #f8fafc;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .calc-summary {
+            display: flex;
+            gap: 20px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        /* --- Buttons --- */
+        .btn {
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            border: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+        .btn-primary { background: var(--brand); color: white; }
+        .btn-primary:hover { background: var(--brand-dark); }
+        .btn-primary:disabled { background: #94a3b8; cursor: not-allowed; }
+        .btn-success { background: var(--success); color: white; }
+        .btn-outline { background: white; border: 1px solid #cbd5e1; color: var(--text-light); }
+        .btn-outline:hover { border-color: var(--text-main); color: var(--text-main); }
+        .btn-sm { padding: 6px 12px; font-size: 12px; }
+        .btn-add { background: #e0e7ff; color: var(--brand); border: none; cursor: pointer; }
+        .btn-add:hover { background: #c7d2fe; }
+        .btn-icon { padding: 6px 10px; }
+
+        /* --- Divider --- */
+        .divider-text {
+            display: flex;
+            align-items: center;
+            text-align: center;
+            color: var(--text-light);
+            font-size: 12px;
+            margin: 20px 0;
+        }
+        .divider-text::before, .divider-text::after {
+            content: "";
+            flex: 1;
+            border-bottom: 1px solid var(--border);
+        }
+        .divider-text span { padding: 0 15px; }
+
+        /* --- Data Table --- */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        .data-table th {
+            text-align: left;
+            padding: 12px;
+            background: #f8fafc;
+            font-size: 11px;
+            text-transform: uppercase;
+            color: var(--text-light);
+            border-bottom: 2px solid var(--border);
+        }
+        .data-table td {
+            padding: 12px;
+            border-bottom: 1px solid var(--border);
+        }
+        .data-table tr:hover { background: #f8fafc; }
+
+        /* --- Badges --- */
+        .badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .badge-success { background: #d1fae5; color: #065f46; }
+        .badge-warning { background: #fef3c7; color: #92400e; }
+        .badge-danger { background: #fee2e2; color: #991b1b; }
+        .badge-info { background: #e0e7ff; color: #3730a3; }
+
+        /* --- Stats Cards --- */
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+        .stat-card {
+            background: white;
+            border-radius: 8px;
+            padding: 16px;
+            border: 1px solid var(--border);
+        }
+        .stat-value { font-size: 28px; font-weight: 700; color: var(--brand); }
+        .stat-label { font-size: 12px; color: var(--text-light); margin-top: 4px; }
+
+        /* --- Filters Bar --- */
+        .filters-bar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: flex-end;
+            margin-bottom: 20px;
+        }
+        .filter-group { min-width: 150px; }
+        .filter-group label { font-size: 11px; color: var(--text-light); font-weight: 600; margin-bottom: 4px; display: block; }
+        .filter-group .input-control { padding: 8px 10px; font-size: 13px; }
+
+        /* --- Upload Result --- */
+        .upload-result {
+            background: #f8fafc;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+            display: none;
+        }
+        .upload-result.show { display: block; }
+        .result-item { display: flex; align-items: center; gap: 8px; padding: 6px 0; font-size: 13px; }
+        .result-item i.success { color: var(--success); }
+        .result-item i.warning { color: var(--warning); }
+        .result-item i.error { color: var(--danger); }
+
+        /* --- Pagination --- */
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            margin-top: 20px;
+        }
+        .pagination button {
+            padding: 8px 14px;
+            border: 1px solid var(--border);
+            background: white;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        .pagination button:hover { background: var(--input-bg); }
+        .pagination button:disabled { opacity: 0.5; cursor: not-allowed; }
+        .pagination span { font-size: 13px; color: var(--text-light); }
+
+        /* --- Modal --- */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-overlay.show { display: flex; }
+        .modal {
+            background: white;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow: auto;
+        }
+        .modal-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .modal-body { padding: 20px; }
+        .modal-footer { padding: 16px 20px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 10px; }
+
+        /* --- Loading --- */
+        .loading { text-align: center; padding: 40px; color: var(--text-light); }
+        .spinner { animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* --- Toast --- */
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 14px 20px;
+            border-radius: 8px;
+            color: white;
+            font-weight: 500;
+            z-index: 2000;
+            animation: slideIn 0.3s ease-out;
+            display: none;
+        }
+        .toast.show { display: block; }
+        .toast.success { background: var(--success); }
+        .toast.error { background: var(--danger); }
+        .toast.warning { background: var(--warning); }
+        @keyframes slideIn { from { transform: translateX(100px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+        /* --- Empty State --- */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-light);
+        }
+        .empty-state i { font-size: 48px; margin-bottom: 16px; opacity: 0.5; }
+        .empty-state h3 { margin: 0 0 8px; color: var(--text-main); }
+
+        /* --- Checkbox --- */
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            cursor: pointer;
+        }
+        .checkbox-label input { width: 16px; height: 16px; }
+
+        /* --- Section Row --- */
+        .section-row {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            border-bottom: 1px solid var(--border);
+        }
+        .section-row:last-child { border-bottom: none; }
+        .section-code { font-weight: 600; min-width: 150px; }
+        .section-stations { flex: 1; font-size: 13px; color: var(--text-light); }
+        .section-actions { display: flex; gap: 8px; }
+
+        /* --- Responsive --- */
+        @media (max-width: 768px) {
+            .tabs { flex-wrap: wrap; }
+            .tab-btn { flex: 1; justify-content: center; min-width: 100px; }
+            .filters-bar { flex-direction: column; }
+            .filter-group { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- Header -->
+        <div class="page-header">
+            <a href="/div/index.html" class="back-btn"><i class="fa-solid fa-arrow-left"></i> Dashboard</a>
+            <div class="title">
+                <h1><i class="fa-solid fa-clipboard-list"></i> CTR Management</h1>
+                <p>Crew Time Records & Learning Road (LRD) Status</p>
+            </div>
+            <div>
+                <select class="input-control" id="globalOffice" style="width: 120px; padding: 8px;">
+                    <option value="">All Offices</option>
+                    <option value="KYN">KYN</option>
+                    <option value="PNVL">PNVL</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('upload')">
+                <i class="fa-solid fa-cloud-arrow-up"></i> Upload
+            </button>
+            <button class="tab-btn" onclick="switchTab('manual')">
+                <i class="fa-solid fa-pen-to-square"></i> Manual Entry
+            </button>
+            <button class="tab-btn" onclick="switchTab('entries')">
+                <i class="fa-solid fa-table-list"></i> CTR Entries
+            </button>
+            <button class="tab-btn" onclick="switchTab('lrd')">
+                <i class="fa-solid fa-road"></i> LRD Status
+            </button>
+            <button class="tab-btn" onclick="switchTab('sections')">
+                <i class="fa-solid fa-route"></i> Sections
+            </button>
+        </div>
+
+        <!-- Tab 1: Upload -->
+        <div id="tab-upload" class="tab-content active">
+            <div class="upload-card" id="dropZone" onclick="document.getElementById('ctrFile').click()">
+                <input type="file" id="ctrFile" hidden accept=".xlsx, .xls, .csv" onchange="handleFileSelect(this)">
+                <i class="fa-solid fa-file-excel upload-icon"></i>
+                <div class="upload-text">Drag & Drop CMS Excel file here</div>
+                <div class="upload-sub">or click to browse (supports .xlsx, .xls, .csv)</div>
+            </div>
+
+            <div id="fileSelected" style="display: none; margin-bottom: 20px;">
+                <div class="card">
+                    <div class="card-body" style="display: flex; align-items: center; justify-content: space-between;">
+                        <div>
+                            <i class="fa-solid fa-file-excel" style="color: #10b981; font-size: 24px; margin-right: 12px;"></i>
+                            <span id="fileName" style="font-weight: 600;"></span>
+                            <span id="fileSize" style="color: var(--text-light); margin-left: 8px;"></span>
+                        </div>
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            <select class="input-control" id="uploadOffice" style="width: 100px;">
+                                <option value="">Auto</option>
+                                <option value="KYN">KYN</option>
+                                <option value="PNVL">PNVL</option>
+                            </select>
+                            <button class="btn btn-primary" onclick="uploadFile()" id="uploadBtn">
+                                <i class="fa-solid fa-upload"></i> Process File
+                            </button>
+                            <button class="btn btn-outline" onclick="clearFile()">
+                                <i class="fa-solid fa-xmark"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="uploadResult" class="upload-result">
+                <h4 style="margin: 0 0 16px;"><i class="fa-solid fa-check-circle" style="color: var(--success);"></i> Upload Complete</h4>
+                <div id="resultDetails"></div>
+            </div>
+
+            <!-- Recent Uploads -->
+            <div class="card" style="margin-top: 20px;">
+                <div class="card-header">
+                    <span class="card-title">Recent Uploads</span>
+                    <button class="btn btn-sm btn-outline" onclick="loadUploadHistory()">
+                        <i class="fa-solid fa-refresh"></i> Refresh
+                    </button>
+                </div>
+                <div class="card-body" style="padding: 0;">
+                    <div id="uploadHistory">
+                        <div class="loading"><i class="fa-solid fa-spinner spinner"></i> Loading...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 2: Manual Entry -->
+        <div id="tab-manual" class="tab-content">
+            <div class="card">
+                <div class="form-header">
+                    <span class="form-title"><i class="fa-solid fa-pen-to-square"></i> Manual CTR Entry</span>
+                    <span style="font-size: 12px; opacity: 0.8;">Fill details as per physical T.R.</span>
+                </div>
+
+                <form id="manualForm">
+                    <div class="duty-grid">
+                        <div class="input-group">
+                            <label>Staff Search *</label>
+                            <input type="text" class="input-control" id="staffSearch" placeholder="Search CMS ID or Name..." autocomplete="off">
+                            <div id="staffDropdown" style="display: none; position: absolute; background: white; border: 1px solid var(--border); border-radius: 6px; max-height: 200px; overflow: auto; z-index: 100; width: 100%; box-shadow: 0 4px 6px rgba(0,0,0,0.1);"></div>
+                            <input type="hidden" id="staffCmsId">
+                            <input type="hidden" id="staffHrmsId">
+                            <input type="hidden" id="staffDesignation">
+                            <div id="selectedStaff" style="font-size: 12px; color: var(--brand); margin-top: 4px;"></div>
+                        </div>
+                        <div class="input-group">
+                            <label>Duty Date *</label>
+                            <input type="date" class="input-control" id="dutyDate" required>
+                        </div>
+                        <div class="input-group">
+                            <label>Sign On *</label>
+                            <div class="input-row">
+                                <input type="time" class="input-control" id="signOnTime" required>
+                                <input type="text" class="input-control stn-input" id="signOnStation" placeholder="STN" style="width: 70px; text-transform: uppercase;" required>
+                            </div>
+                        </div>
+                        <div class="input-group">
+                            <label>Sign Off</label>
+                            <div class="input-row">
+                                <input type="time" class="input-control" id="signOffTime">
+                                <input type="text" class="input-control stn-input" id="signOffStation" placeholder="STN" style="width: 70px; text-transform: uppercase;">
+                            </div>
+                            <label class="checkbox-label" style="margin-top: 6px;">
+                                <input type="checkbox" id="signOffNextDay"> Next Day
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="legs-container">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                            <span style="font-size: 13px; font-weight: 700; color: var(--text-light);">JOURNEY LEGS</span>
+                            <button type="button" class="btn btn-sm btn-add" onclick="addLegRow()">
+                                <i class="fa-solid fa-plus"></i> Add Leg
+                            </button>
+                        </div>
+
+                        <table class="legs-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 55px;">Type</th>
+                                    <th style="width: 80px;">Train</th>
+                                    <th style="width: 80px;">Loco</th>
+                                    <th style="width: 65px;">From</th>
+                                    <th style="width: 65px;">To</th>
+                                    <th style="width: 90px;">Dep</th>
+                                    <th style="width: 90px;">Arr</th>
+                                    <th style="width: 90px;">CTO</th>
+                                    <th style="width: 90px;">CMO</th>
+                                    <th style="width: 55px;">KM</th>
+                                    <th style="width: 30px;"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="legsBody">
+                                <!-- Leg rows added here -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="form-footer">
+                        <div class="calc-summary">
+                            <span>Total KM: <span style="color: var(--brand);" id="totalKm">0</span></span>
+                            <span>Legs: <span style="color: var(--brand);" id="totalLegs">0</span></span>
+                        </div>
+                        <div style="display: flex; gap: 10px;">
+                            <button type="button" class="btn btn-outline" onclick="clearManualForm()">Clear</button>
+                            <button type="submit" class="btn btn-primary" id="saveManualBtn">
+                                <i class="fa-solid fa-save"></i> Save Entry
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Tab 3: CTR Entries -->
+        <div id="tab-entries" class="tab-content">
+            <div class="filters-bar">
+                <div class="filter-group">
+                    <label>From Date</label>
+                    <input type="date" class="input-control" id="filterStartDate">
+                </div>
+                <div class="filter-group">
+                    <label>To Date</label>
+                    <input type="date" class="input-control" id="filterEndDate">
+                </div>
+                <div class="filter-group">
+                    <label>Staff</label>
+                    <input type="text" class="input-control" id="filterStaff" placeholder="CMS ID / Name">
+                </div>
+                <div class="filter-group">
+                    <label>Designation</label>
+                    <select class="input-control" id="filterDesignation">
+                        <option value="">All</option>
+                        <option value="LPG">LPG</option>
+                        <option value="ALP">ALP</option>
+                        <option value="SALP">SALP</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <button class="btn btn-primary" onclick="loadDuties()">
+                        <i class="fa-solid fa-search"></i> Search
+                    </button>
+                </div>
+                <div class="filter-group">
+                    <button class="btn btn-outline" onclick="exportDuties()">
+                        <i class="fa-solid fa-download"></i> Export
+                    </button>
+                </div>
+            </div>
+
+            <div class="stats-row" id="entriesStats">
+                <!-- Stats loaded here -->
+            </div>
+
+            <div class="card">
+                <div class="card-body" style="padding: 0; overflow-x: auto;">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>CMS ID</th>
+                                <th>Name</th>
+                                <th>Desig</th>
+                                <th>Sign On</th>
+                                <th>Sign Off</th>
+                                <th>Legs</th>
+                                <th>KM</th>
+                                <th>Source</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="dutiesBody">
+                            <tr><td colspan="10" class="loading"><i class="fa-solid fa-spinner spinner"></i> Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="pagination" id="dutiesPagination">
+                <!-- Pagination -->
+            </div>
+        </div>
+
+        <!-- Tab 4: LRD Status -->
+        <div id="tab-lrd" class="tab-content">
+            <div class="stats-row">
+                <div class="stat-card">
+                    <div class="stat-value" id="lrdValid">-</div>
+                    <div class="stat-label"><i class="fa-solid fa-check-circle" style="color: var(--success);"></i> Valid</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="lrdExpiring" style="color: var(--warning);">-</div>
+                    <div class="stat-label"><i class="fa-solid fa-clock" style="color: var(--warning);"></i> Expiring Soon</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="lrdExpired" style="color: var(--danger);">-</div>
+                    <div class="stat-label"><i class="fa-solid fa-times-circle" style="color: var(--danger);"></i> Expired</div>
+                </div>
+            </div>
+
+            <div class="filters-bar">
+                <div class="filter-group">
+                    <label>Staff</label>
+                    <input type="text" class="input-control" id="lrdFilterStaff" placeholder="HRMS / CMS ID">
+                </div>
+                <div class="filter-group">
+                    <label>Designation</label>
+                    <select class="input-control" id="lrdFilterDesignation">
+                        <option value="">All</option>
+                        <option value="LPG">LPG</option>
+                        <option value="ALP">ALP</option>
+                        <option value="SALP">SALP</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Status</label>
+                    <select class="input-control" id="lrdFilterStatus">
+                        <option value="">All</option>
+                        <option value="VALID">Valid</option>
+                        <option value="EXPIRING_SOON">Expiring Soon</option>
+                        <option value="EXPIRED">Expired</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Expiring In (Days)</label>
+                    <select class="input-control" id="lrdFilterExpiring">
+                        <option value="">Any</option>
+                        <option value="7">7 Days</option>
+                        <option value="15">15 Days</option>
+                        <option value="30">30 Days</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <button class="btn btn-primary" onclick="loadLRDStatus()">
+                        <i class="fa-solid fa-search"></i> Search
+                    </button>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-body" style="padding: 0; overflow-x: auto;">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>CMS ID</th>
+                                <th>HRMS ID</th>
+                                <th>Desig</th>
+                                <th>Section</th>
+                                <th>Last Worked</th>
+                                <th>Expires On</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="lrdBody">
+                            <tr><td colspan="7" class="loading"><i class="fa-solid fa-spinner spinner"></i> Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="pagination" id="lrdPagination"></div>
+        </div>
+
+        <!-- Tab 5: Sections -->
+        <div id="tab-sections" class="tab-content">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3 style="margin: 0;">LRD Sections Master</h3>
+                <button class="btn btn-primary" onclick="showAddSectionModal()">
+                    <i class="fa-solid fa-plus"></i> Add Section
+                </button>
+            </div>
+
+            <div class="card">
+                <div class="card-body" style="padding: 0;">
+                    <div id="sectionsContainer">
+                        <div class="loading"><i class="fa-solid fa-spinner spinner"></i> Loading...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Section Modal -->
+    <div class="modal-overlay" id="sectionModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 style="margin: 0;">Add LRD Section</h3>
+                <button class="btn btn-icon btn-outline" onclick="closeSectionModal()">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-grid" style="margin-bottom: 20px;">
+                    <div class="input-group">
+                        <label>Section Code *</label>
+                        <input type="text" class="input-control" id="sectionCode" placeholder="e.g., PNVL-ROHA-UP">
+                    </div>
+                    <div class="input-group">
+                        <label>Section Name</label>
+                        <input type="text" class="input-control" id="sectionName" placeholder="e.g., Panvel to Roha (Up)">
+                    </div>
+                    <div class="input-group">
+                        <label>Direction *</label>
+                        <select class="input-control" id="sectionDirection">
+                            <option value="UP">UP</option>
+                            <option value="DN">DN</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label>Office</label>
+                        <select class="input-control" id="sectionOffice">
+                            <option value="KYN">KYN</option>
+                            <option value="PNVL">PNVL</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label>Stations (in order, comma separated) *</label>
+                    <input type="text" class="input-control" id="sectionStations" placeholder="e.g., PNVL, SMNE, APTA, JITE, PEN, ROHA">
+                    <small style="color: var(--text-light);">Enter station codes in sequence from start to end</small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeSectionModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="saveSection()">
+                    <i class="fa-solid fa-save"></i> Save Section
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Duty Detail Modal -->
+    <div class="modal-overlay" id="dutyModal">
+        <div class="modal" style="max-width: 800px;">
+            <div class="modal-header">
+                <h3 style="margin: 0;">Duty Details</h3>
+                <button class="btn btn-icon btn-outline" onclick="closeDutyModal()">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="modal-body" id="dutyModalBody">
+                <!-- Duty details loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+    <script>
+        // ========================================
+        // Global Variables & State
+        // ========================================
+        let selectedFile = null;
+        let currentDutiesPage = 1;
+        let currentLRDPage = 1;
+        let dutiesTotal = 0;
+        let lrdTotal = 0;
+
+        // ========================================
+        // Tab Navigation
+        // ========================================
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+            
+            document.querySelector(`[onclick="switchTab('${tabName}')"]`).classList.add('active');
+            document.getElementById(`tab-${tabName}`).classList.add('active');
+
+            // Load data for tab
+            if (tabName === 'entries') loadDuties();
+            if (tabName === 'lrd') loadLRDStatus();
+            if (tabName === 'sections') loadSections();
+            if (tabName === 'upload') loadUploadHistory();
+            if (tabName === 'manual') initManualForm();
+        }
+
+        // ========================================
+        // Toast Notifications
+        // ========================================
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = `toast show ${type}`;
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+
+        // ========================================
+        // File Upload
+        // ========================================
+        const dropZone = document.getElementById('dropZone');
+        
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('dragover');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file) handleFile(file);
+        });
+
+        function handleFileSelect(input) {
+            if (input.files[0]) handleFile(input.files[0]);
+        }
+
+        function handleFile(file) {
+            const ext = file.name.split('.').pop().toLowerCase();
+            if (!['xlsx', 'xls', 'csv'].includes(ext)) {
+                showToast('Please select an Excel or CSV file', 'error');
+                return;
+            }
+            
+            selectedFile = file;
+            document.getElementById('fileName').textContent = file.name;
+            document.getElementById('fileSize').textContent = `(${(file.size / 1024).toFixed(1)} KB)`;
+            document.getElementById('fileSelected').style.display = 'block';
+            document.getElementById('uploadResult').classList.remove('show');
+
+            // Auto-detect office
+            const upper = file.name.toUpperCase();
+            if (upper.includes('KYN')) document.getElementById('uploadOffice').value = 'KYN';
+            else if (upper.includes('PNVL')) document.getElementById('uploadOffice').value = 'PNVL';
+        }
+
+        function clearFile() {
+            selectedFile = null;
+            document.getElementById('ctrFile').value = '';
+            document.getElementById('fileSelected').style.display = 'none';
+            document.getElementById('uploadResult').classList.remove('show');
+        }
+
+        async function uploadFile() {
+            if (!selectedFile) return;
+
+            const btn = document.getElementById('uploadBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner spinner"></i> Processing...';
+
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+            formData.append('office', document.getElementById('uploadOffice').value);
+
+            try {
+                const res = await fetch('/api/division/ctr/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await res.json();
+                
+                if (data.success) {
+                    showUploadResult(data.stats);
+                    showToast('File processed successfully!');
+                    loadUploadHistory();
+                } else {
+                    showToast(data.message || 'Upload failed', 'error');
+                }
+            } catch (err) {
+                console.error(err);
+                showToast('Upload failed: ' + err.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-upload"></i> Process File';
+            }
+        }
+
+        function showUploadResult(stats) {
+            const html = `
+                <div class="result-item"><i class="fa-solid fa-check success"></i> Total rows processed: <strong>${stats.totalRows}</strong></div>
+                <div class="result-item"><i class="fa-solid fa-check success"></i> Duties created: <strong>${stats.dutiesCreated}</strong></div>
+                <div class="result-item"><i class="fa-solid fa-check success"></i> Legs stored: <strong>${stats.legsCreated}</strong></div>
+                ${stats.duplicatesSkipped > 0 ? `<div class="result-item"><i class="fa-solid fa-exclamation-triangle warning"></i> Duplicates skipped: <strong>${stats.duplicatesSkipped}</strong></div>` : ''}
+                ${stats.errorsCount > 0 ? `<div class="result-item"><i class="fa-solid fa-times-circle error"></i> Errors: <strong>${stats.errorsCount}</strong></div>` : ''}
+                ${stats.unmappedCmsIds?.length > 0 ? `
+                    <div class="result-item"><i class="fa-solid fa-exclamation-triangle warning"></i> Unmapped CMS IDs: <strong>${stats.unmappedCmsIds.length}</strong></div>
+                    <div style="font-size: 12px; color: var(--text-light); margin-top: 8px; padding: 10px; background: white; border-radius: 6px;">
+                        ${stats.unmappedCmsIds.slice(0, 10).join(', ')}${stats.unmappedCmsIds.length > 10 ? '...' : ''}
+                    </div>
+                ` : ''}
+            `;
+            document.getElementById('resultDetails').innerHTML = html;
+            document.getElementById('uploadResult').classList.add('show');
+        }
+
+        async function loadUploadHistory() {
+            try {
+                const res = await fetch('/api/division/ctr/upload-history');
+                const data = await res.json();
+                
+                if (data.logs?.length > 0) {
+                    const html = `
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>File</th>
+                                    <th>Office</th>
+                                    <th>Duties</th>
+                                    <th>Legs</th>
+                                    <th>Status</th>
+                                    <th>Uploaded</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${data.logs.map(log => `
+                                    <tr>
+                                        <td>${log.filename || '-'}</td>
+                                        <td>${log.source_office || '-'}</td>
+                                        <td>${log.duties_created || 0}</td>
+                                        <td>${log.legs_created || 0}</td>
+                                        <td><span class="badge badge-${log.status === 'COMPLETED' ? 'success' : log.status === 'FAILED' ? 'danger' : 'warning'}">${log.status}</span></td>
+                                        <td>${formatDate(log.uploaded_at)}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    `;
+                    document.getElementById('uploadHistory').innerHTML = html;
+                } else {
+                    document.getElementById('uploadHistory').innerHTML = '<div class="empty-state"><i class="fa-solid fa-inbox"></i><h3>No uploads yet</h3></div>';
+                }
+            } catch (err) {
+                document.getElementById('uploadHistory').innerHTML = '<div class="empty-state">Failed to load history</div>';
+            }
+        }
+
+        // ========================================
+        // Manual Entry
+        // ========================================
+        let searchTimeout = null;
+
+        function initManualForm() {
+            // Set default date to today
+            document.getElementById('dutyDate').value = new Date().toISOString().slice(0, 10);
+            
+            // Add initial leg row
+            if (document.getElementById('legsBody').children.length === 0) {
+                addLegRow();
+            }
+
+            // Staff search
+            const searchInput = document.getElementById('staffSearch');
+            searchInput.addEventListener('input', () => {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(() => searchStaff(searchInput.value), 300);
+            });
+        }
+
+        async function searchStaff(query) {
+            if (query.length < 2) {
+                document.getElementById('staffDropdown').style.display = 'none';
+                return;
+            }
+
+            try {
+                const res = await fetch(`/api/division/ctr/staff/search?q=${encodeURIComponent(query)}`);
+                const data = await res.json();
+
+                if (data.staff?.length > 0) {
+                    const dropdown = document.getElementById('staffDropdown');
+                    dropdown.innerHTML = data.staff.map(s => `
+                        <div style="padding: 10px; cursor: pointer; border-bottom: 1px solid var(--border);" 
+                             onmouseover="this.style.background='#f8fafc'" 
+                             onmouseout="this.style.background='white'"
+                             onclick="selectStaff('${s.cms_id}', '${s.hrms_id}', '${s.name}', '${s.designation}')">
+                            <strong>${s.cms_id}</strong> - ${s.name} <span class="badge badge-info">${s.designation}</span>
+                        </div>
+                    `).join('');
+                    dropdown.style.display = 'block';
+                } else {
+                    document.getElementById('staffDropdown').style.display = 'none';
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        function selectStaff(cmsId, hrmsId, name, designation) {
+            document.getElementById('staffCmsId').value = cmsId;
+            document.getElementById('staffHrmsId').value = hrmsId;
+            document.getElementById('staffDesignation').value = designation;
+            document.getElementById('staffSearch').value = `${cmsId} - ${name}`;
+            document.getElementById('selectedStaff').textContent = `${designation} | HRMS: ${hrmsId || 'N/A'}`;
+            document.getElementById('staffDropdown').style.display = 'none';
+        }
+
+        function addLegRow() {
+            const tbody = document.getElementById('legsBody');
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>
+                    <select class="tbl-input" style="width: 55px; padding: 4px;">
+                        <option value="WR">WR</option>
+                        <option value="PL">PL</option>
+                        <option value="SP">SP</option>
+                    </select>
+                </td>
+                <td><input type="text" class="tbl-input" placeholder="Train" style="width: 75px;"></td>
+                <td><input type="text" class="tbl-input" placeholder="Loco" style="width: 75px;"></td>
+                <td><input type="text" class="tbl-input stn-input" placeholder="STN"></td>
+                <td><input type="text" class="tbl-input stn-input" placeholder="STN"></td>
+                <td><input type="time" class="tbl-input time-input"></td>
+                <td><input type="time" class="tbl-input time-input"></td>
+                <td><input type="time" class="tbl-input time-input"></td>
+                <td><input type="time" class="tbl-input time-input"></td>
+                <td><input type="number" class="tbl-input km-input" placeholder="0" step="0.1" onchange="calculateTotals()"></td>
+                <td style="text-align: center;">
+                    <i class="fa-solid fa-xmark" style="color: var(--danger); cursor: pointer;" onclick="removeLegRow(this)"></i>
+                </td>
+            `;
+            tbody.appendChild(row);
+            calculateTotals();
+        }
+
+        function removeLegRow(icon) {
+            const tbody = document.getElementById('legsBody');
+            if (tbody.children.length > 1) {
+                icon.closest('tr').remove();
+                calculateTotals();
+            } else {
+                showToast('At least one leg is required', 'warning');
+            }
+        }
+
+        function calculateTotals() {
+            const rows = document.getElementById('legsBody').querySelectorAll('tr');
+            let totalKm = 0;
+            rows.forEach(row => {
+                const kmInput = row.querySelector('.km-input');
+                totalKm += parseFloat(kmInput?.value) || 0;
+            });
+            document.getElementById('totalKm').textContent = totalKm.toFixed(1);
+            document.getElementById('totalLegs').textContent = rows.length;
+        }
+
+        function clearManualForm() {
+            document.getElementById('manualForm').reset();
+            document.getElementById('staffCmsId').value = '';
+            document.getElementById('staffHrmsId').value = '';
+            document.getElementById('staffDesignation').value = '';
+            document.getElementById('selectedStaff').textContent = '';
+            document.getElementById('legsBody').innerHTML = '';
+            addLegRow();
+            document.getElementById('dutyDate').value = new Date().toISOString().slice(0, 10);
+        }
+
+        document.getElementById('manualForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const cmsId = document.getElementById('staffCmsId').value;
+            if (!cmsId) {
+                showToast('Please select a staff member', 'error');
+                return;
+            }
+
+            // Collect legs
+            const legs = [];
+            document.getElementById('legsBody').querySelectorAll('tr').forEach(row => {
+                const inputs = row.querySelectorAll('input, select');
+                legs.push({
+                    dutyType: inputs[0].value,
+                    trainNo: inputs[1].value,
+                    locoNo: inputs[2].value,
+                    fromStation: inputs[3].value.toUpperCase(),
+                    toStation: inputs[4].value.toUpperCase(),
+                    departure: inputs[5].value,
+                    arrival: inputs[6].value,
+                    cto: inputs[7].value,
+                    cmo: inputs[8].value,
+                    routeKm: inputs[9].value
+                });
+            });
+
+            const payload = {
+                staffCmsId: cmsId,
+                staffHrmsId: document.getElementById('staffHrmsId').value,
+                staffName: document.getElementById('staffSearch').value.split(' - ')[1] || '',
+                designation: document.getElementById('staffDesignation').value,
+                dutyDate: document.getElementById('dutyDate').value,
+                signOnTime: document.getElementById('signOnTime').value,
+                signOnStation: document.getElementById('signOnStation').value.toUpperCase(),
+                signOffTime: document.getElementById('signOffTime').value,
+                signOffStation: document.getElementById('signOffStation').value.toUpperCase(),
+                signOffNextDay: document.getElementById('signOffNextDay').checked,
+                legs,
+                office: document.getElementById('globalOffice').value
+            };
+
+            const btn = document.getElementById('saveManualBtn');
+            btn.disabled = true;
+
+            try {
+                const res = await fetch('/api/division/ctr/manual', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await res.json();
+
+                if (data.success) {
+                    showToast('Entry saved successfully!');
+                    clearManualForm();
+                } else {
+                    showToast(data.message || 'Failed to save', 'error');
+                }
+            } catch (err) {
+                showToast('Error: ' + err.message, 'error');
+            } finally {
+                btn.disabled = false;
+            }
+        });
+
+        // ========================================
+        // CTR Entries Tab
+        // ========================================
+        async function loadDuties(page = 1) {
+            currentDutiesPage = page;
+            
+            const params = new URLSearchParams({
+                page,
+                limit: 50,
+                startDate: document.getElementById('filterStartDate').value,
+                endDate: document.getElementById('filterEndDate').value,
+                staffId: document.getElementById('filterStaff').value,
+                designation: document.getElementById('filterDesignation').value,
+                office: document.getElementById('globalOffice').value
+            });
+
+            document.getElementById('dutiesBody').innerHTML = '<tr><td colspan="10" class="loading"><i class="fa-solid fa-spinner spinner"></i> Loading...</td></tr>';
+
+            try {
+                const res = await fetch(`/api/division/ctr/duties?${params}`);
+                const data = await res.json();
+
+                if (data.duties?.length > 0) {
+                    dutiesTotal = data.total;
+                    
+                    document.getElementById('dutiesBody').innerHTML = data.duties.map(d => `
+                        <tr style="cursor: pointer;" onclick="showDutyDetail(${d.id})">
+                            <td>${formatDate(d.duty_date)}</td>
+                            <td><strong>${d.staff_cms_id}</strong></td>
+                            <td>${d.staff_name || '-'}</td>
+                            <td><span class="badge badge-info">${d.designation || '-'}</span></td>
+                            <td>${d.sign_on_station} ${formatTime(d.sign_on_datetime)}</td>
+                            <td>${d.sign_off_station || '-'} ${formatTime(d.sign_off_datetime) || '-'}</td>
+                            <td>${d.total_legs || d.legs_count || 0}</td>
+                            <td>${d.total_km || 0}</td>
+                            <td><span class="badge badge-${d.source_file === 'MANUAL_ENTRY' ? 'warning' : 'success'}">${d.source_file === 'MANUAL_ENTRY' ? 'Manual' : 'Excel'}</span></td>
+                            <td>
+                                <button class="btn btn-icon btn-outline btn-sm" onclick="event.stopPropagation(); deleteDuty(${d.id})">
+                                    <i class="fa-solid fa-trash" style="color: var(--danger);"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `).join('');
+
+                    renderPagination('dutiesPagination', data.total, data.page, data.limit, loadDuties);
+                } else {
+                    document.getElementById('dutiesBody').innerHTML = '<tr><td colspan="10" class="empty-state">No entries found</td></tr>';
+                    document.getElementById('dutiesPagination').innerHTML = '';
+                }
+            } catch (err) {
+                document.getElementById('dutiesBody').innerHTML = '<tr><td colspan="10" class="empty-state">Failed to load data</td></tr>';
+            }
+        }
+
+        async function showDutyDetail(id) {
+            document.getElementById('dutyModal').classList.add('show');
+            document.getElementById('dutyModalBody').innerHTML = '<div class="loading"><i class="fa-solid fa-spinner spinner"></i> Loading...</div>';
+
+            try {
+                const res = await fetch(`/api/division/ctr/duty/${id}`);
+                const data = await res.json();
+                const d = data.duty;
+
+                document.getElementById('dutyModalBody').innerHTML = `
+                    <div class="form-grid" style="margin-bottom: 20px;">
+                        <div><strong>Staff:</strong> ${d.staff_cms_id} - ${d.staff_name || ''}</div>
+                        <div><strong>Designation:</strong> ${d.designation || '-'}</div>
+                        <div><strong>Date:</strong> ${formatDate(d.duty_date)}</div>
+                        <div><strong>Office:</strong> ${d.source_office || '-'}</div>
+                        <div><strong>Sign On:</strong> ${d.sign_on_station} ${formatTime(d.sign_on_datetime)}</div>
+                        <div><strong>Sign Off:</strong> ${d.sign_off_station || '-'} ${formatTime(d.sign_off_datetime) || '-'}</div>
+                        <div><strong>Total KM:</strong> ${d.total_km || 0}</div>
+                        <div><strong>Source:</strong> ${d.source_file}</div>
+                    </div>
+                    <h4>Journey Legs</h4>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Type</th>
+                                <th>From</th>
+                                <th>To</th>
+                                <th>Dep</th>
+                                <th>Arr</th>
+                                <th>CTO</th>
+                                <th>CMO</th>
+                                <th>KM</th>
+                                <th>Train</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${d.legs?.map((l, i) => `
+                                <tr>
+                                    <td>${i + 1}</td>
+                                    <td>${l.duty_type || '-'}</td>
+                                    <td>${l.from_station}</td>
+                                    <td>${l.to_station}</td>
+                                    <td>${formatTime(l.departure_datetime) || '-'}</td>
+                                    <td>${formatTime(l.arrival_datetime) || '-'}</td>
+                                    <td>${formatTime(l.cto_datetime) || '-'}</td>
+                                    <td>${formatTime(l.cmo_datetime) || '-'}</td>
+                                    <td>${l.route_km || 0}</td>
+                                    <td>${l.train_no || '-'}</td>
+                                </tr>
+                            `).join('') || '<tr><td colspan="10">No legs</td></tr>'}
+                        </tbody>
+                    </table>
+                `;
+            } catch (err) {
+                document.getElementById('dutyModalBody').innerHTML = '<div class="empty-state">Failed to load duty details</div>';
+            }
+        }
+
+        function closeDutyModal() {
+            document.getElementById('dutyModal').classList.remove('show');
+        }
+
+        async function deleteDuty(id) {
+            if (!confirm('Delete this duty entry?')) return;
+
+            try {
+                const res = await fetch(`/api/division/ctr/duty/${id}`, { method: 'DELETE' });
+                const data = await res.json();
+
+                if (data.success) {
+                    showToast('Duty deleted');
+                    loadDuties(currentDutiesPage);
+                } else {
+                    showToast(data.message || 'Failed to delete', 'error');
+                }
+            } catch (err) {
+                showToast('Error: ' + err.message, 'error');
+            }
+        }
+
+        function exportDuties() {
+            showToast('Export feature coming soon', 'warning');
+        }
+
+        // ========================================
+        // LRD Status Tab
+        // ========================================
+        async function loadLRDStatus(page = 1) {
+            currentLRDPage = page;
+
+            const params = new URLSearchParams({
+                page,
+                limit: 100,
+                staffId: document.getElementById('lrdFilterStaff').value,
+                designation: document.getElementById('lrdFilterDesignation').value,
+                status: document.getElementById('lrdFilterStatus').value,
+                expiringInDays: document.getElementById('lrdFilterExpiring').value
+            });
+
+            document.getElementById('lrdBody').innerHTML = '<tr><td colspan="7" class="loading"><i class="fa-solid fa-spinner spinner"></i> Loading...</td></tr>';
+
+            try {
+                const res = await fetch(`/api/division/ctr/lrd/status?${params}`);
+                const data = await res.json();
+
+                // Update stats
+                document.getElementById('lrdValid').textContent = data.summary?.valid || 0;
+                document.getElementById('lrdExpiring').textContent = data.summary?.expiring || 0;
+                document.getElementById('lrdExpired').textContent = data.summary?.expired || 0;
+
+                if (data.records?.length > 0) {
+                    lrdTotal = data.total;
+
+                    document.getElementById('lrdBody').innerHTML = data.records.map(r => `
+                        <tr>
+                            <td><strong>${r.staff_cms_id || '-'}</strong></td>
+                            <td>${r.staff_hrms_id}</td>
+                            <td><span class="badge badge-info">${r.designation || '-'}</span></td>
+                            <td>${r.from_station} → ${r.to_station}</td>
+                            <td>${formatDate(r.last_worked_date)}</td>
+                            <td>${formatDate(r.expires_on)}</td>
+                            <td><span class="badge badge-${r.status === 'VALID' ? 'success' : r.status === 'EXPIRED' ? 'danger' : 'warning'}">${r.status}</span></td>
+                        </tr>
+                    `).join('');
+
+                    renderPagination('lrdPagination', data.total, data.page, data.limit, loadLRDStatus);
+                } else {
+                    document.getElementById('lrdBody').innerHTML = '<tr><td colspan="7" class="empty-state">No LRD records found</td></tr>';
+                    document.getElementById('lrdPagination').innerHTML = '';
+                }
+            } catch (err) {
+                document.getElementById('lrdBody').innerHTML = '<tr><td colspan="7" class="empty-state">Failed to load data</td></tr>';
+            }
+        }
+
+        // ========================================
+        // Sections Tab
+        // ========================================
+        async function loadSections() {
+            const office = document.getElementById('globalOffice').value;
+            
+            try {
+                const res = await fetch(`/api/division/ctr/lrd/sections?office=${office}`);
+                const data = await res.json();
+
+                if (data.sections?.length > 0) {
+                    document.getElementById('sectionsContainer').innerHTML = data.sections.map(s => `
+                        <div class="section-row">
+                            <div class="section-code">${s.section_code}</div>
+                            <div class="section-stations">
+                                <span class="badge badge-${s.direction === 'UP' ? 'success' : 'info'}">${s.direction}</span>
+                                ${s.stations?.join(' → ') || '-'}
+                            </div>
+                            <div class="section-actions">
+                                <button class="btn btn-icon btn-outline btn-sm" onclick="deleteSection('${s.section_code}')">
+                                    <i class="fa-solid fa-trash" style="color: var(--danger);"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    document.getElementById('sectionsContainer').innerHTML = '<div class="empty-state"><i class="fa-solid fa-route"></i><h3>No sections configured</h3><p>Add LRD sections to track learning road validity</p></div>';
+                }
+            } catch (err) {
+                document.getElementById('sectionsContainer').innerHTML = '<div class="empty-state">Failed to load sections</div>';
+            }
+        }
+
+        function showAddSectionModal() {
+            document.getElementById('sectionModal').classList.add('show');
+            document.getElementById('sectionCode').value = '';
+            document.getElementById('sectionName').value = '';
+            document.getElementById('sectionStations').value = '';
+        }
+
+        function closeSectionModal() {
+            document.getElementById('sectionModal').classList.remove('show');
+        }
+
+        async function saveSection() {
+            const code = document.getElementById('sectionCode').value.trim();
+            const stations = document.getElementById('sectionStations').value.split(',').map(s => s.trim().toUpperCase()).filter(s => s);
+
+            if (!code || stations.length < 2) {
+                showToast('Enter section code and at least 2 stations', 'error');
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/division/ctr/lrd/sections', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        sectionCode: code.toUpperCase(),
+                        sectionName: document.getElementById('sectionName').value,
+                        direction: document.getElementById('sectionDirection').value,
+                        office: document.getElementById('sectionOffice').value,
+                        stations
+                    })
+                });
+
+                const data = await res.json();
+
+                if (data.success) {
+                    showToast('Section saved');
+                    closeSectionModal();
+                    loadSections();
+                } else {
+                    showToast(data.message || 'Failed to save', 'error');
+                }
+            } catch (err) {
+                showToast('Error: ' + err.message, 'error');
+            }
+        }
+
+        async function deleteSection(code) {
+            if (!confirm(`Delete section ${code}?`)) return;
+
+            try {
+                const res = await fetch(`/api/division/ctr/lrd/sections/${code}`, { method: 'DELETE' });
+                const data = await res.json();
+
+                if (data.success) {
+                    showToast('Section deleted');
+                    loadSections();
+                } else {
+                    showToast(data.message || 'Failed to delete', 'error');
+                }
+            } catch (err) {
+                showToast('Error: ' + err.message, 'error');
+            }
+        }
+
+        // ========================================
+        // Utilities
+        // ========================================
+        function formatDate(dateStr) {
+            if (!dateStr) return '-';
+            const d = new Date(dateStr);
+            if (isNaN(d)) return '-';
+            return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+        }
+
+        function formatTime(dateStr) {
+            if (!dateStr) return '';
+            const d = new Date(dateStr);
+            if (isNaN(d)) return '';
+            return d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false });
+        }
+
+        function renderPagination(containerId, total, page, limit, callback) {
+            const totalPages = Math.ceil(total / limit);
+            const container = document.getElementById(containerId);
+            
+            container.innerHTML = `
+                <button ${page <= 1 ? 'disabled' : ''} onclick="${callback.name}(${page - 1})">
+                    <i class="fa-solid fa-chevron-left"></i> Prev
+                </button>
+                <span>Page ${page} of ${totalPages} (${total} total)</span>
+                <button ${page >= totalPages ? 'disabled' : ''} onclick="${callback.name}(${page + 1})">
+                    Next <i class="fa-solid fa-chevron-right"></i>
+                </button>
+            `;
+        }
+
+        // ========================================
+        // Initialize
+        // ========================================
+        document.addEventListener('DOMContentLoaded', () => {
+            // Set default date range for filters (last 7 days)
+            const today = new Date();
+            const lastWeek = new Date(today);
+            lastWeek.setDate(lastWeek.getDate() - 7);
+            
+            document.getElementById('filterStartDate').value = lastWeek.toISOString().slice(0, 10);
+            document.getElementById('filterEndDate').value = today.toISOString().slice(0, 10);
+
+            // Load upload history
+            loadUploadHistory();
+        });
+
+        // Close dropdowns on outside click
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('#staffSearch') && !e.target.closest('#staffDropdown')) {
+                document.getElementById('staffDropdown').style.display = 'none';
+            }
+        });
+
+        // Close modals on overlay click
+        document.querySelectorAll('.modal-overlay').forEach(overlay => {
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) {
+                    overlay.classList.remove('show');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

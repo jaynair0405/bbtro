@@ -196,6 +196,12 @@ app.get('/div/decategorized-crew-report.html', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'div', 'decategorized-crew-report.html'));
 });
 
+app.get('/div/ctr-management.html', (req, res) => {
+  if (!req.session.user) return res.redirect('/');
+  if (req.session.user.realm !== 'division') return res.redirect('/');
+  res.sendFile(path.join(__dirname, 'public', 'div', 'ctr-management.html'));
+});
+
 app.get('/div/drafted-staff-report.html', (req, res) => {
   if (!req.session.user) return res.redirect('/');
   if (req.session.user.realm !== 'division') return res.redirect('/');
@@ -537,7 +543,8 @@ const draftingRoutes = require('./routes/division/draftingRoutes');
 const rtisRoutes = require("./routes/division/rtisRoutes");
 const retirementRoutes = require("./routes/division/retirementRoutes");
 const leaveRoutes = require("./routes/division/leaveRoutes");
-
+const midnightPositionRoutes = require("./routes/division/midnightPositionRoutes");
+const ctrRoutes = require('./routes/division/ctrRoutes');
 
 // Add division routes with realm protection
 app.use("/api/division/leave", requireRealm("division"), leaveRoutes); // mount early to avoid any catch-alls
@@ -555,6 +562,26 @@ app.use("/api/division/discipline", requireRealm('division'), disciplineRoutes);
 app.use("/api/division/drafting", requireRealm('division'), draftingRoutes);
 app.use("/api/division/rtis", requireRealm("division"), rtisRoutes);
 app.use("/api/division/retirement", requireRealm("division"), retirementRoutes);
+app.use("/api/division/midnight-position", requireRealm("division"), midnightPositionRoutes);
+app.use("/api/division/ctr", requireRealm('division'), ctrRoutes);
+
+// Session info endpoint
+app.get('/api/session', (req, res) => {
+    if (req.session && req.session.user) {
+        res.json({
+            loggedIn: true,
+            user: {
+                username: req.session.user.username,
+                name: req.session.user.name,
+                realm: req.session.user.realm,
+                office_code: req.session.user.div_office_code || req.session.user.office_code || req.session.user.officeCode || null
+            }
+        });
+    } else {
+        res.json({ loggedIn: false, user: null });
+    }
+});
+
 // Add this directly in server.js (temporary solution)
 app.get('/api/waiting-details', async (req, res) => {
   try {
