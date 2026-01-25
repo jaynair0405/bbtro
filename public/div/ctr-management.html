@@ -450,6 +450,82 @@
         .section-stations { flex: 1; font-size: 13px; color: var(--text-light); }
         .section-actions { display: flex; gap: 8px; }
 
+        /* --- Staff Dropdown (LRD) --- */
+        .staff-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            max-height: 250px;
+            overflow-y: auto;
+            z-index: 1000;
+        }
+        .staff-dropdown-item {
+            padding: 10px 15px;
+            cursor: pointer;
+            border-bottom: 1px solid var(--border);
+            transition: background 0.15s;
+        }
+        .staff-dropdown-item:hover {
+            background: var(--bg-secondary);
+        }
+        .staff-dropdown-item:last-child {
+            border-bottom: none;
+        }
+
+        /* --- Segment Coverage Bar --- */
+        .segment-bar-container {
+            display: flex;
+            align-items: center;
+            gap: 1px;
+            min-width: 150px;
+        }
+        .seg-bar {
+            flex: 1;
+            height: 24px;
+            min-width: 28px;
+            max-width: 50px;
+            border-radius: 3px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: transform 0.15s, box-shadow 0.15s;
+            position: relative;
+        }
+        .seg-bar:hover {
+            transform: scaleY(1.3);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+            z-index: 5;
+        }
+        .seg-bar .seg-label {
+            font-size: 8px;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 100%;
+            padding: 0 2px;
+        }
+        .seg-bar.seg-end {
+            flex: 0;
+        }
+        .seg-bar.seg-end .seg-label {
+            color: var(--text-secondary);
+            text-shadow: none;
+            font-size: 9px;
+        }
+        .seg-count {
+            font-size: 11px;
+            color: var(--text-light);
+            margin-left: 8px;
+            white-space: nowrap;
+        }
+
         /* --- Responsive --- */
         @media (max-width: 768px) {
             .tabs { flex-wrap: wrap; }
@@ -711,9 +787,46 @@
 
         <!-- Tab 4: LRD Status -->
         <div id="tab-lrd" class="tab-content">
-            <div class="stats-row">
+            <!-- Staff Search Section -->
+            <div class="card" style="margin-bottom: 20px; position: relative; z-index: 10; overflow: visible;">
+                <div class="card-body">
+                    <div style="display: flex; gap: 15px; align-items: flex-end; flex-wrap: wrap;">
+                        <div class="input-group" style="flex: 1; min-width: 250px; position: relative; z-index: 10;">
+                            <label>Search Staff</label>
+                            <div style="position: relative;">
+                                <input type="text" class="input-control" id="lrdStaffSearch"
+                                    placeholder="Type CMS ID or Name..."
+                                    autocomplete="off"
+                                    onkeyup="searchLRDStaff(this.value)">
+                                <div id="lrdStaffDropdown" class="staff-dropdown" style="display: none;"></div>
+                            </div>
+                        </div>
+                        <div id="lrdSelectedStaff" style="display: none; padding: 10px 15px; background: var(--bg-secondary); border-radius: 8px; flex: 1;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div>
+                                    <strong id="lrdStaffName">-</strong>
+                                    <span class="badge badge-info" id="lrdStaffDesig" style="margin-left: 8px;">-</span>
+                                    <span class="badge badge-secondary" id="lrdStaffOffice" style="margin-left: 4px;">-</span>
+                                </div>
+                                <button class="btn btn-outline btn-sm" onclick="clearLRDStaff()">
+                                    <i class="fa-solid fa-xmark"></i> Clear
+                                </button>
+                            </div>
+                            <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">
+                                HRMS: <span id="lrdStaffHrms">-</span> | CMS: <span id="lrdStaffCms">-</span>
+                            </div>
+                        </div>
+                        <button class="btn btn-primary" onclick="loadLRDSummary()" id="btnLrdSummary">
+                            <i class="fa-solid fa-chart-bar"></i> View Summary
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Summary Cards -->
+            <div class="stats-row" id="lrdStatsRow">
                 <div class="stat-card">
-                    <div class="stat-value" id="lrdValid">-</div>
+                    <div class="stat-value" id="lrdValid" style="color: var(--success);">-</div>
                     <div class="stat-label"><i class="fa-solid fa-check-circle" style="color: var(--success);"></i> Valid</div>
                 </div>
                 <div class="stat-card">
@@ -721,72 +834,477 @@
                     <div class="stat-label"><i class="fa-solid fa-clock" style="color: var(--warning);"></i> Expiring Soon</div>
                 </div>
                 <div class="stat-card">
+                    <div class="stat-value" id="lrdPartial" style="color: #8b5cf6;">-</div>
+                    <div class="stat-label"><i class="fa-solid fa-chart-pie" style="color: #8b5cf6;"></i> Partial</div>
+                </div>
+                <div class="stat-card">
                     <div class="stat-value" id="lrdExpired" style="color: var(--danger);">-</div>
                     <div class="stat-label"><i class="fa-solid fa-times-circle" style="color: var(--danger);"></i> Expired</div>
                 </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="lrdNeverWorked" style="color: var(--text-secondary);">-</div>
+                    <div class="stat-label"><i class="fa-solid fa-minus-circle" style="color: var(--text-secondary);"></i> Never Worked</div>
+                </div>
             </div>
 
-            <div class="filters-bar">
-                <div class="filter-group">
-                    <label>Staff</label>
-                    <input type="text" class="input-control" id="lrdFilterStaff" placeholder="HRMS / CMS ID">
+            <!-- LRD Route Map (SVG) -->
+            <div id="lrdMapContainer" class="card" style="margin-bottom: 15px; display: none;">
+                <div class="card-header" style="cursor: pointer;" onclick="toggleLrdMap()">
+                    <span class="card-title"><i class="fa-solid fa-map"></i> Route Coverage Map</span>
+                    <i class="fa-solid fa-chevron-down" id="lrdMapToggleIcon"></i>
                 </div>
-                <div class="filter-group">
-                    <label>Designation</label>
-                    <select class="input-control" id="lrdFilterDesignation">
-                        <option value="">All</option>
-                        <option value="LPG">LPG</option>
-                        <option value="ALP">ALP</option>
-                        <option value="SALP">SALP</option>
-                    </select>
+                <div class="card-body" id="lrdMapBody" style="padding: 10px; overflow-x: auto;">
+                    <svg id="lrdRouteSvg" viewBox="0 0 1000 700" style="width: 100%; min-width: 800px; height: auto; background: #f8fafc; border-radius: 8px;">
+                        <!-- Definitions for markers and gradients -->
+                        <defs>
+                            <marker id="station-dot" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6">
+                                <circle cx="5" cy="5" r="4" fill="#334155"/>
+                            </marker>
+                            <!-- Arrow markers for direction indication -->
+                            <marker id="arrow-up" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse">
+                                <path d="M0,0 L10,5 L0,10 L3,5 Z" fill="#334155"/>
+                            </marker>
+                            <marker id="arrow-dn" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse">
+                                <path d="M0,0 L10,5 L0,10 L3,5 Z" fill="#64748b"/>
+                            </marker>
+                            <!-- Colored arrow markers for status -->
+                            <marker id="arrow-valid" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse">
+                                <path d="M0,0 L10,5 L0,10 L3,5 Z" fill="#22c55e"/>
+                            </marker>
+                            <marker id="arrow-expiring" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse">
+                                <path d="M0,0 L10,5 L0,10 L3,5 Z" fill="#eab308"/>
+                            </marker>
+                            <marker id="arrow-expired" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse">
+                                <path d="M0,0 L10,5 L0,10 L3,5 Z" fill="#ef4444"/>
+                            </marker>
+                        </defs>
+
+                        <!-- Legend -->
+                        <g transform="translate(10, 10)">
+                            <rect x="0" y="0" width="200" height="70" fill="white" stroke="#e2e8f0" rx="4"/>
+                            <text x="10" y="18" font-size="11" font-weight="600" fill="#334155">Legend</text>
+                            <line x1="10" y1="32" x2="30" y2="32" stroke="#22c55e" stroke-width="4"/><text x="35" y="36" font-size="10" fill="#334155">Valid</text>
+                            <line x1="70" y1="32" x2="90" y2="32" stroke="#eab308" stroke-width="4"/><text x="95" y="36" font-size="10" fill="#334155">Expiring</text>
+                            <line x1="140" y1="32" x2="160" y2="32" stroke="#ef4444" stroke-width="4"/><text x="165" y="36" font-size="10" fill="#334155">Expired</text>
+                            <line x1="10" y1="52" x2="30" y2="52" stroke="#cbd5e1" stroke-width="4"/><text x="35" y="56" font-size="10" fill="#334155">Never Worked</text>
+                            <text x="110" y="56" font-size="9" fill="#64748b">→ Direction</text>
+                        </g>
+
+                        <!-- KYN Hub -->
+                        <g id="hub-kyn">
+                            <circle cx="450" cy="180" r="12" fill="#dc2626" stroke="#991b1b" stroke-width="2"/>
+                            <text x="450" y="165" text-anchor="middle" font-size="12" font-weight="700" fill="#dc2626">KYN</text>
+                        </g>
+
+                        <!-- KYN to IGP Route (Northeast) - compressed to fit page -->
+                        <g id="route-kyn-igp" class="route-group">
+                            <!-- DN direction -->
+                            <path id="seg-kyn-shad-dn" d="M462 175 L495 158" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-shad-aby-dn" d="M495 158 L530 143" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-aby-tla-dn" d="M530 143 L565 128" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-tla-kdv-dn" d="M565 128 L600 115" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-kdv-vsd-dn" d="M600 115 L635 102" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-vsd-aso-dn" d="M635 102 L670 90" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-aso-atg-dn" d="M670 90 L705 78" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-atg-ths-dn" d="M705 78 L740 67" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-ths-ke-dn" d="M740 67 L775 57" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-ke-omb-dn" d="M775 57 L810 48" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-omb-ksra-dn" d="M810 48 L845 40" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-ksra-tgr3-dn" d="M845 40 L870 34" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-tgr3-tgr2-dn" d="M870 34 L888 30" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-tgr2-tgr1-dn" d="M888 30 L906 27" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-tgr1-igp-dn" d="M906 27 L940 22" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <!-- UP direction -->
+                            <path id="seg-igp-tgr1-up" d="M940 28 L906 33" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-tgr1-tgr2-up" d="M906 33 L888 36" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-tgr2-tgr3-up" d="M888 36 L870 40" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-tgr3-ksra-up" d="M870 40 L845 46" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-ksra-omb-up" d="M845 46 L810 54" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-omb-ke-up" d="M810 54 L775 63" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-ke-ths-up" d="M775 63 L740 73" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-ths-atg-up" d="M740 73 L705 84" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-atg-aso-up" d="M705 84 L670 96" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-aso-vsd-up" d="M670 96 L635 108" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-vsd-kdv-up" d="M635 108 L600 121" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-kdv-tla-up" d="M600 121 L565 134" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-tla-aby-up" d="M565 134 L530 149" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-aby-shad-up" d="M530 149 L495 164" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-shad-kyn-up" d="M495 164 L462 181" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <!-- Station labels and markers -->
+                            <circle cx="940" cy="25" r="8" fill="#dc2626" stroke="#991b1b" stroke-width="2"/>
+                            <text x="940" y="12" text-anchor="middle" font-size="9" font-weight="600" fill="#dc2626">IGP</text>
+                            <text x="495" y="152" font-size="7" fill="#64748b">SHAD</text>
+                            <text x="530" y="137" font-size="7" fill="#64748b">ABY</text>
+                            <text x="565" y="122" font-size="7" fill="#64748b">TLA</text>
+                            <text x="600" y="109" font-size="7" fill="#64748b">KDV</text>
+                            <text x="635" y="96" font-size="7" fill="#64748b">VSD</text>
+                            <text x="670" y="84" font-size="7" fill="#64748b">ASO</text>
+                            <text x="705" y="72" font-size="7" fill="#64748b">ATG</text>
+                            <text x="740" y="61" font-size="7" fill="#64748b">THS</text>
+                            <text x="775" y="51" font-size="7" fill="#64748b">KE</text>
+                            <text x="810" y="42" font-size="7" fill="#64748b">OMB</text>
+                            <text x="845" y="34" font-size="7" fill="#64748b">KSRA</text>
+                            <text x="870" y="28" font-size="6" fill="#64748b">TGR3</text>
+                            <text x="888" y="24" font-size="6" fill="#64748b">TGR2</text>
+                            <text x="906" y="21" font-size="6" fill="#64748b">TGR1</text>
+                        </g>
+
+                        <!-- KYN to BSR Route (Northwest) -->
+                        <g id="route-kyn-bsr" class="route-group">
+                            <!-- KYN to DI - HIDDEN FOR REBUILD -->
+                            <path id="seg-kyn-di-up" d="M445 190 L385 228" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-di-kyn-dn" d="M370 226 L438 185" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <!-- KOPR to DI with short lead, then arc that meets DI without crossing -->
+                            <path id="seg-kopr-di-dn" d="M318 206 L332 226 C 366 280 388 254 370 226" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <!-- DI to KOPR (inner curve) -->
+                            <path id="seg-di-kopr-up" d="M385 228 C 420 296 344 300 326 230" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <!-- UP direction: KOPR to BSR (LOWER parallel) -->
+                            <path id="seg-kopr-bird-up" d="M326 230 L282 200" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-bird-khbv-up" d="M282 200 L232 180" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-khbv-kard-up" d="M232 180 L182 160" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-kard-bsr-up" d="M182 160 L132 140" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <!-- DN direction: BSR to KOPR (UPPER line) -->
+                            <path id="seg-bsr-kard-dn" d="M130 130 L180 150" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-kard-khbv-dn" d="M180 150 L230 170" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-khbv-bird-dn" d="M230 170 L280 190" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-bird-kopr-dn" d="M280 190 L318 206" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <circle cx="130" cy="130" r="8" fill="#dc2626" stroke="#991b1b" stroke-width="2"/>
+                            <text x="130" y="118" text-anchor="middle" font-size="10" font-weight="600" fill="#dc2626">BSR</text>
+                            <text x="390" y="220" font-size="7" fill="#64748b">DI</text>
+                            <text x="280" y="185" font-size="7" fill="#64748b">BIRD</text>
+                            <text x="225" y="165" font-size="7" fill="#64748b">KHBV</text>
+                            <text x="175" y="145" font-size="7" fill="#64748b">KARD</text>
+                                                    </g>
+
+                        <!-- KYN to KJT Route (East) -->
+                        <g id="route-kyn-kjt" class="route-group">
+                            <path id="seg-kyn-vldi-dn" d="M462 185 L500 210" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-vldi-ulnr-dn" d="M500 210 L540 235" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-ulnr-abh-dn" d="M540 235 L570 265" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-abh-bud-dn" d="M570 265 L590 300" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-bud-vgi-dn" d="M590 300 L600 340" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-vgi-nrl-dn" d="M600 340 L600 380" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-nrl-bvs-dn" d="M600 380 L590 420" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-bvs-kjt-dn" d="M590 420 L570 450" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <!-- DN direction -->
+                            <path id="seg-kjt-bvs-up" d="M576 450 L596 420" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-bvs-nrl-up" d="M596 420 L606 380" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-nrl-vgi-up" d="M606 380 L606 340" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-vgi-bud-up" d="M606 340 L596 300" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-bud-abh-up" d="M596 300 L576 265" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-abh-ulnr-up" d="M576 265 L546 235" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-ulnr-vldi-up" d="M546 235 L506 210" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-vldi-kyn-up" d="M506 210 L468 185" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <text x="500" y="225" font-size="7" fill="#64748b">VLDI</text>
+                            <text x="545" y="248" font-size="7" fill="#64748b">ULNR</text>
+                            <text x="575" y="278" font-size="7" fill="#64748b">ABH</text>
+                            <text x="595" y="313" font-size="7" fill="#64748b">BUD</text>
+                            <text x="610" y="350" font-size="7" fill="#64748b">VGI</text>
+                            <text x="610" y="390" font-size="7" fill="#64748b">NRL</text>
+                            <text x="595" y="430" font-size="7" fill="#64748b">BVS</text>
+                        </g>
+
+                        <!-- KJT Hub -->
+                        <g id="hub-kjt">
+                            <circle cx="570" cy="460" r="10" fill="#2563eb" stroke="#1d4ed8" stroke-width="2"/>
+                            <text x="570" y="480" text-anchor="middle" font-size="10" font-weight="600" fill="#2563eb">KJT</text>
+                        </g>
+
+                        <!-- PNVL Hub -->
+                        <g id="hub-pnvl">
+                            <circle cx="400" cy="450" r="12" fill="#16a34a" stroke="#15803d" stroke-width="2"/>
+                            <text x="400" y="440" text-anchor="middle" font-size="12" font-weight="700" fill="#16a34a">PNVL</text>
+                        </g>
+
+                        <!-- PNVL to KJT/BVT (Ghat) -->
+                        <g id="route-pnvl-bvt" class="route-group">
+                            <path id="seg-pnvl-mhpe-dn" d="M412 450 L450 455" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-mhpe-chok-dn" d="M450 455 L500 458" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-chok-kjt-dn" d="M500 458 L560 460" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <!-- DN direction (north/upper side) KJT to BVT -->
+                            <path id="seg-kjt-pdi-dn" d="M580 457 L620 467" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-pdi-jbc-dn" d="M620 467 L660 482" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <!-- TKW path (DN) - KJT→BVT direction goes via TKW -->
+                            <path id="seg-jbc-tkw-dn" d="M660 482 L700 497" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-tkw-mhlc-dn" d="M700 497 L740 512" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-mhlc-kad-dn" d="M740 512 L780 532" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-kad-lnl-dn" d="M780 532 L820 552" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-lnl-bvt-dn" d="M820 552 L860 572" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <!-- UP direction (south/lower side, +6 y offset) BVT to KJT -->
+                            <path id="seg-bvt-lnl-up" d="M860 584 L820 564" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-lnl-kad-up" d="M820 564 L780 544" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-kad-mhlc-up" d="M780 544 L746 524" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <!-- NNCN path (UP) - BVT→KJT direction goes via NNCN -->
+                            <path id="seg-mhlc-nncn-up" d="M746 524 L706 509" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-nncn-jbc-up" d="M706 509 L666 494" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-jbc-pdi-up" d="M666 494 L626 479" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-pdi-kjt-up" d="M626 479 L580 463" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-kjt-chok-up" d="M560 466 L500 464" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-chok-mhpe-up" d="M500 464 L450 461" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-mhpe-pnvl-up" d="M450 461 L412 456" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <text x="450" y="448" font-size="7" fill="#64748b">MHPE</text>
+                            <text x="500" y="450" font-size="7" fill="#64748b">CHOK</text>
+                            <text x="620" y="463" font-size="7" fill="#64748b">PDI</text>
+                            <text x="660" y="478" font-size="7" fill="#64748b">JBC</text>
+                            <text x="700" y="493" font-size="7" fill="#ea580c">TKW↓</text>
+                            <text x="706" y="510" font-size="7" fill="#7c3aed">NNCN↑</text>
+                            <text x="740" y="508" font-size="7" fill="#64748b">MHLC</text>
+                            <text x="780" y="528" font-size="7" fill="#64748b">KAD</text>
+                            <text x="820" y="548" font-size="7" fill="#64748b">LNL</text>
+                            <circle cx="860" cy="578" r="8" fill="#dc2626" stroke="#991b1b" stroke-width="2"/>
+                            <text x="875" y="582" font-size="10" font-weight="600" fill="#dc2626">BVT</text>
+                        </g>
+
+                        <!-- PNVL to ROHA (South) -->
+                        <g id="route-pnvl-roha" class="route-group">
+                            <!-- DN direction (east/right side) -->
+                            <path id="seg-pnvl-smne-dn" d="M403 462 L403 506" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-smne-rsyi-dn" d="M403 506 L398 541" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-rsyi-apta-dn" d="M398 541 L393 571" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-apta-jite-dn" d="M393 571 L383 601" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-jite-pen-dn" d="M383 601 L368 631" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-pen-kasu-dn" d="M368 631 L348 656" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-kasu-ngtn-dn" d="M348 656 L323 676" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-ngtn-roha-dn" d="M323 676 L293 691" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <!-- UP direction (west/left side) -->
+                            <path id="seg-roha-ngtn-up" d="M287 685 L317 670" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-ngtn-kasu-up" d="M317 670 L342 650" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-kasu-pen-up" d="M342 650 L362 625" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-pen-jite-up" d="M362 625 L377 595" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-jite-apta-up" d="M377 595 L387 565" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-apta-rsyi-up" d="M387 565 L392 535" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-rsyi-smne-up" d="M392 535 L397 500" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-smne-pnvl-up" d="M397 500 L397 462" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <!-- Station labels -->
+                            <text x="408" y="505" font-size="7" fill="#64748b">SMNE</text>
+                            <text x="400" y="540" font-size="7" fill="#64748b">RSYI</text>
+                            <text x="395" y="570" font-size="7" fill="#64748b">APTA</text>
+                            <text x="385" y="600" font-size="7" fill="#64748b">JITE</text>
+                            <text x="370" y="628" font-size="7" fill="#64748b">PEN</text>
+                            <text x="350" y="655" font-size="7" fill="#64748b">KASU</text>
+                            <text x="325" y="678" font-size="7" fill="#64748b">NGTN</text>
+                            <circle cx="285" cy="688" r="8" fill="#dc2626" stroke="#991b1b" stroke-width="2"/>
+                            <text x="270" y="680" font-size="10" font-weight="600" fill="#dc2626">ROHA</text>
+                        </g>
+
+                        <!-- PEN to TVSG branch -->
+                        <g id="route-pen-tvsg" class="route-group">
+                            <path id="seg-pen-tvsg-dn" d="M368 631 L240 616" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-tvsg-pen-up" d="M240 610 L362 625" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <!-- PPDP siding (upper) -->
+                            <path id="siding-ppdp" d="M280 612 L275 600" stroke="#cbd5e1" stroke-width="2" fill="none"/>
+                            <text x="260" y="598" font-size="7" fill="#64748b">PPDP</text>
+                            <!-- JSWD siding (lower) -->
+                            <path id="siding-jswd" d="M320 628 L325 640" stroke="#cbd5e1" stroke-width="2" fill="none"/>
+                            <text x="310" y="652" font-size="7" fill="#64748b">JSWD</text>
+                            <circle cx="235" cy="613" r="6" fill="#f59e0b" stroke="#d97706" stroke-width="1"/>
+                            <text x="220" y="608" font-size="9" font-weight="500" fill="#f59e0b">TVSG</text>
+                        </g>
+
+                        <!-- PNVL to JNPT (straight lines with parallel gap) -->
+                        <g id="route-pnvl-jnpt" class="route-group">
+                            <!-- DN direction (south/lower side) -->
+                            <path id="seg-pnvl-dpl-dn" d="M390 462 L300 483" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-dpl-jsle-dn" d="M300 483 L230 503" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-jsle-hly-dn" d="M230 503 L175 523" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-hly-jnpt-dn" d="M175 523 L140 543" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <!-- UP direction (north/upper side) -->
+                            <path id="seg-jnpt-hly-up" d="M140 537 L175 517" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-hly-jsle-up" d="M175 517 L230 497" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-jsle-dpl-up" d="M230 497 L300 477" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-dpl-pnvl-up" d="M300 477 L388 456" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <!-- Station labels -->
+                            <text x="300" y="472" font-size="7" fill="#64748b">DPL</text>
+                            <text x="230" y="492" font-size="7" fill="#64748b">JSLE</text>
+                            <text x="175" y="512" font-size="7" fill="#64748b">HLY</text>
+                            <circle cx="135" cy="540" r="6" fill="#f59e0b" stroke="#d97706" stroke-width="1"/>
+                            <text x="115" y="550" font-size="9" font-weight="500" fill="#f59e0b">JNPT</text>
+                        </g>
+
+                        <!-- JSLE to BPCL branch (below JNPT) via DRT -->
+                        <g id="route-jsle-bpcl" class="route-group">
+                            <path id="seg-jsle-drt-dn" d="M230 503 L186 550" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-drt-jsle-up" d="M180 550 L230 497" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-drt-bpcl-dn" d="M186 550 L130 594" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-bpcl-drt-up" d="M120 594 L180 550" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <!-- DRT station -->
+                            <circle cx="183" cy="550" r="5" fill="#64748b" stroke="#475569" stroke-width="1"/>
+                            <text x="195" y="555" font-size="7" fill="#64748b">DRT</text>
+                            <!-- BPCL station -->
+                            <circle cx="125" cy="598" r="6" fill="#f59e0b" stroke="#d97706" stroke-width="1"/>
+                            <text x="105" y="608" font-size="9" font-weight="500" fill="#f59e0b">BPCL</text>
+                        </g>
+
+                        <!-- PNVL to BSR chordline -->
+                        <g id="route-pnvl-bsr" class="route-group">
+                            <path id="seg-pnvl-klmg-up" d="M400 438 L400 400" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-klmg-tpnd-up" d="M400 400 L405 380" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-tpnd-niij-up" d="M405 380 L408 370" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-niij-dtvl-up" d="M408 370 L405 360" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-dtvl-dtcc-up" d="M405 360 L400 280" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-dtcc-di-up" d="M400 280 L370 226" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-dtcc-dtvl-dn" d="M406 268 L411 360" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-di-dtcc-dn" d="M382 226 L406 280" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-dtvl-niij-dn" d="M411 360 L414 365" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-niij-tpnd-dn" d="M414 365 L411 375" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-tpnd-klmg-dn" d="M411 375 L406 400" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-klmg-pnvl-dn" d="M406 400 L406 438" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <text x="375" y="425" font-size="7" fill="#64748b">KLMG</text>
+                            <text x="375" y="405" font-size="7" fill="#64748b">TPND</text>
+                            <text x="375" y="385" font-size="7" fill="#64748b">NIIJ</text>
+                            <text x="415" y="355" font-size="7" fill="#64748b">DTVL</text>
+                            <text x="412" y="295" font-size="7" fill="#64748b">DTCC</text>
+                        </g>
+
+                        <!-- DTCC to KOPR (for PNVL-BSR chordline) -->
+                        <g id="route-dtcc-kopr" class="route-group">
+                            <path id="seg-dtcc-kopr-up" d="M400 280 L326 230" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-kopr-dtcc-dn" d="M318 206 L406 268" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <text x="310" y="195" font-size="8" fill="#64748b">KOPR</text>
+                        </g>
+
+                        <!-- DIVA hub and connections -->
+                        <g id="hub-diva">
+                            <circle cx="250" cy="300" r="6" fill="#8b5cf6" stroke="#7c3aed" stroke-width="1"/>
+                            <text x="230" y="295" font-size="8" fill="#8b5cf6">DIVA</text>
+                            <!-- DIVA to DTCC connection (touches dtvl-dtcc line) -->
+                            <path id="seg-diva-dtcc-dn" d="M256 306 Q330 320 402 300" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-dtcc-diva-up" d="M408 306 Q330 326 256 312" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <!-- DIVA to DTVL connection (curved upward) -->
+                            <path id="seg-diva-dtvl-dn" d="M255 304 Q332 332 411 363" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-dtvl-diva-up" d="M405 357 Q328 328 256 298" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                        </g>
+
+                        <!-- KYN to CSMT (simplified) -->
+                        <g id="route-kyn-csmt" class="route-group">
+                            <!-- DI to DIVA connection - directions corrected -->
+                            <!-- UP: DI → DIVA (starts from UP track at DI) -->
+                            <path id="seg-di-diva-up" d="M385 228 L256 306" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <!-- DN: DIVA → DI (ends at DN track at DI, matching kopr-di-dn area) -->
+                            <path id="seg-diva-di-dn" d="M256 300 L370 226" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <!-- DIVA onwards to CSMT (extended with more stations) -->
+                            <path id="seg-diva-mbq-up" d="M244 300 L210 310" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-mbq-klva-up" d="M210 310 L190 318" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-klva-tna-up" d="M190 318 L170 330" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-tna-mlnd-up" d="M170 330 L155 342" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-mlnd-gc-up" d="M155 342 L140 356" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-gc-vvh-up" d="M140 356 L125 372" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-vvh-cla-up" d="M125 372 L108 390" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-cla-dr-up" d="M108 390 L85 410" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-dr-pr-up" d="M85 410 L60 435" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-pr-by-up" d="M60 435 L51 451" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-by-snrd-up" d="M51 451 L42 467" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-snrd-wb-up" d="M42 467 L33 483" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-wb-csmt-up" d="M33 483 L25 500" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-csmt-wb-dn" d="M31 500 L39 483" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-wb-snrd-dn" d="M39 483 L48 467" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-snrd-by-dn" d="M48 467 L57 451" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-by-pr-dn" d="M57 451 L66 435" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-pr-dr-dn" d="M66 435 L91 410" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-dr-cla-dn" d="M91 410 L114 390" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-cla-vvh-dn" d="M114 390 L131 372" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-vvh-gc-dn" d="M131 372 L146 356" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-gc-mlnd-dn" d="M146 356 L161 342" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-mlnd-tna-dn" d="M161 348 L176 336" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-tna-klva-dn" d="M176 336 L196 324" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-klva-mbq-dn" d="M196 324 L216 316" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-mbq-diva-dn" d="M216 316 L254 304" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <text x="205" y="305" font-size="7" fill="#64748b">MBQ</text>
+                            <text x="185" y="312" font-size="7" fill="#64748b">KLVA</text>
+                            <text x="165" y="325" font-size="7" fill="#64748b">TNA</text>
+                            <text x="150" y="338" font-size="7" fill="#64748b">MLND</text>
+                            <!-- NGSM branch (after MLND, lower side) -->
+                            <path id="seg-mlnd-ngsm-dn" d="M155 345 L155 375" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-ngsm-mlnd-up" d="M161 375 L161 345" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <circle cx="158" cy="380" r="5" fill="#f59e0b" stroke="#d97706" stroke-width="1"/>
+                            <text x="165" y="385" font-size="8" fill="#f59e0b">NGSM</text>
+                            <text x="135" y="352" font-size="7" fill="#64748b">GC</text>
+                            <text x="120" y="368" font-size="7" fill="#64748b">VVH</text>
+                            <text x="100" y="386" font-size="7" fill="#64748b">CLA</text>
+                            <text x="78" y="406" font-size="7" fill="#64748b">DR</text>
+                            <text x="55" y="432" font-size="7" fill="#64748b">PR</text>
+                            <text x="46" y="448" font-size="7" fill="#64748b">BY</text>
+                            <text x="37" y="464" font-size="7" fill="#64748b">SNRD</text>
+                            <text x="28" y="480" font-size="7" fill="#64748b">WB</text>
+                            <circle cx="28" cy="505" r="8" fill="#dc2626" stroke="#991b1b" stroke-width="2"/>
+                            <text x="5" y="520" font-size="10" font-weight="600" fill="#dc2626">CSMT</text>
+                            <!-- LTT branch (after VVH, lower side) -->
+                            <g id="branch-ltt">
+                                <path id="seg-vvh-ltt-dn" d="M120 378 L120 408" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                                <path id="seg-ltt-vvh-up" d="M126 408 L126 378" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                                <circle cx="123" cy="413" r="5" fill="#f59e0b" stroke="#d97706" stroke-width="1"/>
+                                <text x="130" y="418" font-size="8" fill="#f59e0b">LTT</text>
+                            </g>
+                            <!-- TMBY branch (after CLA, lower side - extended) -->
+                            <g id="branch-tmby">
+                                <path id="seg-cla-tmby-dn" d="M105 392 L105 435" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                                <path id="seg-tmby-cla-up" d="M111 435 L111 392" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                                <circle cx="108" cy="440" r="5" fill="#f59e0b" stroke="#d97706" stroke-width="1"/>
+                                <text x="115" y="445" font-size="8" fill="#f59e0b">TMBY</text>
+                            </g>
+                            <!-- VDLR branch (after CLA, same start as TMBY, angled left) -->
+                            <g id="branch-vdlr">
+                                <path id="seg-cla-vdlr-dn" d="M105 392 L85 435" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                                <path id="seg-vdlr-cla-up" d="M91 435 L111 392" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                                <circle cx="88" cy="440" r="5" fill="#f59e0b" stroke="#d97706" stroke-width="1"/>
+                                <text x="70" y="458" font-size="8" fill="#f59e0b">VDLR</text>
+                            </g>
+                        </g>
+
+                    </svg>
                 </div>
+            </div>
+
+            <!-- Filter Row (for status filtering) -->
+            <div class="filters-bar" style="margin-bottom: 15px;">
                 <div class="filter-group">
-                    <label>Status</label>
-                    <select class="input-control" id="lrdFilterStatus">
-                        <option value="">All</option>
-                        <option value="VALID">Valid</option>
+                    <label>Filter by Status</label>
+                    <select class="input-control" id="lrdFilterStatus" onchange="filterLRDTable()">
+                        <option value="">All Sections</option>
+                        <option value="VALID">Valid Only</option>
                         <option value="EXPIRING_SOON">Expiring Soon</option>
-                        <option value="EXPIRED">Expired</option>
+                        <option value="PARTIAL">Partial Coverage</option>
+                        <option value="EXPIRED">Expired Only</option>
+                        <option value="NEVER_WORKED">Never Worked</option>
                     </select>
                 </div>
+                <div class="filter-group" style="flex: 1;"></div>
                 <div class="filter-group">
-                    <label>Expiring In (Days)</label>
-                    <select class="input-control" id="lrdFilterExpiring">
-                        <option value="">Any</option>
-                        <option value="7">7 Days</option>
-                        <option value="15">15 Days</option>
-                        <option value="30">30 Days</option>
-                    </select>
-                </div>
-                <div class="filter-group">
-                    <button class="btn btn-primary" onclick="loadLRDStatus()">
-                        <i class="fa-solid fa-search"></i> Search
-                    </button>
+                    <span id="lrdRouteCount" style="color: var(--text-secondary); font-size: 13px;"></span>
                 </div>
             </div>
 
+            <!-- Sections Table -->
             <div class="card">
                 <div class="card-body" style="padding: 0; overflow-x: auto;">
                     <table class="data-table">
                         <thead>
                             <tr>
-                                <th>CMS ID</th>
-                                <th>HRMS ID</th>
-                                <th>Desig</th>
                                 <th>Section</th>
-                                <th>Last Worked</th>
+                                <th>Coverage</th>
                                 <th>Expires On</th>
+                                <th>Days Left</th>
                                 <th>Status</th>
+                                <th></th>
                             </tr>
                         </thead>
                         <tbody id="lrdBody">
-                            <tr><td colspan="7" class="loading"><i class="fa-solid fa-spinner spinner"></i> Loading...</td></tr>
+                            <tr><td colspan="6" class="empty-state">
+                                <i class="fa-solid fa-user-circle" style="font-size: 48px; opacity: 0.3;"></i>
+                                <h3>Select a Staff Member</h3>
+                                <p>Search and select a staff member to view their LRD status across all sections</p>
+                            </td></tr>
                         </tbody>
                     </table>
                 </div>
             </div>
 
-            <div class="pagination" id="lrdPagination"></div>
+            <!-- Config Info -->
+            <div style="margin-top: 15px; padding: 10px 15px; background: var(--bg-secondary); border-radius: 8px; font-size: 12px; color: var(--text-secondary);">
+                <i class="fa-solid fa-info-circle"></i>
+                LRD Validity: <strong id="lrdConfigValidity">90</strong> days from last worked |
+                Expiring Soon: within <strong id="lrdConfigExpiring">15</strong> days
+            </div>
         </div>
 
         <!-- Tab 5: Sections -->
@@ -1387,53 +1905,399 @@
         // ========================================
         // LRD Status Tab
         // ========================================
-        async function loadLRDStatus(page = 1) {
-            currentLRDPage = page;
+        let lrdStaffSearchTimeout = null;
+        let selectedLRDStaff = null;
+        let lrdRouteData = [];
 
-            const params = new URLSearchParams({
-                page,
-                limit: 100,
-                staffId: document.getElementById('lrdFilterStaff').value,
-                designation: document.getElementById('lrdFilterDesignation').value,
-                status: document.getElementById('lrdFilterStatus').value,
-                expiringInDays: document.getElementById('lrdFilterExpiring').value
-            });
+        async function searchLRDStaff(query) {
+            clearTimeout(lrdStaffSearchTimeout);
+            const dropdown = document.getElementById('lrdStaffDropdown');
 
-            document.getElementById('lrdBody').innerHTML = '<tr><td colspan="7" class="loading"><i class="fa-solid fa-spinner spinner"></i> Loading...</td></tr>';
+            if (query.length < 2) {
+                dropdown.style.display = 'none';
+                return;
+            }
+
+            lrdStaffSearchTimeout = setTimeout(async () => {
+                try {
+                    const res = await fetch(`/api/division/ctr/staff/search?q=${encodeURIComponent(query)}`);
+                    const data = await res.json();
+
+                    if (data.staff?.length > 0) {
+                        dropdown.innerHTML = data.staff.map(s => `
+                            <div class="staff-dropdown-item" onclick="selectLRDStaff('${s.hrms_id}', '${s.cms_id || ''}', '${s.name}', '${s.designation || ''}', '${s.office || ''}')">
+                                <strong>${s.cms_id || s.hrms_id}</strong> - ${s.name}
+                                <span class="badge badge-info" style="margin-left: 8px; font-size: 10px;">${s.designation || '-'}</span>
+                            </div>
+                        `).join('');
+                        dropdown.style.display = 'block';
+                    } else {
+                        dropdown.innerHTML = '<div class="staff-dropdown-item" style="color: var(--text-secondary);">No staff found</div>';
+                        dropdown.style.display = 'block';
+                    }
+                } catch (err) {
+                    dropdown.style.display = 'none';
+                }
+            }, 300);
+        }
+
+        async function selectLRDStaff(hrmsId, cmsId, name, designation, office) {
+            selectedLRDStaff = { hrmsId, cmsId, name, designation, office };
+
+            // Update UI
+            document.getElementById('lrdStaffDropdown').style.display = 'none';
+            document.getElementById('lrdStaffSearch').value = '';
+            document.getElementById('lrdSelectedStaff').style.display = 'block';
+            document.getElementById('lrdStaffName').textContent = name;
+            document.getElementById('lrdStaffDesig').textContent = designation || '-';
+            document.getElementById('lrdStaffOffice').textContent = office || '-';
+            document.getElementById('lrdStaffHrms').textContent = hrmsId;
+            document.getElementById('lrdStaffCms').textContent = cmsId || '-';
+
+            // Load LRD status for this staff
+            await loadLRDStaffStatus(hrmsId);
+        }
+
+        function clearLRDStaff() {
+            selectedLRDStaff = null;
+            lrdRouteData = [];
+            document.getElementById('lrdSelectedStaff').style.display = 'none';
+            document.getElementById('lrdStaffSearch').value = '';
+            document.getElementById('lrdFilterStatus').value = '';
+
+            // Hide map
+            document.getElementById('lrdMapContainer').style.display = 'none';
+
+            // Reset stats
+            document.getElementById('lrdValid').textContent = '-';
+            document.getElementById('lrdExpiring').textContent = '-';
+            document.getElementById('lrdPartial').textContent = '-';
+            document.getElementById('lrdExpired').textContent = '-';
+            document.getElementById('lrdNeverWorked').textContent = '-';
+            document.getElementById('lrdRouteCount').textContent = '';
+
+            // Reset table
+            document.getElementById('lrdBody').innerHTML = `
+                <tr><td colspan="7" class="empty-state">
+                    <i class="fa-solid fa-user-circle" style="font-size: 48px; opacity: 0.3;"></i>
+                    <h3>Select a Staff Member</h3>
+                    <p>Search and select a staff member to view their LRD status across all sections</p>
+                </td></tr>
+            `;
+        }
+
+        async function loadLRDStaffStatus(hrmsId) {
+            document.getElementById('lrdBody').innerHTML = '<tr><td colspan="6" class="loading"><i class="fa-solid fa-spinner spinner"></i> Loading LRD status...</td></tr>';
 
             try {
-                const res = await fetch(`/api/division/ctr/lrd/status?${params}`);
+                const res = await fetch(`/api/division/ctr/lrd/staff-status/${hrmsId}`);
                 const data = await res.json();
+
+                if (!data.success) {
+                    throw new Error(data.message);
+                }
+
+                // Update config display
+                if (data.config) {
+                    document.getElementById('lrdConfigValidity').textContent = data.config.validity_days || 90;
+                    document.getElementById('lrdConfigExpiring').textContent = data.config.expiring_threshold_days || 15;
+                }
 
                 // Update stats
                 document.getElementById('lrdValid').textContent = data.summary?.valid || 0;
-                document.getElementById('lrdExpiring').textContent = data.summary?.expiring || 0;
+                document.getElementById('lrdExpiring').textContent = data.summary?.expiring_soon || 0;
+                document.getElementById('lrdPartial').textContent = data.summary?.partial || 0;
                 document.getElementById('lrdExpired').textContent = data.summary?.expired || 0;
+                document.getElementById('lrdNeverWorked').textContent = data.summary?.never_worked || 0;
 
-                if (data.records?.length > 0) {
-                    lrdTotal = data.total;
+                // Store section data for filtering (API now returns sections instead of routes)
+                lrdRouteData = data.sections || [];
+                document.getElementById('lrdRouteCount').textContent = `${lrdRouteData.length} sections`;
 
-                    document.getElementById('lrdBody').innerHTML = data.records.map(r => `
-                        <tr>
-                            <td><strong>${r.staff_cms_id || '-'}</strong></td>
-                            <td>${r.staff_hrms_id}</td>
-                            <td><span class="badge badge-info">${r.designation || '-'}</span></td>
-                            <td>${r.from_station} → ${r.to_station}</td>
-                            <td>${formatDate(r.last_worked_date)}</td>
-                            <td>${formatDate(r.expires_on)}</td>
-                            <td><span class="badge badge-${r.status === 'VALID' ? 'success' : r.status === 'EXPIRED' ? 'danger' : 'warning'}">${r.status}</span></td>
-                        </tr>
-                    `).join('');
+                // Render table
+                renderLRDTable(lrdRouteData);
 
-                    renderPagination('lrdPagination', data.total, data.page, data.limit, loadLRDStatus);
-                } else {
-                    document.getElementById('lrdBody').innerHTML = '<tr><td colspan="7" class="empty-state">No LRD records found</td></tr>';
-                    document.getElementById('lrdPagination').innerHTML = '';
-                }
+                // Show map and color segments
+                document.getElementById('lrdMapContainer').style.display = 'block';
+                colorLrdMapSegments(lrdRouteData);
+
             } catch (err) {
-                document.getElementById('lrdBody').innerHTML = '<tr><td colspan="7" class="empty-state">Failed to load data</td></tr>';
+                console.error('Load LRD Status Error:', err);
+                document.getElementById('lrdBody').innerHTML = `<tr><td colspan="6" class="empty-state">Failed to load: ${err.message}</td></tr>`;
             }
         }
+
+        // Toggle LRD map visibility
+        function toggleLrdMap() {
+            const body = document.getElementById('lrdMapBody');
+            const icon = document.getElementById('lrdMapToggleIcon');
+            if (body.style.display === 'none') {
+                body.style.display = 'block';
+                icon.className = 'fa-solid fa-chevron-up';
+            } else {
+                body.style.display = 'none';
+                icon.className = 'fa-solid fa-chevron-down';
+            }
+        }
+
+        // Color SVG map segments based on staff's LRD coverage data
+        function colorLrdMapSegments(sections) {
+            // Reset all segments to default color first
+            const svg = document.getElementById('lrdRouteSvg');
+            const allPaths = svg.querySelectorAll('path[id^="seg-"]');
+            allPaths.forEach(path => {
+                path.setAttribute('stroke', '#cbd5e1');
+            });
+
+            // Status priority for comparison (higher = better)
+            const statusPriorityMap = { 'VALID': 4, 'EXPIRING_SOON': 3, 'EXPIRED': 2, 'NEVER_WORKED': 1 };
+
+            // Status to color mapping
+            const statusColors = {
+                'VALID': '#22c55e',
+                'EXPIRING_SOON': '#eab308',
+                'EXPIRED': '#ef4444',
+                'NEVER_WORKED': '#cbd5e1'
+            };
+
+            // Build a map of segment coverage: "FROM-TO" -> status
+            // Each direction is tracked separately (directional coverage)
+            const segmentMap = new Map();
+
+            for (const section of sections) {
+                if (!section.segments) continue;
+                for (const seg of section.segments) {
+                    const from = seg.from.toUpperCase();
+                    const to = seg.to.toUpperCase();
+                    const key = `${from}-${to}`;
+
+                    // Only store the actual direction worked (not reverse)
+                    // Use best status if segment appears in multiple sections
+                    if (!segmentMap.has(key) || statusPriorityMap[seg.status] > statusPriorityMap[segmentMap.get(key)]) {
+                        segmentMap.set(key, seg.status);
+                    }
+                }
+            }
+
+            // Now color each path in the SVG
+            allPaths.forEach(path => {
+                const id = path.id; // e.g., "seg-kyn-shad-up"
+                // Extract station codes from ID: seg-FROM-TO-direction
+                const parts = id.split('-');
+                if (parts.length < 4) return;
+
+                const from = parts[1].toUpperCase();
+                const to = parts[2].toUpperCase();
+                const key = `${from}-${to}`;
+
+                const status = segmentMap.get(key);
+                if (status && statusColors[status]) {
+                    path.setAttribute('stroke', statusColors[status]);
+                }
+            });
+        }
+
+        function renderLRDTable(sections) {
+            if (sections.length === 0) {
+                document.getElementById('lrdBody').innerHTML = '<tr><td colspan="6" class="empty-state">No sections found</td></tr>';
+                return;
+            }
+
+            document.getElementById('lrdBody').innerHTML = sections.map(s => {
+                const statusClass = s.status === 'VALID' ? 'success' :
+                                   s.status === 'EXPIRED' ? 'danger' :
+                                   s.status === 'EXPIRING_SOON' ? 'warning' :
+                                   s.status === 'PARTIAL' ? 'info' : 'secondary';
+                const statusLabel = s.status === 'NEVER_WORKED' ? 'Never Worked' :
+                                   s.status === 'EXPIRING_SOON' ? 'Expiring' :
+                                   s.status === 'PARTIAL' ? 'Partial' : s.status;
+
+                // Build segmented coverage bar
+                // Station color = best status of incoming OR outgoing segment
+                const segments = s.segments || [];
+
+                // Helper to get best status (VALID > EXPIRING > EXPIRED > NEVER)
+                const statusPriority = { 'VALID': 4, 'EXPIRING_SOON': 3, 'EXPIRED': 2, 'NEVER_WORKED': 1 };
+                const getBestStatus = (s1, s2) => {
+                    if (!s1) return s2;
+                    if (!s2) return s1;
+                    return statusPriority[s1] >= statusPriority[s2] ? s1 : s2;
+                };
+                const getColor = (status) => status === 'VALID' ? 'var(--success)' :
+                                             status === 'EXPIRING_SOON' ? 'var(--warning)' :
+                                             status === 'EXPIRED' ? 'var(--danger)' : '#e2e8f0';
+                const getLabelStyle = (status) => status === 'NEVER_WORKED'
+                    ? 'color: #64748b;'
+                    : 'color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.5);';
+
+                // Build station bars - each station uses best of incoming/outgoing segment status
+                const stationBars = [];
+                for (let i = 0; i <= segments.length; i++) {
+                    const incomingSeg = i > 0 ? segments[i - 1] : null;  // segment ending at this station
+                    const outgoingSeg = i < segments.length ? segments[i] : null;  // segment starting from this station
+                    const station = outgoingSeg ? outgoingSeg.from : (incomingSeg ? incomingSeg.to : '');
+                    const bestStatus = getBestStatus(incomingSeg?.status, outgoingSeg?.status);
+                    const color = getColor(bestStatus);
+                    const labelStyle = getLabelStyle(bestStatus);
+
+                    // Tooltip shows both segments' info
+                    let tooltipParts = [];
+                    if (incomingSeg) tooltipParts.push(`← ${incomingSeg.from}: ${incomingSeg.status === 'NEVER_WORKED' ? 'Never' : incomingSeg.last_worked || '-'}`);
+                    if (outgoingSeg) tooltipParts.push(`→ ${outgoingSeg.to}: ${outgoingSeg.status === 'NEVER_WORKED' ? 'Never' : outgoingSeg.last_worked || '-'}`);
+                    const tooltip = `${station}\n${tooltipParts.join('\n')}`;
+
+                    stationBars.push(`<div class="seg-bar" style="background: ${color};" title="${tooltip}">
+                        <span class="seg-label" style="${labelStyle}">${station}</span>
+                    </div>`);
+                }
+                const segmentBars = stationBars.join('');
+
+                return `
+                    <tr class="lrd-row" data-status="${s.status}" data-beat="${s.beat_id}">
+                        <td><strong>${s.beat_id}</strong></td>
+                        <td>
+                            <div class="segment-bar-container">
+                                ${segmentBars}
+                                <span class="seg-count">${s.coverage?.valid || 0}/${s.coverage?.total || 0}</span>
+                            </div>
+                        </td>
+                        <td>${s.expires_on || '<span style="color: var(--text-secondary);">-</span>'}</td>
+                        <td>${s.days_remaining !== null ? (s.days_remaining < 0 ? `<span style="color: var(--danger);">${s.days_remaining}d</span>` : `${s.days_remaining}d`) : '-'}</td>
+                        <td><span class="badge badge-${statusClass}">${statusLabel}</span></td>
+                        <td>
+                            <button class="btn btn-icon btn-outline btn-sm" onclick="showSegmentDetails('${s.beat_id}')" title="View Segments">
+                                <i class="fa-solid fa-list"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // Show segment details in a modal/popup
+        function showSegmentDetails(beatId) {
+            const section = lrdRouteData.find(s => s.beat_id === beatId);
+            if (!section || !section.segments) {
+                showToast('No segment details available', 'warning');
+                return;
+            }
+
+            const modal = document.getElementById('dutyModal');
+            document.getElementById('dutyModalBody').innerHTML = `
+                <h4 style="margin: 0 0 15px;">Section: ${section.beat_id} - ${section.name || ''}</h4>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>From</th>
+                            <th>To</th>
+                            <th>Last Worked</th>
+                            <th>Expires On</th>
+                            <th>Days Left</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${section.segments.map(seg => {
+                            const segClass = seg.status === 'VALID' ? 'success' :
+                                           seg.status === 'EXPIRED' ? 'danger' :
+                                           seg.status === 'EXPIRING_SOON' ? 'warning' : 'secondary';
+                            return `
+                                <tr>
+                                    <td>${seg.from}</td>
+                                    <td>${seg.to}</td>
+                                    <td>${seg.last_worked || '-'}</td>
+                                    <td>${seg.expires_on || '-'}</td>
+                                    <td>${seg.days_remaining !== null ? (seg.days_remaining < 0 ? `<span style="color: var(--danger);">${seg.days_remaining}d</span>` : `${seg.days_remaining}d`) : '-'}</td>
+                                    <td><span class="badge badge-${segClass}">${seg.status === 'NEVER_WORKED' ? 'Never' : seg.status}</span></td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            `;
+            modal.classList.add('show');
+        }
+
+        function filterLRDTable() {
+            const filterStatus = document.getElementById('lrdFilterStatus').value;
+
+            if (!filterStatus) {
+                renderLRDTable(lrdRouteData);
+                document.getElementById('lrdRouteCount').textContent = `${lrdRouteData.length} sections`;
+                return;
+            }
+
+            const filtered = lrdRouteData.filter(r => r.status === filterStatus);
+            renderLRDTable(filtered);
+            document.getElementById('lrdRouteCount').textContent = `${filtered.length} of ${lrdRouteData.length} sections`;
+        }
+
+        async function loadLRDSummary() {
+            const office = document.getElementById('globalOffice').value;
+
+            document.getElementById('lrdBody').innerHTML = '<tr><td colspan="6" class="loading"><i class="fa-solid fa-spinner spinner"></i> Loading summary...</td></tr>';
+
+            try {
+                const res = await fetch(`/api/division/ctr/lrd/summary?office=${office}`);
+                const data = await res.json();
+
+                if (!data.success) {
+                    throw new Error(data.message);
+                }
+
+                // Update stats with overall numbers
+                document.getElementById('lrdValid').textContent = data.overall?.valid || 0;
+                document.getElementById('lrdExpiring').textContent = data.overall?.expiring_soon || 0;
+                document.getElementById('lrdPartial').textContent = data.overall?.partial || 0;
+                document.getElementById('lrdExpired').textContent = data.overall?.expired || 0;
+                document.getElementById('lrdNeverWorked').textContent = data.overall?.never_worked || 0;
+
+                // Show staff with issues in table
+                if (data.staff_with_issues?.length > 0) {
+                    document.getElementById('lrdBody').innerHTML = `
+                        <tr style="background: var(--bg-secondary);">
+                            <th colspan="2">Staff</th>
+                            <th>Designation</th>
+                            <th style="color: var(--success);">Valid</th>
+                            <th style="color: var(--warning);">Expiring</th>
+                            <th style="color: #8b5cf6;">Partial</th>
+                            <th>Action</th>
+                        </tr>
+                        ${data.staff_with_issues.map(s => `
+                            <tr>
+                                <td colspan="2">
+                                    <strong>${s.cms_id || s.hrms_id}</strong> - ${s.name}
+                                </td>
+                                <td><span class="badge badge-info">${s.designation || '-'}</span></td>
+                                <td style="color: var(--success);">${s.valid}</td>
+                                <td style="color: var(--warning);">${s.expiring}</td>
+                                <td style="color: #8b5cf6;">${s.partial || 0}</td>
+                                <td>
+                                    <button class="btn btn-outline btn-sm" onclick="selectLRDStaff('${s.hrms_id}', '${s.cms_id}', '${s.name}', '${s.designation}', '${s.office}')">
+                                        <i class="fa-solid fa-eye"></i> View
+                                    </button>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    `;
+                    document.getElementById('lrdRouteCount').textContent = `${data.staff_with_issues.length} staff with issues (of ${data.overall?.total_staff || 0} total)`;
+                } else {
+                    document.getElementById('lrdBody').innerHTML = '<tr><td colspan="6" class="empty-state"><i class="fa-solid fa-check-circle" style="color: var(--success); font-size: 48px;"></i><h3>All Clear!</h3><p>No staff have expired, partial, or expiring LRD status</p></td></tr>';
+                    document.getElementById('lrdRouteCount').textContent = `${data.overall?.total_staff || 0} staff checked`;
+                }
+
+            } catch (err) {
+                console.error('Load LRD Summary Error:', err);
+                document.getElementById('lrdBody').innerHTML = `<tr><td colspan="6" class="empty-state">Failed to load: ${err.message}</td></tr>`;
+            }
+        }
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('#lrdStaffSearch') && !e.target.closest('#lrdStaffDropdown')) {
+                document.getElementById('lrdStaffDropdown').style.display = 'none';
+            }
+        });
 
         // ========================================
         // Sections Tab

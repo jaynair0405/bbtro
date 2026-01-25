@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Driver's Detail Book - Digital</title>
+    <style>
+        :root {
+            --railway-blue: #0b3d91;
+            --paper-bg: #fdfbf7;
+            --line-color: #d1d5db;
+            --red-ink: #d32f2f;
+            --header-bg: #eef2f6;
+        }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background-color: #e2e8f0;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .header-section {
+            background: var(--railway-blue);
+            color: white;
+            padding: 15px 20px;
+            border-radius: 8px 8px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .book-container {
+            display: flex;
+            gap: 20px;
+            height: calc(100vh - 100px);
+        }
+
+        /* The "Page" Look */
+        .page-panel {
+            flex: 1;
+            background: var(--paper-bg);
+            border: 1px solid #ccc;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .page-header {
+            background: var(--header-bg);
+            padding: 10px;
+            text-align: center;
+            font-weight: bold;
+            border-bottom: 2px solid var(--railway-blue);
+            color: var(--railway-blue);
+            text-transform: uppercase;
+        }
+
+        /* Table Styling */
+        .log-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        .log-table th {
+            background: #f1f5f9;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            padding: 8px;
+            border-bottom: 2px solid #999;
+            font-weight: 600;
+            color: #444;
+            text-align: center;
+        }
+
+        .log-table td {
+            border-bottom: 1px solid var(--line-color);
+            border-right: 1px solid var(--line-color);
+            padding: 4px;
+        }
+
+        /* Inputs within Table */
+        input[type="text"], input[type="time"], input[type="number"] {
+            width: 100%;
+            border: 1px solid transparent;
+            background: transparent;
+            padding: 4px;
+            font-family: 'Courier New', monospace; /* Handwriting feel */
+            font-weight: 600;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+
+        input:focus {
+            background: white;
+            border: 1px solid var(--railway-blue);
+            outline: none;
+        }
+
+        /* The Red Column (Next Sign On) */
+        .red-column input {
+            color: var(--red-ink);
+            font-weight: bold;
+            text-align: center;
+        }
+        .red-column {
+            border-left: 2px solid var(--red-ink) !important;
+            border-right: 2px solid var(--red-ink) !important;
+            background-color: rgba(211, 47, 47, 0.05);
+        }
+
+        /* Specific Column Widths */
+        .col-train { width: 80px; }
+        .col-loco { width: 70px; }
+        .col-time { width: 70px; }
+        .col-staff { width: 180px; }
+        .col-future { width: 80px; background: #f0f0f0; } /* Greyed out for future */
+
+        /* Piloting Toggle */
+        .mode-toggle {
+            font-size: 10px;
+            cursor: pointer;
+            color: var(--railway-blue);
+            text-decoration: underline;
+            display: block;
+            text-align: center;
+        }
+
+        /* Footer / Actions */
+        .action-bar {
+            padding: 10px;
+            background: #eee;
+            border-top: 1px solid #ccc;
+            text-align: right;
+        }
+
+        button {
+            background: var(--railway-blue);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover { background-color: #082d6e; }
+
+        /* Autocomplete List Styling */
+        .autocomplete-items {
+            position: absolute;
+            border: 1px solid #d4d4d4;
+            border-bottom: none;
+            border-top: none;
+            z-index: 99;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background-color: white;
+        }
+        .autocomplete-items div {
+            padding: 10px;
+            cursor: pointer;
+            background-color: #fff; 
+            border-bottom: 1px solid #d4d4d4; 
+        }
+        .autocomplete-items div:hover {
+            background-color: #e9e9e9; 
+        }
+        .autocomplete-wrapper {
+            position: relative;
+            display: inline-block;
+            width: 100%;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="header-section">
+        <a href="/div" style="color:white; text-decoration:none; display:flex; align-items:center; gap:8px; padding:8px 12px; border-radius:6px; background:rgba(255,255,255,0.1); margin-right:15px;">
+            <i class="fa-solid fa-arrow-left"></i> Back
+        </a>
+        <div>
+            <h2 style="margin:0;">Driver's & Asst. Driver's Detail Book</h2>
+            <small>Central Railway - Mumbai Division</small>
+        </div>
+        <div style="margin-left:auto;">
+            <strong>Date: </strong> <input type="date" value="2026-01-03" style="background:white; color:black; border:none; padding:5px; border-radius:4px;">
+        </div>
+    </div>
+
+    <div class="book-container">
+        
+        <div class="page-panel">
+            <div class="page-header">Loco Pilot (Driver)</div>
+            <div style="flex:1; overflow-y:auto;">
+                <table class="log-table" id="lpTable">
+                    <thead>
+                        <tr>
+                            <th class="col-train">In Train<br><small>(or P/Ex)</small></th>
+                            <th class="col-loco">In Loco</th>
+                            <th class="col-time">Sign Off<br>Time</th>
+                            <th class="col-staff">Loco Pilot Name</th>
+                            <th class="col-time red-column" style="color:var(--red-ink);">Next<br>Sign On</th>
+                            <th class="col-future">Out Train<br><small>(Future)</small></th>
+                            <th class="col-future">Out Loco<br><small>(Future)</small></th>
+                        </tr>
+                    </thead>
+                    <tbody id="lpTableBody">
+                        </tbody>
+                </table>
+            </div>
+            <div class="action-bar">
+                <button onclick="addNewRow('lpTableBody')">+ Add Entry</button>
+            </div>
+        </div>
+
+        <div class="page-panel">
+            <div class="page-header">Assistant Loco Pilot</div>
+            <div style="flex:1; overflow-y:auto;">
+                <table class="log-table" id="alpTable">
+                    <thead>
+                        <tr>
+                            <th class="col-train">In Train<br><small>(or P/Ex)</small></th>
+                            <th class="col-loco">In Loco</th>
+                            <th class="col-time">Sign Off<br>Time</th>
+                            <th class="col-staff">ALP Name</th>
+                            <th class="col-time red-column" style="color:var(--red-ink);">Next<br>Sign On</th>
+                            <th class="col-future">Out Train<br><small>(Future)</small></th>
+                            <th class="col-future">Out Loco<br><small>(Future)</small></th>
+                        </tr>
+                    </thead>
+                    <tbody id="alpTableBody">
+                        </tbody>
+                </table>
+            </div>
+            <div class="action-bar">
+                <button onclick="addNewRow('alpTableBody')">+ Add Entry</button>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // Mock Database of Staff
+        const staffDB = [
+            "Anil Kumar", "Deepak Kumar Sah", "Chandan Kr Yadav", "Priya Jeet Mandal", 
+            "Arun Paswan", "Dharmendra KR", "K.M. Gandhi", "Sohan Shrikant", 
+            "Sandeep KR Satyam", "Vishal Kr Meena", "Md Amir Khan", "Dhanraj Meena"
+        ];
+
+        function createRowHTML() {
+            return `
+                <td>
+                    <input type="text" placeholder="Train No" oninput="checkPiloting(this)">
+                    <span class="mode-toggle" onclick="togglePiloting(this)">Set Spare/Pilot</span>
+                </td>
+                <td><input type="number" placeholder="Loco No"></td>
+                <td><input type="time"></td>
+                <td>
+                    <div class="autocomplete-wrapper">
+                        <input type="text" placeholder="Start typing..." oninput="suggestStaff(this)">
+                        <div class="autocomplete-items"></div>
+                    </div>
+                </td>
+                <td class="red-column"><input type="time"></td>
+                <td style="background:#f4f4f4;"><input type="text" placeholder="Pending..." disabled></td>
+                <td style="background:#f4f4f4;"><input type="text" placeholder="Pending..." disabled></td>
+            `;
+        }
+
+        function addNewRow(tableId) {
+            const tbody = document.getElementById(tableId);
+            const tr = document.createElement('tr');
+            tr.innerHTML = createRowHTML();
+            tbody.appendChild(tr);
+        }
+
+        // Logic for "Piloting/Spare"
+        // If user toggles spare, Loco becomes disabled, Train becomes "From Station"
+        function togglePiloting(span) {
+            const cell = span.parentElement;
+            const trainInput = cell.querySelector('input');
+            const row = cell.parentElement;
+            const locoInput = row.cells[1].querySelector('input');
+
+            if (trainInput.placeholder === "Train No") {
+                trainInput.placeholder = "P/Ex Station";
+                locoInput.disabled = true;
+                locoInput.value = "";
+                locoInput.placeholder = "---";
+                span.innerText = "Set Working";
+                span.style.color = "#d32f2f";
+            } else {
+                trainInput.placeholder = "Train No";
+                locoInput.disabled = false;
+                locoInput.placeholder = "Loco No";
+                span.innerText = "Set Spare/Pilot";
+                span.style.color = "#0b3d91";
+            }
+        }
+
+        // Simple Auto-Complete Logic
+        function suggestStaff(inp) {
+            const val = inp.value;
+            const listDiv = inp.nextElementSibling;
+            listDiv.innerHTML = '';
+            
+            if (!val) return false;
+
+            staffDB.forEach(name => {
+                if (name.toLowerCase().includes(val.toLowerCase())) {
+                    const item = document.createElement("div");
+                    item.innerHTML = "<strong>" + name.substr(0, val.length) + "</strong>";
+                    item.innerHTML += name.substr(val.length);
+                    item.addEventListener("click", function() {
+                        inp.value = name;
+                        listDiv.innerHTML = '';
+                    });
+                    listDiv.appendChild(item);
+                }
+            });
+        }
+
+        // Initialize with some empty rows
+        window.onload = function() {
+            addNewRow('lpTableBody');
+            addNewRow('lpTableBody');
+            addNewRow('lpTableBody');
+            addNewRow('alpTableBody');
+            addNewRow('alpTableBody');
+            addNewRow('alpTableBody');
+        }
+
+        // Close autocomplete if clicked elsewhere
+        document.addEventListener("click", function (e) {
+            const lists = document.getElementsByClassName("autocomplete-items");
+            for (let i = 0; i < lists.length; i++) {
+                if (e.target.parentNode.className !== "autocomplete-wrapper") {
+                    lists[i].innerHTML = "";
+                }
+            }
+        });
+    </script>
+
+</body>
+</html>

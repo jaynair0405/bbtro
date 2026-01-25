@@ -1,0 +1,1622 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>00:00 Hrs Position | CRTMS.in</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --brand: #0b3d91;
+            --bg: #f8fafc;
+            --surface: #ffffff;
+            --border: #e2e8f0;
+            --text-main: #1e293b;
+            --text-light: #64748b;
+            --danger: #ef4444;
+            --success: #10b981;
+            --warning: #f59e0b;
+        }
+
+        * { box-sizing: border-box; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 20px; }
+
+        /* Header */
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--surface);
+            padding: 16px 24px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+            gap: 16px;
+        }
+        .back-btn {
+            text-decoration: none;
+            color: var(--text-light);
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            padding: 8px 12px;
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+        .back-btn:hover { background: #f1f5f9; color: var(--brand); }
+        .header-title h2 { margin: 0; color: var(--brand); font-size: 20px; }
+        .header-title p { margin: 4px 0 0 0; color: var(--text-light); font-size: 12px; }
+        .header-controls { display: flex; gap: 15px; align-items: center; }
+        .date-picker { padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; }
+
+        /* Designation Cards Grid */
+        .designation-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .desig-card {
+            background: var(--surface);
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            border-left: 4px solid #ccc;
+            overflow: hidden;
+        }
+        .desig-card.lpg { border-left-color: #3b82f6; }
+        .desig-card.lps { border-left-color: #10b981; }
+        .desig-card.alp { border-left-color: #f59e0b; }
+        .desig-card.lpm { border-left-color: #8b5cf6; }
+        .desig-card.lpp { border-left-color: #ec4899; }
+        .desig-card.lpghat { border-left-color: #6366f1; }
+        .desig-card.motorman { border-left-color: #14b8a6; }
+
+        .desig-card-header {
+            padding: 10px 12px;
+            font-weight: 700;
+            font-size: 14px;
+            color: white;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .desig-card.lpg .desig-card-header { background: #3b82f6; }
+        .desig-card.lps .desig-card-header { background: #10b981; }
+        .desig-card.alp .desig-card-header { background: #f59e0b; }
+        .desig-card.lpm .desig-card-header { background: #8b5cf6; }
+        .desig-card.lpp .desig-card-header { background: #ec4899; }
+        .desig-card.lpghat .desig-card-header { background: #6366f1; }
+        .desig-card.motorman .desig-card-header { background: #14b8a6; }
+
+        .desig-card-body {
+            padding: 12px;
+        }
+        .desig-stat-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+            font-size: 13px;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        .desig-stat-row:last-child { border-bottom: none; }
+        .desig-stat-row .label { color: var(--text-light); }
+        .desig-stat-row .value { font-weight: 600; color: var(--text-main); }
+        .desig-stat-row.vacancy .value { color: var(--danger); }
+        .desig-stat-row.net .value { color: var(--success); font-weight: 700; }
+
+        /* Main Layout */
+        .main-layout {
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            gap: 20px;
+        }
+
+        /* Summary Panel (Left) */
+        .summary-panel {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            height: fit-content;
+            position: sticky;
+            top: 20px;
+        }
+        .summary-header {
+            font-weight: 700;
+            color: var(--brand);
+            font-size: 15px;
+            border-bottom: 2px solid var(--brand);
+            padding-bottom: 8px;
+            margin-bottom: 15px;
+        }
+        .summary-table { width: 100%; font-size: 12px; border-collapse: collapse; }
+        .summary-table th { text-align: left; padding: 6px 4px; background: #f1f5f9; color: var(--text-light); }
+        .summary-table th.col-lpg { background: #3b82f6; color: white; text-align: center; }
+        .summary-table th.col-lps { background: #10b981; color: white; text-align: center; }
+        .summary-table th.col-alp { background: #f59e0b; color: white; text-align: center; }
+        .summary-table td { padding: 6px 4px; border-bottom: 1px solid var(--border); }
+        .summary-table td:not(:first-child) { text-align: center; }
+        .summary-table input {
+            width: 50px;
+            padding: 4px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            text-align: center;
+            font-size: 12px;
+        }
+        .summary-table input:focus { border-color: var(--brand); outline: none; }
+        .summary-table tr.total-row { font-weight: 700; background: #f1f5f9; }
+        .summary-table tr.section-header td { font-weight: 600; color: var(--text-light); background: #f8fafc; padding-top: 12px; }
+
+        /* Editor Panel (Right) */
+        .editor-panel {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            background: #f1f5f9;
+            border-bottom: 1px solid var(--border);
+            overflow-x: auto;
+        }
+        .tab-btn {
+            padding: 12px 16px;
+            cursor: pointer;
+            border: none;
+            background: transparent;
+            font-weight: 600;
+            color: var(--text-light);
+            border-right: 1px solid var(--border);
+            white-space: nowrap;
+            font-size: 13px;
+        }
+        .tab-btn:hover { background: #e2e8f0; }
+        .tab-btn.active { background: var(--surface); color: var(--brand); border-bottom: 2px solid var(--brand); }
+        .tab-count {
+            background: #cbd5e1;
+            color: #fff;
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-size: 11px;
+            margin-left: 6px;
+        }
+        .tab-btn.active .tab-count { background: var(--brand); }
+
+        /* Toolbar */
+        .toolbar {
+            padding: 12px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border);
+            gap: 15px;
+        }
+        .search-box {
+            padding: 8px 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            width: 200px;
+        }
+        .add-btn {
+            background: var(--brand);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .add-btn:hover { background: #062356; }
+
+        /* Data Table */
+        .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .data-table th { text-align: left; padding: 12px 16px; background: #f8fafc; color: var(--text-light); border-bottom: 1px solid var(--border); }
+        .data-table td { padding: 10px 16px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+        .data-table tr:hover { background: #f8fafc; }
+        .data-table .staff-name { font-weight: 600; color: var(--text-main); }
+        .data-table .staff-id { font-size: 11px; color: #666; }
+
+        /* Editable fields */
+        .editable-field {
+            padding: 6px 10px;
+            border: 1px solid transparent;
+            border-radius: 4px;
+            background: transparent;
+            width: 100%;
+            font-size: 13px;
+        }
+        .editable-field:hover { border-color: #cbd5e1; background: #f8fafc; }
+        .editable-field:focus { border-color: var(--brand); background: white; outline: none; }
+
+        /* Pills */
+        .pill { padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+        .pill-red { background: #fee2e2; color: #991b1b; }
+        .pill-yellow { background: #fef3c7; color: #92400e; }
+        .pill-blue { background: #dbeafe; color: #1e40af; }
+
+        /* Action Icons */
+        .action-icon {
+            color: var(--text-light);
+            cursor: pointer;
+            padding: 6px;
+            border-radius: 4px;
+            margin-left: 4px;
+        }
+        .action-icon:hover { background: #f1f5f9; color: var(--brand); }
+        .action-icon.danger:hover { color: var(--danger); }
+
+        /* Footer */
+        .page-footer {
+            margin-top: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .btn-finalize {
+            background: var(--success);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(16, 185, 129, 0.2);
+        }
+        .btn-finalize:hover { background: #059669; }
+        .btn-finalize:disabled { background: #9ca3af; cursor: not-allowed; box-shadow: none; }
+
+        /* Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal {
+            background: white;
+            border-radius: 12px;
+            width: 500px;
+            max-width: 95vw;
+            max-height: 90vh;
+            overflow: auto;
+        }
+        .modal-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .modal-header h3 { margin: 0; color: var(--brand); }
+        .modal-close { background: none; border: none; font-size: 20px; cursor: pointer; color: #666; }
+        .modal-body { padding: 20px; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 5px; color: var(--text-main); }
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+            border-color: var(--brand);
+            outline: none;
+        }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .modal-footer {
+            padding: 16px 20px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+        .btn { padding: 10px 20px; border-radius: 6px; font-size: 14px; cursor: pointer; border: 1px solid var(--border); background: white; }
+        .btn-primary { background: var(--brand); color: white; border: none; }
+        .btn-primary:hover { background: #062356; }
+
+        /* Status indicators */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .status-badge.pending { background: #fef3c7; color: #92400e; }
+        .status-badge.finalized { background: #d1fae5; color: #065f46; }
+        .status-badge.new { background: #dbeafe; color: #1e40af; }
+
+        /* Loading */
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-light);
+        }
+
+        /* Empty state */
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-light);
+        }
+        .empty-state i { font-size: 48px; margin-bottom: 15px; color: #cbd5e1; }
+
+        /* Carry forward banner */
+        .carry-forward-banner {
+            background: #dbeafe;
+            border: 1px solid #93c5fd;
+            border-radius: 8px;
+            padding: 15px 20px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .carry-forward-banner p { margin: 0; color: #1e40af; font-size: 14px; }
+        .carry-forward-banner button {
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        /* Autocomplete dropdown */
+        .autocomplete-wrapper {
+            position: relative;
+        }
+        .autocomplete-results {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 1001;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            display: none;
+        }
+        .autocomplete-results.active {
+            display: block;
+        }
+        .autocomplete-item {
+            padding: 10px 12px;
+            cursor: pointer;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        .autocomplete-item:hover {
+            background: #f8fafc;
+        }
+        .autocomplete-item:last-child {
+            border-bottom: none;
+        }
+        .autocomplete-item .staff-name {
+            font-weight: 600;
+            color: var(--text-main);
+        }
+        .autocomplete-item .staff-info {
+            font-size: 11px;
+            color: var(--text-light);
+            margin-top: 2px;
+        }
+        .autocomplete-item .staff-desig {
+            display: inline-block;
+            background: #dbeafe;
+            color: #1e40af;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 10px;
+            margin-left: 6px;
+        }
+        .autocomplete-loading {
+            padding: 10px;
+            text-align: center;
+            color: var(--text-light);
+            font-size: 12px;
+        }
+        .autocomplete-no-results {
+            padding: 10px;
+            text-align: center;
+            color: var(--text-light);
+            font-size: 12px;
+        }
+
+        @media print {
+            .page-header, .toolbar, .page-footer, .add-btn, .action-icon { display: none !important; }
+            .main-layout { display: block; }
+            .summary-panel { position: static; margin-bottom: 20px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="page-header">
+        <a href="/div" class="back-btn">
+            <i class="fa-solid fa-arrow-left"></i> Back
+        </a>
+        <div class="header-title">
+            <h2><i class="fa-solid fa-moon"></i> Midnight Position Entry</h2>
+            <p>Lobby: <strong id="lobbyName">Loading...</strong></p>
+        </div>
+        <div class="header-controls">
+            <input type="date" class="date-picker" id="positionDate" onchange="loadPosition()">
+            <span id="statusBadge" class="status-badge pending">
+                <i class="fa-solid fa-clock"></i> Pending
+            </span>
+        </div>
+    </div>
+
+    <div id="carryForwardBanner" class="carry-forward-banner" style="display: none;">
+        <p><i class="fa-solid fa-rotate-right"></i> No position exists for this date. Would you like to carry forward from <strong id="prevDateText"></strong>?</p>
+        <button onclick="carryForward()"><i class="fa-solid fa-copy"></i> Carry Forward</button>
+    </div>
+
+    <div class="designation-cards" id="designationCards">
+        <!-- Cards rendered dynamically based on sanction master data -->
+    </div>
+
+    <div class="main-layout">
+        <!-- Left: Summary Panel -->
+        <div class="summary-panel">
+            <div class="summary-header">Position Summary</div>
+            <table class="summary-table">
+                <thead>
+                    <tr>
+                        <th>Category</th>
+                        <!-- Columns populated dynamically -->
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Rows populated dynamically from row master -->
+                </tbody>
+            </table>
+            <div style="margin-top: 15px;">
+                <button class="btn btn-primary" onclick="saveSummary()" style="width: 100%;">
+                    <i class="fa-solid fa-save"></i> Save Summary
+                </button>
+            </div>
+        </div>
+
+        <!-- Right: Staff Entries -->
+        <div class="editor-panel">
+            <div class="tabs" id="categoryTabs">
+                <!-- Tabs will be populated dynamically -->
+            </div>
+
+            <div class="toolbar">
+                <input type="text" class="search-box" id="searchBox" placeholder="Search name or ID..." oninput="filterStaff()">
+                <button class="add-btn" onclick="openAddModal()">
+                    <i class="fa-solid fa-plus"></i> Add Staff
+                </button>
+            </div>
+
+            <div id="staffTableContainer">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Staff Name</th>
+                            <th>Desig</th>
+                            <th>Working From/As</th>
+                            <th>Since</th>
+                            <th>Reason</th>
+                            <th style="text-align: right;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="staffTableBody">
+                        <!-- Staff rows populated dynamically -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="page-footer">
+        <div style="font-size: 12px; color: #666;">
+            <i class="fa-solid fa-circle-info"></i> Changes are auto-saved. Finalize to lock position.
+        </div>
+        <div style="display: flex; gap: 10px;">
+            <button class="btn" onclick="window.print()">
+                <i class="fa-solid fa-print"></i> Print
+            </button>
+            <button class="btn-finalize" id="finalizeBtn" onclick="finalizePosition()">
+                <i class="fa-solid fa-lock"></i> Finalize Position
+            </button>
+        </div>
+    </div>
+
+    <!-- Add/Edit Staff Modal -->
+    <div class="modal-overlay" id="staffModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="modalTitle">Add Staff Entry</h3>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editingStaffId">
+                <div class="form-group">
+                    <label>Category *</label>
+                    <select id="staffCategory">
+                        <!-- Options populated dynamically -->
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Search Staff (Name or CMS ID)</label>
+                    <div class="autocomplete-wrapper">
+                        <input type="text" id="staffSearch" placeholder="Type to search staff..." oninput="onStaffSearch(this.value)" autocomplete="off">
+                        <div class="autocomplete-results" id="staffSearchResults"></div>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Staff Name *</label>
+                        <input type="text" id="staffName" placeholder="Enter name or select from search">
+                    </div>
+                    <div class="form-group">
+                        <label>CMS ID</label>
+                        <input type="text" id="staffCmsId" placeholder="Optional">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>HRMS ID</label>
+                        <input type="text" id="staffHrmsId" placeholder="Optional">
+                    </div>
+                    <div class="form-group" style="display: none;">
+                        <!-- Spacer -->
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Designation *</label>
+                        <select id="staffDesignation">
+                            <!-- Options populated dynamically based on lobby -->
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Since Date</label>
+                        <input type="date" id="staffSinceDate">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Working From/As</label>
+                    <input type="text" id="staffWorkingFrom" placeholder="e.g., Jr.CC, LNL LOBBY, DY CEE OFF">
+                </div>
+                <div class="form-group">
+                    <label>Reason</label>
+                    <input type="text" id="staffReason" placeholder="e.g., MU 16.05.23, SPAD, Enquiry Pending">
+                </div>
+                <div class="form-group">
+                    <label>Remarks</label>
+                    <textarea id="staffRemarks" rows="2" placeholder="Additional notes"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn" onclick="closeModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="saveStaff()">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // State
+        let currentLobby = '';
+        let currentDate = '';
+        let currentPositionId = null;
+        let positionData = null;
+        let staffByCategory = {};
+        let categories = [];
+        let activeCategory = 'MEDICAL_UNFIT';
+        let isFinalized = false;
+        let sanctionData = {}; // Sanction from master table
+        let rowsData = []; // Dynamic rows from row master
+        let positionValues = {}; // Position values from key-value store
+        let activeDesignations = []; // Designations available for this lobby
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Get lobby from session/URL
+            currentLobby = new URLSearchParams(window.location.search).get('lobby') || await fetchUserLobby();
+            document.getElementById('lobbyName').textContent = currentLobby;
+
+            // Set today's date
+            const today = new Date();
+            const dateStr = today.toISOString().split('T')[0];
+            document.getElementById('positionDate').value = dateStr;
+            currentDate = dateStr;
+
+            // Load categories
+            await loadCategories();
+
+            // Load sanction from master table (also determines active designations)
+            await loadSanction();
+
+            // Load dynamic rows
+            await loadRows();
+
+            // Load position data
+            await loadPosition();
+        });
+
+        async function loadSanction() {
+            if (!currentLobby) return;
+
+            try {
+                const resp = await fetch(`/api/division/midnight-position/sanction?office_code=${currentLobby}`);
+                if (resp.ok) {
+                    const data = await resp.json();
+                    // Convert array to object keyed by designation_code
+                    sanctionData = {};
+                    activeDesignations = [];
+                    data.forEach(s => {
+                        sanctionData[s.designation_code] = s.sanction_strength || 0;
+                        if (!activeDesignations.includes(s.designation_code)) {
+                            activeDesignations.push(s.designation_code);
+                        }
+                    });
+                    // Default to LPG, LPS, ALP if no sanction defined
+                    if (activeDesignations.length === 0) {
+                        activeDesignations = ['LPG', 'LPS', 'ALP'];
+                    }
+                    // Update designation cards visibility
+                    updateDesignationCards();
+                }
+            } catch (error) {
+                console.warn('Error loading sanction:', error);
+                activeDesignations = ['LPG', 'LPS', 'ALP'];
+            }
+        }
+
+        // Designation metadata for cards
+        const designationMeta = {
+            LPG: { icon: 'fa-train', color: '#3b82f6', name: 'LPG' },
+            LPS: { icon: 'fa-truck-moving', color: '#10b981', name: 'LPS' },
+            ALP: { icon: 'fa-user-gear', color: '#f59e0b', name: 'ALP' },
+            LPM: { icon: 'fa-train-subway', color: '#8b5cf6', name: 'LPM' },
+            LPP: { icon: 'fa-train-tram', color: '#ec4899', name: 'LPP' },
+            LPGHAT: { icon: 'fa-mountain', color: '#6366f1', name: 'LP GHAT' },
+            MOTORMAN: { icon: 'fa-train-subway-tunnel', color: '#14b8a6', name: 'Motorman' }
+        };
+
+        function renderDesignationCards() {
+            const container = document.getElementById('designationCards');
+            if (!container || activeDesignations.length === 0) {
+                if (container) container.innerHTML = '<p style="color:#666; padding:10px;">No designations configured for this lobby</p>';
+                return;
+            }
+
+            container.innerHTML = activeDesignations.map(desig => {
+                const meta = designationMeta[desig] || { icon: 'fa-user', color: '#666', name: desig };
+                return `
+                    <div class="desig-card" id="card-${desig.toLowerCase()}" style="border-left-color: ${meta.color};">
+                        <div class="desig-card-header" style="background: ${meta.color};">
+                            <i class="fa-solid ${meta.icon}"></i> ${meta.name}
+                        </div>
+                        <div class="desig-card-body">
+                            <div class="desig-stat-row"><span class="label">Sanction</span><span class="value" id="${desig.toLowerCase()}-card-ss">0</span></div>
+                            <div class="desig-stat-row"><span class="label">On Roll</span><span class="value" id="${desig.toLowerCase()}-card-mor">0</span></div>
+                            <div class="desig-stat-row vacancy"><span class="label">Vacancy</span><span class="value" id="${desig.toLowerCase()}-card-vac">0</span></div>
+                            <div class="desig-stat-row net"><span class="label">Net Avail</span><span class="value" id="${desig.toLowerCase()}-card-net">0</span></div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            // Populate initial sanction values
+            activeDesignations.forEach(desig => {
+                const ssEl = document.getElementById(`${desig.toLowerCase()}-card-ss`);
+                if (ssEl) ssEl.textContent = sanctionData[desig] || 0;
+            });
+        }
+
+        function populateDesignationDropdown() {
+            const select = document.getElementById('staffDesignation');
+            if (!select) return;
+
+            // Build options from active designations
+            let options = activeDesignations.map(d => {
+                const meta = designationMeta[d] || { name: d };
+                return `<option value="${d}">${meta.name}</option>`;
+            });
+
+            // Add Sr LPS if LPS is active (common variant)
+            if (activeDesignations.includes('LPS')) {
+                options.push(`<option value="Sr LPS">Sr LPS</option>`);
+            }
+
+            select.innerHTML = options.join('');
+        }
+
+        function updateDesignationCards() {
+            // Re-render cards when designations change
+            renderDesignationCards();
+            // Update designation dropdown in modal
+            populateDesignationDropdown();
+        }
+
+        async function loadRows() {
+            try {
+                const resp = await fetch(`/api/division/midnight-position/rows?office_code=${currentLobby}`);
+                if (resp.ok) {
+                    rowsData = await resp.json();
+                    renderSummaryTable();
+                }
+            } catch (error) {
+                console.warn('Error loading rows:', error);
+                // Use default rows if API fails
+                rowsData = getDefaultRows();
+                renderSummaryTable();
+            }
+        }
+
+        function getDefaultRows() {
+            return [
+                { row_code: 'SANCTION', row_name: 'Sanction Strength', section: 'STRENGTH', is_editable: 0, is_staff_linked: 0 },
+                { row_code: 'ON_ROLL', row_name: 'On Roll (MOR)', section: 'STRENGTH', is_editable: 1, is_staff_linked: 0 },
+                { row_code: 'VACANCY', row_name: 'Vacancy', section: 'STRENGTH', is_editable: 0, is_staff_linked: 0 },
+                { row_code: 'MEDICAL_UNFIT', row_name: 'Medical Unfit', section: 'NON_EFFECTIVE', is_editable: 0, is_staff_linked: 1 },
+                { row_code: 'SPAD_CREW', row_name: 'SPAD Crew', section: 'NON_EFFECTIVE', is_editable: 0, is_staff_linked: 1 },
+                { row_code: 'SUSPENSION', row_name: 'Suspension/Enquiry', section: 'NON_EFFECTIVE', is_editable: 0, is_staff_linked: 1 },
+                { row_code: 'OFFICE_OUTSTATION', row_name: 'Office/Outstation', section: 'NON_EFFECTIVE', is_editable: 0, is_staff_linked: 1 },
+                { row_code: 'FROM_OTHER_LOBBY', row_name: 'From Other Lobby', section: 'NON_EFFECTIVE', is_editable: 0, is_staff_linked: 1 },
+                { row_code: 'TO_OTHER_LOBBY', row_name: 'To Other Lobby', section: 'NON_EFFECTIVE', is_editable: 0, is_staff_linked: 1 },
+                { row_code: 'SLATE_YARDS', row_name: 'Slate + Yards', section: 'WORKING_DETAILS', is_editable: 1, is_staff_linked: 0 },
+                { row_code: 'BTN', row_name: 'BTN', section: 'WORKING_DETAILS', is_editable: 1, is_staff_linked: 0 },
+                { row_code: 'TW', row_name: 'TW', section: 'WORKING_DETAILS', is_editable: 1, is_staff_linked: 0 },
+                { row_code: 'LE_COACHING', row_name: 'LE + Coaching', section: 'WORKING_DETAILS', is_editable: 1, is_staff_linked: 0 },
+                { row_code: 'PROTECTION', row_name: 'Protection WTG', section: 'WORKING_DETAILS', is_editable: 1, is_staff_linked: 0 },
+                { row_code: 'LEAVE_NH', row_name: 'Leave & NH', section: 'WORKING_DETAILS', is_editable: 1, is_staff_linked: 0 },
+                { row_code: '30HRS_REST', row_name: '30 Hrs Rest', section: 'WORKING_DETAILS', is_editable: 1, is_staff_linked: 0 },
+                { row_code: 'SICK_IOD', row_name: 'Sick/IOD', section: 'WORKING_DETAILS', is_editable: 1, is_staff_linked: 0 },
+                { row_code: 'ABSENT', row_name: 'Absent/AUC/NF', section: 'WORKING_DETAILS', is_editable: 1, is_staff_linked: 0 },
+                { row_code: 'PME', row_name: 'PME', section: 'WORKING_DETAILS', is_editable: 1, is_staff_linked: 0 },
+                { row_code: 'LONG_TRAINING', row_name: 'Long Term Training', section: 'WORKING_DETAILS', is_editable: 1, is_staff_linked: 0 },
+                { row_code: 'MID_TRAINING', row_name: 'Mid Term Training', section: 'WORKING_DETAILS', is_editable: 1, is_staff_linked: 0 },
+                { row_code: 'SHORT_TRAINING', row_name: 'Short Term Training', section: 'WORKING_DETAILS', is_editable: 1, is_staff_linked: 0 },
+                { row_code: 'LRD', row_name: 'Under LRD/TW LRD', section: 'WORKING_DETAILS', is_editable: 1, is_staff_linked: 0 },
+                { row_code: 'NET_AVAILABLE', row_name: 'Net Available', section: 'RESULT', is_editable: 0, is_staff_linked: 0 },
+                { row_code: 'UTILIZATION', row_name: 'Utilization', section: 'RESULT', is_editable: 1, is_staff_linked: 0 }
+            ];
+        }
+
+        // Designation colors for table headers
+        const desigColors = {
+            LPG: '#3b82f6', LPS: '#10b981', ALP: '#f59e0b',
+            LPM: '#8b5cf6', LPP: '#ec4899', LPGHAT: '#6366f1', MOTORMAN: '#14b8a6'
+        };
+
+        function renderSummaryTable() {
+            const tableBody = document.querySelector('.summary-table tbody');
+            if (!tableBody) return;
+
+            // Build header with dynamic designations
+            const headerRow = document.querySelector('.summary-table thead tr');
+            headerRow.innerHTML = `<th>Category</th>` + activeDesignations.map(d =>
+                `<th class="col-${d.toLowerCase()}" style="background: ${desigColors[d] || '#666'}; color: white; text-align: center;">${d}</th>`
+            ).join('');
+
+            // Group rows by section
+            const sections = { STRENGTH: [], NON_EFFECTIVE: [], WORKING_DETAILS: [], RESULT: [], CUSTOM: [] };
+            rowsData.forEach(row => {
+                const section = row.section || 'CUSTOM';
+                if (sections[section]) sections[section].push(row);
+            });
+
+            let html = '';
+
+            // Render each section
+            const sectionTitles = {
+                STRENGTH: null,
+                NON_EFFECTIVE: 'LESS: Non-Effective',
+                WORKING_DETAILS: 'Working Details',
+                RESULT: null,
+                CUSTOM: 'Custom'
+            };
+
+            Object.entries(sections).forEach(([sectionKey, rows]) => {
+                if (rows.length === 0) return;
+
+                // Section header
+                if (sectionTitles[sectionKey]) {
+                    html += `<tr class="section-header"><td colspan="${activeDesignations.length + 1}">${sectionTitles[sectionKey]}</td></tr>`;
+                }
+
+                // Render rows in section
+                rows.forEach(row => {
+                    const isTotal = row.row_code === 'NET_AVAILABLE' || row.row_code === 'VACANCY';
+                    html += `<tr class="${isTotal ? 'total-row' : ''}" data-row="${row.row_code}">`;
+                    html += `<td>${row.row_name}</td>`;
+
+                    activeDesignations.forEach(desig => {
+                        const cellId = `${row.row_code}_${desig}`;
+
+                        if (row.is_editable === 1 && !isFinalized) {
+                            // Editable input
+                            html += `<td><input type="number" id="${cellId}" onchange="onValueChange('${row.row_code}', '${desig}')" value="0"></td>`;
+                        } else if (row.is_staff_linked === 1) {
+                            // Auto-calculated from staff (display only)
+                            html += `<td id="${cellId}" class="staff-count">0</td>`;
+                        } else {
+                            // Read-only display
+                            html += `<td id="${cellId}">0</td>`;
+                        }
+                    });
+
+                    html += `</tr>`;
+                });
+            });
+
+            tableBody.innerHTML = html;
+
+            // Populate initial values
+            populateTableValues();
+        }
+
+        function populateTableValues() {
+            // Populate sanction from master
+            activeDesignations.forEach(desig => {
+                const el = document.getElementById(`SANCTION_${desig}`);
+                if (el) el.textContent = sanctionData[desig] || 0;
+            });
+
+            // Populate values from positionValues
+            Object.entries(positionValues).forEach(([rowCode, desigs]) => {
+                Object.entries(desigs).forEach(([desig, value]) => {
+                    const el = document.getElementById(`${rowCode}_${desig}`);
+                    if (el) {
+                        if (el.tagName === 'INPUT') {
+                            el.value = value || 0;
+                        } else {
+                            el.textContent = value || 0;
+                        }
+                    }
+                });
+            });
+
+            // Recalculate staff-linked and computed values
+            updateSummaryCalculations();
+        }
+
+        function onValueChange(rowCode, desig) {
+            // Update positionValues state
+            if (!positionValues[rowCode]) positionValues[rowCode] = {};
+            const el = document.getElementById(`${rowCode}_${desig}`);
+            if (el && el.tagName === 'INPUT') {
+                positionValues[rowCode][desig] = parseInt(el.value) || 0;
+            }
+            updateSummaryCalculations();
+        }
+
+        async function fetchUserLobby() {
+            try {
+                const resp = await fetch('/api/session');
+                const session = await resp.json();
+                return session.user?.office_code || 'KYN';
+            } catch {
+                return 'KYN';
+            }
+        }
+
+        async function loadCategories() {
+            // Fallback categories (used if API fails or table doesn't exist)
+            const fallbackCategories = [
+                { category_code: 'MEDICAL_UNFIT', category_name: 'Medical Unfit' },
+                { category_code: 'SPAD_CREW', category_name: 'SPAD Crew' },
+                { category_code: 'OFFICE_OUTSTATION', category_name: 'Office/Outstation' },
+                { category_code: 'FROM_OTHER_LOBBY', category_name: 'From Other Lobby' },
+                { category_code: 'TO_OTHER_LOBBY', category_name: 'To Other Lobby' },
+                { category_code: 'CLI_SR_CC_ROOM', category_name: 'CLI/Sr CC Room' },
+                { category_code: 'ON_LINE_OTHER', category_name: 'On Line Other Lobby' },
+                { category_code: 'SUPERNUMERARY', category_name: 'Supernumerary' },
+                { category_code: 'LONG_TRAINING', category_name: 'Long Term Training' },
+                { category_code: 'MID_TRAINING', category_name: 'Mid Term Training' },
+                { category_code: 'SHORT_TRAINING', category_name: 'Short Term Training' },
+                { category_code: 'LRD', category_name: 'Under LRD' }
+            ];
+
+            try {
+                const resp = await fetch('/api/division/midnight-position/categories');
+                if (resp.ok) {
+                    const data = await resp.json();
+                    if (Array.isArray(data) && data.length > 0) {
+                        categories = data;
+                    } else {
+                        categories = fallbackCategories;
+                    }
+                } else {
+                    console.warn('Categories API returned error, using fallback');
+                    categories = fallbackCategories;
+                }
+            } catch (error) {
+                console.warn('Error loading categories, using fallback:', error.message);
+                categories = fallbackCategories;
+            }
+            renderTabs();
+            populateCategoryDropdown();
+        }
+
+        function renderTabs() {
+            const tabsContainer = document.getElementById('categoryTabs');
+            tabsContainer.innerHTML = categories.map((cat, idx) => `
+                <button class="tab-btn ${idx === 0 ? 'active' : ''}"
+                        data-category="${cat.category_code}"
+                        onclick="switchTab('${cat.category_code}', this)">
+                    ${cat.category_name}
+                    <span class="tab-count" id="count_${cat.category_code}">0</span>
+                </button>
+            `).join('');
+        }
+
+        function populateCategoryDropdown() {
+            const select = document.getElementById('staffCategory');
+            select.innerHTML = categories.map(cat =>
+                `<option value="${cat.category_code}">${cat.category_name}</option>`
+            ).join('');
+        }
+
+        async function loadPosition() {
+            currentDate = document.getElementById('positionDate').value;
+            if (!currentDate || !currentLobby) return;
+
+            try {
+                const resp = await fetch(`/api/division/midnight-position?date=${currentDate}&lobby=${currentLobby}`);
+
+                if (!resp.ok) {
+                    // API error - likely table doesn't exist yet
+                    console.warn('Position API error:', resp.status);
+                    document.getElementById('carryForwardBanner').style.display = 'none';
+                    currentPositionId = null;
+                    positionData = null;
+                    staffByCategory = {};
+                    positionValues = {};
+                    isFinalized = false;
+                    updateStatusBadge('new');
+                    clearForm();
+                    renderStaffTable();
+                    return;
+                }
+
+                const data = await resp.json();
+
+                if (!data.exists) {
+                    // Show carry forward option
+                    if (data.canCarryForward) {
+                        document.getElementById('carryForwardBanner').style.display = 'flex';
+                        const prevDate = new Date(data.previousDate).toLocaleDateString('en-GB', {
+                            day: '2-digit', month: 'short', year: 'numeric'
+                        });
+                        document.getElementById('prevDateText').textContent = prevDate;
+                    } else {
+                        document.getElementById('carryForwardBanner').style.display = 'none';
+                    }
+                    currentPositionId = null;
+                    positionData = null;
+                    staffByCategory = {};
+                    positionValues = {};
+                    isFinalized = false;
+                    updateStatusBadge('new');
+                    clearForm();
+                    renderStaffTable();
+                    return;
+                }
+
+                document.getElementById('carryForwardBanner').style.display = 'none';
+                currentPositionId = data.position.id;
+                positionData = data.position;
+                staffByCategory = data.staffByCategory || {};
+                isFinalized = data.position.finalized === 1;
+
+                // Load position values from new key-value store
+                await loadPositionValues();
+
+                updateStatusBadge(isFinalized ? 'finalized' : 'pending');
+                populateTableValues();
+                updateTabCounts();
+                renderStaffTable();
+                toggleEditMode(!isFinalized);
+
+            } catch (error) {
+                console.warn('Error loading position:', error.message);
+                // Handle gracefully - show empty state
+                document.getElementById('carryForwardBanner').style.display = 'none';
+                currentPositionId = null;
+                positionData = null;
+                staffByCategory = {};
+                positionValues = {};
+                isFinalized = false;
+                updateStatusBadge('new');
+                clearForm();
+                renderStaffTable();
+            }
+        }
+
+        async function loadPositionValues() {
+            if (!currentPositionId) {
+                positionValues = {};
+                return;
+            }
+
+            try {
+                const resp = await fetch(`/api/division/midnight-position/values/${currentPositionId}`);
+                if (resp.ok) {
+                    positionValues = await resp.json();
+                } else {
+                    positionValues = {};
+                }
+            } catch (error) {
+                console.warn('Error loading position values:', error);
+                positionValues = {};
+            }
+        }
+
+        async function carryForward() {
+            try {
+                const resp = await fetch('/api/division/midnight-position/carry-forward', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        date: currentDate,
+                        lobby: currentLobby
+                    })
+                });
+
+                const data = await resp.json();
+                if (data.success) {
+                    alert(`Carried forward ${data.staffEntriesCarried} entries from ${new Date(data.carriedFromDate).toLocaleDateString()}`);
+                    await loadPosition();
+                } else {
+                    alert(data.error || 'Failed to carry forward');
+                }
+            } catch (error) {
+                console.error('Error carrying forward:', error);
+                alert('Failed to carry forward position');
+            }
+        }
+
+        function updateStatusBadge(status) {
+            const badge = document.getElementById('statusBadge');
+            badge.className = 'status-badge ' + status;
+            if (status === 'finalized') {
+                badge.innerHTML = '<i class="fa-solid fa-lock"></i> Finalized';
+            } else if (status === 'new') {
+                badge.innerHTML = '<i class="fa-solid fa-plus"></i> New';
+            } else {
+                badge.innerHTML = '<i class="fa-solid fa-clock"></i> Pending';
+            }
+        }
+
+        function clearForm() {
+            const inputs = document.querySelectorAll('.summary-table input');
+            inputs.forEach(input => input.value = 0);
+            positionValues = {};
+            // Re-populate sanction from master table
+            populateTableValues();
+        }
+
+        function updateSummaryCalculations() {
+            // Count staff by category and designation for staff-linked rows
+            const staffCounts = {};
+            const staffLinkedRows = rowsData.filter(r => r.is_staff_linked === 1);
+
+            staffLinkedRows.forEach(row => {
+                staffCounts[row.row_code] = {};
+                activeDesignations.forEach(d => {
+                    staffCounts[row.row_code][d] = 0;
+                });
+
+                // Count staff in this category
+                (staffByCategory[row.row_code] || []).forEach(s => {
+                    // Match designation - check if staff designation contains or matches active desig
+                    activeDesignations.forEach(desig => {
+                        const staffDesig = (s.designation || '').toUpperCase();
+                        if (staffDesig.includes(desig) || staffDesig === desig) {
+                            staffCounts[row.row_code][desig]++;
+                        }
+                    });
+                });
+
+                // Update display for staff-linked row
+                activeDesignations.forEach(desig => {
+                    const el = document.getElementById(`${row.row_code}_${desig}`);
+                    if (el) el.textContent = staffCounts[row.row_code][desig];
+                });
+            });
+
+            // Calculate computed values for each designation
+            activeDesignations.forEach(desig => {
+                const sanction = sanctionData[desig] || 0;
+
+                // Get On Roll value
+                const onRollEl = document.getElementById(`ON_ROLL_${desig}`);
+                const onRoll = onRollEl ? (onRollEl.tagName === 'INPUT' ? parseInt(onRollEl.value) || 0 : parseInt(onRollEl.textContent) || 0) : 0;
+
+                // Calculate Vacancy = Sanction - On Roll
+                const vacancy = sanction - onRoll;
+                const vacancyEl = document.getElementById(`VACANCY_${desig}`);
+                if (vacancyEl) vacancyEl.textContent = vacancy;
+
+                // Calculate total Non-Effective from staff-linked rows in NON_EFFECTIVE section
+                let totalNonEffective = 0;
+                const nonEffRows = rowsData.filter(r => r.section === 'NON_EFFECTIVE' && r.is_staff_linked === 1);
+                nonEffRows.forEach(row => {
+                    totalNonEffective += (staffCounts[row.row_code] && staffCounts[row.row_code][desig]) || 0;
+                });
+
+                // Calculate Net Available = On Roll - Non-Effective
+                const netAvailable = onRoll - totalNonEffective;
+                const netEl = document.getElementById(`NET_AVAILABLE_${desig}`);
+                if (netEl) netEl.textContent = netAvailable;
+
+                // Update designation cards
+                const cardSsEl = document.getElementById(`${desig.toLowerCase()}-card-ss`);
+                const cardMorEl = document.getElementById(`${desig.toLowerCase()}-card-mor`);
+                const cardVacEl = document.getElementById(`${desig.toLowerCase()}-card-vac`);
+                const cardNetEl = document.getElementById(`${desig.toLowerCase()}-card-net`);
+
+                if (cardSsEl) cardSsEl.textContent = sanction;
+                if (cardMorEl) cardMorEl.textContent = onRoll;
+                if (cardVacEl) cardVacEl.textContent = vacancy;
+                if (cardNetEl) cardNetEl.textContent = netAvailable;
+            });
+        }
+
+        // Alias for backward compatibility
+        function updateSummary() {
+            updateSummaryCalculations();
+        }
+
+        function updateTabCounts() {
+            categories.forEach(cat => {
+                const count = (staffByCategory[cat.category_code] || []).length;
+                const el = document.getElementById('count_' + cat.category_code);
+                if (el) el.textContent = count;
+            });
+        }
+
+        function switchTab(categoryCode, btn) {
+            activeCategory = categoryCode;
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            renderStaffTable();
+        }
+
+        function renderStaffTable() {
+            const tbody = document.getElementById('staffTableBody');
+            const staff = staffByCategory[activeCategory] || [];
+
+            if (staff.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="6">
+                            <div class="empty-state">
+                                <i class="fa-solid fa-users-slash"></i>
+                                <p>No staff entries in this category</p>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = staff.map(s => {
+                const daysSince = s.since_date ? Math.floor((new Date() - new Date(s.since_date)) / (1000 * 60 * 60 * 24)) : null;
+                const pillClass = daysSince > 90 ? 'pill-red' : daysSince > 30 ? 'pill-yellow' : 'pill-blue';
+                const idParts = [];
+                if (s.staff_cms_id) idParts.push(`CMS: ${s.staff_cms_id}`);
+                if (s.staff_hrms_id) idParts.push(`HRMS: ${s.staff_hrms_id}`);
+
+                return `
+                    <tr data-id="${s.id}">
+                        <td>
+                            <div class="staff-name">${s.staff_name}</div>
+                            ${idParts.length > 0 ? `<div class="staff-id">${idParts.join(' | ')}</div>` : ''}
+                        </td>
+                        <td>${s.designation}</td>
+                        <td>${s.working_from_as || '-'}</td>
+                        <td>
+                            ${s.since_date ? `
+                                <span class="pill ${pillClass}">${formatDate(s.since_date)}</span>
+                                ${daysSince !== null ? `<div style="font-size:10px; color:#666; margin-top:2px;">(${daysSince} days)</div>` : ''}
+                            ` : '-'}
+                        </td>
+                        <td>${s.reason || '-'}</td>
+                        <td style="text-align: right;">
+                            ${!isFinalized ? `
+                                <i class="fa-solid fa-pen action-icon" title="Edit" onclick="editStaff(${s.id})"></i>
+                                <i class="fa-solid fa-trash action-icon danger" title="Delete" onclick="deleteStaff(${s.id})"></i>
+                            ` : ''}
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '';
+            const d = new Date(dateStr);
+            return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' });
+        }
+
+        function filterStaff() {
+            const term = document.getElementById('searchBox').value.toLowerCase();
+            const rows = document.querySelectorAll('#staffTableBody tr');
+            rows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                row.style.display = text.includes(term) ? '' : 'none';
+            });
+        }
+
+        function toggleEditMode(enabled) {
+            const inputs = document.querySelectorAll('.summary-table input:not([disabled])');
+            inputs.forEach(input => input.disabled = !enabled);
+            document.getElementById('finalizeBtn').disabled = !enabled || !currentPositionId;
+            document.querySelector('.add-btn').style.display = enabled ? 'flex' : 'none';
+        }
+
+        // Modal functions
+        function openAddModal() {
+            if (isFinalized) {
+                alert('Position is finalized and cannot be modified');
+                return;
+            }
+            document.getElementById('modalTitle').textContent = 'Add Staff Entry';
+            document.getElementById('editingStaffId').value = '';
+            document.getElementById('staffCategory').value = activeCategory;
+            document.getElementById('staffSearch').value = '';
+            document.getElementById('staffSearchResults').classList.remove('active');
+            document.getElementById('staffName').value = '';
+            document.getElementById('staffHrmsId').value = '';
+            document.getElementById('staffCmsId').value = '';
+            document.getElementById('staffDesignation').selectedIndex = 0; // First available designation
+            document.getElementById('staffSinceDate').value = '';
+            document.getElementById('staffWorkingFrom').value = '';
+            document.getElementById('staffReason').value = '';
+            document.getElementById('staffRemarks').value = '';
+            document.getElementById('staffModal').classList.add('active');
+        }
+
+        function editStaff(id) {
+            if (isFinalized) return;
+
+            // Find staff entry
+            let staff = null;
+            for (const cat in staffByCategory) {
+                staff = staffByCategory[cat].find(s => s.id === id);
+                if (staff) break;
+            }
+            if (!staff) return;
+
+            document.getElementById('modalTitle').textContent = 'Edit Staff Entry';
+            document.getElementById('editingStaffId').value = id;
+            document.getElementById('staffCategory').value = staff.category;
+            document.getElementById('staffSearch').value = '';
+            document.getElementById('staffSearchResults').classList.remove('active');
+            document.getElementById('staffName').value = staff.staff_name;
+            document.getElementById('staffHrmsId').value = staff.staff_hrms_id || '';
+            document.getElementById('staffCmsId').value = staff.staff_cms_id || '';
+            document.getElementById('staffDesignation').value = staff.designation;
+            document.getElementById('staffSinceDate').value = staff.since_date ? staff.since_date.split('T')[0] : '';
+            document.getElementById('staffWorkingFrom').value = staff.working_from_as || '';
+            document.getElementById('staffReason').value = staff.reason || '';
+            document.getElementById('staffRemarks').value = staff.remarks || '';
+            document.getElementById('staffModal').classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('staffModal').classList.remove('active');
+            // Hide autocomplete results when modal closes
+            document.getElementById('staffSearchResults').classList.remove('active');
+        }
+
+        // Staff search autocomplete
+        let searchTimeout = null;
+        async function onStaffSearch(query) {
+            const resultsDiv = document.getElementById('staffSearchResults');
+
+            // Clear previous timeout
+            if (searchTimeout) clearTimeout(searchTimeout);
+
+            // Need at least 2 characters to search
+            if (!query || query.length < 2) {
+                resultsDiv.classList.remove('active');
+                return;
+            }
+
+            // Debounce - wait 300ms before searching
+            searchTimeout = setTimeout(async () => {
+                resultsDiv.innerHTML = '<div class="autocomplete-loading"><i class="fa-solid fa-spinner fa-spin"></i> Searching...</div>';
+                resultsDiv.classList.add('active');
+
+                try {
+                    const resp = await fetch(`/api/division/midnight-position/staff-search?q=${encodeURIComponent(query)}&office_code=${currentLobby}&limit=10`);
+                    if (resp.ok) {
+                        const staff = await resp.json();
+                        renderStaffSearchResults(staff);
+                    } else {
+                        resultsDiv.innerHTML = '<div class="autocomplete-no-results">Error searching staff</div>';
+                    }
+                } catch (error) {
+                    console.error('Staff search error:', error);
+                    resultsDiv.innerHTML = '<div class="autocomplete-no-results">Error searching staff</div>';
+                }
+            }, 300);
+        }
+
+        function renderStaffSearchResults(staff) {
+            const resultsDiv = document.getElementById('staffSearchResults');
+
+            if (!staff || staff.length === 0) {
+                resultsDiv.innerHTML = '<div class="autocomplete-no-results">No matching staff found</div>';
+                return;
+            }
+
+            resultsDiv.innerHTML = staff.map(s => {
+                const isOtherLobby = s.current_office_code && s.current_office_code !== currentLobby;
+                const otherLobbyStyle = isOtherLobby ? 'border-left: 3px solid #f59e0b; background: #fffbeb;' : '';
+                const otherLobbyBadge = isOtherLobby ?
+                    `<span style="background:#f59e0b; color:white; padding:2px 6px; border-radius:4px; font-size:10px; margin-left:6px;">Other Lobby</span>` : '';
+
+                return `
+                    <div class="autocomplete-item" style="${otherLobbyStyle}" onclick="selectStaffFromSearch(${JSON.stringify(s).replace(/"/g, '&quot;')})">
+                        <div class="staff-name">${s.name || 'Unknown'}
+                            <span class="staff-desig">${s.designation_name || 'N/A'}</span>
+                            ${otherLobbyBadge}
+                        </div>
+                        <div class="staff-info">
+                            ${s.cms_id ? `CMS: ${s.cms_id}` : ''}
+                            ${s.hrms_id ? ` | HRMS: ${s.hrms_id}` : ''}
+                            ${s.current_office_code ? ` | Office: ${s.current_office_code}` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function selectStaffFromSearch(staff) {
+            // Check if staff is from a different lobby
+            const staffOffice = staff.current_office_code || '';
+            if (staffOffice && staffOffice !== currentLobby) {
+                const proceed = confirm(
+                    `⚠️ This staff belongs to ${staffOffice}, not ${currentLobby}.\n\n` +
+                    `Name: ${staff.name}\n` +
+                    `CMS ID: ${staff.cms_id || 'N/A'}\n\n` +
+                    `Are you sure you want to add this staff?`
+                );
+                if (!proceed) {
+                    return; // User cancelled
+                }
+            }
+
+            // Populate form fields from selected staff
+            document.getElementById('staffName').value = staff.name || '';
+            document.getElementById('staffHrmsId').value = staff.hrms_id || '';
+            document.getElementById('staffCmsId').value = staff.cms_id || '';
+
+            // Try to match designation to dropdown
+            const desigSelect = document.getElementById('staffDesignation');
+            const desigName = (staff.designation_name || '').toUpperCase();
+            let matched = false;
+
+            for (let i = 0; i < desigSelect.options.length; i++) {
+                const optVal = desigSelect.options[i].value.toUpperCase();
+                if (desigName.includes(optVal) || optVal.includes(desigName)) {
+                    desigSelect.selectedIndex = i;
+                    matched = true;
+                    break;
+                }
+            }
+
+            // Clear search field and hide results
+            document.getElementById('staffSearch').value = '';
+            document.getElementById('staffSearchResults').classList.remove('active');
+        }
+
+        // Close autocomplete when clicking outside
+        document.addEventListener('click', function(e) {
+            const wrapper = document.querySelector('.autocomplete-wrapper');
+            if (wrapper && !wrapper.contains(e.target)) {
+                document.getElementById('staffSearchResults').classList.remove('active');
+            }
+        });
+
+        async function saveStaff() {
+            const editId = document.getElementById('editingStaffId').value;
+            const data = {
+                category: document.getElementById('staffCategory').value,
+                staff_name: document.getElementById('staffName').value.trim(),
+                staff_hrms_id: document.getElementById('staffHrmsId').value.trim() || null,
+                staff_cms_id: document.getElementById('staffCmsId').value.trim() || null,
+                designation: document.getElementById('staffDesignation').value,
+                since_date: document.getElementById('staffSinceDate').value || null,
+                working_from_as: document.getElementById('staffWorkingFrom').value.trim() || null,
+                reason: document.getElementById('staffReason').value.trim() || null,
+                remarks: document.getElementById('staffRemarks').value.trim() || null
+            };
+
+            if (!data.staff_name) {
+                alert('Staff name is required');
+                return;
+            }
+
+            // If no position exists yet, create one first
+            if (!currentPositionId) {
+                await saveSummary(true);
+            }
+
+            try {
+                let resp;
+                if (editId) {
+                    // Update existing
+                    resp = await fetch(`/api/division/midnight-position/staff/${editId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data)
+                    });
+                } else {
+                    // Add new
+                    data.positionId = currentPositionId;
+                    resp = await fetch('/api/division/midnight-position/staff', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data)
+                    });
+                }
+
+                const result = await resp.json();
+                if (result.success) {
+                    closeModal();
+                    await loadPosition();
+                } else {
+                    alert(result.error || 'Failed to save');
+                }
+            } catch (error) {
+                console.error('Error saving staff:', error);
+                alert('Failed to save staff entry');
+            }
+        }
+
+        async function deleteStaff(id) {
+            if (isFinalized) return;
+            if (!confirm('Delete this staff entry?')) return;
+
+            try {
+                const resp = await fetch(`/api/division/midnight-position/staff/${id}`, {
+                    method: 'DELETE'
+                });
+                const result = await resp.json();
+                if (result.success) {
+                    await loadPosition();
+                } else {
+                    alert(result.error || 'Failed to delete');
+                }
+            } catch (error) {
+                console.error('Error deleting staff:', error);
+                alert('Failed to delete staff entry');
+            }
+        }
+
+        async function saveSummary(silent = false) {
+            // Collect all values from the dynamic table
+            const values = collectTableValues();
+
+            try {
+                // First, ensure position record exists
+                const posResp = await fetch('/api/division/midnight-position', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        date: currentDate,
+                        lobby: currentLobby,
+                        summary: {} // Minimal summary - values stored separately
+                    })
+                });
+
+                const posResult = await posResp.json();
+                if (!posResult.success) {
+                    alert(posResult.error || 'Failed to save position');
+                    return;
+                }
+
+                currentPositionId = posResult.positionId;
+
+                // Now save the values using the new key-value store API
+                const valuesResp = await fetch('/api/division/midnight-position/values', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        positionId: currentPositionId,
+                        values: values
+                    })
+                });
+
+                const valuesResult = await valuesResp.json();
+                if (valuesResult.success) {
+                    if (!silent) {
+                        alert('Summary saved successfully');
+                        await loadPosition();
+                    }
+                } else {
+                    alert(valuesResult.error || 'Failed to save values');
+                }
+            } catch (error) {
+                console.error('Error saving summary:', error);
+                if (!silent) alert('Failed to save summary');
+            }
+        }
+
+        function collectTableValues() {
+            // Collect all values from the dynamic table
+            const values = {};
+
+            rowsData.forEach(row => {
+                if (!row.is_editable && !row.is_staff_linked) return; // Skip computed/readonly rows
+
+                values[row.row_code] = {};
+                activeDesignations.forEach(desig => {
+                    const el = document.getElementById(`${row.row_code}_${desig}`);
+                    if (el) {
+                        if (el.tagName === 'INPUT') {
+                            values[row.row_code][desig] = parseInt(el.value) || 0;
+                        } else {
+                            values[row.row_code][desig] = parseInt(el.textContent) || 0;
+                        }
+                    }
+                });
+            });
+
+            return values;
+        }
+
+        async function finalizePosition() {
+            if (!currentPositionId) {
+                alert('Please save position data first');
+                return;
+            }
+            if (!confirm('Finalize this position? This will lock all entries for the day.')) return;
+
+            try {
+                const resp = await fetch('/api/division/midnight-position/finalize', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ positionId: currentPositionId })
+                });
+
+                const result = await resp.json();
+                if (result.success) {
+                    alert('Position finalized successfully');
+                    await loadPosition();
+                } else {
+                    alert(result.error || 'Failed to finalize');
+                }
+            } catch (error) {
+                console.error('Error finalizing:', error);
+                alert('Failed to finalize position');
+            }
+        }
+    </script>
+</body>
+</html>

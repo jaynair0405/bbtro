@@ -480,6 +480,7 @@
         <div class="header">
             <h1>👨‍✈️ CLI Management</h1>
             <div class="header-actions">
+                <span id="cliCounts" style="margin-right: 16px; color: #6b7280; font-size: 14px;"></span>
                 <button class="btn btn-secondary" onclick="window.location.href='/div'">← Back</button>
                 <button class="btn btn-primary" onclick="openAddCLIModal()">+ Add New CLI</button>
             </div>
@@ -490,6 +491,10 @@
             <div class="search-box">
                 <input type="text" id="searchInput" placeholder="Search by name or CMSID..." onkeyup="filterCLIs()">
             </div>
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 14px; color: #6b7280;">
+                <input type="checkbox" id="showInactiveToggle" onchange="loadCLIs()">
+                Show Inactive CLIs
+            </label>
             <div class="filter-box">
                 <select id="officeFilter" onchange="filterCLIs()">
                     <option value="">All Offices</option>
@@ -675,15 +680,131 @@
         </div>
     </div>
 
+    <!-- Deactivate CLI Modal -->
+    <div id="deactivateModal" class="modal">
+        <div class="modal-content" style="max-width: 450px;">
+            <div class="modal-header" style="background: #fef2f2;">
+                <h2 style="color: #dc2626;">⚠️ Deactivate CLI</h2>
+                <button class="close-btn" onclick="closeModal('deactivateModal')">×</button>
+            </div>
+            <div class="modal-body">
+                <p style="margin-bottom: 16px; color: #6b7280;">
+                    You are about to deactivate: <strong id="deactivateCLIName"></strong>
+                </p>
+                <input type="hidden" id="deactivateCLIId">
+
+                <div class="form-group">
+                    <label>Reason for Deactivation <span class="required">*</span></label>
+                    <select id="inactiveReason" required style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 8px;">
+                        <option value="">Select Reason</option>
+                        <option value="Retired">Retired</option>
+                        <option value="Promoted_ADEE">Promoted to ADEE</option>
+                        <option value="Promoted_ADME">Promoted to ADME</option>
+                        <option value="Expired">Expired (Deceased)</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Effective Date</label>
+                    <input type="date" id="inactiveDate" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 8px;">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('deactivateModal')">Cancel</button>
+                <button class="btn" style="background: #dc2626; color: white;" onclick="confirmDeactivateCLI()">Deactivate CLI</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Office History Modal -->
+    <div id="officeHistoryModal" class="modal">
+        <div class="modal-content" style="max-width: 700px;">
+            <div class="modal-header">
+                <h2 id="officeHistoryTitle">📍 Office History</h2>
+                <button class="close-btn" onclick="closeModal('officeHistoryModal')">×</button>
+            </div>
+            <div class="modal-body">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                    <span style="color: #6b7280;" id="officeHistoryCLIName"></span>
+                    <button class="btn btn-primary" onclick="openAddOfficeHistoryModal()">+ Add Posting</button>
+                </div>
+                <div id="officeHistoryList">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add/Edit Office History Modal -->
+    <div id="addOfficeHistoryModal" class="modal">
+        <div class="modal-content" style="max-width: 450px;">
+            <div class="modal-header">
+                <h2 id="addOfficeHistoryTitle">Add Office Posting</h2>
+                <button class="close-btn" onclick="closeModal('addOfficeHistoryModal')">×</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="officeHistoryId">
+                <input type="hidden" id="officeHistoryCLIId">
+
+                <div class="form-group">
+                    <label>Office <span class="required">*</span></label>
+                    <select id="historyOfficeCode" required style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 8px;">
+                        <option value="">Select Office</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>From Date</label>
+                    <input type="date" id="historyFromDate" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 8px;">
+                </div>
+
+                <div class="form-group">
+                    <label>To Date</label>
+                    <input type="date" id="historyToDate" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 8px;">
+                </div>
+
+                <div class="form-group">
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <input type="checkbox" id="historyIsCurrent">
+                        <span>This is the current posting</span>
+                    </label>
+                </div>
+
+                <div class="form-group">
+                    <label>Remarks</label>
+                    <input type="text" id="historyRemarks" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 8px;">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('addOfficeHistoryModal')">Cancel</button>
+                <button class="btn btn-primary" onclick="saveOfficeHistory()">Save</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         let allCLIs = [];
         let allOffices = [];
+        let cliCounts = { active_count: 0, inactive_count: 0 };
 
         // Load CLIs on page load
         async function loadCLIs() {
             try {
-                const response = await fetch('/api/division/cli');
-                allCLIs = await response.json();
+                const showInactive = document.getElementById('showInactiveToggle').checked;
+                const url = showInactive ? '/api/division/cli?include_inactive=true' : '/api/division/cli';
+                const response = await fetch(url);
+                const data = await response.json();
+
+                allCLIs = data.clis || data;
+                cliCounts = data.counts || { active_count: allCLIs.length, inactive_count: 0 };
+
+                // Update counts display
+                document.getElementById('cliCounts').innerHTML = `
+                    <span style="color: #059669;">Active: ${cliCounts.active_count || 0}</span>
+                    ${cliCounts.inactive_count > 0 ? `<span style="margin-left: 12px; color: #dc2626;">Inactive: ${cliCounts.inactive_count}</span>` : ''}
+                `;
+
                 renderCLIs(allCLIs);
             } catch (error) {
                 console.error('Error loading CLIs:', error);
@@ -733,8 +854,17 @@
                     cliSince = 'Recently promoted';
                 }
 
+                const isInactive = cli.is_active === 0 || cli.is_active === false;
+                const inactiveStyle = isInactive ? 'opacity: 0.7; border: 2px dashed #dc2626;' : '';
+                const inactiveBadge = isInactive ? `
+                    <div style="position: absolute; top: 8px; right: 8px; background: #dc2626; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;">
+                        INACTIVE${cli.inactive_reason ? ' - ' + cli.inactive_reason.replace('_', ' ') : ''}
+                    </div>
+                ` : '';
+
                 return `
-                <div class="cli-card" onclick="viewCLIDetails(${cli.cli_id})">
+                <div class="cli-card" onclick="viewCLIDetails(${cli.cli_id})" style="position: relative; ${inactiveStyle}">
+                    ${inactiveBadge}
                     <div class="cli-card-header">
                         <div>
                             <div class="cli-cmsid">${cli.cmsid || 'N/A'}</div>
@@ -891,6 +1021,23 @@
                                 onclick="viewStaffList(${cli.cli_id}, '${cli.cli_name}')">
                             📋 View Full Staff List
                         </button>
+                        <button class="btn btn-secondary" style="width: 100%; margin-top: 12px;"
+                                onclick="openOfficeHistoryModal(${cli.cli_id}, '${cli.cli_name}')">
+                            📍 Office History
+                        </button>
+                        ${cli.is_active ? `
+                            <button class="btn" style="width: 100%; margin-top: 12px; background: #fef2f2; color: #dc2626; border: 1px solid #fecaca;"
+                                    onclick="openDeactivateModal(${cli.cli_id}, '${cli.cli_name}')">
+                                ⚠️ Deactivate CLI
+                            </button>
+                        ` : `
+                            <div style="margin-top: 12px; padding: 12px; background: #fef2f2; border-radius: 8px; text-align: center;">
+                                <span style="color: #dc2626;">⚠️ CLI is Inactive</span>
+                                ${cli.inactive_reason ? `<br><small style="color: #6b7280;">Reason: ${cli.inactive_reason.replace('_', ' ')}</small>` : ''}
+                                ${cli.inactive_date ? `<br><small style="color: #6b7280;">Date: ${formatDate(cli.inactive_date)}</small>` : ''}
+                                <br><button class="btn btn-primary" style="margin-top: 8px;" onclick="reactivateCLI(${cli.cli_id}, '${cli.cli_name}')">Reactivate</button>
+                            </div>
+                        `}
                     </div>
                 `;
 
@@ -1302,6 +1449,269 @@
             } catch (error) {
                 console.error('Error changing CLI:', error);
                 alert('Failed to change CLI');
+            }
+        }
+
+        // ========== DEACTIVATE CLI FUNCTIONS ==========
+
+        let currentCLIForDeactivate = null;
+
+        function openDeactivateModal(cliId, cliName) {
+            currentCLIForDeactivate = { id: cliId, name: cliName };
+            document.getElementById('deactivateCLIId').value = cliId;
+            document.getElementById('deactivateCLIName').textContent = cliName;
+            document.getElementById('inactiveReason').value = '';
+            document.getElementById('inactiveDate').valueAsDate = new Date();
+            openModal('deactivateModal');
+        }
+
+        async function confirmDeactivateCLI() {
+            const cliId = document.getElementById('deactivateCLIId').value;
+            const reason = document.getElementById('inactiveReason').value;
+            const date = document.getElementById('inactiveDate').value;
+
+            if (!reason) {
+                alert('Please select a reason for deactivation');
+                return;
+            }
+
+            if (!confirm(`Are you sure you want to deactivate ${currentCLIForDeactivate.name}?`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/division/cli/${cliId}/deactivate`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        inactive_reason: reason,
+                        inactive_date: date
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    alert(result.message);
+                    closeModal('deactivateModal');
+                    closeModal('detailsModal');
+                    loadCLIs();
+                } else {
+                    alert(result.error || 'Failed to deactivate CLI');
+                }
+            } catch (error) {
+                console.error('Error deactivating CLI:', error);
+                alert('Failed to deactivate CLI');
+            }
+        }
+
+        async function reactivateCLI(cliId, cliName) {
+            if (!confirm(`Are you sure you want to reactivate ${cliName}?`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/division/cli/${cliId}/reactivate`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    alert(result.message);
+                    closeModal('detailsModal');
+                    loadCLIs();
+                } else {
+                    alert(result.error || 'Failed to reactivate CLI');
+                }
+            } catch (error) {
+                console.error('Error reactivating CLI:', error);
+                alert('Failed to reactivate CLI');
+            }
+        }
+
+        // ========== OFFICE HISTORY FUNCTIONS ==========
+
+        let currentCLIForHistory = null;
+
+        async function openOfficeHistoryModal(cliId, cliName) {
+            currentCLIForHistory = { id: cliId, name: cliName };
+            document.getElementById('officeHistoryCLIName').textContent = cliName;
+            document.getElementById('officeHistoryCLIId').value = cliId;
+
+            await loadOfficeHistory(cliId);
+            openModal('officeHistoryModal');
+        }
+
+        async function loadOfficeHistory(cliId) {
+            try {
+                const response = await fetch(`/api/division/cli/${cliId}/office-history`);
+                const data = await response.json();
+
+                const listDiv = document.getElementById('officeHistoryList');
+
+                if (!data.history || data.history.length === 0) {
+                    listDiv.innerHTML = '<p style="color: #6b7280; text-align: center; padding: 20px;">No office history records found.</p>';
+                    return;
+                }
+
+                listDiv.innerHTML = `
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <thead>
+                            <tr style="background: #f3f4f6;">
+                                <th style="padding: 10px; text-align: left; border-bottom: 1px solid #e5e7eb;">Office</th>
+                                <th style="padding: 10px; text-align: left; border-bottom: 1px solid #e5e7eb;">From</th>
+                                <th style="padding: 10px; text-align: left; border-bottom: 1px solid #e5e7eb;">To</th>
+                                <th style="padding: 10px; text-align: center; border-bottom: 1px solid #e5e7eb;">Status</th>
+                                <th style="padding: 10px; text-align: center; border-bottom: 1px solid #e5e7eb;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${data.history.map(h => `
+                                <tr>
+                                    <td style="padding: 10px; border-bottom: 1px solid #e5e7eb;">
+                                        <strong>${h.office_code}</strong>
+                                        ${h.office_name ? `<br><span style="font-size: 12px; color: #6b7280;">${h.office_name}</span>` : ''}
+                                    </td>
+                                    <td style="padding: 10px; border-bottom: 1px solid #e5e7eb;">${formatDate(h.from_date)}</td>
+                                    <td style="padding: 10px; border-bottom: 1px solid #e5e7eb;">${h.to_date ? formatDate(h.to_date) : '-'}</td>
+                                    <td style="padding: 10px; border-bottom: 1px solid #e5e7eb; text-align: center;">
+                                        ${h.is_current ? '<span style="background: #dcfce7; color: #166534; padding: 2px 8px; border-radius: 12px; font-size: 12px;">Current</span>' : ''}
+                                    </td>
+                                    <td style="padding: 10px; border-bottom: 1px solid #e5e7eb; text-align: center;">
+                                        <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 12px;" onclick="editOfficeHistory(${h.id})">Edit</button>
+                                        <button class="btn" style="padding: 4px 8px; font-size: 12px; background: #fecaca; color: #991b1b;" onclick="deleteOfficeHistory(${h.id})">Del</button>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            } catch (error) {
+                console.error('Error loading office history:', error);
+                document.getElementById('officeHistoryList').innerHTML = '<p style="color: #dc2626;">Error loading office history</p>';
+            }
+        }
+
+        function openAddOfficeHistoryModal() {
+            document.getElementById('addOfficeHistoryTitle').textContent = 'Add Office Posting';
+            document.getElementById('officeHistoryId').value = '';
+            document.getElementById('historyOfficeCode').value = '';
+            document.getElementById('historyFromDate').value = '';
+            document.getElementById('historyToDate').value = '';
+            document.getElementById('historyIsCurrent').checked = false;
+            document.getElementById('historyRemarks').value = '';
+
+            // Populate office dropdown
+            const select = document.getElementById('historyOfficeCode');
+            select.innerHTML = '<option value="">Select Office</option>';
+            allOffices.forEach(o => {
+                select.innerHTML += `<option value="${o.office_code}">${o.office_code} - ${o.office_name}</option>`;
+            });
+
+            openModal('addOfficeHistoryModal');
+        }
+
+        async function editOfficeHistory(historyId) {
+            try {
+                const response = await fetch(`/api/division/cli/${currentCLIForHistory.id}/office-history`);
+                const data = await response.json();
+                const record = data.history.find(h => h.id === historyId);
+
+                if (!record) {
+                    alert('Record not found');
+                    return;
+                }
+
+                document.getElementById('addOfficeHistoryTitle').textContent = 'Edit Office Posting';
+                document.getElementById('officeHistoryId').value = historyId;
+
+                // Populate office dropdown
+                const select = document.getElementById('historyOfficeCode');
+                select.innerHTML = '<option value="">Select Office</option>';
+                allOffices.forEach(o => {
+                    select.innerHTML += `<option value="${o.office_code}">${o.office_code} - ${o.office_name}</option>`;
+                });
+
+                document.getElementById('historyOfficeCode').value = record.office_code;
+                document.getElementById('historyFromDate').value = record.from_date ? record.from_date.split('T')[0] : '';
+                document.getElementById('historyToDate').value = record.to_date ? record.to_date.split('T')[0] : '';
+                document.getElementById('historyIsCurrent').checked = record.is_current;
+                document.getElementById('historyRemarks').value = record.remarks || '';
+
+                openModal('addOfficeHistoryModal');
+            } catch (error) {
+                console.error('Error loading record:', error);
+                alert('Failed to load record');
+            }
+        }
+
+        async function saveOfficeHistory() {
+            const historyId = document.getElementById('officeHistoryId').value;
+            const cliId = currentCLIForHistory.id;
+            const data = {
+                office_code: document.getElementById('historyOfficeCode').value,
+                from_date: document.getElementById('historyFromDate').value || null,
+                to_date: document.getElementById('historyToDate').value || null,
+                is_current: document.getElementById('historyIsCurrent').checked,
+                remarks: document.getElementById('historyRemarks').value || null
+            };
+
+            if (!data.office_code) {
+                alert('Office is required');
+                return;
+            }
+
+            try {
+                const url = historyId
+                    ? `/api/division/cli/office-history/${historyId}`
+                    : `/api/division/cli/${cliId}/office-history`;
+                const method = historyId ? 'PUT' : 'POST';
+
+                const response = await fetch(url, {
+                    method: method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    alert(result.message);
+                    closeModal('addOfficeHistoryModal');
+                    loadOfficeHistory(cliId);
+                    loadCLIs(); // Refresh in case current_office_code changed
+                } else {
+                    alert(result.error || 'Failed to save');
+                }
+            } catch (error) {
+                console.error('Error saving:', error);
+                alert('Failed to save');
+            }
+        }
+
+        async function deleteOfficeHistory(historyId) {
+            if (!confirm('Are you sure you want to delete this office posting?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/division/cli/office-history/${historyId}`, {
+                    method: 'DELETE'
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    alert(result.message);
+                    loadOfficeHistory(currentCLIForHistory.id);
+                } else {
+                    alert(result.error || 'Failed to delete');
+                }
+            } catch (error) {
+                console.error('Error deleting:', error);
+                alert('Failed to delete');
             }
         }
 

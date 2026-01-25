@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+console.log('*** trainingRoutes.js loaded ***');
 
 // Middleware to check authentication
 function requireAuth(req, res, next) {
@@ -180,11 +181,25 @@ router.get('/matrix', requireAuth, async (req, res) => {
         const trainingKeys = trainings ? trainings.split(',') : [];
 
         // Map training keys to IDs
+        // Keep this map in sync with the training columns shown on the matrix page
         const trainingKeyToId = {
-            'KAVACH': 4, 'WAG12': 10, 'NEGHAT_UP': 22, 'NEGHAT_DN': 23,
-            'SEGHAT_UP': 24, 'SEGHAT_DN': 25, 'SPIC': 11, 'VANDE_T18': 16,
-            'PUSHPULL': 18, 'MEMU': 17, 'AC_DC': 9, 'WDS6': 21,
-            'HS_SPART': 12, 'HSTAT': 19
+            'KAVACH': 4,
+            'WAG12': 10,
+            'NEGHAT_UP': 22,
+            'NEGHAT_DN': 23,
+            'SEGHAT_UP': 24,
+            'SEGHAT_DN': 25,
+            'SPIC': 11,
+            'VANDE_T18': 16,
+            'PUSHPULL': 18,
+            'MEMU': 17,
+            'AC_DC': 9,
+            'WDS6': 21,
+            'HS_SPART': 12,
+            'HSTAT': 19,
+            'DSLAC_SIM': 14,
+            'WDG4G_6G': 15,
+            'PSYCHO': 20
         };
 
         const conn = await req.app.locals.pool.getConnection();
@@ -373,19 +388,28 @@ router.get('/:hrms_id', requireAuth, async (req, res) => {
                 tc.center_name
             FROM div_training_records tr
             INNER JOIN (
-                SELECT training_id, MAX(done_date) as max_done_date
-                FROM div_training_records
-                WHERE staff_hrms_id = ?
-                GROUP BY training_id
+                SELECT ld.training_id, ld.max_done_date, MAX(dr.record_id) AS max_record_id
+                FROM (
+                    SELECT training_id, MAX(done_date) AS max_done_date
+                    FROM div_training_records
+                    WHERE staff_hrms_id = ?
+                    GROUP BY training_id
+                ) ld
+                JOIN div_training_records dr
+                    ON dr.training_id = ld.training_id
+                    AND dr.done_date = ld.max_done_date
+                    AND dr.staff_hrms_id = ?
+                GROUP BY ld.training_id, ld.max_done_date
             ) latest ON tr.training_id = latest.training_id
                     AND tr.done_date = latest.max_done_date
-                    AND tr.staff_hrms_id = ?
+                    AND tr.record_id = latest.max_record_id
             LEFT JOIN div_training_types tt ON tr.training_id = tt.training_id
             LEFT JOIN div_training_centers tc ON tr.training_center_id = tc.center_id
+            WHERE tr.staff_hrms_id = ?
             ORDER BY tr.due_date DESC, tr.done_date DESC
         `;
 
-        const [results] = await conn.query(query, [hrms_id, hrms_id]);
+        const [results] = await conn.query(query, [hrms_id, hrms_id, hrms_id]);
         conn.release();
 
         res.json({ success: true, data: results });
@@ -397,6 +421,7 @@ router.get('/:hrms_id', requireAuth, async (req, res) => {
 
 // POST /api/division/training - Add new training record
 router.post('/', requireAuth, async (req, res) => {
+    console.log('POST /training called with body:', JSON.stringify(req.body));
     try {
         const {
             staff_hrms_id,
@@ -420,8 +445,9 @@ router.post('/', requireAuth, async (req, res) => {
 
         // Lifetime trainings - no due date required
         // KAVACH(4), AC_DC(9), WAG12(10), SPIC(11), HS_SPART(12), VANDE(16), PUSHPULL(18), HSTAT(19), WDS6(21), GHAT_UP(22), GHAT_DN(23), SEGHAT_UP(24), SEGHAT_DN(25)
-        const LIFETIME_TRAININGS = [4, 9, 10, 11, 12, 16, 18, 19, 21, 22, 23, 24, 25];
+        const LIFETIME_TRAININGS = [4, 9, 10, 11, 12, 14, 15, 16, 18, 19, 20, 21, 22, 23, 24, 25];
         const isLifetimeTraining = LIFETIME_TRAININGS.includes(parseInt(training_id));
+        console.log('DEBUG training_id:', training_id, 'parsed:', parseInt(training_id), 'isLifetime:', isLifetimeTraining);
 
         // Validate based on medical fitness
         const isMedicallyUnfit = medical_fit === 0;
@@ -464,6 +490,20 @@ router.post('/', requireAuth, async (req, res) => {
             conn.release();
             return res.status(403).json({
                 error: 'Access denied: You can only add training records for staff from your office'
+            });
+        }
+
+        // Prevent duplicate entries for the same training on the same date
+        const [existing] = await conn.query(
+            `SELECT record_id FROM div_training_records
+             WHERE staff_hrms_id = ? AND training_id = ? AND done_date = ?
+             LIMIT 1`,
+            [staff_hrms_id, training_id, done_date]
+        );
+        if (existing.length > 0) {
+            conn.release();
+            return res.status(409).json({
+                error: 'Training already recorded for this date'
             });
         }
 

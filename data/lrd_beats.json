@@ -1,0 +1,242 @@
+{
+  "schema_version": 1,
+  "meta": {
+    "description": "LRD Beats/Sections for validity tracking",
+    "created": "2026-01-20",
+    "note": "Each beat is a directional section. Staff must cover ALL segments within 90 days for section to be VALID."
+  },
+  "config": {
+    "validity_days": 90,
+    "expiring_threshold_days": 15
+  },
+  "beats": [
+    {
+      "beat_id": "ROHA_PNVL",
+      "name": "Roha to Panvel",
+      "office": "PNVL",
+      "stations": ["ROHA", "NGTN", "KASU", "PEN", "JITE", "APTA", "RSYI", "SMNE", "PNVL"]
+    },
+    {
+      "beat_id": "PNVL_ROHA",
+      "name": "Panvel to Roha",
+      "office": "PNVL",
+      "stations": ["PNVL", "SMNE", "RSYI", "APTA", "JITE", "PEN", "KASU", "NGTN", "ROHA"]
+    },
+    {
+      "beat_id": "TVSG_PNVL",
+      "name": "Tivsa to Panvel",
+      "office": "PNVL",
+      "stations": ["TVSG", "PPDP", "JSWD", "PEN", "JITE", "APTA", "RSYI", "SMNE", "PNVL"]
+    },
+    {
+      "beat_id": "PNVL_TVSG",
+      "name": "Panvel to Tivsa",
+      "office": "PNVL",
+      "stations": ["PNVL", "SMNE", "RSYI", "APTA", "JITE", "PEN", "JSWD", "PPDP", "TVSG"]
+    },
+    {
+      "beat_id": "JNPT_PNVL",
+      "name": "JNPT to Panvel",
+      "office": "PNVL",
+      "stations": ["JNPT", "HLY", "JSLE", "DPL", "PNVL"]
+    },
+    {
+      "beat_id": "PNVL_JNPT",
+      "name": "Panvel to JNPT",
+      "office": "PNVL",
+      "stations": ["PNVL", "DPL", "JSLE", "HLY", "JNPT"]
+    },
+    {
+      "beat_id": "BPCL_PNVL",
+      "name": "BPCL to Panvel",
+      "office": "PNVL",
+      "stations": ["BPCL", "JSLE", "DPL", "PNVL"]
+    },
+    {
+      "beat_id": "PNVL_BPCL",
+      "name": "Panvel to BPCL",
+      "office": "PNVL",
+      "stations": ["PNVL", "DPL", "JSLE", "BPCL"]
+    },
+    {
+      "beat_id": "KJT_PNVL",
+      "name": "Karjat to Panvel (Harbour)",
+      "office": "PNVL",
+      "stations": ["KJT", "CHOK", "MHPE", "PNVL"]
+    },
+    {
+      "beat_id": "PNVL_KJT",
+      "name": "Panvel to Karjat (Harbour)",
+      "office": "PNVL",
+      "stations": ["PNVL", "MHPE", "CHOK", "KJT"]
+    },
+    {
+      "beat_id": "PNVL_BSR",
+      "name": "Panvel to Vasai Road",
+      "office": "PNVL",
+      "stations": ["PNVL", "KLMG", "TPND", "NIIJ", "DTVL", "DTCC", "KOPR", "BIRD", "KHBV", "KARD", "BSR"]
+    },
+    {
+      "beat_id": "BSR_PNVL",
+      "name": "Vasai Road to Panvel",
+      "office": "PNVL",
+      "stations": ["BSR", "KARD", "KHBV", "BIRD", "KOPR", "DTCC", "DTVL", "NIIJ", "TPND", "KLMG", "PNVL"]
+    },
+    {
+      "beat_id": "KYN_IGP",
+      "name": "Kalyan to Igatpuri",
+      "office": "KYN",
+      "stations": ["KYN", "SHAD", "ABY", "TLA", "KDV", "VSD", "ASO", "ATG", "THS", "KE", "OMB", "KSRA", "TGR3", "TGR2", "TGR1", "IGP"]
+    },
+    {
+      "beat_id": "IGP_KYN",
+      "name": "Igatpuri to Kalyan",
+      "office": "KYN",
+      "stations": ["IGP", "TGR1", "TGR2", "TGR3", "KSRA", "OMB", "KE", "THS", "ATG", "ASO", "VSD", "KDV", "TLA", "ABY", "SHAD", "KYN"]
+    },
+    {
+      "beat_id": "KYN_KJT",
+      "name": "Kalyan to Karjat",
+      "office": "KYN",
+      "stations": ["KYN", "VLDI", "ULNR", "ABH", "BUD", "VGI", "NRL", "BVS", "KJT"]
+    },
+    {
+      "beat_id": "KJT_KYN",
+      "name": "Karjat to Kalyan",
+      "office": "KYN",
+      "stations": ["KJT", "BVS", "NRL", "VGI", "BUD", "ABH", "ULNR", "VLDI", "KYN"]
+    },
+    {
+      "beat_id": "KYN_BSR",
+      "name": "Kalyan to Vasai Road",
+      "office": "SHARED",
+      "stations": ["KYN", "DI", "KOPR", "BIRD", "KHBV", "KARD", "BSR"]
+    },
+    {
+      "beat_id": "BSR_KYN",
+      "name": "Vasai Road to Kalyan",
+      "office": "SHARED",
+      "stations": ["BSR", "KARD", "KHBV", "BIRD", "KOPR", "DI", "KYN"]
+    },
+    {
+      "beat_id": "PNVL_BSR_KYN",
+      "name": "Panvel to Vasai Road (Chordline)",
+      "office": "KYN",
+      "stations": ["PNVL", "KLMG", "TPND", "NIIJ", "DTVL", "DTCC", "KOPR", "BIRD", "KHBV", "KARD", "BSR"]
+    },
+    {
+      "beat_id": "BSR_PNVL_KYN",
+      "name": "Vasai Road to Panvel (Chordline)",
+      "office": "KYN",
+      "stations": ["BSR", "KARD", "KHBV", "BIRD", "KOPR", "DTCC", "DTVL", "NIIJ", "TPND", "KLMG", "PNVL"]
+    },
+    {
+      "beat_id": "KYN_DIVA",
+      "name": "Kalyan to Diva",
+      "office": "KYN",
+      "stations": ["KYN", "DI", "DIVA"]
+    },
+    {
+      "beat_id": "DIVA_KYN",
+      "name": "Diva to Kalyan",
+      "office": "KYN",
+      "stations": ["DIVA", "DI", "KYN"]
+    },
+    {
+      "beat_id": "KYN_CSMT",
+      "name": "Kalyan to CSMT",
+      "office": "KYN",
+      "stations": ["KYN", "DI", "DIVA", "MBQ", "KLVA", "TNA", "MLND", "BND", "VK", "GC", "VVH", "CLA", "SIN", "MTN", "DR", "PR", "BY", "SNRD", "WB", "CSMT"]
+    },
+    {
+      "beat_id": "CSMT_KYN",
+      "name": "CSMT to Kalyan",
+      "office": "KYN",
+      "stations": ["CSMT", "WB", "SNRD", "BY", "PR", "DR", "MTN", "SIN", "CLA", "VVH", "GC", "VK", "BND", "MLND", "TNA", "KLVA", "MBQ", "DIVA", "DI", "KYN"]
+    },
+    {
+      "beat_id": "KYN_TMBY",
+      "name": "Kalyan to Trombay",
+      "office": "KYN",
+      "stations": ["KYN", "DI", "DIVA", "TNA", "MLND", "NGSM", "BND", "VK", "GC", "VVH", "CLA", "TMBY"]
+    },
+    {
+      "beat_id": "TMBY_KYN",
+      "name": "Trombay to Kalyan",
+      "office": "KYN",
+      "stations": ["TMBY", "CLA", "VVH", "GC", "VK", "BND", "NGSM", "MLND", "TNA", "DIVA", "DI", "KYN"]
+    },
+    {
+      "beat_id": "KYN_LTT",
+      "name": "Kalyan to Lokmanya Tilak Terminus",
+      "office": "KYN",
+      "stations": ["KYN", "DI", "DIVA", "TNA", "MLND", "NGSM", "BND", "VK", "GC", "VVH", "LTT"]
+    },
+    {
+      "beat_id": "LTT_KYN",
+      "name": "Lokmanya Tilak Terminus to Kalyan",
+      "office": "KYN",
+      "stations": ["LTT", "VVH", "GC", "VK", "BND", "NGSM", "MLND", "TNA", "DIVA", "DI", "KYN"]
+    },
+    {
+      "beat_id": "KYN_TAPG",
+      "name": "Kalyan to Talpgaon",
+      "office": "KYN",
+      "stations": ["KYN", "DI", "DIVA", "PSK", "TAPG"]
+    },
+    {
+      "beat_id": "TAPG_KYN",
+      "name": "Talpgaon to Kalyan",
+      "office": "KYN",
+      "stations": ["TAPG", "PSK", "DIVA", "DI", "KYN"]
+    },
+    {
+      "beat_id": "KYN_VDLR",
+      "name": "Kalyan to Vadala Road",
+      "office": "KYN",
+      "stations": ["KYN", "DI", "DIVA", "TNA", "MLND", "NGSM", "BND", "VK", "GC", "VVH", "CLA", "CNF", "GTBN", "VDLR"]
+    },
+    {
+      "beat_id": "VDLR_KYN",
+      "name": "Vadala Road to Kalyan",
+      "office": "KYN",
+      "stations": ["VDLR", "GTBN", "CNF", "CLA", "VVH", "GC", "VK", "BND", "NGSM", "MLND", "TNA", "DIVA", "DI", "KYN"]
+    },
+    {
+      "beat_id": "KJT_BVT",
+      "name": "Karjat to Bhivpuri (Ghat)",
+      "office": "SHARED",
+      "stations": ["KJT", "PDI", "JBC", "TKW", "MHLC", "KAD", "LNL", "BVT"]
+    },
+    {
+      "beat_id": "BVT_KJT",
+      "name": "Bhivpuri to Karjat (Ghat)",
+      "office": "SHARED",
+      "stations": ["BVT", "LNL", "KAD", "MHLC", "NNCN", "JBC", "PDI", "KJT"]
+    },
+    {
+      "beat_id": "PNVL_DIVA",
+      "name": "Panvel to Diva",
+      "office": "SHARED",
+      "stations": ["PNVL", "KLMG", "TPND", "NIIJ", "DTVL", "DIVA"]
+    },
+    {
+      "beat_id": "DIVA_PNVL",
+      "name": "Diva to Panvel",
+      "office": "SHARED",
+      "stations": ["DIVA", "DTVL", "NIIJ", "TPND", "KLMG", "PNVL"]
+    },
+    {
+      "beat_id": "KYN_PNVL",
+      "name": "Kalyan to Panvel",
+      "office": "SHARED",
+      "stations": ["KYN", "DI", "DTCC", "DTVL", "NIIJ", "TPND", "KLMG", "PNVL"]
+    },
+    {
+      "beat_id": "PNVL_KYN",
+      "name": "Panvel to Kalyan",
+      "office": "SHARED",
+      "stations": ["PNVL", "KLMG", "TPND", "NIIJ", "DTVL", "DTCC", "DI", "KYN"]
+    }
+  ]
+}

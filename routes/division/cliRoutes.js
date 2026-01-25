@@ -43,10 +43,12 @@ async function getConnection(req) {
 }
 
 // GET /api/division/cli - List all CLIs with basic stats
+// Query params: search, office, include_inactive (default: false)
 router.get('/', requireDivisionAdmin, async (req, res) => {
     const conn = await getConnection(req);
     try {
-        const { search, office } = req.query;
+        const { search, office, include_inactive } = req.query;
+        const showInactive = include_inactive === 'true' || include_inactive === '1';
 
         let query = `
             SELECT
@@ -58,6 +60,9 @@ router.get('/', requireDivisionAdmin, async (req, res) => {
                 c.cli_dob,
                 c.cli_doa,
                 c.date_promoted_to_cli,
+                c.is_active,
+                c.inactive_reason,
+                c.inactive_date,
                 o.office_name,
                 TIMESTAMPDIFF(YEAR, c.date_promoted_to_cli, CURDATE()) as years_as_cli,
                 TIMESTAMPDIFF(MONTH, c.date_promoted_to_cli, CURDATE()) % 12 as months_as_cli,
@@ -71,6 +76,11 @@ router.get('/', requireDivisionAdmin, async (req, res) => {
 
         const params = [];
 
+        // Filter by active status (default: only active)
+        if (!showInactive) {
+            query += ` AND c.is_active = 1`;
+        }
+
         if (search) {
             query += ` AND (c.cli_name LIKE ? OR c.cmsid LIKE ?)`;
             params.push(`%${search}%`, `%${search}%`);
@@ -81,10 +91,22 @@ router.get('/', requireDivisionAdmin, async (req, res) => {
             params.push(office);
         }
 
-        query += ` ORDER BY c.cli_name`;
+        query += ` ORDER BY c.is_active DESC, c.cli_name`;
 
         const [clis] = await conn.query(query, params);
-        res.json(clis);
+
+        // Get counts for header
+        const [counts] = await conn.query(`
+            SELECT
+                SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) as active_count,
+                SUM(CASE WHEN is_active = 0 THEN 1 ELSE 0 END) as inactive_count
+            FROM div_cli_master
+        `);
+
+        res.json({
+            clis,
+            counts: counts[0]
+        });
 
     } catch (error) {
         console.error('Error fetching CLIs:', error);
@@ -606,6 +628,261 @@ router.delete('/:id', requireDivisionAdmin, async (req, res) => {
     } catch (error) {
         console.error('Error deleting CLI:', error);
         res.status(500).json({ error: 'Failed to delete CLI' });
+    } finally {
+        conn.release();
+    }
+});
+
+// PUT /api/division/cli/:id/deactivate - Deactivate CLI with reason
+router.put('/:id/deactivate', requireDivisionAdmin, async (req, res) => {
+    const conn = await getConnection(req);
+    try {
+        const { inactive_reason, inactive_date, remarks } = req.body;
+        const cliId = req.params.id;
+
+        if (!inactive_reason) {
+            return res.status(400).json({ error: 'Inactive reason is required' });
+        }
+
+        // Check if CLI exists
+        const [cli] = await conn.query('SELECT cli_id, cli_name, is_active FROM div_cli_master WHERE cli_id = ?', [cliId]);
+        if (cli.length === 0) {
+            return res.status(404).json({ error: 'CLI not found' });
+        }
+
+        if (!cli[0].is_active) {
+            return res.status(400).json({ error: 'CLI is already inactive' });
+        }
+
+        // Check for active nominations
+        const [activeNominations] = await conn.query(
+            'SELECT COUNT(*) as count FROM div_cli_nominations WHERE cli_id = ? AND status = "Active"',
+            [cliId]
+        );
+
+        if (activeNominations[0].count > 0) {
+            return res.status(400).json({
+                error: `Cannot deactivate CLI with ${activeNominations[0].count} active nominations. Transfer staff first.`
+            });
+        }
+
+        // Deactivate CLI
+        await conn.query(
+            `UPDATE div_cli_master
+             SET is_active = 0, inactive_reason = ?, inactive_date = ?, updated_at = NOW()
+             WHERE cli_id = ?`,
+            [inactive_reason, inactive_date || new Date().toISOString().split('T')[0], cliId]
+        );
+
+        // End current office posting if exists
+        await conn.query(
+            `UPDATE div_cli_office_history
+             SET to_date = ?, is_current = 0
+             WHERE cli_id = ? AND is_current = 1`,
+            [inactive_date || new Date().toISOString().split('T')[0], cliId]
+        );
+
+        res.json({
+            success: true,
+            message: `CLI ${cli[0].cli_name} deactivated successfully`,
+            reason: inactive_reason
+        });
+
+    } catch (error) {
+        console.error('Error deactivating CLI:', error);
+        res.status(500).json({ error: 'Failed to deactivate CLI' });
+    } finally {
+        conn.release();
+    }
+});
+
+// PUT /api/division/cli/:id/reactivate - Reactivate CLI
+router.put('/:id/reactivate', requireDivisionAdmin, async (req, res) => {
+    const conn = await getConnection(req);
+    try {
+        const cliId = req.params.id;
+
+        const [cli] = await conn.query('SELECT cli_id, cli_name, is_active FROM div_cli_master WHERE cli_id = ?', [cliId]);
+        if (cli.length === 0) {
+            return res.status(404).json({ error: 'CLI not found' });
+        }
+
+        if (cli[0].is_active) {
+            return res.status(400).json({ error: 'CLI is already active' });
+        }
+
+        await conn.query(
+            `UPDATE div_cli_master
+             SET is_active = 1, inactive_reason = NULL, inactive_date = NULL, updated_at = NOW()
+             WHERE cli_id = ?`,
+            [cliId]
+        );
+
+        res.json({
+            success: true,
+            message: `CLI ${cli[0].cli_name} reactivated successfully`
+        });
+
+    } catch (error) {
+        console.error('Error reactivating CLI:', error);
+        res.status(500).json({ error: 'Failed to reactivate CLI' });
+    } finally {
+        conn.release();
+    }
+});
+
+// ========== CLI OFFICE HISTORY ==========
+
+// GET /api/division/cli/:id/office-history - Get CLI office history
+router.get('/:id/office-history', async (req, res) => {
+    const conn = await getConnection(req);
+    try {
+        const [history] = await conn.query(
+            `SELECT h.*, o.office_name
+             FROM div_cli_office_history h
+             LEFT JOIN offices o ON h.office_code = o.office_code
+             WHERE h.cli_id = ?
+             ORDER BY h.from_date DESC`,
+            [req.params.id]
+        );
+
+        res.json({ success: true, history });
+
+    } catch (error) {
+        console.error('Error fetching CLI office history:', error);
+        res.status(500).json({ error: 'Failed to fetch office history' });
+    } finally {
+        conn.release();
+    }
+});
+
+// POST /api/division/cli/:id/office-history - Add office posting
+router.post('/:id/office-history', requireDivisionAdmin, async (req, res) => {
+    const conn = await getConnection(req);
+    try {
+        const cliId = req.params.id;
+        const { office_code, from_date, to_date, is_current, remarks } = req.body;
+        const username = req.session.user.username;
+
+        if (!office_code) {
+            return res.status(400).json({ error: 'Office code is required' });
+        }
+
+        // If this is current posting, end previous current posting
+        if (is_current) {
+            if (from_date) {
+                await conn.query(
+                    `UPDATE div_cli_office_history
+                     SET is_current = 0, to_date = DATE_SUB(?, INTERVAL 1 DAY)
+                     WHERE cli_id = ? AND is_current = 1`,
+                    [from_date, cliId]
+                );
+            } else {
+                await conn.query(
+                    `UPDATE div_cli_office_history
+                     SET is_current = 0
+                     WHERE cli_id = ? AND is_current = 1`,
+                    [cliId]
+                );
+            }
+
+            // Also update current_office_code in cli_master
+            await conn.query(
+                'UPDATE div_cli_master SET current_office_code = ? WHERE cli_id = ?',
+                [office_code, cliId]
+            );
+        }
+
+        const [result] = await conn.query(
+            `INSERT INTO div_cli_office_history
+             (cli_id, office_code, from_date, to_date, is_current, remarks, created_by)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [cliId, office_code, from_date || null, to_date || null, is_current ? 1 : 0, remarks || null, username]
+        );
+
+        res.json({
+            success: true,
+            id: result.insertId,
+            message: 'Office posting added successfully'
+        });
+
+    } catch (error) {
+        console.error('Error adding office posting:', error);
+        res.status(500).json({ error: 'Failed to add office posting' });
+    } finally {
+        conn.release();
+    }
+});
+
+// PUT /api/division/cli/office-history/:historyId - Update office posting
+router.put('/office-history/:historyId', requireDivisionAdmin, async (req, res) => {
+    const conn = await getConnection(req);
+    try {
+        const { office_code, from_date, to_date, is_current, remarks } = req.body;
+        const historyId = req.params.historyId;
+
+        // Get current record to find cli_id
+        const [current] = await conn.query(
+            'SELECT cli_id, is_current as was_current FROM div_cli_office_history WHERE id = ?',
+            [historyId]
+        );
+
+        if (current.length === 0) {
+            return res.status(404).json({ error: 'Office history record not found' });
+        }
+
+        const cliId = current[0].cli_id;
+
+        // If making this current, end other current postings
+        if (is_current && !current[0].was_current) {
+            await conn.query(
+                `UPDATE div_cli_office_history
+                 SET is_current = 0, to_date = DATE_SUB(?, INTERVAL 1 DAY)
+                 WHERE cli_id = ? AND is_current = 1 AND id != ?`,
+                [from_date, cliId, historyId]
+            );
+
+            // Update current_office_code in cli_master
+            await conn.query(
+                'UPDATE div_cli_master SET current_office_code = ? WHERE cli_id = ?',
+                [office_code, cliId]
+            );
+        }
+
+        await conn.query(
+            `UPDATE div_cli_office_history
+             SET office_code = ?, from_date = ?, to_date = ?, is_current = ?, remarks = ?
+             WHERE id = ?`,
+            [office_code, from_date, to_date || null, is_current ? 1 : 0, remarks || null, historyId]
+        );
+
+        res.json({
+            success: true,
+            message: 'Office posting updated successfully'
+        });
+
+    } catch (error) {
+        console.error('Error updating office posting:', error);
+        res.status(500).json({ error: 'Failed to update office posting' });
+    } finally {
+        conn.release();
+    }
+});
+
+// DELETE /api/division/cli/office-history/:historyId - Delete office posting
+router.delete('/office-history/:historyId', requireDivisionAdmin, async (req, res) => {
+    const conn = await getConnection(req);
+    try {
+        await conn.query('DELETE FROM div_cli_office_history WHERE id = ?', [req.params.historyId]);
+
+        res.json({
+            success: true,
+            message: 'Office posting deleted successfully'
+        });
+
+    } catch (error) {
+        console.error('Error deleting office posting:', error);
+        res.status(500).json({ error: 'Failed to delete office posting' });
     } finally {
         conn.release();
     }

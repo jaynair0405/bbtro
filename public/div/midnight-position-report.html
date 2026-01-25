@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>00:00 Hrs Position Report | CRTMS.in</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --brand: #0b3d91;
+            --bg: #f8fafc;
+            --surface: #ffffff;
+            --border: #e2e8f0;
+            --text-main: #1e293b;
+            --text-light: #64748b;
+            --danger: #ef4444;
+            --success: #10b981;
+            --warning: #f59e0b;
+        }
+
+        * { box-sizing: border-box; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 20px; }
+
+        /* Header */
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--surface);
+            padding: 16px 24px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            margin-bottom: 20px;
+            gap: 16px;
+        }
+        .back-btn {
+            text-decoration: none;
+            color: var(--text-light);
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            padding: 8px 12px;
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+        .back-btn:hover { background: #f1f5f9; color: var(--brand); }
+        .header-title h2 { margin: 0; color: var(--brand); font-size: 20px; }
+        .header-title p { margin: 4px 0 0 0; color: var(--text-light); font-size: 12px; }
+        .header-controls { display: flex; gap: 15px; align-items: center; }
+        .date-picker { padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; }
+
+        /* Main Tabs */
+        .main-tabs {
+            display: flex;
+            background: var(--surface);
+            border-radius: 12px 12px 0 0;
+            border: 1px solid var(--border);
+            border-bottom: none;
+            overflow: hidden;
+        }
+        .main-tab {
+            padding: 14px 28px;
+            cursor: pointer;
+            border: none;
+            background: #f1f5f9;
+            font-weight: 600;
+            color: var(--text-light);
+            border-right: 1px solid var(--border);
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        .main-tab:hover { background: #e2e8f0; }
+        .main-tab.active {
+            background: var(--surface);
+            color: var(--brand);
+            border-bottom: 3px solid var(--brand);
+        }
+
+        /* Content Area */
+        .content-area {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 0 0 12px 12px;
+            padding: 20px;
+            min-height: 500px;
+        }
+
+        /* Sub Tabs for Lobby Details */
+        .sub-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .sub-tab {
+            padding: 8px 16px;
+            cursor: pointer;
+            border: 1px solid var(--border);
+            background: #f8fafc;
+            border-radius: 6px;
+            font-size: 13px;
+            color: var(--text-light);
+            transition: all 0.2s;
+        }
+        .sub-tab:hover { background: #e2e8f0; }
+        .sub-tab.active {
+            background: var(--brand);
+            color: white;
+            border-color: var(--brand);
+        }
+
+        /* Consolidated Table */
+        .consolidated-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            margin-bottom: 20px;
+        }
+        .consolidated-table th, .consolidated-table td {
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            text-align: center;
+        }
+        .consolidated-table th {
+            background: #f1f5f9;
+            font-weight: 600;
+            color: var(--text-main);
+        }
+        .consolidated-table .lobby-header {
+            font-weight: 700;
+            font-size: 14px;
+        }
+        .consolidated-table .desig-col {
+            text-align: left;
+            font-weight: 600;
+            background: #f8fafc;
+        }
+        .consolidated-table .total-row {
+            font-weight: 700;
+            background: #f1f5f9;
+        }
+        .consolidated-table .total-col {
+            background: #e2e8f0;
+            font-weight: 700;
+        }
+        .consolidated-table td.empty { color: #cbd5e1; }
+        .consolidated-table td.negative { color: var(--danger); }
+
+        /* Lobby Colors */
+        .lobby-pnvl { background: #fef3c7 !important; }
+        .lobby-kyn { background: #dcfce7 !important; }
+        .lobby-csmt { background: #dbeafe !important; }
+        .lobby-cla { background: #ffedd5 !important; }
+        .lobby-igp { background: #ede9fe !important; }
+        .lobby-lnl { background: #fce7f3 !important; }
+        .lobby-total { background: #e2e8f0 !important; }
+
+        /* Section Title */
+        .section-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--brand);
+            margin: 30px 0 15px 0;
+            padding-bottom: 8px;
+            border-bottom: 2px solid var(--brand);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .section-title:first-child { margin-top: 0; }
+
+        /* Status Badges */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .status-finalized { background: #d1fae5; color: #065f46; }
+        .status-pending { background: #fef3c7; color: #92400e; }
+
+        /* Buttons */
+        .btn {
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 13px;
+            cursor: pointer;
+            border: 1px solid var(--border);
+            background: white;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .btn:hover { background: #f1f5f9; }
+        .btn-primary { background: var(--brand); color: white; border: none; }
+        .btn-primary:hover { background: #062356; }
+
+        /* Edit Toggle */
+        .edit-toggle {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 13px;
+        }
+        .toggle-switch {
+            position: relative;
+            width: 44px;
+            height: 24px;
+        }
+        .toggle-switch input { opacity: 0; width: 0; height: 0; }
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: #cbd5e1;
+            border-radius: 24px;
+            transition: 0.3s;
+        }
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background: white;
+            border-radius: 50%;
+            transition: 0.3s;
+        }
+        .toggle-switch input:checked + .toggle-slider { background: var(--brand); }
+        .toggle-switch input:checked + .toggle-slider:before { transform: translateX(20px); }
+
+        /* Detail View Styles */
+        .detail-panel {
+            display: none;
+        }
+        .detail-panel.active {
+            display: block;
+        }
+
+        /* Summary Stats Row */
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .stat-card {
+            background: #f8fafc;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            text-align: center;
+        }
+        .stat-card.highlight { border-color: var(--brand); background: #eff6ff; }
+        .stat-val { font-size: 24px; font-weight: 700; color: var(--text-main); }
+        .stat-lbl { font-size: 11px; text-transform: uppercase; color: var(--text-light); margin-top: 4px; }
+
+        /* Print Styles */
+        @media print {
+            body { padding: 0; background: white; }
+            .page-header, .main-tabs, .sub-tabs, .btn, .edit-toggle, .header-controls { display: none !important; }
+            .content-area { border: none; padding: 0; }
+            .consolidated-table { font-size: 11px; }
+            .section-title { margin-top: 20px; }
+        }
+
+        /* Loading */
+        .loading {
+            text-align: center;
+            padding: 60px;
+            color: var(--text-light);
+        }
+        .loading i { font-size: 32px; margin-bottom: 15px; }
+    </style>
+</head>
+<body>
+
+    <div class="page-header">
+        <a href="/div" class="back-btn">
+            <i class="fa-solid fa-arrow-left"></i> Back
+        </a>
+        <div class="header-title">
+            <h2><i class="fa-solid fa-moon"></i> 00:00 Hrs Position Report</h2>
+            <p>Division Consolidated View</p>
+        </div>
+        <div class="header-controls">
+            <input type="date" class="date-picker" id="reportDate" onchange="loadAllData()">
+            <div class="edit-toggle">
+                <span>Edit Mode</span>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="editModeToggle" onchange="toggleEditMode()">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+            <button class="btn" onclick="window.print()">
+                <i class="fa-solid fa-print"></i> Print
+            </button>
+        </div>
+    </div>
+
+    <div class="main-tabs">
+        <button class="main-tab active" data-tab="mainline" onclick="switchMainTab('mainline')">
+            <i class="fa-solid fa-train"></i> Mainline
+        </button>
+        <button class="main-tab" data-tab="suburban" onclick="switchMainTab('suburban')">
+            <i class="fa-solid fa-train-subway"></i> Suburban
+        </button>
+        <button class="main-tab" data-tab="ghat" onclick="switchMainTab('ghat')">
+            <i class="fa-solid fa-mountain"></i> Ghat
+        </button>
+    </div>
+
+    <div class="content-area">
+        <!-- Mainline Content -->
+        <div id="mainline-content" class="tab-content active">
+            <div class="sub-tabs">
+                <button class="sub-tab active" onclick="showMainlineView('consolidated')">Consolidated</button>
+                <button class="sub-tab" onclick="showMainlineView('PNVL')">PNVL</button>
+                <button class="sub-tab" onclick="showMainlineView('KYN')">KYN</button>
+                <button class="sub-tab" onclick="showMainlineView('CSMT')">CSMT</button>
+                <button class="sub-tab" onclick="showMainlineView('CLA')">CLA</button>
+            </div>
+
+            <div id="mainline-consolidated" class="detail-panel active">
+                <div class="section-title">
+                    <span>Mainline Position Summary</span>
+                    <span id="mainline-status"></span>
+                </div>
+                <div id="mainline-table-container">
+                    <div class="loading"><i class="fa-solid fa-spinner fa-spin"></i><br>Loading...</div>
+                </div>
+            </div>
+
+            <div id="mainline-PNVL" class="detail-panel">
+                <div class="section-title">PNVL Lobby Details</div>
+                <div id="pnvl-detail-container">Loading...</div>
+            </div>
+            <div id="mainline-KYN" class="detail-panel">
+                <div class="section-title">KYN Lobby Details</div>
+                <div id="kyn-detail-container">Loading...</div>
+            </div>
+            <div id="mainline-CSMT" class="detail-panel">
+                <div class="section-title">CSMT Lobby Details</div>
+                <div id="csmt-detail-container">Loading...</div>
+            </div>
+            <div id="mainline-CLA" class="detail-panel">
+                <div class="section-title">CLA Lobby Details</div>
+                <div id="cla-detail-container">Loading...</div>
+            </div>
+        </div>
+
+        <!-- Suburban Content -->
+        <div id="suburban-content" class="tab-content" style="display:none;">
+            <div class="sub-tabs">
+                <button class="sub-tab active" onclick="showSuburbanView('consolidated')">Consolidated</button>
+                <button class="sub-tab" onclick="showSuburbanView('CSMT-SUB')">CSMT SUB Details</button>
+            </div>
+
+            <div id="suburban-consolidated" class="detail-panel active">
+                <div class="section-title">
+                    <span>Suburban (Motormen) Position Summary</span>
+                    <span id="suburban-status"></span>
+                </div>
+                <div id="suburban-table-container">
+                    <div class="loading"><i class="fa-solid fa-spinner fa-spin"></i><br>Loading...</div>
+                </div>
+            </div>
+
+            <div id="suburban-CSMT-SUB" class="detail-panel">
+                <div class="section-title">CSMT SUB Details</div>
+                <div id="csmt-sub-detail-container">Loading...</div>
+            </div>
+        </div>
+
+        <!-- Ghat Content -->
+        <div id="ghat-content" class="tab-content" style="display:none;">
+            <div class="sub-tabs">
+                <button class="sub-tab active" onclick="showGhatView('consolidated')">Consolidated</button>
+                <button class="sub-tab" onclick="showGhatView('IGP')">IGP</button>
+                <button class="sub-tab" onclick="showGhatView('LNL')">LNL</button>
+            </div>
+
+            <div id="ghat-consolidated" class="detail-panel active">
+                <div class="section-title">
+                    <span>Ghat Position Summary</span>
+                    <span id="ghat-status"></span>
+                </div>
+                <div id="ghat-table-container">
+                    <div class="loading"><i class="fa-solid fa-spinner fa-spin"></i><br>Loading...</div>
+                </div>
+            </div>
+
+            <div id="ghat-IGP" class="detail-panel">
+                <div class="section-title">IGP Lobby Details</div>
+                <div id="igp-detail-container">Loading...</div>
+            </div>
+            <div id="ghat-LNL" class="detail-panel">
+                <div class="section-title">LNL Lobby Details</div>
+                <div id="lnl-detail-container">Loading...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // State
+        let currentDate = '';
+        let editMode = false;
+        let positionData = {};
+        let sanctionMaster = {}; // Sanction from master table keyed by office_code
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', async () => {
+            const today = new Date();
+            currentDate = today.toISOString().split('T')[0];
+            document.getElementById('reportDate').value = currentDate;
+            await loadSanctionMaster();
+            loadAllData();
+        });
+
+        // Load sanction from master table
+        async function loadSanctionMaster() {
+            try {
+                const resp = await fetch('/api/division/midnight-position/sanction');
+                if (resp.ok) {
+                    const data = await resp.json();
+                    // Group by office_code, then by designation_code
+                    sanctionMaster = {};
+                    data.forEach(s => {
+                        if (!sanctionMaster[s.office_code]) {
+                            sanctionMaster[s.office_code] = {};
+                        }
+                        sanctionMaster[s.office_code][s.designation_code] = s.sanction_strength || 0;
+                    });
+                }
+            } catch (error) {
+                console.warn('Error loading sanction master:', error);
+            }
+        }
+
+        // Helper to get sanction from master
+        function getSanction(officeCode, designationCode) {
+            return sanctionMaster[officeCode]?.[designationCode] || 0;
+        }
+
+        // Tab Switching
+        function switchMainTab(tab) {
+            document.querySelectorAll('.main-tab').forEach(t => t.classList.remove('active'));
+            document.querySelector(`.main-tab[data-tab="${tab}"]`).classList.add('active');
+
+            document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+            document.getElementById(`${tab}-content`).style.display = 'block';
+        }
+
+        function showMainlineView(view) {
+            document.querySelectorAll('#mainline-content .sub-tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+            document.querySelectorAll('#mainline-content .detail-panel').forEach(p => p.classList.remove('active'));
+            document.getElementById(`mainline-${view}`).classList.add('active');
+        }
+
+        function showSuburbanView(view) {
+            document.querySelectorAll('#suburban-content .sub-tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+            document.querySelectorAll('#suburban-content .detail-panel').forEach(p => p.classList.remove('active'));
+            document.getElementById(`suburban-${view}`).classList.add('active');
+        }
+
+        function showGhatView(view) {
+            document.querySelectorAll('#ghat-content .sub-tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+            document.querySelectorAll('#ghat-content .detail-panel').forEach(p => p.classList.remove('active'));
+            document.getElementById(`ghat-${view}`).classList.add('active');
+        }
+
+        function toggleEditMode() {
+            editMode = document.getElementById('editModeToggle').checked;
+            // Reload to show/hide edit controls
+            loadAllData();
+        }
+
+        // Load Data
+        async function loadAllData() {
+            currentDate = document.getElementById('reportDate').value;
+            await Promise.all([
+                loadMainlineData(),
+                loadSuburbanData(),
+                loadGhatData()
+            ]);
+        }
+
+        async function loadMainlineData() {
+            const lobbies = ['PNVL', 'KYN', 'CSMT', 'CLA'];
+            const data = {};
+
+            for (const lobby of lobbies) {
+                try {
+                    const resp = await fetch(`/api/division/midnight-position?date=${currentDate}&lobby=${lobby}`);
+                    const result = await resp.json();
+                    data[lobby] = result.exists ? result.position : null;
+                } catch (e) {
+                    data[lobby] = null;
+                }
+            }
+
+            positionData.mainline = data;
+            renderMainlineTable(data);
+        }
+
+        async function loadSuburbanData() {
+            // CSMT SUB is a special consolidated view - for now show placeholder
+            // In real implementation, this would fetch from a separate API or calculate from multiple sources
+            renderSuburbanTable();
+        }
+
+        async function loadGhatData() {
+            const lobbies = ['IGP', 'LNL'];
+            const data = {};
+
+            for (const lobby of lobbies) {
+                try {
+                    const resp = await fetch(`/api/division/midnight-position?date=${currentDate}&lobby=${lobby}`);
+                    const result = await resp.json();
+                    data[lobby] = result.exists ? result.position : null;
+                } catch (e) {
+                    data[lobby] = null;
+                }
+            }
+
+            positionData.ghat = data;
+            renderGhatTable(data);
+        }
+
+        // Render Mainline Table
+        function renderMainlineTable(data) {
+            const container = document.getElementById('mainline-table-container');
+
+            // Define designations and metrics
+            const designations = ['LPM', 'LPP', 'LPG', 'LPS', 'ALP'];
+            const lobbies = ['PNVL', 'KYN', 'CSMT', 'CLA'];
+            const lobbyColors = {
+                'PNVL': 'lobby-pnvl',
+                'KYN': 'lobby-kyn',
+                'CSMT': 'lobby-csmt',
+                'CLA': 'lobby-cla'
+            };
+
+            // Which designations exist in which lobby
+            const lobbyDesignations = {
+                'PNVL': ['LPG', 'LPS', 'ALP'],
+                'KYN': ['LPG', 'LPS', 'ALP'],
+                'CSMT': ['LPM', 'LPP', 'LPG', 'LPS', 'ALP'],
+                'CLA': ['LPG', 'LPS', 'ALP']
+            };
+
+            let html = `
+                <table class="consolidated-table">
+                    <thead>
+                        <tr>
+                            <th rowspan="2" style="width:80px;">Designation</th>
+                            ${lobbies.map(l => `<th colspan="3" class="lobby-header ${lobbyColors[l]}">${l}</th>`).join('')}
+                            <th colspan="3" class="lobby-header lobby-total">TOTAL</th>
+                        </tr>
+                        <tr>
+                            ${lobbies.map(l => `
+                                <th class="${lobbyColors[l]}">Sanc</th>
+                                <th class="${lobbyColors[l]}">OnRoll</th>
+                                <th class="${lobbyColors[l]}">Vac</th>
+                            `).join('')}
+                            <th class="lobby-total">Sanc</th>
+                            <th class="lobby-total">OnRoll</th>
+                            <th class="lobby-total">Vac</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            // Totals for grand total row
+            const grandTotal = { sanc: 0, onroll: 0, vac: 0 };
+            const lobbyTotals = {};
+            lobbies.forEach(l => lobbyTotals[l] = { sanc: 0, onroll: 0, vac: 0 });
+
+            // Rows for each designation
+            designations.forEach(desig => {
+                let rowTotal = { sanc: 0, onroll: 0, vac: 0 };
+
+                html += `<tr><td class="desig-col">${desig}</td>`;
+
+                lobbies.forEach(lobby => {
+                    const hasDesig = lobbyDesignations[lobby].includes(desig);
+                    const pos = data[lobby];
+
+                    if (!hasDesig) {
+                        html += `<td class="empty">-</td><td class="empty">-</td><td class="empty">-</td>`;
+                    } else {
+                        const prefix = desig.toLowerCase().replace(' ', '_');
+                        // Sanction from master table, on_roll from position data
+                        const sanc = getSanction(lobby, desig);
+                        const onroll = pos ? (pos[`${prefix}_on_roll`] || 0) : 0;
+                        const vac = sanc - onroll;
+
+                        rowTotal.sanc += sanc;
+                        rowTotal.onroll += onroll;
+                        rowTotal.vac += vac;
+
+                        lobbyTotals[lobby].sanc += sanc;
+                        lobbyTotals[lobby].onroll += onroll;
+                        lobbyTotals[lobby].vac += vac;
+
+                        html += `
+                            <td>${sanc}</td>
+                            <td>${onroll}</td>
+                            <td class="${vac < 0 ? 'negative' : ''}">${vac}</td>
+                        `;
+                    }
+                });
+
+                grandTotal.sanc += rowTotal.sanc;
+                grandTotal.onroll += rowTotal.onroll;
+                grandTotal.vac += rowTotal.vac;
+
+                html += `
+                    <td class="total-col">${rowTotal.sanc || '-'}</td>
+                    <td class="total-col">${rowTotal.onroll || '-'}</td>
+                    <td class="total-col ${rowTotal.vac < 0 ? 'negative' : ''}">${rowTotal.vac || '-'}</td>
+                </tr>`;
+            });
+
+            // Total row
+            html += `<tr class="total-row"><td class="desig-col">Total</td>`;
+            lobbies.forEach(lobby => {
+                const t = lobbyTotals[lobby];
+                html += `
+                    <td>${t.sanc}</td>
+                    <td>${t.onroll}</td>
+                    <td class="${t.vac < 0 ? 'negative' : ''}">${t.vac}</td>
+                `;
+            });
+            html += `
+                <td class="total-col">${grandTotal.sanc}</td>
+                <td class="total-col">${grandTotal.onroll}</td>
+                <td class="total-col ${grandTotal.vac < 0 ? 'negative' : ''}">${grandTotal.vac}</td>
+            </tr>`;
+
+            html += `</tbody></table>`;
+
+            // Status indicators
+            const allFinalized = lobbies.every(l => data[l]?.finalized);
+            const someFinalized = lobbies.some(l => data[l]?.finalized);
+            let statusHtml = '';
+            if (allFinalized) {
+                statusHtml = '<span class="status-badge status-finalized"><i class="fa-solid fa-lock"></i> All Finalized</span>';
+            } else if (someFinalized) {
+                statusHtml = '<span class="status-badge status-pending"><i class="fa-solid fa-clock"></i> Partially Finalized</span>';
+            } else {
+                statusHtml = '<span class="status-badge status-pending"><i class="fa-solid fa-clock"></i> Pending</span>';
+            }
+            document.getElementById('mainline-status').innerHTML = statusHtml;
+
+            container.innerHTML = html;
+        }
+
+        // Render Suburban Table (CSMT SUB style)
+        function renderSuburbanTable() {
+            const container = document.getElementById('suburban-table-container');
+
+            // This follows the CSMT SUB format from the Google Sheets
+            const particulars = [
+                { name: 'SANCTIONED STRENGTH', key: 'sanction' },
+                { name: 'WORKING MOTORMAN ON DTL', key: 'working' },
+                { name: 'VACANCIES', key: 'vacancy' },
+                { name: 'LOCO POWER CONTROLLER', key: 'lpc', indent: true },
+                { name: 'SPAD M.MAN WORKING AS JFO/JRCC', key: 'spad_jfo', indent: true },
+                { name: 'SUPERNUMERARY/D-CATEGORIZED', key: 'super', indent: true },
+                { name: 'TOTAL NON-EFFECTIVE', key: 'total_non_eff', highlight: true },
+                { name: 'LEAVE', key: 'leave' },
+                { name: 'LEARNING ROAD', key: 'learning' },
+                { name: 'REF COURSE / SAFETY CAMP', key: 'ref_course' },
+                { name: 'SICK', key: 'sick' },
+                { name: 'PME', key: 'pme' },
+                { name: 'M/MAN WKG IN GHAT', key: 'ghat' },
+                { name: 'DTC KYN-BSL ZRTI', key: 'dtc' },
+                { name: 'TOTAL OFF DETAIL', key: 'off_detail', highlight: true },
+                { name: 'TOTAL M/MAN ON DETAIL', key: 'on_detail', highlight: true },
+                { name: 'TOTAL VACANT DETAIL', key: 'vacant_detail', highlight: true }
+            ];
+
+            // Sample data structure - in production this would come from API
+            const sampleData = {
+                'CSMT': { sanction: 555, working: 396, vacancy: 159, leave: 21, sick: 3, dtc: 8 },
+                'KYN': { sanction: 370, working: 307, vacancy: 63, leave: 13, sick: 4, dtc: 28 },
+                'PNVL': { sanction: 151, working: 113, vacancy: 38, leave: 7, sick: 2, dtc: 7 }
+            };
+
+            let html = `
+                <table class="consolidated-table">
+                    <thead>
+                        <tr>
+                            <th style="text-align:left; width:40%;">PARTICULARS</th>
+                            <th class="lobby-csmt">CSMT</th>
+                            <th class="lobby-kyn">KYN</th>
+                            <th class="lobby-pnvl">PNVL</th>
+                            <th class="lobby-total">TOTAL</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            particulars.forEach(p => {
+                const csmt = sampleData.CSMT[p.key] || 0;
+                const kyn = sampleData.KYN[p.key] || 0;
+                const pnvl = sampleData.PNVL[p.key] || 0;
+                const total = csmt + kyn + pnvl;
+
+                const rowClass = p.highlight ? 'total-row' : '';
+                const nameStyle = p.indent ? 'padding-left: 30px;' : '';
+
+                html += `
+                    <tr class="${rowClass}">
+                        <td style="text-align:left; ${nameStyle}">${p.name}</td>
+                        <td>${csmt || '-'}</td>
+                        <td>${kyn || '-'}</td>
+                        <td>${pnvl || '-'}</td>
+                        <td class="total-col">${total || '-'}</td>
+                    </tr>
+                `;
+            });
+
+            html += `</tbody></table>`;
+            html += `<p style="color: var(--text-light); font-size: 12px; margin-top: 10px;">
+                <i class="fa-solid fa-info-circle"></i>
+                Suburban data is consolidated from CSMT SUB records. Full implementation pending.
+            </p>`;
+
+            container.innerHTML = html;
+        }
+
+        // Render Ghat Table
+        function renderGhatTable(data) {
+            const container = document.getElementById('ghat-table-container');
+
+            const designations = ['LPGHAT', 'LPS', 'ALP'];
+            const lobbies = ['IGP', 'LNL'];
+            const lobbyColors = {
+                'IGP': 'lobby-igp',
+                'LNL': 'lobby-lnl'
+            };
+
+            let html = `
+                <table class="consolidated-table">
+                    <thead>
+                        <tr>
+                            <th rowspan="2" style="width:100px;">Designation</th>
+                            ${lobbies.map(l => `<th colspan="3" class="lobby-header ${lobbyColors[l]}">${l}</th>`).join('')}
+                            <th colspan="3" class="lobby-header lobby-total">TOTAL</th>
+                        </tr>
+                        <tr>
+                            ${lobbies.map(l => `
+                                <th class="${lobbyColors[l]}">Sanc</th>
+                                <th class="${lobbyColors[l]}">OnRoll</th>
+                                <th class="${lobbyColors[l]}">Vac</th>
+                            `).join('')}
+                            <th class="lobby-total">Sanc</th>
+                            <th class="lobby-total">OnRoll</th>
+                            <th class="lobby-total">Vac</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            const grandTotal = { sanc: 0, onroll: 0, vac: 0 };
+            const lobbyTotals = {};
+            lobbies.forEach(l => lobbyTotals[l] = { sanc: 0, onroll: 0, vac: 0 });
+
+            designations.forEach(desig => {
+                let rowTotal = { sanc: 0, onroll: 0, vac: 0 };
+
+                html += `<tr><td class="desig-col">${desig}</td>`;
+
+                lobbies.forEach(lobby => {
+                    const pos = data[lobby];
+
+                    // Map LPGHAT to lpghat or lpg_ghat in database
+                    let prefix = desig.toLowerCase();
+                    if (desig === 'LPGHAT') prefix = 'lpghat';
+
+                    // Sanction from master table, on_roll from position data
+                    const sanc = getSanction(lobby, desig);
+                    const onroll = pos ? (pos[`${prefix}_on_roll`] || 0) : 0;
+                    const vac = sanc - onroll;
+
+                    rowTotal.sanc += sanc;
+                    rowTotal.onroll += onroll;
+                    rowTotal.vac += vac;
+
+                    lobbyTotals[lobby].sanc += sanc;
+                    lobbyTotals[lobby].onroll += onroll;
+                    lobbyTotals[lobby].vac += vac;
+
+                    html += `
+                        <td>${sanc}</td>
+                        <td>${onroll}</td>
+                        <td class="${vac < 0 ? 'negative' : ''}">${vac}</td>
+                    `;
+                });
+
+                grandTotal.sanc += rowTotal.sanc;
+                grandTotal.onroll += rowTotal.onroll;
+                grandTotal.vac += rowTotal.vac;
+
+                html += `
+                    <td class="total-col">${rowTotal.sanc || '-'}</td>
+                    <td class="total-col">${rowTotal.onroll || '-'}</td>
+                    <td class="total-col ${rowTotal.vac < 0 ? 'negative' : ''}">${rowTotal.vac || '-'}</td>
+                </tr>`;
+            });
+
+            // Total row
+            html += `<tr class="total-row"><td class="desig-col">Total</td>`;
+            lobbies.forEach(lobby => {
+                const t = lobbyTotals[lobby];
+                html += `
+                    <td>${t.sanc}</td>
+                    <td>${t.onroll}</td>
+                    <td class="${t.vac < 0 ? 'negative' : ''}">${t.vac}</td>
+                `;
+            });
+            html += `
+                <td class="total-col">${grandTotal.sanc}</td>
+                <td class="total-col">${grandTotal.onroll}</td>
+                <td class="total-col ${grandTotal.vac < 0 ? 'negative' : ''}">${grandTotal.vac}</td>
+            </tr>`;
+
+            html += `</tbody></table>`;
+
+            // Status
+            const allFinalized = lobbies.every(l => data[l]?.finalized);
+            const someFinalized = lobbies.some(l => data[l]?.finalized);
+            let statusHtml = '';
+            if (allFinalized) {
+                statusHtml = '<span class="status-badge status-finalized"><i class="fa-solid fa-lock"></i> All Finalized</span>';
+            } else if (someFinalized) {
+                statusHtml = '<span class="status-badge status-pending"><i class="fa-solid fa-clock"></i> Partially Finalized</span>';
+            } else {
+                statusHtml = '<span class="status-badge status-pending"><i class="fa-solid fa-clock"></i> Pending</span>';
+            }
+            document.getElementById('ghat-status').innerHTML = statusHtml;
+
+            container.innerHTML = html;
+        }
+    </script>
+</body>
+</html>

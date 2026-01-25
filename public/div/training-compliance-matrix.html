@@ -631,6 +631,9 @@
         { id: 21, key: 'WDS6',        label: 'WDS6',         desc: 'Capsule Course For WDS6' },
         { id: 12, key: 'HS_SPART',    label: 'HS-SPART',     desc: 'HS-SPART Training' },
         { id: 19, key: 'HSTAT',       label: 'HSTAT',        desc: 'High Speed Train Aptitude Test' },
+        { id: 14, key: 'DSLAC_SIM',   label: 'DSLAC SIM',    desc: 'DSLAC Simulator Training (For ALP)' },
+        { id: 15, key: 'WDG4G_6G',    label: 'WDG 4G/6G',    desc: 'WDG 4G/WDG 6G Training' },
+        { id: 20, key: 'PSYCHO',      label: 'Psycho Test',  desc: 'Psycho Test' },
     ];
 
     // Default trainings by designation (id or name)
@@ -955,26 +958,31 @@
         document.getElementById('addTrainingModal').classList.remove('show');
     }
 
-    // Training validity periods in years (for trainings that need due dates)
+    // Training validity periods in months (for trainings that need due dates)
     const TRAINING_VALIDITY = {
-        17: 3,  // MEMU - 3 years
-        1: 1,   // PME - 1 year
-        2: 1,   // RMP - 1 year
-        3: 3    // SR - 3 years
+        17: 36, // MEMU - 3 years
+        1: 12,  // PME - 1 year
+        2: 12,  // RMP - 1 year
+        3: 36,  // SR - 3 years
+        5: 6,   // Automatic - 6 months
+        6: 36,  // 3 years
+        7: 36,  // 3 years
+        8: 36,  // 3 years
+        13: 6   // 6 months
     };
 
     // Lifetime trainings don't need due dates
-    const LIFETIME_TRAININGS_SET = new Set([4, 9, 10, 11, 12, 16, 18, 19, 21, 22, 23, 24, 25]);
+    const LIFETIME_TRAININGS_SET = new Set([4, 9, 10, 11, 12, 14, 15, 16, 18, 19, 20, 21, 22, 23, 24, 25]);
 
     function calculateDueDate(trainingId, doneDate) {
         const id = parseInt(trainingId);
         if (LIFETIME_TRAININGS_SET.has(id)) {
             return null;
         }
-        const validityYears = TRAINING_VALIDITY[id];
-        if (validityYears && doneDate) {
+        const validityMonths = TRAINING_VALIDITY[id];
+        if (validityMonths && doneDate) {
             const done = new Date(doneDate);
-            done.setFullYear(done.getFullYear() + validityYears);
+            done.setMonth(done.getMonth() + validityMonths);
             return done.toISOString().split('T')[0];
         }
         return null;

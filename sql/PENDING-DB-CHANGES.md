@@ -118,13 +118,72 @@ Verify these columns exist:
 
 ---
 
+## 5. Midnight Position Tables (00:00 Hrs Staff Position)
+**File:** `sql/div_midnight_position.sql`
+**Status:** PENDING
+
+Creates 3 tables for tracking daily staff position at midnight:
+
+**5.1 Main Position Summary Table**
+```sql
+CREATE TABLE IF NOT EXISTS `div_midnight_position` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `position_date` date NOT NULL,
+  `lobby_code` varchar(20) NOT NULL,
+  -- Per designation stats (LPG, LPS, ALP)
+  `lpg_sanction` int DEFAULT 0,
+  `lpg_on_roll` int DEFAULT 0,
+  `lpg_net_available` int DEFAULT 0,
+  -- ... (60+ stat columns for detailed tracking)
+  `finalized` tinyint(1) DEFAULT 0,
+  `finalized_by` varchar(100) DEFAULT NULL,
+  `finalized_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_date_lobby` (`position_date`, `lobby_code`)
+);
+```
+
+**5.2 Staff Detail Entries Table**
+```sql
+CREATE TABLE IF NOT EXISTS `div_midnight_position_staff` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `position_id` int NOT NULL,
+  `category` varchar(50) NOT NULL,
+  `staff_hrms_id` varchar(20) DEFAULT NULL,
+  `staff_name` varchar(100) NOT NULL,
+  `designation` varchar(20) NOT NULL,
+  `working_from_as` varchar(200) DEFAULT NULL,
+  `reason` varchar(200) DEFAULT NULL,
+  `since_date` date DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  FOREIGN KEY (`position_id`) REFERENCES `div_midnight_position` (`id`) ON DELETE CASCADE
+);
+```
+
+**5.3 Category Master Table**
+```sql
+CREATE TABLE IF NOT EXISTS `div_midnight_position_categories` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `category_code` varchar(50) NOT NULL,
+  `category_name` varchar(100) NOT NULL,
+  `display_order` int DEFAULT 0,
+  PRIMARY KEY (`id`)
+);
+-- Includes INSERT statements for default categories
+```
+
+**Purpose:** Track daily midnight position of staff by lobby - Medical Unfit, SPAD Crew, Office/Outstation, etc. Replaces the current Google Sheets workflow.
+
+---
+
 ## Execution Order
 
 Run in this order on the production server:
 
 1. `sql/add_retirement_date_column.sql`
 2. `sql/div_staff_drafting_records.sql`
-3. `sql/div_leave_status_history.sql` (create this file first)
+3. `sql/div_leave_status_history.sql`
+4. `sql/div_midnight_position.sql`
 
 ---
 
@@ -136,7 +195,84 @@ Run in this order on the production server:
 - [ ] Deploy updated code
 - [ ] Test leave management functionality
 - [ ] Test retirement tracking functionality
+- [ ] Test midnight position entry and carry-forward
 
 ---
 
-*Last Updated: 2026-01-11*
+## 6. CTR Legs - Matched Sections Column (LRD Route Matching)
+**File:** `sql/add_matched_sections_column.sql`
+**Status:** PENDING
+
+```sql
+ALTER TABLE `div_ctr_legs`
+ADD COLUMN `matched_sections` JSON DEFAULT NULL
+COMMENT 'Resolved route matches [{route_id, stations, reason}]'
+AFTER `route_name`;
+```
+
+**Purpose:** Store LRD route matching results for each leg. Used by the new JSON-based LRD system that replaces the div_lrd_sections/div_lrd_section_stations tables.
+
+**Related Files:**
+- `data/routes.json` - Route definitions generated from CSV
+- `routes/division/lrd_route_resolver.js` - Runtime route resolver
+- `scripts/convert_routes.js` - CSV to JSON converter
+
+---
+
+## 7. LRD Segment Coverage Table (Segment-based LRD Tracking)
+**File:** `sql/div_lrd_segment_coverage.sql`
+**Status:** PENDING
+
+```sql
+CREATE TABLE IF NOT EXISTS `div_lrd_segment_coverage` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `staff_hrms_id` varchar(10) NOT NULL,
+  `from_station` varchar(10) NOT NULL COMMENT 'Starting station of segment',
+  `to_station` varchar(10) NOT NULL COMMENT 'Ending station of segment',
+  `last_worked_date` date NOT NULL COMMENT 'Most recent date this segment was worked',
+  `last_duty_id` int DEFAULT NULL COMMENT 'Reference to div_ctr_duties.id',
+  `work_count` int DEFAULT 1 COMMENT 'Number of times worked (for stats)',
+  `created_at` timestamp DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_staff_segment` (`staff_hrms_id`, `from_station`, `to_station`),
+  KEY `idx_staff` (`staff_hrms_id`),
+  KEY `idx_last_worked` (`last_worked_date`),
+  KEY `idx_from_station` (`from_station`),
+  KEY `idx_to_station` (`to_station`),
+  CONSTRAINT `fk_segment_staff` FOREIGN KEY (`staff_hrms_id`)
+    REFERENCES `div_staff_master` (`hrms_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+```
+
+**Purpose:** Track individual station-pair segments worked by staff for segment-based LRD validity calculation. Direction matters: ROHA→NGTN is different from NGTN→ROHA. This replaces the route-based LRD system with a more granular segment tracking approach.
+
+**Related Files:**
+- `data/lrd_beats.json` - Section/beat definitions with station sequences
+- `scripts/backfill_segment_coverage.js` - One-time script to populate from existing CTR legs
+- `routes/division/ctrRoutes.js` - Updated API endpoints
+
+**Post-Deployment Steps:**
+1. Run the SQL to create the table
+2. Run `node scripts/backfill_segment_coverage.js` to populate from existing data
+
+---
+
+## Updated Execution Order
+
+Run in this order on the production server:
+
+1. `sql/add_retirement_date_column.sql`
+2. `sql/div_staff_drafting_records.sql`
+3. `sql/div_leave_status_history.sql`
+4. `sql/div_midnight_position.sql`
+5. `sql/add_matched_sections_column.sql`
+6. `sql/div_lrd_segment_coverage.sql`
+
+**After SQL Execution:**
+- Run `node scripts/backfill_matched_sections.js` (if not done already)
+- Run `node scripts/backfill_segment_coverage.js` (to populate segment coverage)
+
+---
+
+*Last Updated: 2026-01-20*

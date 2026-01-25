@@ -1236,6 +1236,12 @@ function getTrainingValidityMonths(trainingName) {
   if (nameLower.includes('memu')) return 36;
   if (nameLower.includes('mmprc') || nameLower.includes('motorman promotion')) return 36;
 
+  // Explicitly mark as lifetime (no due date)
+  if (nameLower.includes('wdg') || nameLower.includes('ghat') || nameLower.includes('spic') ||
+      nameLower.includes('wag') || nameLower.includes('kavach') || nameLower.includes('vande') ||
+      nameLower.includes('push') || nameLower.includes('hstat') || nameLower.includes('ac/dc') ||
+      nameLower.includes('hs-spart') || nameLower.includes('wds')) return 0;
+
   // All other trainings - lifetime (no due date)
   return 0;
 }
@@ -2058,11 +2064,18 @@ async function addTraining() {
       return;
     }
   } else {
-    // Normal flow - require due date
-    dueDate = document.getElementById('training_due_date').value;
-    if (!dueDate) {
-      alert('Please enter due date');
-      return;
+    // Check if this is a lifetime training (no due date needed)
+    const selectedOption = document.querySelector(`#training_type option[value="${trainingId}"]`);
+    const trainingName = selectedOption ? selectedOption.textContent.trim() : '';
+    const isLifetime = isTrainingLifetime(trainingName);
+
+    if (!isLifetime) {
+      // Normal flow - require due date for non-lifetime trainings
+      dueDate = document.getElementById('training_due_date').value;
+      if (!dueDate) {
+        alert('Please enter due date');
+        return;
+      }
     }
   }
 
@@ -2158,19 +2171,28 @@ function renderTrainings(trainings) {
   const canEdit = checkEditPermissions();
 
   tbody.innerHTML = trainings.map((training, index) => {
-    const dueDate = new Date(training.due_date);
-    const daysUntilDue = Math.floor((dueDate - today) / (1000 * 60 * 60 * 24));
-
     let statusClass = 'badge bg-success';
     let statusText = 'Valid';
+    let dueDateDisplay = '-';
 
-    if (daysUntilDue < 0) {
-      statusClass = 'badge bg-danger';
-      statusText = `Overdue ${Math.abs(daysUntilDue)} days`;
-      overdueCount++;
-    } else if (daysUntilDue <= 30) {
-      statusClass = 'badge bg-warning';
-      statusText = `Due in ${daysUntilDue} days`;
+    // Check if this is a lifetime training (no due date)
+    if (!training.due_date) {
+      statusClass = '';
+      statusText = '';
+      dueDateDisplay = '';
+    } else {
+      const dueDate = new Date(training.due_date);
+      const daysUntilDue = Math.floor((dueDate - today) / (1000 * 60 * 60 * 24));
+      dueDateDisplay = formatDate(training.due_date);
+
+      if (daysUntilDue < 0) {
+        statusClass = 'badge bg-danger';
+        statusText = `Overdue ${Math.abs(daysUntilDue)} days`;
+        overdueCount++;
+      } else if (daysUntilDue <= 30) {
+        statusClass = 'badge bg-warning';
+        statusText = `Due in ${daysUntilDue} days`;
+      }
     }
 
     // Show Edit/Remove buttons only if user has permission
@@ -2183,7 +2205,7 @@ function renderTrainings(trainings) {
       <tr>
         <td><strong>${training.training_name}</strong></td>
         <td>${formatDate(training.done_date)}</td>
-        <td>${formatDate(training.due_date)}</td>
+        <td>${dueDateDisplay}</td>
         <td><span class="${statusClass}">${statusText}</span></td>
         <td>${training.center_name || '-'}</td>
         <td>${training.remarks || '-'}</td>

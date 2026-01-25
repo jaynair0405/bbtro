@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>00:00 Hrs Position | CRTMS.in</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --brand: #0b3d91;
+            --bg: #f8fafc;
+            --surface: #ffffff;
+            --border: #e2e8f0;
+            --text-main: #1e293b;
+            --text-light: #64748b;
+            --danger: #ef4444;
+            --success: #10b981;
+            --warning: #f59e0b;
+        }
+
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 20px; }
+
+        /* --- HEADER --- */
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--surface);
+            padding: 16px 24px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        }
+        .header-title h2 { margin: 0; color: var(--brand); font-size: 20px; }
+        .header-title p { margin: 4px 0 0 0; color: var(--text-light); font-size: 12px; }
+        
+        .header-controls { display: flex; gap: 15px; align-items: center; }
+        .date-badge { background: #e0f2fe; color: #0284c7; padding: 6px 12px; border-radius: 6px; font-weight: 600; font-size: 14px; }
+
+        /* --- SUMMARY STATS (Top Row) --- */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .stat-card {
+            background: var(--surface);
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            text-align: center;
+        }
+        .stat-val { font-size: 24px; font-weight: 700; color: var(--text-main); }
+        .stat-lbl { font-size: 11px; text-transform: uppercase; color: var(--text-light); margin-top: 4px; }
+
+        /* --- MAIN EDITOR --- */
+        .editor-container {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            background: #f1f5f9;
+            border-bottom: 1px solid var(--border);
+        }
+        .tab-btn {
+            padding: 14px 24px;
+            cursor: pointer;
+            border: none;
+            background: transparent;
+            font-weight: 600;
+            color: var(--text-light);
+            border-right: 1px solid var(--border);
+            transition: all 0.2s;
+        }
+        .tab-btn:hover { background: #e2e8f0; }
+        .tab-btn.active {
+            background: var(--surface);
+            color: var(--brand);
+            border-bottom: 2px solid var(--brand);
+        }
+        .tab-count {
+            background: #cbd5e1;
+            color: #fff;
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-size: 11px;
+            margin-left: 6px;
+        }
+        .tab-btn.active .tab-count { background: var(--brand); }
+
+        /* Toolbar */
+        .toolbar {
+            padding: 12px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border);
+        }
+        .add-btn {
+            background: var(--brand);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .search-box {
+            padding: 8px 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            width: 250px;
+        }
+
+        /* The Grid */
+        .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .data-table th { text-align: left; padding: 12px 20px; background: #f8fafc; color: var(--text-light); border-bottom: 1px solid var(--border); }
+        .data-table td { padding: 10px 20px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+        .data-table tr:hover { background: #f8fafc; }
+
+        /* Status Pills */
+        .pill { padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+        .pill-red { background: #fee2e2; color: #991b1b; }
+        .pill-yellow { background: #fef3c7; color: #92400e; }
+        
+        /* Action Buttons in Row */
+        .action-icon {
+            color: var(--text-light);
+            cursor: pointer;
+            padding: 6px;
+            border-radius: 4px;
+        }
+        .action-icon:hover { background: #f1f5f9; color: var(--brand); }
+        .btn-return { color: var(--success); }
+        .btn-edit { color: var(--brand); }
+
+        /* Footer */
+        .page-footer {
+            margin-top: 20px;
+            display: flex;
+            justify-content: flex-end;
+            gap: 15px;
+        }
+        .btn-finalize {
+            background: var(--success);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(16, 185, 129, 0.2);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="page-header">
+        <div class="header-title">
+            <h2><i class="fa-solid fa-moon"></i> Midnight Position Entry</h2>
+            <p>Lobby: <strong>KYN (Kalyan)</strong> • Date: <span class="date-badge">10 Jan 2026</span></p>
+        </div>
+        <div class="header-controls">
+            <span style="font-size:12px; color:var(--success); font-weight:600;">
+                <i class="fa-solid fa-check-circle"></i> Data carried forward from 09 Jan
+            </span>
+        </div>
+    </div>
+
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-val">433</div>
+            <div class="stat-lbl">Sanc. Strength (LPG)</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-val">331</div>
+            <div class="stat-lbl">Man On Roll</div>
+        </div>
+        <div class="stat-card" style="border-color:var(--danger); background:#fef2f2;">
+            <div class="stat-val" style="color:var(--danger)">102</div>
+            <div class="stat-lbl">Vacancy</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-val">28</div>
+            <div class="stat-lbl">Non-Effective</div>
+        </div>
+    </div>
+
+    <div class="editor-container">
+        
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('medical')">Medical Unfit <span class="tab-count">12</span></button>
+            <button class="tab-btn" onclick="switchTab('office')">Office / Drafted <span class="tab-count">8</span></button>
+            <button class="tab-btn" onclick="switchTab('spad')">SPAD / Suspension <span class="tab-count">3</span></button>
+            <button class="tab-btn" onclick="switchTab('outstation')">Outstation / Loan <span class="tab-count">5</span></button>
+        </div>
+
+        <div class="toolbar">
+            <input type="text" class="search-box" placeholder="Search Name or ID...">
+            <button class="add-btn">
+                <i class="fa-solid fa-plus"></i> Add New Case
+            </button>
+        </div>
+
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Staff Name</th>
+                    <th>Desig</th>
+                    <th>Since Date</th>
+                    <th>Days</th>
+                    <th>Reason / Remarks</th>
+                    <th style="text-align:right;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>
+                        <strong>Shiv Kumar</strong><br>
+                        <span style="color:#666; font-size:11px;">ID: 102933</span>
+                    </td>
+                    <td>LPG</td>
+                    <td>09-Oct-2024</td>
+                    <td><span class="pill pill-red">92 Days</span></td>
+                    <td>Medical Unfit (Lasik)</td>
+                    <td style="text-align:right;">
+                        <i class="fa-solid fa-pen action-icon btn-edit" title="Edit Remark"></i>
+                        <i class="fa-solid fa-person-walking-arrow-right action-icon btn-return" title="Mark Fit / Return to Duty"></i>
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <strong>Dinesh Kr Gupta</strong><br>
+                        <span style="color:#666; font-size:11px;">ID: 552110</span>
+                    </td>
+                    <td>LPG</td>
+                    <td>10-Aug-2025</td>
+                    <td><span class="pill pill-yellow">152 Days</span></td>
+                    <td>PME Overdue</td>
+                    <td style="text-align:right;">
+                        <i class="fa-solid fa-pen action-icon btn-edit"></i>
+                        <i class="fa-solid fa-person-walking-arrow-right action-icon btn-return"></i>
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <strong>Ravi Kant Mani</strong><br>
+                        <span style="color:#666; font-size:11px;">ID: 882911</span>
+                    </td>
+                    <td>LPS</td>
+                    <td>03-Mar-2021</td>
+                    <td><span class="pill pill-red">1760 Days</span></td>
+                    <td>Long Absent / Sick</td>
+                    <td style="text-align:right;">
+                        <i class="fa-solid fa-pen action-icon btn-edit"></i>
+                        <i class="fa-solid fa-person-walking-arrow-right action-icon btn-return"></i>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+
+    </div>
+
+    <div class="page-footer">
+        <div style="font-size:12px; color:#666; align-self:center;">
+            * Clicking Finalize will freeze today's position and generate the Divisional Summary.
+        </div>
+        <button class="btn-finalize">
+            <i class="fa-solid fa-lock"></i> Finalize Position
+        </button>
+    </div>
+
+    <script>
+        function switchTab(tabName) {
+            // Logic to hide/show rows based on category or fetch new data
+            // Visual toggle only for this demo
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            event.currentTarget.classList.add('active');
+        }
+    </script>
+</body>
+</html>

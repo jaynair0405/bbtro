@@ -14,6 +14,37 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 
+// LRD Route Resolver
+const {
+    loadRoutesJson,
+    buildRouteIndex,
+    resolveLegWithRoutes,
+    resolveLegForOffice,
+    getRoutesForOffice
+} = require('./lrd_route_resolver');
+
+// Load routes.json at startup
+const routesJsonPath = path.join(__dirname, '../../data/routes.json');
+let routeCtx = null;
+try {
+    const routeDb = loadRoutesJson(routesJsonPath);
+    routeCtx = buildRouteIndex(routeDb);
+    console.log(`[CTR] Loaded ${routeDb.routes.length} routes from routes.json`);
+} catch (err) {
+    console.error('[CTR] Failed to load routes.json:', err.message);
+}
+
+// Load lrd_beats.json at startup (section definitions)
+const beatsJsonPath = path.join(__dirname, '../../data/lrd_beats.json');
+let beatsData = null;
+try {
+    const beatsRaw = fs.readFileSync(beatsJsonPath, 'utf8');
+    beatsData = JSON.parse(beatsRaw);
+    console.log(`[CTR] Loaded ${beatsData.beats.length} beats from lrd_beats.json`);
+} catch (err) {
+    console.error('[CTR] Failed to load lrd_beats.json:', err.message);
+}
+
 // Multer setup for file uploads
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
@@ -39,7 +70,7 @@ const upload = multer({
             cb(new Error('Only Excel (.xlsx, .xls) and CSV files are allowed'), false);
         }
     },
-    limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
+    limits: { fileSize: 50 * 1024 * 1024 } // 50MB limit
 });
 
 // ============================================
@@ -126,6 +157,127 @@ async function lookupHRMSId(pool, cmsId) {
     }
 }
 
+function normalizeRouteName(v) {
+  if (v === null || v === undefined) return null;
+  const s = String(v).trim();
+  if (!s) return null;
+  const upper = s.toUpperCase();
+  if (upper === 'NA' || upper === 'N/A' || upper === '-' || upper === 'NULL') return null;
+  return s; // keep original case as entered
+}
+
+/**
+ * Extract adjacent station pairs from a stations array
+ * ["PEN", "JITE", "APTA"] => [["PEN","JITE"], ["JITE","APTA"]]
+ */
+function extractAdjacentPairs(stations) {
+    const pairs = [];
+    if (!Array.isArray(stations) || stations.length < 2) return pairs;
+
+    for (let i = 0; i < stations.length - 1; i++) {
+        const from = String(stations[i]).trim().toUpperCase();
+        const to = String(stations[i + 1]).trim().toUpperCase();
+        if (from && to && from !== to) {
+            pairs.push([from, to]);
+        }
+    }
+    return pairs;
+}
+
+/**
+ * Update segment coverage for a staff member based on matched_sections
+ * @param {Object} pool - Database pool
+ * @param {string} hrmsId - Staff HRMS ID
+ * @param {string} matchedSectionsJson - JSON string of matched_sections
+ * @param {Date|string} dutyDate - Date the leg was worked
+ * @param {number} dutyId - ID of the duty
+ */
+async function updateSegmentCoverage(pool, hrmsId, matchedSectionsJson, dutyDate, dutyId) {
+    if (!hrmsId || !matchedSectionsJson) return;
+
+    try {
+        const matched = JSON.parse(matchedSectionsJson);
+        if (!Array.isArray(matched) || matched.length === 0) return;
+
+        // Get stations from first match
+        const stations = matched[0].stations;
+        if (!Array.isArray(stations) || stations.length < 2) return;
+
+        // Extract adjacent pairs
+        const pairs = extractAdjacentPairs(stations);
+
+        // Format duty date
+        const dutyDateStr = dutyDate instanceof Date
+            ? dutyDate.toISOString().slice(0, 10)
+            : String(dutyDate).slice(0, 10);
+
+        // Insert/update each pair
+        for (const [fromStn, toStn] of pairs) {
+            await pool.query(
+                `INSERT INTO div_lrd_segment_coverage
+                 (staff_hrms_id, from_station, to_station, last_worked_date, last_duty_id, work_count)
+                 VALUES (?, ?, ?, ?, ?, 1)
+                 ON DUPLICATE KEY UPDATE
+                   last_worked_date = CASE
+                     WHEN VALUES(last_worked_date) > last_worked_date
+                     THEN VALUES(last_worked_date)
+                     ELSE last_worked_date
+                   END,
+                   last_duty_id = CASE
+                     WHEN VALUES(last_worked_date) > last_worked_date
+                     THEN VALUES(last_duty_id)
+                     ELSE last_duty_id
+                   END,
+                   work_count = work_count + 1`,
+                [hrmsId, fromStn, toStn, dutyDateStr, dutyId]
+            );
+        }
+    } catch (err) {
+        console.error('[CTR] Error updating segment coverage:', err.message);
+    }
+}
+
+/**
+ * Get beats/sections filtered by office
+ * Handles office codes like "PNVL-ML" matching beat office "PNVL"
+ */
+function getBeatsForOffice(office, beats) {
+    if (!beats || !office) return beats || [];
+    const upperOffice = office.toUpperCase();
+    // Extract base office code (PNVL-ML -> PNVL, KYN-RR -> KYN)
+    const baseOffice = upperOffice.split('-')[0];
+    return beats.filter(b =>
+        b.office === baseOffice ||
+        b.office === upperOffice ||
+        b.office === 'SHARED' ||
+        !b.office
+    );
+}
+
+/**
+ * Parse Excel file and return rows
+ */
+async function parseExcel(filePath) {
+  const workbook = xlsx.readFile(filePath);
+  const sheetName = workbook.SheetNames[0];
+  const sheet = workbook.Sheets[sheetName];
+  // Skip first 2 header rows
+  const rows = xlsx.utils.sheet_to_json(sheet, { range: 2, defval: null });
+  return rows;
+}
+
+/**
+ * Parse CSV file and return rows
+ */
+async function parseCsv(filePath) {
+  const workbook = xlsx.readFile(filePath);
+  const sheetName = workbook.SheetNames[0];
+  const sheet = workbook.Sheets[sheetName];
+  // Skip first 2 header rows
+  const rows = xlsx.utils.sheet_to_json(sheet, { range: 2, defval: null });
+  return rows;
+}
+
 // ============================================
 // Excel Column Mapping
 // ============================================
@@ -158,242 +310,608 @@ const COLUMN_MAP = {
  * POST /api/ctr/upload
  * Upload and process CTR Excel file
  */
-router.post('/upload', upload.single('file'), async (req, res) => {
-    const pool = req.app.locals.pool;
-    const userId = req.session?.user?.id || null;
-    const batchId = crypto.randomUUID();
-    
-    if (!req.file) {
-        return res.status(400).json({ success: false, message: 'No file uploaded' });
-    }
-    
-    const filename = req.file.originalname;
-    const filepath = req.file.path;
-    const office = req.body.office || detectOfficeFromFilename(filename);
-    
-    // Initialize upload log
-    await pool.query(
-        `INSERT INTO div_ctr_upload_log (batch_id, filename, source_office, uploaded_by, status) 
-         VALUES (?, ?, ?, ?, 'PROCESSING')`,
-        [batchId, filename, office, userId]
-    );
-    
-    try {
-        // Read Excel file
-        const workbook = xlsx.readFile(filepath);
-        const sheetName = workbook.SheetNames[0];
-        const sheet = workbook.Sheets[sheetName];
-        
-        // Convert to JSON, skipping first 2 header rows
-        const rawData = xlsx.utils.sheet_to_json(sheet, { range: 2, defval: null });
-        
-        console.log(`Processing ${rawData.length} rows from ${filename}`);
-        
-        // Stats
-        let stats = {
-            totalRows: rawData.length,
-            dutiesCreated: 0,
-            legsCreated: 0,
-            duplicatesSkipped: 0,
-            errorsCount: 0,
-            unmappedCmsIds: new Set()
-        };
-        
-        // Date restriction: only process entries from last 15 days
-        const cutoffDate = new Date();
-        cutoffDate.setDate(cutoffDate.getDate() - 15);
-        
-        // Process rows
-        let currentDutyId = null;
-        let currentSno = null;
-        let currentCmsId = null;
-        let legSequence = 0;
-        
-        for (let i = 0; i < rawData.length; i++) {
-            const row = rawData[i];
-            
-            try {
-                // Get duty type and route km
-                const dutyType = row['DUTY TYPE'] || row['Duty Type'] || '';
-                const routeKm = parseFloat(row['Route KM'] || row['KM'] || 0) || 0;
-                
-                // Filter: Only WR and PL with KM > 0
-                if (!['WR', 'PL'].includes(dutyType.toUpperCase()) || routeKm <= 0) {
-                    continue;
-                }
-                
-                const sno = row['S.No.'] || row['SNo'] || row['SNO'];
-                const cmsId = row['CREW ID'] || row['Crew ID'] || row['CMS ID'];
-                
-                // Parse sign on datetime
-                let signOnDateRaw = row['SIGNON DATE'] || row['Sign On Date'];
-                let signOnDateTime = parseExcelDateTime(signOnDateRaw);
-                
-                // Check if this is a new duty (sign on date is not "-")
-                const isNewDuty = signOnDateTime && signOnDateRaw !== '-';
-                
-                if (isNewDuty) {
-                    // Check date restriction
-                    if (signOnDateTime < cutoffDate) {
-                        continue; // Skip old entries
-                    }
-                    
-                    // Lookup HRMS ID
-                    const hrmsId = await lookupHRMSId(pool, cmsId);
-                    if (!hrmsId) {
-                        stats.unmappedCmsIds.add(cmsId);
-                    }
-                    
-                    // Check for duplicate
-                    const [existing] = await pool.query(
-                        `SELECT id, staff_hrms_id FROM div_ctr_duties
-                         WHERE staff_cms_id = ? AND sign_on_datetime = ?`,
-                        [cmsId, formatMySQLDateTime(signOnDateTime)]
-                    );
+// router.post('/upload', upload.single('file'), async (req, res) => {
+//     const pool = req.app.locals.pool;
+//     const userId = req.session?.user?.id || null;
+//     const batchId = (crypto.randomUUID ? crypto.randomUUID() : crypto.randomBytes(16).toString('hex'));
 
-                    if (existing.length > 0) {
-                        stats.duplicatesSkipped++;
-                        // If hrms_id was missing before but available now, update it
-                        if (hrmsId && !existing[0].staff_hrms_id) {
-                            await pool.query(
-                                'UPDATE div_ctr_duties SET staff_hrms_id = ? WHERE id = ?',
-                                [hrmsId, existing[0].id]
-                            );
-                        }
-                        currentDutyId = existing[0].id; // Use existing for legs
-                        legSequence = 0;
-                        continue;
-                    }
+    
+//     if (!req.file) {
+//         return res.status(400).json({ success: false, message: 'No file uploaded' });
+//     }
+    
+//     const filename = req.file.originalname;
+//     const filepath = req.file.path;
+//     const office = req.body.office || detectOfficeFromFilename(filename);
+    
+//     // Initialize upload log
+//     await pool.query(
+//         `INSERT INTO div_ctr_upload_log (batch_id, filename, source_office, uploaded_by, status) 
+//          VALUES (?, ?, ?, ?, 'PROCESSING')`,
+//         [batchId, filename, office, userId]
+//     );
+    
+//     try {
+//         // Read Excel file
+//         const workbook = xlsx.readFile(filepath);
+//         const sheetName = workbook.SheetNames[0];
+//         const sheet = workbook.Sheets[sheetName];
+        
+//         // Convert to JSON, skipping first 2 header rows
+//         const rawData = xlsx.utils.sheet_to_json(sheet, { range: 2, defval: null });
+        
+//         console.log(`Processing ${rawData.length} rows from ${filename}`);
+        
+//         // Stats
+//         let stats = {
+//             totalRows: rawData.length,
+//             dutiesCreated: 0,
+//             legsCreated: 0,
+//             duplicatesSkipped: 0,
+//             errorsCount: 0,
+//             unmappedCmsIds: new Set()
+//         };
+        
+//         // Date restriction: only process entries from last 15 days
+//         const cutoffDate = new Date();
+//         cutoffDate.setDate(cutoffDate.getDate() - 15);
+        
+//         // Process rows
+//         let currentDutyId = null;
+//         let currentSno = null;
+//         let currentCmsId = null;
+//         let legSequence = 0;
+        
+//         for (let i = 0; i < rawData.length; i++) {
+//             const row = rawData[i];
+            
+//             try {
+//                 // Get duty type and route km
+//                 const dutyType = row['DUTY TYPE'] || row['Duty Type'] || '';
+//                 const routeKm = parseFloat(row['Route KM'] || row['KM'] || 0) || 0;
+                
+//                 // Filter: Only WR and PL with KM > 0
+//                 if (!['WR', 'PL'].includes(dutyType.toUpperCase()) || routeKm <= 0) {
+//                     continue;
+//                 }
+                
+//                 const sno = row['S.No.'] || row['SNo'] || row['SNO'];
+//                 const cmsId = row['CREW ID'] || row['Crew ID'] || row['CMS ID'];
+                
+//                 // Parse sign on datetime
+//                 let signOnDateRaw = row['SIGNON DATE'] || row['Sign On Date'];
+//                 let signOnDateTime = parseExcelDateTime(signOnDateRaw);
+                
+//                 // Check if this is a new duty (sign on date is not "-")
+//                 const isNewDuty = signOnDateTime && signOnDateRaw !== '-';
+                
+//                 if (isNewDuty) {
+//                     // Check date restriction
+//                     if (signOnDateTime < cutoffDate) {
+//                         continue; // Skip old entries
+//                     }
                     
-                    // Create new duty
-                    const signOnStation = row['SIGNON STTN'] || row['Sign On Stn'] || '';
-                    const staffName = row['NAME'] || row['Name'] || '';
-                    const designation = row['DESIG'] || row['Designation'] || '';
+//                     // Lookup HRMS ID
+//                     const hrmsId = await lookupHRMSId(pool, cmsId);
+//                     if (!hrmsId) {
+//                         stats.unmappedCmsIds.add(cmsId);
+//                     }
                     
-                    const [result] = await pool.query(
-                        `INSERT INTO div_ctr_duties 
-                         (upload_batch_id, staff_cms_id, staff_hrms_id, staff_name, designation,
-                          duty_date, sign_on_datetime, sign_on_station, source_file, source_office, uploaded_by)
-                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                        [
-                            batchId, cmsId, hrmsId, staffName, designation,
-                            formatMySQLDate(signOnDateTime),
-                            formatMySQLDateTime(signOnDateTime),
-                            signOnStation.toUpperCase(),
-                            filename, office, userId
-                        ]
-                    );
+//                     // Check for duplicate
+//                     const [existing] = await pool.query(
+//                         `SELECT id, staff_hrms_id FROM div_ctr_duties
+//                          WHERE staff_cms_id = ? AND sign_on_datetime = ?`,
+//                         [cmsId, formatMySQLDateTime(signOnDateTime)]
+//                     );
+
+//                     if (existing.length > 0) {
+//                         stats.duplicatesSkipped++;
+//                         // If hrms_id was missing before but available now, update it
+//                         if (hrmsId && !existing[0].staff_hrms_id) {
+//                             await pool.query(
+//                                 'UPDATE div_ctr_duties SET staff_hrms_id = ? WHERE id = ?',
+//                                 [hrmsId, existing[0].id]
+//                             );
+//                         }
+//                         currentDutyId = existing[0].id; // Use existing for legs
+//                         legSequence = 0;
+//                         continue;
+//                     }
                     
-                    currentDutyId = result.insertId;
-                    currentSno = sno;
-                    currentCmsId = cmsId;
-                    legSequence = 0;
-                    stats.dutiesCreated++;
-                }
-                
-                // Skip if no current duty
-                if (!currentDutyId) continue;
-                
-                // Insert leg
-                legSequence++;
-                const fromStation = (row['SIGNON STTN'] || row['From'] || '').toString().toUpperCase();
-                const toStation = (row['SIGNOFF STTN'] || row['To'] || '').toString().toUpperCase();
-                const departure = parseExcelDateTime(row['DEPARTURE'] || row['Departure']);
-                const arrival = parseExcelDateTime(row['ARRIVAL'] || row['Arrival']);
-                const cto = parseExcelDateTime(row['CTO']);
-                const cmo = parseExcelDateTime(row['CMO']);
-                const trainNo = row['TRAIN NO'] || row['Train No'] || '';
-                const locoNo = row['LOCO NO'] || row['Loco No'] || '';
-                
-                await pool.query(
-                    `INSERT INTO div_ctr_legs 
-                     (duty_id, leg_sequence, from_station, to_station, departure_datetime, arrival_datetime,
-                      cto_datetime, cmo_datetime, route_km, duty_type, train_no, loco_no)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                    [
-                        currentDutyId, legSequence, fromStation, toStation,
-                        formatMySQLDateTime(departure),
-                        formatMySQLDateTime(arrival),
-                        formatMySQLDateTime(cto),
-                        formatMySQLDateTime(cmo),
-                        routeKm, dutyType.toUpperCase(), trainNo, locoNo
-                    ]
-                );
-                stats.legsCreated++;
-                
-                // Check if this is sign off (has sign off date)
-                let signOffDateRaw = row['SIGNOFF DATE'] || row['Sign Off Date'];
-                let signOffDateTime = parseExcelDateTime(signOffDateRaw);
-                
-                if (signOffDateTime && signOffDateRaw !== '-') {
-                    const signOffStation = (row['SIGNOFF STTN'] || row['Sign Off Stn'] || '').toString().toUpperCase();
+//                     // Create new duty
+//                     const signOnStation = row['SIGNON STTN'] || row['Sign On Stn'] || '';
+//                     const staffName = row['NAME'] || row['Name'] || '';
+//                     const designation = row['DESIG'] || row['Designation'] || '';
                     
-                    // Update duty with sign off and totals
-                    await pool.query(
-                        `UPDATE div_ctr_duties 
-                         SET sign_off_datetime = ?, sign_off_station = ?,
-                             total_legs = (SELECT COUNT(*) FROM div_ctr_legs WHERE duty_id = ?),
-                             total_km = (SELECT COALESCE(SUM(route_km), 0) FROM div_ctr_legs WHERE duty_id = ?)
-                         WHERE id = ?`,
-                        [
-                            formatMySQLDateTime(signOffDateTime),
-                            signOffStation,
-                            currentDutyId, currentDutyId, currentDutyId
-                        ]
-                    );
-                }
+//                     const [result] = await pool.query(
+//                         `INSERT INTO div_ctr_duties 
+//                          (upload_batch_id, staff_cms_id, staff_hrms_id, staff_name, designation,
+//                           duty_date, sign_on_datetime, sign_on_station, source_file, source_office, uploaded_by)
+//                          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+//                         [
+//                             batchId, cmsId, hrmsId, staffName, designation,
+//                             formatMySQLDate(signOnDateTime),
+//                             formatMySQLDateTime(signOnDateTime),
+//                             signOnStation.toUpperCase(),
+//                             filename, office, userId
+//                         ]
+//                     );
+                    
+//                     currentDutyId = result.insertId;
+//                     currentSno = sno;
+//                     currentCmsId = cmsId;
+//                     legSequence = 0;
+//                     stats.dutiesCreated++;
+//                 }
                 
-            } catch (rowErr) {
-                console.error(`Error processing row ${i}:`, rowErr);
-                stats.errorsCount++;
-            }
-        }
+//                 // Skip if no current duty
+//                 if (!currentDutyId) continue;
+                
+//                 // Insert leg
+//                 legSequence++;
+//                 const fromStation = (row['SIGNON STTN'] || row['From'] || '').toString().toUpperCase();
+//                 const toStation = (row['SIGNOFF STTN'] || row['To'] || '').toString().toUpperCase();
+//                 const departure = parseExcelDateTime(row['DEPARTURE'] || row['Departure']);
+//                 const arrival = parseExcelDateTime(row['ARRIVAL'] || row['Arrival']);
+//                 const cto = parseExcelDateTime(row['CTO']);
+//                 const cmo = parseExcelDateTime(row['CMO']);
+//                 const trainNo = row['TRAIN NO'] || row['Train No'] || '';
+//                 const locoNo = row['LOCO NO'] || row['Loco No'] || '';
+//                 const routeNameRaw = row['Route Name'] || row['ROUTE NAME'] || row['ROUTE'] || row['Route'] || null;
+//                 const routeName = normalizeRouteName(routeNameRaw);
+
+//                 try {
+//   const [legRes] = await pool.query(
+//   `INSERT INTO div_ctr_legs
+//    (duty_id, leg_sequence, from_station, to_station, route_name,
+//     departure_datetime, arrival_datetime, cto_datetime, cmo_datetime,
+//     route_km, duty_type, train_no, loco_no)
+//    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+//   [
+//     currentDutyId, legSequence, fromStation, toStation, routeName,
+//     formatMySQLDateTime(departure),
+//     formatMySQLDateTime(arrival),
+//     formatMySQLDateTime(cto),
+//     formatMySQLDateTime(cmo),
+//     routeKm, dutyType ? dutyType.toUpperCase() : null,
+//     trainNo || null, locoNo || null
+//   ]
+// );
+
+//   stats.legsCreated++;
+
+// } catch (e) {
+//   // Duplicate leg (uniq_leg_fingerprint)
+//   if (e && (e.code === 'ER_DUP_ENTRY' || e.errno === 1062)) {
+//     stats.duplicatesSkipped++;
+//     legSequence--;
+//   } else {
+//     throw e;
+//   }
+// }
+
+// // Check if this is sign off (has sign off date)
+//                 let signOffDateRaw = row['SIGNOFF DATE'] || row['Sign Off Date'];
+//                 let signOffDateTime = parseExcelDateTime(signOffDateRaw);
+                
+//                 if (signOffDateTime && signOffDateRaw !== '-') {
+//                     const signOffStation = (row['SIGNOFF STTN'] || row['Sign Off Stn'] || '').toString().toUpperCase();
+                    
+//                     // Update duty with sign off and totals
+//                     await pool.query(
+//                         `UPDATE div_ctr_duties 
+//                          SET sign_off_datetime = ?, sign_off_station = ?,
+//                              total_legs = (SELECT COUNT(*) FROM div_ctr_legs WHERE duty_id = ?),
+//                              total_km = (SELECT COALESCE(SUM(route_km), 0) FROM div_ctr_legs WHERE duty_id = ?)
+//                          WHERE id = ?`,
+//                         [
+//                             formatMySQLDateTime(signOffDateTime),
+//                             signOffStation,
+//                             currentDutyId, currentDutyId, currentDutyId
+//                         ]
+//                     );
+//                 }
+                
+//             } catch (rowErr) {
+//   // Ignore errors caused by duplicate-only rows during reupload
+//   if (
+//     rowErr &&
+//     (rowErr.code === 'ER_DUP_ENTRY' || rowErr.errno === 1062)
+//   ) {
+//     // already counted as duplicate
+//   } else {
+//     console.error(`Error processing row ${i}:`, rowErr);
+//     stats.errorsCount++;
+//     // capture first error details so we can see it in UI response
+//   if (!stats.firstError) {
+//     stats.firstError = {
+//       rowIndex: i,
+//       message: rowErr?.message || String(rowErr),
+//       code: rowErr?.code || null,
+//       errno: rowErr?.errno || null,
+//       sqlMessage: rowErr?.sqlMessage || null
+//     };
+//   }
+//   }
+// }
+//         }
         
-        // Update upload log
-        await pool.query(
-            `UPDATE div_ctr_upload_log 
-             SET status = 'COMPLETED', completed_at = NOW(),
-                 total_rows = ?, duties_created = ?, legs_created = ?,
-                 duplicates_skipped = ?, errors_count = ?,
-                 unmapped_cms_ids = ?
-             WHERE batch_id = ?`,
-            [
-                stats.totalRows, stats.dutiesCreated, stats.legsCreated,
-                stats.duplicatesSkipped, stats.errorsCount,
-                JSON.stringify([...stats.unmappedCmsIds]),
-                batchId
-            ]
-        );
+//         // Update upload log
+//         await pool.query(
+//             `UPDATE div_ctr_upload_log 
+//              SET status = 'COMPLETED', completed_at = NOW(),
+//                  total_rows = ?, duties_created = ?, legs_created = ?,
+//                  duplicates_skipped = ?, errors_count = ?,
+//                  unmapped_cms_ids = ?
+//              WHERE batch_id = ?`,
+//             [
+//                 stats.totalRows, stats.dutiesCreated, stats.legsCreated,
+//                 stats.duplicatesSkipped, stats.errorsCount,
+//                 JSON.stringify([...stats.unmappedCmsIds]),
+//                 batchId
+//             ]
+//         );
         
-        // Calculate LRD for affected staff (async, don't wait)
-        // TODO: Implement LRD calculation
+//         // Calculate LRD for affected staff (async, don't wait)
+//         // TODO: Implement LRD calculation
         
-        res.json({
-            success: true,
-            batchId,
-            stats: {
-                totalRows: stats.totalRows,
-                dutiesCreated: stats.dutiesCreated,
-                legsCreated: stats.legsCreated,
-                duplicatesSkipped: stats.duplicatesSkipped,
-                errorsCount: stats.errorsCount,
-                unmappedCmsIds: [...stats.unmappedCmsIds]
-            }
-        });
+//         res.json({
+//             success: true,
+//             batchId,
+//             stats: {
+//                 totalRows: stats.totalRows,
+//                 dutiesCreated: stats.dutiesCreated,
+//                 legsCreated: stats.legsCreated,
+//                 duplicatesSkipped: stats.duplicatesSkipped,
+//                 errorsCount: stats.errorsCount,
+//                 unmappedCmsIds: [...stats.unmappedCmsIds],
+//                 first_error: stats.firstError || null,
+//             }
+//         });
         
-    } catch (err) {
-        console.error('CTR Upload Error:', err);
+//     } catch (err) {
+//         console.error('CTR Upload Error:', err);
         
-        await pool.query(
-            `UPDATE div_ctr_upload_log 
-             SET status = 'FAILED', error_message = ?, completed_at = NOW()
-             WHERE batch_id = ?`,
-            [err.message, batchId]
-        );
+//         await pool.query(
+//             `UPDATE div_ctr_upload_log 
+//              SET status = 'FAILED', error_message = ?, completed_at = NOW()
+//              WHERE batch_id = ?`,
+//             [err.message, batchId]
+//         );
         
-        res.status(500).json({ success: false, message: err.message });
+//         res.status(500).json({ success: false, message: err.message });
+//     }
+// });
+
+router.post('/upload', (req, res) => {
+  upload.single('file')(req, res, async (multerErr) => {
+
+    /* ===============================
+       1. Multer-level error handling
+       =============================== */
+    if (multerErr) {
+      console.error('CTR Upload Multer Error:', multerErr);
+      return res.status(400).json({
+        success: false,
+        message: multerErr.message || 'File upload error'
+      });
     }
+
+    /* ===============================
+       2. Basic request validation
+       =============================== */
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'No file uploaded'
+      });
+    }
+
+    const pool = req.app.locals.pool;
+    const office = req.body.office || null;
+    const userId = req.session?.user?.id || null;
+
+    /* ===============================
+       3. SAFE batchId generation
+       =============================== */
+    const batchId = (
+      crypto.randomUUID
+        ? crypto.randomUUID()
+        : crypto.randomBytes(16).toString('hex')
+    );
+
+    /* ===============================
+       4. Main processing block
+       =============================== */
+    try {
+      const filePath = req.file.path;
+      const ext = path.extname(req.file.originalname).toLowerCase();
+
+      let rows = [];
+
+      if (ext === '.csv') {
+        rows = await parseCsv(filePath);
+      } else {
+        rows = await parseExcel(filePath);
+      }
+
+      if (!rows || rows.length === 0) {
+        throw new Error('No data rows found in uploaded file');
+      }
+
+      /* ===============================
+         Upload log entry
+         =============================== */
+      await pool.query(
+        `INSERT INTO div_ctr_upload_log
+         (batch_id, filename, source_office, uploaded_by, status)
+         VALUES (?, ?, ?, ?, 'PROCESSING')`,
+        [batchId, req.file.originalname, office, userId]
+      );
+
+      let stats = {
+        totalRows: rows.length,
+        dutiesCreated: 0,
+        legsCreated: 0,
+        duplicatesSkipped: 0,
+        errorsCount: 0,
+        unmappedCmsIds: new Set()
+      };
+
+      /* ===============================
+         Main row loop
+         =============================== */
+      // Date restriction: only process entries from last 30 days
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - 30);
+
+      let currentDutyId = null;
+      let currentSno = null;
+      let currentCmsId = null;
+      let currentHrmsId = null;
+      let currentDutyDate = null;
+      let legSequence = 0;
+
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+
+        try {
+          // Get duty type and route km
+          const dutyType = row['DUTY TYPE'] || row['Duty Type'] || '';
+          const routeKm = parseFloat(row['Route KM'] || row['KM'] || 0) || 0;
+
+          // Filter: Only WR and PL with KM > 0
+          if (!['WR', 'PL'].includes(dutyType.toUpperCase()) || routeKm <= 0) {
+            continue;
+          }
+
+          const sno = row['S.No.'] || row['SNo'] || row['SNO'];
+          const cmsId = row['CREW ID'] || row['Crew ID'] || row['CMS ID'];
+
+          // Parse sign on datetime
+          let signOnDateRaw = row['SIGNON DATE'] || row['Sign On Date'];
+          let signOnDateTime = parseExcelDateTime(signOnDateRaw);
+
+          // Check if this is a new duty (sign on date is not "-")
+          const isNewDuty = signOnDateTime && signOnDateRaw !== '-';
+
+          if (isNewDuty) {
+            // Check date restriction
+            if (signOnDateTime < cutoffDate) {
+              continue; // Skip old entries
+            }
+
+            // Lookup HRMS ID
+            const hrmsId = await lookupHRMSId(pool, cmsId);
+            if (!hrmsId) {
+              stats.unmappedCmsIds.add(cmsId);
+            }
+
+            // Check for duplicate
+            const [existing] = await pool.query(
+              `SELECT id, staff_hrms_id FROM div_ctr_duties
+               WHERE staff_cms_id = ? AND sign_on_datetime = ?`,
+              [cmsId, formatMySQLDateTime(signOnDateTime)]
+            );
+
+            if (existing.length > 0) {
+              stats.duplicatesSkipped++;
+              // If hrms_id was missing before but available now, update it
+              if (hrmsId && !existing[0].staff_hrms_id) {
+                await pool.query(
+                  'UPDATE div_ctr_duties SET staff_hrms_id = ? WHERE id = ?',
+                  [hrmsId, existing[0].id]
+                );
+              }
+              currentDutyId = existing[0].id; // Use existing for legs
+              currentHrmsId = hrmsId || existing[0].staff_hrms_id;
+              currentDutyDate = formatMySQLDate(signOnDateTime);
+              legSequence = 0;
+              // Don't continue - still need to insert the leg from this row
+            } else {
+              // Create new duty
+              const signOnStation = row['SIGNON STTN'] || row['Sign On Stn'] || '';
+              const staffName = row['NAME'] || row['Name'] || '';
+              const designation = row['DESIG'] || row['Designation'] || '';
+
+              const [result] = await pool.query(
+                `INSERT INTO div_ctr_duties
+                 (upload_batch_id, staff_cms_id, staff_hrms_id, staff_name, designation,
+                  duty_date, sign_on_datetime, sign_on_station, source_file, source_office, uploaded_by)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [
+                  batchId, cmsId, hrmsId, staffName, designation,
+                  formatMySQLDate(signOnDateTime),
+                  formatMySQLDateTime(signOnDateTime),
+                  signOnStation.toString().toUpperCase(),
+                  req.file.originalname, office, userId
+                ]
+              );
+
+              currentDutyId = result.insertId;
+              currentSno = sno;
+              currentCmsId = cmsId;
+              currentHrmsId = hrmsId;
+              currentDutyDate = formatMySQLDate(signOnDateTime);
+              legSequence = 0;
+              stats.dutiesCreated++;
+            }
+          }
+
+          // Skip if no current duty
+          if (!currentDutyId) continue;
+
+          // Insert leg
+          legSequence++;
+          const fromStation = (row['SIGNON STTN'] || row['From'] || '').toString().toUpperCase();
+          const toStation = (row['SIGNOFF STTN'] || row['To'] || '').toString().toUpperCase();
+          const departure = parseExcelDateTime(row['DEPARTURE'] || row['Departure']);
+          const arrival = parseExcelDateTime(row['ARRIVAL'] || row['Arrival']);
+          const cto = parseExcelDateTime(row['CTO']);
+          const cmo = parseExcelDateTime(row['CMO']);
+          const trainNo = row['TRAIN NO'] || row['Train No'] || '';
+          const locoNo = row['LOCO NO'] || row['Loco No'] || '';
+          const routeNameRaw = row['Route Name'] || row['ROUTE NAME'] || row['ROUTE'] || row['Route'] || null;
+          const routeName = normalizeRouteName(routeNameRaw);
+
+          // Resolve route match using LRD resolver
+          let matchedSections = null;
+          if (routeCtx && fromStation && toStation) {
+            const resolved = resolveLegWithRoutes(fromStation, toStation, routeCtx);
+            if (resolved.status === 'OK' && resolved.route_id) {
+              matchedSections = JSON.stringify([{
+                route_id: resolved.route_id,
+                stations: resolved.stations,
+                reason: resolved.reason
+              }]);
+            }
+          }
+
+          try {
+            await pool.query(
+              `INSERT INTO div_ctr_legs
+               (duty_id, leg_sequence, from_station, to_station, route_name, matched_sections,
+                departure_datetime, arrival_datetime, cto_datetime, cmo_datetime,
+                route_km, duty_type, train_no, loco_no)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              [
+                currentDutyId, legSequence, fromStation, toStation, routeName, matchedSections,
+                formatMySQLDateTime(departure),
+                formatMySQLDateTime(arrival),
+                formatMySQLDateTime(cto),
+                formatMySQLDateTime(cmo),
+                routeKm, dutyType.toUpperCase(), trainNo || null, locoNo || null
+              ]
+            );
+            stats.legsCreated++;
+
+            // Update segment coverage for LRD tracking (only WR legs, not PL)
+            if (currentHrmsId && matchedSections && dutyType.toUpperCase() === 'WR') {
+              await updateSegmentCoverage(pool, currentHrmsId, matchedSections, currentDutyDate, currentDutyId);
+            }
+          } catch (legErr) {
+            // Duplicate leg (uniq_leg_fingerprint)
+            if (legErr && (legErr.code === 'ER_DUP_ENTRY' || legErr.errno === 1062)) {
+              stats.duplicatesSkipped++;
+              legSequence--;
+            } else {
+              throw legErr;
+            }
+          }
+
+          // Check if this is sign off (has sign off date)
+          let signOffDateRaw = row['SIGNOFF DATE'] || row['Sign Off Date'];
+          let signOffDateTime = parseExcelDateTime(signOffDateRaw);
+
+          if (signOffDateTime && signOffDateRaw !== '-') {
+            const signOffStation = (row['SIGNOFF STTN'] || row['Sign Off Stn'] || '').toString().toUpperCase();
+
+            // Update duty with sign off and totals
+            await pool.query(
+              `UPDATE div_ctr_duties
+               SET sign_off_datetime = ?, sign_off_station = ?,
+                   total_legs = (SELECT COUNT(*) FROM div_ctr_legs WHERE duty_id = ?),
+                   total_km = (SELECT COALESCE(SUM(route_km), 0) FROM div_ctr_legs WHERE duty_id = ?)
+               WHERE id = ?`,
+              [
+                formatMySQLDateTime(signOffDateTime),
+                signOffStation,
+                currentDutyId, currentDutyId, currentDutyId
+              ]
+            );
+          }
+
+        } catch (rowErr) {
+          // Ignore errors caused by duplicate-only rows during reupload
+          if (rowErr && (rowErr.code === 'ER_DUP_ENTRY' || rowErr.errno === 1062)) {
+            // already counted as duplicate
+          } else {
+            console.error(`Error processing row ${i}:`, rowErr);
+            stats.errorsCount++;
+          }
+        }
+      }
+
+      /* ===============================
+         Finalize upload log
+         =============================== */
+      await pool.query(
+        `UPDATE div_ctr_upload_log
+         SET status='COMPLETED', completed_at=NOW(),
+             total_rows=?,
+             duties_created=?,
+             legs_created=?,
+             duplicates_skipped=?,
+             errors_count=?,
+             unmapped_cms_ids=?
+         WHERE batch_id=?`,
+        [
+          stats.totalRows,
+          stats.dutiesCreated,
+          stats.legsCreated,
+          stats.duplicatesSkipped,
+          stats.errorsCount,
+          Array.from(stats.unmappedCmsIds).join(','),
+          batchId
+        ]
+      );
+
+      /* ===============================
+         Respond SUCCESS
+         =============================== */
+      return res.json({
+        success: true,
+        stats: {
+          ...stats,
+          unmappedCmsIds: Array.from(stats.unmappedCmsIds)
+        }
+      });
+
+    } catch (err) {
+      console.error('CTR Upload Error:', err);
+
+      /* ===============================
+         Mark upload as FAILED
+         =============================== */
+      try {
+        await pool.query(
+          `UPDATE div_ctr_upload_log
+           SET status='FAILED', error_message=?
+           WHERE batch_id=?`,
+          [err.message, batchId]
+        );
+      } catch (logErr) {
+        console.error('CTR Upload Log Update Failed:', logErr);
+      }
+
+      return res.status(500).json({
+        success: false,
+        message: err.message
+      });
+    }
+  });
 });
+
 
 /**
  * POST /api/ctr/manual
@@ -486,31 +1004,54 @@ router.post('/manual', async (req, res) => {
                         arrDateTime = new Date(arrDateTime.getTime() + 24 * 60 * 60 * 1000);
                     }
                 }
-                
+
+                // Resolve route match using LRD resolver
+                const legFromStation = leg.fromStation?.toUpperCase();
+                const legToStation = leg.toStation?.toUpperCase();
+                let matchedSections = null;
+                if (routeCtx && legFromStation && legToStation) {
+                    const resolved = resolveLegWithRoutes(legFromStation, legToStation, routeCtx);
+                    if (resolved.status === 'OK' && resolved.route_id) {
+                        matchedSections = JSON.stringify([{
+                            route_id: resolved.route_id,
+                            stations: resolved.stations,
+                            reason: resolved.reason
+                        }]);
+                    }
+                }
+
                 await connection.query(
-                    `INSERT INTO div_ctr_legs 
-                     (duty_id, leg_sequence, from_station, to_station, 
-                      departure_datetime, arrival_datetime,
-                      cto_datetime, cmo_datetime,
-                      route_km, duty_type, train_no, loco_no)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                    [
-                        dutyId, i + 1, 
-                        leg.fromStation?.toUpperCase(), 
-                        leg.toStation?.toUpperCase(),
-                        formatMySQLDateTime(depDateTime),
-                        formatMySQLDateTime(arrDateTime),
-                        leg.cto ? formatMySQLDateTime(new Date(`${dutyDate}T${leg.cto}`)) : null,
-                        leg.cmo ? formatMySQLDateTime(new Date(`${dutyDate}T${leg.cmo}`)) : null,
-                        km, 
-                        leg.dutyType?.toUpperCase() || 'WR',
-                        leg.trainNo || null,
-                        leg.locoNo || null
-                    ]
-                );
+  `INSERT INTO div_ctr_legs
+   (duty_id, leg_sequence, from_station, to_station, route_name, matched_sections,
+    departure_datetime, arrival_datetime,
+    cto_datetime, cmo_datetime,
+    route_km, duty_type, train_no, loco_no)
+   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  [
+    dutyId, i + 1,
+    legFromStation,
+    legToStation,
+    null,
+    matchedSections,
+    formatMySQLDateTime(depDateTime),
+    formatMySQLDateTime(arrDateTime),
+    leg.cto ? formatMySQLDateTime(new Date(`${dutyDate}T${leg.cto}`)) : null,
+    leg.cmo ? formatMySQLDateTime(new Date(`${dutyDate}T${leg.cmo}`)) : null,
+    km,
+    leg.dutyType?.toUpperCase() || 'WR',
+    leg.trainNo || null,
+    leg.locoNo || null
+  ]
+);
+
+                // Update segment coverage for LRD tracking (only WR legs, not PL)
+                const legDutyType = leg.dutyType?.toUpperCase() || 'WR';
+                if (staffHrmsId && matchedSections && legDutyType === 'WR') {
+                    await updateSegmentCoverage(connection, staffHrmsId, matchedSections, dutyDate, dutyId);
+                }
             }
         }
-        
+    
         // Update duty totals
         await connection.query(
             `UPDATE div_ctr_duties SET total_legs = ?, total_km = ? WHERE id = ?`,
@@ -707,22 +1248,29 @@ router.get('/upload-history', async (req, res) => {
 router.get('/staff/search', async (req, res) => {
     const pool = req.app.locals.pool;
     const { q } = req.query;
-    
+
     if (!q || q.length < 2) {
         return res.json({ success: true, staff: [] });
     }
-    
+
     try {
         const [staff] = await pool.query(
-            `SELECT hrms_id, cms_id, name, designation 
-             FROM div_staff_master 
-             WHERE cms_id LIKE ? OR hrms_id LIKE ? OR name LIKE ?
+            `SELECT sm.hrms_id,
+                    COALESCE(sm.current_cms_id, sm.original_cms_id) as cms_id,
+                    sm.name,
+                    d.designation_name as designation,
+                    sm.current_office_code as office
+             FROM div_staff_master sm
+             LEFT JOIN designations d ON sm.designation_id = d.id
+             WHERE sm.original_cms_id LIKE ? OR sm.current_cms_id LIKE ?
+                OR sm.hrms_id LIKE ? OR sm.name LIKE ?
+             ORDER BY sm.name
              LIMIT 20`,
-            [`%${q}%`, `%${q}%`, `%${q}%`]
+            [`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`]
         );
-        
+
         res.json({ success: true, staff });
-        
+
     } catch (err) {
         console.error('Staff Search Error:', err);
         res.status(500).json({ success: false, message: err.message });
@@ -1016,7 +1564,7 @@ router.post('/lrd/recalculate', async (req, res) => {
  */
 router.get('/stations', async (req, res) => {
     const pool = req.app.locals.pool;
-    
+
     try {
         const [stations] = await pool.query(
             `SELECT DISTINCT station FROM (
@@ -1026,11 +1574,559 @@ router.get('/stations', async (req, res) => {
              ) t WHERE station IS NOT NULL AND station != ''
              ORDER BY station`
         );
-        
+
         res.json({ success: true, stations: stations.map(s => s.station) });
-        
+
     } catch (err) {
         console.error('Get Stations Error:', err);
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+// ============================================
+// LRD Status APIs (Route-based)
+// ============================================
+
+// LRD Configuration
+const LRD_CONFIG = {
+    VALIDITY_DAYS: 90,           // Days until LRD expires after last worked
+    EXPIRING_THRESHOLD_DAYS: 15  // Days before expiry to mark as "expiring soon"
+};
+
+/**
+ * GET /api/ctr/lrd/routes
+ * Get all routes applicable to an office
+ */
+router.get('/lrd/routes', (req, res) => {
+    const { office } = req.query;
+
+    try {
+        if (!routeCtx) {
+            return res.status(500).json({ success: false, message: 'Route data not loaded' });
+        }
+
+        const routes = office
+            ? getRoutesForOffice(office.toUpperCase(), routeCtx)
+            : routeCtx.routes;
+
+        res.json({
+            success: true,
+            routes: routes.map(r => ({
+                route_id: r.route_id,
+                from: r.from,
+                to: r.to,
+                variant: r.variant,
+                station_count: r.stations.length
+            })),
+            total: routes.length
+        });
+
+    } catch (err) {
+        console.error('Get LRD Routes Error:', err);
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+/**
+ * GET /api/ctr/lrd/beats
+ * Get all LRD beats/sections applicable to an office
+ */
+router.get('/lrd/beats', (req, res) => {
+    const { office } = req.query;
+
+    try {
+        if (!beatsData) {
+            return res.status(500).json({ success: false, message: 'Beats data not loaded' });
+        }
+
+        const beats = office
+            ? getBeatsForOffice(office.toUpperCase(), beatsData.beats)
+            : beatsData.beats;
+
+        res.json({
+            success: true,
+            config: beatsData.config,
+            beats: beats.map(b => ({
+                beat_id: b.beat_id,
+                name: b.name,
+                office: b.office,
+                stations: b.stations,
+                segment_count: b.stations.length - 1
+            })),
+            total: beats.length
+        });
+
+    } catch (err) {
+        console.error('Get LRD Beats Error:', err);
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+/**
+ * GET /api/ctr/lrd/staff-status/:hrmsId
+ * Get LRD status for a specific staff - shows section validity based on segment coverage
+ * Each section is VALID only if ALL its segments were worked within 90 days
+ */
+router.get('/lrd/staff-status/:hrmsId', async (req, res) => {
+    const pool = req.app.locals.pool;
+    const { hrmsId } = req.params;
+
+    try {
+        if (!beatsData) {
+            return res.status(500).json({ success: false, message: 'Beats data not loaded' });
+        }
+
+        // Get staff details and office
+        const [staffRows] = await pool.query(
+            `SELECT sm.hrms_id, sm.original_cms_id, sm.current_cms_id,
+                    sm.name as staff_name,
+                    d.designation_name as designation,
+                    sm.current_office_code as office
+             FROM div_staff_master sm
+             LEFT JOIN designations d ON sm.designation_id = d.id
+             WHERE sm.hrms_id = ?`,
+            [hrmsId]
+        );
+
+        if (staffRows.length === 0) {
+            return res.status(404).json({ success: false, message: 'Staff not found' });
+        }
+
+        const staff = staffRows[0];
+        const staffOffice = staff.office?.toUpperCase() || 'KYN';
+
+        // Get beats/sections applicable to this office
+        const applicableBeats = getBeatsForOffice(staffOffice, beatsData.beats);
+
+        // Get all segment coverage for this staff
+        const [segments] = await pool.query(
+            `SELECT from_station, to_station, last_worked_date, work_count
+             FROM div_lrd_segment_coverage
+             WHERE staff_hrms_id = ?`,
+            [hrmsId]
+        );
+
+        // Build map: "FROM-TO" -> { last_worked_date, work_count }
+        const segmentMap = new Map();
+        for (const seg of segments) {
+            const key = `${seg.from_station}-${seg.to_station}`;
+            segmentMap.set(key, {
+                last_worked: seg.last_worked_date,
+                work_count: seg.work_count
+            });
+        }
+
+        // Get config
+        const validityDays = beatsData.config?.validity_days || 90;
+        const expiringThreshold = beatsData.config?.expiring_threshold_days || 15;
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        // Calculate status for each beat/section
+        const sectionStatuses = applicableBeats.map(beat => {
+            // Extract adjacent pairs from this section's stations
+            const requiredSegments = extractAdjacentPairs(beat.stations);
+            const totalSegments = requiredSegments.length;
+
+            let validCount = 0;
+            let expiredCount = 0;
+            let expiringCount = 0;
+            let neverWorkedCount = 0;
+            let oldestExpiry = null;
+            let newestExpiry = null;
+
+            const segmentDetails = requiredSegments.map(([from, to]) => {
+                const key = `${from}-${to}`;
+                // Only check the exact direction (directional coverage)
+                const segData = segmentMap.get(key);
+
+                let segStatus = 'NEVER_WORKED';
+                let lastWorked = null;
+                let expiresOn = null;
+                let daysRemaining = null;
+
+                if (segData && segData.last_worked) {
+                    lastWorked = new Date(segData.last_worked);
+                    expiresOn = new Date(lastWorked);
+                    expiresOn.setDate(expiresOn.getDate() + validityDays);
+
+                    const diffTime = expiresOn - today;
+                    daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                    if (daysRemaining < 0) {
+                        segStatus = 'EXPIRED';
+                        expiredCount++;
+                    } else if (daysRemaining <= expiringThreshold) {
+                        segStatus = 'EXPIRING_SOON';
+                        expiringCount++;
+                        validCount++; // Still valid, just expiring soon
+                    } else {
+                        segStatus = 'VALID';
+                        validCount++;
+                    }
+
+                    // Track earliest expiry for section-level status
+                    if (!oldestExpiry || expiresOn < oldestExpiry) {
+                        oldestExpiry = expiresOn;
+                    }
+                    if (!newestExpiry || expiresOn > newestExpiry) {
+                        newestExpiry = expiresOn;
+                    }
+                } else {
+                    neverWorkedCount++;
+                }
+
+                return {
+                    from,
+                    to,
+                    status: segStatus,
+                    last_worked: lastWorked ? lastWorked.toISOString().split('T')[0] : null,
+                    expires_on: expiresOn ? expiresOn.toISOString().split('T')[0] : null,
+                    days_remaining: daysRemaining
+                };
+            });
+
+            // Determine section-level status
+            let sectionStatus;
+            let sectionExpiresOn = null;
+            let sectionDaysRemaining = null;
+
+            if (neverWorkedCount === totalSegments) {
+                sectionStatus = 'NEVER_WORKED';
+            } else if (expiredCount > 0 || neverWorkedCount > 0) {
+                // Any expired or never-worked segment means section is not fully valid
+                sectionStatus = validCount > 0 ? 'PARTIAL' : 'EXPIRED';
+                sectionExpiresOn = oldestExpiry;
+            } else if (expiringCount > 0) {
+                sectionStatus = 'EXPIRING_SOON';
+                sectionExpiresOn = oldestExpiry;
+            } else {
+                sectionStatus = 'VALID';
+                sectionExpiresOn = oldestExpiry; // Earliest segment expiry
+            }
+
+            if (sectionExpiresOn) {
+                const diffTime = sectionExpiresOn - today;
+                sectionDaysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            }
+
+            return {
+                beat_id: beat.beat_id,
+                name: beat.name,
+                office: beat.office,
+                status: sectionStatus,
+                coverage: {
+                    total: totalSegments,
+                    valid: validCount,
+                    expired: expiredCount,
+                    never_worked: neverWorkedCount,
+                    percentage: totalSegments > 0 ? Math.round((validCount / totalSegments) * 100) : 0
+                },
+                expires_on: sectionExpiresOn ? sectionExpiresOn.toISOString().split('T')[0] : null,
+                days_remaining: sectionDaysRemaining,
+                segments: segmentDetails
+            };
+        });
+
+        // Sort: EXPIRED first, then PARTIAL, then EXPIRING_SOON, then NEVER_WORKED, then VALID
+        const statusOrder = { 'EXPIRED': 0, 'PARTIAL': 1, 'EXPIRING_SOON': 2, 'NEVER_WORKED': 3, 'VALID': 4 };
+        sectionStatuses.sort((a, b) => statusOrder[a.status] - statusOrder[b.status]);
+
+        // Summary counts
+        const summary = {
+            valid: sectionStatuses.filter(s => s.status === 'VALID').length,
+            expiring_soon: sectionStatuses.filter(s => s.status === 'EXPIRING_SOON').length,
+            partial: sectionStatuses.filter(s => s.status === 'PARTIAL').length,
+            expired: sectionStatuses.filter(s => s.status === 'EXPIRED').length,
+            never_worked: sectionStatuses.filter(s => s.status === 'NEVER_WORKED').length,
+            total: sectionStatuses.length
+        };
+
+        res.json({
+            success: true,
+            staff: {
+                hrms_id: staff.hrms_id,
+                cms_id: staff.current_cms_id || staff.original_cms_id,
+                name: staff.staff_name,
+                designation: staff.designation,
+                office: staffOffice
+            },
+            config: {
+                validity_days: validityDays,
+                expiring_threshold_days: expiringThreshold
+            },
+            summary,
+            sections: sectionStatuses
+        });
+
+    } catch (err) {
+        console.error('Get Staff LRD Status Error:', err);
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+/**
+ * GET /api/ctr/lrd/summary
+ * Get overall LRD summary counts across all staff (section-based)
+ */
+router.get('/lrd/summary', async (req, res) => {
+    const pool = req.app.locals.pool;
+    const { office, designation } = req.query;
+
+    try {
+        if (!beatsData) {
+            return res.status(500).json({ success: false, message: 'Beats data not loaded' });
+        }
+
+        const validityDays = beatsData.config?.validity_days || 90;
+        const expiringThreshold = beatsData.config?.expiring_threshold_days || 15;
+
+        // Build WHERE clause for staff filter
+        let staffWhere = ['sm.status = "Active"'];
+        let staffParams = [];
+
+        if (office) {
+            staffWhere.push('sm.current_office_code = ?');
+            staffParams.push(office.toUpperCase());
+        }
+        if (designation) {
+            staffWhere.push('d.designation_name = ?');
+            staffParams.push(designation);
+        }
+
+        // Get all active staff
+        const [staffList] = await pool.query(
+            `SELECT sm.hrms_id, sm.original_cms_id, sm.current_cms_id,
+                    sm.name as staff_name,
+                    d.designation_name as designation,
+                    sm.current_office_code as office
+             FROM div_staff_master sm
+             LEFT JOIN designations d ON sm.designation_id = d.id
+             WHERE ${staffWhere.join(' AND ')}`,
+            staffParams
+        );
+
+        // Get all segment coverage data
+        const [allSegments] = await pool.query(
+            `SELECT staff_hrms_id, from_station, to_station, last_worked_date
+             FROM div_lrd_segment_coverage`
+        );
+
+        // Build map: staff_hrms_id -> "FROM-TO" -> last_worked_date
+        const staffSegmentMap = new Map();
+        for (const seg of allSegments) {
+            if (!staffSegmentMap.has(seg.staff_hrms_id)) {
+                staffSegmentMap.set(seg.staff_hrms_id, new Map());
+            }
+            const key = `${seg.from_station}-${seg.to_station}`;
+            staffSegmentMap.get(seg.staff_hrms_id).set(key, seg.last_worked_date);
+        }
+
+        // Calculate summary
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        let totalValid = 0;
+        let totalExpiring = 0;
+        let totalPartial = 0;
+        let totalExpired = 0;
+        let totalNeverWorked = 0;
+
+        const staffSummaries = [];
+
+        for (const staff of staffList) {
+            const staffOffice = staff.office?.toUpperCase() || 'KYN';
+            const applicableBeats = getBeatsForOffice(staffOffice, beatsData.beats);
+            const staffSegs = staffSegmentMap.get(staff.hrms_id) || new Map();
+
+            let valid = 0, expiring = 0, partial = 0, expired = 0, neverWorked = 0;
+
+            for (const beat of applicableBeats) {
+                const requiredSegments = extractAdjacentPairs(beat.stations);
+                const totalSegs = requiredSegments.length;
+
+                let validSegs = 0;
+                let expiredSegs = 0;
+                let neverWorkedSegs = 0;
+                let expiringSegs = 0;
+
+                for (const [from, to] of requiredSegments) {
+                    const key = `${from}-${to}`;
+                    const lastWorked = staffSegs.get(key);
+
+                    if (!lastWorked) {
+                        neverWorkedSegs++;
+                        continue;
+                    }
+
+                    const lastWorkedDate = new Date(lastWorked);
+                    const expiresOn = new Date(lastWorkedDate);
+                    expiresOn.setDate(expiresOn.getDate() + validityDays);
+
+                    const daysRemaining = Math.ceil((expiresOn - today) / (1000 * 60 * 60 * 24));
+
+                    if (daysRemaining < 0) {
+                        expiredSegs++;
+                    } else if (daysRemaining <= expiringThreshold) {
+                        expiringSegs++;
+                        validSegs++;
+                    } else {
+                        validSegs++;
+                    }
+                }
+
+                // Determine section status
+                if (neverWorkedSegs === totalSegs) {
+                    neverWorked++;
+                } else if (expiredSegs > 0 || neverWorkedSegs > 0) {
+                    if (validSegs > 0) {
+                        partial++;
+                    } else {
+                        expired++;
+                    }
+                } else if (expiringSegs > 0) {
+                    expiring++;
+                } else {
+                    valid++;
+                }
+            }
+
+            totalValid += valid;
+            totalExpiring += expiring;
+            totalPartial += partial;
+            totalExpired += expired;
+            totalNeverWorked += neverWorked;
+
+            // Include staff with issues (expired, partial, or expiring sections)
+            if (expired > 0 || expiring > 0 || partial > 0) {
+                staffSummaries.push({
+                    hrms_id: staff.hrms_id,
+                    cms_id: staff.current_cms_id || staff.original_cms_id,
+                    name: staff.staff_name,
+                    designation: staff.designation,
+                    office: staffOffice,
+                    valid,
+                    expiring,
+                    partial,
+                    expired,
+                    never_worked: neverWorked,
+                    total_sections: applicableBeats.length
+                });
+            }
+        }
+
+        // Sort by expired (desc), then partial (desc), then expiring (desc)
+        staffSummaries.sort((a, b) => {
+            if (b.expired !== a.expired) return b.expired - a.expired;
+            if (b.partial !== a.partial) return b.partial - a.partial;
+            return b.expiring - a.expiring;
+        });
+
+        res.json({
+            success: true,
+            config: {
+                validity_days: validityDays,
+                expiring_threshold_days: expiringThreshold
+            },
+            overall: {
+                total_staff: staffList.length,
+                total_section_assignments: totalValid + totalExpiring + totalPartial + totalExpired + totalNeverWorked,
+                valid: totalValid,
+                expiring_soon: totalExpiring,
+                partial: totalPartial,
+                expired: totalExpired,
+                never_worked: totalNeverWorked
+            },
+            staff_with_issues: staffSummaries.slice(0, 100) // Top 100
+        });
+
+    } catch (err) {
+        console.error('Get LRD Summary Error:', err);
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+/**
+ * POST /api/ctr/lrd/backfill
+ * Backfill matched_sections for existing legs (one-time operation)
+ */
+router.post('/lrd/backfill', async (req, res) => {
+    const pool = req.app.locals.pool;
+    const { limit = 1000 } = req.body;
+
+    try {
+        if (!routeCtx) {
+            return res.status(500).json({ success: false, message: 'Route data not loaded' });
+        }
+
+        // Get legs without matched_sections
+        const [legs] = await pool.query(
+            `SELECT id, from_station, to_station
+             FROM div_ctr_legs
+             WHERE matched_sections IS NULL
+               AND duty_type IN ('WR', 'PL')
+               AND from_station IS NOT NULL
+               AND to_station IS NOT NULL
+             LIMIT ?`,
+            [parseInt(limit)]
+        );
+
+        if (legs.length === 0) {
+            return res.json({
+                success: true,
+                message: 'No legs to backfill',
+                stats: { processed: 0, matched: 0, unmapped: 0 }
+            });
+        }
+
+        let matched = 0, unmapped = 0, ambiguous = 0;
+
+        for (const leg of legs) {
+            const resolved = resolveLegWithRoutes(leg.from_station, leg.to_station, routeCtx);
+
+            let matchedSections = null;
+            if (resolved.status === 'OK' && resolved.route_id) {
+                matchedSections = JSON.stringify([{
+                    route_id: resolved.route_id,
+                    stations: resolved.stations,
+                    reason: resolved.reason
+                }]);
+                matched++;
+            } else if (resolved.status === 'AMBIGUOUS') {
+                ambiguous++;
+            } else {
+                unmapped++;
+            }
+
+            await pool.query(
+                `UPDATE div_ctr_legs SET matched_sections = ? WHERE id = ?`,
+                [matchedSections, leg.id]
+            );
+        }
+
+        // Check remaining
+        const [remaining] = await pool.query(
+            `SELECT COUNT(*) as cnt FROM div_ctr_legs
+             WHERE matched_sections IS NULL
+               AND duty_type IN ('WR', 'PL')
+               AND from_station IS NOT NULL
+               AND to_station IS NOT NULL`
+        );
+
+        res.json({
+            success: true,
+            message: `Backfilled ${legs.length} legs`,
+            stats: {
+                processed: legs.length,
+                matched,
+                unmapped,
+                ambiguous,
+                remaining: remaining[0].cnt
+            }
+        });
+
+    } catch (err) {
+        console.error('Backfill Error:', err);
         res.status(500).json({ success: false, message: err.message });
     }
 });

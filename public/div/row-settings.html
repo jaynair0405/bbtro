@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Position Row Settings | Division</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1d4ed8;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --surface: #ffffff;
+            --bg: #f1f5f9;
+            --text-main: #1e293b;
+            --text-light: #64748b;
+            --border: #e2e8f0;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text-main);
+            min-height: 100vh;
+        }
+        .page-header {
+            background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+            color: white;
+            padding: 20px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .page-header h1 { font-size: 1.5rem; font-weight: 600; }
+        .page-header .subtitle { opacity: 0.9; font-size: 0.9rem; margin-top: 4px; }
+        .back-btn {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .back-btn:hover { background: rgba(255,255,255,0.3); }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .card {
+            background: var(--surface);
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .card-header {
+            padding: 15px 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .card-header h2 { font-size: 1.1rem; font-weight: 600; }
+        .card-body { padding: 20px; }
+
+        .btn {
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+        }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: var(--primary-dark); }
+        .btn-success { background: var(--success); color: white; }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-sm { padding: 6px 12px; font-size: 12px; }
+
+        /* Filter tabs */
+        .filter-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .filter-tab {
+            padding: 8px 16px;
+            border-radius: 20px;
+            border: 1px solid var(--border);
+            background: white;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+        .filter-tab:hover { border-color: var(--primary); }
+        .filter-tab.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        /* Table */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .data-table th, .data-table td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+        .data-table th {
+            background: #f8fafc;
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            color: var(--text-light);
+        }
+        .data-table tr:hover { background: #f8fafc; }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 500;
+        }
+        .badge-blue { background: #dbeafe; color: #1e40af; }
+        .badge-green { background: #d1fae5; color: #065f46; }
+        .badge-yellow { background: #fef3c7; color: #92400e; }
+        .badge-gray { background: #f1f5f9; color: #475569; }
+        .badge-red { background: #fee2e2; color: #991b1b; }
+
+        .section-badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 600;
+        }
+        .section-STRENGTH { background: #dbeafe; color: #1e40af; }
+        .section-NON_EFFECTIVE { background: #fef3c7; color: #92400e; }
+        .section-WORKING_DETAILS { background: #d1fae5; color: #065f46; }
+        .section-RESULT { background: #e0e7ff; color: #3730a3; }
+        .section-CUSTOM { background: #fce7f3; color: #9d174d; }
+
+        .lobby-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+        }
+        .lobby-tag {
+            background: #e2e8f0;
+            color: #475569;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+        }
+        .lobby-tag.all { background: #d1fae5; color: #065f46; }
+
+        .action-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 5px 8px;
+            border-radius: 4px;
+            color: var(--text-light);
+            transition: all 0.2s;
+        }
+        .action-btn:hover { background: #f1f5f9; }
+        .action-btn.edit:hover { color: var(--primary); }
+        .action-btn.delete:hover { color: var(--danger); }
+
+        /* Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal {
+            background: white;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        .modal-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .modal-header h3 { font-size: 1.1rem; }
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: var(--text-light);
+        }
+        .modal-body { padding: 20px; }
+        .modal-footer {
+            padding: 15px 20px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        .form-group { margin-bottom: 15px; }
+        .form-group label {
+            display: block;
+            font-weight: 500;
+            margin-bottom: 6px;
+            font-size: 13px;
+        }
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .checkbox-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 8px;
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 10px;
+        }
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+        }
+        .checkbox-item input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+        }
+
+        .help-text {
+            font-size: 12px;
+            color: var(--text-light);
+            margin-top: 4px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-light);
+        }
+        .empty-state i { font-size: 48px; margin-bottom: 15px; opacity: 0.5; }
+
+        .status-toggle {
+            cursor: pointer;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            border: none;
+        }
+        .status-toggle.active { background: #d1fae5; color: #065f46; }
+        .status-toggle.inactive { background: #fee2e2; color: #991b1b; }
+    </style>
+</head>
+<body>
+    <div class="page-header">
+        <div>
+            <h1><i class="fa-solid fa-table-list"></i> Position Row Settings</h1>
+            <div class="subtitle">Configure which rows appear in midnight position for each lobby</div>
+        </div>
+        <button class="back-btn" onclick="history.back()">
+            <i class="fa-solid fa-arrow-left"></i> Back
+        </button>
+    </div>
+
+    <div class="container">
+        <!-- Filter by Section -->
+        <div class="filter-tabs">
+            <button class="filter-tab active" onclick="filterBySection('ALL', this)">All Rows</button>
+            <button class="filter-tab" onclick="filterBySection('STRENGTH', this)">Strength</button>
+            <button class="filter-tab" onclick="filterBySection('NON_EFFECTIVE', this)">Non-Effective</button>
+            <button class="filter-tab" onclick="filterBySection('WORKING_DETAILS', this)">Working Details</button>
+            <button class="filter-tab" onclick="filterBySection('RESULT', this)">Result</button>
+            <button class="filter-tab" onclick="filterBySection('CUSTOM', this)">Custom</button>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h2><i class="fa-solid fa-list"></i> Row Configuration</h2>
+                <button class="btn btn-primary" onclick="openAddModal()">
+                    <i class="fa-solid fa-plus"></i> Add Custom Row
+                </button>
+            </div>
+            <div class="card-body">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Order</th>
+                            <th>Row Code</th>
+                            <th>Display Name</th>
+                            <th>Section</th>
+                            <th>Type</th>
+                            <th>Applicable Lobbies</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="rowsTableBody">
+                        <tr>
+                            <td colspan="8" class="empty-state">
+                                <i class="fa-solid fa-spinner fa-spin"></i>
+                                <p>Loading rows...</p>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Help Card -->
+        <div class="card">
+            <div class="card-header">
+                <h2><i class="fa-solid fa-circle-info"></i> Help</h2>
+            </div>
+            <div class="card-body">
+                <p><strong>Row Types:</strong></p>
+                <ul style="margin: 10px 0 15px 20px; line-height: 1.8;">
+                    <li><span class="badge badge-blue">System</span> - Core rows, cannot be deleted</li>
+                    <li><span class="badge badge-green">Custom</span> - User-created rows, can be edited/deleted</li>
+                    <li><span class="badge badge-yellow">Staff-Linked</span> - Count auto-calculated from staff entries</li>
+                    <li><span class="badge badge-gray">Editable</span> - User can enter values manually</li>
+                </ul>
+                <p><strong>Applicable Lobbies:</strong></p>
+                <p style="margin-top: 5px; color: var(--text-light);">
+                    Set which lobbies can see each row. Leave empty (All Lobbies) to show for everyone.
+                    Use this to customize working details for Goods, Suburban, Ghat, Mainline lobbies.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add/Edit Row Modal -->
+    <div class="modal-overlay" id="rowModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="modalTitle">Add Custom Row</h3>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editingRowId">
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Row Code *</label>
+                        <input type="text" id="rowCode" placeholder="e.g., GOODS_TRAIN" style="text-transform: uppercase;">
+                        <div class="help-text">Unique identifier (uppercase, no spaces)</div>
+                    </div>
+                    <div class="form-group">
+                        <label>Display Name *</label>
+                        <input type="text" id="rowName" placeholder="e.g., Goods Train Crew">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Section *</label>
+                        <select id="rowSection">
+                            <option value="WORKING_DETAILS">Working Details</option>
+                            <option value="NON_EFFECTIVE">Non-Effective</option>
+                            <option value="CUSTOM">Custom</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Display Order</label>
+                        <input type="number" id="rowOrder" value="50" min="1">
+                        <div class="help-text">Lower = appears first</div>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="rowEditable" checked> User can edit value
+                        </label>
+                        <div class="help-text">If unchecked, value is auto-calculated</div>
+                    </div>
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="rowStaffLinked"> Staff-linked (auto-count)
+                        </label>
+                        <div class="help-text">Count from staff entries in this category</div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Applicable Lobbies</label>
+                    <div class="help-text" style="margin-bottom: 8px;">Select which lobbies can see this row. Leave all unchecked for "All Lobbies".</div>
+                    <div class="checkbox-grid" id="lobbyCheckboxes">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn" onclick="closeModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="saveRow()">Save Row</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Lobbies Modal (Quick Edit) -->
+    <div class="modal-overlay" id="lobbiesModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Edit Applicable Lobbies</h3>
+                <button class="modal-close" onclick="closeLobbiesModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editingRowIdForLobbies">
+                <p id="editingRowName" style="font-weight: 600; margin-bottom: 15px;"></p>
+
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="allLobbiesCheck" onchange="toggleAllLobbies()">
+                        <strong>All Lobbies</strong> (uncheck to select specific lobbies)
+                    </label>
+                </div>
+
+                <div class="checkbox-grid" id="lobbyCheckboxesQuick" style="display: none;">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn" onclick="closeLobbiesModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="saveLobbies()">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let allRows = [];
+        let allLobbies = [];
+        let currentFilter = 'ALL';
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadLobbies();
+            await loadRows();
+        });
+
+        async function loadLobbies() {
+            try {
+                const resp = await fetch('/api/division/midnight-position/sanction/offices');
+                if (resp.ok) {
+                    allLobbies = await resp.json();
+                    console.log('Loaded lobbies:', allLobbies.length);
+                }
+            } catch (error) {
+                console.error('Error loading lobbies:', error);
+            }
+        }
+
+        async function loadRows() {
+            try {
+                // include_inactive=1 to show all rows for admin management
+                const resp = await fetch('/api/division/midnight-position/rows?include_inactive=1');
+                if (resp.ok) {
+                    allRows = await resp.json();
+                    renderRows();
+                }
+            } catch (error) {
+                console.error('Error loading rows:', error);
+                document.getElementById('rowsTableBody').innerHTML = `
+                    <tr><td colspan="8" class="empty-state">
+                        <i class="fa-solid fa-exclamation-triangle"></i>
+                        <p>Failed to load rows</p>
+                    </td></tr>
+                `;
+            }
+        }
+
+        function renderRows() {
+            const tbody = document.getElementById('rowsTableBody');
+
+            let filtered = allRows;
+            if (currentFilter !== 'ALL') {
+                filtered = allRows.filter(r => r.section === currentFilter);
+            }
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `
+                    <tr><td colspan="8" class="empty-state">
+                        <i class="fa-solid fa-inbox"></i>
+                        <p>No rows found</p>
+                    </td></tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = filtered.map(row => {
+                const lobbies = row.applicable_offices ? row.applicable_offices.split(',').map(l => l.trim()) : [];
+                const lobbyTags = lobbies.length === 0
+                    ? '<span class="lobby-tag all">All Lobbies</span>'
+                    : lobbies.map(l => `<span class="lobby-tag">${l}</span>`).join('');
+
+                const typeBadges = [];
+                if (row.is_system) typeBadges.push('<span class="badge badge-blue">System</span>');
+                else typeBadges.push('<span class="badge badge-green">Custom</span>');
+                if (row.is_staff_linked) typeBadges.push('<span class="badge badge-yellow">Staff-Linked</span>');
+                if (row.is_editable) typeBadges.push('<span class="badge badge-gray">Editable</span>');
+
+                return `
+                    <tr data-id="${row.id}">
+                        <td>${row.display_order || 0}</td>
+                        <td><code>${row.row_code}</code></td>
+                        <td>${row.row_name}</td>
+                        <td><span class="section-badge section-${row.section}">${row.section}</span></td>
+                        <td>${typeBadges.join(' ')}</td>
+                        <td>
+                            <div class="lobby-tags">${lobbyTags}</div>
+                        </td>
+                        <td>
+                            <button class="status-toggle ${row.is_active ? 'active' : 'inactive'}"
+                                    onclick="toggleStatus(${row.id}, ${row.is_active})">
+                                ${row.is_active ? 'Active' : 'Inactive'}
+                            </button>
+                        </td>
+                        <td>
+                            <button class="action-btn edit" title="Edit Lobbies" onclick="openLobbiesModal(${row.id})">
+                                <i class="fa-solid fa-building"></i>
+                            </button>
+                            ${!row.is_system ? `
+                                <button class="action-btn edit" title="Edit Row" onclick="editRow(${row.id})">
+                                    <i class="fa-solid fa-pen"></i>
+                                </button>
+                                <button class="action-btn delete" title="Delete" onclick="deleteRow(${row.id})">
+                                    <i class="fa-solid fa-trash"></i>
+                                </button>
+                            ` : ''}
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function filterBySection(section, btn) {
+            currentFilter = section;
+            document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+            btn.classList.add('active');
+            renderRows();
+        }
+
+        function populateLobbyCheckboxes(containerId, selectedLobbies = []) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = allLobbies.map(lobby => `
+                <label class="checkbox-item">
+                    <input type="checkbox" value="${lobby.office_code}"
+                           ${selectedLobbies.includes(lobby.office_code) ? 'checked' : ''}>
+                    ${lobby.office_code}
+                </label>
+            `).join('');
+        }
+
+        function openAddModal() {
+            document.getElementById('modalTitle').textContent = 'Add Custom Row';
+            document.getElementById('editingRowId').value = '';
+            document.getElementById('rowCode').value = '';
+            document.getElementById('rowCode').disabled = false;
+            document.getElementById('rowName').value = '';
+            document.getElementById('rowSection').value = 'WORKING_DETAILS';
+            document.getElementById('rowOrder').value = '50';
+            document.getElementById('rowEditable').checked = true;
+            document.getElementById('rowStaffLinked').checked = false;
+            populateLobbyCheckboxes('lobbyCheckboxes', []);
+            document.getElementById('rowModal').classList.add('active');
+        }
+
+        function editRow(id) {
+            const row = allRows.find(r => r.id === id);
+            if (!row || row.is_system) return;
+
+            document.getElementById('modalTitle').textContent = 'Edit Row';
+            document.getElementById('editingRowId').value = id;
+            document.getElementById('rowCode').value = row.row_code;
+            document.getElementById('rowCode').disabled = true; // Can't change code
+            document.getElementById('rowName').value = row.row_name;
+            document.getElementById('rowSection').value = row.section;
+            document.getElementById('rowOrder').value = row.display_order || 50;
+            document.getElementById('rowEditable').checked = row.is_editable;
+            document.getElementById('rowStaffLinked').checked = row.is_staff_linked;
+
+            const lobbies = row.applicable_offices ? row.applicable_offices.split(',').map(l => l.trim()) : [];
+            populateLobbyCheckboxes('lobbyCheckboxes', lobbies);
+
+            document.getElementById('rowModal').classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('rowModal').classList.remove('active');
+        }
+
+        async function saveRow() {
+            const editId = document.getElementById('editingRowId').value;
+            const rowCode = document.getElementById('rowCode').value.trim().toUpperCase().replace(/\s+/g, '_');
+            const rowName = document.getElementById('rowName').value.trim();
+            const section = document.getElementById('rowSection').value;
+            const displayOrder = parseInt(document.getElementById('rowOrder').value) || 50;
+            const isEditable = document.getElementById('rowEditable').checked ? 1 : 0;
+            const isStaffLinked = document.getElementById('rowStaffLinked').checked ? 1 : 0;
+
+            // Get selected lobbies
+            const checkboxes = document.querySelectorAll('#lobbyCheckboxes input[type="checkbox"]:checked');
+            const selectedLobbies = Array.from(checkboxes).map(cb => cb.value);
+            const applicableOffices = selectedLobbies.length > 0 ? selectedLobbies.join(',') : null;
+
+            if (!rowCode || !rowName) {
+                alert('Row code and name are required');
+                return;
+            }
+
+            try {
+                let resp;
+                if (editId) {
+                    resp = await fetch(`/api/division/midnight-position/rows/${editId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            row_name: rowName,
+                            section,
+                            is_editable: isEditable,
+                            is_staff_linked: isStaffLinked,
+                            applicable_offices: applicableOffices,
+                            display_order: displayOrder
+                        })
+                    });
+                } else {
+                    resp = await fetch('/api/division/midnight-position/rows', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            row_code: rowCode,
+                            row_name: rowName,
+                            section,
+                            is_editable: isEditable,
+                            is_staff_linked: isStaffLinked,
+                            applicable_offices: applicableOffices,
+                            display_order: displayOrder
+                        })
+                    });
+                }
+
+                const result = await resp.json();
+                if (result.success) {
+                    closeModal();
+                    await loadRows();
+                } else {
+                    alert(result.error || 'Failed to save row');
+                }
+            } catch (error) {
+                console.error('Error saving row:', error);
+                alert('Failed to save row');
+            }
+        }
+
+        // Quick edit lobbies modal
+        function openLobbiesModal(id) {
+            const row = allRows.find(r => r.id === id);
+            if (!row) return;
+
+            document.getElementById('editingRowIdForLobbies').value = id;
+            document.getElementById('editingRowName').textContent = row.row_name;
+
+            const lobbies = row.applicable_offices ? row.applicable_offices.split(',').map(l => l.trim()) : [];
+            const isAllLobbies = lobbies.length === 0;
+
+            document.getElementById('allLobbiesCheck').checked = isAllLobbies;
+            document.getElementById('lobbyCheckboxesQuick').style.display = isAllLobbies ? 'none' : 'grid';
+            populateLobbyCheckboxes('lobbyCheckboxesQuick', lobbies);
+
+            document.getElementById('lobbiesModal').classList.add('active');
+        }
+
+        function closeLobbiesModal() {
+            document.getElementById('lobbiesModal').classList.remove('active');
+        }
+
+        function toggleAllLobbies() {
+            const isAll = document.getElementById('allLobbiesCheck').checked;
+            const container = document.getElementById('lobbyCheckboxesQuick');
+            container.style.display = isAll ? 'none' : 'grid';
+
+            if (isAll) {
+                // Uncheck all when "All Lobbies" is checked
+                document.querySelectorAll('#lobbyCheckboxesQuick input[type="checkbox"]').forEach(cb => cb.checked = false);
+            } else {
+                // Make sure checkboxes are populated when showing
+                if (container.children.length === 0) {
+                    populateLobbyCheckboxes('lobbyCheckboxesQuick', []);
+                }
+            }
+        }
+
+        async function saveLobbies() {
+            const id = document.getElementById('editingRowIdForLobbies').value;
+            const isAllLobbies = document.getElementById('allLobbiesCheck').checked;
+
+            let applicableOffices = null;
+            if (!isAllLobbies) {
+                const checkboxes = document.querySelectorAll('#lobbyCheckboxesQuick input[type="checkbox"]:checked');
+                const selectedLobbies = Array.from(checkboxes).map(cb => cb.value);
+                applicableOffices = selectedLobbies.length > 0 ? selectedLobbies.join(',') : null;
+            }
+
+            try {
+                const resp = await fetch(`/api/division/midnight-position/rows/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ applicable_offices: applicableOffices })
+                });
+
+                const result = await resp.json();
+                if (result.success) {
+                    closeLobbiesModal();
+                    await loadRows();
+                } else {
+                    alert(result.error || 'Failed to save');
+                }
+            } catch (error) {
+                console.error('Error saving lobbies:', error);
+                alert('Failed to save');
+            }
+        }
+
+        async function toggleStatus(id, currentStatus) {
+            try {
+                const resp = await fetch(`/api/division/midnight-position/rows/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ is_active: currentStatus ? 0 : 1 })
+                });
+
+                if (resp.ok) {
+                    await loadRows();
+                }
+            } catch (error) {
+                console.error('Error toggling status:', error);
+            }
+        }
+
+        async function deleteRow(id) {
+            const row = allRows.find(r => r.id === id);
+            if (!row || row.is_system) return;
+
+            if (!confirm(`Delete row "${row.row_name}"? This cannot be undone.`)) return;
+
+            try {
+                const resp = await fetch(`/api/division/midnight-position/rows/${id}`, {
+                    method: 'DELETE'
+                });
+
+                const result = await resp.json();
+                if (result.success) {
+                    await loadRows();
+                } else {
+                    alert(result.error || 'Failed to delete');
+                }
+            } catch (error) {
+                console.error('Error deleting row:', error);
+                alert('Failed to delete row');
+            }
+        }
+    </script>
+</body>
+</html>

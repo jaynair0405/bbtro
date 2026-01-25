@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sanction Strength Settings | Division</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --brand: #1e40af;
+            --brand-light: #3b82f6;
+            --bg: #f1f5f9;
+            --surface: #ffffff;
+            --border: #e2e8f0;
+            --text: #1e293b;
+            --text-light: #64748b;
+            --success: #10b981;
+            --danger: #ef4444;
+        }
+        * { box-sizing: border-box; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 20px; }
+
+        .page-header {
+            display: flex;
+            align-items: center;
+            background: var(--surface);
+            padding: 16px 24px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            margin-bottom: 20px;
+            gap: 16px;
+        }
+        .back-btn {
+            text-decoration: none;
+            color: var(--text-light);
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            padding: 8px 12px;
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+        .back-btn:hover { background: #f1f5f9; color: var(--brand); }
+        .header-title { flex: 1; }
+        .header-title h2 { margin: 0; color: var(--brand); font-size: 20px; }
+        .header-title p { margin: 4px 0 0 0; color: var(--text-light); font-size: 12px; }
+
+        .card {
+            background: var(--surface);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border);
+        }
+        .card-header h3 { margin: 0; font-size: 16px; color: var(--text); }
+
+        /* Add Form */
+        .add-form {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            align-items: flex-end;
+        }
+        .form-group { display: flex; flex-direction: column; gap: 4px; }
+        .form-group label { font-size: 12px; color: var(--text-light); font-weight: 600; }
+        .form-group select, .form-group input {
+            padding: 8px 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 14px;
+            min-width: 150px;
+        }
+        .form-group input[type="number"] { width: 100px; min-width: 100px; }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s;
+        }
+        .btn-primary { background: var(--brand); color: white; }
+        .btn-primary:hover { background: var(--brand-light); }
+        .btn-success { background: var(--success); color: white; }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-sm { padding: 4px 8px; font-size: 12px; }
+
+        /* Table */
+        .table-container { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); }
+        th { background: #f8fafc; font-weight: 600; color: var(--text-light); font-size: 12px; text-transform: uppercase; }
+        tr:hover { background: #f8fafc; }
+
+        .office-group { background: #f0f9ff; }
+        .office-group td { font-weight: 600; color: var(--brand); padding: 8px 12px; }
+
+        .editable-input {
+            width: 80px;
+            padding: 4px 8px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-size: 14px;
+            text-align: right;
+        }
+        .editable-input:focus { outline: none; border-color: var(--brand); }
+
+        .actions { display: flex; gap: 6px; }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-light);
+        }
+        .empty-state i { font-size: 48px; margin-bottom: 12px; opacity: 0.3; }
+
+        .designation-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            background: #e0e7ff;
+            color: var(--brand);
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .preset-btns {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            margin-top: 8px;
+        }
+        .preset-btn {
+            padding: 4px 10px;
+            background: #f1f5f9;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .preset-btn:hover { background: #e0e7ff; border-color: var(--brand); }
+
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 12px 20px;
+            background: var(--success);
+            color: white;
+            border-radius: 8px;
+            font-size: 14px;
+            display: none;
+            z-index: 1000;
+        }
+        .toast.error { background: var(--danger); }
+        .toast.show { display: block; }
+
+        @media print { .page-header, .add-form, .actions, .btn { display: none !important; } }
+    </style>
+</head>
+<body>
+    <div class="page-header">
+        <a href="/div" class="back-btn">
+            <i class="fa-solid fa-arrow-left"></i> Back
+        </a>
+        <div class="header-title">
+            <h2><i class="fa-solid fa-sliders"></i> Sanction Strength Settings</h2>
+            <p>Manage sanction strength per office and designation</p>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h3><i class="fa-solid fa-plus-circle"></i> Add New Entry</h3>
+        </div>
+        <div class="add-form">
+            <div class="form-group">
+                <label>Office/Lobby</label>
+                <select id="addOffice">
+                    <option value="">Select Office...</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Designation Code</label>
+                <input type="text" id="addDesignation" placeholder="e.g., LPG" style="text-transform: uppercase;">
+                <div class="preset-btns">
+                    <span class="preset-btn" onclick="setDesignation('LPG')">LPG</span>
+                    <span class="preset-btn" onclick="setDesignation('LPS')">LPS</span>
+                    <span class="preset-btn" onclick="setDesignation('ALP')">ALP</span>
+                    <span class="preset-btn" onclick="setDesignation('LPM')">LPM</span>
+                    <span class="preset-btn" onclick="setDesignation('LPP')">LPP</span>
+                    <span class="preset-btn" onclick="setDesignation('LPGHAT')">LPGHAT</span>
+                    <span class="preset-btn" onclick="setDesignation('MOTORMAN')">MOTORMAN</span>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Sanction Strength</label>
+                <input type="number" id="addSanction" min="0" value="0">
+            </div>
+            <button class="btn btn-primary" onclick="addEntry()">
+                <i class="fa-solid fa-plus"></i> Add
+            </button>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h3><i class="fa-solid fa-list"></i> Sanction Strength Master</h3>
+            <div>
+                <select id="filterOffice" onchange="loadData()" style="padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px;">
+                    <option value="">All Offices</option>
+                </select>
+            </div>
+        </div>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Office</th>
+                        <th>Designation</th>
+                        <th style="text-align: right;">Sanction Strength</th>
+                        <th>Last Updated</th>
+                        <th style="width: 100px;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="dataTable">
+                    <tr>
+                        <td colspan="5" class="empty-state">
+                            <i class="fa-solid fa-database"></i>
+                            <p>Loading...</p>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        let offices = [];
+        let sanctions = [];
+
+        async function init() {
+            await loadOffices();
+            await loadData();
+        }
+
+        async function loadOffices() {
+            try {
+                const resp = await fetch('/api/division/midnight-position/sanction/offices');
+                if (resp.ok) {
+                    offices = await resp.json();
+                    populateOfficeDropdowns();
+                }
+            } catch (error) {
+                console.error('Error loading offices:', error);
+            }
+        }
+
+        function populateOfficeDropdowns() {
+            const addSelect = document.getElementById('addOffice');
+            const filterSelect = document.getElementById('filterOffice');
+
+            // Clear and populate add dropdown
+            addSelect.innerHTML = '<option value="">Select Office...</option>';
+            offices.forEach(o => {
+                addSelect.innerHTML += `<option value="${o.office_code}">${o.office_name} (${o.office_code})</option>`;
+            });
+
+            // Clear and populate filter dropdown
+            filterSelect.innerHTML = '<option value="">All Offices</option>';
+            offices.forEach(o => {
+                filterSelect.innerHTML += `<option value="${o.office_code}">${o.office_name} (${o.office_code})</option>`;
+            });
+        }
+
+        async function loadData() {
+            const filterOffice = document.getElementById('filterOffice').value;
+            const url = filterOffice
+                ? `/api/division/midnight-position/sanction?office_code=${filterOffice}`
+                : '/api/division/midnight-position/sanction';
+
+            try {
+                const resp = await fetch(url);
+                if (resp.ok) {
+                    sanctions = await resp.json();
+                    renderTable();
+                }
+            } catch (error) {
+                console.error('Error loading data:', error);
+            }
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('dataTable');
+
+            if (sanctions.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="5" class="empty-state">
+                            <i class="fa-solid fa-database"></i>
+                            <p>No sanction entries found. Add entries using the form above.</p>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            let html = '';
+            let currentOffice = '';
+
+            sanctions.forEach(s => {
+                // Group header for new office
+                if (s.office_code !== currentOffice) {
+                    currentOffice = s.office_code;
+                    html += `
+                        <tr class="office-group">
+                            <td colspan="5">
+                                <i class="fa-solid fa-building"></i> ${s.office_name || s.office_code}
+                            </td>
+                        </tr>
+                    `;
+                }
+
+                const updatedAt = s.updated_at ? new Date(s.updated_at).toLocaleDateString('en-IN') : '-';
+                const updatedBy = s.updated_by || '-';
+
+                html += `
+                    <tr data-id="${s.id}">
+                        <td>${s.office_code}</td>
+                        <td><span class="designation-badge">${s.designation_code}</span></td>
+                        <td style="text-align: right;">
+                            <input type="number" class="editable-input" value="${s.sanction_strength}"
+                                   onchange="updateSanction(${s.id}, this.value)" min="0">
+                        </td>
+                        <td style="font-size: 12px; color: var(--text-light);">
+                            ${updatedAt}<br><small>${updatedBy}</small>
+                        </td>
+                        <td>
+                            <div class="actions">
+                                <button class="btn btn-danger btn-sm" onclick="deleteEntry(${s.id})" title="Delete">
+                                    <i class="fa-solid fa-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            tbody.innerHTML = html;
+        }
+
+        function setDesignation(code) {
+            document.getElementById('addDesignation').value = code;
+        }
+
+        async function addEntry() {
+            const office_code = document.getElementById('addOffice').value;
+            const designation_code = document.getElementById('addDesignation').value.trim().toUpperCase();
+            const sanction_strength = parseInt(document.getElementById('addSanction').value) || 0;
+
+            if (!office_code) {
+                showToast('Please select an office', true);
+                return;
+            }
+            if (!designation_code) {
+                showToast('Please enter a designation code', true);
+                return;
+            }
+
+            try {
+                const resp = await fetch('/api/division/midnight-position/sanction', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ office_code, designation_code, sanction_strength })
+                });
+
+                if (resp.ok) {
+                    showToast('Entry added successfully');
+                    document.getElementById('addDesignation').value = '';
+                    document.getElementById('addSanction').value = '0';
+                    await loadData();
+                } else {
+                    const data = await resp.json();
+                    showToast(data.error || 'Failed to add entry', true);
+                }
+            } catch (error) {
+                showToast('Error adding entry', true);
+            }
+        }
+
+        async function updateSanction(id, value) {
+            const sanction_strength = parseInt(value) || 0;
+
+            try {
+                const resp = await fetch(`/api/division/midnight-position/sanction/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sanction_strength })
+                });
+
+                if (resp.ok) {
+                    showToast('Updated successfully');
+                } else {
+                    showToast('Failed to update', true);
+                    await loadData(); // Reload to reset value
+                }
+            } catch (error) {
+                showToast('Error updating', true);
+            }
+        }
+
+        async function deleteEntry(id) {
+            if (!confirm('Are you sure you want to delete this entry?')) return;
+
+            try {
+                const resp = await fetch(`/api/division/midnight-position/sanction/${id}`, {
+                    method: 'DELETE'
+                });
+
+                if (resp.ok) {
+                    showToast('Entry deleted');
+                    await loadData();
+                } else {
+                    showToast('Failed to delete', true);
+                }
+            } catch (error) {
+                showToast('Error deleting', true);
+            }
+        }
+
+        function showToast(message, isError = false) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = 'toast show' + (isError ? ' error' : '');
+            setTimeout(() => toast.className = 'toast', 3000);
+        }
+
+        // Initialize on load
+        init();
+    </script>
+</body>
+</html>
