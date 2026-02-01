@@ -33,5 +33,54 @@ SQL scripts to run on production server:
 - [x] `sql/add_retirement_date_column.sql` - Add retirement_date and retirement_type columns to div_staff_master (Applied 2026-02-01)
 
 ---
+
+## Completed Fixes Log
+
+### Database Connection Leak Fix (2026-02-01)
+
+**What was done:**
+Fixed database connection leak issues in 8 route files (39 endpoints total).
+
+| File | Endpoints Fixed |
+|------|-----------------|
+| promotionRoutes.js | 4 |
+| transferRoutes.js | 6 |
+| detonatorRoutes.js | 4 |
+| disciplineRoutes.js | 8 |
+| draftingRoutes.js | 5 |
+| familyRoutes.js | 4 |
+| personnelStoresRoutes.js | 4 |
+| trainingTypesRoutes.js | 4 |
+
+**Why it was needed:**
+When an error occurred after acquiring a database connection but before releasing it, the connection was never returned to the pool. Over time, this could exhaust all available connections, causing the application to hang or crash with "No connections available" errors.
+
+**Pattern applied:**
+```javascript
+// Before (leaks on error):
+try {
+    const conn = await pool.getConnection();
+    // work...
+    conn.release();
+} catch (error) {
+    // conn never released if error occurs!
+    res.status(500).json({ error: 'Database error' });
+}
+
+// After (safe):
+let conn;
+try {
+    conn = await pool.getConnection();
+    // work...
+    conn.release();
+} catch (error) {
+    if (conn) conn.release();  // Always release on error
+    res.status(500).json({ error: 'Database error' });
+}
+```
+
+**Commit:** `46b4acf`
+
+---
 *Last updated: 2026-02-01*
 
