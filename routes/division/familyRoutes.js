@@ -11,9 +11,10 @@ function requireAuth(req, res, next) {
 
 // GET /api/division/family/:hrms_id - Get family members for a staff
 router.get('/:hrms_id', requireAuth, async (req, res) => {
+    let conn;
     try {
         const { hrms_id } = req.params;
-        const conn = await req.app.locals.pool.getConnection();
+        conn = await req.app.locals.pool.getConnection();
 
         const query = `
             SELECT family_id, member_name, relation, date_of_birth, occupation, is_dependent
@@ -37,12 +38,14 @@ router.get('/:hrms_id', requireAuth, async (req, res) => {
         res.json({ success: true, data: results });
     } catch (error) {
         console.error('Error fetching family members:', error);
+        if (conn) conn.release();
         res.status(500).json({ error: 'Database error', details: error.message });
     }
 });
 
 // POST /api/division/family - Add new family member
 router.post('/', requireAuth, async (req, res) => {
+    let conn;
     try {
         const {
             staff_hrms_id,
@@ -60,7 +63,7 @@ router.post('/', requireAuth, async (req, res) => {
             });
         }
 
-        const conn = await req.app.locals.pool.getConnection();
+        conn = await req.app.locals.pool.getConnection();
 
         const [result] = await conn.query(
             `INSERT INTO div_family_members
@@ -86,12 +89,14 @@ router.post('/', requireAuth, async (req, res) => {
 
     } catch (error) {
         console.error('Error adding family member:', error);
+        if (conn) conn.release();
         res.status(500).json({ error: 'Database error', details: error.message });
     }
 });
 
 // PUT /api/division/family/:family_id - Update family member
 router.put('/:family_id', requireAuth, async (req, res) => {
+    let conn;
     try {
         const { family_id } = req.params;
         const {
@@ -109,7 +114,7 @@ router.put('/:family_id', requireAuth, async (req, res) => {
             });
         }
 
-        const conn = await req.app.locals.pool.getConnection();
+        conn = await req.app.locals.pool.getConnection();
 
         const [result] = await conn.query(
             `UPDATE div_family_members
@@ -139,15 +144,17 @@ router.put('/:family_id', requireAuth, async (req, res) => {
 
     } catch (error) {
         console.error('Error updating family member:', error);
+        if (conn) conn.release();
         res.status(500).json({ error: 'Database error', details: error.message });
     }
 });
 
 // DELETE /api/division/family/:family_id - Delete family member
 router.delete('/:family_id', requireAuth, async (req, res) => {
+    let conn;
     try {
         const { family_id } = req.params;
-        const conn = await req.app.locals.pool.getConnection();
+        conn = await req.app.locals.pool.getConnection();
 
         const [result] = await conn.query(
             'DELETE FROM div_family_members WHERE family_id = ?',
@@ -167,6 +174,7 @@ router.delete('/:family_id', requireAuth, async (req, res) => {
 
     } catch (error) {
         console.error('Error deleting family member:', error);
+        if (conn) conn.release();
         res.status(500).json({ error: 'Database error', details: error.message });
     }
 });

@@ -14,8 +14,9 @@ const requireDivisionAdmin = (req, res, next) => {
 
 // GET /api/division/personnel-stores - Get all personnel store items
 router.get('/', async (req, res) => {
+    let conn;
     try {
-        const conn = await req.app.locals.pool.getConnection();
+        conn = await req.app.locals.pool.getConnection();
         const query = `
             SELECT item_id as id, item_code, item_name, standard_quantity,
                    category, is_active, description
@@ -29,12 +30,14 @@ router.get('/', async (req, res) => {
         res.json({ success: true, data: results });
     } catch (error) {
         console.error('Error fetching personnel store items:', error);
+        if (conn) conn.release();
         res.status(500).json({ error: 'Database error', details: error.message });
     }
 });
 
 // POST /api/division/personnel-stores - Add new personnel store item (Admin only)
 router.post('/', requireDivisionAdmin, async (req, res) => {
+    let conn;
     try {
         const { item_code, item_name, standard_quantity, category, description } = req.body;
 
@@ -47,7 +50,7 @@ router.post('/', requireDivisionAdmin, async (req, res) => {
             return res.status(400).json({ error: 'Valid standard quantity is required' });
         }
 
-        const conn = await req.app.locals.pool.getConnection();
+        conn = await req.app.locals.pool.getConnection();
 
         // Check for duplicate item code or name
         const [existing] = await conn.query(
@@ -91,12 +94,14 @@ router.post('/', requireDivisionAdmin, async (req, res) => {
 
     } catch (error) {
         console.error('Error adding personnel store item:', error);
+        if (conn) conn.release();
         res.status(500).json({ error: 'Database error', details: error.message });
     }
 });
 
 // PUT /api/division/personnel-stores/:id - Update personnel store item (Admin only)
 router.put('/:id', requireDivisionAdmin, async (req, res) => {
+    let conn;
     try {
         const { id } = req.params;
         const { item_code, item_name, standard_quantity, category, description } = req.body;
@@ -110,7 +115,7 @@ router.put('/:id', requireDivisionAdmin, async (req, res) => {
             return res.status(400).json({ error: 'Valid standard quantity is required' });
         }
 
-        const conn = await req.app.locals.pool.getConnection();
+        conn = await req.app.locals.pool.getConnection();
 
         // Check if item exists
         const [existing] = await conn.query(
@@ -168,15 +173,17 @@ router.put('/:id', requireDivisionAdmin, async (req, res) => {
 
     } catch (error) {
         console.error('Error updating personnel store item:', error);
+        if (conn) conn.release();
         res.status(500).json({ error: 'Database error', details: error.message });
     }
 });
 
 // DELETE /api/division/personnel-stores/:id - Delete personnel store item (Admin only)
 router.delete('/:id', requireDivisionAdmin, async (req, res) => {
+    let conn;
     try {
         const { id } = req.params;
-        const conn = await req.app.locals.pool.getConnection();
+        conn = await req.app.locals.pool.getConnection();
 
         // Check if item exists
         const [existing] = await conn.query(
@@ -217,6 +224,7 @@ router.delete('/:id', requireDivisionAdmin, async (req, res) => {
 
     } catch (error) {
         console.error('Error deleting personnel store item:', error);
+        if (conn) conn.release();
         res.status(500).json({ error: 'Database error', details: error.message });
     }
 });

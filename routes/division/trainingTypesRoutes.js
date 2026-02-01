@@ -14,8 +14,9 @@ const requireDivisionAdmin = (req, res, next) => {
 
 // GET /api/division/training-types - Get all training types
 router.get('/', async (req, res) => {
+    let conn;
     try {
-        const conn = await req.app.locals.pool.getConnection();
+        conn = await req.app.locals.pool.getConnection();
         const query = `
             SELECT training_id as id, training_name
             FROM div_training_types
@@ -27,12 +28,14 @@ router.get('/', async (req, res) => {
         res.json({ success: true, data: results });
     } catch (error) {
         console.error('Error fetching training types:', error);
+        if (conn) conn.release();
         res.status(500).json({ error: 'Database error', details: error.message });
     }
 });
 
 // POST /api/division/training-types - Add new training type (Admin only)
 router.post('/', requireDivisionAdmin, async (req, res) => {
+    let conn;
     try {
         const { training_name } = req.body;
 
@@ -41,7 +44,7 @@ router.post('/', requireDivisionAdmin, async (req, res) => {
             return res.status(400).json({ error: 'Training name is required' });
         }
 
-        const conn = await req.app.locals.pool.getConnection();
+        conn = await req.app.locals.pool.getConnection();
 
         // Check for duplicate
         const [existing] = await conn.query(
@@ -73,12 +76,14 @@ router.post('/', requireDivisionAdmin, async (req, res) => {
 
     } catch (error) {
         console.error('Error adding training type:', error);
+        if (conn) conn.release();
         res.status(500).json({ error: 'Database error', details: error.message });
     }
 });
 
 // PUT /api/division/training-types/:id - Update training type (Admin only)
 router.put('/:id', requireDivisionAdmin, async (req, res) => {
+    let conn;
     try {
         const { id } = req.params;
         const { training_name } = req.body;
@@ -88,7 +93,7 @@ router.put('/:id', requireDivisionAdmin, async (req, res) => {
             return res.status(400).json({ error: 'Training name is required' });
         }
 
-        const conn = await req.app.locals.pool.getConnection();
+        conn = await req.app.locals.pool.getConnection();
 
         // Check if training type exists
         const [existing] = await conn.query(
@@ -131,15 +136,17 @@ router.put('/:id', requireDivisionAdmin, async (req, res) => {
 
     } catch (error) {
         console.error('Error updating training type:', error);
+        if (conn) conn.release();
         res.status(500).json({ error: 'Database error', details: error.message });
     }
 });
 
 // DELETE /api/division/training-types/:id - Delete training type (Admin only)
 router.delete('/:id', requireDivisionAdmin, async (req, res) => {
+    let conn;
     try {
         const { id } = req.params;
-        const conn = await req.app.locals.pool.getConnection();
+        conn = await req.app.locals.pool.getConnection();
 
         // Check if training type exists
         const [existing] = await conn.query(
@@ -177,6 +184,7 @@ router.delete('/:id', requireDivisionAdmin, async (req, res) => {
 
     } catch (error) {
         console.error('Error deleting training type:', error);
+        if (conn) conn.release();
         res.status(500).json({ error: 'Database error', details: error.message });
     }
 });

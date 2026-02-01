@@ -2,7 +2,7 @@
 
 ## Database Fixes
 - [ ] Fix missing CLI nominations for other designations (besides designation_id=8)
-- [ ] Check connection leaks in other route files (cliRoutes, bulkUploadRoutes, etc.)
+- [x] Check connection leaks in other route files (Fixed 2026-02-01: promotionRoutes, transferRoutes, detonatorRoutes, disciplineRoutes, draftingRoutes, familyRoutes, personnelStoresRoutes, trainingTypesRoutes)
 
 ## UI/UX Improvements
 - [x] Login page - make division selected by default
@@ -33,5 +33,5 @@ SQL scripts to run on production server:
 - [x] `sql/add_retirement_date_column.sql` - Add retirement_date and retirement_type columns to div_staff_master (Applied 2026-02-01)
 
 ---
-*Last updated: 2026-01-30*
+*Last updated: 2026-02-01*
 

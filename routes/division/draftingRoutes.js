@@ -36,9 +36,10 @@ function requireAuth(req, res, next) {
 
 // GET /api/division/drafting/:hrms_id - Get drafting records for a staff member
 router.get('/:hrms_id', requireAuth, async (req, res) => {
+    let conn;
     try {
         const { hrms_id } = req.params;
-        const conn = await req.app.locals.pool.getConnection();
+        conn = await req.app.locals.pool.getConnection();
 
         const query = `
             SELECT
@@ -69,12 +70,14 @@ router.get('/:hrms_id', requireAuth, async (req, res) => {
 
     } catch (error) {
         console.error('Error fetching drafting records:', error);
+        if (conn) conn.release();
         res.status(500).json({ error: 'Database error', details: error.message });
     }
 });
 
 // POST /api/division/drafting - Add new drafting record
 router.post('/', requireAuth, async (req, res) => {
+    let conn;
     try {
         const {
             staff_hrms_id,
@@ -93,7 +96,7 @@ router.post('/', requireAuth, async (req, res) => {
             });
         }
 
-        const conn = await req.app.locals.pool.getConnection();
+        conn = await req.app.locals.pool.getConnection();
 
         // Permission check: Get staff's office and verify access
         const [staffCheck] = await conn.query(
@@ -159,12 +162,14 @@ router.post('/', requireAuth, async (req, res) => {
 
     } catch (error) {
         console.error('Error adding drafting record:', error);
+        if (conn) conn.release();
         res.status(500).json({ error: 'Database error', details: error.message });
     }
 });
 
 // PUT /api/division/drafting/:record_id/relieve - Relieve staff from drafted post
 router.put('/:record_id/relieve', requireAuth, async (req, res) => {
+    let conn;
     try {
         const { record_id } = req.params;
         const {
@@ -180,7 +185,7 @@ router.put('/:record_id/relieve', requireAuth, async (req, res) => {
             });
         }
 
-        const conn = await req.app.locals.pool.getConnection();
+        conn = await req.app.locals.pool.getConnection();
 
         // Permission check
         const [recordCheck] = await conn.query(
@@ -236,15 +241,17 @@ router.put('/:record_id/relieve', requireAuth, async (req, res) => {
 
     } catch (error) {
         console.error('Error relieving staff:', error);
+        if (conn) conn.release();
         res.status(500).json({ error: 'Database error', details: error.message });
     }
 });
 
 // DELETE /api/division/drafting/:record_id - Delete drafting record
 router.delete('/:record_id', requireAuth, async (req, res) => {
+    let conn;
     try {
         const { record_id } = req.params;
-        const conn = await req.app.locals.pool.getConnection();
+        conn = await req.app.locals.pool.getConnection();
 
         const [result] = await conn.query(
             'DELETE FROM div_staff_drafting_records WHERE record_id = ?',
@@ -264,17 +271,19 @@ router.delete('/:record_id', requireAuth, async (req, res) => {
 
     } catch (error) {
         console.error('Error deleting drafting record:', error);
+        if (conn) conn.release();
         res.status(500).json({ error: 'Database error', details: error.message });
     }
 });
 
 // GET /api/division/drafted-staff - Get list of all currently drafted staff
 router.get('/report/list', requireAuth, async (req, res) => {
+    let conn;
     try {
         const { office_code, status } = req.query;
         const userRole = req.session.user.div_role;
         const userOffice = req.session.user.div_office_code;
-        const conn = await req.app.locals.pool.getConnection();
+        conn = await req.app.locals.pool.getConnection();
 
         let query = `
             SELECT
@@ -339,6 +348,7 @@ router.get('/report/list', requireAuth, async (req, res) => {
 
     } catch (error) {
         console.error('Error fetching drafted staff:', error);
+        if (conn) conn.release();
         res.status(500).json({ error: 'Database error', details: error.message });
     }
 });

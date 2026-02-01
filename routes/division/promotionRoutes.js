@@ -11,9 +11,10 @@ function requireAuth(req, res, next) {
 
 // GET /api/division/promotions/:hrms_id - Get promotion history for a staff
 router.get('/:hrms_id', requireAuth, async (req, res) => {
+    let conn;
     try {
         const { hrms_id } = req.params;
-        const conn = await req.app.locals.pool.getConnection();
+        conn = await req.app.locals.pool.getConnection();
 
         const query = `
             SELECT
@@ -42,12 +43,14 @@ router.get('/:hrms_id', requireAuth, async (req, res) => {
         res.json({ success: true, data: results });
     } catch (error) {
         console.error('Error fetching promotion history:', error);
+        if (conn) conn.release();
         res.status(500).json({ error: 'Database error', details: error.message });
     }
 });
 
 // POST /api/division/promotions - Add new promotion record
 router.post('/', requireAuth, async (req, res) => {
+    let conn;
     try {
         const {
             staff_hrms_id,
@@ -66,7 +69,7 @@ router.post('/', requireAuth, async (req, res) => {
             });
         }
 
-        const conn = await req.app.locals.pool.getConnection();
+        conn = await req.app.locals.pool.getConnection();
 
         const [result] = await conn.query(
             `INSERT INTO div_promotion_history
@@ -95,12 +98,14 @@ router.post('/', requireAuth, async (req, res) => {
 
     } catch (error) {
         console.error('Error adding promotion record:', error);
+        if (conn) conn.release();
         res.status(500).json({ error: 'Database error', details: error.message });
     }
 });
 
 // PUT /api/division/promotions/:promotion_id - Update promotion record
 router.put('/:promotion_id', requireAuth, async (req, res) => {
+    let conn;
     try {
         const { promotion_id } = req.params;
         const {
@@ -119,7 +124,7 @@ router.put('/:promotion_id', requireAuth, async (req, res) => {
             });
         }
 
-        const conn = await req.app.locals.pool.getConnection();
+        conn = await req.app.locals.pool.getConnection();
 
         const [result] = await conn.query(
             `UPDATE div_promotion_history
@@ -150,15 +155,17 @@ router.put('/:promotion_id', requireAuth, async (req, res) => {
 
     } catch (error) {
         console.error('Error updating promotion record:', error);
+        if (conn) conn.release();
         res.status(500).json({ error: 'Database error', details: error.message });
     }
 });
 
 // DELETE /api/division/promotions/:promotion_id - Delete promotion record
 router.delete('/:promotion_id', requireAuth, async (req, res) => {
+    let conn;
     try {
         const { promotion_id } = req.params;
-        const conn = await req.app.locals.pool.getConnection();
+        conn = await req.app.locals.pool.getConnection();
 
         const [result] = await conn.query(
             'DELETE FROM div_promotion_history WHERE promotion_id = ?',
@@ -178,6 +185,7 @@ router.delete('/:promotion_id', requireAuth, async (req, res) => {
 
     } catch (error) {
         console.error('Error deleting promotion record:', error);
+        if (conn) conn.release();
         res.status(500).json({ error: 'Database error', details: error.message });
     }
 });

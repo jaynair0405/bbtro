@@ -11,9 +11,10 @@ function requireAuth(req, res, next) {
 
 // GET /api/division/detonators/:hrms_id - Get detonator stock for a staff
 router.get('/:hrms_id', requireAuth, async (req, res) => {
+    let conn;
     try {
         const { hrms_id } = req.params;
-        const conn = await req.app.locals.pool.getConnection();
+        conn = await req.app.locals.pool.getConnection();
 
         const query = `
             SELECT
@@ -40,12 +41,14 @@ router.get('/:hrms_id', requireAuth, async (req, res) => {
         res.json({ success: true, data: results });
     } catch (error) {
         console.error('Error fetching detonator stock:', error);
+        if (conn) conn.release();
         res.status(500).json({ error: 'Database error', details: error.message });
     }
 });
 
 // POST /api/division/detonators - Add new detonator stock
 router.post('/', requireAuth, async (req, res) => {
+    let conn;
     try {
         const {
             staff_hrms_id,
@@ -64,7 +67,7 @@ router.post('/', requireAuth, async (req, res) => {
             });
         }
 
-        const conn = await req.app.locals.pool.getConnection();
+        conn = await req.app.locals.pool.getConnection();
 
         const [result] = await conn.query(
             `INSERT INTO div_staff_detonator_stock
@@ -94,12 +97,14 @@ router.post('/', requireAuth, async (req, res) => {
 
     } catch (error) {
         console.error('Error adding detonator stock:', error);
+        if (conn) conn.release();
         res.status(500).json({ error: 'Database error', details: error.message });
     }
 });
 
 // PUT /api/division/detonators/:detonator_stock_id - Update detonator stock
 router.put('/:detonator_stock_id', requireAuth, async (req, res) => {
+    let conn;
     try {
         const { detonator_stock_id } = req.params;
         const {
@@ -119,7 +124,7 @@ router.put('/:detonator_stock_id', requireAuth, async (req, res) => {
             });
         }
 
-        const conn = await req.app.locals.pool.getConnection();
+        conn = await req.app.locals.pool.getConnection();
 
         const [result] = await conn.query(
             `UPDATE div_staff_detonator_stock
@@ -153,15 +158,17 @@ router.put('/:detonator_stock_id', requireAuth, async (req, res) => {
 
     } catch (error) {
         console.error('Error updating detonator stock:', error);
+        if (conn) conn.release();
         res.status(500).json({ error: 'Database error', details: error.message });
     }
 });
 
 // DELETE /api/division/detonators/:detonator_stock_id - Delete detonator stock
 router.delete('/:detonator_stock_id', requireAuth, async (req, res) => {
+    let conn;
     try {
         const { detonator_stock_id } = req.params;
-        const conn = await req.app.locals.pool.getConnection();
+        conn = await req.app.locals.pool.getConnection();
 
         const [result] = await conn.query(
             'DELETE FROM div_staff_detonator_stock WHERE detonator_stock_id = ?',
@@ -181,6 +188,7 @@ router.delete('/:detonator_stock_id', requireAuth, async (req, res) => {
 
     } catch (error) {
         console.error('Error deleting detonator stock:', error);
+        if (conn) conn.release();
         res.status(500).json({ error: 'Database error', details: error.message });
     }
 });

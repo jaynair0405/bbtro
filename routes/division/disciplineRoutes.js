@@ -13,9 +13,10 @@ function requireAuth(req, res, next) {
 
 // GET /api/division/discipline/awards/:hrms_id - Get awards for a staff
 router.get('/awards/:hrms_id', requireAuth, async (req, res) => {
+    let conn;
     try {
         const { hrms_id } = req.params;
-        const conn = await req.app.locals.pool.getConnection();
+        conn = await req.app.locals.pool.getConnection();
 
         const query = `
             SELECT
@@ -39,12 +40,14 @@ router.get('/awards/:hrms_id', requireAuth, async (req, res) => {
         res.json({ success: true, data: results });
     } catch (error) {
         console.error('Error fetching awards:', error);
+        if (conn) conn.release();
         res.status(500).json({ error: 'Database error', details: error.message });
     }
 });
 
 // POST /api/division/discipline/awards - Add new award
 router.post('/awards', requireAuth, async (req, res) => {
+    let conn;
     try {
         const {
             staff_hrms_id,
@@ -62,7 +65,7 @@ router.post('/awards', requireAuth, async (req, res) => {
             });
         }
 
-        const conn = await req.app.locals.pool.getConnection();
+        conn = await req.app.locals.pool.getConnection();
 
         const [result] = await conn.query(
             `INSERT INTO div_staff_awards
@@ -90,12 +93,14 @@ router.post('/awards', requireAuth, async (req, res) => {
 
     } catch (error) {
         console.error('Error adding award:', error);
+        if (conn) conn.release();
         res.status(500).json({ error: 'Database error', details: error.message });
     }
 });
 
 // PUT /api/division/discipline/awards/:award_id - Update award
 router.put('/awards/:award_id', requireAuth, async (req, res) => {
+    let conn;
     try {
         const { award_id } = req.params;
         const {
@@ -113,7 +118,7 @@ router.put('/awards/:award_id', requireAuth, async (req, res) => {
             });
         }
 
-        const conn = await req.app.locals.pool.getConnection();
+        conn = await req.app.locals.pool.getConnection();
 
         const [result] = await conn.query(
             `UPDATE div_staff_awards
@@ -145,15 +150,17 @@ router.put('/awards/:award_id', requireAuth, async (req, res) => {
 
     } catch (error) {
         console.error('Error updating award:', error);
+        if (conn) conn.release();
         res.status(500).json({ error: 'Database error', details: error.message });
     }
 });
 
 // DELETE /api/division/discipline/awards/:award_id - Delete award
 router.delete('/awards/:award_id', requireAuth, async (req, res) => {
+    let conn;
     try {
         const { award_id } = req.params;
-        const conn = await req.app.locals.pool.getConnection();
+        conn = await req.app.locals.pool.getConnection();
 
         const [result] = await conn.query(
             'DELETE FROM div_staff_awards WHERE award_id = ?',
@@ -173,6 +180,7 @@ router.delete('/awards/:award_id', requireAuth, async (req, res) => {
 
     } catch (error) {
         console.error('Error deleting award:', error);
+        if (conn) conn.release();
         res.status(500).json({ error: 'Database error', details: error.message });
     }
 });
@@ -192,9 +200,10 @@ function requireDivisionAdmin(req, res, next) {
 
 // GET /api/division/discipline/punishments/:hrms_id - Get punishments for a staff (admin only)
 router.get('/punishments/:hrms_id', requireDivisionAdmin, async (req, res) => {
+    let conn;
     try {
         const { hrms_id } = req.params;
-        const conn = await req.app.locals.pool.getConnection();
+        conn = await req.app.locals.pool.getConnection();
 
         const query = `
             SELECT
@@ -224,12 +233,14 @@ router.get('/punishments/:hrms_id', requireDivisionAdmin, async (req, res) => {
         res.json({ success: true, data: results });
     } catch (error) {
         console.error('Error fetching punishments:', error);
+        if (conn) conn.release();
         res.status(500).json({ error: 'Database error', details: error.message });
     }
 });
 
 // POST /api/division/discipline/punishments - Add new punishment (admin only)
 router.post('/punishments', requireDivisionAdmin, async (req, res) => {
+    let conn;
     try {
         const {
             staff_hrms_id,
@@ -251,7 +262,7 @@ router.post('/punishments', requireDivisionAdmin, async (req, res) => {
             });
         }
 
-        const conn = await req.app.locals.pool.getConnection();
+        conn = await req.app.locals.pool.getConnection();
 
         const [result] = await conn.query(
             `INSERT INTO div_staff_punishments
@@ -284,12 +295,14 @@ router.post('/punishments', requireDivisionAdmin, async (req, res) => {
 
     } catch (error) {
         console.error('Error adding punishment:', error);
+        if (conn) conn.release();
         res.status(500).json({ error: 'Database error', details: error.message });
     }
 });
 
 // PUT /api/division/discipline/punishments/:punishment_id - Update punishment (admin only)
 router.put('/punishments/:punishment_id', requireDivisionAdmin, async (req, res) => {
+    let conn;
     try {
         const { punishment_id } = req.params;
         const {
@@ -311,7 +324,7 @@ router.put('/punishments/:punishment_id', requireDivisionAdmin, async (req, res)
             });
         }
 
-        const conn = await req.app.locals.pool.getConnection();
+        conn = await req.app.locals.pool.getConnection();
 
         const [result] = await conn.query(
             `UPDATE div_staff_punishments
@@ -348,15 +361,17 @@ router.put('/punishments/:punishment_id', requireDivisionAdmin, async (req, res)
 
     } catch (error) {
         console.error('Error updating punishment:', error);
+        if (conn) conn.release();
         res.status(500).json({ error: 'Database error', details: error.message });
     }
 });
 
 // DELETE /api/division/discipline/punishments/:punishment_id - Delete punishment (admin only)
 router.delete('/punishments/:punishment_id', requireDivisionAdmin, async (req, res) => {
+    let conn;
     try {
         const { punishment_id } = req.params;
-        const conn = await req.app.locals.pool.getConnection();
+        conn = await req.app.locals.pool.getConnection();
 
         const [result] = await conn.query(
             'DELETE FROM div_staff_punishments WHERE punishment_id = ?',
@@ -376,6 +391,7 @@ router.delete('/punishments/:punishment_id', requireDivisionAdmin, async (req, r
 
     } catch (error) {
         console.error('Error deleting punishment:', error);
+        if (conn) conn.release();
         res.status(500).json({ error: 'Database error', details: error.message });
     }
 });

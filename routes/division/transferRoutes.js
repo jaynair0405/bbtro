@@ -11,9 +11,10 @@ function requireAuth(req, res, next) {
 
 // GET /api/division/transfer-history/:hrms_id - Get transfer history for a staff
 router.get('/transfer-history/:hrms_id', requireAuth, async (req, res) => {
+    let conn;
     try {
         const { hrms_id } = req.params;
-        const conn = await req.app.locals.pool.getConnection();
+        conn = await req.app.locals.pool.getConnection();
 
         const query = `
             SELECT
@@ -33,12 +34,14 @@ router.get('/transfer-history/:hrms_id', requireAuth, async (req, res) => {
         res.json({ success: true, data: results });
     } catch (error) {
         console.error('Error fetching transfer history:', error);
+        if (conn) conn.release();
         res.status(500).json({ error: 'Database error', details: error.message });
     }
 });
 
 // POST /api/division/transfer-request - Create transfer request
 router.post('/transfer-request', requireAuth, async (req, res) => {
+    let conn;
     try {
         const {
             staff_hrms_id,
@@ -61,7 +64,7 @@ router.post('/transfer-request', requireAuth, async (req, res) => {
             return res.status(400).json({ error: 'Cannot transfer to the same office' });
         }
 
-        const conn = await req.app.locals.pool.getConnection();
+        conn = await req.app.locals.pool.getConnection();
 
         // Check if staff exists
         const [staffCheck] = await conn.query(
@@ -115,15 +118,17 @@ router.post('/transfer-request', requireAuth, async (req, res) => {
 
     } catch (error) {
         console.error('Error creating transfer request:', error);
+        if (conn) conn.release();
         res.status(500).json({ error: 'Database error', details: error.message });
     }
 });
 
 // GET /api/division/transfer-requests/pending - Get pending requests for user's office
 router.get('/transfer-requests/pending', requireAuth, async (req, res) => {
+    let conn;
     try {
         const userOfficeCode = req.session.user.div_office_code;
-        const conn = await req.app.locals.pool.getConnection();
+        conn = await req.app.locals.pool.getConnection();
 
         const query = `
             SELECT
@@ -145,12 +150,14 @@ router.get('/transfer-requests/pending', requireAuth, async (req, res) => {
         res.json({ success: true, data: results });
     } catch (error) {
         console.error('Error fetching pending transfer requests:', error);
+        if (conn) conn.release();
         res.status(500).json({ error: 'Database error', details: error.message });
     }
 });
 
 // PUT /api/division/transfer-request/:id/accept - Accept transfer request
 router.put('/transfer-request/:id/accept', requireAuth, async (req, res) => {
+    let conn;
     try {
         const { id } = req.params;
         const { new_cms_id, remarks } = req.body;
@@ -159,7 +166,7 @@ router.put('/transfer-request/:id/accept', requireAuth, async (req, res) => {
             return res.status(400).json({ error: 'New CMS ID is required' });
         }
 
-        const conn = await req.app.locals.pool.getConnection();
+        conn = await req.app.locals.pool.getConnection();
 
         await conn.beginTransaction();
 
@@ -286,17 +293,19 @@ router.put('/transfer-request/:id/accept', requireAuth, async (req, res) => {
 
     } catch (error) {
         console.error('Error accepting transfer request:', error);
+        if (conn) conn.release();
         res.status(500).json({ error: 'Database error', details: error.message });
     }
 });
 
 // PUT /api/division/transfer-request/:id/reject - Reject transfer request
 router.put('/transfer-request/:id/reject', requireAuth, async (req, res) => {
+    let conn;
     try {
         const { id } = req.params;
         const { remarks } = req.body;
 
-        const conn = await req.app.locals.pool.getConnection();
+        conn = await req.app.locals.pool.getConnection();
 
         // Update transfer request
         const [result] = await conn.query(
@@ -321,16 +330,18 @@ router.put('/transfer-request/:id/reject', requireAuth, async (req, res) => {
 
     } catch (error) {
         console.error('Error rejecting transfer request:', error);
+        if (conn) conn.release();
         res.status(500).json({ error: 'Database error', details: error.message });
     }
 });
 
 // GET /api/division/transfer-activity - Get recent transfer activity (last 30 days)
 router.get('/transfer-activity', requireAuth, async (req, res) => {
+    let conn;
     try {
         const userOffice = req.session.user.div_office_code;
         const userRole = req.session.user.div_role;
-        const conn = await req.app.locals.pool.getConnection();
+        conn = await req.app.locals.pool.getConnection();
 
         // For non-admin users, get incoming and outgoing for their office only
         // For admin users, get all transfers
@@ -372,6 +383,7 @@ router.get('/transfer-activity', requireAuth, async (req, res) => {
 
     } catch (error) {
         console.error('Error fetching transfer activity:', error);
+        if (conn) conn.release();
         res.status(500).json({ error: 'Database error', details: error.message });
     }
 });
