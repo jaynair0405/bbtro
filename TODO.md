@@ -20,6 +20,7 @@
 
 ## New Features
 - [ ] User management page - needs discussion
+- [ ] Add division-only admin user (realm='division', div_role='admin') - no code changes needed, use existing schema
 - [x] Leave management page (table: div_leave_tracking exists) - Frontend + API routes complete
 - [ ] Slate entry page (depends on leave data)
 - [ ] CTR entry page
@@ -29,8 +30,8 @@
 
 ## Server Database Pending
 SQL scripts to run on production server:
-- [ ] `sql/add_retirement_date_column.sql` - Add retirement_date and retirement_type columns to div_staff_master
+- [x] `sql/add_retirement_date_column.sql` - Add retirement_date and retirement_type columns to div_staff_master (Applied 2026-02-01)
 
 ---
-*Last updated: 2026-01-09*
+*Last updated: 2026-01-30*
 

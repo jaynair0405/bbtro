@@ -6,7 +6,7 @@
 
 ALTER TABLE `div_staff_master`
 ADD COLUMN `retirement_date` date DEFAULT NULL COMMENT 'Actual retirement date' AFTER `status`,
-ADD COLUMN `retirement_type` ENUM('Superannuation', 'VRS') DEFAULT NULL COMMENT 'Type of retirement' AFTER `retirement_date`;
+ADD COLUMN `retirement_type` ENUM('Superannuation', 'VRS', 'CRS', 'Removal from Service', 'Dismissal') DEFAULT NULL COMMENT 'Type of retirement/separation' AFTER `retirement_date`;
 
 -- Create index for efficient queries
 CREATE INDEX `idx_retirement_date` ON `div_staff_master` (`retirement_date`);

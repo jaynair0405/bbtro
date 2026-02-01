@@ -212,6 +212,25 @@
         }
         .btn-add:hover { background: #062356; }
 
+        .btn-mark-retired {
+            background: var(--success);
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            transition: background 0.2s;
+        }
+        .btn-mark-retired:hover { background: #15803d; }
+        .btn-mark-retired:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+        }
+
         table { width: 100%; border-collapse: collapse; font-size: 14px; }
         th { text-align: left; padding: 12px; background: #f1f5f9; color: var(--text-light); font-weight: 600; font-size: 12px; text-transform: uppercase; border-bottom: 1px solid var(--border); }
         td { padding: 12px; border-bottom: 1px solid var(--border); color: var(--text-main); }
@@ -369,10 +388,11 @@
                         <th>CMS ID</th>
                         <th>Designation</th>
                         <th>Office</th>
+                        <th style="width:120px;">Action</th>
                     </tr>
                 </thead>
                 <tbody id="superannuationTableBody">
-                    <tr><td colspan="5" style="text-align:center; padding:40px; color:var(--text-light);">Loading...</td></tr>
+                    <tr><td colspan="6" style="text-align:center; padding:40px; color:var(--text-light);">Loading...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -405,8 +425,15 @@
         </div>
 
         <div id="history" class="tab-content">
-            <h3 style="margin-top:0; color:var(--text-light);" id="historyTitle">Historical Data</h3>
-            <p id="historyContent">Loading...</p>
+            <div class="list-header">
+                <h3 style="margin:0; color:var(--text-light);">Retirement Archive</h3>
+                <div class="list-filters">
+                    <select class="filter-select" id="historyYearFilter" onchange="loadHistory()">
+                        <!-- Populated dynamically -->
+                    </select>
+                </div>
+            </div>
+            <div id="historyContent" style="margin-top:20px;">Loading...</div>
         </div>
 
     </div>
@@ -480,11 +507,12 @@
             document.getElementById('headerSubtitle').textContent = 'Division Office';
         }
 
-        // Populate year filter
+        // Populate year filters
         const yearSelect = document.getElementById('vrsYearFilter');
         for (let y = currentYear; y >= currentYear - 5; y--) {
             yearSelect.innerHTML += `<option value="${y}">${y}</option>`;
         }
+        populateHistoryYears();
 
         await Promise.all([loadStats(), loadYearlyForecast(), loadUpcomingRetirements()]);
     });
@@ -596,6 +624,8 @@
                 tbody.innerHTML = data.data.map(staff => {
                     const retDate = new Date(staff.retirement_date);
                     const isThisMonth = retDate.getMonth() === thisMonth && retDate.getFullYear() === thisYear;
+                    // Show button if retiring this month (date may have passed or coming up this month)
+                    const canMarkRetired = isThisMonth || retDate < now;
                     const rowStyle = isThisMonth ? 'style="background-color: #fff7ed;"' : '';
 
                     return `
@@ -605,15 +635,24 @@
                             <td>${escapeHtml(staff.current_cms_id || '-')}</td>
                             <td>${escapeHtml(staff.designation_name || '-')}</td>
                             <td>${escapeHtml(staff.office_name || '-')}</td>
+                            <td>
+                                ${canMarkRetired ? `<button class="btn-mark-retired"
+                                    data-hrms="${staff.hrms_id}"
+                                    data-date="${staff.retirement_date}"
+                                    data-name="${escapeHtml(staff.name)}"
+                                    onclick="markAsRetired(this)">
+                                    <i class="fa-solid fa-check"></i> Mark Retired
+                                </button>` : '<span style="color:var(--text-light);font-size:12px;">Not yet due</span>'}
+                            </td>
                         </tr>
                     `;
                 }).join('');
             } else {
-                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:40px; color:var(--text-light);">No upcoming retirements</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:40px; color:var(--text-light);">No upcoming retirements</td></tr>';
             }
         } catch (err) {
             console.error('Error:', err);
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:40px; color:var(--danger);">Error loading data</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:40px; color:var(--danger);">Error loading data</td></tr>';
         }
     }
 
@@ -646,20 +685,52 @@
         }
     }
 
+    // Populate history year dropdown
+    function populateHistoryYears() {
+        const select = document.getElementById('historyYearFilter');
+        select.innerHTML = '';
+        // Show last 5 years
+        for (let y = currentYear - 1; y >= currentYear - 5; y--) {
+            const opt = document.createElement('option');
+            opt.value = y;
+            opt.textContent = y;
+            select.appendChild(opt);
+        }
+    }
+
     // Load History
     async function loadHistory() {
-        const lastYear = currentYear - 1;
+        const year = document.getElementById('historyYearFilter').value || (currentYear - 1);
+        const contentDiv = document.getElementById('historyContent');
+
         try {
-            const res = await fetch(`/api/division/retirement/history?year=${lastYear}`);
+            const res = await fetch(`/api/division/retirement/history?year=${year}`);
             const data = await res.json();
 
             if (data.success) {
-                document.getElementById('historyTitle').textContent = `Historical Data: Year ${lastYear}`;
-                document.getElementById('historyContent').textContent =
-                    `Total Retired: ${data.data.totalRetired} (Superannuation: ${data.data.superannuation}, VRS: ${data.data.vrs})`;
+                const d = data.data;
+                contentDiv.innerHTML = `
+                    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:16px;">
+                        <div class="kpi-card">
+                            <div class="kpi-value">${d.totalRetired}</div>
+                            <div class="kpi-label">Total Separated</div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-value">${d.superannuation}</div>
+                            <div class="kpi-label">Superannuation</div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-value">${d.vrs}</div>
+                            <div class="kpi-label">VRS</div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                contentDiv.innerHTML = '<p style="color:var(--text-light);">No data available</p>';
             }
         } catch (err) {
             console.error('Error:', err);
+            contentDiv.innerHTML = '<p style="color:var(--danger);">Error loading data</p>';
         }
     }
 
@@ -677,6 +748,49 @@
 
     function closeModal() {
         document.getElementById('retireModal').classList.remove('show');
+    }
+
+    // Mark staff as retired (Superannuation) - simple confirm flow
+    async function markAsRetired(btn) {
+        const hrmsId = btn.dataset.hrms;
+        const retirementDate = btn.dataset.date;
+        const staffName = btn.dataset.name;
+
+        if (!confirm(`Mark ${staffName} as retired (Superannuation) on ${formatDate(retirementDate)}?`)) {
+            return;
+        }
+
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Processing...';
+
+        try {
+            const res = await fetch('/api/division/retirement/retire', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    staff_hrms_id: hrmsId,
+                    retirement_date: retirementDate,
+                    retirement_type: 'Superannuation'
+                })
+            });
+
+            const data = await res.json();
+
+            if (data.success) {
+                alert('Staff marked as retired successfully');
+                loadStats();
+                loadUpcomingRetirements();
+            } else {
+                alert('Error: ' + (data.error || 'Failed to mark as retired'));
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-check"></i> Mark Retired';
+            }
+        } catch (err) {
+            console.error('Error:', err);
+            alert('Error marking staff as retired');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-check"></i> Mark Retired';
+        }
     }
 
     let searchTimeout;

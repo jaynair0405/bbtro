@@ -5,25 +5,25 @@ This document lists all database changes that need to be applied to the producti
 
 ---
 
-## 1. Retirement Columns (div_staff_master)
+## 1. ~~Retirement Columns (div_staff_master)~~ ✅ DONE
 **File:** `sql/add_retirement_date_column.sql`
-**Status:** PENDING
+**Status:** ✅ APPLIED (2026-02-01)
 
 ```sql
 ALTER TABLE `div_staff_master`
 ADD COLUMN `retirement_date` date DEFAULT NULL COMMENT 'Actual retirement date' AFTER `status`,
-ADD COLUMN `retirement_type` ENUM('Superannuation', 'VRS') DEFAULT NULL COMMENT 'Type of retirement' AFTER `retirement_date`;
+ADD COLUMN `retirement_type` ENUM('Superannuation', 'VRS', 'CRS', 'Removal from Service', 'Dismissal') DEFAULT NULL COMMENT 'Type of retirement/separation' AFTER `retirement_date`;
 
 CREATE INDEX `idx_retirement_date` ON `div_staff_master` (`retirement_date`);
 ```
 
-**Purpose:** Track retirement date and type (Superannuation/VRS) for upcoming retirements page.
+**Purpose:** Track retirement date and type for upcoming retirements page. Types: Superannuation, VRS, CRS, Removal from Service, Dismissal.
 
 ---
 
-## 2. Staff Drafting Records Table
+## 2. ~~Staff Drafting Records Table~~ ✅ DONE
 **File:** `sql/div_staff_drafting_records.sql`
-**Status:** PENDING
+**Status:** ✅ ALREADY EXISTS
 
 ```sql
 CREATE TABLE IF NOT EXISTS `div_staff_drafting_records` (
@@ -54,9 +54,9 @@ CREATE TABLE IF NOT EXISTS `div_staff_drafting_records` (
 
 ---
 
-## 3. Leave Status History Table (Audit Trail)
+## 3. ~~Leave Status History Table (Audit Trail)~~ ✅ DONE
 **File:** `sql/div_leave_status_history.sql`
-**Status:** CREATED LOCALLY - PENDING ON SERVER
+**Status:** ✅ ALREADY EXISTS
 
 ```sql
 -- ============================================
@@ -118,9 +118,9 @@ Verify these columns exist:
 
 ---
 
-## 5. Midnight Position Tables (00:00 Hrs Staff Position)
+## 5. ~~Midnight Position Tables (00:00 Hrs Staff Position)~~ ✅ DONE
 **File:** `sql/div_midnight_position.sql`
-**Status:** PENDING
+**Status:** ✅ ALREADY EXISTS (6 tables)
 
 Creates 3 tables for tracking daily staff position at midnight:
 
@@ -199,9 +199,9 @@ Run in this order on the production server:
 
 ---
 
-## 6. CTR Legs - Matched Sections Column (LRD Route Matching)
+## 6. ~~CTR Legs - Matched Sections Column (LRD Route Matching)~~ ✅ DONE
 **File:** `sql/add_matched_sections_column.sql`
-**Status:** PENDING
+**Status:** ✅ ALREADY EXISTS
 
 ```sql
 ALTER TABLE `div_ctr_legs`
@@ -219,9 +219,9 @@ AFTER `route_name`;
 
 ---
 
-## 7. LRD Segment Coverage Table (Segment-based LRD Tracking)
+## 7. ~~LRD Segment Coverage Table (Segment-based LRD Tracking)~~ ✅ DONE
 **File:** `sql/div_lrd_segment_coverage.sql`
-**Status:** PENDING
+**Status:** ✅ ALREADY EXISTS
 
 ```sql
 CREATE TABLE IF NOT EXISTS `div_lrd_segment_coverage` (
@@ -260,19 +260,19 @@ CREATE TABLE IF NOT EXISTS `div_lrd_segment_coverage` (
 
 ## Updated Execution Order
 
-Run in this order on the production server:
+~~Run in this order on the production server:~~
 
-1. `sql/add_retirement_date_column.sql`
-2. `sql/div_staff_drafting_records.sql`
-3. `sql/div_leave_status_history.sql`
-4. `sql/div_midnight_position.sql`
-5. `sql/add_matched_sections_column.sql`
-6. `sql/div_lrd_segment_coverage.sql`
+1. ~~`sql/add_retirement_date_column.sql`~~ ✅ APPLIED
+2. ~~`sql/div_staff_drafting_records.sql`~~ ✅ ALREADY EXISTS
+3. ~~`sql/div_leave_status_history.sql`~~ ✅ ALREADY EXISTS
+4. ~~`sql/div_midnight_position.sql`~~ ✅ ALREADY EXISTS
+5. ~~`sql/add_matched_sections_column.sql`~~ ✅ ALREADY EXISTS
+6. ~~`sql/div_lrd_segment_coverage.sql`~~ ✅ ALREADY EXISTS
 
 **After SQL Execution:**
-- Run `node scripts/backfill_matched_sections.js` (if not done already)
-- Run `node scripts/backfill_segment_coverage.js` (to populate segment coverage)
+- ~~Run `node scripts/backfill_matched_sections.js`~~ - Not needed (no old data on server)
+- ~~Run `node scripts/backfill_segment_coverage.js`~~ - Not needed (no old data on server)
 
 ---
 
-*Last Updated: 2026-01-20*
+*Last Updated: 2026-02-01*
