@@ -91,6 +91,7 @@
             overflow: hidden;
         }
 
+        .kpi-card.danger { border-top: 4px solid var(--danger); background: #fef2f2; }
         .kpi-card.warning { border-top: 4px solid var(--warning); }
         .kpi-card.info { border-top: 4px solid var(--info); }
         .kpi-card.vrs { border-top: 4px solid var(--vrs); }
@@ -322,6 +323,12 @@
     <div class="container">
 
         <div class="kpi-grid">
+            <div class="kpi-card danger" id="kpiOverdueCard" style="display:none;">
+                <div class="kpi-label">Overdue</div>
+                <div class="kpi-value" id="kpiOverdue">0</div>
+                <div class="kpi-sub">Not marked as retired</div>
+                <i class="fa-solid fa-exclamation-triangle kpi-icon" style="color: var(--danger);"></i>
+            </div>
             <div class="kpi-card warning">
                 <div class="kpi-label">Retiring This Month</div>
                 <div class="kpi-value" id="kpiThisMonth">-</div>
@@ -525,6 +532,16 @@
 
             if (data.success) {
                 const stats = data.data;
+
+                // Show overdue card if any
+                const overdueCard = document.getElementById('kpiOverdueCard');
+                if (stats.overdueCount > 0) {
+                    overdueCard.style.display = 'block';
+                    document.getElementById('kpiOverdue').textContent = stats.overdueCount;
+                } else {
+                    overdueCard.style.display = 'none';
+                }
+
                 document.getElementById('kpiThisMonth').textContent = stats.retiringThisMonth;
                 document.getElementById('kpiMonthLabel').textContent = stats.currentMonth;
                 document.getElementById('kpiYearLabel').textContent = `Retiring This Year (${currentYear})`;
@@ -624,13 +641,28 @@
                 tbody.innerHTML = data.data.map(staff => {
                     const retDate = new Date(staff.retirement_date);
                     const isThisMonth = retDate.getMonth() === thisMonth && retDate.getFullYear() === thisYear;
-                    // Show button if retiring this month (date may have passed or coming up this month)
-                    const canMarkRetired = isThisMonth || retDate < now;
-                    const rowStyle = isThisMonth ? 'style="background-color: #fff7ed;"' : '';
+                    const isOverdue = staff.is_overdue;
+                    // Show button if overdue or retiring this month
+                    const canMarkRetired = isOverdue || isThisMonth;
+
+                    // Row styling: overdue = red, this month = orange, future = normal
+                    let rowStyle = '';
+                    let dateStyle = '';
+                    if (isOverdue) {
+                        rowStyle = 'style="background-color: #fef2f2;"';
+                        dateStyle = 'font-weight:bold; color:var(--danger);';
+                    } else if (isThisMonth) {
+                        rowStyle = 'style="background-color: #fff7ed;"';
+                        dateStyle = 'font-weight:bold; color:var(--warning);';
+                    }
 
                     return `
                         <tr ${rowStyle}>
-                            <td style="${isThisMonth ? 'font-weight:bold; color:var(--warning);' : ''}">${staff.formatted_retirement_date}</td>
+                            <td style="${dateStyle}">
+                                ${isOverdue ? '<i class="fa-solid fa-exclamation-triangle" style="margin-right:4px;"></i>' : ''}
+                                ${staff.formatted_retirement_date}
+                                ${isOverdue ? ' <span style="font-size:11px;">(OVERDUE)</span>' : ''}
+                            </td>
                             <td>${escapeHtml(staff.name)}</td>
                             <td>${escapeHtml(staff.current_cms_id || '-')}</td>
                             <td>${escapeHtml(staff.designation_name || '-')}</td>

@@ -85,13 +85,16 @@ router.get('/stats', async (req, res) => {
 
         let retiringThisMonth = 0;
         let retiringThisYear = 0;
+        let overdueCount = 0;
 
         staff.forEach(s => {
             const retDate = calculateRetirementDate(s.date_of_birth);
             const retMonth = retDate.getMonth();
             const retYear = retDate.getFullYear();
 
-            if (retYear === currentYear && retMonth === currentMonth) {
+            if (retDate < now) {
+                overdueCount++;
+            } else if (retYear === currentYear && retMonth === currentMonth) {
                 retiringThisMonth++;
             }
             if (retYear === currentYear) {
@@ -156,6 +159,7 @@ router.get('/stats', async (req, res) => {
             data: {
                 retiringThisMonth,
                 retiringThisYear,
+                overdueCount,
                 currentMonth: new Date().toLocaleDateString('en-IN', { month: 'long', year: 'numeric' }),
                 vrsCount,
                 ytdSeparation
@@ -203,7 +207,7 @@ router.get('/upcoming', async (req, res) => {
 
         const [staff] = await conn.query(query, params);
 
-        // Filter to those retiring within specified months
+        // Filter to those retiring within specified months (includes overdue)
         const now = new Date();
         const cutoffDate = new Date();
         cutoffDate.setMonth(cutoffDate.getMonth() + parseInt(months));
@@ -211,17 +215,20 @@ router.get('/upcoming', async (req, res) => {
         const upcomingRetirements = staff
             .map(s => {
                 const retDate = calculateRetirementDate(s.date_of_birth);
+                const isOverdue = retDate < now;
                 return {
                     ...s,
                     retirement_date: retDate.toISOString().split('T')[0],
                     formatted_retirement_date: retDate.toLocaleDateString('en-IN', {
                         day: '2-digit', month: 'short', year: 'numeric'
-                    })
+                    }),
+                    is_overdue: isOverdue
                 };
             })
             .filter(s => {
                 const retDate = new Date(s.retirement_date);
-                return retDate >= now && retDate <= cutoffDate;
+                // Include overdue (past dates) + upcoming within cutoff
+                return retDate <= cutoffDate;
             })
             .sort((a, b) => new Date(a.retirement_date) - new Date(b.retirement_date));
 
