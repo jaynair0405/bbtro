@@ -62,6 +62,7 @@ function canAccessStaff(userOffice, userRole, staffOffice, staffDesignationId) {
 
 // GET /api/division/training/due-report - Get training due/overdue report with filters
 router.get('/due-report', requireAuth, async (req, res) => {
+    let conn;
     try {
         const {
             training_id,
@@ -73,7 +74,7 @@ router.get('/due-report', requireAuth, async (req, res) => {
         const userOffice = req.session.user.div_office_code;
         const userRole = req.session.user.div_role;
 
-        const conn = await req.app.locals.pool.getConnection();
+        conn = await req.app.locals.pool.getConnection();
 
         // Base query for selecting latest records with common filters
         const baseQuery = `
@@ -160,6 +161,7 @@ router.get('/due-report', requireAuth, async (req, res) => {
 
     } catch (error) {
         console.error('Error fetching training due report:', error);
+        if (conn) conn.release();
         res.status(500).json({ error: 'Database error', details: error.message });
     }
 });
@@ -317,11 +319,12 @@ router.get('/matrix', requireAuth, async (req, res) => {
 
 // GET /api/division/training/history/:hrms_id - Get training history for a staff member
 router.get('/history/:hrms_id', requireAuth, async (req, res) => {
+    let conn;
     try {
         const { hrms_id } = req.params;
         const { training_id } = req.query;
 
-        const conn = await req.app.locals.pool.getConnection();
+        conn = await req.app.locals.pool.getConnection();
 
         let query = `
             SELECT
@@ -360,6 +363,7 @@ router.get('/history/:hrms_id', requireAuth, async (req, res) => {
 
     } catch (error) {
         console.error('Error fetching training history:', error);
+        if (conn) conn.release();
         res.status(500).json({ error: 'Database error', details: error.message });
     }
 });
@@ -370,9 +374,10 @@ router.get('/history/:hrms_id', requireAuth, async (req, res) => {
 
 // GET /api/division/training/:hrms_id - Get latest training records for a staff (one per training type)
 router.get('/:hrms_id', requireAuth, async (req, res) => {
+    let conn;
     try {
         const { hrms_id } = req.params;
-        const conn = await req.app.locals.pool.getConnection();
+        conn = await req.app.locals.pool.getConnection();
 
         const query = `
             SELECT
@@ -415,6 +420,7 @@ router.get('/:hrms_id', requireAuth, async (req, res) => {
         res.json({ success: true, data: results });
     } catch (error) {
         console.error('Error fetching training records:', error);
+        if (conn) conn.release();
         res.status(500).json({ error: 'Database error', details: error.message });
     }
 });
@@ -422,6 +428,7 @@ router.get('/:hrms_id', requireAuth, async (req, res) => {
 // POST /api/division/training - Add new training record
 router.post('/', requireAuth, async (req, res) => {
     console.log('POST /training called with body:', JSON.stringify(req.body));
+    let conn;
     try {
         const {
             staff_hrms_id,
@@ -467,7 +474,7 @@ router.post('/', requireAuth, async (req, res) => {
             }
         }
 
-        const conn = await req.app.locals.pool.getConnection();
+        conn = await req.app.locals.pool.getConnection();
 
         // Permission check: Get staff's office and verify access
         const [staffCheck] = await conn.query(
@@ -549,12 +556,14 @@ router.post('/', requireAuth, async (req, res) => {
 
     } catch (error) {
         console.error('Error adding training record:', error);
+        if (conn) conn.release();
         res.status(500).json({ error: 'Database error', details: error.message });
     }
 });
 
 // PUT /api/division/training/:record_id - Update training record
 router.put('/:record_id', requireAuth, async (req, res) => {
+    let conn;
     try {
         const { record_id } = req.params;
         const {
@@ -572,7 +581,7 @@ router.put('/:record_id', requireAuth, async (req, res) => {
             });
         }
 
-        const conn = await req.app.locals.pool.getConnection();
+        conn = await req.app.locals.pool.getConnection();
 
         const [result] = await conn.query(
             `UPDATE div_training_records
@@ -602,15 +611,17 @@ router.put('/:record_id', requireAuth, async (req, res) => {
 
     } catch (error) {
         console.error('Error updating training record:', error);
+        if (conn) conn.release();
         res.status(500).json({ error: 'Database error', details: error.message });
     }
 });
 
 // DELETE /api/division/training/:record_id - Delete training record
 router.delete('/:record_id', requireAuth, async (req, res) => {
+    let conn;
     try {
         const { record_id } = req.params;
-        const conn = await req.app.locals.pool.getConnection();
+        conn = await req.app.locals.pool.getConnection();
 
         const [result] = await conn.query(
             'DELETE FROM div_training_records WHERE record_id = ?',
@@ -630,6 +641,7 @@ router.delete('/:record_id', requireAuth, async (req, res) => {
 
     } catch (error) {
         console.error('Error deleting training record:', error);
+        if (conn) conn.release();
         res.status(500).json({ error: 'Database error', details: error.message });
     }
 });

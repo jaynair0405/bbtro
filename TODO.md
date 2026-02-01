@@ -13,7 +13,7 @@
 - [x] PME and refresher courses - set due date auto but editable
 - [x] Special training courses (ghat, spic, wag12) - no due date, valid lifetime once trained
 - [x] PME due date - special calculation based on age (45/55 milestones)
-- [ ] Training history view for staff (low priority)
+- [x] Training history view for staff - View all past records per training type in biodata form
 
 ## CLI Nomination
 - [x] Allow staff without nomination to be assigned CLI from user side

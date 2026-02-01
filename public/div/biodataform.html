@@ -1022,6 +1022,41 @@
   </div>
 </div>
 
+<!-- Training History Modal -->
+<div class="modal fade" id="trainingHistoryModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">📜 Training History</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p style="margin-bottom: 16px; color: #6b7280;">
+          <strong id="historyTrainingName">-</strong> - All historical records
+        </p>
+        <div class="table-responsive">
+          <table class="table table-sm table-hover">
+            <thead>
+              <tr>
+                <th>Done Date</th>
+                <th>Due Date</th>
+                <th>Training Center</th>
+                <th>Remarks</th>
+              </tr>
+            </thead>
+            <tbody id="trainingHistoryRows">
+              <tr><td colspan="4" style="text-align: center; color: #9ca3af; padding: 30px;">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 let currentUser = null;
@@ -2196,10 +2231,12 @@ function renderTrainings(trainings) {
     }
 
     // Show Edit/Remove buttons only if user has permission
+    const historyBtn = `<button class="btn btn-sm btn-outline-secondary me-1" onclick="showTrainingHistory(${training.training_id}, '${training.training_name.replace(/'/g, "\\'")}')" title="View History">📜</button>`;
     const actionButtons = canEdit ? `
+      ${historyBtn}
       <button class="btn btn-sm btn-outline-primary me-1" onclick="editTraining(${index})">Edit</button>
       <button class="btn btn-sm btn-outline-danger" onclick="removeTraining(${training.record_id})">Remove</button>
-    ` : '<span style="color: #9ca3af;">Read-only</span>';
+    ` : `${historyBtn}<span style="color: #9ca3af;">Read-only</span>`;
 
     return `
       <tr>
@@ -2268,6 +2305,58 @@ function clearTrainingForm() {
   addButton.textContent = '+ Add Training';
   addButton.classList.remove('btn-warning');
   addButton.classList.add('btn-primary');
+}
+
+// Show training history modal
+async function showTrainingHistory(trainingId, trainingName) {
+  const staffHrmsId = window.currentStaffHrmsId;
+  if (!staffHrmsId) {
+    alert('Please select a staff member first');
+    return;
+  }
+
+  // Set modal title
+  document.getElementById('historyTrainingName').textContent = trainingName;
+
+  // Show loading state
+  document.getElementById('trainingHistoryRows').innerHTML =
+    '<tr><td colspan="4" style="text-align: center; color: #9ca3af; padding: 30px;">⏳ Loading history...</td></tr>';
+
+  // Show modal
+  const modal = new bootstrap.Modal(document.getElementById('trainingHistoryModal'));
+  modal.show();
+
+  try {
+    const response = await fetch(`/api/division/training/history/${staffHrmsId}?training_id=${trainingId}`);
+    const result = await response.json();
+
+    if (result.success && result.data.length > 0) {
+      const formatDate = (dateString) => {
+        if (!dateString) return '-';
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+      };
+
+      document.getElementById('trainingHistoryRows').innerHTML = result.data.map((record, index) => `
+        <tr ${index === 0 ? 'style="background-color: #f0fdf4;"' : ''}>
+          <td>
+            ${formatDate(record.done_date)}
+            ${index === 0 ? '<span class="badge bg-success ms-1">Latest</span>' : ''}
+          </td>
+          <td>${record.due_date ? formatDate(record.due_date) : '<span style="color:#9ca3af;">Lifetime</span>'}</td>
+          <td>${record.center_name || '-'}</td>
+          <td>${record.remarks || '-'}</td>
+        </tr>
+      `).join('');
+    } else {
+      document.getElementById('trainingHistoryRows').innerHTML =
+        '<tr><td colspan="4" style="text-align: center; color: #9ca3af; padding: 30px;">No history records found</td></tr>';
+    }
+  } catch (error) {
+    console.error('Error loading training history:', error);
+    document.getElementById('trainingHistoryRows').innerHTML =
+      '<tr><td colspan="4" style="text-align: center; color: #ef4444; padding: 30px;">Failed to load history</td></tr>';
+  }
 }
 
 // Remove training
