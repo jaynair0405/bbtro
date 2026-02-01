@@ -23,7 +23,7 @@
 - [ ] Add division-only admin user (realm='division', div_role='admin') - no code changes needed, use existing schema
 - [x] Leave management page (table: div_leave_tracking exists) - Frontend + API routes complete
 - [ ] Slate entry page (depends on leave data)
-- [ ] CTR entry page
+- [x] CTR entry page - Complete with upload, manual entry, LRD status & SVG map updates
 
 ## Future Enhancements
 - [ ] Staff profile report - add Foot plate monitoring, Learning road sections (tables to be created)
