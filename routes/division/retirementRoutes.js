@@ -418,10 +418,10 @@ router.post('/retire', async (req, res) => {
             [retirement_date, retirement_type, staff_hrms_id]
         );
 
-        // End any active CLI nomination
+        // End any active CLI nomination (use 'Expired' as per enum values)
         await conn.query(
             `UPDATE div_cli_nominations
-             SET status = 'Ended', nominated_to_date = ?
+             SET status = 'Expired', nominated_to_date = ?
              WHERE staff_hrms_id = ? AND status = 'Active'`,
             [retirement_date, staff_hrms_id]
         );
@@ -434,7 +434,8 @@ router.post('/retire', async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Error retiring staff:', error);
+        console.error('Error retiring staff:', error.message);
+        console.error('Full error:', error);
         if (conn) conn.release();
         res.status(500).json({ error: 'Database error', details: error.message });
     }
