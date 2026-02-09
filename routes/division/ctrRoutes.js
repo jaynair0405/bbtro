@@ -13,6 +13,7 @@ const xlsx = require('xlsx');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+const { execSync } = require('child_process');
 
 // LRD Route Resolver
 const {
@@ -255,12 +256,54 @@ function getBeatsForOffice(office, beats) {
 }
 
 /**
+ * Fix inline strings that xlsx library fails to parse
+ * Some Excel exports (depending on CMS/Excel version) add extra whitespace
+ * in XML tags like <is > or <t  > which breaks xlsx parsing
+ */
+function fixInlineStrings(filePath, sheet) {
+  try {
+    const xml = execSync(`unzip -p "${filePath}" xl/worksheets/sheet1.xml`, {
+      maxBuffer: 50 * 1024 * 1024,
+      encoding: 'utf8'
+    });
+
+    // Parse inline strings with flexible whitespace handling
+    // Matches: <c t="inlineStr" r="B4"><is><t xml:space="preserve">VALUE</t></is></c>
+    const regex = /<c\s+(?:[^>]*?\s+)?t="inlineStr"\s+(?:[^>]*?\s+)?r="([A-Z]+\d+)"[^>]*>.*?<is\s*>.*?<t[^>]*>([^<]*)<\/t>.*?<\/is\s*>.*?<\/c>/gs;
+
+    let match;
+    let fixed = 0;
+    while ((match = regex.exec(xml)) !== null) {
+      const cellRef = match[1];
+      const value = match[2];
+
+      if (sheet[cellRef]) {
+        sheet[cellRef].v = value;
+        sheet[cellRef].w = value;
+        fixed++;
+      }
+    }
+    return fixed;
+  } catch (e) {
+    console.error('[CTR] Error fixing inline strings:', e.message);
+    return 0;
+  }
+}
+
+/**
  * Parse Excel file and return rows
  */
 async function parseExcel(filePath) {
   const workbook = xlsx.readFile(filePath);
   const sheetName = workbook.SheetNames[0];
   const sheet = workbook.Sheets[sheetName];
+
+  // Fix inline strings that xlsx may fail to parse due to XML whitespace variations
+  const fixedCount = fixInlineStrings(filePath, sheet);
+  if (fixedCount > 0) {
+    console.log(`[CTR] Fixed ${fixedCount} inline string cells in ${path.basename(filePath)}`);
+  }
+
   // Skip first 2 header rows
   const rows = xlsx.utils.sheet_to_json(sheet, { range: 2, defval: null });
   return rows;
@@ -1329,14 +1372,16 @@ router.get('/presence', async (req, res) => {
 router.get('/lrd/sections', async (req, res) => {
     const pool = req.app.locals.pool;
     const { office } = req.query;
-    
+
     try {
         let where = ['is_active = 1'];
         let params = [];
-        
+
         if (office) {
-            where.push('office = ?');
-            params.push(office);
+            // Handle compound office codes like PNVL-ML -> match PNVL
+            const baseOffice = office.toUpperCase().split('-')[0];
+            where.push('(office = ? OR office = ? OR office = "SHARED" OR office IS NULL)');
+            params.push(office.toUpperCase(), baseOffice);
         }
         
         const [sections] = await pool.query(
@@ -1559,6 +1604,69 @@ router.post('/lrd/recalculate', async (req, res) => {
 });
 
 /**
+ * POST /api/ctr/lrd/road-learning
+ * Update LRD segment coverage for road learning trips
+ * Used when staff completes road learning that may not be in CTR
+ */
+router.post('/lrd/road-learning', async (req, res) => {
+    const pool = req.app.locals.pool;
+    const { staff_hrms_id, learning_date, sections } = req.body;
+
+    try {
+        if (!staff_hrms_id || !learning_date || !sections?.length) {
+            return res.status(400).json({
+                success: false,
+                message: 'Missing required fields: staff_hrms_id, learning_date, sections'
+            });
+        }
+
+        const dateStr = learning_date.slice(0, 10);
+        let segmentsUpdated = 0;
+
+        // Process each selected section
+        for (const section of sections) {
+            const stations = section.stations;
+            if (!Array.isArray(stations) || stations.length < 2) continue;
+
+            // Extract adjacent pairs from stations
+            const pairs = extractAdjacentPairs(stations);
+
+            // Insert/update each segment pair (use 0 for road learning to distinguish from CTR duties)
+            for (const [fromStn, toStn] of pairs) {
+                await pool.query(
+                    `INSERT INTO div_lrd_segment_coverage
+                     (staff_hrms_id, from_station, to_station, last_worked_date, last_duty_id, work_count)
+                     VALUES (?, ?, ?, ?, 0, 1)
+                     ON DUPLICATE KEY UPDATE
+                       last_worked_date = CASE
+                         WHEN VALUES(last_worked_date) > last_worked_date
+                         THEN VALUES(last_worked_date)
+                         ELSE last_worked_date
+                       END,
+                       last_duty_id = CASE
+                         WHEN VALUES(last_worked_date) > last_worked_date
+                         THEN 0
+                         ELSE last_duty_id
+                       END,
+                       work_count = work_count + 1`,
+                    [staff_hrms_id, fromStn, toStn, dateStr]
+                );
+                segmentsUpdated++;
+            }
+        }
+
+        res.json({
+            success: true,
+            message: `Road learning updated: ${sections.length} section(s), ${segmentsUpdated} segment(s)`
+        });
+
+    } catch (err) {
+        console.error('Road Learning Update Error:', err);
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+/**
  * GET /api/ctr/stations
  * Get unique stations from CTR data
  */
@@ -1670,6 +1778,7 @@ router.get('/lrd/beats', (req, res) => {
 router.get('/lrd/staff-status/:hrmsId', async (req, res) => {
     const pool = req.app.locals.pool;
     const { hrmsId } = req.params;
+    const includePiloting = req.query.include_piloting === 'true';
 
     try {
         if (!beatsData) {
@@ -1698,22 +1807,64 @@ router.get('/lrd/staff-status/:hrmsId', async (req, res) => {
         // Get beats/sections applicable to this office
         const applicableBeats = getBeatsForOffice(staffOffice, beatsData.beats);
 
-        // Get all segment coverage for this staff
+        // Get all segment coverage for this staff (WR duties - pre-computed)
         const [segments] = await pool.query(
-            `SELECT from_station, to_station, last_worked_date, work_count
+            `SELECT from_station, to_station, last_worked_date, work_count, last_duty_id
              FROM div_lrd_segment_coverage
              WHERE staff_hrms_id = ?`,
             [hrmsId]
         );
 
-        // Build map: "FROM-TO" -> { last_worked_date, work_count }
+        // If include_piloting is true, also get coverage from PL duties via CTR legs
+        let pilotingSegments = [];
+        if (includePiloting) {
+            const [plLegs] = await pool.query(
+                `SELECT l.from_station, l.to_station, d.duty_date
+                 FROM div_ctr_legs l
+                 JOIN div_ctr_duties d ON l.duty_id = d.id
+                 WHERE d.staff_hrms_id = ? AND l.duty_type = 'PL'
+                   AND l.from_station IS NOT NULL AND l.to_station IS NOT NULL
+                 ORDER BY d.duty_date DESC`,
+                [hrmsId]
+            );
+            pilotingSegments = plLegs;
+        }
+
+        // Build map: "FROM-TO" -> { last_worked_date, work_count, is_road_learning }
         const segmentMap = new Map();
         for (const seg of segments) {
             const key = `${seg.from_station}-${seg.to_station}`;
             segmentMap.set(key, {
                 last_worked: seg.last_worked_date,
-                work_count: seg.work_count
+                work_count: seg.work_count,
+                is_road_learning: seg.last_duty_id === 0
             });
+        }
+
+        // Merge piloting segments (PL) if include_piloting is enabled
+        if (includePiloting && pilotingSegments.length > 0) {
+            for (const leg of pilotingSegments) {
+                const key = `${leg.from_station}-${leg.to_station}`;
+                const legDate = leg.duty_date instanceof Date ? leg.duty_date : new Date(leg.duty_date);
+                const existing = segmentMap.get(key);
+
+                if (!existing) {
+                    // No WR coverage for this segment, use PL coverage
+                    segmentMap.set(key, {
+                        last_worked: legDate,
+                        work_count: 1
+                    });
+                } else {
+                    // Merge: use the more recent date between WR and PL
+                    const existingDate = existing.last_worked instanceof Date ? existing.last_worked : new Date(existing.last_worked);
+                    if (legDate > existingDate) {
+                        segmentMap.set(key, {
+                            last_worked: legDate,
+                            work_count: existing.work_count + 1
+                        });
+                    }
+                }
+            }
         }
 
         // Get config
@@ -1782,7 +1933,8 @@ router.get('/lrd/staff-status/:hrmsId', async (req, res) => {
                     status: segStatus,
                     last_worked: lastWorked ? lastWorked.toISOString().split('T')[0] : null,
                     expires_on: expiresOn ? expiresOn.toISOString().split('T')[0] : null,
-                    days_remaining: daysRemaining
+                    days_remaining: daysRemaining,
+                    is_road_learning: segData?.is_road_learning || false
                 };
             });
 
@@ -1853,7 +2005,8 @@ router.get('/lrd/staff-status/:hrmsId', async (req, res) => {
             },
             config: {
                 validity_days: validityDays,
-                expiring_threshold_days: expiringThreshold
+                expiring_threshold_days: expiringThreshold,
+                include_piloting: includePiloting
             },
             summary,
             sections: sectionStatuses

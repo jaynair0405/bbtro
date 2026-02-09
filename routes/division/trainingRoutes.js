@@ -500,26 +500,23 @@ router.post('/', requireAuth, async (req, res) => {
             });
         }
 
-        // Prevent duplicate entries for the same training on the same date
-        const [existing] = await conn.query(
-            `SELECT record_id FROM div_training_records
-             WHERE staff_hrms_id = ? AND training_id = ? AND done_date = ?
-             LIMIT 1`,
-            [staff_hrms_id, training_id, done_date]
-        );
-        if (existing.length > 0) {
-            conn.release();
-            return res.status(409).json({
-                error: 'Training already recorded for this date'
-            });
-        }
+        await conn.beginTransaction();
 
-        // Insert training record with all fields
+        // Insert training record idempotently
         const [result] = await conn.query(
             `INSERT INTO div_training_records
              (staff_hrms_id, training_id, done_date, due_date, training_center_id, general_remarks,
               medical_fit, decategorized_date, decategorized_reason, medical_remarks, created_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+             ON DUPLICATE KEY UPDATE
+               record_id = LAST_INSERT_ID(record_id),
+               due_date = VALUES(due_date),
+               training_center_id = VALUES(training_center_id),
+               general_remarks = VALUES(general_remarks),
+               medical_fit = VALUES(medical_fit),
+               decategorized_date = VALUES(decategorized_date),
+               decategorized_reason = VALUES(decategorized_reason),
+               medical_remarks = VALUES(medical_remarks)`,
             [
                 staff_hrms_id,
                 training_id,
@@ -534,6 +531,8 @@ router.post('/', requireAuth, async (req, res) => {
             ]
         );
 
+        const recordId = result.insertId;
+
         // If medically unfit, update staff status to "Medically Decategorised"
         if (isMedicallyUnfit) {
             await conn.query(
@@ -544,19 +543,30 @@ router.post('/', requireAuth, async (req, res) => {
             );
         }
 
+        await conn.commit();
         conn.release();
 
         res.json({
             success: true,
             message: isMedicallyUnfit
-                ? 'Training record added and staff marked as Medically Decategorised'
-                : 'Training record added successfully',
-            record_id: result.insertId
+                ? (result.affectedRows === 1
+                    ? 'Training record added and staff marked as Medically Decategorised'
+                    : 'Training record already existed; staff marked as Medically Decategorised')
+                : (result.affectedRows === 1
+                    ? 'Training record added successfully'
+                    : 'Training record already existed; details refreshed'),
+            record_id: recordId
         });
 
     } catch (error) {
         console.error('Error adding training record:', error);
-        if (conn) conn.release();
+        if (conn) {
+            try { await conn.rollback(); } catch (_) {}
+            conn.release();
+        }
+        if (error?.code === 'ER_DUP_ENTRY') {
+            return res.status(409).json({ error: 'Training already recorded for this date' });
+        }
         res.status(500).json({ error: 'Database error', details: error.message });
     }
 });

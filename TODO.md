@@ -26,7 +26,30 @@
 - [x] CTR entry page - Complete with upload, manual entry, LRD status & SVG map updates
 
 ## Future Enhancements
+- [ ] Division realm: apply concurrency playbook (dedupe/idempotency, UNIQUE keys, upserts, transactions, idempotency keys) across division APIs before scaling
 - [ ] Staff profile report - add Foot plate monitoring, Learning road sections (tables to be created)
+
+## Proposed Enhancements (Code Quality)
+
+### Centralize OFFICE_ACCESS_RULES
+The `OFFICE_ACCESS_RULES` constant (for VVH/VVH-ML sister lobby access) is duplicated across 4 route files:
+- `routes/division/cliRoutes.js`
+- `routes/division/dashboardRoutes.js`
+- `routes/division/trainingRoutes.js`
+- `routes/division/draftingRoutes.js`
+
+**Recommendation:** Move to a shared utility file (e.g., `routes/division/utils/officeRules.js`) and import where needed.
+
+### Document Extended Designation IDs
+The standard designation mapping is 1-7 (ALP, Sr.ALP, LPS, Sr.LPS, LPG, LPP, LPM). Additional IDs used in code need documentation:
+- **ID 8** - Motorman (used in `staff-profile-report.html`)
+- **ID 10** - Jr.CC (Junior Crew Controller)
+- **ID 14** - LPC (Loco Power Controller)
+- **ID 15** - TLC (Traction Power Controller)
+- **ID 16** - Jr.Instructor
+- **ID 17** - Sr.Instructor
+
+**Recommendation:** Add a `DESIGNATION_MAP.md` or comments in schema documenting all designation IDs.
 
 ## Server Database Pending
 SQL scripts to run on production server:
@@ -83,4 +106,3 @@ try {
 
 ---
 *Last updated: 2026-02-01*
-

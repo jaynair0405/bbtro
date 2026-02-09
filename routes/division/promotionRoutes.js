@@ -88,6 +88,25 @@ router.post('/', requireAuth, async (req, res) => {
             ]
         );
 
+        // Get the latest promotion's designation for this staff and update
+        const [[latest]] = await conn.query(
+            `SELECT to_designation_id
+             FROM div_promotion_history
+             WHERE staff_hrms_id = ?
+             ORDER BY posting_date DESC, created_at DESC
+             LIMIT 1`,
+            [staff_hrms_id]
+        );
+
+        if (latest) {
+            await conn.query(
+                `UPDATE div_staff_master
+                 SET designation_id = ?
+                 WHERE hrms_id = ?`,
+                [latest.to_designation_id, staff_hrms_id]
+            );
+        }
+
         conn.release();
 
         res.json({
@@ -126,6 +145,17 @@ router.put('/:promotion_id', requireAuth, async (req, res) => {
 
         conn = await req.app.locals.pool.getConnection();
 
+        // Get staff_hrms_id before updating
+        const [[promo]] = await conn.query(
+            'SELECT staff_hrms_id FROM div_promotion_history WHERE promotion_id = ?',
+            [promotion_id]
+        );
+
+        if (!promo) {
+            conn.release();
+            return res.status(404).json({ error: 'Promotion record not found' });
+        }
+
         const [result] = await conn.query(
             `UPDATE div_promotion_history
              SET from_designation_id = ?, to_designation_id = ?, change_type = ?,
@@ -142,11 +172,26 @@ router.put('/:promotion_id', requireAuth, async (req, res) => {
             ]
         );
 
-        conn.release();
+        // Get the latest promotion's designation for this staff and update
+        const [[latest]] = await conn.query(
+            `SELECT to_designation_id
+             FROM div_promotion_history
+             WHERE staff_hrms_id = ?
+             ORDER BY posting_date DESC, created_at DESC
+             LIMIT 1`,
+            [promo.staff_hrms_id]
+        );
 
-        if (result.affectedRows === 0) {
-            return res.status(404).json({ error: 'Promotion record not found' });
+        if (latest) {
+            await conn.query(
+                `UPDATE div_staff_master
+                 SET designation_id = ?
+                 WHERE hrms_id = ?`,
+                [latest.to_designation_id, promo.staff_hrms_id]
+            );
         }
+
+        conn.release();
 
         res.json({
             success: true,
@@ -167,16 +212,42 @@ router.delete('/:promotion_id', requireAuth, async (req, res) => {
         const { promotion_id } = req.params;
         conn = await req.app.locals.pool.getConnection();
 
+        // Get staff_hrms_id before deleting
+        const [[promo]] = await conn.query(
+            'SELECT staff_hrms_id FROM div_promotion_history WHERE promotion_id = ?',
+            [promotion_id]
+        );
+
+        if (!promo) {
+            conn.release();
+            return res.status(404).json({ error: 'Promotion record not found' });
+        }
+
         const [result] = await conn.query(
             'DELETE FROM div_promotion_history WHERE promotion_id = ?',
             [promotion_id]
         );
 
-        conn.release();
+        // Get the latest remaining promotion's designation and update
+        const [[latest]] = await conn.query(
+            `SELECT to_designation_id
+             FROM div_promotion_history
+             WHERE staff_hrms_id = ?
+             ORDER BY posting_date DESC, created_at DESC
+             LIMIT 1`,
+            [promo.staff_hrms_id]
+        );
 
-        if (result.affectedRows === 0) {
-            return res.status(404).json({ error: 'Promotion record not found' });
+        if (latest) {
+            await conn.query(
+                `UPDATE div_staff_master
+                 SET designation_id = ?
+                 WHERE hrms_id = ?`,
+                [latest.to_designation_id, promo.staff_hrms_id]
+            );
         }
+
+        conn.release();
 
         res.json({
             success: true,

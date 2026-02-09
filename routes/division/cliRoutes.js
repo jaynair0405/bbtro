@@ -531,26 +531,33 @@ router.post('/', requireDivisionAdmin, async (req, res) => {
             return res.status(400).json({ error: 'CMSID and CLI name are required' });
         }
 
-        // Check if CMSID already exists
-        const [existing] = await conn.query('SELECT cli_id FROM div_cli_master WHERE cmsid = ?', [cmsid]);
-        if (existing.length > 0) {
-            return res.status(400).json({ error: 'CMSID already exists' });
-        }
-
         const [result] = await conn.query(`
             INSERT INTO div_cli_master
             (cmsid, cli_name, current_office_code, cli_dob, cli_doa, date_promoted_to_cli, cli_mobile)
             VALUES (?, ?, ?, ?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE
+              cli_id = LAST_INSERT_ID(cli_id),
+              cli_name = VALUES(cli_name),
+              current_office_code = VALUES(current_office_code),
+              cli_dob = VALUES(cli_dob),
+              cli_doa = VALUES(cli_doa),
+              date_promoted_to_cli = VALUES(date_promoted_to_cli),
+              cli_mobile = VALUES(cli_mobile)
         `, [cmsid, cli_name, current_office_code, cli_dob, cli_doa, date_promoted_to_cli, cli_mobile]);
 
         res.json({
             success: true,
             cli_id: result.insertId,
-            message: 'CLI added successfully'
+            message: result.affectedRows === 1
+                ? 'CLI added successfully'
+                : 'CLI already existed; details refreshed'
         });
 
     } catch (error) {
         console.error('Error adding CLI:', error);
+        if (error?.code === 'ER_DUP_ENTRY') {
+            return res.status(400).json({ error: 'CLI with same CMSID/HRMS already exists' });
+        }
         res.status(500).json({ error: 'Failed to add CLI' });
     } finally {
         conn.release();
@@ -966,7 +973,14 @@ router.post('/:cli_id/nominate-bulk', async (req, res) => {
                 const [nominationResult] = await conn.query(
                     `INSERT INTO div_cli_nominations
                      (staff_hrms_id, cli_id, nominated_from_date, nominated_to_date, status, remarks, created_by, created_at)
-                     VALUES (?, ?, ?, NULL, 'Active', ?, ?, NOW())`,
+                     VALUES (?, ?, ?, NULL, 'Active', ?, ?, NOW())
+                     ON DUPLICATE KEY UPDATE
+                       nomination_id = LAST_INSERT_ID(nomination_id),
+                       status = VALUES(status),
+                       remarks = VALUES(remarks),
+                       nominated_to_date = VALUES(nominated_to_date),
+                       updated_by = VALUES(created_by),
+                       updated_at = NOW()`,
                     [hrms_id, cli_id, nominated_from_date, remarks || null, username]
                 );
 
@@ -1091,7 +1105,14 @@ router.put('/nomination/:nomination_id/change', async (req, res) => {
         const [newNomination] = await conn.query(
             `INSERT INTO div_cli_nominations
              (staff_hrms_id, cli_id, nominated_from_date, nominated_to_date, status, remarks, created_by, created_at)
-             VALUES (?, ?, ?, NULL, 'Active', ?, ?, NOW())`,
+             VALUES (?, ?, ?, NULL, 'Active', ?, ?, NOW())
+             ON DUPLICATE KEY UPDATE
+               nomination_id = LAST_INSERT_ID(nomination_id),
+               status = VALUES(status),
+               remarks = VALUES(remarks),
+               nominated_to_date = VALUES(nominated_to_date),
+               updated_by = VALUES(created_by),
+               updated_at = NOW()`,
             [nomination.staff_hrms_id, new_cli_id, nominated_from_date, remarks || null, username]
         );
 

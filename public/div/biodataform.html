@@ -1965,6 +1965,15 @@ async function addPromotion() {
       alert(result.message);
       clearPromotionForm();
       loadPromotions(staffHrmsId);
+
+      // Reload staff data to update designation in personal tab
+      const staffResp = await fetch(`/api/division/staff-search/${staffHrmsId}`);
+      const staffResult = await staffResp.json();
+      if (staffResult.success && staffResult.data && staffResult.data.length > 0) {
+        const staff = staffResult.data[0];
+        document.getElementById('designation').value = staff.designation_id || '';
+        document.getElementById('showDesig').textContent = staff.designation_name || '—';
+      }
     } else {
       alert('Error: ' + result.error);
     }
@@ -2030,6 +2039,15 @@ async function removePromotion(promotionId) {
       const staffHrmsId = window.currentStaffHrmsId;
       if (staffHrmsId) {
         loadPromotions(staffHrmsId);
+
+        // Reload staff data to update designation in personal tab
+        const staffResp = await fetch(`/api/division/staff-search/${staffHrmsId}`);
+        const staffResult = await staffResp.json();
+        if (staffResult.success && staffResult.data && staffResult.data.length > 0) {
+          const staff = staffResult.data[0];
+          document.getElementById('designation').value = staff.designation_id || '';
+          document.getElementById('showDesig').textContent = staff.designation_name || '—';
+        }
       }
     } else {
       alert('Error: ' + result.error);

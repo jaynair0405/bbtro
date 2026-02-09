@@ -127,24 +127,38 @@ router.get('/training-centers', async (req, res) => {
 });
 
 // GET /api/division/staff/:search - Search staff by HRMS ID or name
+// Non-admin users can only search staff from their own office
 router.get('/staff-search/:search', async (req, res) => {
     let conn;
     try {
         const { search } = req.params;
+        const userOffice = req.session.user?.div_office_code;
+        const userRole = req.session.user?.div_role;
+
         conn = await req.app.locals.pool.getConnection();
 
-        const query = `
+        // Build query with office restriction for non-admins
+        let query = `
             SELECT s.*, o.office_name, d.designation_name, c.cli_name, n.nomination_id, n.nominated_from_date
             FROM div_staff_master s
             LEFT JOIN offices o ON s.current_office_code = o.office_code
             LEFT JOIN designations d ON s.designation_id = d.id
             LEFT JOIN div_cli_master c ON s.current_cli_id = c.cli_id
             LEFT JOIN div_cli_nominations n ON s.hrms_id = n.staff_hrms_id AND n.status = 'Active'
-            WHERE s.hrms_id LIKE ? OR s.name LIKE ? OR s.current_cms_id LIKE ?
-            LIMIT 10
+            WHERE (s.hrms_id LIKE ? OR s.name LIKE ? OR s.current_cms_id LIKE ?)
         `;
 
-        const [results] = await conn.query(query, [`%${search}%`, `%${search}%`, `%${search}%`]);
+        const params = [`%${search}%`, `%${search}%`, `%${search}%`];
+
+        // Restrict to user's office for non-admin users
+        if (userRole !== 'division_admin') {
+            query += ` AND s.current_office_code = ?`;
+            params.push(userOffice);
+        }
+
+        query += ` LIMIT 10`;
+
+        const [results] = await conn.query(query, params);
         conn.release();
 
         res.json({ success: true, data: results });

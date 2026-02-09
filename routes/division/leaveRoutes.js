@@ -64,11 +64,19 @@ router.post('/', async (req, res) => {
             force_submit  // If true, skip overlap check (user confirmed)
         } = req.body;
 
+        const userOffice = req.session.user?.div_office_code;
+        const userRole = req.session.user?.div_role;
+
         const allowedStatuses = new Set(['Pending', 'Forwarded', 'Approved', 'Rejected', 'Cancelled', 'Absent']);
 
         // Basic validation
         if (!staff_hrms_id || !from_date || !to_date || !days) {
             return res.status(400).json({ error: 'Missing required fields' });
+        }
+
+        // Office authorization check - non-admin can only create for their office
+        if (userRole !== 'division_admin' && office_code !== userOffice) {
+            return res.status(403).json({ error: 'Not authorized to create leave for this office' });
         }
 
         if (new Date(to_date) < new Date(from_date)) {
@@ -114,6 +122,10 @@ router.post('/', async (req, res) => {
         }
 
         const initialStatus = status || 'Pending';
+
+        await conn.beginTransaction();
+
+        // Insert leave entry
         const [result] = await conn.query(
             `INSERT INTO div_leave_tracking
              (staff_hrms_id, leave_type, from_date, to_date, days, office_code, designation_id, reason, remarks, status, created_at)
@@ -121,25 +133,31 @@ router.post('/', async (req, res) => {
             [staff_hrms_id, leave_type, formattedFromDate, formattedToDate, days, office_code, designation_id, reason, remarks || null, initialStatus]
         );
 
+        const leaveId = result.insertId;
+
         // Log initial status in history
         const changedBy = req.session.user?.name || req.session.user?.username || 'System';
         await conn.query(
             `INSERT INTO div_leave_status_history (leave_id, old_status, new_status, changed_by)
              VALUES (?, NULL, ?, ?)`,
-            [result.insertId, initialStatus, changedBy]
+            [leaveId, initialStatus, changedBy]
         );
 
+        await conn.commit();
         conn.release();
 
         res.json({
             success: true,
             message: 'Leave entry created successfully',
-            id: result.insertId
+            id: leaveId
         });
 
     } catch (error) {
         console.error('Error creating leave entry:', error);
-        if (conn) conn.release();
+        if (conn) {
+            try { await conn.rollback(); } catch (_) {}
+            conn.release();
+        }
         res.status(500).json({ error: 'Database error', details: error.message });
     }
 });
@@ -175,7 +193,7 @@ router.get('/history/:hrmsId', async (req, res) => {
 router.get('/dashboard', async (req, res) => {
     let conn;
     try {
-        const { office_code, designation_id } = req.query;
+        const { office_code, designation_id, designation_ids } = req.query;
         const { from: normFrom, to: normTo } = normalizeDateRange(req.query.from_date, req.query.to_date);
         const userOffice = req.session.user?.div_office_code;
         const userRole = req.session.user?.div_role;
@@ -195,8 +213,14 @@ router.get('/dashboard', async (req, res) => {
             params.push(office_code);
         }
 
-        // Designation filter
-        if (designation_id && designation_id !== 'ALL') {
+        // Designation filter - support both single ID and comma-separated IDs (for grouping)
+        if (designation_ids && designation_ids !== 'ALL') {
+            const ids = designation_ids.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
+            if (ids.length > 0) {
+                conditions.push(`l.designation_id IN (${ids.map(() => '?').join(',')})`);
+                params.push(...ids);
+            }
+        } else if (designation_id && designation_id !== 'ALL') {
             conditions.push('l.designation_id = ?');
             params.push(designation_id);
         }
@@ -496,16 +520,17 @@ router.get('/kpi-list/:type', async (req, res) => {
     let conn;
     try {
         const { type } = req.params;
-        const { office_code, from_date, to_date } = req.query;
+        const { office_code, from_date, to_date, designation_ids } = req.query;
         const { from: normFrom, to: normTo } = normalizeDateRange(from_date, to_date);
         const userOffice = req.session.user?.div_office_code;
         const userRole = req.session.user?.div_role;
 
         conn = await req.app.locals.pool.getConnection();
 
-        // Build office + date filters (overlap)
+        // Build office + date + designation filters (overlap)
         let officeCondition = '';
         let dateCondition = '';
+        let designationCondition = '';
         let params = [];
 
         if (userRole !== 'division_admin') {
@@ -514,6 +539,15 @@ router.get('/kpi-list/:type', async (req, res) => {
         } else if (office_code && office_code !== 'ALL') {
             officeCondition = 'AND l.office_code = ?';
             params.push(office_code);
+        }
+
+        // Designation filter - support comma-separated IDs for grouping
+        if (designation_ids && designation_ids !== 'ALL') {
+            const ids = designation_ids.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
+            if (ids.length > 0) {
+                designationCondition = `AND l.designation_id IN (${ids.map(() => '?').join(',')})`;
+                params.push(...ids);
+            }
         }
 
         if (normFrom && normTo) {
@@ -535,7 +569,7 @@ router.get('/kpi-list/:type', async (req, res) => {
                     FROM div_leave_tracking l
                     JOIN div_staff_master s ON l.staff_hrms_id = s.hrms_id
                     LEFT JOIN designations d ON l.designation_id = d.id
-                    WHERE l.status = 'Pending' ${officeCondition} ${dateCondition}
+                    WHERE l.status = 'Pending' ${officeCondition} ${designationCondition} ${dateCondition}
                     ORDER BY l.from_date ASC
                 `;
                 break;
@@ -546,7 +580,7 @@ router.get('/kpi-list/:type', async (req, res) => {
                     FROM div_leave_tracking l
                     JOIN div_staff_master s ON l.staff_hrms_id = s.hrms_id
                     LEFT JOIN designations d ON l.designation_id = d.id
-                    WHERE l.status = 'Forwarded' ${officeCondition} ${dateCondition}
+                    WHERE l.status = 'Forwarded' ${officeCondition} ${designationCondition} ${dateCondition}
                     ORDER BY l.from_date ASC
                 `;
                 break;
@@ -557,7 +591,7 @@ router.get('/kpi-list/:type', async (req, res) => {
                     FROM div_leave_tracking l
                     JOIN div_staff_master s ON l.staff_hrms_id = s.hrms_id
                     LEFT JOIN designations d ON l.designation_id = d.id
-                    WHERE l.status = 'Approved' ${officeCondition} ${dateCondition}
+                    WHERE l.status = 'Approved' ${officeCondition} ${designationCondition} ${dateCondition}
                     ORDER BY l.from_date DESC
                     LIMIT 50
                 `;
@@ -571,7 +605,7 @@ router.get('/kpi-list/:type', async (req, res) => {
                     LEFT JOIN designations d ON l.designation_id = d.id
                     WHERE l.status = 'Approved'
                     AND CURDATE() BETWEEN DATE(l.from_date) AND DATE(l.to_date)
-                    ${officeCondition} ${dateCondition}
+                    ${officeCondition} ${designationCondition} ${dateCondition}
                     ORDER BY s.name ASC
                 `;
                 break;
@@ -583,7 +617,7 @@ router.get('/kpi-list/:type', async (req, res) => {
                     JOIN div_staff_master s ON l.staff_hrms_id = s.hrms_id
                     LEFT JOIN designations d ON l.designation_id = d.id
                     WHERE l.status = 'Absent' AND l.is_regularized = 0
-                    ${officeCondition} ${dateCondition}
+                    ${officeCondition} ${designationCondition} ${dateCondition}
                     ORDER BY l.from_date DESC
                 `;
                 break;
@@ -597,7 +631,7 @@ router.get('/kpi-list/:type', async (req, res) => {
                     LEFT JOIN designations d ON l.designation_id = d.id
                     WHERE l.status = 'Approved'
                     AND DATE(l.to_date) = CURDATE()
-                    ${officeCondition} ${dateCondition}
+                    ${officeCondition} ${designationCondition} ${dateCondition}
                     ORDER BY s.name ASC
                 `;
                 break;
@@ -996,20 +1030,30 @@ router.put('/:id', async (req, res) => {
     try {
         const { id } = req.params;
         const { status, is_regularized, remarks, approved_by, to_date, days, leave_type } = req.body;
+        const userOffice = req.session.user?.div_office_code;
+        const userRole = req.session.user?.div_role;
 
         conn = await req.app.locals.pool.getConnection();
 
-        // Get current status before update (for history logging)
-        let oldStatus = null;
-        if (status !== undefined) {
-            const [current] = await conn.query(
-                'SELECT status FROM div_leave_tracking WHERE id = ?',
-                [id]
-            );
-            if (current.length > 0) {
-                oldStatus = current[0].status;
-            }
+        // Get current leave entry (for status history and office validation)
+        const [currentLeave] = await conn.query(
+            'SELECT status, office_code FROM div_leave_tracking WHERE id = ?',
+            [id]
+        );
+
+        if (currentLeave.length === 0) {
+            conn.release();
+            return res.status(404).json({ error: 'Leave entry not found' });
         }
+
+        // Office authorization check - non-admin can only update their office's entries
+        if (userRole !== 'division_admin' && currentLeave[0].office_code !== userOffice) {
+            conn.release();
+            return res.status(403).json({ error: 'Not authorized to update this leave entry' });
+        }
+
+        // Get current status before update (for history logging)
+        let oldStatus = currentLeave[0].status;
 
         // Build update fields
         let updates = [];
@@ -1313,8 +1357,27 @@ router.delete('/:id', async (req, res) => {
     let conn;
     try {
         const { id } = req.params;
+        const userOffice = req.session.user?.div_office_code;
+        const userRole = req.session.user?.div_role;
 
         conn = await req.app.locals.pool.getConnection();
+
+        // Get leave entry for office validation
+        const [leaveEntry] = await conn.query(
+            'SELECT office_code FROM div_leave_tracking WHERE id = ?',
+            [id]
+        );
+
+        if (leaveEntry.length === 0) {
+            conn.release();
+            return res.status(404).json({ error: 'Leave entry not found' });
+        }
+
+        // Office authorization check - non-admin can only delete their office's entries
+        if (userRole !== 'division_admin' && leaveEntry[0].office_code !== userOffice) {
+            conn.release();
+            return res.status(403).json({ error: 'Not authorized to delete this leave entry' });
+        }
 
         const [result] = await conn.query(
             'DELETE FROM div_leave_tracking WHERE id = ?',
@@ -1322,10 +1385,6 @@ router.delete('/:id', async (req, res) => {
         );
 
         conn.release();
-
-        if (result.affectedRows === 0) {
-            return res.status(404).json({ error: 'Leave entry not found' });
-        }
 
         res.json({
             success: true,

@@ -808,14 +808,23 @@
                                     <span class="badge badge-info" id="lrdStaffDesig" style="margin-left: 8px;">-</span>
                                     <span class="badge badge-secondary" id="lrdStaffOffice" style="margin-left: 4px;">-</span>
                                 </div>
-                                <button class="btn btn-outline btn-sm" onclick="clearLRDStaff()">
-                                    <i class="fa-solid fa-xmark"></i> Clear
-                                </button>
+                                <div style="display: flex; gap: 8px;">
+                                    <button class="btn btn-success btn-sm" onclick="openRoadLearningModal()">
+                                        <i class="fa-solid fa-road"></i> Road Learning
+                                    </button>
+                                    <button class="btn btn-outline btn-sm" onclick="clearLRDStaff()">
+                                        <i class="fa-solid fa-xmark"></i> Clear
+                                    </button>
+                                </div>
                             </div>
                             <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">
                                 HRMS: <span id="lrdStaffHrms">-</span> | CMS: <span id="lrdStaffCms">-</span>
                             </div>
                         </div>
+                        <label class="checkbox-label" style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px;">
+                            <input type="checkbox" id="lrdIncludePiloting" onchange="if(selectedLRDStaff) loadLRDStaffStatus(selectedLRDStaff.hrmsId)">
+                            <span>Include Piloting (PL)</span>
+                        </label>
                         <button class="btn btn-primary" onclick="loadLRDSummary()" id="btnLrdSummary">
                             <i class="fa-solid fa-chart-bar"></i> View Summary
                         </button>
@@ -1087,18 +1096,23 @@
                             <text x="270" y="680" font-size="10" font-weight="600" fill="#dc2626">ROHA</text>
                         </g>
 
-                        <!-- PEN to TVSG branch -->
+                        <!-- PEN to TVSG branch (with intermediate stations) -->
                         <g id="route-pen-tvsg" class="route-group">
-                            <path id="seg-pen-tvsg-dn" d="M368 631 L240 616" stroke="#cbd5e1" stroke-width="3" fill="none"/>
-                            <path id="seg-tvsg-pen-up" d="M240 610 L362 625" stroke="#cbd5e1" stroke-width="3" fill="none"/>
-                            <!-- PPDP siding (upper) -->
-                            <path id="siding-ppdp" d="M280 612 L275 600" stroke="#cbd5e1" stroke-width="2" fill="none"/>
-                            <text x="260" y="598" font-size="7" fill="#64748b">PPDP</text>
-                            <!-- JSWD siding (lower) -->
-                            <path id="siding-jswd" d="M320 628 L325 640" stroke="#cbd5e1" stroke-width="2" fill="none"/>
-                            <text x="310" y="652" font-size="7" fill="#64748b">JSWD</text>
+                            <!-- DN direction: PEN → JSWD → PPDP → TVSG -->
+                            <path id="seg-pen-jswd-dn" d="M368 631 L325 626" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-jswd-ppdp-dn" d="M325 626 L280 620" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-ppdp-tvsg-dn" d="M280 620 L240 616" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <!-- UP direction: TVSG → PPDP → JSWD → PEN -->
+                            <path id="seg-tvsg-ppdp-up" d="M240 610 L280 614" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-ppdp-jswd-up" d="M280 614 L325 620" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <path id="seg-jswd-pen-up" d="M325 620 L362 625" stroke="#cbd5e1" stroke-width="3" fill="none"/>
+                            <!-- Station markers -->
+                            <circle cx="325" cy="623" r="3" fill="#64748b"/>
+                            <text x="320" y="640" font-size="7" fill="#64748b">JSWD</text>
+                            <circle cx="280" cy="617" r="3" fill="#64748b"/>
+                            <text x="265" y="608" font-size="7" fill="#64748b">PPDP</text>
                             <circle cx="235" cy="613" r="6" fill="#f59e0b" stroke="#d97706" stroke-width="1"/>
-                            <text x="220" y="608" font-size="9" font-weight="500" fill="#f59e0b">TVSG</text>
+                            <text x="220" y="600" font-size="9" font-weight="500" fill="#f59e0b">TVSG</text>
                         </g>
 
                         <!-- PNVL to JNPT (straight lines with parallel gap) -->
@@ -1304,6 +1318,9 @@
                 <i class="fa-solid fa-info-circle"></i>
                 LRD Validity: <strong id="lrdConfigValidity">90</strong> days from last worked |
                 Expiring Soon: within <strong id="lrdConfigExpiring">15</strong> days
+                <span id="lrdPilotingIndicator" style="display: none; margin-left: 10px; color: var(--primary);">
+                    | <i class="fa-solid fa-plane"></i> Piloting Included
+                </span>
             </div>
         </div>
 
@@ -1390,6 +1407,50 @@
         </div>
     </div>
 
+    <!-- Road Learning Modal -->
+    <div class="modal-overlay" id="roadLearningModal">
+        <div class="modal" style="max-width: 500px;">
+            <div class="modal-header">
+                <h3 style="margin: 0;"><i class="fa-solid fa-road"></i> Road Learning Trip</h3>
+                <button class="btn btn-icon btn-outline" onclick="closeRoadLearningModal()">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="input-group" style="margin-bottom: 15px;">
+                    <label>Staff</label>
+                    <div style="padding: 8px 12px; background: var(--bg-secondary); border-radius: 6px;">
+                        <strong id="rlStaffName">-</strong>
+                        <span class="badge badge-info" style="margin-left: 8px;" id="rlStaffDesig">-</span>
+                    </div>
+                </div>
+                <div class="input-group" style="margin-bottom: 15px;">
+                    <label>Road Learning Date *</label>
+                    <input type="date" class="input-control" id="rlDate">
+                </div>
+                <div class="input-group">
+                    <label>Select Sections Covered *</label>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <small style="color: var(--text-secondary);">Check all sections covered during the trip</small>
+                        <div style="display: flex; gap: 8px;">
+                            <button class="btn btn-outline btn-sm" onclick="rlSelectAll(true)" style="padding: 2px 8px; font-size: 11px;">All</button>
+                            <button class="btn btn-outline btn-sm" onclick="rlSelectAll(false)" style="padding: 2px 8px; font-size: 11px;">None</button>
+                        </div>
+                    </div>
+                    <div id="rlSectionsList" style="max-height: 250px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 6px; padding: 10px;">
+                        <!-- Sections loaded dynamically -->
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeRoadLearningModal()">Cancel</button>
+                <button class="btn btn-success" onclick="submitRoadLearning()">
+                    <i class="fa-solid fa-check"></i> Update LRD
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast -->
     <div class="toast" id="toast"></div>
 
@@ -1415,7 +1476,7 @@
 
             // Load data for tab
             if (tabName === 'entries') loadDuties();
-            if (tabName === 'lrd') loadLRDStatus();
+            // LRD tab shows initial state - user must search and select a staff
             if (tabName === 'sections') loadSections();
             if (tabName === 'upload') loadUploadHistory();
             if (tabName === 'manual') initManualForm();
@@ -1964,6 +2025,7 @@
             document.getElementById('lrdSelectedStaff').style.display = 'none';
             document.getElementById('lrdStaffSearch').value = '';
             document.getElementById('lrdFilterStatus').value = '';
+            document.getElementById('lrdIncludePiloting').checked = false;
 
             // Hide map
             document.getElementById('lrdMapContainer').style.display = 'none';
@@ -1975,6 +2037,7 @@
             document.getElementById('lrdExpired').textContent = '-';
             document.getElementById('lrdNeverWorked').textContent = '-';
             document.getElementById('lrdRouteCount').textContent = '';
+            document.getElementById('lrdPilotingIndicator').style.display = 'none';
 
             // Reset table
             document.getElementById('lrdBody').innerHTML = `
@@ -1990,7 +2053,8 @@
             document.getElementById('lrdBody').innerHTML = '<tr><td colspan="6" class="loading"><i class="fa-solid fa-spinner spinner"></i> Loading LRD status...</td></tr>';
 
             try {
-                const res = await fetch(`/api/division/ctr/lrd/staff-status/${hrmsId}`);
+                const includePiloting = document.getElementById('lrdIncludePiloting').checked;
+                const res = await fetch(`/api/division/ctr/lrd/staff-status/${hrmsId}?include_piloting=${includePiloting}`);
                 const data = await res.json();
 
                 if (!data.success) {
@@ -2001,6 +2065,7 @@
                 if (data.config) {
                     document.getElementById('lrdConfigValidity').textContent = data.config.validity_days || 90;
                     document.getElementById('lrdConfigExpiring').textContent = data.config.expiring_threshold_days || 15;
+                    document.getElementById('lrdPilotingIndicator').style.display = data.config.include_piloting ? 'inline' : 'none';
                 }
 
                 // Update stats
@@ -2142,8 +2207,8 @@
 
                     // Tooltip shows both segments' info
                     let tooltipParts = [];
-                    if (incomingSeg) tooltipParts.push(`← ${incomingSeg.from}: ${incomingSeg.status === 'NEVER_WORKED' ? 'Never' : incomingSeg.last_worked || '-'}`);
-                    if (outgoingSeg) tooltipParts.push(`→ ${outgoingSeg.to}: ${outgoingSeg.status === 'NEVER_WORKED' ? 'Never' : outgoingSeg.last_worked || '-'}`);
+                    if (incomingSeg) tooltipParts.push(`← ${incomingSeg.from}: ${incomingSeg.status === 'NEVER_WORKED' ? 'Never' : incomingSeg.last_worked || '-'}${incomingSeg.is_road_learning ? ' (RL)' : ''}`);
+                    if (outgoingSeg) tooltipParts.push(`→ ${outgoingSeg.to}: ${outgoingSeg.status === 'NEVER_WORKED' ? 'Never' : outgoingSeg.last_worked || '-'}${outgoingSeg.is_road_learning ? ' (RL)' : ''}`);
                     const tooltip = `${station}\n${tooltipParts.join('\n')}`;
 
                     stationBars.push(`<div class="seg-bar" style="background: ${color};" title="${tooltip}">
@@ -2201,11 +2266,12 @@
                             const segClass = seg.status === 'VALID' ? 'success' :
                                            seg.status === 'EXPIRED' ? 'danger' :
                                            seg.status === 'EXPIRING_SOON' ? 'warning' : 'secondary';
+                            const rlBadge = seg.is_road_learning ? '<span class="badge" style="background: #8b5cf6; color: white; font-size: 9px; margin-left: 4px;">RL</span>' : '';
                             return `
                                 <tr>
                                     <td>${seg.from}</td>
                                     <td>${seg.to}</td>
-                                    <td>${seg.last_worked || '-'}</td>
+                                    <td>${seg.last_worked || '-'}${rlBadge}</td>
                                     <td>${seg.expires_on || '-'}</td>
                                     <td>${seg.days_remaining !== null ? (seg.days_remaining < 0 ? `<span style="color: var(--danger);">${seg.days_remaining}d</span>` : `${seg.days_remaining}d`) : '-'}</td>
                                     <td><span class="badge badge-${segClass}">${seg.status === 'NEVER_WORKED' ? 'Never' : seg.status}</span></td>
@@ -2298,6 +2364,176 @@
                 document.getElementById('lrdStaffDropdown').style.display = 'none';
             }
         });
+
+        // ========================================
+        // Road Learning Modal
+        // ========================================
+        let rlSections = []; // Cache sections for modal
+
+        async function openRoadLearningModal() {
+            if (!selectedLRDStaff) {
+                showToast('Please select a staff member first', 'error');
+                return;
+            }
+
+            // Set staff info in modal
+            document.getElementById('rlStaffName').textContent = selectedLRDStaff.name;
+            document.getElementById('rlStaffDesig').textContent = selectedLRDStaff.designation || '-';
+
+            // Set default date to today
+            document.getElementById('rlDate').value = new Date().toISOString().split('T')[0];
+
+            // Load sections for staff's office
+            const office = selectedLRDStaff.office || document.getElementById('globalOffice').value;
+            try {
+                const res = await fetch(`/api/division/ctr/lrd/sections?office=${office}`);
+                const data = await res.json();
+
+                if (data.sections?.length > 0) {
+                    // Filter out sections with no stations or invalid names
+                    const validSections = data.sections.filter(s => s.stations?.length >= 2);
+                    if (validSections.length > 0) {
+                        rlSections = validSections;
+                        renderRLSections(validSections);
+                    } else {
+                        document.getElementById('rlSectionsList').innerHTML = '<div style="padding: 20px; text-align: center; color: var(--text-secondary);">No valid sections found for this office</div>';
+                    }
+                } else {
+                    document.getElementById('rlSectionsList').innerHTML = '<div style="padding: 20px; text-align: center; color: var(--text-secondary);">No sections found for this office</div>';
+                }
+            } catch (err) {
+                document.getElementById('rlSectionsList').innerHTML = '<div style="padding: 20px; text-align: center; color: var(--danger);">Failed to load sections</div>';
+            }
+
+            document.getElementById('roadLearningModal').classList.add('show');
+        }
+
+        function renderRLSections(sections) {
+            // Group sections by route (first-last station pair)
+            const routeMap = new Map();
+
+            for (const s of sections) {
+                if (!s.stations || s.stations.length < 2) continue;
+                const first = s.stations[0];
+                const last = s.stations[s.stations.length - 1];
+                // Create a normalized key (alphabetically sorted)
+                const routeKey = [first, last].sort().join('-');
+
+                if (!routeMap.has(routeKey)) {
+                    routeMap.set(routeKey, {
+                        routeName: `${first} ↔ ${last}`,
+                        stations: s.stations,
+                        stationsReverse: [...s.stations].reverse(),
+                        up: null,
+                        dn: null
+                    });
+                }
+
+                const route = routeMap.get(routeKey);
+                if (s.direction === 'UP') {
+                    route.up = s;
+                } else if (s.direction === 'DN') {
+                    route.dn = s;
+                }
+            }
+
+            // Render grouped routes
+            let html = '';
+            let idx = 0;
+            for (const [key, route] of routeMap) {
+                const hasUp = route.up !== null;
+                const hasDown = route.dn !== null;
+                const hasBoth = hasUp && hasDown;
+
+                html += `
+                <div style="padding: 10px; border-bottom: 1px solid var(--border-color);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                        <div style="font-weight: 500;">${route.routeName}</div>
+                        <div style="display: flex; gap: 12px; font-size: 12px;">
+                            ${hasUp ? `<label style="display: flex; align-items: center; gap: 4px; cursor: pointer;">
+                                <input type="checkbox" class="rl-section-cb" value="${route.up.section_code}"
+                                    data-stations='${JSON.stringify(route.up.stations)}' data-route="${key}" data-dir="up">
+                                <span>UP</span>
+                            </label>` : ''}
+                            ${hasDown ? `<label style="display: flex; align-items: center; gap: 4px; cursor: pointer;">
+                                <input type="checkbox" class="rl-section-cb" value="${route.dn.section_code}"
+                                    data-stations='${JSON.stringify(route.dn.stations)}' data-route="${key}" data-dir="dn">
+                                <span>DN</span>
+                            </label>` : ''}
+                            ${hasBoth ? `<label style="display: flex; align-items: center; gap: 4px; cursor: pointer; color: var(--primary);">
+                                <input type="checkbox" class="rl-both-cb" data-route="${key}" onchange="rlToggleBoth(this, '${key}')">
+                                <span>Both</span>
+                            </label>` : ''}
+                        </div>
+                    </div>
+                    <div style="font-size: 11px; color: var(--text-secondary);">${route.stations.join(' → ')}</div>
+                </div>`;
+                idx++;
+            }
+
+            document.getElementById('rlSectionsList').innerHTML = html || '<div style="padding: 20px; text-align: center; color: var(--text-secondary);">No sections found</div>';
+        }
+
+        function rlToggleBoth(checkbox, routeKey) {
+            const isChecked = checkbox.checked;
+            document.querySelectorAll(`.rl-section-cb[data-route="${routeKey}"]`).forEach(cb => {
+                cb.checked = isChecked;
+            });
+        }
+
+        function rlSelectAll(selectAll) {
+            document.querySelectorAll('.rl-section-cb').forEach(cb => cb.checked = selectAll);
+            document.querySelectorAll('.rl-both-cb').forEach(cb => cb.checked = selectAll);
+        }
+
+        function closeRoadLearningModal() {
+            document.getElementById('roadLearningModal').classList.remove('show');
+        }
+
+        async function submitRoadLearning() {
+            const rlDate = document.getElementById('rlDate').value;
+            if (!rlDate) {
+                showToast('Please select a date', 'error');
+                return;
+            }
+
+            const selectedSections = [];
+            document.querySelectorAll('.rl-section-cb:checked').forEach(cb => {
+                selectedSections.push({
+                    section_code: cb.value,
+                    stations: JSON.parse(cb.dataset.stations || '[]')
+                });
+            });
+
+            if (selectedSections.length === 0) {
+                showToast('Please select at least one section', 'error');
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/division/ctr/lrd/road-learning', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        staff_hrms_id: selectedLRDStaff.hrmsId,
+                        learning_date: rlDate,
+                        sections: selectedSections
+                    })
+                });
+
+                const data = await res.json();
+                if (data.success) {
+                    showToast(`LRD updated for ${selectedSections.length} section(s)`, 'success');
+                    closeRoadLearningModal();
+                    // Refresh LRD status
+                    await loadLRDStaffStatus(selectedLRDStaff.hrmsId);
+                } else {
+                    showToast(data.message || 'Failed to update LRD', 'error');
+                }
+            } catch (err) {
+                showToast('Error updating LRD: ' + err.message, 'error');
+            }
+        }
 
         // ========================================
         // Sections Tab

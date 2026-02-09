@@ -184,6 +184,7 @@ Run in this order on the production server:
 2. `sql/div_staff_drafting_records.sql`
 3. `sql/div_leave_status_history.sql`
 4. `sql/div_midnight_position.sql`
+5. `sql/2026-02-05_division_dedupe_constraints.sql`
 
 ---
 
@@ -196,6 +197,7 @@ Run in this order on the production server:
 - [ ] Test leave management functionality
 - [ ] Test retirement tracking functionality
 - [ ] Test midnight position entry and carry-forward
+- [ ] Test leave/training/CLI duplicate protection (idempotent retries)
 
 ---
 
