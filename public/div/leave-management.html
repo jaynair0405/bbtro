@@ -933,9 +933,6 @@
                     <label>Designation</label>
                     <select id="filterDesignation">
                         <option value="ALL">All</option>
-                        <option value="8">LPG</option>
-                        <option value="1">ALP</option>
-                        <option value="5">Sr. ALP</option>
                     </select>
                 </div>
                 <div>
@@ -1451,6 +1448,7 @@
             setupEventListeners();
             await loadOffices();
             await loadCalendarDesignations();
+            await loadReportFilterDesignations();
             await loadDashboardData();
             await loadSubmittedLeaves();
             renderCalendar();
@@ -2584,15 +2582,16 @@
 
             try {
                 const officeCode = document.getElementById('filterOffice').value;
-                const designationId = document.getElementById('filterDesignation').value;
+                const designationKey = document.getElementById('filterDesignation').value;
                 const fromDate = document.getElementById('filterFromDate').value;
                 const toDate = document.getElementById('filterToDate').value;
                 const params = new URLSearchParams();
                 if (officeCode && officeCode !== 'ALL') {
                     params.append('office_code', officeCode);
                 }
-                if (designationId && designationId !== 'ALL') {
-                    params.append('designation_id', designationId);
+                if (designationKey && designationKey !== 'ALL') {
+                    const ids = getDesignationIds(designationKey);
+                    params.append('designation_ids', ids.join(','));
                 }
                 if (fromDate) params.append('from_date', fromDate);
                 if (toDate) params.append('to_date', toDate);
@@ -3088,15 +3087,66 @@
             return group ? group.ids : [parseInt(key)];
         }
 
+        // Populate report filter designation dropdown dynamically
+        async function loadReportFilterDesignations() {
+            try {
+                const officeCode = currentUser?.div_office_code || '';
+                const response = await fetch(`/api/division/leave/top-designations?office_code=${officeCode}`);
+                const result = await response.json();
+
+                const filterSelect = document.getElementById('filterDesignation');
+                filterSelect.innerHTML = '<option value="ALL">All</option>';
+
+                if (result.success && result.data && result.data.length > 0) {
+                    // Get unique group keys from office designations
+                    const addedGroups = new Set();
+                    result.data.forEach(d => {
+                        const groupKey = mapDesignationToGroup(d.designation_id);
+                        if (!addedGroups.has(groupKey)) {
+                            addedGroups.add(groupKey);
+                            const group = DESIGNATION_GROUPS[groupKey];
+                            const label = group ? group.label : `Designation ${groupKey}`;
+                            const option = document.createElement('option');
+                            option.value = groupKey;
+                            option.textContent = label;
+                            filterSelect.appendChild(option);
+                        }
+                    });
+                } else {
+                    // Fallback: add default options
+                    ALL_DESIGNATIONS.forEach(d => {
+                        const option = document.createElement('option');
+                        option.value = d.key;
+                        option.textContent = d.label;
+                        filterSelect.appendChild(option);
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading report filter designations:', error);
+                // Fallback
+                const filterSelect = document.getElementById('filterDesignation');
+                ALL_DESIGNATIONS.forEach(d => {
+                    const option = document.createElement('option');
+                    option.value = d.key;
+                    option.textContent = d.label;
+                    filterSelect.appendChild(option);
+                });
+            }
+        }
+
         async function loadDashboardData() {
             const officeCode = document.getElementById('filterOffice').value;
-            const designationId = document.getElementById('filterDesignation').value;
+            const designationKey = document.getElementById('filterDesignation').value;
             const fromDate = document.getElementById('filterFromDate').value;
             const toDate = document.getElementById('filterToDate').value;
 
             const params = new URLSearchParams();
             if (officeCode && officeCode !== 'ALL') params.append('office_code', officeCode);
-            if (designationId && designationId !== 'ALL') params.append('designation_id', designationId);
+            if (designationKey && designationKey !== 'ALL') {
+                // Use grouped IDs (e.g., ALP key "1" returns [1,2] for ALP+Sr.ALP)
+                const ids = getDesignationIds(designationKey);
+                params.append('designation_ids', ids.join(','));
+            }
             if (fromDate) params.append('from_date', fromDate);
             if (toDate) params.append('to_date', toDate);
 
