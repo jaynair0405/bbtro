@@ -59,10 +59,14 @@ router.get('/stats', async (req, res) => {
         conn = await req.app.locals.pool.getConnection();
 
         // Get all active staff with DOB for calculating upcoming retirements
+        // Exclude transferred staff and those in 'OTHER' office (Other Railway/Transferred Out)
         let staffQuery = `
             SELECT s.hrms_id, s.date_of_birth
             FROM div_staff_master s
-            WHERE s.status = 'Active' AND s.date_of_birth IS NOT NULL
+            WHERE s.status = 'Active'
+              AND s.date_of_birth IS NOT NULL
+              AND (s.assignment_status IS NULL OR s.assignment_status != 'transferred')
+              AND (s.current_office_code IS NULL OR s.current_office_code != 'OTHER')
         `;
         const staffParams = [];
 
@@ -183,13 +187,17 @@ router.get('/upcoming', async (req, res) => {
 
         conn = await req.app.locals.pool.getConnection();
 
+        // Exclude transferred staff and those in 'OTHER' office (Other Railway/Transferred Out)
         let query = `
             SELECT s.hrms_id, s.name, s.date_of_birth, s.current_cms_id,
                    s.current_office_code, o.office_name, d.designation_name
             FROM div_staff_master s
             LEFT JOIN offices o ON s.current_office_code = o.office_code
             LEFT JOIN designations d ON s.designation_id = d.id
-            WHERE s.status = 'Active' AND s.date_of_birth IS NOT NULL
+            WHERE s.status = 'Active'
+              AND s.date_of_birth IS NOT NULL
+              AND (s.assignment_status IS NULL OR s.assignment_status != 'transferred')
+              AND (s.current_office_code IS NULL OR s.current_office_code != 'OTHER')
         `;
         const params = [];
 
@@ -258,11 +266,15 @@ router.get('/yearly-forecast', async (req, res) => {
 
         conn = await req.app.locals.pool.getConnection();
 
+        // Exclude transferred staff and those in 'OTHER' office (Other Railway/Transferred Out)
         let query = `
             SELECT s.hrms_id, s.date_of_birth, s.designation_id, d.designation_name
             FROM div_staff_master s
             LEFT JOIN designations d ON s.designation_id = d.id
-            WHERE s.status = 'Active' AND s.date_of_birth IS NOT NULL
+            WHERE s.status = 'Active'
+              AND s.date_of_birth IS NOT NULL
+              AND (s.assignment_status IS NULL OR s.assignment_status != 'transferred')
+              AND (s.current_office_code IS NULL OR s.current_office_code != 'OTHER')
         `;
         const params = [];
 
