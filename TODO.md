@@ -2,6 +2,9 @@
 
 ## Database Fixes
 - [ ] Fix missing CLI nominations for other designations (besides designation_id=8)
+  - **Root cause:** Bulk upload sets `current_cli_id` but doesn't insert into `div_cli_nominations`
+  - **Sync script:** `sql/2026-02-14_sync_cli_nominations.sql` (run on server)
+  - **Future fix needed:** Update `bulkUploadRoutes.js` to insert nominations when CLI is provided
 - [x] Check connection leaks in other route files (Fixed 2026-02-01: promotionRoutes, transferRoutes, detonatorRoutes, disciplineRoutes, draftingRoutes, familyRoutes, personnelStoresRoutes, trainingTypesRoutes)
 
 ## UI/UX Improvements
@@ -17,6 +20,70 @@
 
 ## CLI Nomination
 - [x] Allow staff without nomination to be assigned CLI from user side
+- [x] CLI Nomination Letters feature - Create official letters for CLI changes with PDF export
+- [x] CLI Load Overview page - View all CLIs with staff count by designation (Completed 2026-02-14)
+
+### CLI Load Overview Page (Completed)
+**Page:** `/div/cli-load.html`
+**Features Implemented:**
+- Two tabs: Main Line / Suburban
+- Depot-wise breakdown per CLI with designation counts
+- Sticky table header with color-coded designation columns
+- Print / Print Consolidated / Excel export options
+- Click on count → popup with staff list (Name, CMS ID, Designation, Office, Days under CLI)
+- Summary cards: Total Staff, Active CLIs, Avg/CLI, Unassigned (clickable)
+- CLI search dropdown with auto-complete
+- CLI detail panel on selection:
+  - Personal info (CMS ID, Mobile, DOA, Promoted to CLI date)
+  - Years as CLI calculation
+  - Retirement date calculation (same rules as staff)
+  - Designation-wise staff count cards
+  - Safety Category breakdown (A, B, C) excluding ALP/Sr.ALP
+    - Click category → expands to show designation split
+    - Click designation → modal with staff names
+- Row highlighting when CLI selected
+- Back to top floating button
+- Load threshold color indicators (Suburban ~30, Main Line ~35)
+
+**Designation Groups:**
+- ALP (includes Sr.ALP), LPS (includes Sr.LPS), LPG, LPP, LPM, LP Ghat, Motorman
+
+**CLI Type Identification:**
+- Suburban: `current_office_code LIKE '%-SUB'` (e.g., CSMT-SUB, KYN-SUB, PNVL-SUB)
+- Main Line: Others (CSMT-ML, KYN-ML, PNVL-ML, CLA, IGP, LNL, etc.)
+
+**Future Enhancements (Optional):**
+- Filter by office/depot dropdown
+- Sort table by total count or CLI name
+- CLI load balancing suggestions
+
+### CLI Office Role Identification (Future)
+**Purpose:** Identify office-duty CLIs (HQ, Crew Office, etc.) to exclude from load balance calculations.
+**Approach:** Add `cli_role` column to `div_cli_master` or create `div_cli_roles` table.
+
+**Example roles:**
+| cli_id | cli_role |
+|--------|----------|
+| 1 | HQ-ML |
+| 2 | HQ-SUB |
+| 3 | HQ-Cadre |
+| 4 | HQ-PCEE |
+| 5 | HQ-Dy.CEE |
+| 6 | Sr.CC-PNVL |
+| 7 | Sr.CC-KYN |
+| 8 | CLI-CO-KYN |
+| 9 | CLI-CO-PNVL |
+| 10 | HQ-SPM |
+| 11 | HQ-RR |
+| 12 | HQ-CMS |
+
+**Note:** Office CLIs have only 4-6 staff vs field CLIs with 30-35 staff.
+
+### CLI Office History Feature (Existing)
+**Location:** Settings → CLI Management → CLI Office button
+**Table:** `div_cli_office_history` (cli_id, office_code, from_date, to_date, is_current, remarks)
+**Status:** ✅ Already implemented
+**Future:** Can integrate with CLI Load Overview to show posting history
 
 ## New Features
 - [ ] User management page - needs discussion

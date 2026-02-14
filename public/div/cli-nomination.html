@@ -1,0 +1,1798 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CLI Nomination Changes - Division Portal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Space+Grotesk:wght@500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-1ycn6IcaQQ40/MKBW2W4Rhis/DbILU74C1vSrLJxCq57o941Ym01SwNsOMqvEBFlcgUa5MV35aF3bO3yD9/1og==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <style>
+    :root {
+      --brand: #0b5fad;
+      --brand-ink: #0a4074;
+      --accent: #f59e0b;
+      --mint: #10b981;
+      --surface: #ffffff;
+      --surface-soft: #f7fafc;
+      --border: #e2e8f0;
+      --text: #0f172a;
+      --muted: #64748b;
+      --shadow: 0 24px 60px rgba(15, 23, 42, 0.12);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: 'Manrope', 'Space Grotesk', 'Segoe UI', system-ui, sans-serif;
+      background: radial-gradient(1200px 1200px at 15% 20%, rgba(11, 95, 173, 0.12), transparent),
+                  radial-gradient(900px 900px at 80% 0%, rgba(245, 158, 11, 0.10), transparent),
+                  #eef2f7;
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    .page {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 32px 20px 72px;
+    }
+
+    .hero {
+      background: linear-gradient(135deg, #0b5fad, #0a4175);
+      color: #fff;
+      padding: 22px 22px;
+      border-radius: 18px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 18px;
+      box-shadow: 0 20px 50px rgba(11, 95, 173, 0.22);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(520px 520px at 80% 0%, rgba(255,255,255,0.15), transparent),
+                  radial-gradient(360px 360px at 8% 100%, rgba(255,255,255,0.12), transparent);
+      pointer-events: none;
+    }
+
+    .hero-left { position: relative; z-index: 1; }
+    .hero-title {
+      margin: 4px 0 6px;
+      font-size: 1.9rem;
+      letter-spacing: -0.01em;
+    }
+    .eyebrow {
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      font-weight: 700;
+      font-size: 0.75rem;
+      opacity: 0.8;
+      margin: 0;
+    }
+    .hero-subtext {
+      margin: 0;
+      opacity: 0.92;
+    }
+
+    .hero-actions { display: flex; gap: 10px; z-index: 1; position: relative; flex-wrap: wrap; }
+    .btn {
+      border: none;
+      border-radius: 12px;
+      padding: 12px 18px;
+      font-weight: 700;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.2s ease, background 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn-primary {
+      background: #fff;
+      color: var(--brand);
+      box-shadow: 0 12px 30px rgba(255,255,255,0.35);
+    }
+    .btn-ghost {
+      background: rgba(255,255,255,0.12);
+      color: #fff;
+      border: 1px solid rgba(255,255,255,0.25);
+    }
+    .btn-back {
+      background: rgba(255,255,255,0.08);
+      color: #fff;
+      border: 1px solid rgba(255,255,255,0.2);
+      padding: 10px 14px;
+      font-size: 0.9rem;
+    }
+    .btn:hover { transform: translateY(-1px); }
+    .btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+    .stack { display: grid; gap: 18px; margin-top: 24px; }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 18px 18px 22px;
+      box-shadow: var(--shadow);
+    }
+    .card h3 { margin: 0 0 12px; font-size: 1.15rem; letter-spacing: -0.01em; color: var(--brand-ink); }
+    .card .meta { color: var(--muted); font-size: 0.93rem; margin-bottom: 6px; }
+
+    .prev-letter-info {
+      background: #fef3c7;
+      border: 1px solid #fcd34d;
+      border-radius: 10px;
+      padding: 10px 14px;
+      margin-bottom: 14px;
+      font-size: 0.9rem;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .prev-letter-info i { color: #d97706; }
+    .prev-letter-info strong { color: var(--text); }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 14px 16px;
+      align-items: start;
+    }
+
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1fr 1.4fr;
+      gap: 18px;
+      align-items: start;
+    }
+    @media (max-width: 1000px) {
+      .main-grid { grid-template-columns: 1fr; }
+    }
+
+    label.field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-weight: 600;
+      font-size: 0.92rem;
+      color: var(--text);
+    }
+
+    input, select, textarea {
+      width: 100%;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      padding: 11px 12px;
+      font: inherit;
+      background: #fff;
+      transition: border 0.15s ease, box-shadow 0.15s ease;
+    }
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: var(--brand);
+      box-shadow: 0 0 0 3px rgba(11,95,173,0.18);
+    }
+    textarea { min-height: 120px; resize: vertical; }
+
+    .pill-group { display: inline-flex; background: var(--surface-soft); border-radius: 12px; padding: 4px; border: 1px solid var(--border); }
+    .pill {
+      border: none;
+      padding: 8px 14px;
+      border-radius: 10px;
+      font-weight: 700;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+    }
+    .pill.active { background: var(--brand); color: #fff; box-shadow: 0 10px 20px rgba(11,95,173,0.2); }
+
+    .table-card { overflow: hidden; padding: 0; }
+    .table-head {
+      padding: 16px 18px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 14px;
+      border-bottom: 1px solid var(--border);
+    }
+    .table-head h3 { margin: 0; }
+    .table-head .counts { display: flex; gap: 10px; flex-wrap: wrap; }
+    .chip {
+      background: var(--surface-soft);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 6px 12px;
+      font-size: 0.9rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--muted);
+    }
+    .chip strong { color: var(--text); }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.94rem;
+    }
+    th, td {
+      padding: 12px 10px;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+    }
+    th { background: #f8fafc; text-transform: uppercase; letter-spacing: 0.04em; font-size: 0.78rem; color: var(--muted); }
+    tbody tr:nth-child(odd) { background: #fcfdff; }
+    tbody tr:hover { background: #f1f5f9; }
+    td.actions { text-align: center; width: 70px; }
+    .icon-btn {
+      border: none;
+      background: #fff1f2;
+      color: #b91c1c;
+      border: 1px solid #fecdd3;
+      border-radius: 10px;
+      padding: 6px 10px;
+      cursor: pointer;
+    }
+    .icon-btn:hover { background: #fee2e2; }
+
+    .inline-form {
+      display: grid;
+      grid-template-columns: 1.5fr 1fr 0.5fr 0.8fr auto;
+      gap: 10px;
+      align-items: end;
+      padding: 16px 18px 18px;
+      background: #f8fafc;
+      border-top: 1px solid var(--border);
+    }
+    .inline-form .btn { height: 44px; justify-content: center; }
+
+    /* Staff search autocomplete */
+    .search-wrapper { position: relative; z-index: 200; }
+    .search-results {
+      position: absolute;
+      bottom: 100%;
+      left: 0;
+      right: 0;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: 0 -10px 40px rgba(0,0,0,0.15);
+      max-height: 280px;
+      overflow-y: auto;
+      z-index: 1000;
+      display: none;
+      margin-bottom: 4px;
+    }
+    .search-results.show { display: block; }
+    .search-result-item {
+      padding: 10px 14px;
+      cursor: pointer;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .search-result-item:last-child { border-bottom: none; }
+    .search-result-item:hover { background: #f1f5f9; }
+    .search-result-item .staff-info { flex: 1; }
+    .search-result-item .staff-name { font-weight: 600; color: var(--text); }
+    .search-result-item .staff-detail { font-size: 0.85rem; color: var(--muted); }
+    .search-result-item .current-cli {
+      font-size: 0.8rem;
+      background: #dbeafe;
+      color: #1e40af;
+      padding: 4px 8px;
+      border-radius: 6px;
+    }
+
+    .preview-card {
+      background: linear-gradient(180deg, #ffffff 0%, #f9fbff 100%);
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      padding: 18px 14px 22px;
+      box-shadow: 0 18px 48px rgba(15, 23, 42, 0.14);
+      position: sticky;
+      top: 16px;
+      overflow: hidden;
+    }
+    .preview-card .preview-body { overflow-x: auto; }
+    .preview-meta { display: flex; justify-content: space-between; gap: 10px; color: var(--muted); font-size: 0.9rem; }
+    .preview-title { font-size: 1.05rem; margin: 12px 0 6px; font-weight: 700; color: var(--brand-ink); }
+    .preview-body { font-size: 0.95rem; color: var(--text); }
+    .preview-body p { margin: 6px 0 8px; }
+    .preview-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.82rem; }
+    .preview-table th, .preview-table td { border: 1px solid var(--border); padding: 6px 6px; word-wrap: break-word; }
+    .preview-table th { background: #eef2f7; font-weight: 700; color: var(--text); text-align: center; font-size: 0.72rem; white-space: nowrap; }
+    .preview-table td:first-child, .preview-table th:first-child { text-align: center; width: 26px; }
+    .preview-table td { vertical-align: top; }
+    .note { color: var(--muted); font-size: 0.9rem; margin-top: 10px; }
+
+    .empty-state {
+      padding: 40px 20px;
+      text-align: center;
+      color: var(--muted);
+    }
+    .empty-state i { font-size: 48px; margin-bottom: 12px; opacity: 0.5; }
+
+    .loading-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(255,255,255,0.8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      display: none;
+    }
+    .loading-overlay.show { display: flex; }
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 4px solid var(--border);
+      border-top-color: var(--brand);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: #1f2937;
+      color: #fff;
+      padding: 14px 20px;
+      border-radius: 12px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+      z-index: 1001;
+      display: none;
+    }
+    .toast.show { display: block; }
+    .toast.success { background: #059669; }
+    .toast.error { background: #dc2626; }
+
+    /* CLI History Popup */
+    .history-popup {
+      position: fixed;
+      bottom: 80px;
+      right: 24px;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+      width: 320px;
+      max-height: 300px;
+      z-index: 1002;
+      display: none;
+      overflow: hidden;
+    }
+    .history-popup.show { display: block; }
+    .history-popup-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 14px;
+      background: var(--brand);
+      color: #fff;
+      font-size: 0.9rem;
+    }
+    .history-popup-header button {
+      background: none;
+      border: none;
+      color: #fff;
+      font-size: 1.2rem;
+      cursor: pointer;
+    }
+    .history-popup-body {
+      padding: 10px;
+      max-height: 240px;
+      overflow-y: auto;
+    }
+    .history-item {
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.85rem;
+    }
+    .history-item:last-child { border-bottom: none; }
+    .history-item .cli-name { font-weight: 600; color: var(--brand-ink); }
+    .history-item .dates { color: var(--muted); font-size: 0.8rem; }
+    .history-item.active { background: #ecfdf5; border-left: 3px solid var(--mint); }
+    .history-item.expired { opacity: 0.7; }
+    .history-empty { text-align: center; color: var(--muted); padding: 20px; }
+
+    /* Letter History Modal */
+    .letter-history-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 2000;
+    }
+    .letter-history-modal.show { display: flex; }
+    .letter-history-content {
+      background: #fff;
+      border-radius: 16px;
+      width: 90%;
+      max-width: 550px;
+      max-height: 80vh;
+      overflow: hidden;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    .letter-history-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 20px;
+      background: var(--brand);
+      color: #fff;
+    }
+    .letter-history-header h3 { margin: 0; font-size: 1.1rem; }
+    .letter-history-header button {
+      background: none;
+      border: none;
+      color: #fff;
+      font-size: 1.4rem;
+      cursor: pointer;
+      line-height: 1;
+    }
+    .letter-history-filters {
+      padding: 12px 20px;
+      background: #f8fafc;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+    .letter-history-filters select {
+      padding: 6px 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 0.9rem;
+    }
+    .letter-history-body {
+      padding: 0;
+      max-height: 55vh;
+      overflow-y: auto;
+    }
+    .letter-year-group {
+      padding: 8px 20px;
+      background: #e2e8f0;
+      font-weight: 700;
+      color: var(--brand-ink);
+      font-size: 0.85rem;
+      position: sticky;
+      top: 0;
+    }
+    .letter-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 20px;
+      border-bottom: 1px solid #f1f5f9;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .letter-item:hover { background: #f0f9ff; }
+    .letter-item-main { flex: 1; }
+    .letter-item-date { font-weight: 600; color: var(--text); }
+    .letter-item-no { color: var(--muted); font-size: 0.85rem; margin-left: 8px; }
+    .letter-item-preview { font-size: 0.85rem; color: #64748b; margin-top: 2px; }
+    .letter-item-icon { color: var(--brand); font-size: 1.1rem; }
+    .letter-history-empty { text-align: center; color: var(--muted); padding: 40px 20px; }
+
+    @media (max-width: 1080px) {
+      .hero { grid-template-columns: 1fr; }
+      .inline-form { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+    }
+    @media (max-width: 720px) {
+      .table-head { flex-direction: column; align-items: flex-start; }
+      .hero { padding: 18px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="loading-overlay" id="loadingOverlay"><div class="spinner"></div></div>
+  <div class="toast" id="toast"></div>
+
+  <!-- CLI History Popup -->
+  <div class="history-popup" id="historyPopup">
+    <div class="history-popup-header">
+      <span>CLI History: <strong id="historyStaffName"></strong></span>
+      <button onclick="document.getElementById('historyPopup').classList.remove('show')">&times;</button>
+    </div>
+    <div class="history-popup-body" id="historyPopupBody">
+      <!-- History items will be inserted here -->
+    </div>
+  </div>
+
+  <!-- Letter History Modal -->
+  <div class="letter-history-modal" id="letterHistoryModal">
+    <div class="letter-history-content">
+      <div class="letter-history-header">
+        <h3><i class="fa-solid fa-clock-rotate-left"></i> Letter History</h3>
+        <button onclick="closeLetterHistory()">&times;</button>
+      </div>
+      <div class="letter-history-filters">
+        <label>Year:</label>
+        <select id="letterYearFilter" onchange="filterLetterHistory()">
+          <option value="">All Years</option>
+        </select>
+        <label style="margin-left:12px;">Type:</label>
+        <select id="letterTypeFilter" onchange="filterLetterHistory()">
+          <option value="">All</option>
+          <option value="MAINLINE">Main Line</option>
+          <option value="SUBURBAN">Suburban</option>
+        </select>
+      </div>
+      <div class="letter-history-body" id="letterHistoryBody">
+        <!-- Populated dynamically -->
+      </div>
+    </div>
+  </div>
+
+  <div class="page">
+    <header class="hero">
+      <div class="hero-left">
+        <p class="eyebrow">BB Division • CLI Console</p>
+        <h1 class="hero-title">Nomination Change Letter</h1>
+        <p class="hero-subtext">Record the official letter shell and capture staff-wise CLI changes in one focused view.</p>
+        <div style="margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap;">
+          <div class="chip" id="chipType"><i class="fa-solid fa-route"></i><strong id="chipTypeText">Main line</strong> staff</div>
+          <div class="chip"><i class="fa-regular fa-calendar"></i><span id="chipDateText">—</span></div>
+          <div class="chip"><i class="fa-solid fa-hashtag"></i><span id="chipCountText">0 staff listed</span></div>
+        </div>
+      </div>
+      <div class="hero-actions">
+        <button class="btn btn-back" onclick="window.location.href='/div'"><i class="fa-solid fa-arrow-left"></i>Back</button>
+        <button class="btn btn-ghost" id="btnHistory"><i class="fa-solid fa-clock-rotate-left"></i>History</button>
+        <button class="btn btn-ghost" id="btnSave"><i class="fa-regular fa-floppy-disk"></i>Save Letter</button>
+        <button class="btn btn-primary" id="btnExport"><i class="fa-solid fa-file-export"></i>Export PDF</button>
+      </div>
+    </header>
+
+    <div class="stack">
+      <div class="main-grid">
+        <section class="card">
+          <div class="meta">Letter header</div>
+          <h3>Shell Details</h3>
+
+          <!-- Previous Letter Info -->
+          <div class="prev-letter-info" id="prevLetterInfo" style="display: none;">
+            <i class="fa-solid fa-info-circle"></i>
+            <span>Last letter: <strong id="prevLetterNo">—</strong> dated <strong id="prevLetterDate">—</strong></span>
+          </div>
+
+          <div class="grid-2">
+            <label class="field">Letter Date
+              <input type="date" id="letterDate" />
+            </label>
+            <label class="field">Letter No
+              <input type="text" id="letterNo" placeholder="BB.TRSO.ESTB.16" />
+            </label>
+            <label class="field">Staff Type
+              <div class="pill-group" role="group" aria-label="Staff type">
+                <button class="pill" data-type="SUBURBAN">Suburban</button>
+                <button class="pill active" data-type="NON_SUBURBAN">Main line</button>
+              </div>
+            </label>
+            <label class="field">Subject
+              <input type="text" id="subject" value="Sub: Changes in nomination." />
+            </label>
+          </div>
+          <label class="field" style="margin-top: 8px;">Content Text
+            <textarea id="contentText">Due to posting & rotation of Loco Pilot changes are made in Loco Inspectors nomination list with immediate effect.</textarea>
+          </label>
+          <div class="grid-2" style="margin-top: 8px;">
+            <label class="field">Footer Text
+              <input type="text" id="footerText" value="" placeholder="Optional note above C/ section" />
+            </label>
+            <div style="display:grid; gap:10px;">
+              <label class="field">Signing Designation
+                <input type="text" id="signDesignation" placeholder="Sr.DEE/TRSO/BB" />
+              </label>
+              <label class="field">Place
+                <input type="text" id="signPlace" placeholder="Mumbai" />
+              </label>
+            </div>
+          </div>
+        </section>
+
+        <aside class="preview-card" aria-live="polite">
+          <div class="preview-meta">
+            <div><strong>No.</strong> <span id="previewLetterNo">—</span></div>
+            <div><strong>Date:</strong> <span id="previewLetterDate">—</span></div>
+          </div>
+          <div class="preview-title">Sub: <span id="previewSubject">Changes in nomination.</span></div>
+          <div class="preview-body">
+            <p id="previewContent">Due to posting & rotation of Loco Pilot changes are made in Loco Inspectors nomination list with immediate effect.</p>
+            <table class="preview-table">
+              <thead>
+                <tr>
+                  <th>Sr</th>
+                  <th>Name</th>
+                  <th>CMS ID</th>
+                  <th>Desg.</th>
+                  <th>Depot</th>
+                  <th>CAT</th>
+                  <th>From CLI</th>
+                  <th>To CLI</th>
+                  <th>Remarks</th>
+                </tr>
+              </thead>
+              <tbody id="previewTable"></tbody>
+            </table>
+            <p class="note" id="previewFooter"></p>
+            <p class="note" id="previewSign">—</p>
+          </div>
+        </aside>
+      </div>
+
+      <section class="card table-card">
+        <div class="table-head">
+          <div>
+            <div class="meta">Changes list</div>
+            <h3>Staff & CLI Changes</h3>
+          </div>
+          <div class="counts">
+            <div class="chip"><i class="fa-regular fa-circle-check" style="color:var(--mint);"></i><strong id="countStaff">0</strong> staff captured</div>
+            <div class="chip"><i class="fa-solid fa-arrows-spin" style="color:var(--brand);"></i><strong id="countCli">0</strong> CLI updates</div>
+          </div>
+        </div>
+
+        <table aria-label="Changes table">
+          <thead>
+            <tr>
+              <th>Sr</th>
+              <th>Name</th>
+              <th>CMS ID</th>
+              <th>Desg.</th>
+              <th>Depot</th>
+              <th>CAT</th>
+              <th>From CLI</th>
+              <th>To CLI</th>
+              <th>Remarks</th>
+              <th style="text-align:center; width:70px;">Action</th>
+            </tr>
+          </thead>
+          <tbody id="changeRows">
+            <tr class="empty-state-row">
+              <td colspan="10">
+                <div class="empty-state">
+                  <i class="fa-solid fa-users-slash"></i>
+                  <p>No staff added yet. Use the search below to add staff.</p>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <form class="inline-form" id="addForm" onsubmit="return false;">
+          <label class="field">Search staff (name / PF / HRMS)
+            <div class="search-wrapper">
+              <input type="text" id="searchInput" placeholder="Type to search..." autocomplete="off" />
+              <div class="search-results" id="searchResults"></div>
+            </div>
+          </label>
+          <label class="field">To CLI
+            <select id="newCliSelect">
+              <option value="">Select CLI...</option>
+            </select>
+          </label>
+          <label class="field">Category
+            <select id="catSelect">
+              <option value="">--</option>
+              <option value="A">A</option>
+              <option value="B">B</option>
+              <option value="C">C</option>
+            </select>
+          </label>
+          <label class="field">Remarks
+            <input type="text" id="remarksInput" placeholder="Optional" />
+          </label>
+          <div>
+            <button class="btn btn-primary" id="btnAdd" disabled><i class="fa-solid fa-plus"></i>Add</button>
+          </div>
+        </form>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    // State
+    const state = {
+      letterId: null,
+      staffType: 'NON_SUBURBAN',
+      changes: [],              // Local changes (not saved to DB yet)
+      deletedNominationIds: [], // Track nominations to delete on save
+      cliOptions: [],
+      selectedStaff: null,
+      prevLetter: null,
+      existingLetterForDate: null, // Existing letter for selected date (if any)
+      isSaved: false,           // Track if current letter is saved
+      isEditing: false          // True if editing an existing letter from DB
+    };
+
+    // DOM Elements
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    const toastEl = document.getElementById('toast');
+    const changeRowsEl = document.getElementById('changeRows');
+    const previewTableEl = document.getElementById('previewTable');
+    const chipDateText = document.getElementById('chipDateText');
+    const chipCountText = document.getElementById('chipCountText');
+    const chipTypeText = document.getElementById('chipTypeText');
+    const countStaff = document.getElementById('countStaff');
+    const countCli = document.getElementById('countCli');
+    const prevLetterInfo = document.getElementById('prevLetterInfo');
+    const prevLetterNo = document.getElementById('prevLetterNo');
+    const prevLetterDate = document.getElementById('prevLetterDate');
+
+    const letterDateInput = document.getElementById('letterDate');
+    const letterNoInput = document.getElementById('letterNo');
+    const subjectInput = document.getElementById('subject');
+    const contentInput = document.getElementById('contentText');
+    const footerInput = document.getElementById('footerText');
+    const signDesignationInput = document.getElementById('signDesignation');
+    const signPlaceInput = document.getElementById('signPlace');
+    const searchInput = document.getElementById('searchInput');
+    const searchResults = document.getElementById('searchResults');
+    const newCliSelect = document.getElementById('newCliSelect');
+    const catSelect = document.getElementById('catSelect');
+    const remarksInput = document.getElementById('remarksInput');
+    const btnAdd = document.getElementById('btnAdd');
+
+    const previewLetterNo = document.getElementById('previewLetterNo');
+    const previewLetterDate = document.getElementById('previewLetterDate');
+    const previewSubject = document.getElementById('previewSubject');
+    const previewContent = document.getElementById('previewContent');
+    const previewFooter = document.getElementById('previewFooter');
+    const previewSign = document.getElementById('previewSign');
+
+    // Utility functions
+    function showLoading() { loadingOverlay.classList.add('show'); }
+    function hideLoading() { loadingOverlay.classList.remove('show'); }
+
+    function showToast(message, type = 'info') {
+      toastEl.textContent = message;
+      toastEl.className = 'toast show ' + type;
+      setTimeout(() => toastEl.classList.remove('show'), 3000);
+    }
+
+    function formatDate(value) {
+      if (!value) return '—';
+      const d = new Date(value + 'T00:00:00');
+      return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    }
+
+    function getFixedLetterNo() {
+      // Fixed letter number - 15 is the office record index, same for all nomination letters
+      return state.staffType === 'SUBURBAN' ? 'BB.TRSO.EMU.15' : 'BB.TRSO.ESTB.15';
+    }
+
+    // Designation short forms for PDF/tables
+    function shortDesignation(designation) {
+      if (!designation) return '—';
+      const d = designation.toLowerCase();
+      if (d.includes('asst') && d.includes('loco') && d.includes('pilot')) return 'ALP';
+      if (d.includes('loco') && d.includes('pilot') && d.includes('goods')) return 'LPG';
+      if (d.includes('loco') && d.includes('pilot') && d.includes('ghat')) return 'LP-GHAT';
+      if (d.includes('loco') && d.includes('pilot') && d.includes('mail')) return 'LPM';
+      if (d.includes('loco') && d.includes('pilot') && d.includes('pass')) return 'LPP';
+      if (d.includes('shunter')) return 'LPS';
+      if (d.includes('motorman')) return 'Motorman';
+      // Return first word or abbreviation if no match
+      return designation.length > 10 ? designation.substring(0, 8) + '..' : designation;
+    }
+
+    // API calls
+    async function fetchAPI(url, options = {}) {
+      try {
+        const response = await fetch(url, {
+          ...options,
+          headers: {
+            'Content-Type': 'application/json',
+            ...options.headers
+          }
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'API error');
+        return data;
+      } catch (error) {
+        console.error('API Error:', error);
+        throw error;
+      }
+    }
+
+    // Load CLIs for dropdown
+    async function loadCLIs() {
+      try {
+        const data = await fetchAPI('/api/division/cli/load-view');
+        state.cliOptions = data.data.clis || [];
+        renderCliOptions();
+      } catch (error) {
+        showToast('Failed to load CLIs', 'error');
+      }
+    }
+
+    function renderCliOptions() {
+      newCliSelect.innerHTML = '<option value="">Select CLI...</option>' +
+        state.cliOptions.map(cli =>
+          `<option value="${cli.cli_id}">${cli.cli_name} (${cli.staff_count} staff)</option>`
+        ).join('');
+    }
+
+    // Load previous letter info (don't auto-load - user can use History)
+    async function loadPreviousLetter() {
+      try {
+        const data = await fetchAPI(`/api/division/cli/letters?staff_type=${state.staffType}`);
+        const letters = data.data || [];
+
+        // Always set the fixed letter number based on staff type
+        letterNoInput.value = getFixedLetterNo();
+
+        if (letters.length > 0) {
+          state.prevLetter = letters[0];
+          prevLetterNo.textContent = state.prevLetter.letter_no || '—';
+          prevLetterDate.textContent = formatDate(state.prevLetter.letter_date);
+          prevLetterInfo.style.display = 'flex';
+
+          // Check if letter exists for selected date - store for warning on save
+          const selectedDate = letterDateInput.value;
+          const existingLetter = letters.find(l => l.letter_date && l.letter_date.split('T')[0] === selectedDate);
+          state.existingLetterForDate = existingLetter || null;
+        } else {
+          prevLetterInfo.style.display = 'none';
+          state.existingLetterForDate = null;
+        }
+
+        updatePreviewText();
+      } catch (error) {
+        console.error('Failed to load previous letter:', error);
+      }
+    }
+
+    // Staff search with debounce
+    let searchTimeout;
+    async function searchStaff(query) {
+      if (!query || query.length < 2) {
+        searchResults.classList.remove('show');
+        return;
+      }
+
+      try {
+        const data = await fetchAPI(`/api/division/cli/staff-for-letter?search=${encodeURIComponent(query)}&staff_type=${state.staffType}`);
+        const staff = data.data || [];
+
+        if (staff.length === 0) {
+          searchResults.innerHTML = '<div class="search-result-item"><span class="staff-detail">No staff found</span></div>';
+        } else {
+          searchResults.innerHTML = staff.map(s => `
+            <div class="search-result-item" data-staff='${JSON.stringify(s).replace(/'/g, "&#39;")}'>
+              <div class="staff-info">
+                <div class="staff-name">${s.name}</div>
+                <div class="staff-detail">${s.current_cms_id || s.hrms_id} • ${s.designation_name || '—'} • ${s.current_office_code || '—'}</div>
+              </div>
+              <span class="current-cli">${s.current_cli_name || 'No CLI'}</span>
+            </div>
+          `).join('');
+        }
+        searchResults.classList.add('show');
+      } catch (error) {
+        showToast('Search failed', 'error');
+      }
+    }
+
+    searchInput.addEventListener('input', (e) => {
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(() => searchStaff(e.target.value), 300);
+    });
+
+    searchResults.addEventListener('click', (e) => {
+      const item = e.target.closest('.search-result-item');
+      if (item && item.dataset.staff) {
+        state.selectedStaff = JSON.parse(item.dataset.staff);
+        searchInput.value = `${state.selectedStaff.name} (${state.selectedStaff.current_cms_id || state.selectedStaff.hrms_id})`;
+        searchResults.classList.remove('show');
+        btnAdd.disabled = false;
+
+        // Pre-select category if available
+        if (state.selectedStaff.safety_category) {
+          catSelect.value = state.selectedStaff.safety_category;
+        }
+
+        // Fetch and show CLI history
+        showCliHistory(state.selectedStaff.hrms_id, state.selectedStaff.name);
+      }
+    });
+
+    // Fetch and display CLI history for selected staff
+    async function showCliHistory(hrmsId, staffName) {
+      const popup = document.getElementById('historyPopup');
+      const body = document.getElementById('historyPopupBody');
+      const nameEl = document.getElementById('historyStaffName');
+
+      nameEl.textContent = staffName;
+      body.innerHTML = '<div class="history-empty">Loading...</div>';
+      popup.classList.add('show');
+
+      try {
+        const data = await fetchAPI(`/api/division/cli/staff-history/${hrmsId}`);
+        const history = data.data || [];
+
+        if (history.length === 0) {
+          body.innerHTML = '<div class="history-empty">No previous CLI assignments</div>';
+        } else {
+          body.innerHTML = history.map(h => `
+            <div class="history-item ${h.status === 'Active' ? 'active' : 'expired'}">
+              <div class="cli-name">${h.cli_name}</div>
+              <div class="dates">
+                ${formatDate(h.nominated_from_date)}${h.nominated_to_date ? ' → ' + formatDate(h.nominated_to_date) : ' → Present'}
+                <span style="float:right; font-size:0.75rem; ${h.status === 'Active' ? 'color:var(--mint);' : ''}">${h.status}</span>
+              </div>
+            </div>
+          `).join('');
+        }
+
+        // Auto-hide after 8 seconds
+        setTimeout(() => popup.classList.remove('show'), 8000);
+      } catch (error) {
+        body.innerHTML = '<div class="history-empty">Failed to load history</div>';
+      }
+    }
+
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.search-wrapper')) {
+        searchResults.classList.remove('show');
+      }
+    });
+
+    // Add staff change (local only - not saved to DB until Save Letter)
+    function addChange() {
+      if (!state.selectedStaff || !newCliSelect.value) {
+        showToast('Select staff and new CLI', 'error');
+        return;
+      }
+
+      // Check if staff already in list
+      const alreadyExists = state.changes.some(c => c.staff_hrms_id === state.selectedStaff.hrms_id);
+      if (alreadyExists) {
+        showToast('Staff already in the list', 'error');
+        return;
+      }
+
+      // Get selected CLI details
+      const selectedCliOption = newCliSelect.options[newCliSelect.selectedIndex];
+      const newCliName = selectedCliOption.text.split(' (')[0]; // Extract CLI name
+
+      // Add to local state
+      const change = {
+        staff_hrms_id: state.selectedStaff.hrms_id,
+        staff_name: state.selectedStaff.name,
+        mobile: state.selectedStaff.mobile || null,
+        pf_no: state.selectedStaff.current_cms_id,
+        designation_name: state.selectedStaff.designation_name,
+        depot: state.selectedStaff.current_office_code,
+        category: catSelect.value || state.selectedStaff.safety_category,
+        old_cli_name: state.selectedStaff.current_cli_name,
+        old_cli_id: state.selectedStaff.current_cli_id,
+        new_cli_id: parseInt(newCliSelect.value),
+        new_cli_name: newCliName,
+        new_category: catSelect.value || null,
+        remarks: remarksInput.value || null
+      };
+
+      state.changes.push(change);
+      state.isSaved = false;
+
+      showToast('Staff added to list', 'success');
+
+      // Reset form (keep CLI selected for bulk adding)
+      searchInput.value = '';
+      catSelect.value = '';
+      remarksInput.value = '';
+      state.selectedStaff = null;
+      btnAdd.disabled = true;
+
+      // Focus back to search for quick next entry
+      searchInput.focus();
+
+      // Re-render
+      renderChanges();
+      updateSaveButtonState();
+    }
+
+    btnAdd.addEventListener('click', addChange);
+
+    // Remove change (local only - will be deleted from DB on save)
+    function removeChange(idx) {
+      if (!confirm('Remove this staff from the list?')) return;
+
+      const change = state.changes[idx];
+      // If this change was already saved to DB, track it for deletion
+      if (change.nomination_id) {
+        state.deletedNominationIds.push(change.nomination_id);
+      }
+
+      state.changes.splice(idx, 1);
+      state.isSaved = false;
+      showToast('Staff removed from list', 'success');
+      renderChanges();
+      updateSaveButtonState();
+    }
+
+    changeRowsEl.addEventListener('click', (e) => {
+      const btn = e.target.closest('button[data-idx]');
+      if (btn) {
+        removeChange(parseInt(btn.dataset.idx));
+      }
+    });
+
+    // Update save button state based on unsaved changes
+    function updateSaveButtonState() {
+      const btnSave = document.getElementById('btnSave');
+      if (state.changes.length > 0 && !state.isSaved) {
+        btnSave.innerHTML = '<i class="fa-regular fa-floppy-disk"></i>Save Letter (' + state.changes.length + ')';
+        btnSave.style.background = '#fbbf24';
+        btnSave.style.color = '#78350f';
+        btnSave.style.borderColor = '#f59e0b';
+      } else if (state.isSaved) {
+        btnSave.innerHTML = '<i class="fa-solid fa-check"></i>Saved';
+        btnSave.style.background = 'rgba(16, 185, 129, 0.2)';
+        btnSave.style.color = '#059669';
+        btnSave.style.borderColor = '#10b981';
+      } else {
+        btnSave.innerHTML = '<i class="fa-regular fa-floppy-disk"></i>Save Letter';
+        btnSave.style.background = '';
+        btnSave.style.color = '';
+        btnSave.style.borderColor = '';
+      }
+    }
+
+    // Save/create letter with all changes
+    async function saveLetter() {
+      if (!letterDateInput.value) {
+        showToast('Please enter letter date', 'error');
+        return;
+      }
+
+      if (state.changes.length === 0 && state.deletedNominationIds.length === 0) {
+        showToast('Add at least one staff change', 'error');
+        return;
+      }
+
+      // Warn if adding to existing letter (not editing)
+      if (!state.isEditing && state.existingLetterForDate) {
+        const existingCount = state.existingLetterForDate.change_count || 0;
+        if (existingCount > 0) {
+          const confirmAdd = confirm(
+            `A letter already exists for this date with ${existingCount} staff.\n\n` +
+            `Your ${state.changes.length} new staff will be ADDED to that letter.\n\n` +
+            `Click OK to add, or Cancel and change the date for a separate letter.`
+          );
+          if (!confirmAdd) return;
+        }
+      }
+
+      showLoading();
+      try {
+        // 1. Create/update letter metadata
+        const letterPayload = {
+          letter_date: letterDateInput.value,
+          letter_no: letterNoInput.value || null,
+          staff_type: state.staffType,
+          subject: subjectInput.value || null,
+          content_text: contentInput.value || null,
+          footer_text: footerInput.value || null,
+          signing_designation: signDesignationInput.value || null,
+          signing_place: signPlaceInput.value || null
+        };
+
+        let letterData;
+        if (state.letterId && state.isEditing) {
+          // Update existing letter
+          letterData = await fetchAPI(`/api/division/cli/letters/${state.letterId}`, {
+            method: 'PUT',
+            body: JSON.stringify(letterPayload)
+          });
+        } else {
+          // Create new letter
+          letterData = await fetchAPI('/api/division/cli/letters', {
+            method: 'POST',
+            body: JSON.stringify(letterPayload)
+          });
+          state.letterId = letterData.id;
+        }
+
+        let successCount = 0;
+        let errorCount = 0;
+
+        // 2. Delete removed nominations from DB
+        for (const nominationId of state.deletedNominationIds) {
+          try {
+            await fetchAPI(`/api/division/cli/letters/${state.letterId}/remove-change/${nominationId}`, {
+              method: 'DELETE'
+            });
+          } catch (err) {
+            console.error('Failed to delete nomination:', err);
+            errorCount++;
+          }
+        }
+        state.deletedNominationIds = []; // Clear after processing
+
+        // 3. Add new changes to the letter
+        for (const change of state.changes) {
+          // Skip if already has nomination_id (already in DB)
+          if (change.nomination_id) {
+            successCount++;
+            continue;
+          }
+
+          try {
+            const changePayload = {
+              staff_hrms_id: change.staff_hrms_id,
+              new_cli_id: change.new_cli_id,
+              new_category: change.new_category,
+              remarks: change.remarks
+            };
+
+            const result = await fetchAPI(`/api/division/cli/letters/${state.letterId}/add-change`, {
+              method: 'POST',
+              body: JSON.stringify(changePayload)
+            });
+
+            change.nomination_id = result.nomination_id;
+            successCount++;
+          } catch (err) {
+            console.error('Failed to save change:', err);
+            errorCount++;
+          }
+        }
+
+        state.isSaved = true;
+        state.isEditing = true;
+        state.existingLetterForDate = null; // Clear since we're now editing this letter
+        updateSaveButtonState();
+        renderChanges(); // Re-render to update any UI
+
+        if (errorCount > 0) {
+          showToast(`Saved ${successCount} changes, ${errorCount} failed`, 'error');
+        } else {
+          showToast(`Letter saved with ${successCount} staff changes`, 'success');
+        }
+
+        // Don't reload letter - keep showing only current session's changes
+
+      } catch (error) {
+        showToast(error.message || 'Failed to save letter', 'error');
+      } finally {
+        hideLoading();
+      }
+    }
+
+    document.getElementById('btnSave').addEventListener('click', saveLetter);
+
+    // Load existing letter
+    async function loadLetter(letterId) {
+      showLoading();
+      try {
+        const data = await fetchAPI(`/api/division/cli/letters/${letterId}`);
+        const { letter, changes } = data.data;
+
+        state.letterId = letter.id;
+        state.changes = changes;
+        state.isEditing = true;   // Mark as editing existing letter
+        state.isSaved = true;     // Data is already in DB
+
+        letterDateInput.value = letter.letter_date ? letter.letter_date.split('T')[0] : '';
+        letterNoInput.value = letter.letter_no || '';
+        subjectInput.value = letter.subject || 'Sub: Changes in nomination.';
+        contentInput.value = letter.content_text || '';
+        footerInput.value = letter.footer_text || '';
+        signDesignationInput.value = letter.signing_designation || '';
+        signPlaceInput.value = letter.signing_place || '';
+
+        // Update staff type pill
+        state.staffType = letter.staff_type;
+        document.querySelectorAll('.pill').forEach(p => {
+          p.classList.toggle('active', p.dataset.type === letter.staff_type);
+        });
+
+        renderChanges();
+        updatePreviewText();
+        syncChips();
+        updateSaveButtonState();
+      } catch (error) {
+        showToast('Failed to load letter', 'error');
+      } finally {
+        hideLoading();
+      }
+    }
+
+    // Render changes table
+    function renderChanges() {
+      if (state.changes.length === 0) {
+        changeRowsEl.innerHTML = `
+          <tr class="empty-state-row">
+            <td colspan="10">
+              <div class="empty-state">
+                <i class="fa-solid fa-users-slash"></i>
+                <p>No staff added yet. Use the search below to add staff.</p>
+              </div>
+            </td>
+          </tr>
+        `;
+      } else {
+        changeRowsEl.innerHTML = state.changes.map((row, idx) => `
+          <tr>
+            <td>${idx + 1}</td>
+            <td>${row.staff_name}${row.mobile ? `<br><span style="font-size:0.8em;color:#64748b;">${row.mobile}</span>` : ''}</td>
+            <td><code>${row.pf_no || '—'}</code>${row.staff_hrms_id ? `<br><span style="font-size:0.75em;color:#64748b;">${row.staff_hrms_id}</span>` : ''}</td>
+            <td>${shortDesignation(row.designation_name)}</td>
+            <td>${row.depot || '—'}</td>
+            <td>${row.category || '—'}</td>
+            <td>${row.old_cli_name || '—'}</td>
+            <td><strong>${row.new_cli_name}</strong></td>
+            <td>${row.remarks || '—'}</td>
+            <td class="actions">
+              <button class="icon-btn" data-idx="${idx}" title="Remove">
+                <i class="fa-solid fa-xmark"></i>
+              </button>
+            </td>
+          </tr>
+        `).join('');
+      }
+
+      countStaff.textContent = state.changes.length;
+      countCli.textContent = state.changes.length;
+      chipCountText.textContent = `${state.changes.length} staff listed`;
+      renderPreviewTable();
+    }
+
+    function renderPreviewTable() {
+      previewTableEl.innerHTML = state.changes.map((row, idx) => `
+        <tr>
+          <td>${idx + 1}</td>
+          <td>${row.staff_name}${row.mobile ? `<br><span style="font-size:0.75em;color:#64748b;">${row.mobile}</span>` : ''}</td>
+          <td>${row.pf_no || '—'}${row.staff_hrms_id ? `<br><span style="font-size:0.75em;color:#64748b;">${row.staff_hrms_id}</span>` : ''}</td>
+          <td>${shortDesignation(row.designation_name)}</td>
+          <td>${row.depot || '—'}</td>
+          <td>${row.category || '—'}</td>
+          <td>${row.old_cli_name || '—'}</td>
+          <td>${row.new_cli_name}</td>
+          <td>${row.remarks || '—'}</td>
+        </tr>
+      `).join('');
+    }
+
+    function updatePreviewText() {
+      previewLetterNo.textContent = letterNoInput.value || '—';
+      previewLetterDate.textContent = formatDate(letterDateInput.value);
+      previewSubject.textContent = subjectInput.value.replace(/^Sub:\s*/i, '') || 'Changes in nomination.';
+      previewContent.textContent = contentInput.value || '—';
+      previewFooter.textContent = footerInput.value || '';
+
+      const signParts = [signDesignationInput.value, signPlaceInput.value].filter(Boolean).join(' • ');
+      previewSign.textContent = signParts || '—';
+    }
+
+    function syncChips() {
+      chipTypeText.textContent = state.staffType === 'SUBURBAN' ? 'Suburban' : 'Main line';
+      chipDateText.textContent = formatDate(letterDateInput.value);
+    }
+
+    // Staff type toggle
+    document.querySelectorAll('.pill').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (state.changes.length > 0) {
+          if (!confirm('Changing staff type will clear current changes. Continue?')) return;
+        }
+
+        document.querySelectorAll('.pill').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        state.staffType = btn.dataset.type;
+        state.letterId = null;
+        state.changes = [];
+        state.deletedNominationIds = [];
+        state.isSaved = false;
+        state.isEditing = false;
+
+        // Update content text and letter number prefix based on staff type
+        if (state.staffType === 'SUBURBAN') {
+          contentInput.value = 'Following M/MAN nominated to yours, motormen will be monitored and counseled by nominated LI with immediate effect.';
+        } else {
+          contentInput.value = 'Due to posting & rotation of Loco Pilot changes are made in Loco Inspectors nomination list with immediate effect.';
+        }
+
+        // Set fixed letter number for the staff type
+        letterNoInput.value = getFixedLetterNo();
+        loadPreviousLetter();
+        renderChanges();
+        updatePreviewText();
+        syncChips();
+        updateSaveButtonState();
+      });
+    });
+
+    // Input listeners for preview
+    [letterNoInput, subjectInput, contentInput, footerInput, signDesignationInput, signPlaceInput].forEach(el => {
+      el.addEventListener('input', updatePreviewText);
+    });
+
+    letterDateInput.addEventListener('change', async () => {
+      chipDateText.textContent = formatDate(letterDateInput.value);
+      previewLetterDate.textContent = formatDate(letterDateInput.value);
+
+      // Warn about unsaved changes
+      if (state.changes.length > 0 && !state.isSaved) {
+        const confirmChange = confirm('You have unsaved changes. Changing date will clear them. Continue?');
+        if (!confirmChange) {
+          // Revert date - need to get old value somehow, for now just warn
+          return;
+        }
+      }
+
+      // Reset state for new date (fresh start)
+      state.letterId = null;
+      state.changes = [];
+      state.deletedNominationIds = [];
+      state.isSaved = false;
+      state.isEditing = false;
+      state.existingLetterForDate = null;
+
+      // Check if letter exists for this date (for warning on save)
+      await loadPreviousLetter();
+      renderChanges();
+      updateSaveButtonState();
+    });
+
+    // Export/Print Letter
+    function generatePrintableHTML() {
+      const letterNo = letterNoInput.value || '—';
+      const letterDate = formatDate(letterDateInput.value);
+      const subject = subjectInput.value || 'Sub: Changes in nomination.';
+      const content = contentInput.value || '';
+      const footer = footerInput.value || '';
+      const signDesignation = signDesignationInput.value || '';
+      const signPlace = signPlaceInput.value || '';
+      const staffTypeLabel = state.staffType === 'SUBURBAN' ? 'Suburban' : 'Main line';
+
+      const tableRows = state.changes.map((row, idx) => `
+        <tr>
+          <td style="text-align:center;">${idx + 1}</td>
+          <td>${row.staff_name}${row.mobile ? `<br><span style="font-size:0.8em;color:#666;">${row.mobile}</span>` : ''}</td>
+          <td>${row.pf_no || '—'}${row.staff_hrms_id ? `<br><span style="font-size:0.8em;color:#666;">${row.staff_hrms_id}</span>` : ''}</td>
+          <td>${shortDesignation(row.designation_name)}</td>
+          <td>${row.depot || '—'}</td>
+          <td style="text-align:center;">${row.category || '—'}</td>
+          <td>${row.old_cli_name || '—'}</td>
+          <td>${row.new_cli_name}</td>
+          <td>${row.remarks || ''}</td>
+        </tr>
+      `).join('');
+
+      return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>CLI Nomination Letter - ${letterNo}</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 15mm 12mm;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Times New Roman', Times, serif;
+      font-size: 12pt;
+      line-height: 1.5;
+      color: #000;
+      margin: 0;
+      padding: 20px;
+      background: #fff;
+    }
+    .letter-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      border-bottom: 1px solid #000;
+      padding-bottom: 10px;
+      margin-bottom: 12px;
+    }
+    .header-left {
+      text-align: left;
+      flex: 1;
+    }
+    .header-center {
+      flex: 0 0 auto;
+      text-align: center;
+      padding: 0 15px;
+    }
+    .header-center .logo {
+      height: 50px;
+      width: auto;
+    }
+    .railway-name {
+      font-size: 14pt;
+      font-weight: bold;
+    }
+    .railway-name-en {
+      font-size: 12pt;
+      font-weight: bold;
+    }
+    .header-right {
+      text-align: right;
+      flex: 1;
+    }
+    .hindi-address {
+      font-size: 11pt;
+      line-height: 1.4;
+    }
+    .date-line {
+      font-size: 11pt;
+      margin-top: 3px;
+    }
+    .letter-meta {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 10px;
+      font-size: 11pt;
+    }
+    .letter-meta .left { text-align: left; }
+    .letter-meta .right { text-align: right; }
+    .internal-id {
+      font-size: 8pt;
+      color: #888;
+    }
+    .railway-address {
+      font-size: 11pt;
+    }
+    .addressee {
+      font-size: 11pt;
+      margin-bottom: 10px;
+      line-height: 1.4;
+    }
+    .subject {
+      font-weight: bold;
+      margin: 10px 0 8px;
+      font-size: 11pt;
+    }
+    .content {
+      text-align: justify;
+      margin-bottom: 12px;
+      font-size: 11pt;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 15px 0;
+      font-size: 10pt;
+    }
+    th, td {
+      border: 1px solid #000;
+      padding: 6px 5px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      background: #f0f0f0;
+      font-weight: bold;
+      text-align: center;
+      font-size: 9pt;
+    }
+    .footer-note {
+      margin-top: 20px;
+      font-size: 11pt;
+    }
+    .footer-section {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      margin-top: 20px;
+    }
+    .cc-section {
+      font-size: 10pt;
+      text-align: left;
+    }
+    .signature {
+      text-align: right;
+    }
+    .signature::before {
+      content: '';
+      display: block;
+      height: 30px; /* Space for handwritten signature */
+    }
+    .signature .designation-hindi {
+      font-weight: bold;
+      font-size: 11pt;
+    }
+    .signature .place-hindi {
+      font-size: 11pt;
+      margin-top: 2px;
+    }
+    .print-actions {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      display: flex;
+      gap: 10px;
+      z-index: 1000;
+    }
+    .print-actions button {
+      padding: 10px 20px;
+      font-size: 14px;
+      cursor: pointer;
+      border: none;
+      border-radius: 6px;
+    }
+    .btn-print {
+      background: #0b5fad;
+      color: #fff;
+    }
+    .btn-close {
+      background: #e5e7eb;
+      color: #374151;
+    }
+    @media print {
+      .print-actions { display: none; }
+      body { padding: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="print-actions">
+    <button class="btn-print" onclick="window.print()">🖨️ Print / Save PDF</button>
+    <button class="btn-close" onclick="window.close()">✕ Close</button>
+  </div>
+
+  <div class="letter-header">
+    <div class="header-left">
+      <div class="railway-name">मध्य रेल</div>
+    </div>
+    <div class="header-center">
+      <img src="/img/railway-logo.png" alt="Indian Railways" class="logo" onerror="this.style.display='none'">
+    </div>
+    <div class="header-right">
+      <div class="railway-name-en">Central Railway</div>
+      <div class="railway-address">Mumbai 400001.</div>
+    </div>
+  </div>
+
+  <div class="letter-meta">
+    <div class="left">
+      <strong>No.</strong>${letterNo}
+      ${state.letterId ? `<br><span class="internal-id">(Ref: ${state.letterId})</span>` : ''}
+    </div>
+    <div class="right">
+      <strong>Date:</strong> ${letterDate}
+    </div>
+  </div>
+
+  <div class="addressee">
+    To,<br>
+    All CLI's ${staffTypeLabel}<br>
+    Mumbai Division
+  </div>
+
+  <div class="subject">${subject}</div>
+
+  <div class="content">
+    <p>${content}</p>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width:30px;">Sr</th>
+        <th>Name</th>
+        <th>CMS ID</th>
+        <th>Desg.</th>
+        <th>Depot</th>
+        <th style="width:35px;">CAT</th>
+        <th>From CLI</th>
+        <th>To CLI</th>
+        <th>Remarks</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${tableRows}
+    </tbody>
+  </table>
+
+  ${footer ? `<div class="footer-note">${footer}</div>` : ''}
+
+  <div class="footer-section">
+    <div class="cc-section">
+      ${staffTypeLabel === 'Suburban'
+        ? `C /- Sr. CC (Sub) CSTM / KYN / PNVL for RSOB.<br>C/- LPC (Sub) for Information to concerned M/ Men & LI's`
+        : `C /- CLPC & CLI CO: for information`}
+    </div>
+
+    <div class="signature">
+      ${staffTypeLabel === 'Suburban'
+        ? `<div class="designation-hindi">स.मं.वि.अभियंता (कर्षण चल स्टॉक परि)</div>
+           <div class="place-hindi">छ.शि.म.ट., मुंबई</div>`
+        : `<div class="designation-hindi">मं.वि.इं. (क.च.परि)</div>
+           <div class="place-hindi">मुंबई छ.शि.म.ट.</div>`}
+    </div>
+  </div>
+</body>
+</html>
+      `;
+    }
+
+    document.getElementById('btnExport').addEventListener('click', () => {
+      if (state.changes.length === 0) {
+        showToast('Add staff before exporting', 'error');
+        return;
+      }
+
+      const printWindow = window.open('', '_blank');
+      if (!printWindow) {
+        showToast('Popup blocked! Please allow popups for this site.', 'error');
+        return;
+      }
+
+      printWindow.document.write(generatePrintableHTML());
+      printWindow.document.close();
+    });
+
+    // Letter history data
+    let allLetters = [];
+
+    // History button - open modal
+    document.getElementById('btnHistory').addEventListener('click', async () => {
+      try {
+        showLoading();
+        const data = await fetchAPI('/api/division/cli/letters');
+        allLetters = data.data || [];
+        hideLoading();
+
+        if (allLetters.length === 0) {
+          showToast('No letters found in database', 'info');
+          return;
+        }
+
+        // Populate year filter
+        const years = [...new Set(allLetters.map(l => new Date(l.letter_date).getFullYear()))].sort((a, b) => b - a);
+        const yearFilter = document.getElementById('letterYearFilter');
+        yearFilter.innerHTML = '<option value="">All Years</option>' +
+          years.map(y => `<option value="${y}">${y}</option>`).join('');
+
+        // Set type filter to current staff type
+        document.getElementById('letterTypeFilter').value = state.staffType;
+
+        // Render letters
+        filterLetterHistory();
+
+        // Show modal
+        document.getElementById('letterHistoryModal').classList.add('show');
+      } catch (error) {
+        hideLoading();
+        console.error('History error:', error);
+        showToast('Failed to load history: ' + error.message, 'error');
+      }
+    });
+
+    // Filter and render letter history
+    function filterLetterHistory() {
+      const yearFilter = document.getElementById('letterYearFilter').value;
+      const typeFilter = document.getElementById('letterTypeFilter').value;
+
+      let filtered = allLetters;
+
+      if (yearFilter) {
+        filtered = filtered.filter(l => new Date(l.letter_date).getFullYear() === parseInt(yearFilter));
+      }
+
+      if (typeFilter) {
+        filtered = filtered.filter(l => l.staff_type === typeFilter);
+      }
+
+      renderLetterHistory(filtered);
+    }
+
+    // Render letter history list
+    function renderLetterHistory(letters) {
+      const body = document.getElementById('letterHistoryBody');
+
+      if (letters.length === 0) {
+        body.innerHTML = '<div class="letter-history-empty"><i class="fa-regular fa-folder-open" style="font-size:2rem;margin-bottom:10px;"></i><br>No letters found</div>';
+        return;
+      }
+
+      // Group by year
+      const byYear = {};
+      letters.forEach(l => {
+        const year = new Date(l.letter_date).getFullYear();
+        if (!byYear[year]) byYear[year] = [];
+        byYear[year].push(l);
+      });
+
+      // Sort years descending
+      const sortedYears = Object.keys(byYear).sort((a, b) => b - a);
+
+      let html = '';
+      for (const year of sortedYears) {
+        html += `<div class="letter-year-group">${year}</div>`;
+
+        for (const l of byYear[year]) {
+          const date = new Date(l.letter_date);
+          const dateStr = date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
+          const typeIcon = l.staff_type === 'SUBURBAN' ? 'fa-train-subway' : 'fa-train';
+
+          // Staff preview
+          let preview = '';
+          if (l.first_staff_name && l.change_count > 0) {
+            if (l.change_count === 1) {
+              preview = l.first_staff_name;
+            } else {
+              preview = `${l.first_staff_name} and ${l.change_count - 1} other${l.change_count > 2 ? 's' : ''}`;
+            }
+          } else {
+            preview = 'No staff changes';
+          }
+
+          html += `
+            <div class="letter-item" onclick="selectLetter(${l.id})">
+              <div class="letter-item-main">
+                <div>
+                  <span class="letter-item-date">${dateStr}</span>
+                  <span class="letter-item-no">${l.letter_no || '—'}</span>
+                  <i class="fa-solid ${typeIcon}" style="margin-left:6px;font-size:0.75rem;color:var(--muted);"></i>
+                </div>
+                <div class="letter-item-preview">${preview}</div>
+              </div>
+              <i class="fa-solid fa-chevron-right letter-item-icon"></i>
+            </div>
+          `;
+        }
+      }
+
+      body.innerHTML = html;
+    }
+
+    // Select letter from history
+    function selectLetter(letterId) {
+      closeLetterHistory();
+      loadLetter(letterId);
+    }
+
+    // Close letter history modal
+    function closeLetterHistory() {
+      document.getElementById('letterHistoryModal').classList.remove('show');
+    }
+
+    // Close modal on backdrop click
+    document.getElementById('letterHistoryModal').addEventListener('click', (e) => {
+      if (e.target.id === 'letterHistoryModal') closeLetterHistory();
+    });
+
+    // Initialize
+    async function init() {
+      const today = new Date().toISOString().slice(0, 10);
+      letterDateInput.value = today;
+      chipDateText.textContent = formatDate(today);
+      previewLetterDate.textContent = formatDate(today);
+
+      await loadCLIs();
+      await loadPreviousLetter();
+      renderChanges();
+      updatePreviewText();
+      syncChips();
+      updateSaveButtonState();
+    }
+
+    init();
+  </script>
+</body>
+</html>

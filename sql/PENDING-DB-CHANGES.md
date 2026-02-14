@@ -277,4 +277,49 @@ CREATE TABLE IF NOT EXISTS `div_lrd_segment_coverage` (
 
 ---
 
-*Last Updated: 2026-02-01*
+---
+
+## 8. CLI Nomination Letters Feature
+**File:** `sql/2026-02-12_cli_nomination_letters.sql`
+**Status:** ⏳ PENDING
+
+Creates the nomination letters system for tracking CLI changes via official letters.
+
+**Tables/Changes:**
+1. `div_cli_nomination_letters` - Letter metadata (date, number, content, signing details)
+2. Adds `letter_id` column to `div_cli_nominations` table
+3. `v_cli_letter_changes` - View for letter with all changes
+4. Inserts "Not Assigned" CLI for unassigned staff
+
+```sql
+-- Run this file to create the CLI nomination letters feature:
+source sql/2026-02-12_cli_nomination_letters.sql
+```
+
+**Purpose:** Create official nomination letters for CLI changes with proper letter numbers, dates, and staff details. Supports bulk CLI nominations with PDF export.
+
+---
+
+## 9. Sync Missing CLI Nominations
+**File:** `sql/2026-02-14_sync_cli_nominations.sql`
+**Status:** ⏳ PENDING
+
+**Issue:** Bulk upload sets `current_cli_id` in `div_staff_master` but doesn't create nomination records in `div_cli_nominations`. This causes CLI Load Overview to show incomplete data.
+
+**Server count:** ~467 staff missing nominations (as of 2026-02-14)
+
+**Script does:**
+1. Finds staff with `current_cli_id` but no Active nomination
+2. Inserts nomination records with `nominated_from_date = CURDATE()`
+3. Marks them with remarks "Synced from staff_master - bulk upload data"
+
+```sql
+-- Run on server:
+source sql/2026-02-14_sync_cli_nominations.sql
+```
+
+**Note:** This is a one-time fix. Future bulk uploads should be updated to insert nominations.
+
+---
+
+*Last Updated: 2026-02-14*

@@ -267,6 +267,882 @@ router.get('/recent-changes', async (req, res) => {
     }
 });
 
+// ============================================
+// CLI NOMINATION LETTERS FEATURE
+// ============================================
+
+// Helper: Get suburban/non-suburban filter condition
+function getStaffTypeCondition(staffType, tableAlias = 's') {
+    if (staffType === 'SUBURBAN') {
+        return `${tableAlias}.current_cms_id REGEXP '^(PNVS|KYNS|CSTS)'`;
+    } else if (staffType === 'NON_SUBURBAN') {
+        return `(${tableAlias}.current_cms_id NOT REGEXP '^(PNVS|KYNS|CSTS)' OR ${tableAlias}.current_cms_id IS NULL)`;
+    }
+    return '1=1';
+}
+
+// GET /api/division/cli/letters - List all nomination letters
+router.get('/letters', requireDivisionAdmin, async (req, res) => {
+    const conn = await getConnection(req);
+    try {
+        const { staff_type, from_date, to_date } = req.query;
+
+        let query = `
+            SELECT l.*,
+                   (SELECT COUNT(*) FROM div_cli_nominations n WHERE n.letter_id = l.id) as change_count,
+                   (SELECT s.name FROM div_cli_nominations n
+                    JOIN div_staff_master s ON n.staff_hrms_id = s.hrms_id
+                    WHERE n.letter_id = l.id LIMIT 1) as first_staff_name
+            FROM div_cli_nomination_letters l
+            WHERE 1=1
+        `;
+        const params = [];
+
+        if (staff_type) {
+            query += ` AND l.staff_type = ?`;
+            params.push(staff_type);
+        }
+
+        if (from_date) {
+            query += ` AND l.letter_date >= ?`;
+            params.push(from_date);
+        }
+
+        if (to_date) {
+            query += ` AND l.letter_date <= ?`;
+            params.push(to_date);
+        }
+
+        query += ` ORDER BY l.letter_date DESC, l.id DESC`;
+
+        const [letters] = await conn.query(query, params);
+
+        res.json({ success: true, data: letters });
+
+    } catch (error) {
+        console.error('Error fetching letters:', error);
+        res.status(500).json({ error: 'Failed to fetch letters' });
+    } finally {
+        conn.release();
+    }
+});
+
+// POST /api/division/cli/letters - Create new nomination letter
+router.post('/letters', requireDivisionAdmin, async (req, res) => {
+    const conn = await getConnection(req);
+    try {
+        const {
+            letter_date,
+            letter_no,
+            staff_type,
+            subject,
+            subject_hindi,
+            content_text,
+            content_text_hindi,
+            footer_text,
+            signing_designation,
+            signing_designation_hindi,
+            signing_place,
+            signing_place_hindi
+        } = req.body;
+
+        if (!letter_date || !staff_type) {
+            return res.status(400).json({ error: 'letter_date and staff_type are required' });
+        }
+
+        const created_by = req.session.user?.name || req.session.user?.username || 'System';
+
+        // Default content based on staff type
+        const defaultContent = staff_type === 'SUBURBAN'
+            ? 'Due to posting & rotation of Motorman changes are made in Loco Inspectors nomination list with immediate effect.'
+            : 'Due to posting & rotation of Loco Pilot changes are made in Loco Inspectors nomination list with immediate effect.';
+
+        const [result] = await conn.query(
+            `INSERT INTO div_cli_nomination_letters
+             (letter_date, letter_no, staff_type, subject, subject_hindi, content_text, content_text_hindi,
+              footer_text, signing_designation, signing_designation_hindi,
+              signing_place, signing_place_hindi, created_by)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE
+               letter_no = VALUES(letter_no),
+               subject = VALUES(subject),
+               content_text = VALUES(content_text),
+               footer_text = VALUES(footer_text),
+               signing_designation = VALUES(signing_designation),
+               signing_place = VALUES(signing_place)`,
+            [
+                letter_date,
+                letter_no || null,
+                staff_type,
+                subject || 'Sub: Changes in nomination.',
+                subject_hindi || null,
+                content_text || defaultContent,
+                content_text_hindi || null,
+                footer_text || 'C/ CLPC & CLI CO: for information',
+                signing_designation || null,
+                signing_designation_hindi || null,
+                signing_place || null,
+                signing_place_hindi || null,
+                created_by
+            ]
+        );
+
+        // If it was an update (duplicate key), get the actual ID
+        if (!result.insertId) {
+            const [[existing]] = await conn.query(
+                `SELECT id FROM div_cli_nomination_letters WHERE letter_date = ? AND staff_type = ?`,
+                [letter_date, staff_type]
+            );
+            res.json({ success: true, message: 'Letter updated', id: existing.id });
+        } else {
+            res.json({ success: true, message: 'Letter created', id: result.insertId });
+        }
+
+    } catch (error) {
+        console.error('Error creating letter:', error);
+        res.status(500).json({ error: 'Failed to create letter', details: error.message });
+    } finally {
+        conn.release();
+    }
+});
+
+// GET /api/division/cli/letters/:id - Get letter with all changes
+router.get('/letters/:id', requireDivisionAdmin, async (req, res) => {
+    const conn = await getConnection(req);
+    try {
+        const { id } = req.params;
+
+        // Get letter metadata
+        const [[letter]] = await conn.query(
+            `SELECT * FROM div_cli_nomination_letters WHERE id = ?`,
+            [id]
+        );
+
+        if (!letter) {
+            return res.status(404).json({ error: 'Letter not found' });
+        }
+
+        // Get all changes in this letter
+        const [changes] = await conn.query(
+            `SELECT
+                n.nomination_id,
+                n.staff_hrms_id,
+                s.name as staff_name,
+                COALESCE(NULLIF(s.cug_number, ''), s.phone_number) as mobile,
+                s.current_cms_id as pf_no,
+                d.designation_name,
+                s.current_office_code as depot,
+                s.safety_category as category,
+                old_cli.cli_name as old_cli_name,
+                old_cli.cli_id as old_cli_id,
+                new_cli.cli_name as new_cli_name,
+                new_cli.cli_id as new_cli_id,
+                n.remarks,
+                n.nominated_from_date
+             FROM div_cli_nominations n
+             JOIN div_staff_master s ON n.staff_hrms_id = s.hrms_id
+             JOIN div_cli_master new_cli ON n.cli_id = new_cli.cli_id
+             LEFT JOIN designations d ON s.designation_id = d.id
+             LEFT JOIN (
+                 SELECT n2.staff_hrms_id, n2.cli_id, n2.nominated_to_date
+                 FROM div_cli_nominations n2
+                 WHERE n2.status = 'Expired'
+             ) prev ON prev.staff_hrms_id = n.staff_hrms_id
+                   AND prev.nominated_to_date = DATE_SUB(n.nominated_from_date, INTERVAL 1 DAY)
+             LEFT JOIN div_cli_master old_cli ON prev.cli_id = old_cli.cli_id
+             WHERE n.letter_id = ?
+             ORDER BY n.nomination_id`,
+            [id]
+        );
+
+        res.json({ success: true, data: { letter, changes } });
+
+    } catch (error) {
+        console.error('Error fetching letter:', error);
+        res.status(500).json({ error: 'Failed to fetch letter' });
+    } finally {
+        conn.release();
+    }
+});
+
+// PUT /api/division/cli/letters/:id - Update letter metadata
+router.put('/letters/:id', requireDivisionAdmin, async (req, res) => {
+    const conn = await getConnection(req);
+    try {
+        const { id } = req.params;
+        const {
+            letter_no, subject, subject_hindi, content_text, content_text_hindi,
+            footer_text, signing_designation, signing_designation_hindi,
+            signing_place, signing_place_hindi
+        } = req.body;
+
+        await conn.query(
+            `UPDATE div_cli_nomination_letters SET
+               letter_no = COALESCE(?, letter_no),
+               subject = COALESCE(?, subject),
+               subject_hindi = COALESCE(?, subject_hindi),
+               content_text = COALESCE(?, content_text),
+               content_text_hindi = COALESCE(?, content_text_hindi),
+               footer_text = COALESCE(?, footer_text),
+               signing_designation = COALESCE(?, signing_designation),
+               signing_designation_hindi = COALESCE(?, signing_designation_hindi),
+               signing_place = COALESCE(?, signing_place),
+               signing_place_hindi = COALESCE(?, signing_place_hindi)
+             WHERE id = ?`,
+            [
+                letter_no, subject, subject_hindi, content_text, content_text_hindi,
+                footer_text, signing_designation, signing_designation_hindi,
+                signing_place, signing_place_hindi, id
+            ]
+        );
+
+        res.json({ success: true, message: 'Letter updated' });
+
+    } catch (error) {
+        console.error('Error updating letter:', error);
+        res.status(500).json({ error: 'Failed to update letter' });
+    } finally {
+        conn.release();
+    }
+});
+
+// DELETE /api/division/cli/letters/:id - Delete letter (only if no changes)
+router.delete('/letters/:id', requireDivisionAdmin, async (req, res) => {
+    const conn = await getConnection(req);
+    try {
+        const { id } = req.params;
+
+        // Check if letter has any changes
+        const [[countResult]] = await conn.query(
+            `SELECT COUNT(*) as cnt FROM div_cli_nominations WHERE letter_id = ?`,
+            [id]
+        );
+
+        if (countResult.cnt > 0) {
+            return res.status(400).json({
+                error: 'Cannot delete letter with changes. Remove all changes first.'
+            });
+        }
+
+        await conn.query(`DELETE FROM div_cli_nomination_letters WHERE id = ?`, [id]);
+
+        res.json({ success: true, message: 'Letter deleted' });
+
+    } catch (error) {
+        console.error('Error deleting letter:', error);
+        res.status(500).json({ error: 'Failed to delete letter' });
+    } finally {
+        conn.release();
+    }
+});
+
+// POST /api/division/cli/letters/:id/add-change - Add a nomination change to letter
+router.post('/letters/:id/add-change', requireDivisionAdmin, async (req, res) => {
+    const conn = await getConnection(req);
+    try {
+        const { id: letterId } = req.params;
+        const { staff_hrms_id, new_cli_id, new_category, remarks } = req.body;
+
+        if (!staff_hrms_id || !new_cli_id) {
+            return res.status(400).json({ error: 'staff_hrms_id and new_cli_id are required' });
+        }
+
+        // Verify letter exists
+        const [[letter]] = await conn.query(
+            `SELECT * FROM div_cli_nomination_letters WHERE id = ?`,
+            [letterId]
+        );
+
+        if (!letter) {
+            return res.status(404).json({ error: 'Letter not found' });
+        }
+
+        // Get staff details and current nomination
+        const [[staff]] = await conn.query(
+            `SELECT s.*, n.cli_id as current_cli_id, n.nomination_id as current_nomination_id,
+                    c.cli_name as current_cli_name
+             FROM div_staff_master s
+             LEFT JOIN div_cli_nominations n ON s.hrms_id = n.staff_hrms_id AND n.status = 'Active'
+             LEFT JOIN div_cli_master c ON n.cli_id = c.cli_id
+             WHERE s.hrms_id = ?`,
+            [staff_hrms_id]
+        );
+
+        if (!staff) {
+            return res.status(404).json({ error: 'Staff not found' });
+        }
+
+        const effectiveDate = letter.letter_date;
+
+        await conn.beginTransaction();
+
+        // 1. Expire current nomination if exists
+        if (staff.current_nomination_id) {
+            await conn.query(
+                `UPDATE div_cli_nominations
+                 SET status = 'Expired', nominated_to_date = DATE_SUB(?, INTERVAL 1 DAY)
+                 WHERE nomination_id = ?`,
+                [effectiveDate, staff.current_nomination_id]
+            );
+        }
+
+        // 2. Create new nomination with letter_id (or update if already exists)
+        const [result] = await conn.query(
+            `INSERT INTO div_cli_nominations
+             (staff_hrms_id, cli_id, nominated_from_date, status, remarks, letter_id)
+             VALUES (?, ?, ?, 'Active', ?, ?)
+             ON DUPLICATE KEY UPDATE
+               nomination_id = LAST_INSERT_ID(nomination_id),
+               status = 'Active',
+               remarks = COALESCE(VALUES(remarks), remarks),
+               letter_id = VALUES(letter_id)`,
+            [staff_hrms_id, new_cli_id, effectiveDate, remarks || null, letterId]
+        );
+
+        // 3. Update staff_master current_cli_id
+        await conn.query(
+            `UPDATE div_staff_master SET current_cli_id = ? WHERE hrms_id = ?`,
+            [new_cli_id, staff_hrms_id]
+        );
+
+        // 4. Update category if changed
+        if (new_category && new_category !== staff.safety_category) {
+            await conn.query(
+                `UPDATE div_staff_master SET safety_category = ? WHERE hrms_id = ?`,
+                [new_category, staff_hrms_id]
+            );
+        }
+
+        // 5. Update letter change count
+        await conn.query(
+            `UPDATE div_cli_nomination_letters
+             SET total_changes = (SELECT COUNT(*) FROM div_cli_nominations WHERE letter_id = ?)
+             WHERE id = ?`,
+            [letterId, letterId]
+        );
+
+        await conn.commit();
+
+        res.json({
+            success: true,
+            message: `Nomination changed: ${staff.name} moved from ${staff.current_cli_name || 'None'} to new CLI`,
+            nomination_id: result.insertId
+        });
+
+    } catch (error) {
+        await conn.rollback();
+        console.error('Error adding change:', error);
+        res.status(500).json({ error: 'Failed to add change', details: error.message });
+    } finally {
+        conn.release();
+    }
+});
+
+// DELETE /api/division/cli/letters/:letterId/remove-change/:nominationId - Remove a change from letter
+router.delete('/letters/:letterId/remove-change/:nominationId', requireDivisionAdmin, async (req, res) => {
+    const conn = await getConnection(req);
+    try {
+        const { letterId, nominationId } = req.params;
+
+        // Get the nomination details
+        const [[nomination]] = await conn.query(
+            `SELECT n.*, s.name as staff_name
+             FROM div_cli_nominations n
+             JOIN div_staff_master s ON n.staff_hrms_id = s.hrms_id
+             WHERE n.nomination_id = ? AND n.letter_id = ?`,
+            [nominationId, letterId]
+        );
+
+        if (!nomination) {
+            return res.status(404).json({ error: 'Nomination not found in this letter' });
+        }
+
+        await conn.beginTransaction();
+
+        // 1. Find the previous (expired) nomination and reactivate it
+        const [[prevNomination]] = await conn.query(
+            `SELECT * FROM div_cli_nominations
+             WHERE staff_hrms_id = ? AND status = 'Expired'
+             ORDER BY nominated_to_date DESC LIMIT 1`,
+            [nomination.staff_hrms_id]
+        );
+
+        if (prevNomination) {
+            // Reactivate previous nomination
+            await conn.query(
+                `UPDATE div_cli_nominations
+                 SET status = 'Active', nominated_to_date = NULL
+                 WHERE nomination_id = ?`,
+                [prevNomination.nomination_id]
+            );
+
+            // Update staff_master to previous CLI
+            await conn.query(
+                `UPDATE div_staff_master SET current_cli_id = ? WHERE hrms_id = ?`,
+                [prevNomination.cli_id, nomination.staff_hrms_id]
+            );
+        } else {
+            // No previous nomination, set current_cli_id to NULL
+            await conn.query(
+                `UPDATE div_staff_master SET current_cli_id = NULL WHERE hrms_id = ?`,
+                [nomination.staff_hrms_id]
+            );
+        }
+
+        // 2. Delete the nomination
+        await conn.query(
+            `DELETE FROM div_cli_nominations WHERE nomination_id = ?`,
+            [nominationId]
+        );
+
+        // 3. Update letter change count
+        await conn.query(
+            `UPDATE div_cli_nomination_letters
+             SET total_changes = (SELECT COUNT(*) FROM div_cli_nominations WHERE letter_id = ?)
+             WHERE id = ?`,
+            [letterId, letterId]
+        );
+
+        await conn.commit();
+
+        res.json({
+            success: true,
+            message: `Change removed for ${nomination.staff_name}`
+        });
+
+    } catch (error) {
+        await conn.rollback();
+        console.error('Error removing change:', error);
+        res.status(500).json({ error: 'Failed to remove change' });
+    } finally {
+        conn.release();
+    }
+});
+
+// GET /api/division/cli/load-view - Get all CLIs with staff counts for load balancing
+router.get('/load-view', requireDivisionAdmin, async (req, res) => {
+    const conn = await getConnection(req);
+    try {
+        const { staff_type } = req.query;
+
+        let query = `
+            SELECT
+                c.cli_id,
+                c.cli_name,
+                c.cmsid,
+                c.current_office_code,
+                o.office_name,
+                COUNT(CASE WHEN n.status = 'Active' THEN 1 END) as staff_count
+            FROM div_cli_master c
+            LEFT JOIN div_cli_nominations n ON c.cli_id = n.cli_id
+            LEFT JOIN offices o ON c.current_office_code = o.office_code
+            WHERE c.cli_hrms_id IS NOT NULL AND c.is_active = 1
+        `;
+
+        const params = [];
+
+        // Filter by staff type if needed
+        if (staff_type) {
+            query += ` AND EXISTS (
+                SELECT 1 FROM div_cli_nominations n2
+                JOIN div_staff_master s ON n2.staff_hrms_id = s.hrms_id
+                WHERE n2.cli_id = c.cli_id AND n2.status = 'Active'
+                AND ${getStaffTypeCondition(staff_type, 's')}
+            )`;
+        }
+
+        query += ` GROUP BY c.cli_id ORDER BY staff_count DESC, c.cli_name`;
+
+        const [clis] = await conn.query(query, params);
+
+        // Get total and average
+        const total = clis.reduce((sum, c) => sum + c.staff_count, 0);
+        const average = clis.length > 0 ? Math.round(total / clis.length) : 0;
+
+        res.json({
+            success: true,
+            data: {
+                clis,
+                summary: {
+                    total_clis: clis.length,
+                    total_staff: total,
+                    average_per_cli: average
+                }
+            }
+        });
+
+    } catch (error) {
+        console.error('Error fetching CLI load view:', error);
+        res.status(500).json({ error: 'Failed to fetch CLI load view' });
+    } finally {
+        conn.release();
+    }
+});
+
+// GET /api/division/cli/na-staff - Get unassigned (NA CLI) staff
+router.get('/na-staff', requireDivisionAdmin, async (req, res) => {
+    const conn = await getConnection(req);
+    try {
+        const [staff] = await conn.query(
+            `SELECT
+                n.nomination_id,
+                n.staff_hrms_id,
+                s.name,
+                s.current_cms_id,
+                s.current_office_code,
+                d.designation_name,
+                s.safety_category,
+                n.remarks,
+                n.nominated_from_date,
+                l.letter_date,
+                l.letter_no
+             FROM div_cli_nominations n
+             JOIN div_staff_master s ON n.staff_hrms_id = s.hrms_id
+             JOIN div_cli_master c ON n.cli_id = c.cli_id
+             LEFT JOIN designations d ON s.designation_id = d.id
+             LEFT JOIN div_cli_nomination_letters l ON n.letter_id = l.id
+             WHERE c.cli_hrms_id IS NULL AND n.status = 'Active'
+             ORDER BY n.nominated_from_date DESC`
+        );
+
+        res.json({ success: true, data: staff });
+
+    } catch (error) {
+        console.error('Error fetching NA staff:', error);
+        res.status(500).json({ error: 'Failed to fetch unassigned staff' });
+    } finally {
+        conn.release();
+    }
+});
+
+// GET /api/division/cli/staff-history/:hrmsId - Get CLI history for a staff member
+router.get('/staff-history/:hrmsId', requireDivisionAdmin, async (req, res) => {
+    const conn = await getConnection(req);
+    try {
+        const { hrmsId } = req.params;
+
+        const [history] = await conn.query(
+            `SELECT
+                n.nomination_id,
+                n.cli_id,
+                c.cli_name,
+                n.nominated_from_date,
+                n.nominated_to_date,
+                n.status,
+                n.remarks
+             FROM div_cli_nominations n
+             JOIN div_cli_master c ON n.cli_id = c.cli_id
+             WHERE n.staff_hrms_id = ?
+             ORDER BY n.nominated_from_date DESC
+             LIMIT 10`,
+            [hrmsId]
+        );
+
+        res.json({ success: true, data: history });
+
+    } catch (error) {
+        console.error('Error fetching staff CLI history:', error);
+        res.status(500).json({ error: 'Failed to fetch CLI history' });
+    } finally {
+        conn.release();
+    }
+});
+
+// GET /api/division/cli/staff-for-letter - Get staff list for adding to letter
+router.get('/staff-for-letter', requireDivisionAdmin, async (req, res) => {
+    const conn = await getConnection(req);
+    try {
+        const { staff_type, search, office } = req.query;
+
+        let query = `
+            SELECT
+                s.hrms_id,
+                s.name,
+                s.current_cms_id,
+                s.current_office_code,
+                COALESCE(NULLIF(s.cug_number, ''), s.phone_number) as mobile,
+                o.office_name,
+                d.designation_name,
+                s.designation_id,
+                s.safety_category,
+                n.cli_id as current_cli_id,
+                c.cli_name as current_cli_name
+            FROM div_staff_master s
+            LEFT JOIN div_cli_nominations n ON s.hrms_id = n.staff_hrms_id AND n.status = 'Active'
+            LEFT JOIN div_cli_master c ON n.cli_id = c.cli_id
+            LEFT JOIN offices o ON s.current_office_code = o.office_code
+            LEFT JOIN designations d ON s.designation_id = d.id
+            WHERE s.status = 'Active'
+        `;
+
+        const params = [];
+
+        // Filter by staff type
+        if (staff_type) {
+            query += ` AND ${getStaffTypeCondition(staff_type, 's')}`;
+        }
+
+        // Search by name or HRMS ID or CMS ID
+        if (search) {
+            query += ` AND (s.name LIKE ? OR s.hrms_id LIKE ? OR s.current_cms_id LIKE ?)`;
+            params.push(`%${search}%`, `%${search}%`, `%${search}%`);
+        }
+
+        // Filter by office
+        if (office) {
+            query += ` AND s.current_office_code = ?`;
+            params.push(office);
+        }
+
+        query += ` ORDER BY s.name LIMIT 50`;
+
+        const [staff] = await conn.query(query, params);
+
+        res.json({ success: true, data: staff });
+
+    } catch (error) {
+        console.error('Error fetching staff for letter:', error);
+        res.status(500).json({ error: 'Failed to fetch staff' });
+    } finally {
+        conn.release();
+    }
+});
+
+// ============================================
+// CLI LOAD OVERVIEW APIs
+// ============================================
+
+// Designation grouping (same as leave-management)
+const DESIGNATION_GROUPS = {
+    '1': { ids: [1, 2], label: 'ALP', order: 1 },      // ALP + Sr.ALP
+    '3': { ids: [3, 4], label: 'LPS', order: 2 },      // LPS + Sr.LPS
+    '5': { ids: [5], label: 'LPG', order: 3 },
+    '6': { ids: [6], label: 'LPP', order: 4 },
+    '7': { ids: [7], label: 'LPM', order: 5 },
+    '9': { ids: [9], label: 'LP Ghat', order: 6 },
+    '8': { ids: [8], label: 'Motorman', order: 7 }
+};
+
+// Map designation_id to group key
+function mapDesignationToGroup(desigId) {
+    for (const [key, group] of Object.entries(DESIGNATION_GROUPS)) {
+        if (group.ids.includes(parseInt(desigId))) {
+            return key;
+        }
+    }
+    return null;
+}
+
+// GET /api/division/cli/load-overview - CLI load overview with designation breakdown
+router.get('/load-overview', requireDivisionAdmin, async (req, res) => {
+    let conn;
+    try {
+        conn = await getConnection(req);
+
+        // Get all active CLIs
+        const [clis] = await conn.query(`
+            SELECT
+                c.cli_id, c.cli_name, c.cmsid, c.current_office_code,
+                c.cli_mobile, c.cli_doa, c.date_promoted_to_cli,
+                o.office_name,
+                TIMESTAMPDIFF(YEAR, c.date_promoted_to_cli, CURDATE()) as years_as_cli,
+                TIMESTAMPDIFF(MONTH, c.date_promoted_to_cli, CURDATE()) % 12 as months_as_cli,
+                CASE
+                    WHEN c.current_office_code LIKE '%-SUB' THEN 'SUBURBAN'
+                    ELSE 'MAINLINE'
+                END as cli_type
+            FROM div_cli_master c
+            LEFT JOIN offices o ON c.current_office_code = o.office_code
+            WHERE c.is_active = 1 AND c.cli_hrms_id IS NOT NULL
+            ORDER BY cli_type, c.cli_name
+        `);
+
+        // Get all active nominations with staff details
+        const [nominations] = await conn.query(`
+            SELECT
+                n.cli_id,
+                n.staff_hrms_id,
+                s.name as staff_name,
+                s.current_cms_id as cms_id,
+                s.current_office_code as depot,
+                s.designation_id,
+                d.designation_name,
+                s.safety_category,
+                n.nominated_from_date,
+                DATEDIFF(CURDATE(), n.nominated_from_date) as days_under_cli
+            FROM div_cli_nominations n
+            JOIN div_staff_master s ON n.staff_hrms_id = s.hrms_id
+            LEFT JOIN designations d ON s.designation_id = d.id
+            JOIN div_cli_master c ON n.cli_id = c.cli_id
+            WHERE n.status = 'Active' AND c.cli_hrms_id IS NOT NULL AND c.is_active = 1
+        `);
+
+        // Get unassigned staff count (NA CLI)
+        const [unassignedResult] = await conn.query(`
+            SELECT COUNT(*) as count
+            FROM div_cli_nominations n
+            JOIN div_cli_master c ON n.cli_id = c.cli_id
+            WHERE n.status = 'Active' AND c.cli_hrms_id IS NULL
+        `);
+        const unassignedCount = unassignedResult[0]?.count || 0;
+
+        // Build CLI load data
+        const mainlineCLIs = [];
+        const suburbanCLIs = [];
+
+        for (const cli of clis) {
+            const cliNominations = nominations.filter(n => n.cli_id === cli.cli_id);
+
+            // Group by depot and designation
+            const depotData = {};
+            const totals = { ALP: 0, LPS: 0, LPG: 0, LPP: 0, LPM: 0, 'LP Ghat': 0, Motorman: 0, total: 0 };
+
+            for (const nom of cliNominations) {
+                const depot = nom.depot || 'Unknown';
+                const groupKey = mapDesignationToGroup(nom.designation_id);
+                const groupLabel = groupKey ? DESIGNATION_GROUPS[groupKey].label : 'Other';
+
+                if (!depotData[depot]) {
+                    depotData[depot] = { ALP: 0, LPS: 0, LPG: 0, LPP: 0, LPM: 0, 'LP Ghat': 0, Motorman: 0, total: 0 };
+                }
+
+                if (depotData[depot][groupLabel] !== undefined) {
+                    depotData[depot][groupLabel]++;
+                }
+                depotData[depot].total++;
+
+                if (totals[groupLabel] !== undefined) {
+                    totals[groupLabel]++;
+                }
+                totals.total++;
+            }
+
+            const cliData = {
+                cli_id: cli.cli_id,
+                cli_name: cli.cli_name,
+                cmsid: cli.cmsid,
+                office_code: cli.current_office_code,
+                current_office_code: cli.current_office_code,
+                office_name: cli.office_name,
+                cli_mobile: cli.cli_mobile,
+                cli_doa: cli.cli_doa,
+                date_promoted_to_cli: cli.date_promoted_to_cli,
+                years_as_cli: cli.years_as_cli,
+                months_as_cli: cli.months_as_cli,
+                cli_type: cli.cli_type,
+                depots: depotData,
+                totals: totals,
+                staff: cliNominations
+            };
+
+            if (cli.cli_type === 'SUBURBAN') {
+                suburbanCLIs.push(cliData);
+            } else {
+                mainlineCLIs.push(cliData);
+            }
+        }
+
+        // Calculate summary stats
+        const totalStaff = nominations.length;
+        const activeCLIs = clis.length;
+        const avgPerCLI = activeCLIs > 0 ? (totalStaff / activeCLIs).toFixed(1) : 0;
+
+        res.json({
+            success: true,
+            summary: {
+                totalStaff,
+                activeCLIs,
+                avgPerCLI: parseFloat(avgPerCLI),
+                unassignedCount
+            },
+            mainline: mainlineCLIs,
+            suburban: suburbanCLIs,
+            designationLabels: ['ALP', 'LPS', 'LPG', 'LPP', 'LPM', 'LP Ghat', 'Motorman']
+        });
+
+    } catch (error) {
+        console.error('Error fetching CLI load overview:', error);
+        res.status(500).json({ error: 'Failed to fetch CLI load overview' });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// GET /api/division/cli/load-staff/:cliId - Get staff list for a CLI with optional filters
+router.get('/load-staff/:cliId', requireDivisionAdmin, async (req, res) => {
+    let conn;
+    try {
+        conn = await getConnection(req);
+        const { cliId } = req.params;
+        const { depot, designation } = req.query;
+
+        let query = `
+            SELECT
+                n.nomination_id,
+                n.staff_hrms_id,
+                s.name as staff_name,
+                s.current_cms_id as cms_id,
+                s.current_office_code as depot,
+                s.designation_id,
+                d.designation_name,
+                n.nominated_from_date,
+                DATEDIFF(CURDATE(), n.nominated_from_date) as days_under_cli
+            FROM div_cli_nominations n
+            JOIN div_staff_master s ON n.staff_hrms_id = s.hrms_id
+            LEFT JOIN designations d ON s.designation_id = d.id
+            WHERE n.cli_id = ? AND n.status = 'Active'
+        `;
+        const params = [cliId];
+
+        // Filter by depot
+        if (depot && depot !== 'ALL') {
+            query += ' AND s.current_office_code = ?';
+            params.push(depot);
+        }
+
+        // Filter by designation group
+        if (designation) {
+            const group = DESIGNATION_GROUPS[designation];
+            if (group) {
+                query += ' AND s.designation_id IN (?)';
+                params.push(group.ids);
+            }
+        }
+
+        query += ' ORDER BY s.name';
+
+        const [staff] = await conn.query(query, params);
+
+        // Get CLI info
+        const [cliInfo] = await conn.query(
+            'SELECT cli_name, current_office_code FROM div_cli_master WHERE cli_id = ?',
+            [cliId]
+        );
+
+        res.json({
+            success: true,
+            cli: cliInfo[0] || {},
+            staff: staff.map(s => ({
+                ...s,
+                designation_group: mapDesignationToGroup(s.designation_id),
+                designation_label: s.designation_id ?
+                    (DESIGNATION_GROUPS[mapDesignationToGroup(s.designation_id)]?.label || s.designation_name) :
+                    'Unknown'
+            }))
+        });
+
+    } catch (error) {
+        console.error('Error fetching CLI staff:', error);
+        res.status(500).json({ error: 'Failed to fetch staff list' });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// ============================================
+// CLI CRUD OPERATIONS (/:id routes must come after specific routes)
+// ============================================
+
 // GET /api/division/cli/:id - Get single CLI details
 router.get('/:id', requireDivisionAdmin, async (req, res) => {
     const conn = await getConnection(req);
@@ -274,7 +1150,9 @@ router.get('/:id', requireDivisionAdmin, async (req, res) => {
         const [cli] = await conn.query(`
             SELECT
                 c.*,
-                o.office_name
+                o.office_name,
+                TIMESTAMPDIFF(YEAR, c.date_promoted_to_cli, CURDATE()) as years_as_cli,
+                TIMESTAMPDIFF(MONTH, c.date_promoted_to_cli, CURDATE()) % 12 as months_as_cli
             FROM div_cli_master c
             LEFT JOIN offices o ON c.current_office_code = o.office_code
             WHERE c.cli_id = ?
