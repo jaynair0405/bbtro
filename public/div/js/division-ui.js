@@ -1020,6 +1020,15 @@ function closeCLINominationsOptionsModal() {
     document.getElementById('cliNominationsOptionsModal').style.display = 'none';
 }
 
+// Open Safety Category Management Modal
+function openCategoryManagementModal() {
+    document.getElementById('categoryManagementModal').style.display = 'flex';
+}
+
+function closeCategoryManagementModal() {
+    document.getElementById('categoryManagementModal').style.display = 'none';
+}
+
 // ===== CHANGE CLI FROM HOME =====
 
 function openChangeCLIFromHome() {

@@ -1,0 +1,1593 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Safety Category Change Letter - Division Portal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Space+Grotesk:wght@500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-1ycn6IcaQQ40/MKBW2W4Rhis/DbILU74C1vSrLJxCq57o941Ym01SwNsOMqvEBFlcgUa5MV35aF3bO3yD9/1og==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <style>
+    :root {
+      --brand: #0b5fad;
+      --brand-ink: #0a4074;
+      --accent: #f59e0b;
+      --mint: #10b981;
+      --surface: #ffffff;
+      --surface-soft: #f7fafc;
+      --border: #e2e8f0;
+      --text: #0f172a;
+      --muted: #64748b;
+      --shadow: 0 24px 60px rgba(15, 23, 42, 0.12);
+      --cat-a: #059669;
+      --cat-b: #d97706;
+      --cat-c: #dc2626;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: 'Manrope', 'Space Grotesk', 'Segoe UI', system-ui, sans-serif;
+      background: radial-gradient(1200px 1200px at 15% 20%, rgba(11, 95, 173, 0.12), transparent),
+                  radial-gradient(900px 900px at 80% 0%, rgba(16, 185, 129, 0.10), transparent),
+                  #eef2f7;
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    .page {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 32px 20px 72px;
+    }
+
+    .hero {
+      background: linear-gradient(135deg, #059669, #047857);
+      color: #fff;
+      padding: 22px 22px;
+      border-radius: 18px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 18px;
+      box-shadow: 0 20px 50px rgba(5, 150, 105, 0.22);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(520px 520px at 80% 0%, rgba(255,255,255,0.15), transparent),
+                  radial-gradient(360px 360px at 8% 100%, rgba(255,255,255,0.12), transparent);
+      pointer-events: none;
+    }
+
+    .hero-left { position: relative; z-index: 1; }
+    .hero-title {
+      margin: 4px 0 6px;
+      font-size: 1.9rem;
+      letter-spacing: -0.01em;
+    }
+    .eyebrow {
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      font-weight: 700;
+      font-size: 0.75rem;
+      opacity: 0.8;
+      margin: 0;
+    }
+    .hero-subtext {
+      margin: 0;
+      opacity: 0.92;
+    }
+
+    .hero-actions { display: flex; gap: 10px; z-index: 1; position: relative; flex-wrap: wrap; }
+    .btn {
+      border: none;
+      border-radius: 12px;
+      padding: 12px 18px;
+      font-weight: 700;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.2s ease, background 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn-primary {
+      background: #fff;
+      color: #059669;
+      box-shadow: 0 12px 30px rgba(255,255,255,0.35);
+    }
+    .btn-ghost {
+      background: rgba(255,255,255,0.12);
+      color: #fff;
+      border: 1px solid rgba(255,255,255,0.25);
+    }
+    .btn-back {
+      background: rgba(255,255,255,0.08);
+      color: #fff;
+      border: 1px solid rgba(255,255,255,0.2);
+      padding: 10px 14px;
+      font-size: 0.9rem;
+    }
+    .btn:hover { transform: translateY(-1px); }
+    .btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+    .stack { display: grid; gap: 18px; margin-top: 24px; }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 18px 18px 22px;
+      box-shadow: var(--shadow);
+    }
+    .card h3 { margin: 0 0 12px; font-size: 1.15rem; letter-spacing: -0.01em; color: var(--brand-ink); }
+    .card .meta { color: var(--muted); font-size: 0.93rem; margin-bottom: 6px; }
+
+    .prev-letter-info {
+      background: #ecfdf5;
+      border: 1px solid #6ee7b7;
+      border-radius: 10px;
+      padding: 10px 14px;
+      margin-bottom: 14px;
+      font-size: 0.9rem;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .prev-letter-info i { color: #059669; }
+    .prev-letter-info strong { color: var(--text); }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 14px 16px;
+      align-items: start;
+    }
+
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1fr 1.4fr;
+      gap: 18px;
+      align-items: start;
+    }
+    @media (max-width: 1000px) {
+      .main-grid { grid-template-columns: 1fr; }
+    }
+
+    label.field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-weight: 600;
+      font-size: 0.92rem;
+      color: var(--text);
+    }
+
+    input, select, textarea {
+      width: 100%;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      padding: 11px 12px;
+      font: inherit;
+      background: #fff;
+      transition: border 0.15s ease, box-shadow 0.15s ease;
+    }
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: var(--mint);
+      box-shadow: 0 0 0 3px rgba(16,185,129,0.18);
+    }
+    textarea { min-height: 100px; resize: vertical; }
+
+    .pill-group { display: inline-flex; background: var(--surface-soft); border-radius: 12px; padding: 4px; border: 1px solid var(--border); }
+    .pill {
+      border: none;
+      padding: 8px 14px;
+      border-radius: 10px;
+      font-weight: 700;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+    }
+    .pill.active { background: #059669; color: #fff; box-shadow: 0 10px 20px rgba(5,150,105,0.2); }
+
+    .table-card { overflow: hidden; padding: 0; }
+    .table-head {
+      padding: 16px 18px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 14px;
+      border-bottom: 1px solid var(--border);
+    }
+    .table-head h3 { margin: 0; }
+    .table-head .counts { display: flex; gap: 10px; flex-wrap: wrap; }
+    .chip {
+      background: var(--surface-soft);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 6px 12px;
+      font-size: 0.9rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--muted);
+    }
+    .chip strong { color: var(--text); }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.94rem;
+    }
+    th, td {
+      padding: 12px 10px;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+    }
+    th { background: #f8fafc; text-transform: uppercase; letter-spacing: 0.04em; font-size: 0.78rem; color: var(--muted); }
+    tbody tr:nth-child(odd) { background: #fcfdff; }
+    tbody tr:hover { background: #f1f5f9; }
+    td.actions { text-align: center; width: 70px; }
+    .icon-btn {
+      border: none;
+      background: #fff1f2;
+      color: #b91c1c;
+      border: 1px solid #fecdd3;
+      border-radius: 10px;
+      padding: 6px 10px;
+      cursor: pointer;
+    }
+    .icon-btn:hover { background: #fee2e2; }
+
+    .inline-form {
+      display: grid;
+      grid-template-columns: 1.5fr 0.6fr 0.6fr 1fr auto;
+      gap: 10px;
+      align-items: end;
+      padding: 16px 18px 18px;
+      background: #f8fafc;
+      border-top: 1px solid var(--border);
+    }
+    .inline-form .btn { height: 44px; justify-content: center; }
+
+    /* Staff search autocomplete */
+    .search-wrapper { position: relative; z-index: 200; }
+    .search-results {
+      position: absolute;
+      bottom: 100%;
+      left: 0;
+      right: 0;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: 0 -10px 40px rgba(0,0,0,0.15);
+      max-height: 280px;
+      overflow-y: auto;
+      z-index: 1000;
+      display: none;
+      margin-bottom: 4px;
+    }
+    .search-results.show { display: block; }
+    .search-result-item {
+      padding: 10px 14px;
+      cursor: pointer;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .search-result-item:last-child { border-bottom: none; }
+    .search-result-item:hover { background: #f1f5f9; }
+    .search-result-item .staff-info { flex: 1; }
+    .search-result-item .staff-name { font-weight: 600; color: var(--text); }
+    .search-result-item .staff-detail { font-size: 0.85rem; color: var(--muted); }
+    .search-result-item .current-cat {
+      font-size: 0.85rem;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-weight: 700;
+    }
+    .cat-A { background: #d1fae5; color: #059669; }
+    .cat-B { background: #fef3c7; color: #d97706; }
+    .cat-C { background: #fee2e2; color: #dc2626; }
+
+    .preview-card {
+      background: linear-gradient(180deg, #ffffff 0%, #f9fbff 100%);
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      padding: 18px 14px 22px;
+      box-shadow: 0 18px 48px rgba(15, 23, 42, 0.14);
+      position: sticky;
+      top: 16px;
+      overflow: hidden;
+    }
+    .preview-card .preview-body { overflow-x: auto; }
+    .preview-meta { display: flex; justify-content: space-between; gap: 10px; color: var(--muted); font-size: 0.9rem; }
+    .preview-title { font-size: 1.05rem; margin: 12px 0 6px; font-weight: 700; color: var(--brand-ink); }
+    .preview-body { font-size: 0.95rem; color: var(--text); }
+    .preview-body p { margin: 6px 0 8px; }
+    .preview-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.82rem; }
+    .preview-table th, .preview-table td { border: 1px solid var(--border); padding: 6px 6px; word-wrap: break-word; }
+    .preview-table th { background: #eef2f7; font-weight: 700; color: var(--text); text-align: center; font-size: 0.72rem; white-space: nowrap; }
+    .preview-table td:first-child, .preview-table th:first-child { text-align: center; width: 26px; }
+    .preview-table td { vertical-align: top; }
+    .note { color: var(--muted); font-size: 0.9rem; margin-top: 10px; }
+
+    .empty-state {
+      padding: 40px 20px;
+      text-align: center;
+      color: var(--muted);
+    }
+    .empty-state i { font-size: 48px; margin-bottom: 12px; opacity: 0.5; }
+
+    .loading-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(255,255,255,0.8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      display: none;
+    }
+    .loading-overlay.show { display: flex; }
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 4px solid var(--border);
+      border-top-color: var(--mint);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: #1f2937;
+      color: #fff;
+      padding: 14px 20px;
+      border-radius: 12px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+      z-index: 1001;
+      display: none;
+    }
+    .toast.show { display: block; }
+    .toast.success { background: #059669; }
+    .toast.error { background: #dc2626; }
+
+    /* Letter History Modal */
+    .letter-history-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 2000;
+    }
+    .letter-history-modal.show { display: flex; }
+    .letter-history-content {
+      background: #fff;
+      border-radius: 16px;
+      width: 90%;
+      max-width: 550px;
+      max-height: 80vh;
+      overflow: hidden;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    .letter-history-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 20px;
+      background: #059669;
+      color: #fff;
+    }
+    .letter-history-header h3 { margin: 0; font-size: 1.1rem; }
+    .letter-history-header button {
+      background: none;
+      border: none;
+      color: #fff;
+      font-size: 1.4rem;
+      cursor: pointer;
+      line-height: 1;
+    }
+    .letter-history-filters {
+      padding: 12px 20px;
+      background: #f8fafc;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+    .letter-history-filters select {
+      padding: 6px 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 0.9rem;
+    }
+    .letter-history-body {
+      padding: 0;
+      max-height: 55vh;
+      overflow-y: auto;
+    }
+    .letter-year-group {
+      padding: 8px 20px;
+      background: #d1fae5;
+      font-weight: 700;
+      color: #047857;
+      font-size: 0.85rem;
+      position: sticky;
+      top: 0;
+    }
+    .letter-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 20px;
+      border-bottom: 1px solid #f1f5f9;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .letter-item:hover { background: #ecfdf5; }
+    .letter-item-main { flex: 1; }
+    .letter-item-date { font-weight: 600; color: var(--text); }
+    .letter-item-no { color: var(--muted); font-size: 0.85rem; margin-left: 8px; }
+    .letter-item-preview { font-size: 0.85rem; color: #64748b; margin-top: 2px; }
+    .letter-item-icon { color: #059669; font-size: 1.1rem; }
+    .letter-history-empty { text-align: center; color: var(--muted); padding: 40px 20px; }
+
+    /* Category badge in table */
+    .cat-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-weight: 700;
+      font-size: 0.85rem;
+    }
+
+    /* Arrow between categories */
+    .cat-arrow {
+      color: var(--muted);
+      margin: 0 4px;
+    }
+
+    @media (max-width: 1080px) {
+      .hero { grid-template-columns: 1fr; }
+      .inline-form { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+    }
+    @media (max-width: 720px) {
+      .table-head { flex-direction: column; align-items: flex-start; }
+      .hero { padding: 18px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="loading-overlay" id="loadingOverlay"><div class="spinner"></div></div>
+  <div class="toast" id="toast"></div>
+
+  <!-- Letter History Modal -->
+  <div class="letter-history-modal" id="letterHistoryModal">
+    <div class="letter-history-content">
+      <div class="letter-history-header">
+        <h3><i class="fa-solid fa-clock-rotate-left"></i> Letter History</h3>
+        <button onclick="closeLetterHistory()">&times;</button>
+      </div>
+      <div class="letter-history-filters">
+        <label>Year:</label>
+        <select id="letterYearFilter" onchange="filterLetterHistory()">
+          <option value="">All Years</option>
+        </select>
+        <label style="margin-left:12px;">Type:</label>
+        <select id="letterTypeFilter" onchange="filterLetterHistory()">
+          <option value="">All</option>
+          <option value="MAINLINE">Main Line</option>
+          <option value="SUBURBAN">Suburban</option>
+        </select>
+      </div>
+      <div class="letter-history-body" id="letterHistoryBody">
+        <!-- Populated dynamically -->
+      </div>
+    </div>
+  </div>
+
+  <div class="page">
+    <header class="hero">
+      <div class="hero-left">
+        <p class="eyebrow">BB Division - Safety Category</p>
+        <h1 class="hero-title">Category Change Letter</h1>
+        <p class="hero-subtext">Record safety category changes (A/B/C) for Loco Pilots and Motormen via official letters.</p>
+        <div style="margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap;">
+          <div class="chip" id="chipType"><i class="fa-solid fa-route"></i><strong id="chipTypeText">Main Line</strong></div>
+          <div class="chip"><i class="fa-regular fa-calendar"></i><span id="chipDateText">-</span></div>
+          <div class="chip"><i class="fa-solid fa-users"></i><span id="chipCountText">0 staff</span></div>
+        </div>
+      </div>
+      <div class="hero-actions">
+        <button class="btn btn-back" onclick="window.location.href='/div'"><i class="fa-solid fa-arrow-left"></i>Back</button>
+        <button class="btn btn-ghost" onclick="window.location.href='/div/category-reports.html'"><i class="fa-solid fa-chart-bar"></i>Reports</button>
+        <button class="btn btn-ghost" id="btnHistory"><i class="fa-solid fa-clock-rotate-left"></i>History</button>
+        <button class="btn btn-ghost" id="btnSave"><i class="fa-regular fa-floppy-disk"></i>Save Letter</button>
+        <button class="btn btn-primary" id="btnExport"><i class="fa-solid fa-file-export"></i>Export PDF</button>
+      </div>
+    </header>
+
+    <div class="stack">
+      <div class="main-grid">
+        <section class="card">
+          <div class="meta">Letter header</div>
+          <h3>Letter Details</h3>
+
+          <!-- Previous Letter Info -->
+          <div class="prev-letter-info" id="prevLetterInfo" style="display: none;">
+            <i class="fa-solid fa-info-circle"></i>
+            <span>Last letter: <strong id="prevLetterNo">-</strong> dated <strong id="prevLetterDate">-</strong></span>
+          </div>
+
+          <div class="grid-2">
+            <label class="field">Letter Date
+              <input type="date" id="letterDate" />
+            </label>
+            <label class="field">Letter No
+              <input type="text" id="letterNo" placeholder="BB.TRSO.ESTB.15" />
+            </label>
+            <label class="field">Staff Type
+              <div class="pill-group" role="group" aria-label="Staff type">
+                <button class="pill active" data-type="MAINLINE">Main Line</button>
+                <button class="pill" data-type="SUBURBAN">Suburban</button>
+              </div>
+            </label>
+            <label class="field">Subject
+              <input type="text" id="subject" value="Review/Revision of Loco Pilots Category" />
+            </label>
+          </div>
+          <label class="field" style="margin-top: 8px;">Reference (Suburban only)
+            <input type="text" id="referenceText" placeholder="L.NO.BB.TRO ESTB-15 dated..." disabled />
+          </label>
+          <label class="field" style="margin-top: 8px;">Content Text
+            <textarea id="contentText">Keeping in view, the Safety performance of Loco Pilots and based on report of Nominated Loco Inspector, safety category of the following Loco Pilot's is changed as under:-</textarea>
+          </label>
+          <label class="field" style="margin-top: 8px;">Footer Text
+            <textarea id="footerText" style="min-height:60px;">This is approved by competent authority.</textarea>
+          </label>
+          <div class="grid-2" style="margin-top: 8px;">
+            <label class="field">Signing Designation (Hindi)
+              <input type="text" id="signDesignation" value="सहा.मं.वि.इं.(क.च.परि)" />
+            </label>
+            <label class="field">Signing Place (Hindi)
+              <input type="text" id="signPlace" value="मुंबई छ.शि.म.ट." />
+            </label>
+          </div>
+          <label class="field" style="margin-top: 8px;">CC Text
+            <textarea id="ccText" style="min-height:50px;"></textarea>
+          </label>
+        </section>
+
+        <aside class="preview-card" aria-live="polite">
+          <div class="preview-meta">
+            <div><strong>No.</strong> <span id="previewLetterNo">-</span></div>
+            <div><strong>Date:</strong> <span id="previewLetterDate">-</span></div>
+          </div>
+          <div class="preview-title">Sub: <span id="previewSubject">Review/Revision of Loco Pilots Category</span></div>
+          <div class="preview-body">
+            <p id="previewReference" style="display:none;font-style:italic;"></p>
+            <p id="previewContent">Keeping in view, the Safety performance...</p>
+            <table class="preview-table">
+              <thead>
+                <tr>
+                  <th>Sr</th>
+                  <th>Name</th>
+                  <th>CMS ID</th>
+                  <th>Desg.</th>
+                  <th>Depot</th>
+                  <th>Present Cat</th>
+                  <th>Revised Cat</th>
+                  <th>Remarks</th>
+                </tr>
+              </thead>
+              <tbody id="previewTable"></tbody>
+            </table>
+            <p class="note" id="previewFooter">This is approved by competent authority.</p>
+            <p class="note" id="previewSign">-</p>
+            <p class="note" id="previewCC" style="font-size:0.85rem;"></p>
+          </div>
+        </aside>
+      </div>
+
+      <section class="card table-card">
+        <div class="table-head">
+          <div>
+            <div class="meta">Category changes</div>
+            <h3>Staff Category Changes</h3>
+          </div>
+          <div class="counts">
+            <div class="chip"><i class="fa-solid fa-arrow-up" style="color:var(--cat-a);"></i><strong id="countUpgrade">0</strong> upgraded</div>
+            <div class="chip"><i class="fa-solid fa-arrow-down" style="color:var(--cat-c);"></i><strong id="countDowngrade">0</strong> downgraded</div>
+            <div class="chip"><i class="fa-solid fa-users"></i><strong id="countTotal">0</strong> total</div>
+          </div>
+        </div>
+
+        <table aria-label="Category changes table">
+          <thead>
+            <tr>
+              <th>Sr</th>
+              <th>Name</th>
+              <th>CMS ID</th>
+              <th>Desg.</th>
+              <th>Depot</th>
+              <th>CLI</th>
+              <th>Present Cat</th>
+              <th>Revised Cat</th>
+              <th>Remarks</th>
+              <th style="text-align:center; width:70px;">Action</th>
+            </tr>
+          </thead>
+          <tbody id="changeRows">
+            <tr class="empty-state-row">
+              <td colspan="10">
+                <div class="empty-state">
+                  <i class="fa-solid fa-shield-halved"></i>
+                  <p>No staff added yet. Use the search below to add staff.</p>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <form class="inline-form" id="addForm" onsubmit="return false;">
+          <label class="field">Search staff (name / CMS / HRMS)
+            <div class="search-wrapper">
+              <input type="text" id="searchInput" placeholder="Type to search..." autocomplete="off" />
+              <div class="search-results" id="searchResults"></div>
+            </div>
+          </label>
+          <label class="field">Present
+            <input type="text" id="presentCat" readonly style="background:#f1f5f9;text-align:center;font-weight:700;" />
+          </label>
+          <label class="field">Revised
+            <select id="newCatSelect">
+              <option value="">Select...</option>
+              <option value="A">A</option>
+              <option value="B">B</option>
+              <option value="C">C</option>
+            </select>
+          </label>
+          <label class="field">Remarks
+            <input type="text" id="remarksInput" placeholder="Optional" />
+          </label>
+          <div>
+            <button class="btn btn-primary" id="btnAdd" disabled><i class="fa-solid fa-plus"></i>Add</button>
+          </div>
+        </form>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    // State
+    const state = {
+      letterId: null,
+      staffType: 'MAINLINE',
+      changes: [],
+      selectedStaff: null,
+      prevLetter: null,
+      existingLetterForDate: null,
+      isSaved: false,
+      isEditing: false
+    };
+
+    // DOM Elements
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    const toastEl = document.getElementById('toast');
+    const changeRowsEl = document.getElementById('changeRows');
+    const previewTableEl = document.getElementById('previewTable');
+    const chipDateText = document.getElementById('chipDateText');
+    const chipCountText = document.getElementById('chipCountText');
+    const chipTypeText = document.getElementById('chipTypeText');
+    const countUpgrade = document.getElementById('countUpgrade');
+    const countDowngrade = document.getElementById('countDowngrade');
+    const countTotal = document.getElementById('countTotal');
+    const prevLetterInfo = document.getElementById('prevLetterInfo');
+    const prevLetterNo = document.getElementById('prevLetterNo');
+    const prevLetterDate = document.getElementById('prevLetterDate');
+
+    const letterDateInput = document.getElementById('letterDate');
+    const letterNoInput = document.getElementById('letterNo');
+    const subjectInput = document.getElementById('subject');
+    const referenceInput = document.getElementById('referenceText');
+    const contentInput = document.getElementById('contentText');
+    const footerInput = document.getElementById('footerText');
+    const signDesignationInput = document.getElementById('signDesignation');
+    const signPlaceInput = document.getElementById('signPlace');
+    const ccTextInput = document.getElementById('ccText');
+    const searchInput = document.getElementById('searchInput');
+    const searchResults = document.getElementById('searchResults');
+    const presentCatInput = document.getElementById('presentCat');
+    const newCatSelect = document.getElementById('newCatSelect');
+    const remarksInput = document.getElementById('remarksInput');
+    const btnAdd = document.getElementById('btnAdd');
+
+    const previewLetterNo = document.getElementById('previewLetterNo');
+    const previewLetterDate = document.getElementById('previewLetterDate');
+    const previewSubject = document.getElementById('previewSubject');
+    const previewReference = document.getElementById('previewReference');
+    const previewContent = document.getElementById('previewContent');
+    const previewFooter = document.getElementById('previewFooter');
+    const previewSign = document.getElementById('previewSign');
+    const previewCC = document.getElementById('previewCC');
+
+    // Utility functions
+    function showLoading() { loadingOverlay.classList.add('show'); }
+    function hideLoading() { loadingOverlay.classList.remove('show'); }
+
+    function showToast(message, type = 'info') {
+      toastEl.textContent = message;
+      toastEl.className = 'toast show ' + type;
+      setTimeout(() => toastEl.classList.remove('show'), 3000);
+    }
+
+    function formatDate(value) {
+      if (!value) return '-';
+      const d = new Date(value + 'T00:00:00');
+      return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    }
+
+    function getFixedLetterNo() {
+      return state.staffType === 'SUBURBAN' ? 'BB.TRSO.EMU.15' : 'BB.TRSO.ESTB.15';
+    }
+
+    function getCatClass(cat) {
+      if (cat === 'A') return 'cat-A';
+      if (cat === 'B') return 'cat-B';
+      if (cat === 'C') return 'cat-C';
+      return '';
+    }
+
+    // Designation short forms
+    function shortDesignation(designation) {
+      if (!designation) return '-';
+      const d = designation.toLowerCase();
+      if (d.includes('asst') && d.includes('loco') && d.includes('pilot')) return 'ALP';
+      if (d.includes('loco') && d.includes('pilot') && d.includes('goods')) return 'LPG';
+      if (d.includes('loco') && d.includes('pilot') && d.includes('ghat')) return 'LP-GHAT';
+      if (d.includes('loco') && d.includes('pilot') && d.includes('mail')) return 'LPM';
+      if (d.includes('loco') && d.includes('pilot') && d.includes('pass')) return 'LPP';
+      if (d.includes('shunter')) return 'LPS';
+      if (d.includes('motorman')) return 'M/Man';
+      return designation.length > 10 ? designation.substring(0, 8) + '..' : designation;
+    }
+
+    // API calls
+    async function fetchAPI(url, options = {}) {
+      try {
+        const response = await fetch(url, {
+          ...options,
+          headers: {
+            'Content-Type': 'application/json',
+            ...options.headers
+          }
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'API error');
+        return data;
+      } catch (error) {
+        console.error('API Error:', error);
+        throw error;
+      }
+    }
+
+    // Load previous letter info
+    async function loadPreviousLetter() {
+      try {
+        const data = await fetchAPI(`/api/division/category/letters?staff_type=${state.staffType}`);
+        const letters = data.data || [];
+
+        letterNoInput.value = getFixedLetterNo();
+
+        if (letters.length > 0) {
+          state.prevLetter = letters[0];
+          prevLetterNo.textContent = state.prevLetter.letter_no || '-';
+          prevLetterDate.textContent = formatDate(state.prevLetter.letter_date);
+          prevLetterInfo.style.display = 'flex';
+
+          const selectedDate = letterDateInput.value;
+          const existingLetter = letters.find(l => l.letter_date && l.letter_date.split('T')[0] === selectedDate);
+          state.existingLetterForDate = existingLetter || null;
+        } else {
+          prevLetterInfo.style.display = 'none';
+          state.existingLetterForDate = null;
+        }
+
+        updatePreviewText();
+      } catch (error) {
+        console.error('Failed to load previous letter:', error);
+      }
+    }
+
+    // Staff search
+    let searchTimeout;
+    async function searchStaff(query) {
+      if (!query || query.length < 2) {
+        searchResults.classList.remove('show');
+        return;
+      }
+
+      try {
+        const data = await fetchAPI(`/api/division/category/search-staff?q=${encodeURIComponent(query)}&staff_type=${state.staffType}`);
+        const staff = data.data || [];
+
+        if (staff.length === 0) {
+          searchResults.innerHTML = '<div class="search-result-item"><span class="staff-detail">No staff found (ALP/Sr.ALP excluded)</span></div>';
+        } else {
+          searchResults.innerHTML = staff.map(s => `
+            <div class="search-result-item" data-staff='${JSON.stringify(s).replace(/'/g, "&#39;")}'>
+              <div class="staff-info">
+                <div class="staff-name">${s.name}</div>
+                <div class="staff-detail">${s.current_cms_id || s.hrms_id} - ${s.designation_name || '-'} - ${s.current_office_code || '-'}</div>
+              </div>
+              <span class="current-cat ${getCatClass(s.safety_category)}">${s.safety_category || '-'}</span>
+            </div>
+          `).join('');
+        }
+        searchResults.classList.add('show');
+      } catch (error) {
+        showToast('Search failed', 'error');
+      }
+    }
+
+    searchInput.addEventListener('input', (e) => {
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(() => searchStaff(e.target.value), 300);
+    });
+
+    searchResults.addEventListener('click', (e) => {
+      const item = e.target.closest('.search-result-item');
+      if (item && item.dataset.staff) {
+        state.selectedStaff = JSON.parse(item.dataset.staff);
+        searchInput.value = `${state.selectedStaff.name} (${state.selectedStaff.current_cms_id || state.selectedStaff.hrms_id})`;
+        presentCatInput.value = state.selectedStaff.safety_category || '-';
+        searchResults.classList.remove('show');
+        btnAdd.disabled = false;
+        newCatSelect.focus();
+      }
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.search-wrapper')) {
+        searchResults.classList.remove('show');
+      }
+    });
+
+    // Add change
+    function addChange() {
+      if (!state.selectedStaff) {
+        showToast('Select a staff member', 'error');
+        return;
+      }
+      if (!newCatSelect.value) {
+        showToast('Select new category', 'error');
+        return;
+      }
+      if (newCatSelect.value === state.selectedStaff.safety_category) {
+        showToast('New category must be different from present', 'error');
+        return;
+      }
+
+      const alreadyExists = state.changes.some(c => c.staff_hrms_id === state.selectedStaff.hrms_id);
+      if (alreadyExists) {
+        showToast('Staff already in the list', 'error');
+        return;
+      }
+
+      const change = {
+        staff_hrms_id: state.selectedStaff.hrms_id,
+        staff_name: state.selectedStaff.name,
+        pf_no: state.selectedStaff.current_cms_id,
+        designation_name: state.selectedStaff.designation_name,
+        depot: state.selectedStaff.current_office_code,
+        cli_name: state.selectedStaff.cli_name || null,
+        old_category: state.selectedStaff.safety_category,
+        new_category: newCatSelect.value,
+        remarks: remarksInput.value || null
+      };
+
+      state.changes.push(change);
+      state.isSaved = false;
+
+      showToast('Staff added to list', 'success');
+
+      // Reset form
+      searchInput.value = '';
+      presentCatInput.value = '';
+      newCatSelect.value = '';
+      remarksInput.value = '';
+      state.selectedStaff = null;
+      btnAdd.disabled = true;
+      searchInput.focus();
+
+      renderChanges();
+      updateSaveButtonState();
+    }
+
+    btnAdd.addEventListener('click', addChange);
+
+    // Remove change
+    function removeChange(idx) {
+      if (!confirm('Remove this staff from the list?')) return;
+      state.changes.splice(idx, 1);
+      state.isSaved = false;
+      showToast('Staff removed', 'success');
+      renderChanges();
+      updateSaveButtonState();
+    }
+
+    changeRowsEl.addEventListener('click', (e) => {
+      const btn = e.target.closest('button[data-idx]');
+      if (btn) {
+        removeChange(parseInt(btn.dataset.idx));
+      }
+    });
+
+    // Update save button state
+    function updateSaveButtonState() {
+      const btnSave = document.getElementById('btnSave');
+      if (state.changes.length > 0 && !state.isSaved) {
+        btnSave.innerHTML = '<i class="fa-regular fa-floppy-disk"></i>Save (' + state.changes.length + ')';
+        btnSave.style.background = '#fbbf24';
+        btnSave.style.color = '#78350f';
+        btnSave.style.borderColor = '#f59e0b';
+      } else if (state.isSaved) {
+        btnSave.innerHTML = '<i class="fa-solid fa-check"></i>Saved';
+        btnSave.style.background = 'rgba(16, 185, 129, 0.2)';
+        btnSave.style.color = '#059669';
+        btnSave.style.borderColor = '#10b981';
+      } else {
+        btnSave.innerHTML = '<i class="fa-regular fa-floppy-disk"></i>Save Letter';
+        btnSave.style.background = '';
+        btnSave.style.color = '';
+        btnSave.style.borderColor = '';
+      }
+    }
+
+    // Save letter
+    async function saveLetter() {
+      if (!letterDateInput.value) {
+        showToast('Please enter letter date', 'error');
+        return;
+      }
+
+      if (state.changes.length === 0) {
+        showToast('Add at least one staff change', 'error');
+        return;
+      }
+
+      // Warn if adding to existing letter
+      if (!state.isEditing && state.existingLetterForDate) {
+        const existingCount = state.existingLetterForDate.change_count || 0;
+        if (existingCount > 0) {
+          const confirmAdd = confirm(
+            `A letter already exists for this date with ${existingCount} staff.\n\n` +
+            `Your ${state.changes.length} new changes will REPLACE that letter.\n\n` +
+            `Click OK to continue, or Cancel to change the date.`
+          );
+          if (!confirmAdd) return;
+        }
+      }
+
+      showLoading();
+      try {
+        const payload = {
+          letter_date: letterDateInput.value,
+          letter_no: letterNoInput.value || null,
+          staff_type: state.staffType,
+          subject: subjectInput.value || null,
+          subject_hindi: null,
+          reference_text: state.staffType === 'SUBURBAN' ? referenceInput.value : null,
+          content_text: contentInput.value || null,
+          content_text_hindi: null,
+          footer_text: footerInput.value || null,
+          signing_designation: signDesignationInput.value || null,
+          signing_designation_hindi: null,
+          signing_place: signPlaceInput.value || null,
+          signing_place_hindi: null,
+          cc_text: ccTextInput.value || null,
+          changes: state.changes.map(c => ({
+            staff_hrms_id: c.staff_hrms_id,
+            old_category: c.old_category,
+            new_category: c.new_category,
+            remarks: c.remarks
+          }))
+        };
+
+        const result = await fetchAPI('/api/division/category/letters', {
+          method: 'POST',
+          body: JSON.stringify(payload)
+        });
+
+        state.letterId = result.letter_id;
+        state.isSaved = true;
+        state.isEditing = true;
+        state.existingLetterForDate = null;
+
+        updateSaveButtonState();
+        showToast(result.message || 'Letter saved successfully', 'success');
+
+      } catch (error) {
+        showToast(error.message || 'Failed to save letter', 'error');
+      } finally {
+        hideLoading();
+      }
+    }
+
+    document.getElementById('btnSave').addEventListener('click', saveLetter);
+
+    // Load existing letter
+    async function loadLetter(letterId) {
+      showLoading();
+      try {
+        const data = await fetchAPI(`/api/division/category/letters/${letterId}`);
+        const { letter, changes } = data.data;
+
+        state.letterId = letter.id;
+        state.isEditing = true;
+        state.isSaved = true;
+
+        // Map changes to our format
+        state.changes = changes.map(c => ({
+          staff_hrms_id: c.staff_hrms_id,
+          staff_name: c.staff_name,
+          pf_no: c.current_cms_id,
+          designation_name: c.designation_name,
+          depot: c.depot,
+          cli_name: c.cli_name,
+          old_category: c.old_category,
+          new_category: c.new_category,
+          remarks: c.remarks
+        }));
+
+        letterDateInput.value = letter.letter_date ? letter.letter_date.split('T')[0] : '';
+        letterNoInput.value = letter.letter_no || '';
+        subjectInput.value = letter.subject || '';
+        referenceInput.value = letter.reference_text || '';
+        contentInput.value = letter.content_text || '';
+        footerInput.value = letter.footer_text || '';
+        signDesignationInput.value = letter.signing_designation || '';
+        signPlaceInput.value = letter.signing_place || '';
+        ccTextInput.value = letter.cc_text || '';
+
+        state.staffType = letter.staff_type;
+        document.querySelectorAll('.pill').forEach(p => {
+          p.classList.toggle('active', p.dataset.type === letter.staff_type);
+        });
+        updateFieldsForStaffType();
+
+        renderChanges();
+        updatePreviewText();
+        syncChips();
+        updateSaveButtonState();
+      } catch (error) {
+        showToast('Failed to load letter', 'error');
+      } finally {
+        hideLoading();
+      }
+    }
+
+    // Render changes table
+    function renderChanges() {
+      if (state.changes.length === 0) {
+        changeRowsEl.innerHTML = `
+          <tr class="empty-state-row">
+            <td colspan="10">
+              <div class="empty-state">
+                <i class="fa-solid fa-shield-halved"></i>
+                <p>No staff added yet. Use the search below to add staff.</p>
+              </div>
+            </td>
+          </tr>
+        `;
+      } else {
+        changeRowsEl.innerHTML = state.changes.map((row, idx) => `
+          <tr>
+            <td>${idx + 1}</td>
+            <td>${row.staff_name}</td>
+            <td><code>${row.pf_no || '-'}</code></td>
+            <td>${shortDesignation(row.designation_name)}</td>
+            <td>${row.depot || '-'}</td>
+            <td>${row.cli_name || '-'}</td>
+            <td><span class="cat-badge ${getCatClass(row.old_category)}">${row.old_category}</span></td>
+            <td><span class="cat-badge ${getCatClass(row.new_category)}">${row.new_category}</span></td>
+            <td>${row.remarks || '-'}</td>
+            <td class="actions">
+              <button class="icon-btn" data-idx="${idx}" title="Remove">
+                <i class="fa-solid fa-xmark"></i>
+              </button>
+            </td>
+          </tr>
+        `).join('');
+      }
+
+      // Update counts
+      let upgrades = 0, downgrades = 0;
+      const catOrder = { 'C': 1, 'B': 2, 'A': 3 };
+      state.changes.forEach(c => {
+        if (catOrder[c.new_category] > catOrder[c.old_category]) upgrades++;
+        else if (catOrder[c.new_category] < catOrder[c.old_category]) downgrades++;
+      });
+
+      countUpgrade.textContent = upgrades;
+      countDowngrade.textContent = downgrades;
+      countTotal.textContent = state.changes.length;
+      chipCountText.textContent = `${state.changes.length} staff`;
+
+      renderPreviewTable();
+    }
+
+    function renderPreviewTable() {
+      previewTableEl.innerHTML = state.changes.map((row, idx) => `
+        <tr>
+          <td>${idx + 1}</td>
+          <td>${row.staff_name}</td>
+          <td>${row.pf_no || '-'}</td>
+          <td>${shortDesignation(row.designation_name)}</td>
+          <td>${row.depot || '-'}</td>
+          <td style="text-align:center;"><span class="cat-badge ${getCatClass(row.old_category)}">${row.old_category}</span></td>
+          <td style="text-align:center;"><span class="cat-badge ${getCatClass(row.new_category)}">${row.new_category}</span></td>
+          <td>${row.remarks || ''}</td>
+        </tr>
+      `).join('');
+    }
+
+    function updatePreviewText() {
+      previewLetterNo.textContent = letterNoInput.value || '-';
+      previewLetterDate.textContent = formatDate(letterDateInput.value);
+      previewSubject.textContent = subjectInput.value || '-';
+
+      if (state.staffType === 'SUBURBAN' && referenceInput.value) {
+        previewReference.textContent = 'Ref: ' + referenceInput.value;
+        previewReference.style.display = 'block';
+      } else {
+        previewReference.style.display = 'none';
+      }
+
+      previewContent.textContent = contentInput.value || '-';
+      previewFooter.textContent = footerInput.value || '';
+
+      const signParts = [signDesignationInput.value, signPlaceInput.value].filter(Boolean).join(' / ');
+      previewSign.textContent = signParts || '-';
+
+      if (ccTextInput.value) {
+        previewCC.innerHTML = ccTextInput.value.replace(/\n/g, '<br>');
+        previewCC.style.display = 'block';
+      } else {
+        previewCC.style.display = 'none';
+      }
+    }
+
+    function syncChips() {
+      chipTypeText.textContent = state.staffType === 'SUBURBAN' ? 'Suburban' : 'Main Line';
+      chipDateText.textContent = formatDate(letterDateInput.value);
+    }
+
+    function updateFieldsForStaffType() {
+      if (state.staffType === 'SUBURBAN') {
+        referenceInput.disabled = false;
+        referenceInput.placeholder = 'L.NO.BB.TRO ESTB-15 dated 24/07/25...';
+        subjectInput.value = 'Revision of Motormen Category';
+        contentInput.value = 'In connection with the above-referred proposal, the following category of Motorman Has been revised as under: -';
+        footerInput.value = 'All concerned Depot in-charge at CSTM, KYN & PNVL to take note of the changes and inform concerned M/Men. Nominated LI\'s will update performance book of above Motorman.';
+        signDesignationInput.value = 'स.मं.वि. अभियंता (कर्षण.चल.स्टॉक परि)';
+        signPlaceInput.value = 'छ.शि.म.ट., मुंबई';
+        ccTextInput.value = 'C /- Sr. CC (Sub) CSTM / KYN / PNVL for RSOB.\nC/- LPC (Sub) for Information to concerned M/ Men & LI\'s';
+      } else {
+        referenceInput.disabled = true;
+        referenceInput.value = '';
+        referenceInput.placeholder = 'Not applicable for Main Line';
+        subjectInput.value = 'Review/Revision of Loco Pilots Category';
+        contentInput.value = 'Keeping in view, the Safety performance of Loco Pilots and based on report of Nominated Loco Inspector, safety category of the following Loco Pilot\'s is changed as under:-';
+        footerInput.value = 'This is approved by competent authority.';
+        signDesignationInput.value = 'सहा.मं.वि.इं.(क.च.परि)';
+        signPlaceInput.value = 'मुंबई छ.शि.म.ट.';
+        ccTextInput.value = '';
+      }
+      updatePreviewText();
+    }
+
+    // Staff type toggle
+    document.querySelectorAll('.pill').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (state.changes.length > 0) {
+          if (!confirm('Changing staff type will clear current changes. Continue?')) return;
+        }
+
+        document.querySelectorAll('.pill').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        state.staffType = btn.dataset.type;
+        state.letterId = null;
+        state.changes = [];
+        state.isSaved = false;
+        state.isEditing = false;
+
+        letterNoInput.value = getFixedLetterNo();
+        updateFieldsForStaffType();
+        loadPreviousLetter();
+        renderChanges();
+        syncChips();
+        updateSaveButtonState();
+      });
+    });
+
+    // Input listeners for preview
+    [letterNoInput, subjectInput, referenceInput, contentInput, footerInput, signDesignationInput, signPlaceInput, ccTextInput].forEach(el => {
+      el.addEventListener('input', updatePreviewText);
+    });
+
+    letterDateInput.addEventListener('change', async () => {
+      chipDateText.textContent = formatDate(letterDateInput.value);
+      previewLetterDate.textContent = formatDate(letterDateInput.value);
+
+      if (state.changes.length > 0 && !state.isSaved) {
+        const confirmChange = confirm('You have unsaved changes. Changing date will clear them. Continue?');
+        if (!confirmChange) return;
+      }
+
+      state.letterId = null;
+      state.changes = [];
+      state.isSaved = false;
+      state.isEditing = false;
+      state.existingLetterForDate = null;
+
+      await loadPreviousLetter();
+      renderChanges();
+      updateSaveButtonState();
+    });
+
+    // Export/Print
+    function generatePrintableHTML() {
+      const letterNo = letterNoInput.value || '-';
+      const letterDate = formatDate(letterDateInput.value);
+      const subject = subjectInput.value || '-';
+      const reference = state.staffType === 'SUBURBAN' ? referenceInput.value : '';
+      const content = contentInput.value || '';
+      const footer = footerInput.value || '';
+      const signDesignation = signDesignationInput.value || '';
+      const signPlace = signPlaceInput.value || '';
+      const ccText = ccTextInput.value || '';
+      const staffTypeLabel = state.staffType === 'SUBURBAN' ? 'Suburban' : 'Main Line';
+
+      const tableRows = state.changes.map((row, idx) => `
+        <tr>
+          <td style="text-align:center;">${idx + 1}</td>
+          <td>${row.staff_name}</td>
+          <td>${row.pf_no || '-'}</td>
+          <td>${shortDesignation(row.designation_name)}</td>
+          <td>${row.depot || '-'}</td>
+          <td style="text-align:center;">${row.old_category}</td>
+          <td style="text-align:center;font-weight:bold;">${row.new_category}</td>
+          <td>${row.remarks || ''}</td>
+        </tr>
+      `).join('');
+
+      return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Category Change Letter - ${letterNo}</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 15mm 12mm;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Times New Roman', Times, serif;
+      font-size: 12pt;
+      line-height: 1.5;
+      color: #000;
+      margin: 0;
+      padding: 20px;
+      background: #fff;
+    }
+    .letter-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      border-bottom: 1px solid #000;
+      padding-bottom: 10px;
+      margin-bottom: 12px;
+    }
+    .header-left { text-align: left; flex: 1; }
+    .header-center { flex: 0 0 auto; text-align: center; padding: 0 15px; }
+    .header-center .logo { height: 50px; width: auto; }
+    .railway-name { font-size: 14pt; font-weight: bold; }
+    .railway-name-en { font-size: 12pt; font-weight: bold; }
+    .header-right { text-align: right; flex: 1; }
+    .railway-address { font-size: 11pt; }
+    .letter-meta {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 10px;
+      font-size: 11pt;
+    }
+    .letter-meta .left { text-align: left; }
+    .letter-meta .right { text-align: right; }
+    .internal-id { font-size: 8pt; color: #888; }
+    .addressee { font-size: 11pt; margin-bottom: 10px; line-height: 1.4; }
+    .subject { font-weight: bold; margin: 10px 0 8px; font-size: 11pt; }
+    .reference { font-style: italic; margin: 5px 0 10px; font-size: 11pt; }
+    .content { text-align: justify; margin-bottom: 12px; font-size: 11pt; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 15px 0;
+      font-size: 10pt;
+    }
+    th, td {
+      border: 1px solid #000;
+      padding: 6px 5px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: #f0f0f0; font-weight: bold; text-align: center; font-size: 9pt; }
+    .footer-note { margin-top: 20px; font-size: 11pt; }
+    .footer-section {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      margin-top: 20px;
+    }
+    .cc-section { font-size: 10pt; text-align: left; white-space: pre-line; }
+    .signature { text-align: right; }
+    .signature::before { content: ''; display: block; height: 30px; }
+    .signature .designation-hindi { font-weight: bold; font-size: 11pt; }
+    .signature .place-hindi { font-size: 11pt; margin-top: 2px; }
+    .print-actions {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      display: flex;
+      gap: 10px;
+      z-index: 1000;
+    }
+    .print-actions button {
+      padding: 10px 20px;
+      font-size: 14px;
+      cursor: pointer;
+      border: none;
+      border-radius: 6px;
+    }
+    .btn-print { background: #059669; color: #fff; }
+    .btn-close { background: #e5e7eb; color: #374151; }
+    @media print {
+      .print-actions { display: none; }
+      body { padding: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="print-actions">
+    <button class="btn-print" onclick="window.print()">Print / Save PDF</button>
+    <button class="btn-close" onclick="window.close()">Close</button>
+  </div>
+
+  <div class="letter-header">
+    <div class="header-left">
+      <div class="railway-name">मध्य रेल</div>
+    </div>
+    <div class="header-center">
+      <img src="/img/railway-logo.png" alt="Indian Railways" class="logo" onerror="this.style.display='none'">
+    </div>
+    <div class="header-right">
+      <div class="railway-name-en">Central Railway</div>
+      <div class="railway-address">Mumbai 400001.</div>
+    </div>
+  </div>
+
+  <div class="letter-meta">
+    <div class="left">
+      <strong>No.</strong> ${letterNo}
+      ${state.letterId ? `<br><span class="internal-id">(Ref: ${state.letterId})</span>` : ''}
+    </div>
+    <div class="right">
+      <strong>Date:</strong> ${letterDate}
+    </div>
+  </div>
+
+  <div class="addressee">
+    To,<br>
+    All CLI's (${staffTypeLabel})<br>
+    Mumbai Division
+  </div>
+
+  <div class="subject">Sub: ${subject}</div>
+  ${reference ? `<div class="reference">Ref: ${reference}</div>` : ''}
+
+  <div class="content">
+    <p>${content}</p>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width:30px;">Sr</th>
+        <th>Name</th>
+        <th>CMS ID</th>
+        <th>Desg.</th>
+        <th>Depot</th>
+        <th style="width:60px;">Present Cat</th>
+        <th style="width:60px;">Revised Cat</th>
+        <th>Remarks</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${tableRows}
+    </tbody>
+  </table>
+
+  ${footer ? `<div class="footer-note">${footer}</div>` : ''}
+
+  <div class="footer-section">
+    <div class="cc-section">${ccText}</div>
+    <div class="signature">
+      <div class="designation-hindi">${signDesignation}</div>
+      <div class="place-hindi">${signPlace}</div>
+    </div>
+  </div>
+</body>
+</html>
+      `;
+    }
+
+    document.getElementById('btnExport').addEventListener('click', () => {
+      if (state.changes.length === 0) {
+        showToast('Add staff before exporting', 'error');
+        return;
+      }
+
+      const printWindow = window.open('', '_blank');
+      if (!printWindow) {
+        showToast('Popup blocked! Please allow popups for this site.', 'error');
+        return;
+      }
+
+      printWindow.document.write(generatePrintableHTML());
+      printWindow.document.close();
+    });
+
+    // Letter history
+    let allLetters = [];
+
+    document.getElementById('btnHistory').addEventListener('click', async () => {
+      try {
+        showLoading();
+        const data = await fetchAPI('/api/division/category/letters');
+        allLetters = data.data || [];
+        hideLoading();
+
+        if (allLetters.length === 0) {
+          showToast('No letters found', 'info');
+          return;
+        }
+
+        const years = [...new Set(allLetters.map(l => new Date(l.letter_date).getFullYear()))].sort((a, b) => b - a);
+        const yearFilter = document.getElementById('letterYearFilter');
+        yearFilter.innerHTML = '<option value="">All Years</option>' +
+          years.map(y => `<option value="${y}">${y}</option>`).join('');
+
+        document.getElementById('letterTypeFilter').value = state.staffType;
+        filterLetterHistory();
+        document.getElementById('letterHistoryModal').classList.add('show');
+      } catch (error) {
+        hideLoading();
+        showToast('Failed to load history: ' + error.message, 'error');
+      }
+    });
+
+    function filterLetterHistory() {
+      const yearFilter = document.getElementById('letterYearFilter').value;
+      const typeFilter = document.getElementById('letterTypeFilter').value;
+
+      let filtered = allLetters;
+      if (yearFilter) {
+        filtered = filtered.filter(l => new Date(l.letter_date).getFullYear() === parseInt(yearFilter));
+      }
+      if (typeFilter) {
+        filtered = filtered.filter(l => l.staff_type === typeFilter);
+      }
+      renderLetterHistory(filtered);
+    }
+
+    function renderLetterHistory(letters) {
+      const body = document.getElementById('letterHistoryBody');
+
+      if (letters.length === 0) {
+        body.innerHTML = '<div class="letter-history-empty"><i class="fa-regular fa-folder-open" style="font-size:2rem;margin-bottom:10px;"></i><br>No letters found</div>';
+        return;
+      }
+
+      const byYear = {};
+      letters.forEach(l => {
+        const year = new Date(l.letter_date).getFullYear();
+        if (!byYear[year]) byYear[year] = [];
+        byYear[year].push(l);
+      });
+
+      const sortedYears = Object.keys(byYear).sort((a, b) => b - a);
+
+      let html = '';
+      for (const year of sortedYears) {
+        html += `<div class="letter-year-group">${year}</div>`;
+
+        for (const l of byYear[year]) {
+          const date = new Date(l.letter_date);
+          const dateStr = date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
+          const typeIcon = l.staff_type === 'SUBURBAN' ? 'fa-train-subway' : 'fa-train';
+
+          let preview = '';
+          if (l.first_staff_name && l.change_count > 0) {
+            preview = l.change_count === 1 ? l.first_staff_name : `${l.first_staff_name} and ${l.change_count - 1} other${l.change_count > 2 ? 's' : ''}`;
+          } else {
+            preview = `${l.change_count || 0} category changes`;
+          }
+
+          html += `
+            <div class="letter-item" onclick="selectLetter(${l.id})">
+              <div class="letter-item-main">
+                <div>
+                  <span class="letter-item-date">${dateStr}</span>
+                  <span class="letter-item-no">${l.letter_no || '-'}</span>
+                  <i class="fa-solid ${typeIcon}" style="margin-left:6px;font-size:0.75rem;color:var(--muted);"></i>
+                </div>
+                <div class="letter-item-preview">${preview}</div>
+              </div>
+              <i class="fa-solid fa-chevron-right letter-item-icon"></i>
+            </div>
+          `;
+        }
+      }
+
+      body.innerHTML = html;
+    }
+
+    function selectLetter(letterId) {
+      closeLetterHistory();
+      loadLetter(letterId);
+    }
+
+    function closeLetterHistory() {
+      document.getElementById('letterHistoryModal').classList.remove('show');
+    }
+
+    document.getElementById('letterHistoryModal').addEventListener('click', (e) => {
+      if (e.target.id === 'letterHistoryModal') closeLetterHistory();
+    });
+
+    // Initialize
+    async function init() {
+      const today = new Date().toISOString().slice(0, 10);
+      letterDateInput.value = today;
+      chipDateText.textContent = formatDate(today);
+      previewLetterDate.textContent = formatDate(today);
+
+      letterNoInput.value = getFixedLetterNo();
+      updateFieldsForStaffType();
+      await loadPreviousLetter();
+      renderChanges();
+      updatePreviewText();
+      syncChips();
+      updateSaveButtonState();
+    }
+
+    init();
+  </script>
+</body>
+</html>

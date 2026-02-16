@@ -387,6 +387,10 @@
                             <span class="icon">👥</span>
                             CLI Nominations
                         </a>
+                        <a href="#" class="action-btn" onclick="openCategoryManagementModal(); return false;">
+                            <span class="icon">🛡️</span>
+                            Safety Category
+                        </a>
                         <a href="#" class="action-btn">
                             <span class="icon">📊</span>
                             View Analytics
@@ -696,6 +700,44 @@
 
             <div style="margin-top: 24px; text-align: right;">
                 <button type="button" onclick="closeCLINominationsOptionsModal()"
+                        style="padding: 10px 20px; border: 1px solid #d1d5db; background: white; color: #374151; border-radius: 8px; cursor: pointer; font-weight: 500;">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Safety Category Management Modal -->
+    <div id="categoryManagementModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 9999; align-items: center; justify-content: center; padding: 16px;">
+        <div style="background: white; border-radius: 12px; padding: 32px; width: min(500px, 100%); box-shadow: 0 20px 40px rgba(0,0,0,0.3);">
+            <h2 style="margin: 0 0 24px; color: #1a1d21; font-size: 24px;">🛡️ Safety Category Management</h2>
+
+            <p style="margin-bottom: 24px; color: #6b7280; font-size: 14px;">
+                Manage staff safety categories (A, B, C) and generate official category change letters:
+            </p>
+
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+                <button onclick="window.location.href='/div/category-change-letter.html'"
+                        style="padding: 16px 20px; border: 2px solid #059669; background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%); color: #065f46; border-radius: 8px; cursor: pointer; font-weight: 500; font-size: 15px; text-align: left; display: flex; align-items: center; gap: 12px; transition: all 0.2s;">
+                    <span style="font-size: 20px;">📝</span>
+                    <div>
+                        <div style="font-weight: 600; color: #065f46;">Create Category Change Letter</div>
+                        <div style="font-size: 13px; color: #10b981; font-weight: 400;">Record category upgrades/downgrades with official letter</div>
+                    </div>
+                </button>
+
+                <button onclick="window.location.href='/div/category-reports.html'"
+                        style="padding: 16px 20px; border: 2px solid #6366f1; background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%); color: #4338ca; border-radius: 8px; cursor: pointer; font-weight: 500; font-size: 15px; text-align: left; display: flex; align-items: center; gap: 12px; transition: all 0.2s;">
+                    <span style="font-size: 20px;">📊</span>
+                    <div>
+                        <div style="font-weight: 600; color: #4338ca;">Category Reports</div>
+                        <div style="font-size: 13px; color: #6366f1; font-weight: 400;">View category-wise stats, charts and staff listing</div>
+                    </div>
+                </button>
+            </div>
+
+            <div style="margin-top: 24px; text-align: right;">
+                <button type="button" onclick="closeCategoryManagementModal()"
                         style="padding: 10px 20px; border: 1px solid #d1d5db; background: white; color: #374151; border-radius: 8px; cursor: pointer; font-weight: 500;">
                     Close
                 </button>

@@ -322,4 +322,32 @@ source sql/2026-02-14_sync_cli_nominations.sql
 
 ---
 
-*Last Updated: 2026-02-14*
+---
+
+## 10. Safety Category Change Letters Feature
+**File:** `sql/2026-02-15_category_change_letters.sql`
+**Status:** ⏳ PENDING
+
+Creates tables for tracking staff safety category changes (A/B/C) via official letters.
+
+**Tables:**
+1. `div_category_change_letters` - Letter metadata (date, number, content, signing, CC text)
+2. `div_category_change_history` - Individual staff category changes linked to letters
+
+```sql
+-- Run on server:
+source sql/2026-02-15_category_change_letters.sql
+```
+
+**Purpose:**
+- Track safety category upgrades/downgrades for Loco Pilots and Motormen
+- Generate official letters for Main Line and Suburban staff
+- Auto-updates `div_staff_master.safety_category` on save
+- Excludes ALP/Sr.ALP (designation_id 1,2) from category tracking
+
+**Related Page:** `/div/category-change-letter.html`
+**API:** `/api/division/category/*`
+
+---
+
+*Last Updated: 2026-02-15*

@@ -727,6 +727,7 @@
                     <div><strong id="staffDesignation">—</strong></div>
                     <div>PF No: <strong id="pfNo">—</strong></div>
                     <div>HRMS ID: <strong id="hrmsId">—</strong></div>
+                    <div>CMS ID: <strong id="headerCmsId">—</strong></div>
                     <div>CLI: <strong id="cliName">—</strong></div>
                 </div>
             </div>
@@ -1354,6 +1355,7 @@
             document.getElementById('staffDesignation').textContent = data.designation;
             document.getElementById('pfNo').textContent = data.pfNo;
             document.getElementById('hrmsId').textContent = data.hrmsId;
+            document.getElementById('headerCmsId').textContent = data.cmsId || '—';
             document.getElementById('cliName').textContent = data.cli;
 
             // Service Information Card

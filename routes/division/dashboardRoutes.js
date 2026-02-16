@@ -145,10 +145,10 @@ router.get('/staff-search/:search', async (req, res) => {
             LEFT JOIN designations d ON s.designation_id = d.id
             LEFT JOIN div_cli_master c ON s.current_cli_id = c.cli_id
             LEFT JOIN div_cli_nominations n ON s.hrms_id = n.staff_hrms_id AND n.status = 'Active'
-            WHERE (s.hrms_id LIKE ? OR s.name LIKE ? OR s.current_cms_id LIKE ?)
+            WHERE (s.hrms_id LIKE ? OR s.name LIKE ? OR s.current_cms_id LIKE ? OR s.pf_number LIKE ?)
         `;
 
-        const params = [`%${search}%`, `%${search}%`, `%${search}%`];
+        const params = [`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`];
 
         // Restrict to user's office for non-admin users
         if (userRole !== 'division_admin') {

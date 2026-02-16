@@ -91,6 +91,39 @@
 - [x] Leave management page (table: div_leave_tracking exists) - Frontend + API routes complete
 - [ ] Slate entry page (depends on leave data)
 - [x] CTR entry page - Complete with upload, manual entry, LRD status & SVG map updates
+- [x] Safety Category Change Letter - Create official letters for staff category changes (A/B/C) (Completed 2026-02-15)
+
+### Safety Category Change Letter (Completed)
+**Page:** `/div/category-change-letter.html`
+**API:** `/api/division/category/*`
+**Tables:** `div_category_change_letters`, `div_category_change_history`
+**Features Implemented:**
+- Two staff types: Main Line / Suburban (different letter content/signing)
+- Staff search (excludes ALP/Sr.ALP designation IDs 1,2)
+- Present Category → Revised Category with upgrade/downgrade counts
+- Auto-updates `div_staff_master.safety_category` on save
+- Letter preview with live updates
+- Export to PDF for printing
+- Letter history modal with year/type filters
+- Different default content:
+  - Main Line: "Review/Revision of Loco Pilots Category"
+  - Suburban: "Revision of Motormen Category"
+- Letter number: BB.TRSO.ESTB.15 (ML) / BB.TRSO.EMU.15 (SUB)
+
+**Navigation:** Dashboard → Quick Actions → Safety Category
+
+### Safety Category Reports Page (Completed)
+**Page:** `/div/category-reports.html`
+**Features:**
+- Tab switch: Main Line / Suburban
+- Summary cards: Category A/B/C counts, Last 30 days changes (upgrades/downgrades)
+- Bar chart: Designation-wise category distribution
+- Recent changes panel with staff name, old→new category, date
+- Staff listing table with filters:
+  - Category pills: All / A / B / C
+  - Dropdown filters: Depot, Designation, CLI
+  - Sortable columns: Name, Designation, Depot, Category
+- Print and Excel export
 
 ## Future Enhancements
 - [ ] Division realm: apply concurrency playbook (dedupe/idempotency, UNIQUE keys, upserts, transactions, idempotency keys) across division APIs before scaling

@@ -584,10 +584,22 @@ router.put('/:record_id', requireAuth, async (req, res) => {
             remarks
         } = req.body;
 
-        // Validation
-        if (!training_id || !done_date || !due_date) {
+        // Basic validation
+        if (!training_id || !done_date) {
             return res.status(400).json({
-                error: 'Missing required fields: training_id, done_date, due_date'
+                error: 'Missing required fields: training_id, done_date'
+            });
+        }
+
+        // Lifetime trainings - no due date required
+        // KAVACH(4), AC_DC(9), WAG12(10), SPIC(11), HS_SPART(12), VANDE(16), PUSHPULL(18), HSTAT(19), WDS6(21), GHAT_UP(22), GHAT_DN(23), SEGHAT_UP(24), SEGHAT_DN(25)
+        const LIFETIME_TRAININGS = [4, 9, 10, 11, 12, 14, 15, 16, 18, 19, 20, 21, 22, 23, 24, 25];
+        const isLifetimeTraining = LIFETIME_TRAININGS.includes(parseInt(training_id));
+
+        // Require due date only for non-lifetime trainings
+        if (!isLifetimeTraining && !due_date) {
+            return res.status(400).json({
+                error: 'Due date is required for this training type'
             });
         }
 
@@ -601,7 +613,7 @@ router.put('/:record_id', requireAuth, async (req, res) => {
             [
                 training_id,
                 done_date,
-                due_date,
+                due_date || null,
                 training_center_id || null,
                 remarks || null,
                 record_id

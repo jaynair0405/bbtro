@@ -83,7 +83,7 @@
         <option value="">Select Office</option>
       </select>
       <div class="search-wrapper" style="width:280px;">
-        <input class="form-control" id="searchStaff" placeholder="Search Name / HRMS / CMS ID" autocomplete="off">
+        <input class="form-control" id="searchStaff" placeholder="Search Name / HRMS / CMS / PF No" autocomplete="off">
         <div class="search-dropdown" id="searchDropdown"></div>
       </div>
       <button class="btn btn-success" id="btnAddNewStaff" onclick="startNewStaff()">
@@ -2290,6 +2290,12 @@ function editTraining(index) {
   document.getElementById('training_due_date').value = formatDateForInput(training.due_date);
   document.getElementById('training_center').value = training.training_center_id || '';
   document.getElementById('training_remarks').value = training.remarks || '';
+
+  // Check if lifetime training and hide/show due date group accordingly
+  const selectedOption = document.querySelector(`#training_type option[value="${training.training_id}"]`);
+  const trainingName = selectedOption ? selectedOption.textContent.trim() : '';
+  const isLifetimeTraining = isTrainingLifetime(trainingName);
+  document.getElementById('due_date_group').style.display = isLifetimeTraining ? 'none' : 'block';
 
   const addButton = document.querySelector('#tab-training button[onclick="addTraining()"]');
   addButton.textContent = '✏️ Update Training';
