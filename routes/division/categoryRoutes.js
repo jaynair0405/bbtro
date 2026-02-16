@@ -148,6 +148,7 @@ router.get('/search-staff', requireDivisionAdmin, async (req, res) => {
                 s.hrms_id,
                 s.name,
                 s.current_cms_id,
+                s.pf_number,
                 s.current_office_code,
                 s.designation_id,
                 d.designation_name,
@@ -160,11 +161,11 @@ router.get('/search-staff', requireDivisionAdmin, async (req, res) => {
             LEFT JOIN div_cli_master c ON n.cli_id = c.cli_id
             WHERE s.status = 'Active'
               AND s.designation_id NOT IN (1, 2)
-              AND (s.name LIKE ? OR s.current_cms_id LIKE ? OR s.hrms_id LIKE ?)
+              AND (s.name LIKE ? OR s.current_cms_id LIKE ? OR s.hrms_id LIKE ? OR s.pf_number LIKE ?)
               ${officeFilter}
             ORDER BY s.name
             LIMIT 20
-        `, [`%${q}%`, `%${q}%`, `%${q}%`]);
+        `, [`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`]);
 
         res.json({ success: true, data: staff });
 

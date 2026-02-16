@@ -283,8 +283,9 @@
     .search-result-item:last-child { border-bottom: none; }
     .search-result-item:hover { background: #f1f5f9; }
     .search-result-item .staff-info { flex: 1; }
-    .search-result-item .staff-name { font-weight: 600; color: var(--text); }
-    .search-result-item .staff-detail { font-size: 0.85rem; color: var(--muted); }
+    .search-result-item .staff-name { font-weight: 600; color: var(--text); font-size: 0.95rem; }
+    .search-result-item .staff-detail { font-size: 0.72rem; color: var(--muted); }
+    .search-result-item .staff-pf { font-size: 0.68rem; color: #94a3b8; font-style: italic; }
     .search-result-item .current-cli {
       font-size: 0.8rem;
       background: #dbeafe;
@@ -880,6 +881,7 @@
               <div class="staff-info">
                 <div class="staff-name">${s.name}</div>
                 <div class="staff-detail">${s.current_cms_id || s.hrms_id} • ${s.designation_name || '—'} • ${s.current_office_code || '—'}</div>
+                ${s.pf_number ? `<div class="staff-pf">PF: ${s.pf_number}</div>` : ''}
               </div>
               <span class="current-cli">${s.current_cli_name || 'No CLI'}</span>
             </div>

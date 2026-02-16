@@ -859,6 +859,7 @@ router.get('/staff-for-letter', requireDivisionAdmin, async (req, res) => {
                 s.hrms_id,
                 s.name,
                 s.current_cms_id,
+                s.pf_number,
                 s.current_office_code,
                 COALESCE(NULLIF(s.cug_number, ''), s.phone_number) as mobile,
                 o.office_name,
@@ -882,10 +883,10 @@ router.get('/staff-for-letter', requireDivisionAdmin, async (req, res) => {
             query += ` AND ${getStaffTypeCondition(staff_type, 's')}`;
         }
 
-        // Search by name or HRMS ID or CMS ID
+        // Search by name or HRMS ID or CMS ID or PF number
         if (search) {
-            query += ` AND (s.name LIKE ? OR s.hrms_id LIKE ? OR s.current_cms_id LIKE ?)`;
-            params.push(`%${search}%`, `%${search}%`, `%${search}%`);
+            query += ` AND (s.name LIKE ? OR s.hrms_id LIKE ? OR s.current_cms_id LIKE ? OR s.pf_number LIKE ?)`;
+            params.push(`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`);
         }
 
         // Filter by office
