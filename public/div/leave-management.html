@@ -1914,10 +1914,23 @@
 
         // Open regularize modal for absent staff
         function openRegularizeModal(leaveId, fromDate, toDate, days) {
+            // Normalize dates to YYYY-MM-DD format (using local date to avoid timezone shift)
+            const normalizeDate = (d) => {
+                if (!d) return '';
+                const date = new Date(d);
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            };
+
+            const normFromDate = normalizeDate(fromDate);
+            const normToDate = normalizeDate(toDate);
+
             // Store original absent period
             document.getElementById('regLeaveId').value = leaveId;
-            document.getElementById('regOrigFromDate').value = fromDate;
-            document.getElementById('regOrigToDate').value = toDate;
+            document.getElementById('regOrigFromDate').value = normFromDate;
+            document.getElementById('regOrigToDate').value = normToDate;
 
             // Display absent period info
             document.getElementById('regFromDate').textContent = formatDate(fromDate);
@@ -1925,13 +1938,13 @@
             document.getElementById('regTotalDays').textContent = days;
 
             // Set date inputs to full absent period (default: regularize all)
-            document.getElementById('regFromDateInput').value = fromDate;
-            document.getElementById('regFromDateInput').min = fromDate;
-            document.getElementById('regFromDateInput').max = toDate;
+            document.getElementById('regFromDateInput').value = normFromDate;
+            document.getElementById('regFromDateInput').min = normFromDate;
+            document.getElementById('regFromDateInput').max = normToDate;
 
-            document.getElementById('regToDateInput').value = toDate;
-            document.getElementById('regToDateInput').min = fromDate;
-            document.getElementById('regToDateInput').max = toDate;
+            document.getElementById('regToDateInput').value = normToDate;
+            document.getElementById('regToDateInput').min = normFromDate;
+            document.getElementById('regToDateInput').max = normToDate;
 
             // Calculate days
             document.getElementById('regDays').value = days;
