@@ -590,6 +590,7 @@
                   <th>CMS ID</th>
                   <th>Desg.</th>
                   <th>Depot</th>
+                  <th>CLI</th>
                   <th>Present Cat</th>
                   <th>Revised Cat</th>
                   <th>Remarks</th>
@@ -652,7 +653,10 @@
             </div>
           </label>
           <label class="field">Present
-            <input type="text" id="presentCat" readonly style="background:#f1f5f9;text-align:center;font-weight:700;" />
+            <input type="text" id="presentCat" readonly style="background:#f1f5f9;text-align:center;font-weight:700;width:60px;" />
+          </label>
+          <label class="field">CLI
+            <input type="text" id="nominatedCli" readonly style="background:#f1f5f9;font-size:0.8rem;width:120px;" placeholder="-" />
           </label>
           <label class="field">Revised
             <select id="newCatSelect">
@@ -713,6 +717,7 @@
     const searchInput = document.getElementById('searchInput');
     const searchResults = document.getElementById('searchResults');
     const presentCatInput = document.getElementById('presentCat');
+    const nominatedCliInput = document.getElementById('nominatedCli');
     const newCatSelect = document.getElementById('newCatSelect');
     const remarksInput = document.getElementById('remarksInput');
     const btnAdd = document.getElementById('btnAdd');
@@ -857,6 +862,7 @@
         state.selectedStaff = JSON.parse(item.dataset.staff);
         searchInput.value = `${state.selectedStaff.name} (${state.selectedStaff.current_cms_id || state.selectedStaff.hrms_id})`;
         presentCatInput.value = state.selectedStaff.safety_category || '-';
+        nominatedCliInput.value = state.selectedStaff.cli_name || '-';
         searchResults.classList.remove('show');
         btnAdd.disabled = false;
         newCatSelect.focus();
@@ -910,6 +916,7 @@
       // Reset form
       searchInput.value = '';
       presentCatInput.value = '';
+      nominatedCliInput.value = '';
       newCatSelect.value = '';
       remarksInput.value = '';
       state.selectedStaff = null;
@@ -1141,6 +1148,7 @@
           <td>${row.pf_no || '-'}</td>
           <td>${shortDesignation(row.designation_name)}</td>
           <td>${row.depot || '-'}</td>
+          <td>${row.cli_name || '-'}</td>
           <td style="text-align:center;"><span class="cat-badge ${getCatClass(row.old_category)}">${row.old_category}</span></td>
           <td style="text-align:center;"><span class="cat-badge ${getCatClass(row.new_category)}">${row.new_category}</span></td>
           <td>${row.remarks || ''}</td>
@@ -1182,7 +1190,8 @@
     function updateFieldsForStaffType() {
       if (state.staffType === 'SUBURBAN') {
         referenceInput.disabled = false;
-        referenceInput.placeholder = 'L.NO.BB.TRO ESTB-15 dated 24/07/25...';
+        referenceInput.value = 'L.NO.BB.TRO ESTB-15 dated 24/07/25 policy for categorization of Motorman.';
+        referenceInput.placeholder = '';
         subjectInput.value = 'Revision of Motormen Category';
         contentInput.value = 'In connection with the above-referred proposal, the following category of Motorman Has been revised as under: -';
         footerInput.value = 'All concerned Depot in-charge at CSTM, KYN & PNVL to take note of the changes and inform concerned M/Men. Nominated LI\'s will update performance book of above Motorman.';
@@ -1272,6 +1281,7 @@
           <td>${row.pf_no || '-'}</td>
           <td>${shortDesignation(row.designation_name)}</td>
           <td>${row.depot || '-'}</td>
+          <td>${row.cli_name || '-'}</td>
           <td style="text-align:center;">${row.old_category}</td>
           <td style="text-align:center;font-weight:bold;">${row.new_category}</td>
           <td>${row.remarks || ''}</td>
@@ -1425,8 +1435,9 @@
         <th>CMS ID</th>
         <th>Desg.</th>
         <th>Depot</th>
-        <th style="width:60px;">Present Cat</th>
-        <th style="width:60px;">Revised Cat</th>
+        <th>CLI</th>
+        <th style="width:50px;">Present Cat</th>
+        <th style="width:50px;">Revised Cat</th>
         <th>Remarks</th>
       </tr>
     </thead>

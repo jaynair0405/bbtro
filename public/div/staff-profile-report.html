@@ -1418,12 +1418,12 @@
                 const sixtyDaysLater = new Date(today.getTime() + (60 * 24 * 60 * 60 * 1000));
 
                 // Define major training IDs based on designation
-                // Non-Motorman: 1 (PME), 2 (Refresher IC), 3 (Safety Camp), 5 (Automatic), 6 (Refresher Diesel), 7 (Refresher AC)
-                // Motorman (id=8): 1 (PME), 3 (Safety Camp), 5 (Automatic), 17 (MEMU), 26 (Mman Promotion/Refresher)
+                // Non-Motorman: 1 (PME), 2 (Refresher IC), 5 (Automatic), 6 (Refresher Diesel), 7 (Refresher AC)
+                // Motorman (id=8): 1 (PME), 5 (Automatic), 17 (MEMU), 26 (Mman Promotion/Refresher)
                 const isMotorman = data.designation_id === 8;
                 const relevantTrainingIds = isMotorman
-                    ? [1, 3, 5, 17, 26]
-                    : [1, 2, 3, 5, 6, 7];
+                    ? [1, 5, 17, 26]
+                    : [1, 2, 5, 6, 7];
 
                 // Filter trainings that are due in next 60 days and match relevant types
                 const upcomingTrainings = data.trainings.filter(training => {
@@ -1523,18 +1523,22 @@
 
             if (data.trainings && data.trainings.length > 0) {
                 // Define major training IDs based on designation
-                // Non-Motorman: 1 (PME), 2 (Refresher IC), 3 (Safety Camp), 5 (Automatic), 6 (Refresher Diesel), 7 (Refresher AC)
-                // Motorman (id=8): 1 (PME), 3 (Safety Camp), 5 (Automatic), 17 (MEMU), 26 (Mman Promotion/Refresher)
+                // Non-Motorman: 1 (PME), 2 (Refresher IC), 5 (Automatic), 6 (Refresher Diesel), 7 (Refresher AC)
+                // Motorman (id=8): 1 (PME), 5 (Automatic), 17 (MEMU), 26 (Mman Promotion/Refresher)
                 const isMotorman = data.designation_id === 8;
                 const majorTrainingIds = isMotorman
-                    ? [1, 3, 5, 17, 26]
-                    : [1, 2, 3, 5, 6, 7];
+                    ? [1, 5, 17, 26]
+                    : [1, 2, 5, 6, 7];
 
                 // Filter trainings into major and other using training_id
+                // Exclude Safety Camp (training_id = 3) from print
                 const majorTrainings = [];
                 const otherTrainings = [];
 
                 data.trainings.forEach(training => {
+                    // Skip Safety Camp (id = 3)
+                    if (training.training_id === 3) return;
+
                     const isMajor = majorTrainingIds.includes(training.training_id);
 
                     if (isMajor) {

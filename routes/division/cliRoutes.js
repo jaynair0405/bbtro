@@ -1036,16 +1036,19 @@ router.get('/load-overview', requireDivisionAdmin, async (req, res) => {
                 staff: cliNominations
             };
 
-            if (cli.cli_type === 'SUBURBAN') {
-                suburbanCLIs.push(cliData);
-            } else {
-                mainlineCLIs.push(cliData);
+            // Only include CLIs with at least one staff
+            if (totals.total > 0) {
+                if (cli.cli_type === 'SUBURBAN') {
+                    suburbanCLIs.push(cliData);
+                } else {
+                    mainlineCLIs.push(cliData);
+                }
             }
         }
 
-        // Calculate summary stats
+        // Calculate summary stats (only count CLIs with staff)
         const totalStaff = nominations.length;
-        const activeCLIs = clis.length;
+        const activeCLIs = mainlineCLIs.length + suburbanCLIs.length;
         const avgPerCLI = activeCLIs > 0 ? (totalStaff / activeCLIs).toFixed(1) : 0;
 
         res.json({

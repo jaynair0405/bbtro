@@ -607,7 +607,12 @@
     async function loadStats() {
       try {
         const data = await fetchAPI(`/api/division/category/stats?staff_type=${state.staffType}`);
-        state.stats = data.data || [];
+        const allStats = data.data || [];
+
+        // Exclude LPS (designation_id 3, 4) from stats
+        // To re-include LPS later, comment out the filter line below and use: state.stats = allStats;
+        state.stats = allStats.filter(s => ![3, 4].includes(s.designation_id));
+        // state.stats = allStats; // Uncomment this line to include LPS
 
         let totalA = 0, totalB = 0, totalC = 0;
         state.stats.forEach(s => {
@@ -724,9 +729,14 @@
         depotSelect.innerHTML = '<option value="">All</option>' +
           depots.map(d => `<option value="${d}">${d}</option>`).join('');
 
+        // Exclude LPS (designation_id 3, 4) from designation filter
+        // To re-include LPS later, remove the filter below
+        const filteredDesignations = designations.filter(d => ![3, 4].includes(d.id));
+        // const filteredDesignations = designations; // Uncomment this line to include LPS
+
         const desgSelect = document.getElementById('desgFilter');
         desgSelect.innerHTML = '<option value="">All</option>' +
-          designations.map(d => `<option value="${d.id}">${shortDesg(d.designation_name)}</option>`).join('');
+          filteredDesignations.map(d => `<option value="${d.id}">${shortDesg(d.designation_name)}</option>`).join('');
 
         const cliSelect = document.getElementById('cliFilter');
         cliSelect.innerHTML = '<option value="">All</option>' +
@@ -750,7 +760,12 @@
         if (state.filters.cli_id) url += `&cli_id=${state.filters.cli_id}`;
 
         const data = await fetchAPI(url);
-        state.staff = data.data || [];
+        const allStaff = data.data || [];
+
+        // Exclude LPS (designation_id 3, 4) from staff list
+        // To re-include LPS later, comment out the filter line below and use: state.staff = allStaff;
+        state.staff = allStaff.filter(s => ![3, 4].includes(s.designation_id));
+        // state.staff = allStaff; // Uncomment this line to include LPS
 
         sortStaff();
         renderStaff();

@@ -653,6 +653,7 @@ router.get('/cli-monitoring', requireDivisionAdmin, async (req, res) => {
 
         if (staff_type === 'SUBURBAN') {
             // Suburban: Motorman by category + manual LPS
+            // Only active CLIs with at least one nominated staff
             const [data] = await conn.query(`
                 SELECT
                     c.cli_id,
@@ -661,12 +662,15 @@ router.get('/cli-monitoring', requireDivisionAdmin, async (req, res) => {
                     SUM(CASE WHEN s.designation_id = 8 AND s.safety_category = 'A' THEN 1 ELSE 0 END) as mm_a,
                     SUM(CASE WHEN s.designation_id = 8 AND s.safety_category = 'B' THEN 1 ELSE 0 END) as mm_b,
                     SUM(CASE WHEN s.designation_id = 8 AND s.safety_category = 'C' THEN 1 ELSE 0 END) as mm_c,
-                    SUM(CASE WHEN s.designation_id = 8 THEN 1 ELSE 0 END) as mm_total
+                    SUM(CASE WHEN s.designation_id = 8 THEN 1 ELSE 0 END) as mm_total,
+                    COUNT(n.staff_hrms_id) as staff_count
                 FROM div_cli_master c
                 LEFT JOIN div_cli_nominations n ON c.cli_id = n.cli_id AND n.status = 'Active'
                 LEFT JOIN div_staff_master s ON n.staff_hrms_id = s.hrms_id AND s.status = 'Active'
-                WHERE c.current_office_code LIKE '%-SUB'
+                WHERE c.is_active = 1
+                  AND c.current_office_code LIKE '%-SUB'
                 GROUP BY c.cli_id, c.cli_name, c.current_office_code
+                HAVING staff_count > 0
                 ORDER BY c.current_office_code, c.cli_name
             `);
 
@@ -712,13 +716,15 @@ router.get('/cli-monitoring', requireDivisionAdmin, async (req, res) => {
                     -- STR = LPS (designation 3,4)
                     SUM(CASE WHEN s.designation_id IN (3,4) THEN 1 ELSE 0 END) as str,
                     -- ALP (designation 1,2)
-                    SUM(CASE WHEN s.designation_id IN (1,2) THEN 1 ELSE 0 END) as alp
+                    SUM(CASE WHEN s.designation_id IN (1,2) THEN 1 ELSE 0 END) as alp,
+                    COUNT(n.staff_hrms_id) as staff_count
                 FROM div_cli_master c
                 LEFT JOIN div_cli_nominations n ON c.cli_id = n.cli_id AND n.status = 'Active'
                 LEFT JOIN div_staff_master s ON n.staff_hrms_id = s.hrms_id AND s.status = 'Active'
                 WHERE c.is_active = 1
                   AND c.current_office_code NOT LIKE '%-SUB'
                 GROUP BY c.cli_id, c.cli_name, c.current_office_code
+                HAVING staff_count > 0
                 ORDER BY c.current_office_code, c.cli_name
             `);
 
