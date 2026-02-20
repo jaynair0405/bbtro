@@ -112,6 +112,58 @@
         .row-group { display: flex; gap: 10px; }
         .col { flex: 1; }
 
+        /* Leave Period Rows */
+        .leave-period-row {
+            background: #f9fafb;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 10px;
+            position: relative;
+        }
+        .leave-period-row .period-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .leave-period-row .period-label {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--brand);
+            text-transform: uppercase;
+        }
+        .leave-period-row .btn-remove-period {
+            background: #fee2e2;
+            color: #991b1b;
+            border: none;
+            border-radius: 4px;
+            padding: 4px 8px;
+            font-size: 11px;
+            cursor: pointer;
+        }
+        .leave-period-row .btn-remove-period:hover {
+            background: #fecaca;
+        }
+        .leave-period-row .form-group {
+            margin-bottom: 8px;
+        }
+        .btn-add-period {
+            width: 100%;
+            padding: 10px;
+            background: #eff6ff;
+            color: var(--brand);
+            border: 1px dashed var(--brand);
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-bottom: 14px;
+            font-size: 13px;
+        }
+        .btn-add-period:hover {
+            background: #dbeafe;
+        }
+
         /* Staff Search Dropdown */
         .search-wrapper { position: relative; }
         .search-dropdown {
@@ -835,52 +887,63 @@
                         </div>
                     </div>
 
-                    <div class="row-group">
-                        <div class="col form-group">
-                            <label class="form-label">Leave Type</label>
-                            <select class="form-control" id="leaveType">
-                                <option value="">-- Select --</option>
-                                <option value="CL">CL (Casual Leave)</option>
-                                <option value="COL">COL (Compensatory Off Leave)</option>
-                                <option value="SCL">SCL (Special Casual Leave)</option>
-                                <option value="NH">NH (National Holiday)</option>
-                                <option value="LAP">LAP (Leave Avg Pay)</option>
-                                <option value="LHAP">LHAP (Leave Half Avg Pay)</option>
-                                <option value="ML">ML (Maternity Leave)</option>
-                                <option value="PL">PL (Paternity Leave)</option>
-                                <option value="CCL">CCL (Child Care Leave)</option>
-                                <option value="Ex India Leave">Ex India Leave</option>
-                                <option value="Spl CL">Spl CL (Special Casual)</option>
-                                <option value="IOD">IOD (Injury on Duty)</option>
-                                <option value="LWP">LWP (Leave Without Pay)</option>
-                                <option value="Other">Other</option>
-                            </select>
-                        </div>
-                        <div class="col form-group">
-                            <label class="form-label">Office</label>
-                            <input type="text" id="officeDisplay" class="form-control" readonly placeholder="Auto-filled">
-                        </div>
-                    </div>
-
-                    <div class="row-group">
-                        <div class="col form-group">
-                            <label class="form-label">From Date</label>
-                            <input type="date" id="fromDate" class="form-control">
-                        </div>
-                        <div class="col form-group">
-                            <label class="form-label">To Date</label>
-                            <input type="date" id="toDate" class="form-control">
-                        </div>
-                        <div class="col form-group">
-                            <label class="form-label">Days</label>
-                            <input type="text" id="totalDays" class="form-control" readonly placeholder="0">
-                        </div>
-                    </div>
-
                     <div class="form-group">
-                        <label class="form-label">Reason</label>
-                        <input type="text" id="reason" class="form-control" placeholder="Reason for leave...">
+                        <label class="form-label">Office</label>
+                        <input type="text" id="officeDisplay" class="form-control" readonly placeholder="Auto-filled">
                     </div>
+
+                    <!-- Leave Periods Container -->
+                    <div id="leavePeriodsContainer">
+                        <div class="leave-period-row" data-row="0">
+                            <div class="period-header">
+                                <span class="period-label">Period 1</span>
+                            </div>
+                            <div class="row-group">
+                                <div class="col form-group">
+                                    <label class="form-label">Leave Type</label>
+                                    <select class="form-control period-leave-type">
+                                        <option value="">-- Select --</option>
+                                        <option value="CL">CL (Casual Leave)</option>
+                                        <option value="COL">COL (Compensatory Off Leave)</option>
+                                        <option value="SCL">SCL (Special Casual Leave)</option>
+                                        <option value="NH">NH (National Holiday)</option>
+                                        <option value="LAP">LAP (Leave Avg Pay)</option>
+                                        <option value="LHAP">LHAP (Leave Half Avg Pay)</option>
+                                        <option value="ML">ML (Maternity Leave)</option>
+                                        <option value="PL">PL (Paternity Leave)</option>
+                                        <option value="CCL">CCL (Child Care Leave)</option>
+                                        <option value="Ex India Leave">Ex India Leave</option>
+                                        <option value="Spl CL">Spl CL (Special Casual)</option>
+                                        <option value="IOD">IOD (Injury on Duty)</option>
+                                        <option value="LWP">LWP (Leave Without Pay)</option>
+                                        <option value="Other">Other</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="row-group">
+                                <div class="col form-group">
+                                    <label class="form-label">From</label>
+                                    <input type="date" class="form-control period-from-date" onchange="calculatePeriodDays(this)">
+                                </div>
+                                <div class="col form-group">
+                                    <label class="form-label">To</label>
+                                    <input type="date" class="form-control period-to-date" onchange="calculatePeriodDays(this)">
+                                </div>
+                                <div class="col form-group" style="flex:0.5;">
+                                    <label class="form-label">Days</label>
+                                    <input type="text" class="form-control period-days" readonly placeholder="0">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Reason</label>
+                                <input type="text" class="form-control period-reason" placeholder="Reason for leave...">
+                            </div>
+                        </div>
+                    </div>
+
+                    <button type="button" class="btn-add-period" onclick="addLeavePeriod()">
+                        <i class="fa-solid fa-plus"></i> Add Another Period
+                    </button>
 
                     <div class="form-group">
                         <label class="form-label">Remarks (Optional)</label>
@@ -1491,11 +1554,16 @@
 
             document.getElementById('filterFromDate').value = formatDateForInput(firstOfMonth);
             document.getElementById('filterToDate').value = formatDateForInput(lastOfMonth);
-            document.getElementById('fromDate').value = formatDateForInput(base);
-            document.getElementById('toDate').value = formatDateForInput(base);
             document.getElementById('submittedFromDate').value = formatDateForInput(firstOfMonth);
             document.getElementById('submittedToDate').value = formatDateForInput(lastOfMonth);
-            calculateDays();
+
+            // Initialize first period row dates
+            const firstRow = document.querySelector('#leavePeriodsContainer .leave-period-row');
+            if (firstRow) {
+                firstRow.querySelector('.period-from-date').value = formatDateForInput(base);
+                firstRow.querySelector('.period-to-date').value = formatDateForInput(base);
+                firstRow.querySelector('.period-days').value = '1';
+            }
         }
 
         function setupEventListeners() {
@@ -1506,10 +1574,6 @@
                     document.getElementById('searchDropdown').classList.add('show');
                 }
             });
-
-            // Date change
-            document.getElementById('fromDate').addEventListener('change', calculateDays);
-            document.getElementById('toDate').addEventListener('change', calculateDays);
 
             // Close dropdown on outside click
             document.addEventListener('click', (e) => {
@@ -1929,8 +1993,13 @@
                 return;
             }
 
-            // Validate dates are within absent period
-            if (regFromDate < origFromDate || regToDate > origToDate) {
+            // Validate dates are within absent period (use Date objects for proper comparison)
+            const regFrom = new Date(regFromDate);
+            const regTo = new Date(regToDate);
+            const origFrom = new Date(origFromDate);
+            const origTo = new Date(origToDate);
+
+            if (regFrom < origFrom || regTo > origTo) {
                 showToast('Selected dates must be within the absent period', 'warning');
                 return;
             }
@@ -2849,12 +2918,92 @@
         }
 
         // ============================================
+        // MULTI-PERIOD LEAVE ENTRY
+        // ============================================
+        let periodCounter = 1;
+
+        function addLeavePeriod() {
+            const container = document.getElementById('leavePeriodsContainer');
+            const newRow = document.createElement('div');
+            newRow.className = 'leave-period-row';
+            newRow.dataset.row = periodCounter;
+
+            newRow.innerHTML = `
+                <div class="period-header">
+                    <span class="period-label">Period ${periodCounter + 1}</span>
+                    <button type="button" class="btn-remove-period" onclick="removeLeavePeriod(this)">
+                        <i class="fa-solid fa-times"></i> Remove
+                    </button>
+                </div>
+                <div class="row-group">
+                    <div class="col form-group">
+                        <label class="form-label">Leave Type</label>
+                        <select class="form-control period-leave-type">
+                            <option value="">-- Select --</option>
+                            <option value="CL">CL (Casual Leave)</option>
+                            <option value="COL">COL (Compensatory Off Leave)</option>
+                            <option value="SCL">SCL (Special Casual Leave)</option>
+                            <option value="NH">NH (National Holiday)</option>
+                            <option value="LAP">LAP (Leave Avg Pay)</option>
+                            <option value="LHAP">LHAP (Leave Half Avg Pay)</option>
+                            <option value="ML">ML (Maternity Leave)</option>
+                            <option value="PL">PL (Paternity Leave)</option>
+                            <option value="CCL">CCL (Child Care Leave)</option>
+                            <option value="Ex India Leave">Ex India Leave</option>
+                            <option value="Spl CL">Spl CL (Special Casual)</option>
+                            <option value="IOD">IOD (Injury on Duty)</option>
+                            <option value="LWP">LWP (Leave Without Pay)</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="row-group">
+                    <div class="col form-group">
+                        <label class="form-label">From</label>
+                        <input type="date" class="form-control period-from-date" onchange="calculatePeriodDays(this)">
+                    </div>
+                    <div class="col form-group">
+                        <label class="form-label">To</label>
+                        <input type="date" class="form-control period-to-date" onchange="calculatePeriodDays(this)">
+                    </div>
+                    <div class="col form-group" style="flex:0.5;">
+                        <label class="form-label">Days</label>
+                        <input type="text" class="form-control period-days" readonly placeholder="0">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Reason</label>
+                    <input type="text" class="form-control period-reason" placeholder="Reason for leave...">
+                </div>
+            `;
+
+            container.appendChild(newRow);
+            periodCounter++;
+            updatePeriodLabels();
+        }
+
+        function removeLeavePeriod(btn) {
+            const row = btn.closest('.leave-period-row');
+            row.remove();
+            updatePeriodLabels();
+        }
+
+        function updatePeriodLabels() {
+            const rows = document.querySelectorAll('#leavePeriodsContainer .leave-period-row');
+            rows.forEach((row, index) => {
+                const label = row.querySelector('.period-label');
+                if (label) label.textContent = `Period ${index + 1}`;
+            });
+        }
+
+        // ============================================
         // DATE CALCULATIONS
         // ============================================
-        function calculateDays() {
-            const fromDate = document.getElementById('fromDate').value;
-            const toDate = document.getElementById('toDate').value;
-            const output = document.getElementById('totalDays');
+        function calculatePeriodDays(inputEl) {
+            const row = inputEl.closest('.leave-period-row');
+            const fromDate = row.querySelector('.period-from-date').value;
+            const toDate = row.querySelector('.period-to-date').value;
+            const output = row.querySelector('.period-days');
 
             if (fromDate && toDate) {
                 const start = new Date(fromDate);
@@ -2871,16 +3020,16 @@
             }
         }
 
+        // Legacy function for edit modal compatibility
+        function calculateDays() {
+            // Used by edit modal
+        }
+
         // ============================================
-        // SUBMIT LEAVE
+        // SUBMIT LEAVE (Multi-period support)
         // ============================================
         async function submitLeave() {
             const hrmsId = document.getElementById('selectedHrmsId').value;
-            const leaveType = document.getElementById('leaveType').value;
-            const fromDate = document.getElementById('fromDate').value;
-            const toDate = document.getElementById('toDate').value;
-            const days = parseInt(document.getElementById('totalDays').value);
-            const reason = document.getElementById('reason').value.trim();
             const remarks = document.getElementById('remarks').value.trim();
             const officeCode = document.getElementById('selectedOfficeCode').value;
             const designationId = document.getElementById('selectedDesignationId').value;
@@ -2889,64 +3038,104 @@
                 showToast('Please select a staff member', 'warning');
                 return;
             }
-            if (!leaveType) {
-                showToast('Please select leave type', 'warning');
-                return;
-            }
-            if (!fromDate || !toDate) {
-                showToast('Please enter valid dates', 'warning');
-                return;
-            }
-            if (new Date(toDate) < new Date(fromDate)) {
-                showToast('To date cannot be before From date', 'warning');
-                return;
-            }
-            if (!Number.isFinite(days) || days <= 0) {
-                showToast('Please enter valid dates', 'warning');
-                return;
-            }
 
-            try {
-                const response = await fetch('/api/division/leave', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        staff_hrms_id: hrmsId,
-                        leave_type: leaveType,
-                        from_date: fromDate,
-                        to_date: toDate,
-                        days: days,
-                        office_code: officeCode,
-                        designation_id: designationId,
-                        reason: reason,
-                        remarks: remarks,
-                        status: 'Pending'
-                    })
-                });
+            // Collect all periods
+            const periodRows = document.querySelectorAll('#leavePeriodsContainer .leave-period-row');
+            const periods = [];
 
-                const result = await response.json();
-                if (result.success) {
-                    showToast('Leave application submitted successfully!', 'success');
-                    resetForm();
-                    loadStaffLeaveHistory(hrmsId);
-                    loadDashboardData();
-                } else if (result.overlap) {
-                    // Show overlap warning modal
-                    showOverlapModal(result.overlapping_entries, hrmsId);
-                } else {
-                    showToast('Error: ' + (result.error || result.message), 'error');
+            for (let i = 0; i < periodRows.length; i++) {
+                const row = periodRows[i];
+                const leaveType = row.querySelector('.period-leave-type').value;
+                const fromDate = row.querySelector('.period-from-date').value;
+                const toDate = row.querySelector('.period-to-date').value;
+                const days = parseInt(row.querySelector('.period-days').value);
+                const reason = row.querySelector('.period-reason').value.trim();
+
+                // Validate each period
+                if (!leaveType) {
+                    showToast(`Period ${i + 1}: Please select leave type`, 'warning');
+                    return;
                 }
-            } catch (error) {
-                console.error('Submit error:', error);
-                showToast('Error submitting leave application', 'error');
+                if (!fromDate || !toDate) {
+                    showToast(`Period ${i + 1}: Please enter valid dates`, 'warning');
+                    return;
+                }
+                if (new Date(toDate) < new Date(fromDate)) {
+                    showToast(`Period ${i + 1}: To date cannot be before From date`, 'warning');
+                    return;
+                }
+                if (!Number.isFinite(days) || days <= 0) {
+                    showToast(`Period ${i + 1}: Please enter valid dates`, 'warning');
+                    return;
+                }
+
+                periods.push({ leaveType, fromDate, toDate, days, reason });
+            }
+
+            if (periods.length === 0) {
+                showToast('Please add at least one leave period', 'warning');
+                return;
+            }
+
+            // Submit all periods
+            let successCount = 0;
+            let errorCount = 0;
+            let overlapCount = 0;
+
+            for (let i = 0; i < periods.length; i++) {
+                const p = periods[i];
+                try {
+                    const response = await fetch('/api/division/leave', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            staff_hrms_id: hrmsId,
+                            leave_type: p.leaveType,
+                            from_date: p.fromDate,
+                            to_date: p.toDate,
+                            days: p.days,
+                            office_code: officeCode,
+                            designation_id: designationId,
+                            reason: p.reason,
+                            remarks: remarks,
+                            status: 'Pending'
+                        })
+                    });
+
+                    const result = await response.json();
+                    if (result.success) {
+                        successCount++;
+                    } else if (result.overlap) {
+                        overlapCount++;
+                    } else {
+                        errorCount++;
+                    }
+                } catch (error) {
+                    console.error('Submit error for period ' + (i + 1) + ':', error);
+                    errorCount++;
+                }
+            }
+
+            // Show summary
+            if (successCount > 0) {
+                const msg = periods.length === 1
+                    ? 'Leave application submitted successfully!'
+                    : `${successCount} of ${periods.length} leave applications submitted successfully!`;
+                showToast(msg, 'success');
+                resetForm();
+                loadStaffLeaveHistory(hrmsId);
+                loadDashboardData();
+            }
+            if (overlapCount > 0) {
+                showToast(`${overlapCount} period(s) have overlapping entries`, 'warning');
+            }
+            if (errorCount > 0) {
+                showToast(`${errorCount} period(s) failed to submit`, 'error');
             }
         }
 
         async function markAbsent() {
             const hrmsId = document.getElementById('selectedHrmsId').value;
-            const fromDate = document.getElementById('fromDate').value;
-            const toDate = document.getElementById('toDate').value;
-            const days = parseInt(document.getElementById('totalDays').value);
             const officeCode = document.getElementById('selectedOfficeCode').value;
             const designationId = document.getElementById('selectedDesignationId').value;
 
@@ -2954,8 +3143,15 @@
                 showToast('Please select a staff member', 'warning');
                 return;
             }
+
+            // Get first period dates for marking absent
+            const firstRow = document.querySelector('#leavePeriodsContainer .leave-period-row');
+            const fromDate = firstRow.querySelector('.period-from-date').value;
+            const toDate = firstRow.querySelector('.period-to-date').value;
+            const days = parseInt(firstRow.querySelector('.period-days').value);
+
             if (!fromDate || !toDate) {
-                showToast('Please enter valid dates', 'warning');
+                showToast('Please enter valid dates in Period 1', 'warning');
                 return;
             }
             if (new Date(toDate) < new Date(fromDate)) {
@@ -2980,18 +3176,17 @@
                         office_code: officeCode,
                         designation_id: designationId,
                         reason: 'Marked absent - pending regularization',
-                    status: 'Absent'
-                })
-            });
+                        status: 'Absent'
+                    })
+                });
 
-            const result = await response.json();
-            if (result.success) {
+                const result = await response.json();
+                if (result.success) {
                     showToast('Staff marked as absent. Please regularize later.', 'success');
                     resetForm();
                     loadStaffLeaveHistory(hrmsId);
                     loadDashboardData();
                 } else if (result.overlap) {
-                    // Show overlap warning modal
                     showOverlapModal(result.overlapping_entries, hrmsId);
                 } else {
                     showToast('Error: ' + (result.error || result.message), 'error');
@@ -3003,13 +3198,31 @@
         }
 
         function resetForm() {
-            document.getElementById('leaveType').value = '';
-            document.getElementById('reason').value = '';
+            // Reset remarks
             document.getElementById('remarks').value = '';
-            const today = formatDateForInput(new Date());
-            document.getElementById('fromDate').value = today;
-            document.getElementById('toDate').value = today;
-            calculateDays();
+
+            // Remove all extra period rows, keep only the first one
+            const container = document.getElementById('leavePeriodsContainer');
+            const rows = container.querySelectorAll('.leave-period-row');
+            rows.forEach((row, index) => {
+                if (index > 0) {
+                    row.remove();
+                }
+            });
+
+            // Reset the first row
+            const firstRow = container.querySelector('.leave-period-row');
+            if (firstRow) {
+                firstRow.querySelector('.period-leave-type').value = '';
+                firstRow.querySelector('.period-reason').value = '';
+                const today = formatDateForInput(new Date());
+                firstRow.querySelector('.period-from-date').value = today;
+                firstRow.querySelector('.period-to-date').value = today;
+                firstRow.querySelector('.period-days').value = '1';
+            }
+
+            // Reset period counter
+            periodCounter = 1;
         }
 
         // ============================================
