@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PNVL Booking Slate | Digital Slate</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/slate-theme.css">
+    <style>
+        /* Slate-specific layout */
+        .main-container {
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1;
+            overflow: hidden;
+        }
+
+        /* Shift Navigation Bar */
+        .shift-nav {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 15px;
+            background: #0b1120;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .shift-tabs {
+            display: flex;
+            gap: 8px;
+            flex-grow: 1;
+            justify-content: center;
+        }
+
+        .shift-tab {
+            padding: 8px 20px;
+            background: var(--bg-input);
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: var(--text-main);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .shift-tab:hover { background: var(--bg-panel); transform: scale(1.02); }
+
+        .shift-tab.active {
+            background: var(--accent);
+            color: #000;
+            border-color: var(--accent);
+        }
+
+        .shift-tab.shift-night { border-left: 4px solid var(--shift-night); }
+        .shift-tab.shift-day { border-left: 4px solid var(--shift-day); }
+        .shift-tab.shift-evening { border-left: 4px solid var(--shift-evening); }
+
+        .shift-tab.shift-night.active { background: var(--shift-night); }
+        .shift-tab.shift-day.active { background: var(--shift-day); }
+        .shift-tab.shift-evening.active { background: var(--shift-evening); }
+
+        /* Slate Content Area */
+        .slate-container {
+            flex-grow: 1;
+            overflow: auto;
+            padding: 15px;
+        }
+
+        /* Interactive Table Mode */
+        .slate-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.95rem;
+        }
+
+        .slate-table th {
+            background: #0b1120;
+            padding: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-size: 0.8rem;
+        }
+
+        .slate-table th.lp-header { text-align: right; padding-right: 20px; border-right: none; }
+        .slate-table th.time-header { background: var(--bg-input); border-left: none; border-right: none; width: 80px; }
+        .slate-table th.alp-header { text-align: left; padding-left: 20px; border-left: none; }
+
+        .slate-table td {
+            padding: 12px;
+            border-bottom: 1px solid var(--border);
+            vertical-align: middle;
+        }
+
+        .slate-table .time-cell {
+            background: var(--bg-input);
+            text-align: center;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 800;
+            font-size: 1.1rem;
+            color: var(--accent);
+        }
+
+        .slate-table .name-cell { min-width: 180px; font-weight: 600; }
+        .slate-table .name-cell.lp-name { text-align: right; padding-right: 15px; }
+        .slate-table .name-cell.alp-name { text-align: left; padding-left: 15px; }
+
+        .slate-table .train-cell { width: 100px; text-align: center; }
+        .slate-table .loco-cell { width: 80px; text-align: center; font-family: 'JetBrains Mono', monospace; color: var(--text-muted); }
+
+        .slate-table .editable { cursor: pointer; transition: background 0.2s; }
+        .slate-table .editable:hover { background: rgba(56, 189, 248, 0.1); }
+
+        .badge-train {
+            background: var(--accent);
+            color: #000;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-weight: 700;
+            font-size: 0.9rem;
+        }
+
+        .badge-pilot {
+            background: var(--warning);
+            color: #000;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-weight: 700;
+            font-size: 0.9rem;
+        }
+
+        /* ========== DISPLAY MODE (Big Screen) ========== */
+        .display-mode .header { padding: 15px 30px; }
+        .display-mode .header h1 { font-size: 1.6rem; }
+        .display-mode .shift-tab { padding: 10px 30px; font-size: 1rem; }
+
+        .display-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            height: 100%;
+        }
+
+        .display-half {
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-panel);
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            overflow: hidden;
+        }
+
+        .half-header {
+            padding: 12px 20px;
+            background: #0b1120;
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--text-main);
+            text-align: center;
+            border-bottom: 3px solid var(--accent);
+        }
+
+        .display-rows {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        /* Airport-style row cards */
+        .display-row {
+            display: grid;
+            grid-template-columns: 70px 90px 90px 1fr 1fr 50px;
+            gap: 10px;
+            align-items: center;
+            padding: 16px 20px;
+            background: var(--status-waiting);
+            border-radius: 8px;
+            font-size: 1.2rem;
+            font-weight: 600;
+            transition: transform 0.2s;
+        }
+
+        .display-row.row-forecast { background: var(--status-forecast); }
+        .display-row.row-signed-on { background: var(--status-signed-on); }
+        .display-row.row-online { background: var(--status-online); }
+        .display-row.row-signed-off { opacity: 0.5; }
+
+        .display-row .row-time {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 800;
+            font-size: 1.3rem;
+            color: var(--accent);
+        }
+
+        .display-row .row-train {
+            font-weight: 800;
+            color: white;
+        }
+
+        .display-row .row-loco {
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--text-muted);
+        }
+
+        .display-row .row-lp,
+        .display-row .row-alp {
+            text-transform: uppercase;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .display-row .row-alp .cross-link {
+            display: block;
+            font-size: 0.8rem;
+            color: var(--accent);
+            margin-top: 2px;
+        }
+
+        .display-row .row-status {
+            font-size: 1.5rem;
+            text-align: center;
+        }
+
+        /* Adhoc indicator */
+        .display-row.adhoc-row::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background: var(--warning);
+            border-radius: 8px 0 0 8px;
+        }
+
+        .display-row.adhoc-row { position: relative; }
+
+        .no-data {
+            text-align: center;
+            color: var(--text-muted);
+            padding: 40px;
+            font-size: 1rem;
+        }
+
+        /* 4K Display Optimizations */
+        @media (min-width: 3000px) {
+            .display-row {
+                font-size: 1.5rem;
+                padding: 24px 30px;
+            }
+
+            .display-row .row-time { font-size: 1.6rem; }
+            .display-row .row-status { font-size: 2rem; }
+            .half-header { font-size: 1.4rem; padding: 16px 24px; }
+        }
+
+        /* Light theme */
+        .light-theme {
+            --bg-main: #f8fafc;
+            --bg-panel: #ffffff;
+            --bg-input: #f1f5f9;
+            --border: #cbd5e1;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --status-waiting: #f1f5f9;
+            --status-forecast: #dbeafe;
+            --status-signed-on: #fef3c7;
+            --status-online: #dcfce7;
+        }
+
+        .light-theme .slate-table .time-cell { background: #e2e8f0; }
+        .light-theme .display-row { color: #0f172a; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>PNVL BOOKING SLATE</h1>
+        <div style="display: flex; gap: 30px; align-items: center;">
+            <span id="vacancySummary" style="color: var(--warning); font-weight: 600; font-size: 0.85rem;">LP: -- | ALP: -- vacant</span>
+            <div style="color: var(--text-muted); font-size: 0.85rem; font-weight: 600;">
+                <span id="headerShift">08:00 x 16:00</span> |
+                <span id="headerDate">--</span>
+                <span id="headerTime" style="margin-left: 15px; color: var(--accent); font-family: 'JetBrains Mono', monospace;"></span>
+            </div>
+        </div>
+    </div>
+
+    <div class="main-container">
+        <div class="shift-nav" id="shiftNav">
+            <!-- Shift navigation built dynamically -->
+        </div>
+
+        <div class="slate-container" id="slateContent">
+            <!-- Slate content rendered here -->
+            <div class="no-data">Loading slate data...</div>
+        </div>
+    </div>
+
+    <!-- Load shared utilities first, then page-specific code -->
+    <script src="js/slate-common.js"></script>
+    <script src="js/slate.js"></script>
+</body>
+</html>

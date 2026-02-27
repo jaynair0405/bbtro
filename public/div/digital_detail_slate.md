@@ -1,7 +1,7 @@
 # Project Blueprint: Digital Booking Slate & Detail Book
 **Project:** Central Railway - Mumbai Division Digital Workplace (crtms.in)
 **Target Location:** PNVL Lobby (& KYN Lobby)
-**Current Phase:** Phase 1 Complete, Phase 2 In Progress
+**Current Phase:** Phase 2 Complete (UI), Phase 3 Pending (Status Transitions)
 **Last Updated:** 2026-02-27
 
 ---
@@ -552,18 +552,19 @@ POST /api/division/slate/booking
 - [x] Forecast grid display
 
 ### Phase 2: Booking Slate (🔄 IN PROGRESS)
-- [ ] Make `slate.html` dynamic (connect to API)
-- [ ] Dark theme with light toggle
-- [ ] Editable cells for train/loco
-- [ ] Add `?display=1` read-only mode
-- [ ] Airport-style row design
-- [ ] Shift color coding (Blue/Green/Orange)
-- [ ] Split-shift layout (00-04 | 04-08)
-- [ ] Navigation (auto-rotate + manual arrows)
-- [ ] Cross-slot pairing display
-- [ ] Status colors (waiting/signed-on/online/signed-off)
-- [ ] 50% fade for signed-off rows
-- [ ] Auto-refresh (30 seconds)
+- [x] Make `slate.html` dynamic (connect to API)
+- [x] Dark theme with light toggle (`?theme=light`)
+- [x] Editable cells for train/loco (click to edit)
+- [x] Add `?display=1` read-only mode
+- [x] Airport-style row design (display mode)
+- [x] Shift color coding (Blue/Green/Orange)
+- [x] Split-shift layout (00-04 | 04-08)
+- [x] Navigation (auto-rotate + manual arrows)
+- [x] Cross-slot pairing display (`↳ from XX:XX`)
+- [x] Status colors (waiting/signed-on/online/signed-off)
+- [x] 50% fade for signed-off rows
+- [x] Auto-refresh (30 seconds)
+- [ ] Sign-on/Sign-off action buttons (Phase 3)
 
 ### Phase 3: Status Transitions
 - [ ] Sign-on button/action
@@ -654,9 +655,12 @@ Each Pi can show different content:
 
 | File | Purpose |
 |------|---------|
-| `public/div/detail-book.html` | Jr CC sign-off interface |
+| `public/div/detail-book.html` | Jr CC sign-off interface (HTML only) |
 | `public/div/slate.html` | Jr CC booking + Big screen display |
-| `public/div/slate-3-column.html` | Legacy 3-column mockup (deprecated) |
+| `public/div/css/slate-theme.css` | Shared dark theme styles |
+| `public/div/js/slate-common.js` | Shared utilities (config, helpers, API) |
+| `public/div/js/detail-book.js` | Detail book page logic |
+| `public/div/js/slate.js` | Slate page logic |
 | `routes/division/slateRoutes.js` | API routes |
 | `sql/2026-02-24_digital_slate_schema.sql` | Database schema |
 | `kyn-slate.jpeg` | Physical slate reference (KYN) |
