@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Digital Slate | PNVL Control</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            /* Dark Airport Theme Colors */
+            --bg-main: #020617;        /* Deep slate black */
+            --bg-panel: #0f172a;       /* Panel background */
+            --border: #1e293b;         /* Subtle grid lines */
+            --text-main: #f8fafc;
+            --text-muted: #64748b;
+            
+            /* Status Colors (Time Slots) */
+            --status-avail: #1e293b;   /* Default / Unbooked */
+            --status-signon: #ca8a04;  /* Amber: Signed On / Lobby */
+            --status-online: #16a34a;  /* Green: Online / Departed */
+            --status-adhoc: #7c3aed;   /* Purple: Manual Insertion */
+
+            /* Staff Status Colors */
+            --staff-auc: #fb923c;      /* Orange */
+            --staff-nf: #ef4444;       /* Red */
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            margin: 0;
+            padding: 15px;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 20px;
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+
+        .header h1 { margin: 0; font-size: 1.4rem; font-weight: 800; letter-spacing: 2px; color: #38bdf8; }
+        .header-info { display: flex; gap: 30px; font-weight: 600; font-size: 0.95rem; }
+        .header-info span { color: var(--text-muted); font-weight: 400; margin-right: 5px; }
+
+        /* 3-Column Grid */
+        .board-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            flex-grow: 1;
+            overflow: hidden; /* Prevents whole page scroll */
+        }
+
+        .shift-panel {
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .shift-header {
+            background: #0b1120;
+            padding: 10px;
+            text-align: center;
+            font-weight: 800;
+            font-size: 1.1rem;
+            border-bottom: 2px solid var(--border);
+            color: #94a3b8;
+            letter-spacing: 1px;
+        }
+
+        /* Table Structure */
+        .table-container {
+            overflow-y: auto; /* Allows scrolling within the shift if rows are inserted */
+            flex-grow: 1;
+        }
+
+        table { width: 100%; border-collapse: collapse; text-align: left; }
+        
+        th {
+            position: sticky;
+            top: 0;
+            background: #0b1120;
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            padding: 8px 10px;
+            border-bottom: 1px solid var(--border);
+            z-index: 10;
+        }
+
+        td {
+            padding: 8px 10px;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.9rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        /* Merged Train/Loco Cell */
+        .movement-cell { line-height: 1.2; }
+        .train-no { color: #38bdf8; font-family: 'JetBrains Mono', monospace; font-size: 1rem; }
+        .loco-no { color: var(--text-muted); font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; }
+        .pilot-tag { color: #fcd34d; font-size: 0.85rem; border: 1px solid #fcd34d; padding: 1px 4px; border-radius: 3px;}
+
+        /* Color-Coded Time Anchors */
+        .time-slot {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.1rem;
+            font-weight: 800;
+            text-align: center;
+            width: 60px;
+            color: #fff;
+        }
+        
+        /* Time Status Colors */
+        .bg-avail { background-color: var(--status-avail); color: var(--text-muted); }
+        .bg-signon { background-color: var(--status-signon); }
+        .bg-online { background-color: var(--status-online); }
+        .bg-adhoc { background-color: var(--status-adhoc); }
+
+        /* Staff Formatting */
+        .staff-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 130px; display: inline-block; }
+        
+        .slot-badge {
+            display: block;
+            font-size: 0.7rem;
+            color: #38bdf8;
+            font-weight: 700;
+            margin-top: 2px;
+        }
+
+        /* Staff Status (AUC / NF) */
+        .status-auc { color: var(--staff-auc); }
+        .status-nf { color: var(--staff-nf); }
+        
+        sub {
+            font-weight: 800;
+            font-size: 0.65rem;
+            margin-left: 3px;
+            padding: 1px 3px;
+            border-radius: 3px;
+            background: rgba(255,255,255,0.1);
+        }
+        .status-auc sub { background: rgba(251, 146, 60, 0.2); }
+        .status-nf sub { background: rgba(239, 68, 68, 0.2); }
+
+        /* Scrollbar styling for a clean dark look */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: var(--bg-main); }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>DIGITAL SLATE // PNVL LOBBY</h1>
+        <div class="header-info">
+            <div><span>Date:</span> 22/04/2026</div>
+            <div><span>Shift Sup:</span> R.K. Sharma</div>
+            <div>
+                <span style="color:var(--status-signon)">■ Sign-On</span>
+                <span style="color:var(--status-online); margin-left: 10px;">■ Online</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="board-grid">
+        
+        <div class="shift-panel">
+            <div class="shift-header">00:00 x 08:00</div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width: 60px; text-align: center;">TIME</th>
+                            <th style="width: 80px;">TRAIN/LOCO</th>
+                            <th>LOCO PILOT</th>
+                            <th>ASST. PILOT</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="time-slot bg-online">00:00</td>
+                            <td class="movement-cell">
+                                <div class="train-no">12101</div>
+                                <div class="loco-no">30221</div>
+                            </td>
+                            <td><span class="staff-name">Satish S.</span></td>
+                            <td><span class="staff-name">Nayan N.</span></td>
+                        </tr>
+
+                        <tr>
+                            <td class="time-slot bg-signon">00:15</td>
+                            <td class="movement-cell">
+                                <div class="train-no">11010</div>
+                                <div class="loco-no">43473</div>
+                            </td>
+                            <td><span class="staff-name">H.A. Ansari</span></td>
+                            <td>
+                                <span class="staff-name">Sumit Kr</span>
+                                <span class="slot-badge">Slot: 00:30</span>
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <td class="time-slot bg-avail">00:30</td>
+                            <td class="movement-cell">
+                                <div class="train-no">--</div>
+                                <div class="loco-no">--</div>
+                            </td>
+                            <td><span class="staff-name">N.K. Singh</span></td>
+                            <td>
+                                <span class="staff-name text-muted">Tej Pratap</span>
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <td class="time-slot bg-avail">00:45</td>
+                            <td class="movement-cell">
+                                <span class="pilot-tag">P / KYN</span>
+                            </td>
+                            <td>
+                                <span class="staff-name status-auc">Harish Rao<sub>AUC</sub></span>
+                            </td>
+                            <td><span class="staff-name">Umesh D.</span></td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="time-slot bg-avail">01:00</td>
+                            <td class="movement-cell">
+                                <div class="train-no">--</div>
+                                <div class="loco-no">--</div>
+                            </td>
+                            <td><span class="staff-name">C.S. Katora</span></td>
+                            <td><span class="staff-name">Salona Kr.</span></td>
+                        </tr>
+
+                        <tr>
+                            <td class="time-slot bg-adhoc">01:10</td>
+                            <td class="movement-cell">
+                                <div class="train-no">12224</div>
+                                <div class="loco-no">30111</div>
+                            </td>
+                            <td><span class="staff-name">M.K. Yadav</span></td>
+                            <td><span class="staff-name">Rahul P.</span></td>
+                        </tr>
+
+                         <tr>
+                            <td class="time-slot bg-avail">01:15</td>
+                            <td class="movement-cell">
+                                <div class="train-no">--</div>
+                                <div class="loco-no">--</div>
+                            </td>
+                            <td><span class="staff-name">Sandeep Kr.</span></td>
+                            <td>
+                                <span class="staff-name status-nf">Arvind C.<sub>NF</sub></span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="shift-panel">
+            <div class="shift-header">08:00 x 16:00</div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width: 60px; text-align: center;">TIME</th>
+                            <th style="width: 80px;">TRAIN/LOCO</th>
+                            <th>LOCO PILOT</th>
+                            <th>ASST. PILOT</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="time-slot bg-avail">08:00</td>
+                            <td class="movement-cell">--</td>
+                            <td>--</td>
+                            <td>--</td>
+                        </tr>
+                        </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="shift-panel">
+            <div class="shift-header">16:00 x 24:00</div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width: 60px; text-align: center;">TIME</th>
+                            <th style="width: 80px;">TRAIN/LOCO</th>
+                            <th>LOCO PILOT</th>
+                            <th>ASST. PILOT</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="time-slot bg-avail">16:00</td>
+                            <td class="movement-cell">--</td>
+                            <td>--</td>
+                            <td>--</td>
+                        </tr>
+                        </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+</body>
+</html>

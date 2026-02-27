@@ -546,6 +546,7 @@ const leaveRoutes = require("./routes/division/leaveRoutes");
 const midnightPositionRoutes = require("./routes/division/midnightPositionRoutes");
 const ctrRoutes = require('./routes/division/ctrRoutes');
 const categoryRoutes = require('./routes/division/categoryRoutes');
+const slateRoutes = require('./routes/division/slateRoutes');
 
 // Add division routes with realm protection
 app.use("/api/division/leave", requireRealm("division"), leaveRoutes); // mount early to avoid any catch-alls
@@ -566,6 +567,7 @@ app.use("/api/division/retirement", requireRealm("division"), retirementRoutes);
 app.use("/api/division/midnight-position", requireRealm("division"), midnightPositionRoutes);
 app.use("/api/division/ctr", requireRealm('division'), ctrRoutes);
 app.use("/api/division/category", requireRealm('division'), categoryRoutes);
+app.use("/api/division/slate", requireRealm('division'), slateRoutes);
 
 // Session info endpoint
 app.get('/api/session', (req, res) => {

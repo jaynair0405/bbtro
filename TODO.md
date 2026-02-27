@@ -89,7 +89,7 @@
 - [ ] User management page - needs discussion
 - [ ] Add division-only admin user (realm='division', div_role='admin') - no code changes needed, use existing schema
 - [x] Leave management page (table: div_leave_tracking exists) - Frontend + API routes complete
-- [ ] Slate entry page (depends on leave data)
+- [x] Digital Slate & Detail Book - Phase 1 (Completed 2026-02-27)
 - [x] CTR entry page - Complete with upload, manual entry, LRD status & SVG map updates
 - [x] Safety Category Change Letter - Create official letters for staff category changes (A/B/C) (Completed 2026-02-15)
 
@@ -124,6 +124,60 @@
   - Dropdown filters: Depot, Designation, CLI
   - Sortable columns: Name, Designation, Depot, Category
 - Print and Excel export
+
+### Digital Slate & Detail Book - Phase 1 (Completed)
+**Pages:**
+- `/div/detail-book.html` - Jr CC interface for logging crew arrivals
+- `/div/slate-3-column.html` - Digital slate display (3-column shift view)
+
+**API Routes:** `/api/division/slate/*`
+
+**Tables:**
+- `div_daily_slate` - Daily slot assignments (LP/ALP, train/loco, status)
+- `div_detail_book_log` - Arrival log entries from Jr CC
+- `div_office_slot_template` - Slot time templates per office
+- `div_staff_fatigue_tracker` - Tracks duty hours for fatigue compliance
+
+**Phase 1 Features Implemented:**
+1. **Detail Book Interface (Jr CC)**
+   - Active/Returning Crews panel - Shows crews with 8+ hours duty time
+   - Click-to-Arrive workflow for returning crews
+   - Staff search with HRMS ID autocomplete
+   - Slot assignment with date/time selection
+   - Date picker extended to 10 days ahead ("Pick Date..." option)
+   - LP and ALP independent slot assignment
+
+2. **Collision Detection System**
+   - Checks if slot already has LP/ALP assigned
+   - Dialog with options: "Add Here (Adhoc)" / "Next Slot" / "Cancel"
+   - Adhoc entries using incrementing `is_adhoc` counter (0=regular, 1+=adhoc)
+   - Unique constraint: `uk_office_slot (office_code, slot_date, slot_time, is_adhoc)`
+
+3. **Slot Status Workflow**
+   - AVAILABLE → FORECAST → SIGNED_ON → ONLINE
+   - Visual indicators: Green (Online), Amber (Sign-On), Purple (Adhoc)
+
+4. **Timezone Handling**
+   - `formatLocalDate()` helper to prevent UTC date shift
+   - All date operations use local timezone
+
+5. **Backend APIs**
+   - `GET /slots` - Fetch slots for office/date
+   - `GET /active-crews` - Get returning crews (8+ hours duty)
+   - `POST /arrival` - Log arrival and assign slot
+   - `POST /check-availability` - Collision detection endpoint
+
+**Technical Details:**
+- Adhoc row styling: Purple left border, italic text
+- Slot badge shows original slot time when staff pulled from different slot
+- AUC/NF status indicators for staff availability
+- Auto-refresh of slate display
+
+**Pending Phases:**
+- Phase 2: Sign-on/Sign-off workflow from slate
+- Phase 3: Real-time updates via WebSocket
+- Phase 4: Integration with leave management
+- Phase 5: Reports and analytics
 
 ## Future Enhancements
 - [ ] Division realm: apply concurrency playbook (dedupe/idempotency, UNIQUE keys, upserts, transactions, idempotency keys) across division APIs before scaling
