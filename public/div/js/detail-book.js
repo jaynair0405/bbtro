@@ -13,6 +13,12 @@ const dateGroups = {}; // Stores date -> { element, tables }
 let pendingPayload = null;
 let collisionInfo = null;
 
+// Warning state - blocks submission if hard errors exist
+let lpWarnings = [];
+let alpWarnings = [];
+let lpCanAssign = true;
+let alpCanAssign = true;
+
 // ========== INITIALIZATION ==========
 document.addEventListener('DOMContentLoaded', async () => {
     // Update header with current date
@@ -209,6 +215,7 @@ function selectCrewCard(slateId) {
 }
 
 function checkStaffWarnings(crew) {
+    // Initial check from crew card data (basic leave warning)
     const alertBox = document.getElementById('lpAlert');
     alertBox.className = "alert";
     alertBox.innerHTML = "";
@@ -218,6 +225,153 @@ function checkStaffWarnings(crew) {
         alertBox.innerHTML = `⚠️ LP LEAVE ${crew.lp_leave_warning.status.toUpperCase()}: ${crew.lp_leave_warning.leave_type} from ${crew.lp_leave_warning.from_date}`;
         document.getElementById('lpRest').value = "suspend";
         calculateSlots();
+    }
+}
+
+/**
+ * Comprehensive staff warnings check - calls API for detailed validation
+ * Called after slot calculation to verify assignment is allowed
+ */
+async function checkStaffWarningsComprehensive() {
+    const lpSlotDate = getLpSlotDate();
+    const alpSlotDate = getAlpSlotDate();
+    const lpRest = document.getElementById('lpRest').value;
+    const alpRest = document.getElementById('alpRest').value;
+
+    // Reset warning state
+    lpWarnings = [];
+    alpWarnings = [];
+    lpCanAssign = true;
+    alpCanAssign = true;
+
+    // Check LP warnings if not on multi-day leave
+    if (selectedLP && lpRest !== 'suspend' && lpSlotDate) {
+        try {
+            const res = await fetch(`${SLATE_CONFIG.API_BASE}/staff-warnings`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    hrms_id: selectedLP.hrms_id,
+                    next_slot_date: lpSlotDate,
+                    office_code: SLATE_CONFIG.OFFICE_CODE
+                })
+            });
+            const data = await res.json();
+            if (data.success) {
+                lpWarnings = data.warnings || [];
+                lpCanAssign = data.can_assign;
+
+                // Auto-suggest PR if needed
+                if (data.needs_pr && lpRest === '16') {
+                    document.getElementById('lpRest').value = '30';
+                    calculateSlots();
+                    showToast('LP needs Periodic Rest (30hr) - auto-selected', 'info');
+                }
+            }
+        } catch (err) {
+            console.error('Error checking LP warnings:', err);
+        }
+    }
+
+    // Check ALP warnings if not on multi-day leave
+    if (selectedALP && alpRest !== 'suspend' && alpSlotDate) {
+        try {
+            const res = await fetch(`${SLATE_CONFIG.API_BASE}/staff-warnings`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    hrms_id: selectedALP.hrms_id,
+                    next_slot_date: alpSlotDate,
+                    office_code: SLATE_CONFIG.OFFICE_CODE
+                })
+            });
+            const data = await res.json();
+            if (data.success) {
+                alpWarnings = data.warnings || [];
+                alpCanAssign = data.can_assign;
+
+                // Auto-suggest PR if needed
+                if (data.needs_pr && alpRest === '16') {
+                    document.getElementById('alpRest').value = '30';
+                    calculateSlots();
+                    showToast('ALP needs Periodic Rest (30hr) - auto-selected', 'info');
+                }
+            }
+        } catch (err) {
+            console.error('Error checking ALP warnings:', err);
+        }
+    }
+
+    // Display warnings
+    displayWarnings();
+}
+
+function getLpSlotDate() {
+    const lpDatePicker = document.getElementById('lpDatePicker');
+    const lpSlotDate = document.getElementById('lpSlotDate');
+
+    if (lpDatePicker.style.display !== 'none' && lpDatePicker.value) {
+        return lpDatePicker.value;
+    }
+    const val = lpSlotDate.value;
+    if (val && val !== 'pick') {
+        return val;
+    }
+    return null;
+}
+
+function getAlpSlotDate() {
+    const alpDatePicker = document.getElementById('alpDatePicker');
+    const alpSlotDate = document.getElementById('alpSlotDate');
+
+    if (alpDatePicker.style.display !== 'none' && alpDatePicker.value) {
+        return alpDatePicker.value;
+    }
+    const val = alpSlotDate.value;
+    if (val && val !== 'pick') {
+        return val;
+    }
+    return null;
+}
+
+function displayWarnings() {
+    const lpAlertBox = document.getElementById('lpAlert');
+    const alpAlertBox = document.getElementById('alpAlert');
+
+    // Clear previous
+    lpAlertBox.className = 'alert';
+    lpAlertBox.innerHTML = '';
+    alpAlertBox.className = 'alert';
+    alpAlertBox.innerHTML = '';
+
+    // Display LP warnings
+    if (lpWarnings.length > 0) {
+        const hasError = lpWarnings.some(w => w.level === 'error');
+        lpAlertBox.classList.add(hasError ? 'danger' : 'warning');
+        lpAlertBox.innerHTML = lpWarnings.map(w =>
+            `<div>${w.level === 'error' ? '🚫' : '⚠️'} ${w.message}</div>`
+        ).join('');
+    }
+
+    // Display ALP warnings
+    if (alpWarnings.length > 0) {
+        const hasError = alpWarnings.some(w => w.level === 'error');
+        alpAlertBox.classList.add(hasError ? 'danger' : 'warning');
+        alpAlertBox.innerHTML = alpWarnings.map(w =>
+            `<div>${w.level === 'error' ? '🚫' : '⚠️'} ${w.message}</div>`
+        ).join('');
+    }
+
+    // Update submit button state
+    const submitBtn = document.querySelector('.btn-submit');
+    if (!lpCanAssign || !alpCanAssign) {
+        submitBtn.disabled = true;
+        submitBtn.style.opacity = '0.5';
+        submitBtn.title = 'Cannot submit - resolve errors above';
+    } else {
+        submitBtn.disabled = false;
+        submitBtn.style.opacity = '1';
+        submitBtn.title = '';
     }
 }
 
@@ -254,8 +408,24 @@ function enableManualEntry() {
 
     document.getElementById('lpAlert').className = 'alert';
     document.getElementById('lpAlert').innerHTML = '';
+    document.getElementById('alpAlert').className = 'alert';
+    document.getElementById('alpAlert').innerHTML = '';
     document.getElementById('lpRest').value = '16';
     document.getElementById('alpRest').value = '16';
+
+    // Reset warning state
+    lpWarnings = [];
+    alpWarnings = [];
+    lpCanAssign = true;
+    alpCanAssign = true;
+
+    // Reset submit button
+    const submitBtn = document.querySelector('.btn-submit');
+    if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.style.opacity = '1';
+        submitBtn.title = '';
+    }
 
     // Show both rows
     document.getElementById('dutyTimeRow').style.display = 'grid';
@@ -529,6 +699,9 @@ function calculateSlotsManual() {
         alpDateLabel.textContent = `(${alpSlot.actualRestHours}hr rest)`;
         alpDateLabel.style.color = "var(--text-muted)";
     }
+
+    // Trigger comprehensive warnings check (debounced)
+    debounceWarningsCheck();
 }
 
 function calculateSlots() {
@@ -584,6 +757,19 @@ function calculateSlots() {
         alpDateLabel.textContent = `(${alpSlot.actualRestHours}hr rest)`;
         alpDateLabel.style.color = "var(--text-muted)";
     }
+
+    // Trigger comprehensive warnings check (debounced)
+    debounceWarningsCheck();
+}
+
+// Debounce timer for warnings check
+let warningsCheckTimeout = null;
+
+function debounceWarningsCheck() {
+    clearTimeout(warningsCheckTimeout);
+    warningsCheckTimeout = setTimeout(() => {
+        checkStaffWarningsComprehensive();
+    }, 500); // Wait 500ms after last change
 }
 
 function checkStaffStatus() {
@@ -741,6 +927,22 @@ function clearArrivalForm() {
 
     document.getElementById('lpAlert').className = 'alert';
     document.getElementById('lpAlert').innerHTML = '';
+    document.getElementById('alpAlert').className = 'alert';
+    document.getElementById('alpAlert').innerHTML = '';
+
+    // Reset warning state
+    lpWarnings = [];
+    alpWarnings = [];
+    lpCanAssign = true;
+    alpCanAssign = true;
+
+    // Reset submit button
+    const submitBtn = document.querySelector('.btn-submit');
+    if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.style.opacity = '1';
+        submitBtn.title = '';
+    }
 
     // Show duty time row, hide off reason row
     document.getElementById('dutyTimeRow').style.display = 'grid';
@@ -1032,6 +1234,16 @@ function createAdhocRow(slotDate, slotTime, staffName, staffType) {
 
 // ========== SUBMIT TO API ==========
 async function submitToSlate() {
+    // Check if assignment is blocked due to warnings
+    if (!lpCanAssign) {
+        showToast('Cannot assign LP - resolve errors first', 'error');
+        return;
+    }
+    if (!alpCanAssign) {
+        showToast('Cannot assign ALP - resolve errors first', 'error');
+        return;
+    }
+
     const signOff = document.getElementById('signOff').value;
     const signOn = document.getElementById('signOn').value;
 

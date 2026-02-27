@@ -716,6 +716,155 @@ router.get('/fatigue/:hrmsId', async (req, res) => {
 });
 
 // ----------------------------------------------------------------------------
+// POST /api/division/slate/staff-warnings
+// Comprehensive check for all warnings before slot assignment
+// Checks: Leave (sanctioned/pending), Periodic Rest, Night Streak
+// ----------------------------------------------------------------------------
+router.post('/staff-warnings', async (req, res) => {
+    let conn;
+    try {
+        const { hrms_id, next_slot_date, office_code } = req.body;
+        const userOffice = req.session.user?.div_office_code || office_code;
+
+        if (!hrms_id || !next_slot_date) {
+            return res.status(400).json({ error: 'hrms_id and next_slot_date required' });
+        }
+
+        conn = await req.app.locals.pool.getConnection();
+
+        const warnings = [];
+        let canAssign = true;  // Hard block if false
+        let needsPR = false;   // Suggests PR rest
+
+        // 1. CHECK SANCTIONED LEAVE (Hard Block)
+        const [sanctionedLeave] = await conn.query(`
+            SELECT leave_type, from_date, to_date, status
+            FROM div_leave_tracking
+            WHERE staff_hrms_id = ?
+              AND status = 'Approved'
+              AND from_date <= ?
+              AND to_date >= ?
+            ORDER BY from_date ASC
+            LIMIT 1
+        `, [hrms_id, next_slot_date, next_slot_date]);
+
+        if (sanctionedLeave.length > 0) {
+            const leave = sanctionedLeave[0];
+            warnings.push({
+                type: 'SANCTIONED_LEAVE',
+                level: 'error',
+                message: `Approved ${leave.leave_type} from ${formatLocalDate(leave.from_date)} to ${formatLocalDate(leave.to_date)}`,
+                data: leave
+            });
+            canAssign = false;
+        }
+
+        // 2. CHECK PENDING/APPLIED LEAVE (Warning only)
+        const [pendingLeave] = await conn.query(`
+            SELECT leave_type, from_date, to_date, status
+            FROM div_leave_tracking
+            WHERE staff_hrms_id = ?
+              AND status IN ('Applied', 'Pending', 'Forwarded')
+              AND from_date <= ?
+              AND to_date >= ?
+            ORDER BY from_date ASC
+            LIMIT 1
+        `, [hrms_id, next_slot_date, next_slot_date]);
+
+        if (pendingLeave.length > 0) {
+            const leave = pendingLeave[0];
+            warnings.push({
+                type: 'PENDING_LEAVE',
+                level: 'warning',
+                message: `${leave.status} ${leave.leave_type} from ${formatLocalDate(leave.from_date)} to ${formatLocalDate(leave.to_date)}`,
+                data: leave
+            });
+        }
+
+        // 3. CHECK PERIODIC REST (6 consecutive duty days = PR due)
+        // Count duty days in last 7 days from detail_book_log or daily_slate
+        const [dutyDays] = await conn.query(`
+            SELECT COUNT(DISTINCT DATE(sign_off_time)) AS consecutive_days
+            FROM div_detail_book_log
+            WHERE (lp_hrms_id = ? OR alp_hrms_id = ?)
+              AND sign_off_time >= DATE_SUB(?, INTERVAL 7 DAY)
+              AND sign_off_time < ?
+        `, [hrms_id, hrms_id, next_slot_date, next_slot_date]);
+
+        const consecutiveDays = dutyDays[0]?.consecutive_days || 0;
+        if (consecutiveDays >= 6) {
+            warnings.push({
+                type: 'PERIODIC_REST_DUE',
+                level: 'warning',
+                message: `${consecutiveDays} consecutive duty days - PR (30hr rest) recommended`,
+                data: { consecutive_days: consecutiveDays }
+            });
+            needsPR = true;
+        }
+
+        // 4. CHECK NIGHT STREAK (Fatigue)
+        const [fatigue] = await conn.query(`
+            SELECT current_night_streak, last_night_duty_date
+            FROM div_staff_fatigue_tracker
+            WHERE hrms_id = ?
+        `, [hrms_id]);
+
+        if (fatigue.length > 0 && fatigue[0].current_night_streak >= 3) {
+            const streak = fatigue[0].current_night_streak;
+            const level = streak >= 4 ? 'error' : 'warning';
+            warnings.push({
+                type: 'NIGHT_STREAK',
+                level: level,
+                message: `${streak} consecutive night duties${streak >= 4 ? ' - Rest mandatory' : ' - Consider day duty'}`,
+                data: fatigue[0]
+            });
+            if (streak >= 4) {
+                canAssign = false;
+            }
+        }
+
+        // 5. CHECK IF ALREADY ASSIGNED ON SAME DATE (Double booking)
+        const [existingSlot] = await conn.query(`
+            SELECT slot_time, shift_code,
+                   CASE WHEN lp_hrms_id = ? THEN 'LP' ELSE 'ALP' END AS role
+            FROM div_daily_slate
+            WHERE office_code = ?
+              AND slot_date = ?
+              AND (lp_hrms_id = ? OR alp_hrms_id = ?)
+            LIMIT 1
+        `, [hrms_id, userOffice, next_slot_date, hrms_id, hrms_id]);
+
+        if (existingSlot.length > 0) {
+            const slot = existingSlot[0];
+            warnings.push({
+                type: 'ALREADY_ASSIGNED',
+                level: 'error',
+                message: `Already assigned as ${slot.role} at ${slot.slot_time.substring(0,5)} on this date`,
+                data: slot
+            });
+            canAssign = false;
+        }
+
+        conn.release();
+
+        res.json({
+            success: true,
+            hrms_id,
+            next_slot_date,
+            can_assign: canAssign,
+            needs_pr: needsPR,
+            warning_count: warnings.length,
+            warnings
+        });
+
+    } catch (error) {
+        console.error('Error checking staff warnings:', error);
+        if (conn) conn.release();
+        res.status(500).json({ error: 'Database error', details: error.message });
+    }
+});
+
+// ----------------------------------------------------------------------------
 // GET /api/division/slate/vacancy
 // Get vacancy summary for dashboard
 // ----------------------------------------------------------------------------

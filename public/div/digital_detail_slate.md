@@ -131,9 +131,11 @@
 - [x] Timezone handling (formatLocalDate helper)
 
 **Pending Features:**
-- [ ] Leave integration guardrails
-- [ ] Fatigue/Night streak warnings
-- [ ] Staff search autocomplete
+- [x] Leave integration guardrails (sanctioned blocks, pending warns)
+- [x] Periodic Rest (6-day) auto-suggestion
+- [x] Night streak warnings (3=warning, 4+=error)
+- [x] Double booking detection
+- [ ] Staff search autocomplete (basic done, needs polish)
 
 ### 2.3 The Booking Slate (`slate.html`)
 
@@ -577,10 +579,12 @@ POST /api/division/slate/booking
 - [ ] 3-minute pulse on booking changes
 - [ ] Multi-client sync
 
-### Phase 5: Integration
-- [ ] Leave management integration
-- [ ] Fatigue/Night streak warnings
-- [ ] Staff search autocomplete
+### Phase 5: Integration (🔄 IN PROGRESS)
+- [x] Leave management integration (sanctioned/pending check)
+- [x] Fatigue/Night streak warnings
+- [x] Periodic Rest (6-day) detection
+- [x] Double booking prevention
+- [ ] Staff search autocomplete (polish)
 
 ### Phase 6: Hardware Deployment
 - [ ] Raspberry Pi setup guide
