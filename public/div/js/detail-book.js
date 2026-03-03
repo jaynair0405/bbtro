@@ -18,6 +18,7 @@ let lpWarnings = [];
 let alpWarnings = [];
 let lpCanAssign = true;
 let alpCanAssign = true;
+let isCheckingWarnings = false;  // True while API call is in-flight
 
 // ========== INITIALIZATION ==========
 document.addEventListener('DOMContentLoaded', async () => {
@@ -36,11 +37,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Initialize date dropdowns
     populateDateDropdowns();
 
-    // Initialize with today and tomorrow date groups
-    ensureDateGroup(formatDateKey(TODAY));
-    const tomorrow = new Date(TODAY.getTime());
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    ensureDateGroup(formatDateKey(tomorrow));
+    // Initialize with 11 days: yesterday (-1) through +9 days ahead
+    for (let offset = -1; offset <= 9; offset++) {
+        const date = new Date(TODAY.getTime());
+        date.setDate(date.getDate() + offset);
+        ensureDateGroup(formatDateKey(date));
+    }
 
     // Load active crews from API
     await loadActiveCrews();
@@ -51,20 +53,30 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Setup staff search for manual entry
     setupStaffSearch();
 
+    // Initialize exception modal for AUC/NF marking
+    initExceptionModal();
+
     // Attach date picker blur handlers
     document.getElementById('lpDatePicker').addEventListener('blur', () => handleDatePickerBlur('lp'));
     document.getElementById('alpDatePicker').addEventListener('blur', () => handleDatePickerBlur('alp'));
 
-    // Mark tomorrow tab as active
+    // Initialize scroll listener for date tab sync
+    initScrollListener();
+
+    // Mark today's tab as active and scroll to it
     setTimeout(() => {
-        document.querySelector('.date-tab')?.classList.add('active');
-    }, 100);
+        const todayStr = formatDateKey(TODAY);
+        scrollToDate(todayStr);
+    }, 200);
 });
 
 // ========== API: LOAD SLATE DATA ==========
 async function loadSlateData() {
     try {
-        const data = await fetchSlateBoard(SLATE_CONFIG.OFFICE_CODE, 3);
+        // Fetch 11 days starting from yesterday (-1 to +9)
+        const yesterday = new Date(TODAY.getTime());
+        yesterday.setDate(yesterday.getDate() - 1);
+        const data = await fetchSlateBoard(SLATE_CONFIG.OFFICE_CODE, 11, formatDateKey(yesterday));
 
         if (data.success && data.board) {
             // Iterate through each date and populate slots
@@ -84,12 +96,46 @@ async function loadSlateData() {
 
                         // Add LP if exists
                         if (slot.lp_name) {
-                            addStaffToSlate(slot.lp_name, 'LP', slotTime, dateStr, isAdhocSlot);
+                            addStaffToSlate({
+                                slotId: slot.id,
+                                name: slot.lp_name,
+                                type: 'LP',
+                                time: slotTime,
+                                date: dateStr,
+                                isAdhoc: isAdhocSlot,
+                                exception: slot.lp_exception,
+                                exceptionRemark: slot.lp_exception_remark,
+                                signedOnAt: slot.lp_signed_on_at,
+                                lateReason: slot.lp_late_reason,
+                                detention: slot.lp_detention,
+                                detentionRemark: slot.lp_detention_remark,
+                                incoming: slot.lp_incoming,
+                                incomingLoco: slot.lp_incoming_loco,
+                                isPilot: slot.lp_is_pilot,
+                                signOffTime: slot.lp_sign_off_time
+                            });
                         }
 
                         // Add ALP if exists
                         if (slot.alp_name) {
-                            addStaffToSlate(slot.alp_name, 'ALP', slotTime, dateStr, isAdhocSlot);
+                            addStaffToSlate({
+                                slotId: slot.id,
+                                name: slot.alp_name,
+                                type: 'ALP',
+                                time: slotTime,
+                                date: dateStr,
+                                isAdhoc: isAdhocSlot,
+                                exception: slot.alp_exception,
+                                exceptionRemark: slot.alp_exception_remark,
+                                signedOnAt: slot.alp_signed_on_at,
+                                lateReason: slot.alp_late_reason,
+                                detention: slot.alp_detention,
+                                detentionRemark: slot.alp_detention_remark,
+                                incoming: slot.alp_incoming,
+                                incomingLoco: slot.alp_incoming_loco,
+                                isPilot: slot.alp_is_pilot,
+                                signOffTime: slot.alp_sign_off_time
+                            });
                         }
                     }
                 }
@@ -146,10 +192,36 @@ function renderActiveCrewCards() {
     if (activeCrews.length === 0) {
         container.innerHTML = `
             <div style="color: var(--text-muted); padding: 20px; font-size: 0.85rem;">
-                No crews currently online (8+ hours). Use Manual Entry button above.
+                No crews currently online (5+ hours). Use Manual Entry button above.
             </div>
         `;
     }
+}
+
+// Filter crew cards by name or CMS ID
+function filterCrewCards(searchTerm) {
+    const term = searchTerm.toLowerCase().trim();
+    const cards = document.querySelectorAll('.crew-card');
+
+    cards.forEach((card, index) => {
+        const crew = activeCrews[index];
+        if (!crew) return;
+
+        const searchableText = [
+            crew.lp_name,
+            crew.alp_name,
+            crew.lp_cms_id,
+            crew.alp_cms_id,
+            crew.train_no,
+            crew.loco_no
+        ].filter(Boolean).join(' ').toLowerCase();
+
+        if (!term || searchableText.includes(term)) {
+            card.style.display = '';
+        } else {
+            card.style.display = 'none';
+        }
+    });
 }
 
 // ========== CLICK-TO-ARRIVE ==========
@@ -179,8 +251,8 @@ function selectCrewCard(slateId) {
     if (lpInput) lpInput.style.display = 'none';
     if (alpInput) alpInput.style.display = 'none';
 
-    selectedLP = { hrms_id: crew.lp_hrms_id, name: crew.lp_name, cms_id: crew.lp_cms_id };
-    selectedALP = crew.alp_hrms_id ? { hrms_id: crew.alp_hrms_id, name: crew.alp_name, cms_id: crew.alp_cms_id } : null;
+    selectedLP = { hrms_id: crew.lp_hrms_id, name: crew.lp_name, cms_id: crew.lp_cms_id, source_slate_id: crew.slate_id };
+    selectedALP = crew.alp_hrms_id ? { hrms_id: crew.alp_hrms_id, name: crew.alp_name, cms_id: crew.alp_cms_id, source_slate_id: crew.slate_id } : null;
 
     // Fill form
     document.getElementById('incomingTrain').value = '';
@@ -302,7 +374,8 @@ async function checkStaffWarningsComprehensive() {
         }
     }
 
-    // Display warnings
+    // Clear checking state and display warnings
+    isCheckingWarnings = false;
     displayWarnings();
 }
 
@@ -363,14 +436,33 @@ function displayWarnings() {
     }
 
     // Update submit button state
+    updateSubmitButtonState();
+}
+
+/**
+ * Update submit button state based on warnings and checking status
+ */
+function updateSubmitButtonState() {
     const submitBtn = document.querySelector('.btn-submit');
-    if (!lpCanAssign || !alpCanAssign) {
+    if (!submitBtn) return;
+
+    if (isCheckingWarnings) {
+        // Still checking - show loading state
+        submitBtn.disabled = true;
+        submitBtn.style.opacity = '0.6';
+        submitBtn.innerHTML = '<span style="opacity: 0.7;">Checking...</span>';
+        submitBtn.title = 'Verifying staff availability...';
+    } else if (!lpCanAssign || !alpCanAssign) {
+        // Errors found - blocked
         submitBtn.disabled = true;
         submitBtn.style.opacity = '0.5';
+        submitBtn.innerHTML = 'Save Arrival & Update Forecast';
         submitBtn.title = 'Cannot submit - resolve errors above';
     } else {
+        // All clear
         submitBtn.disabled = false;
         submitBtn.style.opacity = '1';
+        submitBtn.innerHTML = 'Save Arrival & Update Forecast';
         submitBtn.title = '';
     }
 }
@@ -386,6 +478,7 @@ function enableManualEntry() {
     document.getElementById('incomingLoco').value = '';
     document.getElementById('signOn').value = '';
     document.getElementById('signOff').value = '';
+    document.getElementById('signOffDate').value = 'today';
     document.getElementById('lpNextSlot').value = '';
     document.getElementById('alpNextSlot').value = '';
 
@@ -418,14 +511,10 @@ function enableManualEntry() {
     alpWarnings = [];
     lpCanAssign = true;
     alpCanAssign = true;
+    isCheckingWarnings = false;
 
     // Reset submit button
-    const submitBtn = document.querySelector('.btn-submit');
-    if (submitBtn) {
-        submitBtn.disabled = false;
-        submitBtn.style.opacity = '1';
-        submitBtn.title = '';
-    }
+    updateSubmitButtonState();
 
     // Show both rows
     document.getElementById('dutyTimeRow').style.display = 'grid';
@@ -636,14 +725,34 @@ function updateCurrentTimeDisplay() {
     document.getElementById('currentTimeDisplay').value = timeStr;
 }
 
+// ========== SIGN-OFF DATE HELPER ==========
+function getSignOffDate() {
+    const signOffDateSelect = document.getElementById('signOffDate');
+    if (signOffDateSelect && signOffDateSelect.value === 'prev') {
+        // Yesterday's date
+        const yesterday = new Date(TODAY.getTime());
+        yesterday.setDate(yesterday.getDate() - 1);
+        return formatDateKey(yesterday);
+    }
+    return formatDateKey(TODAY);
+}
+
 // ========== SLOT CALCULATIONS ==========
 function calculateSlotsManual() {
     const signOff = document.getElementById('signOff').value;
     let baseTime;
 
+    // Get sign-off base date (today or yesterday)
+    const signOffDateSelect = document.getElementById('signOffDate');
+    let signOffBaseDate = new Date(TODAY.getTime());
+    if (signOffDateSelect && signOffDateSelect.value === 'prev') {
+        signOffBaseDate.setDate(signOffBaseDate.getDate() - 1);
+    }
+
     if (signOff) {
         baseTime = signOff;
-        document.getElementById('currentTimeDisplay').value = `Sign-off: ${signOff}`;
+        const dateLabel = signOffDateSelect && signOffDateSelect.value === 'prev' ? ' (Prev)' : '';
+        document.getElementById('currentTimeDisplay').value = `Sign-off: ${signOff}${dateLabel}`;
     } else {
         const now = new Date();
         baseTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
@@ -668,7 +777,7 @@ function calculateSlotsManual() {
         lpSlotBox.disabled = false;
         lpDateSelect.disabled = false;
         lpDatePicker.disabled = false;
-        const lpSlot = calculateNextSlot(baseTime, parseInt(lpRest));
+        const lpSlot = calculateNextSlot(baseTime, parseInt(lpRest), signOffBaseDate);
         lpSlotBox.value = lpSlot.time;
         setSlotDateDropdown('lp', formatDateKey(lpSlot.date));
         lpDateLabel.textContent = `(${lpSlot.actualRestHours}hr rest)`;
@@ -693,7 +802,7 @@ function calculateSlotsManual() {
         alpSlotBox.disabled = false;
         alpDateSelect.disabled = false;
         alpDatePicker.disabled = false;
-        const alpSlot = calculateNextSlot(baseTime, parseInt(alpRest));
+        const alpSlot = calculateNextSlot(baseTime, parseInt(alpRest), signOffBaseDate);
         alpSlotBox.value = alpSlot.time;
         setSlotDateDropdown('alp', formatDateKey(alpSlot.date));
         alpDateLabel.textContent = `(${alpSlot.actualRestHours}hr rest)`;
@@ -707,6 +816,13 @@ function calculateSlotsManual() {
 function calculateSlots() {
     const signOff = document.getElementById('signOff').value;
     if (!signOff) return;
+
+    // Get sign-off base date (today or yesterday)
+    const signOffDateSelect = document.getElementById('signOffDate');
+    let signOffBaseDate = new Date(TODAY.getTime());
+    if (signOffDateSelect && signOffDateSelect.value === 'prev') {
+        signOffBaseDate.setDate(signOffBaseDate.getDate() - 1);
+    }
 
     // Calculate LP slot
     const lpRest = document.getElementById('lpRest').value;
@@ -726,7 +842,7 @@ function calculateSlots() {
         lpSlotBox.disabled = false;
         lpDateSelect.disabled = false;
         lpDatePicker.disabled = false;
-        const lpSlot = calculateNextSlot(signOff, parseInt(lpRest));
+        const lpSlot = calculateNextSlot(signOff, parseInt(lpRest), signOffBaseDate);
         lpSlotBox.value = lpSlot.time;
         setSlotDateDropdown('lp', formatDateKey(lpSlot.date));
         lpDateLabel.textContent = `(${lpSlot.actualRestHours}hr rest)`;
@@ -751,7 +867,7 @@ function calculateSlots() {
         alpSlotBox.disabled = false;
         alpDateSelect.disabled = false;
         alpDatePicker.disabled = false;
-        const alpSlot = calculateNextSlot(signOff, parseInt(alpRest));
+        const alpSlot = calculateNextSlot(signOff, parseInt(alpRest), signOffBaseDate);
         alpSlotBox.value = alpSlot.time;
         setSlotDateDropdown('alp', formatDateKey(alpSlot.date));
         alpDateLabel.textContent = `(${alpSlot.actualRestHours}hr rest)`;
@@ -767,6 +883,11 @@ let warningsCheckTimeout = null;
 
 function debounceWarningsCheck() {
     clearTimeout(warningsCheckTimeout);
+
+    // Set checking state immediately to block submit
+    isCheckingWarnings = true;
+    updateSubmitButtonState();
+
     warningsCheckTimeout = setTimeout(() => {
         checkStaffWarningsComprehensive();
     }, 500); // Wait 500ms after last change
@@ -904,6 +1025,7 @@ function clearArrivalForm() {
     document.getElementById('incomingLoco').value = '';
     document.getElementById('signOn').value = '';
     document.getElementById('signOff').value = '';
+    document.getElementById('signOffDate').value = 'today';
     document.getElementById('lpNextSlot').value = '';
     document.getElementById('alpNextSlot').value = '';
 
@@ -935,14 +1057,10 @@ function clearArrivalForm() {
     alpWarnings = [];
     lpCanAssign = true;
     alpCanAssign = true;
+    isCheckingWarnings = false;
 
     // Reset submit button
-    const submitBtn = document.querySelector('.btn-submit');
-    if (submitBtn) {
-        submitBtn.disabled = false;
-        submitBtn.style.opacity = '1';
-        submitBtn.title = '';
-    }
+    updateSubmitButtonState();
 
     // Show duty time row, hide off reason row
     document.getElementById('dutyTimeRow').style.display = 'grid';
@@ -1088,11 +1206,18 @@ function updateDateTabs() {
     tabsContainer.innerHTML = dates.map(dateStr => {
         const date = new Date(dateStr);
         const isToday = formatDateKey(TODAY) === dateStr;
+        const yesterday = new Date(TODAY);
+        yesterday.setDate(yesterday.getDate() - 1);
+        const isYesterday = formatDateKey(yesterday) === dateStr;
         const tomorrow = new Date(TODAY);
         tomorrow.setDate(tomorrow.getDate() + 1);
         const isTomorrow = formatDateKey(tomorrow) === dateStr;
 
-        let label = date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
+        // Compact label: day + short weekday
+        const dayNum = date.getDate();
+        const weekDay = date.toLocaleDateString('en-IN', { weekday: 'short' }).substring(0, 2);
+        let label = `${dayNum} ${weekDay}`;
+        if (isYesterday) label = 'Yest';
         if (isToday) label = 'Today';
         if (isTomorrow) label = 'Tmrw';
 
@@ -1107,23 +1232,42 @@ function updateDateTabs() {
     updateVacancySummary();
 }
 
-function updateVacancySummary() {
+function updateVacancySummary(forDate = null) {
+    // Show vacancy for specific date, or default to currently visible date
     const dates = Object.keys(dateGroups).sort();
-    let totalLpVacant = 0;
-    let totalAlpVacant = 0;
+    const targetDate = forDate || getVisibleDate() || formatDateKey(TODAY);
 
-    dates.forEach(dateStr => {
-        const group = dateGroups[dateStr];
+    let lpVacant = 0;
+    let alpVacant = 0;
+
+    const group = dateGroups[targetDate];
+    if (group) {
         group.tables.forEach(table => {
-            totalLpVacant += table.querySelectorAll('td.lp-cell.empty-slot').length;
-            totalAlpVacant += table.querySelectorAll('td.alp-cell.empty-slot').length;
+            lpVacant += table.querySelectorAll('td.lp-cell.empty-slot').length;
+            alpVacant += table.querySelectorAll('td.alp-cell.empty-slot').length;
         });
-    });
+    }
+
+    // Format date label
+    const date = new Date(targetDate);
+    const todayStr = formatDateKey(TODAY);
+    let dateLabel = date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
+    if (targetDate === todayStr) dateLabel = 'Today';
 
     const summaryEl = document.getElementById('vacantSummary');
     if (summaryEl) {
-        summaryEl.textContent = `LP: ${totalLpVacant} | ALP: ${totalAlpVacant} vacant`;
+        summaryEl.textContent = `${dateLabel}: LP ${lpVacant} | ALP ${alpVacant} vacant`;
     }
+}
+
+function getVisibleDate() {
+    const scroll = document.getElementById('forecastScroll');
+    if (!scroll) return null;
+    const scrollLeft = scroll.scrollLeft;
+    const groupWidth = scroll.querySelector('.date-group')?.offsetWidth || scroll.offsetWidth;
+    const dates = Object.keys(dateGroups).sort();
+    const visibleIndex = Math.round(scrollLeft / groupWidth);
+    return dates[visibleIndex] || null;
 }
 
 function scrollToDate(dateStr) {
@@ -1141,31 +1285,74 @@ function scrollForecast(direction) {
     scroll.scrollBy({ left: direction * groupWidth, behavior: 'smooth' });
 }
 
+// Detect visible date and highlight corresponding tab
+function updateVisibleDateTab() {
+    const scroll = document.getElementById('forecastScroll');
+    const scrollLeft = scroll.scrollLeft;
+    const groupWidth = scroll.querySelector('.date-group')?.offsetWidth || scroll.offsetWidth;
+
+    // Find which date group is most visible
+    const dates = Object.keys(dateGroups).sort();
+    const visibleIndex = Math.round(scrollLeft / groupWidth);
+    const visibleDate = dates[visibleIndex];
+
+    if (visibleDate) {
+        // Update tab highlighting
+        document.querySelectorAll('.date-tab').forEach(t => t.classList.remove('active'));
+        const activeTab = document.querySelector(`.date-tab[data-date="${visibleDate}"]`);
+        if (activeTab) {
+            activeTab.classList.add('active');
+            // Scroll tab into view if needed
+            activeTab.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+        }
+        // Update vacancy summary for visible date
+        updateVacancySummary(visibleDate);
+    }
+}
+
+// Initialize scroll listener
+function initScrollListener() {
+    const scroll = document.getElementById('forecastScroll');
+    let scrollTimeout;
+    scroll.addEventListener('scroll', () => {
+        clearTimeout(scrollTimeout);
+        scrollTimeout = setTimeout(updateVisibleDateTab, 100);
+    });
+}
+
 // ========== ADD STAFF TO SLATE ==========
-function addStaffToSlate(staffName, staffType, slotTime, slotDate, isAdhoc = false) {
-    if (!slotTime || !slotDate) return false;
+/**
+ * Add staff to the forecast slate
+ * @param {object} staff - { slotId, name, type, time, date, isAdhoc, exception, exceptionRemark, incoming, incomingLoco, isPilot }
+ */
+function addStaffToSlate(staff) {
+    const { slotId, name, type, time, date, isAdhoc, exception, exceptionRemark,
+            signedOnAt, lateReason, detention, detentionRemark,
+            incoming, incomingLoco, isPilot, signOffTime } = staff;
 
-    ensureDateGroup(slotDate);
+    if (!time || !date) return false;
 
-    const slotId = `slot-${slotDate}-${slotTime.replace(':', '')}`;
-    let slotRow = document.getElementById(slotId);
+    ensureDateGroup(date);
+
+    const rowId = `slot-${date}-${time.replace(':', '')}`;
+    let slotRow = document.getElementById(rowId);
 
     // If adhoc and row exists with staff already, create a new adhoc row
     if (isAdhoc && slotRow) {
-        const cellType = staffType.toLowerCase();
+        const cellType = type.toLowerCase();
         const existingCell = slotRow.querySelector(`td[data-type="${cellType}"]`);
         if (existingCell && existingCell.textContent.trim() && !existingCell.classList.contains('empty-slot')) {
-            slotRow = createAdhocRow(slotDate, slotTime, staffName, staffType);
+            slotRow = createAdhocRow(date, time, name, type);
             return true;
         }
     }
 
     if (!slotRow) {
-        console.error('Slot not found:', slotId);
+        console.error('Slot not found:', rowId);
         return false;
     }
 
-    const cellType = staffType.toLowerCase();
+    const cellType = type.toLowerCase();
     const cell = slotRow.querySelector(`td[data-type="${cellType}"]`);
 
     if (!cell) {
@@ -1173,13 +1360,90 @@ function addStaffToSlate(staffName, staffType, slotTime, slotDate, isAdhoc = fal
         return false;
     }
 
-    cell.textContent = staffName;
+    // Check for late arrival using robust datetime comparison
+    const signedOnTime = formatTime(signedOnAt);
+    const isLate = signedOnTime !== '--' && isLateArrival(date, time, signedOnAt);
+
+    // Build cell content with exception/late indicator
+    let displayName = name;
+    let badge = '';
+    let cellColor = '';
+
+    if (isLate) {
+        // Late arrival - cyan color with time as subscript
+        badge = `<br><sub style="color: #22d3ee; font-size: 0.7em;">@ ${signedOnTime}</sub>`;
+        cellColor = '#22d3ee';
+    } else if (exception === 'AUC') {
+        badge = '<sup style="color: var(--warning); font-weight: 700; margin-left: 2px;">AUC</sup>';
+        cellColor = 'var(--warning)';
+    } else if (exception === 'NF') {
+        badge = '<sup style="color: var(--danger); font-weight: 700; margin-left: 2px;">NF</sup>';
+        cellColor = 'var(--danger)';
+    }
+
+    // Build incoming indicator (small dot BEFORE name that shows details on click)
+    let incomingIndicator = '';
+    if (incoming || incomingLoco) {
+        const signOffStr = signOffTime ? formatTime(signOffTime) : '';
+        const incomingTitle = isPilot
+            ? `Pilot: ${incoming || '--'}`
+            : `Ex: ${incoming || '--'} / ${incomingLoco || '--'}`;
+        incomingIndicator = `<span class="incoming-dot" title="${incomingTitle}"
+            onclick="event.stopPropagation(); showIncomingDetails(this, '${(incoming || '').replace(/'/g, "\\'")}', '${(incomingLoco || '').replace(/'/g, "\\'")}', ${isPilot || false}, '${signOffStr}')">●</span>`;
+    }
+
+    cell.innerHTML = `${incomingIndicator}<span class="staff-name" style="cursor: pointer;">${displayName}${badge}</span>`;
     cell.classList.remove('empty-slot');
     cell.classList.add('new-entry');
+
+    // Store slot info for click handler
+    cell.dataset.slotId = slotId;
+    cell.dataset.staffType = cellType;
+    cell.dataset.staffName = name;
+    cell.dataset.slotTime = time;
+    cell.dataset.slotDate = date;
+    cell.dataset.exception = exception || '';
+    cell.dataset.exceptionRemark = exceptionRemark || '';
+    cell.dataset.signedOnAt = signedOnAt || '';
+    cell.dataset.lateReason = lateReason || '';
+    cell.dataset.detention = detention || '';
+    cell.dataset.detentionRemark = detentionRemark || '';
+
+    // Add click handler for Late/AUC/NF marking
+    cell.onclick = function() {
+        openExceptionModal(
+            parseInt(this.dataset.slotId),
+            this.dataset.staffType,
+            {
+                name: this.dataset.staffName,
+                slot_time: this.dataset.slotTime,
+                slot_date: this.dataset.slotDate,
+                current_exception: this.dataset.exception || null,
+                current_remark: this.dataset.exceptionRemark || null,
+                signed_on_at: this.dataset.signedOnAt || null,
+                late_reason: this.dataset.lateReason || null,
+                detention: this.dataset.detention || null,
+                detention_remark: this.dataset.detentionRemark || null
+            },
+            () => loadSlateData() // Refresh after save
+        );
+    };
 
     if (isAdhoc) {
         cell.style.borderLeft = '3px solid var(--warning)';
         cell.title = 'Adhoc entry';
+    }
+
+    // Apply styling based on late/exception
+    if (isLate) {
+        cell.style.color = '#22d3ee';
+        cell.title = `Late arrival at ${signedOnTime}` + (detention === 'YES' ? ` - Train detained: ${detentionRemark}` : '');
+    } else if (exception === 'AUC') {
+        cell.style.color = 'var(--warning)';
+        cell.title = exceptionRemark || 'Advised Unable to Come';
+    } else if (exception === 'NF') {
+        cell.style.color = 'var(--danger)';
+        cell.title = exceptionRemark || 'Not Found';
     }
 
     slotRow.style.background = isAdhoc ? 'rgba(245, 158, 11, 0.15)' : 'rgba(16, 185, 129, 0.15)';
@@ -1232,8 +1496,58 @@ function createAdhocRow(slotDate, slotTime, staffName, staffType) {
     return adhocRow;
 }
 
+// ========== INCOMING DETAILS POPUP ==========
+function showIncomingDetails(dot, train, loco, isPilot, signOffTime) {
+    // Remove any existing popup
+    document.querySelectorAll('.incoming-popup').forEach(p => p.remove());
+
+    // Create popup
+    const popup = document.createElement('div');
+    popup.className = 'incoming-popup';
+
+    const signOffDisplay = signOffTime ? `<div style="margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border);"><b>Sign-Off:</b> ${signOffTime}</div>` : '';
+
+    if (isPilot) {
+        popup.innerHTML = `
+            <div style="font-weight: 700; color: var(--warning); margin-bottom: 4px;">PILOT</div>
+            <div>Ex: ${train || '--'}</div>
+            ${signOffDisplay}
+        `;
+    } else {
+        popup.innerHTML = `
+            <div style="margin-bottom: 4px;"><b>Train:</b> ${train || '--'}</div>
+            <div><b>Loco:</b> ${loco || '--'}</div>
+            ${signOffDisplay}
+        `;
+    }
+
+    // Position popup near the dot
+    const rect = dot.getBoundingClientRect();
+    popup.style.position = 'fixed';
+    popup.style.left = `${rect.left + 15}px`;
+    popup.style.top = `${rect.top - 10}px`;
+    popup.style.zIndex = '9999';
+
+    document.body.appendChild(popup);
+
+    // Close popup when clicking elsewhere
+    const closePopup = (e) => {
+        if (!popup.contains(e.target) && e.target !== dot) {
+            popup.remove();
+            document.removeEventListener('click', closePopup);
+        }
+    };
+    setTimeout(() => document.addEventListener('click', closePopup), 10);
+}
+
 // ========== SUBMIT TO API ==========
 async function submitToSlate() {
+    // Check if still verifying warnings
+    if (isCheckingWarnings) {
+        showToast('Please wait - verifying staff availability...', 'info');
+        return;
+    }
+
     // Check if assignment is blocked due to warnings
     if (!lpCanAssign) {
         showToast('Cannot assign LP - resolve errors first', 'error');
@@ -1334,6 +1648,10 @@ async function submitToSlate() {
         payload.lp_rest_type = mapRestType(lpRest);
         payload.lp_next_slot_date = lpRest !== 'suspend' ? lpDateSelect.value : null;
         payload.lp_next_slot_time = lpRest !== 'suspend' ? lpSlotBox.value + ':00' : null;
+        // Source slate ID to mark old slot as signed-off
+        if (selectedLP.source_slate_id) {
+            payload.source_slate_id = selectedLP.source_slate_id;
+        }
     }
 
     if (isManualMode) {
@@ -1345,12 +1663,12 @@ async function submitToSlate() {
             payload.loco_no = null;
         }
         payload.sign_on_time = signOn ? `${formatDateKey(TODAY)} ${signOn}:00` : null;
-        payload.sign_off_time = signOff ? `${formatDateKey(TODAY)} ${signOff}:00` : null;
+        payload.sign_off_time = signOff ? `${getSignOffDate()} ${signOff}:00` : null;
     } else {
         payload.incoming_detail = trainNo;
         payload.loco_no = locoNo;
         payload.sign_on_time = `${formatDateKey(TODAY)} ${signOn}:00`;
-        payload.sign_off_time = `${formatDateKey(TODAY)} ${signOff}:00`;
+        payload.sign_off_time = `${getSignOffDate()} ${signOff}:00`;
     }
 
     const alpDateSelect = document.getElementById('alpSlotDate');
@@ -1474,11 +1792,25 @@ async function doSubmit(payload) {
             let lpAdded = false, alpAdded = false;
 
             if (selectedLP && lpRest !== 'suspend' && lpSlotBox.value && lpDateSelect.value) {
-                lpAdded = addStaffToSlate(selectedLP.name, 'LP', lpSlotBox.value, lpDateSelect.value, data.lp_is_adhoc);
+                lpAdded = addStaffToSlate({
+                    slotId: data.lp_slot_id,
+                    name: selectedLP.name,
+                    type: 'LP',
+                    time: lpSlotBox.value,
+                    date: lpDateSelect.value,
+                    isAdhoc: data.lp_is_adhoc
+                });
             }
 
             if (selectedALP && alpRest !== 'suspend' && alpSlotBox.value && alpDateSelect.value) {
-                alpAdded = addStaffToSlate(selectedALP.name, 'ALP', alpSlotBox.value, alpDateSelect.value, data.alp_is_adhoc);
+                alpAdded = addStaffToSlate({
+                    slotId: data.alp_slot_id,
+                    name: selectedALP.name,
+                    type: 'ALP',
+                    time: alpSlotBox.value,
+                    date: alpDateSelect.value,
+                    isAdhoc: data.alp_is_adhoc
+                });
             }
 
             updateDateTabs();

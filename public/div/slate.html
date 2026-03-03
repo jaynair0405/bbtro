@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PNVL Booking Slate | Digital Slate</title>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/slate-theme.css">
+    <link rel="stylesheet" href="css/slate-theme.css?v=20260302p">
     <style>
         /* Slate-specific layout */
         .main-container {
@@ -15,29 +15,29 @@
             overflow: hidden;
         }
 
-        /* Shift Navigation Bar */
+        /* Shift Navigation Bar - compact */
         .shift-nav {
             display: flex;
             align-items: center;
-            gap: 10px;
-            padding: 8px 15px;
+            gap: 8px;
+            padding: 5px 10px;
             background: #0b1120;
             border-bottom: 1px solid var(--border);
         }
 
         .shift-tabs {
             display: flex;
-            gap: 8px;
+            gap: 6px;
             flex-grow: 1;
             justify-content: center;
         }
 
         .shift-tab {
-            padding: 8px 20px;
+            padding: 5px 16px;
             background: var(--bg-input);
             border: 2px solid var(--border);
-            border-radius: 8px;
-            font-size: 0.9rem;
+            border-radius: 6px;
+            font-size: 0.8rem;
             font-weight: 700;
             color: var(--text-main);
             cursor: pointer;
@@ -60,11 +60,35 @@
         .shift-tab.shift-day.active { background: var(--shift-day); }
         .shift-tab.shift-evening.active { background: var(--shift-evening); }
 
-        /* Slate Content Area */
+        /* Date Navigation - compact */
+        .date-nav {
+            padding: 5px 10px;
+            background: #0a0f1a;
+            border-bottom: 1px solid var(--border);
+        }
+        .date-btn {
+            padding: 4px 12px;
+            font-size: 0.75rem;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 5px;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .date-btn:hover { background: var(--bg-panel); color: var(--text-main); }
+        .date-btn.active {
+            background: var(--accent);
+            color: #000;
+            border-color: var(--accent);
+            font-weight: 700;
+        }
+
+        /* Slate Content Area - compact */
         .slate-container {
             flex-grow: 1;
             overflow: auto;
-            padding: 15px;
+            padding: 8px;
         }
 
         /* Interactive Table Mode */
@@ -167,6 +191,42 @@
             display: flex;
             flex-direction: column;
             gap: 8px;
+        }
+
+        /* Interactive mode 2-column layout - compact */
+        .interactive-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            height: 100%;
+        }
+
+        .interactive-half {
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-panel);
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            overflow: hidden;
+        }
+
+        .interactive-half .half-header {
+            padding: 4px 10px;
+            background: #0b1120;
+            font-size: 0.8rem;
+            text-align: center;
+            border-bottom: 2px solid var(--accent);
+        }
+
+        .interactive-half .slate-table {
+            margin: 0;
+            border-radius: 0;
+        }
+
+        .interactive-half .slate-table th,
+        .interactive-half .slate-table td {
+            padding: 6px 8px;
+            font-size: 0.75rem;
         }
 
         /* Airport-style row cards */
@@ -281,6 +341,7 @@
     <div class="header">
         <h1>PNVL BOOKING SLATE</h1>
         <div style="display: flex; gap: 30px; align-items: center;">
+            <a href="detail-book.html" class="nav-link" title="Open Detail Book">← Detail Book</a>
             <span id="vacancySummary" style="color: var(--warning); font-weight: 600; font-size: 0.85rem;">LP: -- | ALP: -- vacant</span>
             <div style="color: var(--text-muted); font-size: 0.85rem; font-weight: 600;">
                 <span id="headerShift">08:00 x 16:00</span> |
@@ -291,6 +352,9 @@
     </div>
 
     <div class="main-container">
+        <div class="date-nav" id="dateNav" style="display: flex; justify-content: center; gap: 15px; margin-bottom: 10px;">
+            <!-- Date buttons populated dynamically by buildDateNav() -->
+        </div>
         <div class="shift-nav" id="shiftNav">
             <!-- Shift navigation built dynamically -->
         </div>
@@ -302,7 +366,7 @@
     </div>
 
     <!-- Load shared utilities first, then page-specific code -->
-    <script src="js/slate-common.js"></script>
-    <script src="js/slate.js"></script>
+    <script src="js/slate-common.js?v=20260302k"></script>
+    <script src="js/slate.js?v=20260302k"></script>
 </body>
 </html>

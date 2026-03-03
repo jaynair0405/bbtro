@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>JR CC | Digital Detail Book</title>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/slate-theme.css">
+    <link rel="stylesheet" href="css/slate-theme.css?v=20260302n">
     <style>
         /* Page-specific layout */
         .main-container {
@@ -21,13 +21,21 @@
 
     <div class="header">
         <h1>JR CC DETAIL BOOK</h1>
-        <div id="headerInfo" style="color: var(--text-muted); font-size: 0.85rem; font-weight: 600;">Duty Shift: 08:00 x 16:00 | Date: --</div>
+        <div style="display: flex; align-items: center; gap: 20px;">
+            <div id="headerInfo" style="color: var(--text-muted); font-size: 0.85rem; font-weight: 600;">Duty Shift: 08:00 x 16:00 | Date: --</div>
+            <a href="slate.html" class="nav-link" title="Open Booking Slate">Slate →</a>
+        </div>
     </div>
 
     <div class="main-container">
 
         <div class="panel">
-            <div class="panel-header">Log Arrival & Assign Rest</div>
+            <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <span>Log Arrival & Assign Rest</span>
+                <input type="text" id="crewSearch" placeholder="Search name / CMS ID..."
+                       oninput="filterCrewCards(this.value)"
+                       style="padding: 5px 10px; font-size: 0.75rem; width: 180px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 4px; color: var(--text-main);">
+            </div>
             <div class="form-content">
 
                 <div class="section-label" style="display: flex; justify-content: space-between; align-items: center;">
@@ -82,8 +90,15 @@
                         <input type="time" id="signOn">
                     </div>
                     <div class="form-group">
-                        <label style="color:var(--accent);">Sign-Off (Current)</label>
+                        <label style="color:var(--accent);">Sign-Off Time</label>
                         <input type="time" id="signOff" onchange="isManualMode ? calculateSlotsManual() : calculateSlots()">
+                    </div>
+                    <div class="form-group" style="width: 100px;">
+                        <label style="color:var(--text-muted); font-size: 0.7rem;">Sign-Off Date</label>
+                        <select id="signOffDate" style="padding: 6px; font-size: 0.85rem;" onchange="isManualMode ? calculateSlotsManual() : calculateSlots()">
+                            <option value="today">Today</option>
+                            <option value="prev">Prev</option>
+                        </select>
                     </div>
                 </div>
                 <div class="form-row" id="offReasonRow" style="display:none;">
@@ -206,7 +221,7 @@
     </div>
 
     <!-- Load shared utilities first, then page-specific code -->
-    <script src="js/slate-common.js"></script>
-    <script src="js/detail-book.js"></script>
+    <script src="js/slate-common.js?v=20260302n"></script>
+    <script src="js/detail-book.js?v=20260302n"></script>
 </body>
 </html>

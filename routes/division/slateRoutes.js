@@ -16,7 +16,7 @@ function formatLocalDate(date) {
 
 // ----------------------------------------------------------------------------
 // GET /api/division/slate/active-crews
-// Fetches crews with status ONLINE for Click-to-Arrive cards (duty > 8 hours)
+// Fetches crews with status ONLINE for Click-to-Arrive cards (duty > 5 hours)
 // ----------------------------------------------------------------------------
 router.get('/active-crews', async (req, res) => {
     let conn;
@@ -30,7 +30,7 @@ router.get('/active-crews', async (req, res) => {
 
         conn = await req.app.locals.pool.getConnection();
 
-        // Get crews who are ONLINE and have been on duty for 8+ hours
+        // Get crews who are ONLINE and have been on duty for 5+ hours
         const [crews] = await conn.query(`
             SELECT
                 ds.id AS slate_id,
@@ -47,11 +47,11 @@ router.get('/active-crews', async (req, res) => {
                 CONCAT(ds.slot_date, ' ', ds.slot_time) AS sign_on_datetime,
                 TIMESTAMPDIFF(HOUR, CONCAT(ds.slot_date, ' ', ds.slot_time), NOW()) AS duty_hours
             FROM div_daily_slate ds
-            JOIN div_staff_master lp ON ds.lp_hrms_id = lp.hrms_id
+            LEFT JOIN div_staff_master lp ON ds.lp_hrms_id = lp.hrms_id
             LEFT JOIN div_staff_master alp ON ds.alp_hrms_id = alp.hrms_id
             WHERE ds.office_code = ?
-              AND ds.lp_status = 'ONLINE'
-              AND TIMESTAMPDIFF(HOUR, CONCAT(ds.slot_date, ' ', ds.slot_time), NOW()) >= 8
+              AND (ds.lp_status = 'ONLINE' OR ds.alp_status = 'ONLINE')
+              AND TIMESTAMPDIFF(HOUR, CONCAT(ds.slot_date, ' ', ds.slot_time), NOW()) >= 5
             ORDER BY CONCAT(ds.slot_date, ' ', ds.slot_time) ASC
         `, [userOffice]);
 
@@ -180,7 +180,7 @@ router.get('/board', async (req, res) => {
             await conn.query('CALL sp_generate_daily_slots(?, ?)', [userOffice, dateStr]);
         }
 
-        // Fetch all slots with staff data
+        // Fetch all slots with staff data and incoming details from detail book log
         const [slots] = await conn.query(`
             SELECT
                 ds.id,
@@ -193,12 +193,30 @@ router.get('/board', async (req, res) => {
                 lp.current_cms_id AS lp_cms_id,
                 ds.lp_status,
                 ds.lp_exception,
+                ds.lp_exception_remark,
+                ds.lp_signed_on_at,
+                ds.lp_late_reason,
+                ds.lp_detention,
+                ds.lp_detention_remark,
+                lp_log.incoming_detail AS lp_incoming,
+                lp_log.loco_no AS lp_incoming_loco,
+                lp_log.is_pilot AS lp_is_pilot,
                 ds.alp_hrms_id,
                 alp.name AS alp_name,
                 alp.current_cms_id AS alp_cms_id,
                 ds.alp_status,
                 ds.alp_exception,
+                ds.alp_exception_remark,
+                ds.alp_signed_on_at,
+                ds.alp_late_reason,
+                ds.alp_detention,
+                ds.alp_detention_remark,
                 ds.alp_cross_slot_time,
+                COALESCE(alp_log.alp_incoming_detail, alp_log.incoming_detail) AS alp_incoming,
+                alp_log.loco_no AS alp_incoming_loco,
+                COALESCE(alp_log.alp_is_pilot, alp_log.is_pilot) AS alp_is_pilot,
+                lp_log.sign_off_time AS lp_sign_off_time,
+                COALESCE(alp_log.alp_sign_off_time, alp_log.sign_off_time) AS alp_sign_off_time,
                 ds.train_no,
                 ds.loco_no,
                 ds.last_modified,
@@ -209,6 +227,8 @@ router.get('/board', async (req, res) => {
             FROM div_daily_slate ds
             LEFT JOIN div_staff_master lp ON ds.lp_hrms_id = lp.hrms_id
             LEFT JOIN div_staff_master alp ON ds.alp_hrms_id = alp.hrms_id
+            LEFT JOIN div_detail_book_log lp_log ON ds.lp_detail_book_id = lp_log.id
+            LEFT JOIN div_detail_book_log alp_log ON ds.alp_detail_book_id = alp_log.id
             WHERE ds.office_code = ?
               AND ds.slot_date >= ?
               AND ds.slot_date < DATE_ADD(?, INTERVAL ? DAY)
@@ -294,7 +314,9 @@ router.post('/arrival', async (req, res) => {
             alp_is_pilot,
             // Collision handling flags
             force_adhoc_lp,  // If true, create adhoc slot instead of bumping
-            force_adhoc_alp
+            force_adhoc_alp,
+            // Source slate to mark as signed-off (for returning crew)
+            source_slate_id
         } = req.body;
 
         const userOffice = req.session.user?.div_office_code || office_code;
@@ -376,12 +398,12 @@ router.post('/arrival', async (req, res) => {
             `, [userOffice, lp_next_slot_date, lp_next_slot_time]);
 
             if (existingSlot.length > 0 && !existingSlot[0].lp_hrms_id) {
-                // Update existing empty slot
+                // Update existing empty slot - link to detail_book_log for incoming details
                 await conn.query(`
                     UPDATE div_daily_slate
-                    SET lp_hrms_id = ?, lp_status = 'AVAILABLE', last_modified = NOW()
+                    SET lp_hrms_id = ?, lp_status = 'AVAILABLE', lp_detail_book_id = ?, last_modified = NOW()
                     WHERE id = ?
-                `, [lp_hrms_id, existingSlot[0].id]);
+                `, [lp_hrms_id, logId, existingSlot[0].id]);
                 lpSlotId = existingSlot[0].id;
             } else if (existingSlot.length > 0 && existingSlot[0].lp_hrms_id) {
                 // Slot occupied - check if user wants adhoc or next available
@@ -394,30 +416,37 @@ router.post('/arrival', async (req, res) => {
                     `, [userOffice, lp_next_slot_date, lp_next_slot_time]);
                     const nextAdhocNum = maxAdhoc[0].next_adhoc;
 
-                    // Create adhoc entry at the same slot time
+                    // Create adhoc entry at the same slot time - link to detail_book_log
                     const [adhocResult] = await conn.query(`
                         INSERT INTO div_daily_slate
-                        (office_code, slot_date, slot_time, shift_code, is_adhoc, lp_hrms_id, lp_status, last_modified)
-                        VALUES (?, ?, ?, ?, ?, ?, 'AVAILABLE', NOW())
-                    `, [userOffice, lp_next_slot_date, lp_next_slot_time, lpShiftCode, nextAdhocNum, lp_hrms_id]);
+                        (office_code, slot_date, slot_time, shift_code, is_adhoc, lp_hrms_id, lp_status, lp_detail_book_id, last_modified)
+                        VALUES (?, ?, ?, ?, ?, ?, 'AVAILABLE', ?, NOW())
+                    `, [userOffice, lp_next_slot_date, lp_next_slot_time, lpShiftCode, nextAdhocNum, lp_hrms_id, logId]);
                     lpSlotId = adhocResult.insertId;
                     lpIsAdhoc = true;
                 } else {
-                    // Find next available slot
+                    // Find next available slot (search across dates for edge cases like 23:45)
+                    // First ensure next day slots exist
+                    const nextDay = new Date(lp_next_slot_date + 'T00:00:00');
+                    nextDay.setDate(nextDay.getDate() + 1);
+                    await conn.query('CALL sp_generate_daily_slots(?, ?)', [userOffice, formatLocalDate(nextDay)]);
+
                     const [nextSlot] = await conn.query(`
-                        SELECT id, slot_time FROM div_daily_slate
-                        WHERE office_code = ? AND slot_date = ? AND lp_hrms_id IS NULL AND is_adhoc = 0
-                          AND slot_time > ?
-                        ORDER BY slot_time ASC
+                        SELECT id, slot_date, slot_time FROM div_daily_slate
+                        WHERE office_code = ?
+                          AND lp_hrms_id IS NULL
+                          AND is_adhoc = 0
+                          AND CONCAT(slot_date, ' ', slot_time) > CONCAT(?, ' ', ?)
+                        ORDER BY slot_date ASC, slot_time ASC
                         LIMIT 1
                     `, [userOffice, lp_next_slot_date, lp_next_slot_time]);
 
                     if (nextSlot.length > 0) {
                         await conn.query(`
                             UPDATE div_daily_slate
-                            SET lp_hrms_id = ?, lp_status = 'AVAILABLE', last_modified = NOW()
+                            SET lp_hrms_id = ?, lp_status = 'AVAILABLE', lp_detail_book_id = ?, last_modified = NOW()
                             WHERE id = ?
-                        `, [lp_hrms_id, nextSlot[0].id]);
+                        `, [lp_hrms_id, logId, nextSlot[0].id]);
                         lpSlotId = nextSlot[0].id;
                     }
                 }
@@ -451,9 +480,9 @@ router.post('/arrival', async (req, res) => {
             if (existingSlot.length > 0 && !existingSlot[0].alp_hrms_id) {
                 await conn.query(`
                     UPDATE div_daily_slate
-                    SET alp_hrms_id = ?, alp_status = 'AVAILABLE', last_modified = NOW()
+                    SET alp_hrms_id = ?, alp_status = 'AVAILABLE', alp_detail_book_id = ?, last_modified = NOW()
                     WHERE id = ?
-                `, [alp_hrms_id, existingSlot[0].id]);
+                `, [alp_hrms_id, logId, existingSlot[0].id]);
                 alpSlotId = existingSlot[0].id;
             } else if (existingSlot.length > 0 && existingSlot[0].alp_hrms_id) {
                 // Slot occupied - check if user wants adhoc or next available
@@ -466,30 +495,37 @@ router.post('/arrival', async (req, res) => {
                     `, [userOffice, alp_next_slot_date, alp_next_slot_time]);
                     const nextAdhocNum = maxAdhoc[0].next_adhoc;
 
-                    // Create adhoc entry at the same slot time
+                    // Create adhoc entry at the same slot time - link to detail_book_log
                     const [adhocResult] = await conn.query(`
                         INSERT INTO div_daily_slate
-                        (office_code, slot_date, slot_time, shift_code, is_adhoc, alp_hrms_id, alp_status, last_modified)
-                        VALUES (?, ?, ?, ?, ?, ?, 'AVAILABLE', NOW())
-                    `, [userOffice, alp_next_slot_date, alp_next_slot_time, alpShiftCode, nextAdhocNum, alp_hrms_id]);
+                        (office_code, slot_date, slot_time, shift_code, is_adhoc, alp_hrms_id, alp_status, alp_detail_book_id, last_modified)
+                        VALUES (?, ?, ?, ?, ?, ?, 'AVAILABLE', ?, NOW())
+                    `, [userOffice, alp_next_slot_date, alp_next_slot_time, alpShiftCode, nextAdhocNum, alp_hrms_id, logId]);
                     alpSlotId = adhocResult.insertId;
                     alpIsAdhoc = true;
                 } else {
-                    // Collision - find next available ALP slot
+                    // Collision - find next available ALP slot (search across dates)
+                    // First ensure next day slots exist
+                    const nextDay = new Date(alp_next_slot_date + 'T00:00:00');
+                    nextDay.setDate(nextDay.getDate() + 1);
+                    await conn.query('CALL sp_generate_daily_slots(?, ?)', [userOffice, formatLocalDate(nextDay)]);
+
                     const [nextSlot] = await conn.query(`
-                        SELECT id, slot_time FROM div_daily_slate
-                        WHERE office_code = ? AND slot_date = ? AND alp_hrms_id IS NULL AND is_adhoc = 0
-                          AND slot_time > ?
-                        ORDER BY slot_time ASC
+                        SELECT id, slot_date, slot_time FROM div_daily_slate
+                        WHERE office_code = ?
+                          AND alp_hrms_id IS NULL
+                          AND is_adhoc = 0
+                          AND CONCAT(slot_date, ' ', slot_time) > CONCAT(?, ' ', ?)
+                        ORDER BY slot_date ASC, slot_time ASC
                         LIMIT 1
                     `, [userOffice, alp_next_slot_date, alp_next_slot_time]);
 
                     if (nextSlot.length > 0) {
                         await conn.query(`
                             UPDATE div_daily_slate
-                            SET alp_hrms_id = ?, alp_status = 'AVAILABLE', last_modified = NOW()
+                            SET alp_hrms_id = ?, alp_status = 'AVAILABLE', alp_detail_book_id = ?, last_modified = NOW()
                             WHERE id = ?
-                        `, [alp_hrms_id, nextSlot[0].id]);
+                        `, [alp_hrms_id, logId, nextSlot[0].id]);
                         alpSlotId = nextSlot[0].id;
                     }
                 }
@@ -502,6 +538,16 @@ router.post('/arrival', async (req, res) => {
                     userOffice, alp_hrms_id, sign_on_time, alpSignOff
                 ]);
             }
+        }
+
+        // 4. Mark source slot as completed (for returning crew)
+        // Setting status to AVAILABLE removes them from the returning crew query
+        if (source_slate_id) {
+            await conn.query(`
+                UPDATE div_daily_slate
+                SET lp_status = 'AVAILABLE', alp_status = 'AVAILABLE'
+                WHERE id = ?
+            `, [source_slate_id]);
         }
 
         await conn.commit();
@@ -576,13 +622,66 @@ router.post('/update', async (req, res) => {
             updates.push('lp_exception = ?');
             params.push(lp_exception || null);
         }
+        if (req.body.lp_exception_remark !== undefined) {
+            updates.push('lp_exception_remark = ?');
+            params.push(req.body.lp_exception_remark || null);
+        }
         if (alp_exception !== undefined) {
             updates.push('alp_exception = ?');
             params.push(alp_exception || null);
         }
+        if (req.body.alp_exception_remark !== undefined) {
+            updates.push('alp_exception_remark = ?');
+            params.push(req.body.alp_exception_remark || null);
+        }
         if (alp_cross_slot_time !== undefined) {
             updates.push('alp_cross_slot_time = ?');
             params.push(alp_cross_slot_time || null);
+        }
+
+        // LP late arrival fields
+        if (req.body.lp_signed_on_at !== undefined) {
+            if (req.body.lp_signed_on_at) {
+                // Convert time string to full timestamp (today's date + time)
+                updates.push('lp_signed_on_at = CONCAT(CURDATE(), " ", ?)');
+                params.push(req.body.lp_signed_on_at);
+            } else {
+                updates.push('lp_signed_on_at = NULL');
+            }
+        }
+        if (req.body.lp_late_reason !== undefined) {
+            updates.push('lp_late_reason = ?');
+            params.push(req.body.lp_late_reason || null);
+        }
+        if (req.body.lp_detention !== undefined) {
+            updates.push('lp_detention = ?');
+            params.push(req.body.lp_detention || null);
+        }
+        if (req.body.lp_detention_remark !== undefined) {
+            updates.push('lp_detention_remark = ?');
+            params.push(req.body.lp_detention_remark || null);
+        }
+
+        // ALP late arrival fields
+        if (req.body.alp_signed_on_at !== undefined) {
+            if (req.body.alp_signed_on_at) {
+                updates.push('alp_signed_on_at = CONCAT(CURDATE(), " ", ?)');
+                params.push(req.body.alp_signed_on_at);
+            } else {
+                updates.push('alp_signed_on_at = NULL');
+            }
+        }
+        if (req.body.alp_late_reason !== undefined) {
+            updates.push('alp_late_reason = ?');
+            params.push(req.body.alp_late_reason || null);
+        }
+        if (req.body.alp_detention !== undefined) {
+            updates.push('alp_detention = ?');
+            params.push(req.body.alp_detention || null);
+        }
+        if (req.body.alp_detention_remark !== undefined) {
+            updates.push('alp_detention_remark = ?');
+            params.push(req.body.alp_detention_remark || null);
         }
 
         updates.push('last_modified = NOW()');
@@ -951,19 +1050,20 @@ router.post('/check-availability', async (req, res) => {
             `, [userOffice, lp_slot_date, lp_slot_time]);
 
             if (lpSlot.length > 0 && lpSlot[0].lp_hrms_id) {
-                // Find next available slot
+                // Find next available slot (searching across dates for late slots like 23:45)
                 const [nextLpSlot] = await conn.query(`
-                    SELECT slot_time FROM div_daily_slate
-                    WHERE office_code = ? AND slot_date = ? AND lp_hrms_id IS NULL AND is_adhoc = 0
-                      AND slot_time > ?
-                    ORDER BY slot_time ASC
+                    SELECT slot_date, slot_time FROM div_daily_slate
+                    WHERE office_code = ? AND lp_hrms_id IS NULL AND is_adhoc = 0
+                      AND CONCAT(slot_date, ' ', slot_time) > CONCAT(?, ' ', ?)
+                    ORDER BY slot_date ASC, slot_time ASC
                     LIMIT 1
                 `, [userOffice, lp_slot_date, lp_slot_time]);
 
                 result.lp_collision = {
                     occupied_by: lpSlot[0].lp_name,
                     requested_time: lp_slot_time,
-                    next_available: nextLpSlot.length > 0 ? nextLpSlot[0].slot_time : null
+                    next_available: nextLpSlot.length > 0 ? nextLpSlot[0].slot_time : null,
+                    next_available_date: nextLpSlot.length > 0 ? nextLpSlot[0].slot_date : null
                 };
             }
         }
@@ -978,19 +1078,20 @@ router.post('/check-availability', async (req, res) => {
             `, [userOffice, alp_slot_date, alp_slot_time]);
 
             if (alpSlot.length > 0 && alpSlot[0].alp_hrms_id) {
-                // Find next available slot
+                // Find next available slot (searching across dates for late slots like 23:45)
                 const [nextAlpSlot] = await conn.query(`
-                    SELECT slot_time FROM div_daily_slate
-                    WHERE office_code = ? AND slot_date = ? AND alp_hrms_id IS NULL AND is_adhoc = 0
-                      AND slot_time > ?
-                    ORDER BY slot_time ASC
+                    SELECT slot_date, slot_time FROM div_daily_slate
+                    WHERE office_code = ? AND alp_hrms_id IS NULL AND is_adhoc = 0
+                      AND CONCAT(slot_date, ' ', slot_time) > CONCAT(?, ' ', ?)
+                    ORDER BY slot_date ASC, slot_time ASC
                     LIMIT 1
                 `, [userOffice, alp_slot_date, alp_slot_time]);
 
                 result.alp_collision = {
                     occupied_by: alpSlot[0].alp_name,
                     requested_time: alp_slot_time,
-                    next_available: nextAlpSlot.length > 0 ? nextAlpSlot[0].slot_time : null
+                    next_available: nextAlpSlot.length > 0 ? nextAlpSlot[0].slot_time : null,
+                    next_available_date: nextAlpSlot.length > 0 ? nextAlpSlot[0].slot_date : null
                 };
             }
         }

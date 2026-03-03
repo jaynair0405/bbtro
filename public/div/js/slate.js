@@ -5,6 +5,7 @@
 
 // ========== STATE ==========
 let slateData = {};          // { date: { shift: [slots] } }
+let dateOffset = 0;          // -1 = yesterday, 0 = today, 1 = tomorrow
 let currentDate = formatDateKey(new Date());
 let currentShiftIndex = getCurrentShiftIndex();
 let isDisplayMode = false;   // Read-only mode for big screen
@@ -33,8 +34,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initialize
     updateHeader();
+    buildDateNav();
     buildShiftNav();
     loadSlateData();
+
+    // Initialize exception modal (only for interactive mode)
+    if (!isDisplayMode) {
+        initExceptionModal();
+    }
 
     // Start auto-refresh
     startAutoRefresh();
@@ -69,10 +76,9 @@ async function loadSlateData() {
 
 function updateHeader() {
     const now = new Date();
-    const dateStr = now.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
     const timeStr = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
 
-    document.getElementById('headerDate').textContent = dateStr;
+    updateHeaderDate(); // Uses dateOffset for correct date display
     document.getElementById('headerTime').textContent = timeStr;
     document.getElementById('headerShift').textContent = getShiftLabel(forceShift ?? currentShiftIndex);
 
@@ -130,6 +136,75 @@ function resetIdleTimer() {
         buildShiftNav();
         renderCurrentShift();
     }, 60000); // 60 seconds idle
+}
+
+// ========== DATE NAVIGATION ==========
+
+function buildDateNav() {
+    const nav = document.getElementById('dateNav');
+    if (!nav) return;
+
+    const today = new Date();
+    const buttons = [-1, 0, 1].map(offset => {
+        const date = new Date(today);
+        date.setDate(date.getDate() + offset);
+
+        const dayNum = date.getDate();
+        const monthShort = date.toLocaleDateString('en-IN', { month: 'short' });
+        const dayName = date.toLocaleDateString('en-IN', { weekday: 'short' });
+
+        const isActive = offset === dateOffset;
+        const label = `${dayNum} ${monthShort} (${dayName})`;
+
+        return `<button class="nav-btn date-btn ${isActive ? 'active' : ''}"
+                        onclick="changeDate(${offset})"
+                        data-offset="${offset}"
+                        style="min-width: 110px;">${label}</button>`;
+    });
+
+    nav.innerHTML = buttons.join('');
+}
+
+function changeDate(offset) {
+    dateOffset = offset;
+
+    // Calculate new date
+    const baseDate = new Date();
+    baseDate.setDate(baseDate.getDate() + offset);
+    currentDate = formatDateKey(baseDate);
+
+    // Update date button active states
+    updateDateButtons();
+
+    // Update header with selected date
+    updateHeaderDate();
+
+    // Reload data for selected date
+    loadSlateData();
+}
+
+function updateDateButtons() {
+    const buttons = document.querySelectorAll('.date-nav .date-btn');
+    buttons.forEach(btn => {
+        const btnOffset = parseInt(btn.dataset.offset);
+        btn.classList.toggle('active', btnOffset === dateOffset);
+    });
+}
+
+function updateHeaderDate() {
+    const targetDate = new Date();
+    targetDate.setDate(targetDate.getDate() + dateOffset);
+
+    const dateStr = targetDate.toLocaleDateString('en-IN', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric'
+    });
+
+    const headerDateEl = document.getElementById('headerDate');
+    if (headerDateEl) {
+        headerDateEl.textContent = dateStr;
+    }
 }
 
 // ========== RENDERING ==========
@@ -196,18 +271,52 @@ function renderDisplayRow(slot) {
     const statusClass = getRowStatusClass(slot);
     const trainDisplay = slot.train_no || '--';
     const locoDisplay = slot.loco_no || '--';
-    const lpName = slot.lp_name ? truncateName(slot.lp_name) : '--';
-    const alpName = slot.alp_name ? truncateName(slot.alp_name) : '--';
     const crossSlotInfo = slot.alp_cross_slot_time ? `↳ ${formatTime(slot.alp_cross_slot_time)}` : '';
     const statusIcon = getStatusIcon(slot);
+
+    // LP name with exception/late badge
+    let lpName = slot.lp_name ? truncateName(slot.lp_name) : '--';
+    let lpStyle = '';
+    const lpSignedOnTime = formatTime(slot.lp_signed_on_at);
+    const isLpLate = slot.lp_signed_on_at && lpSignedOnTime !== '--' &&
+        isLateArrival(slot.slot_date, slot.slot_time, slot.lp_signed_on_at);
+
+    if (isLpLate) {
+        lpName += `<br><sub style="font-size: 0.55em; color: #22d3ee;">@ ${lpSignedOnTime}</sub>`;
+        lpStyle = 'color: #22d3ee;';
+    } else if (slot.lp_exception === 'AUC') {
+        lpName += ' <sup style="font-size: 0.6em;">AUC</sup>';
+        lpStyle = 'color: var(--warning);';
+    } else if (slot.lp_exception === 'NF') {
+        lpName += ' <sup style="font-size: 0.6em;">NF</sup>';
+        lpStyle = 'color: var(--danger);';
+    }
+
+    // ALP name with exception/late badge
+    let alpName = slot.alp_name ? truncateName(slot.alp_name) : '--';
+    let alpStyle = '';
+    const alpSignedOnTime = formatTime(slot.alp_signed_on_at);
+    const isAlpLate = slot.alp_signed_on_at && alpSignedOnTime !== '--' &&
+        isLateArrival(slot.slot_date, slot.slot_time, slot.alp_signed_on_at);
+
+    if (isAlpLate) {
+        alpName += `<br><sub style="font-size: 0.55em; color: #22d3ee;">@ ${alpSignedOnTime}</sub>`;
+        alpStyle = 'color: #22d3ee;';
+    } else if (slot.alp_exception === 'AUC') {
+        alpName += ' <sup style="font-size: 0.6em;">AUC</sup>';
+        alpStyle = 'color: var(--warning);';
+    } else if (slot.alp_exception === 'NF') {
+        alpName += ' <sup style="font-size: 0.6em;">NF</sup>';
+        alpStyle = 'color: var(--danger);';
+    }
 
     return `
         <div class="display-row ${statusClass} ${slot.is_adhoc ? 'adhoc-row' : ''}">
             <div class="row-time">${formatTime(slot.slot_time)}</div>
             <div class="row-train">${trainDisplay}</div>
             <div class="row-loco">${locoDisplay}</div>
-            <div class="row-lp">${lpName}</div>
-            <div class="row-alp">
+            <div class="row-lp" style="${lpStyle}">${lpName}</div>
+            <div class="row-alp" style="${alpStyle}">
                 ${alpName}
                 ${crossSlotInfo ? `<span class="cross-link">${crossSlotInfo}</span>` : ''}
             </div>
@@ -218,40 +327,142 @@ function renderDisplayRow(slot) {
 
 function renderInteractiveMode(slots, shiftIndex) {
     const container = document.getElementById('slateContent');
+    const startHour = shiftIndex * 8;
+    const midHour = startHour + 4;
+
+    // Split shift into two halves
+    const firstHalf = slots.filter(s => {
+        const hour = parseInt(s.slot_time.split(':')[0]);
+        return hour >= startHour && hour < midHour;
+    });
+    const secondHalf = slots.filter(s => {
+        const hour = parseInt(s.slot_time.split(':')[0]);
+        return hour >= midHour && hour < startHour + 8;
+    });
+
+    const shiftColors = ['--shift-night', '--shift-day', '--shift-evening'];
+    const halfLabels = [
+        `${String(startHour).padStart(2, '0')}:00 - ${String(midHour).padStart(2, '0')}:00`,
+        `${String(midHour).padStart(2, '0')}:00 - ${String(startHour + 8).padStart(2, '0')}:00`
+    ];
+
+    const renderHalfTable = (halfSlots, label) => `
+        <div class="interactive-half">
+            <div class="half-header" style="border-color: var(${shiftColors[shiftIndex]}); margin-bottom: 8px; padding: 6px 12px; font-weight: 700; font-size: 0.85rem;">
+                ${label}
+            </div>
+            <table class="slate-table">
+                <thead>
+                    <tr>
+                        <th colspan="3" class="lp-header">LP</th>
+                        <th class="time-header">TIME</th>
+                        <th colspan="3" class="alp-header">ALP</th>
+                    </tr>
+                    <tr>
+                        <th>Loco</th>
+                        <th>Train</th>
+                        <th>Name</th>
+                        <th></th>
+                        <th>Name</th>
+                        <th>Train</th>
+                        <th>Loco</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${halfSlots.map(slot => renderInteractiveRow(slot)).join('')}
+                    ${halfSlots.length === 0 ? '<tr><td colspan="7" class="no-data">No slots</td></tr>' : ''}
+                </tbody>
+            </table>
+        </div>
+    `;
 
     container.innerHTML = `
-        <table class="slate-table">
-            <thead>
-                <tr>
-                    <th colspan="3" class="lp-header">LOCO PILOT (LP)</th>
-                    <th class="time-header">TIME</th>
-                    <th colspan="3" class="alp-header">ASST. LOCO PILOT (ALP)</th>
-                </tr>
-                <tr>
-                    <th>Loco</th>
-                    <th>Train</th>
-                    <th>Name</th>
-                    <th></th>
-                    <th>Name</th>
-                    <th>Train</th>
-                    <th>Loco</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${slots.map(slot => renderInteractiveRow(slot)).join('')}
-                ${slots.length === 0 ? '<tr><td colspan="7" class="no-data">No slots found</td></tr>' : ''}
-            </tbody>
-        </table>
+        <div class="interactive-grid">
+            ${renderHalfTable(firstHalf, halfLabels[0])}
+            ${renderHalfTable(secondHalf, halfLabels[1])}
+        </div>
     `;
 }
 
 function renderInteractiveRow(slot) {
     const statusClass = getRowStatusClass(slot);
     const isBooked = slot.train_no || slot.loco_no;
-
-    const lpName = slot.lp_name || '<span class="empty-slot">--</span>';
-    const alpName = slot.alp_name || '<span class="empty-slot">--</span>';
     const crossSlotInfo = slot.alp_cross_slot_time ? `<span class="cross-link">↳ from ${formatTime(slot.alp_cross_slot_time)}</span>` : '';
+
+    // LP name with exception/late badge and click handler
+    let lpNameHtml = '<span class="empty-slot">--</span>';
+    let lpStyle = '';
+    if (slot.lp_name) {
+        let lpBadge = '';
+        // Check for late arrival first (has signed_on_at and time > slot_time)
+        const lpSignedOnTime = formatTime(slot.lp_signed_on_at);
+        const isLpLate = slot.lp_signed_on_at && lpSignedOnTime !== '--' &&
+            isLateArrival(slot.slot_date, slot.slot_time, slot.lp_signed_on_at);
+
+        if (isLpLate) {
+            // Show late time below name as subscript
+            lpBadge = `<br><sub style="color: #22d3ee; font-size: 0.7em;">@ ${lpSignedOnTime}</sub>`;
+            lpStyle = 'color: #22d3ee;';
+        } else if (slot.lp_exception === 'AUC') {
+            lpBadge = '<sup style="color: var(--warning); font-weight: 700; margin-left: 2px;">AUC</sup>';
+            lpStyle = 'color: var(--warning);';
+        } else if (slot.lp_exception === 'NF') {
+            lpBadge = '<sup style="color: var(--danger); font-weight: 700; margin-left: 2px;">NF</sup>';
+            lpStyle = 'color: var(--danger);';
+        }
+        const lpData = escapeJsonForAttr({
+            name: slot.lp_name,
+            slot_time: formatTime(slot.slot_time),
+            slot_date: slot.slot_date,
+            current_exception: slot.lp_exception,
+            current_remark: slot.lp_exception_remark,
+            signed_on_at: slot.lp_signed_on_at,
+            late_reason: slot.lp_late_reason,
+            detention: slot.lp_detention,
+            detention_remark: slot.lp_detention_remark
+        });
+        lpNameHtml = `<span class="clickable-name" style="cursor: pointer; ${lpStyle}"
+            onclick="openSlotException(${slot.id}, 'lp', JSON.parse(this.dataset.info))"
+            data-info="${lpData}"
+            title="Click to mark Late/AUC/NF">${slot.lp_name}${lpBadge}</span>`;
+    }
+
+    // ALP name with exception/late badge and click handler
+    let alpNameHtml = '<span class="empty-slot">--</span>';
+    let alpStyle = '';
+    if (slot.alp_name) {
+        let alpBadge = '';
+        const alpSignedOnTime = formatTime(slot.alp_signed_on_at);
+        const isAlpLate = slot.alp_signed_on_at && alpSignedOnTime !== '--' &&
+            isLateArrival(slot.slot_date, slot.slot_time, slot.alp_signed_on_at);
+
+        if (isAlpLate) {
+            // Show late time below name as subscript
+            alpBadge = `<br><sub style="color: #22d3ee; font-size: 0.7em;">@ ${alpSignedOnTime}</sub>`;
+            alpStyle = 'color: #22d3ee;';
+        } else if (slot.alp_exception === 'AUC') {
+            alpBadge = '<sup style="color: var(--warning); font-weight: 700; margin-left: 2px;">AUC</sup>';
+            alpStyle = 'color: var(--warning);';
+        } else if (slot.alp_exception === 'NF') {
+            alpBadge = '<sup style="color: var(--danger); font-weight: 700; margin-left: 2px;">NF</sup>';
+            alpStyle = 'color: var(--danger);';
+        }
+        const alpData = escapeJsonForAttr({
+            name: slot.alp_name,
+            slot_time: formatTime(slot.slot_time),
+            slot_date: slot.slot_date,
+            current_exception: slot.alp_exception,
+            current_remark: slot.alp_exception_remark,
+            signed_on_at: slot.alp_signed_on_at,
+            late_reason: slot.alp_late_reason,
+            detention: slot.alp_detention,
+            detention_remark: slot.alp_detention_remark
+        });
+        alpNameHtml = `<span class="clickable-name" style="cursor: pointer; ${alpStyle}"
+            onclick="openSlotException(${slot.id}, 'alp', JSON.parse(this.dataset.info))"
+            data-info="${alpData}"
+            title="Click to mark Late/AUC/NF">${slot.alp_name}${alpBadge}</span>`;
+    }
 
     return `
         <tr class="${statusClass} ${slot.is_adhoc ? 'adhoc-row' : ''}" data-slot-id="${slot.id}">
@@ -261,10 +472,10 @@ function renderInteractiveRow(slot) {
             <td class="train-cell editable" onclick="editCell(${slot.id}, 'train_no')">
                 ${slot.train_no ? `<span class="badge-train">${slot.train_no}</span>` : '<span class="empty-slot">+ Book</span>'}
             </td>
-            <td class="name-cell lp-name">${lpName}</td>
+            <td class="name-cell lp-name">${lpNameHtml}</td>
             <td class="time-cell">${formatTime(slot.slot_time)}</td>
             <td class="name-cell alp-name">
-                ${alpName}
+                ${alpNameHtml}
                 ${crossSlotInfo}
             </td>
             <td class="train-cell editable" onclick="editCell(${slot.id}, 'train_no')">
@@ -324,6 +535,42 @@ function findSlotById(slotId) {
         }
     }
     return null;
+}
+
+// ========== AUC/NF EXCEPTION HELPERS ==========
+
+function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+}
+
+function escapeJsonForAttr(obj) {
+    // Safely escape JSON for use in HTML onclick attribute
+    return JSON.stringify(obj)
+        .replace(/\\/g, '\\\\')
+        .replace(/'/g, "\\'")
+        .replace(/"/g, '&quot;');
+}
+
+function openSlotException(slotId, staffType, staffInfo) {
+    // staffInfo contains: name, slot_time, slot_date, current_exception, current_remark,
+    // signed_on_at, late_reason, detention, detention_remark
+    openExceptionModal(
+        slotId,
+        staffType,
+        {
+            name: staffInfo.name,
+            slot_time: staffInfo.slot_time,
+            slot_date: staffInfo.slot_date || currentDate,
+            current_exception: staffInfo.current_exception || null,
+            current_remark: staffInfo.current_remark || null,
+            signed_on_at: staffInfo.signed_on_at || null,
+            late_reason: staffInfo.late_reason || null,
+            detention: staffInfo.detention || null,
+            detention_remark: staffInfo.detention_remark || null
+        },
+        () => loadSlateData() // Refresh after save
+    );
 }
 
 // ========== STATUS HELPERS ==========

@@ -45,10 +45,10 @@ body {
 /* Layout & Headers */
 .header {
     background: var(--bg-panel);
-    padding: 12px 20px;
-    border-radius: 8px;
+    padding: 8px 15px;
+    border-radius: 6px;
     border: 1px solid var(--border);
-    margin-bottom: 15px;
+    margin-bottom: 8px;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -56,7 +56,7 @@ body {
 
 .header h1 {
     margin: 0;
-    font-size: 1.2rem;
+    font-size: 1rem;
     color: var(--accent);
     letter-spacing: 1px;
 }
@@ -243,22 +243,49 @@ input:focus, select:focus {
 .nav-btn:hover { background: var(--accent); color: #000; }
 .nav-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 
-.date-tabs { display: flex; gap: 8px; flex-grow: 1; overflow-x: auto; }
-
-.date-tab {
-    padding: 6px 12px;
+/* Navigation link for page switching */
+.nav-link {
+    padding: 6px 14px;
     background: var(--bg-input);
     border: 1px solid var(--border);
+    color: var(--accent);
     border-radius: 6px;
-    font-size: 0.75rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.2s;
+}
+.nav-link:hover {
+    background: var(--accent);
+    color: #000;
+    border-color: var(--accent);
+}
+
+.date-tabs { display: flex; gap: 5px; flex-grow: 1; overflow-x: auto; scroll-behavior: smooth; }
+.date-tabs::-webkit-scrollbar { height: 4px; }
+.date-tabs::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.date-tab {
+    padding: 5px 8px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    font-size: 0.7rem;
     font-weight: 700;
     color: var(--text-muted);
     cursor: pointer;
     white-space: nowrap;
+    flex-shrink: 0;
 }
 
-.date-tab.active { background: var(--accent); color: #000; border-color: var(--accent); }
-.date-tab .count { background: rgba(255,255,255,0.2); padding: 2px 6px; border-radius: 10px; margin-left: 6px; font-size: 0.65rem; }
+.date-tab:hover { background: var(--bg-panel); color: var(--text-main); }
+.date-tab.active {
+    background: var(--accent);
+    color: #000;
+    border: 2px solid #fff;
+    box-shadow: 0 0 8px var(--accent);
+}
+.date-tab .count { background: rgba(255,255,255,0.2); padding: 2px 6px; border-radius: 10px; margin-left: 4px; font-size: 0.6rem; }
 
 .forecast-scroll { display: flex; overflow-x: auto; flex-grow: 1; scroll-behavior: smooth; }
 .forecast-scroll:focus { outline: 2px solid var(--accent); outline-offset: -2px; }
@@ -330,6 +357,34 @@ td {
 .time-cell { font-family: 'JetBrains Mono', monospace; font-weight: 700; color: white; width: 45px; }
 .empty-slot { color: #475569; font-style: italic; }
 .new-entry { color: #10b981; font-weight: 700; }
+
+/* Incoming details indicator (before name) */
+.incoming-dot {
+    display: inline-block;
+    margin-right: 2px;
+    padding: 2px 4px;
+    color: #60a5fa;
+    font-size: 0.65rem;
+    cursor: pointer;
+    vertical-align: middle;
+    transition: all 0.15s;
+    border-radius: 3px;
+}
+.incoming-dot:hover {
+    color: #fff;
+    background: rgba(96, 165, 250, 0.3);
+}
+
+.incoming-popup {
+    background: #1e293b;
+    border: 1px solid var(--accent);
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 0.75rem;
+    color: var(--text-main);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    min-width: 100px;
+}
 
 /* Adhoc Entry Styling */
 .adhoc-row { background: rgba(245, 158, 11, 0.1) !important; }
