@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PNVL Booking Slate | Digital Slate</title>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/slate-theme.css?v=20260302p">
+    <link rel="stylesheet" href="css/slate-theme.css?v=20260303a">
     <style>
         /* Slate-specific layout */
         .main-container {
@@ -89,6 +89,23 @@
             flex-grow: 1;
             overflow: auto;
             padding: 8px;
+        }
+
+        /* Safety Slogan Footer */
+        .safety-footer {
+            margin-top: 40px;
+            padding: 20px 0 60px 0;
+            text-align: center;
+            border-top: 1px dashed var(--border);
+        }
+        .safety-footer .slogan {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            font-style: italic;
+            letter-spacing: 0.5px;
+        }
+        .safety-footer .slogan::before {
+            content: '🛡️ ';
         }
 
         /* Interactive Table Mode */
@@ -366,7 +383,7 @@
     </div>
 
     <!-- Load shared utilities first, then page-specific code -->
-    <script src="js/slate-common.js?v=20260302k"></script>
-    <script src="js/slate.js?v=20260302k"></script>
+    <script src="js/slate-common.js?v=20260305a"></script>
+    <script src="js/slate.js?v=20260306g"></script>
 </body>
 </html>

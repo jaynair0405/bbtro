@@ -6,12 +6,14 @@
 
 // ========== STATE VARIABLES ==========
 let activeCrews = [];
+let pendingSafeEntries = []; // SAFE entries from Slate pending processing
 let selectedLP = null;
 let selectedALP = null;
 let isManualMode = false;
 const dateGroups = {}; // Stores date -> { element, tables }
 let pendingPayload = null;
 let collisionInfo = null;
+let selectedSafeLogId = null; // Track which SAFE entry is being processed
 
 // Warning state - blocks submission if hard errors exist
 let lpWarnings = [];
@@ -19,6 +21,9 @@ let alpWarnings = [];
 let lpCanAssign = true;
 let alpCanAssign = true;
 let isCheckingWarnings = false;  // True while API call is in-flight
+
+// Leave confirmation state
+let pendingLeaveConfirm = null;  // { type: 'lp'|'alp', hrms_id, name, callback }
 
 // ========== INITIALIZATION ==========
 document.addEventListener('DOMContentLoaded', async () => {
@@ -44,6 +49,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         ensureDateGroup(formatDateKey(date));
     }
 
+    // Load pending SAFE entries from Slate
+    await loadPendingSafe();
+
     // Load active crews from API
     await loadActiveCrews();
 
@@ -59,6 +67,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Attach date picker blur handlers
     document.getElementById('lpDatePicker').addEventListener('blur', () => handleDatePickerBlur('lp'));
     document.getElementById('alpDatePicker').addEventListener('blur', () => handleDatePickerBlur('alp'));
+
+    // Attach rest rule change handlers for leave validation
+    document.getElementById('lpRest').addEventListener('change', (e) => handleRestChange('lp', e.target.value));
+    document.getElementById('alpRest').addEventListener('change', (e) => handleRestChange('alp', e.target.value));
 
     // Initialize scroll listener for date tab sync
     initScrollListener();
@@ -112,7 +124,9 @@ async function loadSlateData() {
                                 incoming: slot.lp_incoming,
                                 incomingLoco: slot.lp_incoming_loco,
                                 isPilot: slot.lp_is_pilot,
-                                signOffTime: slot.lp_sign_off_time
+                                signOffTime: slot.lp_sign_off_time,
+                                nightStreak: slot.lp_night_streak,
+                                prDays: slot.lp_pr_days
                             });
                         }
 
@@ -134,7 +148,9 @@ async function loadSlateData() {
                                 incoming: slot.alp_incoming,
                                 incomingLoco: slot.alp_incoming_loco,
                                 isPilot: slot.alp_is_pilot,
-                                signOffTime: slot.alp_sign_off_time
+                                signOffTime: slot.alp_sign_off_time,
+                                nightStreak: slot.alp_night_streak,
+                                prDays: slot.alp_pr_days
                             });
                         }
                     }
@@ -147,6 +163,153 @@ async function loadSlateData() {
     } catch (err) {
         console.error('Error loading slate data:', err);
     }
+}
+
+// ========== API: LOAD PENDING SAFE ENTRIES ==========
+async function loadPendingSafe() {
+    try {
+        const res = await fetch(`${SLATE_CONFIG.API_BASE}/pending-safe?office_code=${SLATE_CONFIG.OFFICE_CODE}`);
+        const data = await res.json();
+
+        if (data.success) {
+            pendingSafeEntries = data.data;
+            renderPendingSafe();
+        } else {
+            console.error('Failed to load pending SAFE:', data.error);
+        }
+    } catch (err) {
+        console.error('Error loading pending SAFE:', err);
+    }
+}
+
+function renderPendingSafe() {
+    // Find or create the pending SAFE container
+    let container = document.getElementById('pendingSafeContainer');
+
+    if (!container) {
+        // Create container above the crew cards section
+        const crewSection = document.querySelector('.active-crews-scroll');
+        if (!crewSection) return;
+
+        container = document.createElement('div');
+        container.id = 'pendingSafeContainer';
+        container.style.cssText = 'margin-bottom: 10px; position: sticky; top: 0; z-index: 10; background: var(--bg-panel);';
+        crewSection.parentNode.insertBefore(container, crewSection);
+    }
+
+    if (pendingSafeEntries.length === 0) {
+        container.innerHTML = '';
+        container.style.display = 'none';
+        return;
+    }
+
+    container.style.display = 'block';
+
+    const cardsHtml = pendingSafeEntries.map(entry => {
+        const signOffTime = formatTime(entry.sign_off_time);
+        const lpName = entry.lp_name || '--';
+        const alpName = entry.alp_name || 'No ALP';
+
+        return `
+            <div class="safe-pending-card" onclick="selectSafeEntry(${entry.id})"
+                 style="display: inline-block; padding: 8px 12px; margin-right: 8px; margin-bottom: 5px;
+                        background: rgba(245, 158, 11, 0.15); border: 2px solid var(--warning);
+                        border-radius: 6px; cursor: pointer; animation: safeBlink 1s infinite;
+                        min-width: 120px;">
+                <div style="font-size: 0.75rem; font-weight: 700; color: var(--warning);">⚠️ SAFE</div>
+                <div style="font-size: 0.8rem; color: var(--text-main);">${lpName}</div>
+                ${entry.alp_hrms_id ? `<div style="font-size: 0.75rem; color: var(--text-muted);">${alpName}</div>` : ''}
+                <div style="font-size: 0.65rem; color: var(--accent); margin-top: 2px;">Sign-off: ${signOffTime}</div>
+            </div>
+        `;
+    }).join('');
+
+    container.innerHTML = `
+        <div style="font-size: 0.7rem; font-weight: 700; color: var(--warning); margin-bottom: 5px; text-transform: uppercase;">
+            Pending SAFE from Slate (Click to Process)
+        </div>
+        <div style="display: flex; flex-wrap: wrap;">${cardsHtml}</div>
+    `;
+}
+
+// Add CSS for blinking animation
+if (!document.getElementById('safeBlinkStyle')) {
+    const style = document.createElement('style');
+    style.id = 'safeBlinkStyle';
+    style.textContent = `
+        @keyframes safeBlink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+function selectSafeEntry(logId) {
+    const entry = pendingSafeEntries.find(e => e.id === logId);
+    if (!entry) return;
+
+    selectedSafeLogId = logId;
+
+    // Enable manual mode first (this resets form)
+    enableManualEntry();
+
+    // Now override with SAFE entry data
+    // Show dropdowns instead of search inputs
+    const lpSelect = document.getElementById('lpSelect');
+    const alpSelect = document.getElementById('alpSelect');
+    const lpInput = document.getElementById('lpSearchInput');
+    const alpInput = document.getElementById('alpSearchInput');
+
+    // Hide search inputs, show dropdowns
+    if (lpInput) lpInput.style.display = 'none';
+    if (alpInput) alpInput.style.display = 'none';
+    lpSelect.style.display = 'block';
+    alpSelect.style.display = 'block';
+
+    // Fill in the LP dropdown
+    lpSelect.innerHTML = `<option value="${entry.lp_hrms_id}" selected data-hrms="${entry.lp_hrms_id}" data-name="${entry.lp_name}">${entry.lp_name} (${entry.lp_cms_id || 'SAFE'})</option>`;
+    selectedLP = { hrms_id: entry.lp_hrms_id, name: entry.lp_name, cms_id: entry.lp_cms_id };
+
+    // Fill in ALP if exists
+    if (entry.alp_hrms_id) {
+        alpSelect.innerHTML = `
+            <option value="none">[ No ALP / Single Man ]</option>
+            <option value="${entry.alp_hrms_id}" selected data-hrms="${entry.alp_hrms_id}" data-name="${entry.alp_name}">${entry.alp_name} (${entry.alp_cms_id || ''})</option>
+        `;
+        selectedALP = { hrms_id: entry.alp_hrms_id, name: entry.alp_name, cms_id: entry.alp_cms_id };
+    } else {
+        alpSelect.innerHTML = `<option value="none">[ No ALP / Single Man ]</option>`;
+        selectedALP = null;
+    }
+
+    // Set incoming detail as SAFE
+    document.getElementById('incomingTrain').value = 'SAFE';
+    document.getElementById('incomingLoco').value = '';
+    document.getElementById('isPilot').checked = false;
+
+    // Extract and set sign-on time (when staff started duty)
+    const signOnTime = formatTime(entry.sign_on_time);
+    if (signOnTime !== '--') {
+        document.getElementById('signOn').value = signOnTime;
+    }
+
+    // Extract and set sign-off time
+    const signOffTime = formatTime(entry.sign_off_time);
+    if (signOffTime !== '--') {
+        document.getElementById('signOff').value = signOffTime;
+    }
+
+    // Set sign-off date to today (SAFE was from slate today)
+    document.getElementById('signOffDate').value = 'today';
+
+    // Set off reason since coming from SAFE (not from working train)
+    document.getElementById('offReason').value = 'off/rest';
+
+    // Calculate slots
+    calculateSlotsManual();
+
+    showToast('SAFE entry loaded - fill rest details and submit', 'info');
 }
 
 // ========== API: LOAD ACTIVE CREWS ==========
@@ -170,16 +333,61 @@ function renderActiveCrewCards() {
 
     // Generate cards from API data
     let cardsHtml = activeCrews.map(crew => {
-        const leaveWarning = crew.lp_leave_warning || crew.alp_leave_warning;
-        const warningHtml = leaveWarning
-            ? `<div style="font-size: 0.65rem; color: var(--danger); margin-top: 4px; font-weight:bold;">⚠️ ${leaveWarning.status}</div>`
+        // Build leave warning badges for LP and ALP separately
+        const leaveWarnings = [];
+        if (crew.lp_leave_warning) {
+            const status = crew.lp_leave_warning.status === 'Approved' ? 'Appr' : 'Pend';
+            leaveWarnings.push(`LP:${status}`);
+        }
+        if (crew.alp_leave_warning) {
+            const status = crew.alp_leave_warning.status === 'Approved' ? 'Appr' : 'Pend';
+            leaveWarnings.push(`ALP:${status}`);
+        }
+        const warningHtml = leaveWarnings.length > 0
+            ? `<div style="font-size: 0.65rem; color: var(--danger); margin-top: 4px; font-weight:bold;">⚠️ Leave: ${leaveWarnings.join(', ')}</div>`
             : '';
 
+        // Build night streak indicators (🌙 with number for 4+ nights)
+        const lpNightBadge = crew.lp_night_streak
+            ? `<span style="font-size: 0.6rem; background: #1e3a5f; color: #7dd3fc; padding: 1px 4px; border-radius: 3px; margin-left: 4px;" title="${crew.lp_night_streak} consecutive night duties">🌙${crew.lp_night_streak}</span>`
+            : '';
+        const alpNightBadge = crew.alp_night_streak
+            ? `<span style="font-size: 0.6rem; background: #1e3a5f; color: #7dd3fc; padding: 1px 4px; border-radius: 3px; margin-left: 4px;" title="${crew.alp_night_streak} consecutive night duties">🌙${crew.alp_night_streak}</span>`
+            : '';
+
+        // Build PR indicators (circle with number for 6+ consecutive duty days)
+        const lpPRBadge = crew.lp_pr_days
+            ? `<span style="font-size: 0.6rem; background: #7c3aed; color: #fff; padding: 1px 5px; border-radius: 50%; margin-left: 4px;" title="${crew.lp_pr_days} consecutive duty days - PR due">${crew.lp_pr_days}</span>`
+            : '';
+        const alpPRBadge = crew.alp_pr_days
+            ? `<span style="font-size: 0.6rem; background: #7c3aed; color: #fff; padding: 1px 5px; border-radius: 50%; margin-left: 4px;" title="${crew.alp_pr_days} consecutive duty days - PR due">${crew.alp_pr_days}</span>`
+            : '';
+
+        // Check if LP or ALP is already assigned to future slot
+        const lpAssigned = crew.lp_already_assigned;
+        const alpAssigned = crew.alp_already_assigned;
+
+        // Style for already-assigned staff: strikethrough + muted color + badge
+        const lpStyle = lpAssigned ? 'text-decoration: line-through; color: var(--text-muted);' : '';
+        const alpStyle = alpAssigned ? 'text-decoration: line-through; color: var(--text-muted);' : '';
+
+        // Badge showing where they're assigned
+        const lpBadge = lpAssigned
+            ? `<span style="font-size: 0.6rem; background: var(--warning); color: #000; padding: 1px 4px; border-radius: 3px; margin-left: 4px;">@ ${lpAssigned.date.substring(5)} ${lpAssigned.time}</span>`
+            : '';
+        const alpBadge = alpAssigned
+            ? `<span style="font-size: 0.6rem; background: var(--warning); color: #000; padding: 1px 4px; border-radius: 3px; margin-left: 4px;">@ ${alpAssigned.date.substring(5)} ${alpAssigned.time}</span>`
+            : '';
+
+        // If both assigned, dim the entire card
+        const bothAssigned = lpAssigned && (alpAssigned || !crew.alp_hrms_id);
+        const cardOpacity = bothAssigned ? 'opacity: 0.5; pointer-events: none;' : '';
+
         return `
-            <div class="crew-card" onclick="selectCrewCard(${crew.slate_id})">
+            <div class="crew-card" onclick="selectCrewCard(${crew.slate_id})" style="${cardOpacity}">
                 <div class="card-train">${crew.train_no || '--'} / ${crew.loco_no || '--'}</div>
-                <div class="card-crew">LP: ${crew.lp_name || '--'}</div>
-                <div class="card-crew">ALP: ${crew.alp_name || 'No ALP'}</div>
+                <div class="card-crew" style="${lpStyle}">LP: ${crew.lp_name || '--'}${lpBadge}${lpNightBadge}${lpPRBadge}</div>
+                <div class="card-crew" style="${alpStyle}">ALP: ${crew.alp_name || 'No ALP'}${alpBadge}${alpNightBadge}${alpPRBadge}</div>
                 <div style="font-size: 0.65rem; color: var(--text-muted); margin-top: 4px;">Sign-on: ${crew.slot_time?.substring(0,5) || '--'} (${crew.duty_hours}h ago)</div>
                 ${warningHtml}
             </div>
@@ -229,6 +437,16 @@ function selectCrewCard(slateId) {
     const crew = activeCrews.find(c => c.slate_id === slateId);
     if (!crew) return;
 
+    // Check if both LP and ALP are already assigned
+    const lpAssigned = crew.lp_already_assigned;
+    const alpAssigned = crew.alp_already_assigned;
+    const bothAssigned = lpAssigned && (alpAssigned || !crew.alp_hrms_id);
+
+    if (bothAssigned) {
+        alert('Both LP and ALP are already assigned to future slots. Cannot sign off.');
+        return;
+    }
+
     // Exit manual mode
     isManualMode = false;
 
@@ -251,37 +469,91 @@ function selectCrewCard(slateId) {
     if (lpInput) lpInput.style.display = 'none';
     if (alpInput) alpInput.style.display = 'none';
 
-    selectedLP = { hrms_id: crew.lp_hrms_id, name: crew.lp_name, cms_id: crew.lp_cms_id, source_slate_id: crew.slate_id };
-    selectedALP = crew.alp_hrms_id ? { hrms_id: crew.alp_hrms_id, name: crew.alp_name, cms_id: crew.alp_cms_id, source_slate_id: crew.slate_id } : null;
-
-    // Fill form
-    document.getElementById('incomingTrain').value = '';
-    document.getElementById('incomingLoco').value = '';
-    document.getElementById('signOn').value = crew.slot_time?.substring(0, 5) || '';
-
-    // Update LP display
+    // Only populate staff that are NOT already assigned to future slots
     const lpSelect = document.getElementById('lpSelect');
-    lpSelect.innerHTML = `<option value="${crew.lp_hrms_id}" selected>${crew.lp_name} (${crew.lp_cms_id})</option>`;
-    lpSelect.disabled = true;
-
-    // Update ALP display
     const alpSelect = document.getElementById('alpSelect');
-    if (crew.alp_hrms_id) {
+    const lpRestGroup = document.getElementById('lpRest').closest('.form-row');
+    const alpRestGroup = document.getElementById('alpRest').closest('.form-row');
+
+    if (lpAssigned) {
+        // LP is already assigned - don't populate, show warning
+        selectedLP = null;
+        lpSelect.innerHTML = `<option value="none" selected style="color: var(--warning);">[LP Already @ ${lpAssigned.date.substring(5)} ${lpAssigned.time}]</option>`;
+        lpSelect.disabled = true;
+        document.getElementById('lpRest').value = 'suspend';
+        lpRestGroup.style.opacity = '0.4';
+        lpRestGroup.style.pointerEvents = 'none';
+    } else {
+        // LP is available - populate normally
+        selectedLP = { hrms_id: crew.lp_hrms_id, name: crew.lp_name, cms_id: crew.lp_cms_id, source_slate_id: crew.slate_id };
+        lpSelect.innerHTML = `<option value="${crew.lp_hrms_id}" selected>${crew.lp_name} (${crew.lp_cms_id})</option>`;
+        lpSelect.disabled = true;
+        document.getElementById('lpRest').value = '16';
+        lpRestGroup.style.opacity = '1';
+        lpRestGroup.style.pointerEvents = 'auto';
+    }
+
+    if (alpAssigned) {
+        // ALP is already assigned - don't populate, show warning
+        selectedALP = null;
+        alpSelect.innerHTML = `<option value="none" selected style="color: var(--warning);">[ALP Already @ ${alpAssigned.date.substring(5)} ${alpAssigned.time}]</option>`;
+        alpSelect.disabled = true;
+        document.getElementById('alpRest').value = 'suspend';
+        alpRestGroup.style.opacity = '0.4';
+        alpRestGroup.style.pointerEvents = 'none';
+    } else if (crew.alp_hrms_id) {
+        // ALP exists and is available - populate normally
+        selectedALP = { hrms_id: crew.alp_hrms_id, name: crew.alp_name, cms_id: crew.alp_cms_id, source_slate_id: crew.slate_id };
         alpSelect.innerHTML = `
             <option value="none">[ No ALP / Single Man ]</option>
             <option value="${crew.alp_hrms_id}" selected>${crew.alp_name} (${crew.alp_cms_id})</option>
         `;
+        alpSelect.disabled = true;
+        document.getElementById('alpRest').value = '16';
+        alpRestGroup.style.opacity = '1';
+        alpRestGroup.style.pointerEvents = 'auto';
     } else {
+        // No ALP on this crew
+        selectedALP = null;
         alpSelect.innerHTML = `<option value="none" selected>[ No ALP / Single Man ]</option>`;
+        alpSelect.disabled = true;
+        alpRestGroup.style.opacity = '0.4';
+        alpRestGroup.style.pointerEvents = 'none';
     }
-    alpSelect.disabled = true;
 
-    // Check for warnings
+    // Fill form - RESET all fields including sign-off
+    document.getElementById('incomingTrain').value = '';
+    document.getElementById('incomingLoco').value = '';
+    document.getElementById('signOn').value = crew.slot_time?.substring(0, 5) || '';
+    document.getElementById('signOff').value = '';  // Reset sign-off
+    document.getElementById('signOffDate').value = 'today';  // Reset to today
+
+    // Reset slot fields
+    document.getElementById('lpNextSlot').value = '';
+    document.getElementById('alpNextSlot').value = '';
+    document.getElementById('lpSlotDate').selectedIndex = 0;
+    document.getElementById('alpSlotDate').selectedIndex = 0;
+    document.getElementById('lpSlotDateLabel').textContent = '';
+    document.getElementById('alpSlotDateLabel').textContent = '';
+
+    // Clear warnings
+    document.getElementById('lpAlert').className = 'alert';
+    document.getElementById('lpAlert').innerHTML = '';
+    document.getElementById('alpAlert').className = 'alert';
+    document.getElementById('alpAlert').innerHTML = '';
+    lpWarnings = [];
+    alpWarnings = [];
+    lpCanAssign = true;
+    alpCanAssign = true;
+
+    // Check for warnings from card data (leave warnings)
     checkStaffWarnings(crew);
 
-    // Visual Flash
-    const fields = ['incomingTrain', 'incomingLoco', 'lpSelect', 'alpSelect', 'signOn'];
-    fields.forEach(id => flashHighlight(document.getElementById(id)));
+    // Visual Flash - only flash fields that are being populated
+    const flashFields = ['incomingTrain', 'incomingLoco', 'signOn'];
+    if (!lpAssigned) flashFields.push('lpSelect');
+    if (!alpAssigned && crew.alp_hrms_id) flashFields.push('alpSelect');
+    flashFields.forEach(id => flashHighlight(document.getElementById(id)));
 
     document.getElementById('signOff').focus();
 }
@@ -608,6 +880,18 @@ function handleDateSelect(type) {
         dateSelect.style.display = 'none';
         datePicker.style.display = 'block';
         datePicker.focus();
+
+        // Auto-open the calendar picker (modern browsers)
+        setTimeout(() => {
+            if (typeof datePicker.showPicker === 'function') {
+                try {
+                    datePicker.showPicker();
+                } catch (e) {
+                    // Some browsers may throw if not triggered by user gesture
+                    console.log('Auto-open picker not supported');
+                }
+            }
+        }, 100);
     }
 }
 
@@ -682,6 +966,12 @@ function setSlotDateDropdown(type, dateStr) {
 
     datePicker.style.display = 'none';
     dateSelect.style.display = 'block';
+
+    // Don't allow past dates - default to today if past
+    const todayStr = formatDateKey(TODAY);
+    if (dateStr < todayStr) {
+        dateStr = todayStr;
+    }
 
     let found = false;
     for (let opt of dateSelect.options) {
@@ -767,12 +1057,14 @@ function calculateSlotsManual() {
     const lpDatePicker = document.getElementById('lpDatePicker');
 
     if (lpRest === "suspend") {
-        lpSlotBox.value = "";
-        lpSlotBox.disabled = true;
-        lpDateSelect.disabled = true;
-        lpDatePicker.disabled = true;
-        lpDateLabel.textContent = "On Leave";
-        lpDateLabel.style.color = "var(--danger)";
+        // Multi-day leave - allow manual date/time selection up to 10 days
+        lpSlotBox.value = "08:00";  // Default morning slot
+        lpSlotBox.disabled = false;
+        lpDateSelect.disabled = false;
+        lpDatePicker.disabled = false;
+        setSlotDateDropdown('lp', formatDateKey(TODAY));
+        lpDateLabel.textContent = "(Select return date)";
+        lpDateLabel.style.color = "var(--warning)";
     } else {
         lpSlotBox.disabled = false;
         lpDateSelect.disabled = false;
@@ -792,12 +1084,14 @@ function calculateSlotsManual() {
     const alpDatePicker = document.getElementById('alpDatePicker');
 
     if (alpRest === "suspend") {
-        alpSlotBox.value = "";
-        alpSlotBox.disabled = true;
-        alpDateSelect.disabled = true;
-        alpDatePicker.disabled = true;
-        alpDateLabel.textContent = "On Leave";
-        alpDateLabel.style.color = "var(--danger)";
+        // Multi-day leave - allow manual date/time selection up to 10 days
+        alpSlotBox.value = "08:00";  // Default morning slot
+        alpSlotBox.disabled = false;
+        alpDateSelect.disabled = false;
+        alpDatePicker.disabled = false;
+        setSlotDateDropdown('alp', formatDateKey(TODAY));
+        alpDateLabel.textContent = "(Select return date)";
+        alpDateLabel.style.color = "var(--warning)";
     } else {
         alpSlotBox.disabled = false;
         alpDateSelect.disabled = false;
@@ -832,12 +1126,14 @@ function calculateSlots() {
     const lpDatePicker = document.getElementById('lpDatePicker');
 
     if (lpRest === "suspend") {
-        lpSlotBox.value = "";
-        lpSlotBox.disabled = true;
-        lpDateSelect.disabled = true;
-        lpDatePicker.disabled = true;
-        lpDateLabel.textContent = "On Leave";
-        lpDateLabel.style.color = "var(--danger)";
+        // Multi-day leave - allow manual date/time selection up to 10 days
+        lpSlotBox.value = "08:00";  // Default morning slot
+        lpSlotBox.disabled = false;
+        lpDateSelect.disabled = false;
+        lpDatePicker.disabled = false;
+        setSlotDateDropdown('lp', formatDateKey(TODAY));
+        lpDateLabel.textContent = "(Select return date)";
+        lpDateLabel.style.color = "var(--warning)";
     } else {
         lpSlotBox.disabled = false;
         lpDateSelect.disabled = false;
@@ -857,12 +1153,14 @@ function calculateSlots() {
     const alpDatePicker = document.getElementById('alpDatePicker');
 
     if (alpRest === "suspend") {
-        alpSlotBox.value = "";
-        alpSlotBox.disabled = true;
-        alpDateSelect.disabled = true;
-        alpDatePicker.disabled = true;
-        alpDateLabel.textContent = "On Leave";
-        alpDateLabel.style.color = "var(--danger)";
+        // Multi-day leave - allow manual date/time selection up to 10 days
+        alpSlotBox.value = "08:00";  // Default morning slot
+        alpSlotBox.disabled = false;
+        alpDateSelect.disabled = false;
+        alpDatePicker.disabled = false;
+        setSlotDateDropdown('alp', formatDateKey(TODAY));
+        alpDateLabel.textContent = "(Select return date)";
+        alpDateLabel.style.color = "var(--warning)";
     } else {
         alpSlotBox.disabled = false;
         alpDateSelect.disabled = false;
@@ -1019,6 +1317,7 @@ function clearArrivalForm() {
     selectedLP = null;
     selectedALP = null;
     isManualMode = false;
+    selectedSafeLogId = null;
 
     // Reset form fields
     document.getElementById('incomingTrain').value = '';
@@ -1224,9 +1523,9 @@ function updateDateTabs() {
         const group = dateGroups[dateStr];
         const lpCount = group.tables.reduce((sum, t) => sum + t.querySelectorAll('td.lp-cell.new-entry').length, 0);
         const alpCount = group.tables.reduce((sum, t) => sum + t.querySelectorAll('td.alp-cell.new-entry').length, 0);
-        const totalCount = lpCount + alpCount;
+        const hasStaff = lpCount > 0 || alpCount > 0;
 
-        return `<div class="date-tab" data-date="${dateStr}" onclick="scrollToDate('${dateStr}')">${label}${totalCount > 0 ? `<span class="count">${totalCount}</span>` : ''}</div>`;
+        return `<div class="date-tab" data-date="${dateStr}" onclick="scrollToDate('${dateStr}')">${label}${hasStaff ? `<span class="count">${lpCount}/${alpCount}</span>` : ''}</div>`;
     }).join('');
 
     updateVacancySummary();
@@ -1328,7 +1627,7 @@ function initScrollListener() {
 function addStaffToSlate(staff) {
     const { slotId, name, type, time, date, isAdhoc, exception, exceptionRemark,
             signedOnAt, lateReason, detention, detentionRemark,
-            incoming, incomingLoco, isPilot, signOffTime } = staff;
+            incoming, incomingLoco, isPilot, signOffTime, nightStreak, prDays } = staff;
 
     if (!time || !date) return false;
 
@@ -1392,7 +1691,16 @@ function addStaffToSlate(staff) {
             onclick="event.stopPropagation(); showIncomingDetails(this, '${(incoming || '').replace(/'/g, "\\'")}', '${(incomingLoco || '').replace(/'/g, "\\'")}', ${isPilot || false}, '${signOffStr}')">●</span>`;
     }
 
-    cell.innerHTML = `${incomingIndicator}<span class="staff-name" style="cursor: pointer;">${displayName}${badge}</span>`;
+    // Build fatigue indicators (night streak and PR)
+    let fatigueBadge = '';
+    if (nightStreak) {
+        fatigueBadge += `<sup style="background: #1e3a5f; color: #7dd3fc; padding: 0 3px; border-radius: 3px; margin-left: 3px; font-size: 0.65em;" title="${nightStreak} consecutive night duties">🌙${nightStreak}</sup>`;
+    }
+    if (prDays) {
+        fatigueBadge += `<sup style="background: #7c3aed; color: #fff; padding: 0 4px; border-radius: 50%; margin-left: 3px; font-size: 0.65em;" title="${prDays} consecutive duty days - PR due">${prDays}</sup>`;
+    }
+
+    cell.innerHTML = `${incomingIndicator}<span class="staff-name" style="cursor: pointer;">${displayName}${badge}${fatigueBadge}</span>`;
     cell.classList.remove('empty-slot');
     cell.classList.add('new-entry');
 
@@ -1704,40 +2012,8 @@ async function submitToSlate() {
             pendingPayload = payload;
             collisionInfo = checkData;
 
-            let msg = '';
-            if (checkData.lp_collision) {
-                const c = checkData.lp_collision;
-                msg += `<strong>LP Slot ${c.requested_time.slice(0,5)}</strong> is occupied by <strong>${c.occupied_by}</strong>`;
-                if (c.next_available) {
-                    msg += `<br>Next available: <strong>${c.next_available.slice(0,5)}</strong>`;
-                } else {
-                    msg += `<br><span style="color: var(--danger);">No more slots available today!</span>`;
-                }
-                msg += '<br><br>';
-            }
-            if (checkData.alp_collision) {
-                const c = checkData.alp_collision;
-                msg += `<strong>ALP Slot ${c.requested_time.slice(0,5)}</strong> is occupied by <strong>${c.occupied_by}</strong>`;
-                if (c.next_available) {
-                    msg += `<br>Next available: <strong>${c.next_available.slice(0,5)}</strong>`;
-                } else {
-                    msg += `<br><span style="color: var(--danger);">No more slots available today!</span>`;
-                }
-            }
-
-            document.getElementById('collisionMessage').innerHTML = msg;
-
-            const btnNext = document.getElementById('btnNextSlot');
-            if ((checkData.lp_collision && !checkData.lp_collision.next_available) ||
-                (checkData.alp_collision && !checkData.alp_collision.next_available)) {
-                btnNext.disabled = true;
-                btnNext.style.opacity = '0.5';
-            } else {
-                btnNext.disabled = false;
-                btnNext.style.opacity = '1';
-            }
-
-            document.getElementById('collisionModal').style.display = 'flex';
+            // Show collision modal with independent LP/ALP choices
+            showCollisionModal(checkData);
             return;
         }
 
@@ -1748,6 +2024,148 @@ async function submitToSlate() {
     await doSubmit(payload);
 }
 
+// Collision choices state
+let collisionChoices = { lp: null, alp: null };
+
+function showCollisionModal(checkData) {
+    const modal = document.getElementById('collisionModal');
+    const lpRow = document.getElementById('lpCollisionRow');
+    const alpRow = document.getElementById('alpCollisionRow');
+    const msgEl = document.getElementById('collisionMessage');
+
+    // Reset choices
+    collisionChoices = { lp: null, alp: null };
+
+    // Reset button styles
+    document.querySelectorAll('.collision-opt').forEach(btn => {
+        btn.style.background = 'var(--bg-card)';
+        btn.style.color = 'var(--text-main)';
+        btn.style.border = '1px solid var(--border)';
+    });
+
+    let hasCollision = false;
+
+    // LP Collision
+    if (checkData.lp_collision) {
+        hasCollision = true;
+        const c = checkData.lp_collision;
+        lpRow.style.display = 'block';
+        document.getElementById('lpCollisionName').textContent = selectedLP?.name || 'LP';
+
+        let info = `Slot ${c.requested_time.slice(0,5)} occupied by ${c.occupied_by}`;
+        if (c.next_available) {
+            info += ` • Next: ${c.next_available.slice(0,5)}`;
+        } else {
+            info += ` • No more slots today!`;
+            // Disable next slot button for LP
+            const nextBtn = document.querySelector('.collision-opt[data-role="lp"][data-choice="next"]');
+            if (nextBtn) {
+                nextBtn.disabled = true;
+                nextBtn.style.opacity = '0.4';
+            }
+        }
+        document.getElementById('lpCollisionInfo').textContent = info;
+
+        // Default to adhoc
+        setCollisionChoice('lp', 'adhoc');
+    } else {
+        lpRow.style.display = 'none';
+    }
+
+    // ALP Collision
+    if (checkData.alp_collision) {
+        hasCollision = true;
+        const c = checkData.alp_collision;
+        alpRow.style.display = 'block';
+        document.getElementById('alpCollisionName').textContent = selectedALP?.name || 'ALP';
+
+        let info = `Slot ${c.requested_time.slice(0,5)} occupied by ${c.occupied_by}`;
+        if (c.next_available) {
+            info += ` • Next: ${c.next_available.slice(0,5)}`;
+        } else {
+            info += ` • No more slots today!`;
+            // Disable next slot button for ALP
+            const nextBtn = document.querySelector('.collision-opt[data-role="alp"][data-choice="next"]');
+            if (nextBtn) {
+                nextBtn.disabled = true;
+                nextBtn.style.opacity = '0.4';
+            }
+        }
+        document.getElementById('alpCollisionInfo').textContent = info;
+
+        // Default to adhoc
+        setCollisionChoice('alp', 'adhoc');
+    } else {
+        alpRow.style.display = 'none';
+    }
+
+    msgEl.innerHTML = hasCollision
+        ? 'Select how to handle each collision:'
+        : 'No collisions detected.';
+
+    modal.style.display = 'flex';
+}
+
+function setCollisionChoice(role, choice) {
+    collisionChoices[role] = choice;
+
+    // Update button styles
+    document.querySelectorAll(`.collision-opt[data-role="${role}"]`).forEach(btn => {
+        if (btn.dataset.choice === choice) {
+            btn.style.background = choice === 'adhoc' ? 'var(--warning)' : 'var(--accent)';
+            btn.style.color = '#000';
+            btn.style.border = 'none';
+        } else {
+            btn.style.background = 'var(--bg-card)';
+            btn.style.color = 'var(--text-main)';
+            btn.style.border = '1px solid var(--border)';
+        }
+    });
+}
+
+function applyCollisionChoices() {
+    document.getElementById('collisionModal').style.display = 'none';
+
+    if (!pendingPayload || !collisionInfo) {
+        pendingPayload = null;
+        collisionInfo = null;
+        return;
+    }
+
+    // Apply LP choice
+    if (collisionInfo.lp_collision) {
+        if (collisionChoices.lp === 'adhoc') {
+            pendingPayload.force_adhoc_lp = true;
+        } else if (collisionChoices.lp === 'next' && collisionInfo.lp_collision.next_available) {
+            pendingPayload.lp_next_slot_time = collisionInfo.lp_collision.next_available;
+            if (collisionInfo.lp_collision.next_available_date) {
+                // Always use formatDateKey to handle timezone correctly
+                // ISO string like "2026-03-06T18:30:00.000Z" is actually March 7 in IST
+                const lpDate = collisionInfo.lp_collision.next_available_date;
+                pendingPayload.lp_next_slot_date = formatDateKey(new Date(lpDate));
+            }
+        }
+    }
+
+    // Apply ALP choice
+    if (collisionInfo.alp_collision) {
+        if (collisionChoices.alp === 'adhoc') {
+            pendingPayload.force_adhoc_alp = true;
+        } else if (collisionChoices.alp === 'next' && collisionInfo.alp_collision.next_available) {
+            pendingPayload.alp_next_slot_time = collisionInfo.alp_collision.next_available;
+            if (collisionInfo.alp_collision.next_available_date) {
+                // Always use formatDateKey to handle timezone correctly
+                const alpDate = collisionInfo.alp_collision.next_available_date;
+                pendingPayload.alp_next_slot_date = formatDateKey(new Date(alpDate));
+            }
+        }
+    }
+
+    doSubmit(pendingPayload);
+    pendingPayload = null;
+    collisionInfo = null;
+}
+
 function resolveCollision(choice) {
     document.getElementById('collisionModal').style.display = 'none';
 
@@ -1756,19 +2174,83 @@ function resolveCollision(choice) {
         collisionInfo = null;
         return;
     }
+}
 
-    if (choice === 'adhoc') {
-        if (collisionInfo.lp_collision) {
-            pendingPayload.force_adhoc_lp = true;
-        }
-        if (collisionInfo.alp_collision) {
-            pendingPayload.force_adhoc_alp = true;
+// ========== LEAVE CONFIRMATION MODAL ==========
+async function handleRestChange(type, value) {
+    // When Multi-Day Leave is selected, check if staff has leave application
+    if (value === 'suspend') {
+        const staff = type === 'lp' ? selectedLP : selectedALP;
+        if (staff && staff.hrms_id) {
+            await checkLeaveForMultiDay(type, staff.hrms_id, staff.name);
         }
     }
+}
 
-    doSubmit(pendingPayload);
-    pendingPayload = null;
-    collisionInfo = null;
+async function checkLeaveForMultiDay(type, hrmsId, staffName) {
+    if (!hrmsId) return true;  // No staff selected, allow
+
+    try {
+        // Check if staff has any leave application (approved or pending)
+        const res = await fetch(`${SLATE_CONFIG.API_BASE}/check-leave`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                hrms_id: hrmsId,
+                office_code: SLATE_CONFIG.OFFICE_CODE
+            })
+        });
+
+        const data = await res.json();
+
+        if (data.success && !data.has_leave) {
+            // No leave found - show confirmation modal
+            pendingLeaveConfirm = { type, hrmsId, staffName };
+
+            const modal = document.getElementById('leaveConfirmModal');
+            const message = document.getElementById('leaveConfirmMessage');
+            message.innerHTML = `
+                <strong>${staffName}</strong> (${type.toUpperCase()}) is marked for Multi-Day Leave,
+                but <strong>no leave application found</strong> in the system.<br><br>
+                Do you want to proceed anyway or assign a normal detail instead?
+            `;
+            modal.style.display = 'flex';
+            return false;  // Wait for user confirmation
+        }
+
+        return true;  // Has leave, proceed normally
+
+    } catch (err) {
+        console.error('Error checking leave:', err);
+        return true;  // On error, allow to proceed
+    }
+}
+
+function resolveLeaveConfirm(choice) {
+    const modal = document.getElementById('leaveConfirmModal');
+    modal.style.display = 'none';
+
+    if (!pendingLeaveConfirm) return;
+
+    const { type } = pendingLeaveConfirm;
+    const restSelect = document.getElementById(type === 'lp' ? 'lpRest' : 'alpRest');
+
+    if (choice === 'normal') {
+        // Switch to normal rest (16hr)
+        restSelect.value = '16';
+        if (isManualMode) {
+            calculateSlotsManual();
+        } else {
+            calculateSlots();
+        }
+        showToast(`${type.toUpperCase()} switched to Normal Rest`, 'info');
+    } else if (choice === 'proceed') {
+        // User confirmed to proceed with multi-day leave
+        showToast(`Proceeding with Multi-Day Leave for ${type.toUpperCase()}`, 'warning');
+    }
+    // 'cancel' - just close modal, leave fields as-is
+
+    pendingLeaveConfirm = null;
 }
 
 async function doSubmit(payload) {
@@ -1791,34 +2273,48 @@ async function doSubmit(payload) {
         if (data.success) {
             let lpAdded = false, alpAdded = false;
 
-            if (selectedLP && lpRest !== 'suspend' && lpSlotBox.value && lpDateSelect.value) {
+            // Use actual slot time/date from backend (may differ from form if collision occurred)
+            const lpActualTime = data.lp_slot_time ? data.lp_slot_time.substring(0, 5) : lpSlotBox.value;
+            const lpActualDate = data.lp_slot_date || lpDateSelect.value;
+            const alpActualTime = data.alp_slot_time ? data.alp_slot_time.substring(0, 5) : alpSlotBox.value;
+            const alpActualDate = data.alp_slot_date || alpDateSelect.value;
+
+            if (selectedLP && lpRest !== 'suspend' && data.lp_slot_id) {
                 lpAdded = addStaffToSlate({
                     slotId: data.lp_slot_id,
                     name: selectedLP.name,
                     type: 'LP',
-                    time: lpSlotBox.value,
-                    date: lpDateSelect.value,
-                    isAdhoc: data.lp_is_adhoc
+                    time: lpActualTime,
+                    date: lpActualDate,
+                    isAdhoc: data.lp_is_adhoc,
+                    incoming: payload.incoming_detail,
+                    incomingLoco: payload.loco_no,
+                    isPilot: payload.is_pilot,
+                    signOffTime: payload.sign_off_time
                 });
             }
 
-            if (selectedALP && alpRest !== 'suspend' && alpSlotBox.value && alpDateSelect.value) {
+            if (selectedALP && alpRest !== 'suspend' && data.alp_slot_id) {
                 alpAdded = addStaffToSlate({
                     slotId: data.alp_slot_id,
                     name: selectedALP.name,
                     type: 'ALP',
-                    time: alpSlotBox.value,
-                    date: alpDateSelect.value,
-                    isAdhoc: data.alp_is_adhoc
+                    time: alpActualTime,
+                    date: alpActualDate,
+                    isAdhoc: data.alp_is_adhoc,
+                    incoming: payload.alp_incoming_detail || payload.incoming_detail,
+                    incomingLoco: payload.loco_no,
+                    isPilot: payload.alp_is_pilot !== undefined ? payload.alp_is_pilot : payload.is_pilot,
+                    signOffTime: payload.alp_sign_off_time || payload.sign_off_time
                 });
             }
 
             updateDateTabs();
 
-            if (lpAdded && lpDateSelect.value) {
-                scrollToDate(lpDateSelect.value);
-            } else if (alpAdded && alpDateSelect.value) {
-                scrollToDate(alpDateSelect.value);
+            if (lpAdded && lpActualDate) {
+                scrollToDate(lpActualDate);
+            } else if (alpAdded && alpActualDate) {
+                scrollToDate(alpActualDate);
             }
 
             let msg = `✅ Arrival saved! Log ID: ${data.log_id}`;
@@ -1829,6 +2325,21 @@ async function doSubmit(payload) {
                 msg = "Arrival Saved. Staff on Multi-Day Leave - not added to board.";
             }
             showToast(msg, 'success');
+
+            // Clear SAFE pending flag if this was a SAFE entry
+            if (selectedSafeLogId) {
+                try {
+                    await fetch(`${SLATE_CONFIG.API_BASE}/clear-safe-pending`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ log_id: selectedSafeLogId })
+                    });
+                    selectedSafeLogId = null;
+                    await loadPendingSafe(); // Refresh pending SAFE list
+                } catch (err) {
+                    console.error('Error clearing SAFE pending:', err);
+                }
+            }
 
             await loadActiveCrews();
             setTimeout(() => { clearArrivalForm(); }, 800);

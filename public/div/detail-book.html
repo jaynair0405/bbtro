@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>JR CC | Digital Detail Book</title>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/slate-theme.css?v=20260302n">
+    <link rel="stylesheet" href="css/slate-theme.css?v=20260303b">
     <style>
         /* Page-specific layout */
         .main-container {
@@ -14,6 +14,22 @@
             gap: 15px;
             flex-grow: 1;
             overflow: hidden;
+        }
+
+        /* Make date picker calendar icon more visible */
+        input[type="date"] {
+            cursor: pointer;
+            position: relative;
+        }
+        input[type="date"]::-webkit-calendar-picker-indicator {
+            cursor: pointer;
+            padding: 4px;
+            margin-right: -4px;
+            opacity: 1;
+            filter: invert(0.8);  /* Make icon lighter for dark theme */
+        }
+        input[type="date"]:hover::-webkit-calendar-picker-indicator {
+            filter: invert(0.6) sepia(1) saturate(5) hue-rotate(175deg);  /* Accent color on hover */
         }
     </style>
 </head>
@@ -203,15 +219,37 @@
 
     <!-- Collision Dialog Modal -->
     <div id="collisionModal" class="modal-overlay">
-        <div class="modal-content">
+        <div class="modal-content" style="max-width: 420px;">
             <h3 style="margin: 0 0 15px 0; color: var(--warning); font-size: 1.1rem;">⚠️ Slot Collision Detected</h3>
-            <div id="collisionMessage" style="margin-bottom: 20px; font-size: 0.9rem; line-height: 1.5;"></div>
-            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                <button id="btnAddHere" onclick="resolveCollision('adhoc')" style="flex: 1; padding: 12px; background: var(--warning); color: #000; border: none; border-radius: 6px; font-weight: 700; cursor: pointer;">
-                    Add Here (Adhoc)
-                </button>
-                <button id="btnNextSlot" onclick="resolveCollision('next')" style="flex: 1; padding: 12px; background: var(--accent); color: #000; border: none; border-radius: 6px; font-weight: 700; cursor: pointer;">
-                    Next Slot
+            <div id="collisionMessage" style="margin-bottom: 15px; font-size: 0.9rem; line-height: 1.5;"></div>
+
+            <!-- LP Choice -->
+            <div id="lpCollisionRow" style="display: none; margin-bottom: 12px; padding: 10px; background: var(--bg-input); border-radius: 6px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-weight: 600; font-size: 0.85rem;">LP: <span id="lpCollisionName"></span></span>
+                    <div style="display: flex; gap: 6px;">
+                        <button type="button" class="collision-opt" data-role="lp" data-choice="adhoc" onclick="setCollisionChoice('lp', 'adhoc')" style="padding: 6px 12px; font-size: 0.75rem; background: var(--warning); color: #000; border: none; border-radius: 4px; cursor: pointer; font-weight: 600;">Adhoc</button>
+                        <button type="button" class="collision-opt" data-role="lp" data-choice="next" onclick="setCollisionChoice('lp', 'next')" style="padding: 6px 12px; font-size: 0.75rem; background: var(--bg-card); color: var(--text-main); border: 1px solid var(--border); border-radius: 4px; cursor: pointer; font-weight: 600;">Next Slot</button>
+                    </div>
+                </div>
+                <div id="lpCollisionInfo" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;"></div>
+            </div>
+
+            <!-- ALP Choice -->
+            <div id="alpCollisionRow" style="display: none; margin-bottom: 15px; padding: 10px; background: var(--bg-input); border-radius: 6px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-weight: 600; font-size: 0.85rem;">ALP: <span id="alpCollisionName"></span></span>
+                    <div style="display: flex; gap: 6px;">
+                        <button type="button" class="collision-opt" data-role="alp" data-choice="adhoc" onclick="setCollisionChoice('alp', 'adhoc')" style="padding: 6px 12px; font-size: 0.75rem; background: var(--warning); color: #000; border: none; border-radius: 4px; cursor: pointer; font-weight: 600;">Adhoc</button>
+                        <button type="button" class="collision-opt" data-role="alp" data-choice="next" onclick="setCollisionChoice('alp', 'next')" style="padding: 6px 12px; font-size: 0.75rem; background: var(--bg-card); color: var(--text-main); border: 1px solid var(--border); border-radius: 4px; cursor: pointer; font-weight: 600;">Next Slot</button>
+                    </div>
+                </div>
+                <div id="alpCollisionInfo" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;"></div>
+            </div>
+
+            <div style="display: flex; gap: 10px;">
+                <button id="btnApplyCollision" onclick="applyCollisionChoices()" style="flex: 2; padding: 12px; background: var(--accent); color: #000; border: none; border-radius: 6px; font-weight: 700; cursor: pointer;">
+                    Apply
                 </button>
                 <button onclick="resolveCollision('cancel')" style="flex: 1; padding: 12px; background: var(--bg-input); color: var(--text-muted); border: 1px solid var(--border); border-radius: 6px; font-weight: 600; cursor: pointer;">
                     Cancel
@@ -220,8 +258,27 @@
         </div>
     </div>
 
+    <!-- Leave Confirmation Modal -->
+    <div id="leaveConfirmModal" class="modal-overlay">
+        <div class="modal-content">
+            <h3 style="margin: 0 0 15px 0; color: var(--warning); font-size: 1.1rem;">⚠️ No Leave Application Found</h3>
+            <div id="leaveConfirmMessage" style="margin-bottom: 20px; font-size: 0.9rem; line-height: 1.5;"></div>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                <button onclick="resolveLeaveConfirm('proceed')" style="flex: 1; padding: 12px; background: var(--warning); color: #000; border: none; border-radius: 6px; font-weight: 700; cursor: pointer;">
+                    Proceed Anyway
+                </button>
+                <button onclick="resolveLeaveConfirm('normal')" style="flex: 1; padding: 12px; background: var(--accent); color: #000; border: none; border-radius: 6px; font-weight: 700; cursor: pointer;">
+                    Assign Normal Detail
+                </button>
+                <button onclick="resolveLeaveConfirm('cancel')" style="flex: 1; padding: 12px; background: var(--bg-input); color: var(--text-muted); border: 1px solid var(--border); border-radius: 6px; font-weight: 600; cursor: pointer;">
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Load shared utilities first, then page-specific code -->
-    <script src="js/slate-common.js?v=20260302n"></script>
-    <script src="js/detail-book.js?v=20260302n"></script>
+    <script src="js/slate-common.js?v=20260305a"></script>
+    <script src="js/detail-book.js?v=20260306a"></script>
 </body>
 </html>

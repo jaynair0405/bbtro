@@ -55,7 +55,7 @@ router.get('/active-crews', async (req, res) => {
             ORDER BY CONCAT(ds.slot_date, ' ', ds.slot_time) ASC
         `, [userOffice]);
 
-        // Check for leave warnings
+        // Check for leave warnings and future assignments
         for (const crew of crews) {
             // Check LP leave
             const [lpLeave] = await conn.query(`
@@ -81,6 +81,92 @@ router.get('/active-crews', async (req, res) => {
                     LIMIT 1
                 `, [crew.alp_hrms_id]);
                 crew.alp_leave_warning = alpLeave.length > 0 ? alpLeave[0] : null;
+            }
+
+            // Check if LP is already assigned to a future slot (different from current ONLINE slot)
+            if (crew.lp_hrms_id) {
+                const [lpFuture] = await conn.query(`
+                    SELECT slot_date, slot_time
+                    FROM div_daily_slate
+                    WHERE office_code = ?
+                      AND lp_hrms_id = ?
+                      AND id != ?
+                      AND lp_status IN ('AVAILABLE', 'FORECAST')
+                      AND CONCAT(slot_date, ' ', slot_time) >= NOW()
+                    ORDER BY slot_date, slot_time
+                    LIMIT 1
+                `, [userOffice, crew.lp_hrms_id, crew.slate_id]);
+                crew.lp_already_assigned = lpFuture.length > 0 ? {
+                    date: formatLocalDate(lpFuture[0].slot_date),
+                    time: lpFuture[0].slot_time.substring(0, 5)
+                } : null;
+            }
+
+            // Check if ALP is already assigned to a future slot
+            if (crew.alp_hrms_id) {
+                const [alpFuture] = await conn.query(`
+                    SELECT slot_date, slot_time
+                    FROM div_daily_slate
+                    WHERE office_code = ?
+                      AND alp_hrms_id = ?
+                      AND id != ?
+                      AND alp_status IN ('AVAILABLE', 'FORECAST')
+                      AND CONCAT(slot_date, ' ', slot_time) >= NOW()
+                    ORDER BY slot_date, slot_time
+                    LIMIT 1
+                `, [userOffice, crew.alp_hrms_id, crew.slate_id]);
+                crew.alp_already_assigned = alpFuture.length > 0 ? {
+                    date: formatLocalDate(alpFuture[0].slot_date),
+                    time: alpFuture[0].slot_time.substring(0, 5)
+                } : null;
+            }
+
+            // Check LP night streak (fatigue tracker)
+            if (crew.lp_hrms_id) {
+                const [lpFatigue] = await conn.query(`
+                    SELECT current_night_streak
+                    FROM div_staff_fatigue_tracker
+                    WHERE hrms_id = ? AND current_night_streak >= 3
+                `, [crew.lp_hrms_id]);
+                crew.lp_night_streak = lpFatigue.length > 0 ? lpFatigue[0].current_night_streak : null;
+
+                // Check LP PR (consecutive duty days)
+                const [lpPR] = await conn.query(`
+                    SELECT COUNT(*) AS consecutive_days
+                    FROM (
+                        SELECT DISTINCT shift_date
+                        FROM div_detail_book_log
+                        WHERE lp_hrms_id = ?
+                          AND shift_date >= DATE_SUB(CURDATE(), INTERVAL 10 DAY)
+                          AND shift_date <= CURDATE()
+                    ) AS recent_duties
+                `, [crew.lp_hrms_id]);
+                const lpDays = lpPR.length > 0 ? lpPR[0].consecutive_days : 0;
+                crew.lp_pr_days = lpDays >= 5 ? lpDays : null;
+            }
+
+            // Check ALP night streak and PR
+            if (crew.alp_hrms_id) {
+                const [alpFatigue] = await conn.query(`
+                    SELECT current_night_streak
+                    FROM div_staff_fatigue_tracker
+                    WHERE hrms_id = ? AND current_night_streak >= 3
+                `, [crew.alp_hrms_id]);
+                crew.alp_night_streak = alpFatigue.length > 0 ? alpFatigue[0].current_night_streak : null;
+
+                // Check ALP PR (consecutive duty days)
+                const [alpPR] = await conn.query(`
+                    SELECT COUNT(*) AS consecutive_days
+                    FROM (
+                        SELECT DISTINCT shift_date
+                        FROM div_detail_book_log
+                        WHERE alp_hrms_id = ?
+                          AND shift_date >= DATE_SUB(CURDATE(), INTERVAL 10 DAY)
+                          AND shift_date <= CURDATE()
+                    ) AS recent_duties
+                `, [crew.alp_hrms_id]);
+                const alpDays = alpPR.length > 0 ? alpPR[0].consecutive_days : 0;
+                crew.alp_pr_days = alpDays >= 5 ? alpDays : null;
             }
         }
 
@@ -219,6 +305,20 @@ router.get('/board', async (req, res) => {
                 COALESCE(alp_log.alp_sign_off_time, alp_log.sign_off_time) AS alp_sign_off_time,
                 ds.train_no,
                 ds.loco_no,
+                ds.is_pilot,
+                ds.booking_remarks,
+                ds.booked_at,
+                ds.lp_safe_sign_off_time,
+                ds.alp_safe_sign_off_time,
+                ds.alp_source,
+                ds.alp_source_name,
+                ds.alp_source_depot,
+                ds.extra_alp_hrms_id,
+                extra_alp.name AS extra_alp_name,
+                extra_alp.current_cms_id AS extra_alp_cms_id,
+                ds.extra_alp_source,
+                ds.extra_alp_source_name,
+                ds.extra_alp_source_depot,
                 ds.last_modified,
                 CASE
                     WHEN ds.last_modified > DATE_SUB(NOW(), INTERVAL 3 MINUTE) THEN 1
@@ -229,11 +329,66 @@ router.get('/board', async (req, res) => {
             LEFT JOIN div_staff_master alp ON ds.alp_hrms_id = alp.hrms_id
             LEFT JOIN div_detail_book_log lp_log ON ds.lp_detail_book_id = lp_log.id
             LEFT JOIN div_detail_book_log alp_log ON ds.alp_detail_book_id = alp_log.id
+            LEFT JOIN div_staff_master extra_alp ON ds.extra_alp_hrms_id = extra_alp.hrms_id
             WHERE ds.office_code = ?
               AND ds.slot_date >= ?
               AND ds.slot_date < DATE_ADD(?, INTERVAL ? DAY)
             ORDER BY ds.slot_date, ds.slot_time, ds.is_adhoc
         `, [userOffice, startDate, startDate, numDays]);
+
+        // Collect unique hrms_ids to fetch fatigue and PR data efficiently
+        const hrmsIds = new Set();
+        slots.forEach(slot => {
+            if (slot.lp_hrms_id) hrmsIds.add(slot.lp_hrms_id);
+            if (slot.alp_hrms_id) hrmsIds.add(slot.alp_hrms_id);
+        });
+
+        // Fetch fatigue data (night streaks) for all staff
+        const fatigueMap = {};
+        if (hrmsIds.size > 0) {
+            const [fatigueRows] = await conn.query(`
+                SELECT hrms_id, current_night_streak
+                FROM div_staff_fatigue_tracker
+                WHERE hrms_id IN (?) AND current_night_streak >= 3
+            `, [Array.from(hrmsIds)]);
+            fatigueRows.forEach(row => {
+                fatigueMap[row.hrms_id] = row.current_night_streak;
+            });
+        }
+
+        // Fetch PR data (consecutive duty days) for all staff
+        // Need to check both lp_hrms_id and alp_hrms_id columns
+        const prMap = {};
+        if (hrmsIds.size > 0) {
+            const hrmsArray = Array.from(hrmsIds);
+            const [prRows] = await conn.query(`
+                SELECT hrms_id, COUNT(DISTINCT shift_date) AS duty_days
+                FROM (
+                    SELECT lp_hrms_id AS hrms_id, shift_date FROM div_detail_book_log
+                    WHERE lp_hrms_id IN (?)
+                      AND shift_date >= DATE_SUB(CURDATE(), INTERVAL 10 DAY)
+                      AND shift_date <= CURDATE()
+                    UNION ALL
+                    SELECT alp_hrms_id AS hrms_id, shift_date FROM div_detail_book_log
+                    WHERE alp_hrms_id IN (?)
+                      AND shift_date >= DATE_SUB(CURDATE(), INTERVAL 10 DAY)
+                      AND shift_date <= CURDATE()
+                ) AS combined
+                GROUP BY hrms_id
+                HAVING duty_days >= 5
+            `, [hrmsArray, hrmsArray]);
+            prRows.forEach(row => {
+                prMap[row.hrms_id] = row.duty_days;
+            });
+        }
+
+        // Add fatigue and PR indicators to each slot
+        slots.forEach(slot => {
+            slot.lp_night_streak = fatigueMap[slot.lp_hrms_id] || null;
+            slot.lp_pr_days = prMap[slot.lp_hrms_id] || null;
+            slot.alp_night_streak = fatigueMap[slot.alp_hrms_id] || null;
+            slot.alp_pr_days = prMap[slot.alp_hrms_id] || null;
+        });
 
         conn.release();
 
@@ -321,6 +476,8 @@ router.post('/arrival', async (req, res) => {
 
         const userOffice = req.session.user?.div_office_code || office_code;
 
+        console.log(`[ARRIVAL] Request received - LP: ${lp_hrms_id} -> ${lp_next_slot_date} ${lp_next_slot_time}, ALP: ${alp_hrms_id} -> ${alp_next_slot_date} ${alp_next_slot_time}`);
+
         // Validation - at least one of LP or ALP must be provided
         if (!userOffice) {
             return res.status(400).json({ error: 'Office code required' });
@@ -381,6 +538,8 @@ router.post('/arrival', async (req, res) => {
         // 2. Assign LP to slot (if LP provided and not multi-day leave)
         let lpSlotId = null;
         let lpIsAdhoc = false;
+        let lpActualSlotDate = lp_next_slot_date;
+        let lpActualSlotTime = lp_next_slot_time;
         if (lp_hrms_id && lp_rest_type !== 'MULTI_DAY_LEAVE' && lp_next_slot_date && lp_next_slot_time) {
             // Ensure slot exists
             await conn.query('CALL sp_generate_daily_slots(?, ?)', [userOffice, lp_next_slot_date]);
@@ -431,15 +590,20 @@ router.post('/arrival', async (req, res) => {
                     nextDay.setDate(nextDay.getDate() + 1);
                     await conn.query('CALL sp_generate_daily_slots(?, ?)', [userOffice, formatLocalDate(nextDay)]);
 
+                    console.log(`[LP COLLISION] Finding next slot after ${lp_next_slot_date} ${lp_next_slot_time} for office ${userOffice}`);
+
                     const [nextSlot] = await conn.query(`
                         SELECT id, slot_date, slot_time FROM div_daily_slate
                         WHERE office_code = ?
                           AND lp_hrms_id IS NULL
                           AND is_adhoc = 0
                           AND CONCAT(slot_date, ' ', slot_time) > CONCAT(?, ' ', ?)
+                          AND CONCAT(slot_date, ' ', slot_time) >= NOW()
                         ORDER BY slot_date ASC, slot_time ASC
                         LIMIT 1
                     `, [userOffice, lp_next_slot_date, lp_next_slot_time]);
+
+                    console.log(`[LP COLLISION] Found slot:`, nextSlot.length > 0 ? `${nextSlot[0].slot_date} ${nextSlot[0].slot_time}` : 'NONE');
 
                     if (nextSlot.length > 0) {
                         await conn.query(`
@@ -448,6 +612,9 @@ router.post('/arrival', async (req, res) => {
                             WHERE id = ?
                         `, [lp_hrms_id, logId, nextSlot[0].id]);
                         lpSlotId = nextSlot[0].id;
+                        // Track actual slot used (different from requested due to collision)
+                        lpActualSlotDate = formatLocalDate(nextSlot[0].slot_date);
+                        lpActualSlotTime = nextSlot[0].slot_time;
                     }
                 }
             }
@@ -463,6 +630,8 @@ router.post('/arrival', async (req, res) => {
         // 3. Assign ALP to slot (if exists and not multi-day leave)
         let alpSlotId = null;
         let alpIsAdhoc = false;
+        let alpActualSlotDate = alp_next_slot_date;
+        let alpActualSlotTime = alp_next_slot_time;
         if (alp_hrms_id && alp_rest_type !== 'MULTI_DAY_LEAVE' && alp_next_slot_date && alp_next_slot_time) {
             await conn.query('CALL sp_generate_daily_slots(?, ?)', [userOffice, alp_next_slot_date]);
 
@@ -516,6 +685,7 @@ router.post('/arrival', async (req, res) => {
                           AND alp_hrms_id IS NULL
                           AND is_adhoc = 0
                           AND CONCAT(slot_date, ' ', slot_time) > CONCAT(?, ' ', ?)
+                          AND CONCAT(slot_date, ' ', slot_time) >= NOW()
                         ORDER BY slot_date ASC, slot_time ASC
                         LIMIT 1
                     `, [userOffice, alp_next_slot_date, alp_next_slot_time]);
@@ -527,6 +697,9 @@ router.post('/arrival', async (req, res) => {
                             WHERE id = ?
                         `, [alp_hrms_id, logId, nextSlot[0].id]);
                         alpSlotId = nextSlot[0].id;
+                        // Track actual slot used (different from requested due to collision)
+                        alpActualSlotDate = formatLocalDate(nextSlot[0].slot_date);
+                        alpActualSlotTime = nextSlot[0].slot_time;
                     }
                 }
             }
@@ -559,8 +732,12 @@ router.post('/arrival', async (req, res) => {
             log_id: logId,
             lp_slot_id: lpSlotId,
             lp_is_adhoc: lpIsAdhoc,
+            lp_slot_date: lpActualSlotDate,
+            lp_slot_time: lpActualSlotTime,
             alp_slot_id: alpSlotId,
-            alp_is_adhoc: alpIsAdhoc
+            alp_is_adhoc: alpIsAdhoc,
+            alp_slot_date: alpActualSlotDate,
+            alp_slot_time: alpActualSlotTime
         });
 
     } catch (error) {
@@ -639,12 +816,14 @@ router.post('/update', async (req, res) => {
             params.push(alp_cross_slot_time || null);
         }
 
-        // LP late arrival fields
+        // LP late arrival fields - setting sign-on time means staff is ONLINE (departed)
         if (req.body.lp_signed_on_at !== undefined) {
             if (req.body.lp_signed_on_at) {
                 // Convert time string to full timestamp (today's date + time)
                 updates.push('lp_signed_on_at = CONCAT(CURDATE(), " ", ?)');
                 params.push(req.body.lp_signed_on_at);
+                // Staff has departed - set status to ONLINE
+                updates.push('lp_status = "ONLINE"');
             } else {
                 updates.push('lp_signed_on_at = NULL');
             }
@@ -662,11 +841,13 @@ router.post('/update', async (req, res) => {
             params.push(req.body.lp_detention_remark || null);
         }
 
-        // ALP late arrival fields
+        // ALP late arrival fields - setting sign-on time means staff is ONLINE (departed)
         if (req.body.alp_signed_on_at !== undefined) {
             if (req.body.alp_signed_on_at) {
                 updates.push('alp_signed_on_at = CONCAT(CURDATE(), " ", ?)');
                 params.push(req.body.alp_signed_on_at);
+                // Staff has departed - set status to ONLINE
+                updates.push('alp_status = "ONLINE"');
             } else {
                 updates.push('alp_signed_on_at = NULL');
             }
@@ -718,8 +899,9 @@ router.get('/staff/search', async (req, res) => {
     try {
         const { office_code, q, type } = req.query;
         const userOffice = req.session.user?.div_office_code || office_code;
+        const searchAllDepots = office_code === 'all';
 
-        if (!userOffice || !q || q.length < 2) {
+        if ((!userOffice && !searchAllDepots) || !q || q.length < 2) {
             return res.status(400).json({ error: 'Office code and search query (min 2 chars) required' });
         }
 
@@ -733,6 +915,10 @@ router.get('/staff/search', async (req, res) => {
             designationFilter = 'AND s.designation_id IN (1, 2)'; // ALP designations
         }
 
+        // Office filter - skip if searching all depots
+        const officeFilter = searchAllDepots ? '' : 'AND s.current_office_code = ?';
+        const queryParams = searchAllDepots ? [] : [userOffice];
+
         const searchTerm = `%${q}%`;
 
         const [staff] = await conn.query(`
@@ -740,18 +926,19 @@ router.get('/staff/search', async (req, res) => {
                 s.hrms_id,
                 s.name,
                 s.current_cms_id,
+                s.current_office_code,
                 d.designation_name,
                 ft.current_night_streak
             FROM div_staff_master s
             LEFT JOIN designations d ON s.designation_id = d.id
             LEFT JOIN div_staff_fatigue_tracker ft ON s.hrms_id = ft.hrms_id
-            WHERE s.current_office_code = ?
-              AND s.status = 'Active'
+            WHERE s.status = 'Active'
+              ${officeFilter}
               ${designationFilter}
               AND (s.name LIKE ? OR s.current_cms_id LIKE ? OR s.hrms_id LIKE ?)
             ORDER BY s.name
             LIMIT 20
-        `, [userOffice, searchTerm, searchTerm, searchTerm]);
+        `, [...queryParams, searchTerm, searchTerm, searchTerm]);
 
         conn.release();
 
@@ -835,7 +1022,7 @@ router.post('/staff-warnings', async (req, res) => {
         let canAssign = true;  // Hard block if false
         let needsPR = false;   // Suggests PR rest
 
-        // 1. CHECK SANCTIONED LEAVE (Hard Block)
+        // 1. CHECK SANCTIONED LEAVE (Warning only - allow sign-off, conflict handled separately)
         const [sanctionedLeave] = await conn.query(`
             SELECT leave_type, from_date, to_date, status
             FROM div_leave_tracking
@@ -851,11 +1038,11 @@ router.post('/staff-warnings', async (req, res) => {
             const leave = sanctionedLeave[0];
             warnings.push({
                 type: 'SANCTIONED_LEAVE',
-                level: 'error',
-                message: `Approved ${leave.leave_type} from ${formatLocalDate(leave.from_date)} to ${formatLocalDate(leave.to_date)}`,
+                level: 'warning',  // Changed from 'error' to 'warning' - allow sign-off
+                message: `Approved ${leave.leave_type} from ${formatLocalDate(leave.from_date)} to ${formatLocalDate(leave.to_date)} - Leave/Detail conflict to resolve`,
                 data: leave
             });
-            canAssign = false;
+            // canAssign = false;  // Removed - allow sign-off, conflict handled separately
         }
 
         // 2. CHECK PENDING/APPLIED LEAVE (Warning only)
@@ -901,7 +1088,7 @@ router.post('/staff-warnings', async (req, res) => {
             needsPR = true;
         }
 
-        // 4. CHECK NIGHT STREAK (Fatigue)
+        // 4. CHECK NIGHT STREAK (Fatigue) - Warning only, never blocks
         const [fatigue] = await conn.query(`
             SELECT current_night_streak, last_night_duty_date
             FROM div_staff_fatigue_tracker
@@ -910,16 +1097,13 @@ router.post('/staff-warnings', async (req, res) => {
 
         if (fatigue.length > 0 && fatigue[0].current_night_streak >= 3) {
             const streak = fatigue[0].current_night_streak;
-            const level = streak >= 4 ? 'error' : 'warning';
             warnings.push({
                 type: 'NIGHT_STREAK',
-                level: level,
-                message: `${streak} consecutive night duties${streak >= 4 ? ' - Rest mandatory' : ' - Consider day duty'}`,
+                level: 'warning',  // Always warning, never blocks
+                message: `🌙${streak} consecutive night duties${streak >= 4 ? ' - Consider rest' : ''}`,
                 data: fatigue[0]
             });
-            if (streak >= 4) {
-                canAssign = false;
-            }
+            // Never block for night streak - just warn
         }
 
         // 5. CHECK IF ALREADY ASSIGNED ON SAME DATE (Double booking)
@@ -958,6 +1142,54 @@ router.post('/staff-warnings', async (req, res) => {
 
     } catch (error) {
         console.error('Error checking staff warnings:', error);
+        if (conn) conn.release();
+        res.status(500).json({ error: 'Database error', details: error.message });
+    }
+});
+
+// ----------------------------------------------------------------------------
+// POST /api/division/slate/check-leave
+// Check if staff has any active leave application (for multi-day leave validation)
+// ----------------------------------------------------------------------------
+router.post('/check-leave', async (req, res) => {
+    let conn;
+    try {
+        const { hrms_id, office_code } = req.body;
+        const userOffice = req.session.user?.div_office_code || office_code;
+
+        if (!hrms_id) {
+            return res.status(400).json({ error: 'hrms_id required' });
+        }
+
+        conn = await req.app.locals.pool.getConnection();
+
+        // Check for any leave (approved or pending) from today onwards
+        const [leave] = await conn.query(`
+            SELECT id, leave_type, from_date, to_date, status
+            FROM div_leave_tracking
+            WHERE staff_hrms_id = ?
+              AND status IN ('Approved', 'Pending', 'Forwarded', 'Applied')
+              AND to_date >= CURDATE()
+            ORDER BY from_date ASC
+            LIMIT 1
+        `, [hrms_id]);
+
+        conn.release();
+
+        res.json({
+            success: true,
+            hrms_id,
+            has_leave: leave.length > 0,
+            leave: leave.length > 0 ? {
+                type: leave[0].leave_type,
+                from: formatLocalDate(leave[0].from_date),
+                to: formatLocalDate(leave[0].to_date),
+                status: leave[0].status
+            } : null
+        });
+
+    } catch (error) {
+        console.error('Error checking leave:', error);
         if (conn) conn.release();
         res.status(500).json({ error: 'Database error', details: error.message });
     }
@@ -1101,6 +1333,459 @@ router.post('/check-availability', async (req, res) => {
 
     } catch (error) {
         console.error('Error checking availability:', error);
+        if (conn) conn.release();
+        res.status(500).json({ error: 'Database error', details: error.message });
+    }
+});
+
+// ----------------------------------------------------------------------------
+// POST /api/division/slate/booking
+// Give booking (train assignment) to staff on slate
+// ----------------------------------------------------------------------------
+router.post('/booking', async (req, res) => {
+    let conn;
+    try {
+        const {
+            slot_id,
+            train_no,
+            loco_no,
+            is_pilot,
+            booking_remarks,
+            // Which staff to book (checkboxes)
+            book_lp,
+            book_alp,
+            // ALP selection (can be from different slot or external)
+            alp_hrms_id,           // Selected ALP hrms_id (if different from slot's ALP)
+            alp_source,            // 'SLATE', 'OUT_OF_SLATE', 'OTHER_DEPOT'
+            alp_source_name,       // Manual name for OTHER_DEPOT
+            alp_source_depot,      // Depot name for OTHER_DEPOT
+            alp_original_slot_id,  // If ALP from different slot, their original slot ID
+            // SAFE marking
+            mark_safe,
+            safe_sign_off_time,
+            // Clear booking
+            clear_booking,
+            // Extra ALP (for double ALP requirement)
+            extra_alp_hrms_id,
+            extra_alp_source,
+            extra_alp_source_name,
+            extra_alp_source_depot,
+            extra_alp_original_slot_id
+        } = req.body;
+
+        if (!slot_id) {
+            return res.status(400).json({ error: 'Slot ID required' });
+        }
+
+        conn = await req.app.locals.pool.getConnection();
+        await conn.beginTransaction();
+
+        // Get current slot data
+        const [currentSlot] = await conn.query(`
+            SELECT * FROM div_daily_slate WHERE id = ?
+        `, [slot_id]);
+
+        if (currentSlot.length === 0) {
+            await conn.rollback();
+            conn.release();
+            return res.status(404).json({ error: 'Slot not found' });
+        }
+
+        const slot = currentSlot[0];
+
+        // Handle CLEAR BOOKING
+        if (clear_booking) {
+            await conn.query(`
+                UPDATE div_daily_slate
+                SET train_no = NULL, loco_no = NULL, is_pilot = FALSE,
+                    booking_remarks = NULL, booked_at = NULL, booked_by = NULL,
+                    lp_status = CASE WHEN lp_hrms_id IS NOT NULL THEN 'AVAILABLE' ELSE lp_status END,
+                    alp_status = CASE WHEN alp_hrms_id IS NOT NULL THEN 'AVAILABLE' ELSE alp_status END,
+                    alp_source = 'SLATE', alp_source_name = NULL, alp_source_depot = NULL,
+                    extra_alp_hrms_id = NULL, extra_alp_source = NULL, extra_alp_source_name = NULL,
+                    extra_alp_source_depot = NULL, extra_alp_original_slot_id = NULL,
+                    last_modified = NOW()
+                WHERE id = ?
+            `, [slot_id]);
+
+            await conn.commit();
+            conn.release();
+            return res.json({ success: true, message: 'Booking cleared' });
+        }
+
+        // Handle SAFE marking
+        if (mark_safe) {
+            if (!safe_sign_off_time) {
+                await conn.rollback();
+                conn.release();
+                return res.status(400).json({ error: 'Sign-off time required for SAFE marking' });
+            }
+
+            const updates = [];
+            const params = [];
+
+            if (book_lp && slot.lp_hrms_id) {
+                updates.push('lp_status = ?', 'lp_safe_sign_off_time = ?');
+                params.push('SAFE', safe_sign_off_time);
+            }
+            if (book_alp && slot.alp_hrms_id) {
+                updates.push('alp_status = ?', 'alp_safe_sign_off_time = ?');
+                params.push('SAFE', safe_sign_off_time);
+            }
+
+            if (updates.length > 0) {
+                updates.push('last_modified = NOW()');
+                params.push(slot_id);
+                await conn.query(`UPDATE div_daily_slate SET ${updates.join(', ')} WHERE id = ?`, params);
+            }
+
+            // Create pending SAFE record for Detail Book to process
+            // Format slot_date properly (it's a Date object from MySQL)
+            const slotDateStr = formatLocalDate(slot.slot_date);
+            const slotTimeStr = slot.slot_time.substring(0, 5); // HH:MM
+
+            // Calculate full sign-off datetime
+            const signOffDateTime = `${slotDateStr} ${safe_sign_off_time}:00`;
+            const signOnDateTime = `${slotDateStr} ${slotTimeStr}:00`;
+
+            // Determine shift_code based on sign-off time
+            const signOffHour = parseInt(safe_sign_off_time.split(':')[0]);
+            let shiftCode = '00_08';
+            if (signOffHour >= 8 && signOffHour < 16) shiftCode = '08_16';
+            else if (signOffHour >= 16) shiftCode = '16_24';
+
+            // Insert pending SAFE record into detail_book_log
+            await conn.query(`
+                INSERT INTO div_detail_book_log (
+                    office_code, incoming_detail, loco_no, sign_on_time, sign_off_time, is_pilot,
+                    lp_hrms_id, lp_rest_type,
+                    alp_hrms_id, alp_rest_type,
+                    shift_date, shift_code, remarks, is_safe_pending
+                ) VALUES (?, 'SAFE', NULL, ?, ?, FALSE, ?, 'NORMAL', ?, 'NORMAL', ?, ?, 'Pending from Slate SAFE', TRUE)
+            `, [
+                slot.office_code,
+                signOnDateTime,
+                signOffDateTime,
+                book_lp ? slot.lp_hrms_id : null,
+                book_alp ? slot.alp_hrms_id : null,
+                slotDateStr,
+                shiftCode
+            ]);
+
+            await conn.commit();
+            conn.release();
+            return res.json({ success: true, message: 'Marked as SAFE - sent to Detail Book' });
+        }
+
+        // Handle BOOKING
+        if (!train_no) {
+            await conn.rollback();
+            conn.release();
+            return res.status(400).json({ error: 'Train number required for booking' });
+        }
+
+        // Update LP status if booking LP (but preserve ONLINE status - staff still on duty)
+        let lpUpdate = '';
+        if (book_lp && slot.lp_hrms_id && slot.lp_status !== 'ONLINE') {
+            lpUpdate = ', lp_status = "BOOKED"';
+        }
+
+        // Handle ALP selection and status
+        let alpUpdate = '';
+        let alpParams = [];
+
+        if (book_alp) {
+            // Check if ALP is being changed
+            if (alp_source === 'OUT_OF_SLATE' && alp_hrms_id && alp_hrms_id !== slot.alp_hrms_id) {
+                // ALP from out of slate - verify they exist in staff master
+                const [staffCheck] = await conn.query(
+                    'SELECT hrms_id FROM div_staff_master WHERE hrms_id = ? OR current_cms_id = ?',
+                    [alp_hrms_id, alp_hrms_id]
+                );
+
+                if (staffCheck.length > 0) {
+                    // Staff found - use their HRMS ID
+                    alpUpdate = ', alp_hrms_id = ?, alp_status = "BOOKED", alp_source = "OUT_OF_SLATE", alp_source_name = ?';
+                    alpParams.push(staffCheck[0].hrms_id, alp_source_name || null);
+                } else {
+                    // Staff not found in our system - store as name only (like OTHER_DEPOT)
+                    alpUpdate = ', alp_hrms_id = NULL, alp_status = "BOOKED", alp_source = "OUT_OF_SLATE", alp_source_name = ?';
+                    alpParams.push(alp_source_name || `Unknown (${alp_hrms_id})`);
+                }
+
+                // Create adhoc slot for displaced original ALP
+                if (slot.alp_hrms_id) {
+                    await conn.query(`
+                        INSERT INTO div_daily_slate
+                        (office_code, slot_date, slot_time, shift_code, alp_hrms_id, alp_status, is_adhoc, booking_remarks)
+                        VALUES (?, ?, ?, ?, ?, 'AVAILABLE', 1, 'Displaced by OUT_OF_SLATE booking')
+                    `, [slot.office_code, slot.slot_date, slot.slot_time, slot.shift_code, slot.alp_hrms_id]);
+                    console.log(`[BOOKING] Created adhoc slot for displaced ALP ${slot.alp_hrms_id}`);
+                }
+            } else if (alp_source === 'OTHER_DEPOT') {
+                // ALP from another depot (not in our system) - don't set alp_hrms_id (foreign key constraint)
+                // Store info in alp_source_name and alp_source_depot only
+                alpUpdate = ', alp_hrms_id = NULL, alp_status = "BOOKED", alp_source = "OTHER_DEPOT", alp_source_name = ?, alp_source_depot = ?';
+                alpParams.push(alp_source_name || null, alp_source_depot || null);
+
+                // Create adhoc slot for displaced original ALP
+                if (slot.alp_hrms_id) {
+                    await conn.query(`
+                        INSERT INTO div_daily_slate
+                        (office_code, slot_date, slot_time, shift_code, alp_hrms_id, alp_status, is_adhoc, booking_remarks)
+                        VALUES (?, ?, ?, ?, ?, 'AVAILABLE', 1, 'Displaced by OTHER_DEPOT booking')
+                    `, [slot.office_code, slot.slot_date, slot.slot_time, slot.shift_code, slot.alp_hrms_id]);
+                    console.log(`[BOOKING] Created adhoc slot for displaced ALP ${slot.alp_hrms_id}`);
+                }
+            } else if (alp_hrms_id && alp_hrms_id !== slot.alp_hrms_id) {
+                // ALP from different slot on same slate - perform ALP swap
+                alpUpdate = ', alp_hrms_id = ?, alp_status = "BOOKED", alp_source = "SLATE", alp_cross_slot_time = ?';
+
+                // Get original slot info of the borrowed ALP
+                const [alpOriginalSlot] = await conn.query(`
+                    SELECT id, slot_time FROM div_daily_slate
+                    WHERE id = ? OR (alp_hrms_id = ? AND slot_date = ? AND id != ?)
+                    LIMIT 1
+                `, [alp_original_slot_id || 0, alp_hrms_id, slot.slot_date, slot_id]);
+
+                const originalTime = alpOriginalSlot.length > 0 ? alpOriginalSlot[0].slot_time : null;
+                const sourceSlotId = alpOriginalSlot.length > 0 ? alpOriginalSlot[0].id : alp_original_slot_id;
+                alpParams.push(alp_hrms_id, originalTime);
+
+                // Swap ALPs: Move displaced ALP (from this slot) to the source slot
+                if (sourceSlotId) {
+                    if (slot.alp_hrms_id) {
+                        // This slot had an ALP - move them to the source slot (swap)
+                        await conn.query(`
+                            UPDATE div_daily_slate
+                            SET alp_hrms_id = ?, alp_status = 'FORECAST',
+                                alp_source = NULL, alp_cross_slot_time = ?,
+                                last_modified = NOW()
+                            WHERE id = ?
+                        `, [slot.alp_hrms_id, slot.slot_time, sourceSlotId]);
+                    } else {
+                        // This slot had no ALP - clear the source slot's ALP
+                        await conn.query(`
+                            UPDATE div_daily_slate
+                            SET alp_hrms_id = NULL, alp_status = 'AVAILABLE',
+                                alp_source = NULL, alp_cross_slot_time = NULL,
+                                last_modified = NOW()
+                            WHERE id = ?
+                        `, [sourceSlotId]);
+                    }
+                }
+            } else if (slot.alp_hrms_id) {
+                // Same ALP, mark as booked (but preserve ONLINE status - staff still on duty)
+                if (slot.alp_status !== 'ONLINE') {
+                    alpUpdate = ', alp_status = "BOOKED"';
+                }
+            }
+        }
+
+        // Handle Extra ALP
+        let extraAlpUpdate = '';
+        let extraAlpParams = [];
+
+        if (extra_alp_hrms_id || extra_alp_source_name) {
+            extraAlpUpdate = ', extra_alp_hrms_id = ?, extra_alp_source = ?, extra_alp_source_name = ?, extra_alp_source_depot = ?, extra_alp_original_slot_id = ?';
+            extraAlpParams = [
+                extra_alp_hrms_id || null,
+                extra_alp_source || 'SLATE',
+                extra_alp_source_name || null,
+                extra_alp_source_depot || null,
+                extra_alp_original_slot_id || null
+            ];
+
+            // If extra ALP is from slate, remove them from their original slot
+            if (extra_alp_source === 'SLATE' && extra_alp_original_slot_id) {
+                await conn.query(`
+                    UPDATE div_daily_slate
+                    SET alp_hrms_id = NULL, alp_status = 'AVAILABLE',
+                        alp_source = NULL, alp_cross_slot_time = NULL,
+                        last_modified = NOW()
+                    WHERE id = ?
+                `, [extra_alp_original_slot_id]);
+            }
+        }
+
+        // Build main update query
+        const mainParams = [
+            train_no,
+            loco_no || null,
+            is_pilot || false,
+            booking_remarks || null,
+            ...alpParams,
+            ...extraAlpParams,
+            slot_id
+        ];
+
+        await conn.query(`
+            UPDATE div_daily_slate
+            SET train_no = ?, loco_no = ?, is_pilot = ?, booking_remarks = ?,
+                booked_at = NOW(), booked_by = 'Jr CC'
+                ${lpUpdate}
+                ${alpUpdate}
+                ${extraAlpUpdate}
+                , last_modified = NOW()
+            WHERE id = ?
+        `, mainParams);
+
+        await conn.commit();
+        conn.release();
+
+        res.json({
+            success: true,
+            message: 'Booking saved successfully'
+        });
+
+    } catch (error) {
+        console.error('Error processing booking:', error);
+        if (conn) {
+            try { await conn.rollback(); } catch (_) {}
+            conn.release();
+        }
+        res.status(500).json({ error: 'Database error', details: error.message });
+    }
+});
+
+// ----------------------------------------------------------------------------
+// GET /api/division/slate/available-alp
+// Get available ALPs for booking (from current slate, excludes booked > 1hr)
+// ----------------------------------------------------------------------------
+router.get('/available-alp', async (req, res) => {
+    let conn;
+    try {
+        const { office_code, date, exclude_slot_id } = req.query;
+        const userOffice = req.session.user?.div_office_code || office_code;
+        const targetDate = date || formatLocalDate(new Date());
+
+        if (!userOffice) {
+            return res.status(400).json({ error: 'Office code required' });
+        }
+
+        conn = await req.app.locals.pool.getConnection();
+
+        // Get ALPs from today's slate who are AVAILABLE or recently booked (< 1 hour)
+        const [alps] = await conn.query(`
+            SELECT
+                ds.id AS slot_id,
+                ds.slot_time,
+                ds.alp_hrms_id,
+                s.name AS alp_name,
+                s.current_cms_id AS alp_cms_id,
+                ds.alp_status,
+                ds.train_no,
+                ds.booked_at,
+                TIMESTAMPDIFF(MINUTE, ds.booked_at, NOW()) AS minutes_since_booked
+            FROM div_daily_slate ds
+            JOIN div_staff_master s ON ds.alp_hrms_id = s.hrms_id
+            WHERE ds.office_code = ?
+              AND ds.slot_date = ?
+              AND ds.alp_hrms_id IS NOT NULL
+              AND ds.id != ?
+              AND (
+                  ds.alp_status = 'AVAILABLE'
+                  OR ds.alp_status = 'FORECAST'
+                  OR (ds.alp_status = 'BOOKED' AND TIMESTAMPDIFF(MINUTE, ds.booked_at, NOW()) < 60)
+              )
+            ORDER BY ds.slot_time ASC
+        `, [userOffice, targetDate, exclude_slot_id || 0]);
+
+        conn.release();
+
+        res.json({
+            success: true,
+            date: targetDate,
+            count: alps.length,
+            data: alps
+        });
+
+    } catch (error) {
+        console.error('Error fetching available ALPs:', error);
+        if (conn) conn.release();
+        res.status(500).json({ error: 'Database error', details: error.message });
+    }
+});
+
+// ----------------------------------------------------------------------------
+// GET /api/division/slate/pending-safe
+// Get pending SAFE entries for Detail Book to process
+// ----------------------------------------------------------------------------
+router.get('/pending-safe', async (req, res) => {
+    let conn;
+    try {
+        const { office_code } = req.query;
+        const userOffice = req.session.user?.div_office_code || office_code;
+
+        if (!userOffice) {
+            return res.status(400).json({ error: 'Office code required' });
+        }
+
+        conn = await req.app.locals.pool.getConnection();
+
+        const [pending] = await conn.query(`
+            SELECT
+                d.id,
+                d.sign_on_time,
+                d.sign_off_time,
+                d.lp_hrms_id,
+                lp.name AS lp_name,
+                lp.current_cms_id AS lp_cms_id,
+                d.alp_hrms_id,
+                alp.name AS alp_name,
+                alp.current_cms_id AS alp_cms_id,
+                d.shift_date,
+                d.created_at
+            FROM div_detail_book_log d
+            LEFT JOIN div_staff_master lp ON d.lp_hrms_id = lp.hrms_id
+            LEFT JOIN div_staff_master alp ON d.alp_hrms_id = alp.hrms_id
+            WHERE d.office_code = ?
+              AND d.is_safe_pending = TRUE
+            ORDER BY d.created_at DESC
+        `, [userOffice]);
+
+        conn.release();
+
+        res.json({
+            success: true,
+            count: pending.length,
+            data: pending
+        });
+
+    } catch (error) {
+        console.error('Error fetching pending SAFE:', error);
+        if (conn) conn.release();
+        res.status(500).json({ error: 'Database error', details: error.message });
+    }
+});
+
+// ----------------------------------------------------------------------------
+// POST /api/division/slate/clear-safe-pending
+// Clear the pending flag after Detail Book processes it
+// ----------------------------------------------------------------------------
+router.post('/clear-safe-pending', async (req, res) => {
+    let conn;
+    try {
+        const { log_id } = req.body;
+
+        if (!log_id) {
+            return res.status(400).json({ error: 'Log ID required' });
+        }
+
+        conn = await req.app.locals.pool.getConnection();
+
+        await conn.query(`
+            UPDATE div_detail_book_log
+            SET is_safe_pending = FALSE
+            WHERE id = ?
+        `, [log_id]);
+
+        conn.release();
+
+        res.json({ success: true, message: 'SAFE pending cleared' });
+
+    } catch (error) {
+        console.error('Error clearing SAFE pending:', error);
         if (conn) conn.release();
         res.status(500).json({ error: 'Database error', details: error.message });
     }
