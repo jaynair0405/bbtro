@@ -93,6 +93,7 @@ router.get('/due-report', requireAuth, async (req, res) => {
                 tr.done_date,
                 tr.due_date,
                 tr.status,
+                tr.general_remarks,
                 tc.center_name,
                 DATEDIFF(tr.due_date, CURDATE()) as days_remaining
             FROM div_training_records tr
@@ -318,6 +319,53 @@ router.get('/matrix', requireAuth, async (req, res) => {
 
     } catch (error) {
         console.error('Error fetching training matrix:', error);
+        res.status(500).json({ error: 'Database error', details: error.message });
+    }
+});
+
+// PUT /api/division/training/update-status - Update justification status for overdue training
+router.put('/update-status', requireAuth, async (req, res) => {
+    let conn;
+    try {
+        const { record_id, status, general_remarks } = req.body;
+
+        if (!record_id) {
+            return res.status(400).json({ error: 'Missing record_id' });
+        }
+
+        if (!status) {
+            return res.status(400).json({ error: 'Missing status' });
+        }
+
+        // Valid status values
+        const validStatuses = ['Completed', 'Under Training', 'Under PME', 'Long Leave', 'Long Absent', 'Long Sick', 'Deputation', 'Other'];
+        if (!validStatuses.includes(status)) {
+            return res.status(400).json({ error: 'Invalid status value' });
+        }
+
+        conn = await req.app.locals.pool.getConnection();
+
+        const [result] = await conn.query(
+            `UPDATE div_training_records
+             SET status = ?, general_remarks = ?
+             WHERE record_id = ?`,
+            [status, general_remarks || null, record_id]
+        );
+
+        conn.release();
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ error: 'Training record not found' });
+        }
+
+        res.json({
+            success: true,
+            message: 'Justification status updated successfully'
+        });
+
+    } catch (error) {
+        console.error('Error updating justification status:', error);
+        if (conn) conn.release();
         res.status(500).json({ error: 'Database error', details: error.message });
     }
 });

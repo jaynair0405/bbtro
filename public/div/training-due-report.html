@@ -607,6 +607,111 @@
             background: #f3f4f6 !important;
         }
 
+        /* Overdue Justification Styles */
+        .justification-text {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 500;
+            max-width: 150px;
+            word-wrap: break-word;
+        }
+
+        .justification-text.status-under-training,
+        .justification-text.status-under-pme {
+            background: #dbeafe;
+            color: #1d4ed8;
+        }
+
+        .justification-text.status-long-leave,
+        .justification-text.status-deputation {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .justification-text.status-long-absent {
+            background: #fee2e2;
+            color: #b91c1c;
+        }
+
+        .justification-text.status-long-sick {
+            background: #fce7f3;
+            color: #be185d;
+        }
+
+        .justification-text.status-other {
+            background: #f3f4f6;
+            color: #374151;
+        }
+
+        .edit-justification-btn {
+            padding: 6px 10px;
+            border-radius: 8px;
+            border: 1px solid #d1d5db;
+            background: white;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.15s ease;
+        }
+
+        .edit-justification-btn:hover {
+            background: #f3f4f6;
+            border-color: #9ca3af;
+        }
+
+        .justification-action {
+            text-align: center;
+        }
+
+        /* Justification Modal */
+        #justificationModal .modal-body {
+            padding: 24px 28px;
+        }
+
+        .justification-form-group {
+            margin-bottom: 20px;
+        }
+
+        .justification-form-group label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 8px;
+        }
+
+        .justification-form-group select,
+        .justification-form-group textarea {
+            width: 100%;
+            padding: 12px 14px;
+            border-radius: 10px;
+            border: 1px solid #d1d5db;
+            font-size: 14px;
+            background: #f9fafb;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        .justification-form-group select:focus,
+        .justification-form-group textarea:focus {
+            outline: none;
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+            background: white;
+        }
+
+        .justification-form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        /* Hide action column in print */
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+        }
+
         /* Print Options Modal */
         .print-options-group {
             margin-bottom: 24px;
@@ -864,6 +969,40 @@
         </div>
     </div>
 
+    <!-- Justification Modal -->
+    <div class="modal-overlay" id="justificationModal" onclick="closeJustificationModal(event)">
+        <div class="modal-content" style="max-width: 500px;" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h2>📝 Add/Edit Reason</h2>
+                <button class="modal-close" onclick="closeJustificationModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="justification-form-group">
+                    <label for="justificationStatus">Reason Type</label>
+                    <select id="justificationStatus" onchange="toggleReasonInput()">
+                        <option value="">-- Select --</option>
+                        <option value="Under Training">Under Training</option>
+                        <option value="Under PME">Under PME</option>
+                        <option value="Long Leave">Long Leave</option>
+                        <option value="Long Absent">Long Absent</option>
+                        <option value="Long Sick">Long Sick</option>
+                        <option value="Deputation">Deputation</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                <div class="justification-form-group" id="reasonInputGroup" style="display: none;">
+                    <label for="justificationReason">Specify Reason</label>
+                    <textarea id="justificationReason" placeholder="Enter the reason..."></textarea>
+                </div>
+                <input type="hidden" id="justificationRecordId">
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeJustificationModal()">Cancel</button>
+                <button class="btn-primary" onclick="saveJustificationFromModal()">💾 Save</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Print Options Modal -->
     <div class="modal-overlay" id="printModal" onclick="closePrintModal(event)">
         <div class="modal-content" onclick="event.stopPropagation()">
@@ -926,8 +1065,8 @@
         const dayInMs = 24 * 60 * 60 * 1000;
         const today = new Date();
         const todayStr = today.toISOString().split('T')[0];
-        const endOfYear = new Date(today.getFullYear(), 11, 31);
-        const endOfYearStr = endOfYear.toISOString().split('T')[0];
+        const default90Days = new Date(today.getTime() + (90 * dayInMs));
+        const default90DaysStr = default90Days.toISOString().split('T')[0];
 
         let trainingTypes = [];
         let offices = [];
@@ -936,7 +1075,7 @@
         let currentRole = 'admin';
         let activeRangeDays = null;
         let appliedFromDate = todayStr;
-        let appliedToDate = endOfYearStr;
+        let appliedToDate = default90DaysStr;
 
         document.addEventListener('DOMContentLoaded', async () => {
             const fromDateInput = document.getElementById('fromDate');
@@ -969,9 +1108,9 @@
                 // Reset to defaults when page becomes visible again
                 if (fromDateInput && toDateInput) {
                     fromDateInput.value = todayStr;
-                    toDateInput.value = endOfYearStr;
+                    toDateInput.value = default90DaysStr;
                     appliedFromDate = todayStr;
-                    appliedToDate = endOfYearStr;
+                    appliedToDate = default90DaysStr;
                     activeRangeDays = null;
                     document.querySelectorAll('.range-chip').forEach(chip => chip.classList.remove('active'));
                     fetchAndRenderData();
@@ -1407,7 +1546,7 @@
 
             subtitle.textContent = `${totalRecords} staff members shown (${overdueData.length} overdue, ${inRangeData.length} in range)`;
 
-            // Helper function to generate table rows
+            // Helper function to generate table rows for in-range data
             const generateRows = (dataset, sectionType) => {
                 return dataset.map(item => {
                     const safeName = (item.name || '').replace(/'/g, "\\'");
@@ -1430,6 +1569,55 @@
                             <span class="badge ${item.proximity.className}">
                                 ${item.proximity.label}
                             </span>
+                        </td>
+                    </tr>
+                `}).join('');
+            };
+
+            // Helper function to generate overdue table rows with justification
+            const generateOverdueRows = (dataset, showTraining) => {
+                return dataset.map(item => {
+                    const safeName = (item.name || '').replace(/'/g, "\\'");
+                    const safeDesig = (item.designation_name || item.designation || '').replace(/'/g, "\\'");
+                    const safeOffice = (item.office_name || '').replace(/'/g, "\\'");
+                    const currentStatus = item.status || '';
+                    const currentRemarks = item.general_remarks || '';
+
+                    // Display text: If "Other", show the remarks; otherwise show the status
+                    let displayText = '';
+                    if (currentStatus === 'Other' && currentRemarks) {
+                        displayText = currentRemarks;
+                    } else if (currentStatus && currentStatus !== 'Completed') {
+                        displayText = currentStatus;
+                    }
+
+                    const statusClass = getStatusClass(currentStatus);
+
+                    return `
+                    <tr>
+                        <td onclick="openHistoryModal('${item.hrms_id}', '${safeName}', '${safeDesig}', '${safeOffice}')" style="cursor: pointer;">
+                            <div style="font-weight: 600; color: #111827;">${item.name || '-'}</div>
+                            <div style="font-size: 12px; color: #6b7280;">HRMS ${item.hrms_id}</div>
+                        </td>
+                        <td>${item.designation_name || item.designation || '-'}</td>
+                        ${showTraining ? `<td><span style="font-size: 13px; color: #6366f1; font-weight: 500;">${item.training_name || '-'}</span></td>` : ''}
+                        <td>
+                            <span class="office-highlight">${item.office_name || '-'}</span>
+                        </td>
+                        <td>${formatDate(item.done_date)}</td>
+                        <td>${formatDate(item.due_date)}</td>
+                        <td>
+                            <span class="badge ${item.proximity.className}">
+                                ${item.proximity.label}
+                            </span>
+                        </td>
+                        <td class="justification-display ${statusClass ? 'has-status' : ''}">
+                            <span class="justification-text ${statusClass}">${displayText || '-'}</span>
+                        </td>
+                        <td class="justification-action no-print" onclick="event.stopPropagation()">
+                            <button class="edit-justification-btn" onclick="openJustificationModal(${item.record_id}, '${currentStatus}', '${currentRemarks.replace(/'/g, "\\'")}')">
+                                ${displayText ? '✏️' : '➕'}
+                            </button>
                         </td>
                     </tr>
                 `}).join('');
@@ -1462,10 +1650,12 @@
                                     <th>Last Done</th>
                                     <th>Due Date</th>
                                     <th>Proximity</th>
+                                    <th>Reason</th>
+                                    <th class="no-print">Action</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                ${generateRows(overdueData, 'overdue')}
+                                ${generateOverdueRows(overdueData, showTrainingColumn)}
                             </tbody>
                         </table>
                     </div>
@@ -1675,6 +1865,7 @@
             if (e.key === 'Escape') {
                 closeHistoryModal();
                 closePrintModal();
+                closeJustificationModal();
             }
         });
 
@@ -1946,6 +2137,115 @@
                 const loading = document.getElementById('pdf-loading');
                 if (loading) loading.remove();
                 window.scrollTo(0, previousScrollY);
+            }
+        }
+        // Get CSS class for justification status
+        function getStatusClass(status) {
+            if (!status) return '';
+            const statusMap = {
+                'Under Training': 'status-under-training',
+                'Under PME': 'status-under-pme',
+                'Long Leave': 'status-long-leave',
+                'Long Absent': 'status-long-absent',
+                'Long Sick': 'status-long-sick',
+                'Deputation': 'status-deputation',
+                'Other': 'status-other'
+            };
+            return statusMap[status] || '';
+        }
+
+        // Open justification modal
+        function openJustificationModal(recordId, currentStatus, currentRemarks) {
+            const modal = document.getElementById('justificationModal');
+            const statusSelect = document.getElementById('justificationStatus');
+            const reasonInput = document.getElementById('justificationReason');
+            const reasonGroup = document.getElementById('reasonInputGroup');
+            const recordIdInput = document.getElementById('justificationRecordId');
+
+            // Set values
+            recordIdInput.value = recordId;
+            statusSelect.value = currentStatus || '';
+            reasonInput.value = currentRemarks || '';
+
+            // Show/hide reason input
+            if (currentStatus === 'Other') {
+                reasonGroup.style.display = 'block';
+            } else {
+                reasonGroup.style.display = 'none';
+            }
+
+            modal.classList.add('active');
+        }
+
+        // Close justification modal
+        function closeJustificationModal(event) {
+            if (event && event.target.closest('.modal-content') && !event.target.classList.contains('modal-close')) {
+                return;
+            }
+            const modal = document.getElementById('justificationModal');
+            modal.classList.remove('active');
+        }
+
+        // Toggle reason input visibility
+        function toggleReasonInput() {
+            const statusSelect = document.getElementById('justificationStatus');
+            const reasonGroup = document.getElementById('reasonInputGroup');
+
+            if (statusSelect.value === 'Other') {
+                reasonGroup.style.display = 'block';
+            } else {
+                reasonGroup.style.display = 'none';
+            }
+        }
+
+        // Save justification from modal
+        async function saveJustificationFromModal() {
+            const recordId = document.getElementById('justificationRecordId').value;
+            const status = document.getElementById('justificationStatus').value;
+            const reason = document.getElementById('justificationReason').value.trim();
+
+            if (!status) {
+                alert('Please select a reason type');
+                return;
+            }
+
+            if (status === 'Other' && !reason) {
+                alert('Please enter a reason');
+                document.getElementById('justificationReason').focus();
+                return;
+            }
+
+            const saveBtn = document.querySelector('#justificationModal .btn-primary');
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Saving...';
+
+            try {
+                const response = await fetch('/api/division/training/update-status', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({
+                        record_id: recordId,
+                        status: status,
+                        general_remarks: status === 'Other' ? reason : ''
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    closeJustificationModal();
+                    // Refresh data to show updated value
+                    fetchAndRenderData();
+                } else {
+                    throw new Error(result.error || 'Failed to save');
+                }
+            } catch (error) {
+                console.error('Error saving justification:', error);
+                alert('Failed to save: ' + error.message);
+            } finally {
+                saveBtn.disabled = false;
+                saveBtn.textContent = '💾 Save';
             }
         }
     </script>
