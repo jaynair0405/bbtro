@@ -68,7 +68,8 @@ router.get('/due-report', requireAuth, async (req, res) => {
             training_id,
             office_code,
             from_date,
-            to_date
+            to_date,
+            include_drafted
         } = req.query;
 
         const userOffice = req.session.user.div_office_code;
@@ -109,7 +110,7 @@ router.get('/due-report', requireAuth, async (req, res) => {
             ) latest ON tr.staff_hrms_id = latest.staff_hrms_id
                     AND tr.training_id = latest.training_id
                     AND tr.done_date = latest.max_done_date
-            WHERE s.status = 'Active'
+            WHERE s.status IN (${include_drafted === 'true' ? "'Active', 'Drafted/Ex-Cadre'" : "'Active'"})
         `;
 
         // Build common filter conditions

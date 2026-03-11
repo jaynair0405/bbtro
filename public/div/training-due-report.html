@@ -855,7 +855,13 @@
 
         <div class="filters-card">
             <div style="display: flex; justify-content: space-between; align-items: center;">
-                <div style="font-size: 14px; font-weight: 600; color: #374151;">Filters</div>
+                <div style="display: flex; align-items: center; gap: 20px;">
+                    <div style="font-size: 14px; font-weight: 600; color: #374151;">Filters</div>
+                    <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: #4b5563; cursor: pointer;">
+                        <input type="checkbox" id="includeDrafted" style="width: 16px; height: 16px; cursor: pointer;">
+                        Include Drafted/Ex-Cadre
+                    </label>
+                </div>
                 <div class="role-toggle" title="Role preview (front-end only)">
                     <button id="viewAdmin" class="active" onclick="switchRole('admin')">Division Admin</button>
                     <button id="viewOffice" onclick="switchRole('office')">Office HR</button>
@@ -1171,6 +1177,7 @@
 
             document.getElementById('trainingSelect').addEventListener('change', () => fetchAndRenderData());
             document.getElementById('officeSelect').addEventListener('change', () => fetchAndRenderData());
+            document.getElementById('includeDrafted').addEventListener('change', () => fetchAndRenderData());
 
             fromDateInput.addEventListener('change', () => {
                 clearQuickRange(false);
@@ -1274,6 +1281,9 @@
                 if (officeCode) params.append('office_code', officeCode);
                 if (fromDate) params.append('from_date', fromDate);
                 if (toDate) params.append('to_date', toDate);
+
+                const includeDrafted = document.getElementById('includeDrafted').checked;
+                if (includeDrafted) params.append('include_drafted', 'true');
 
                 // Fetch data
                 const response = await fetch(`/api/division/training/due-report?${params.toString()}`, {
