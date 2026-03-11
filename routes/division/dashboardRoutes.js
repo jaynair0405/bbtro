@@ -60,6 +60,7 @@ const STAFF_STATUS_OPTIONS = new Set([
     'Active',
     'Transferred',
     'Retired',
+    'Resigned',
     'Suspended',
     'Promoted to CLI',
     'Medically Decategorised',
@@ -182,7 +183,7 @@ router.get('/staff', async (req, res) => {
             FROM div_staff_master s
             JOIN offices o ON s.current_office_code = o.office_code
             JOIN designations d ON s.designation_id = d.id
-            WHERE s.status = 'Active'
+            WHERE s.status IN ('Active', 'Drafted/Ex-Cadre', 'Suspended')
         `;
 
         const params = [];
@@ -287,7 +288,10 @@ router.put('/staff/:hrms_id', async (req, res) => {
             aadhar_card_no,
             pan_card_no,
             date_of_appointment,
-            safety_category
+            safety_category,
+            retirement_date,
+            retirement_type,
+            remarks
         } = req.body;
         const staffStatus = (status && status.trim()) || 'Active';
         if (!STAFF_STATUS_OPTIONS.has(staffStatus)) {
@@ -308,6 +312,9 @@ router.put('/staff/:hrms_id', async (req, res) => {
                  present_address = ?, permanent_address = ?, dept_rrb = ?,
                  id_card_no = ?, pf_number = ?, aadhar_card_no = ?, pan_card_no = ?,
                  reporting_date = ?, date_of_appointment = ?, safety_category = ?, status = ?,
+                 retirement_date = COALESCE(?, retirement_date),
+                 retirement_type = COALESCE(?, retirement_type),
+                 remarks = COALESCE(?, remarks),
                  updated_at = NOW()
              WHERE hrms_id = ?`,
             [
@@ -337,6 +344,9 @@ router.put('/staff/:hrms_id', async (req, res) => {
                 toNullIfEmpty(date_of_appointment),
                 toNullIfEmpty(safety_category),  // ENUM
                 staffStatus,
+                toNullIfEmpty(retirement_date),
+                toNullIfEmpty(retirement_type),
+                toNullIfEmpty(remarks),
                 hrms_id
             ]
         );

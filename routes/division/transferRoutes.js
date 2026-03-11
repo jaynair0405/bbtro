@@ -90,7 +90,75 @@ router.post('/transfer-request', requireAuth, async (req, res) => {
             });
         }
 
-        // Insert transfer request
+        const effectiveDate = request_date || new Date().toISOString().split('T')[0];
+        const category = transfer_category || 'Permanent Transfer';
+
+        // Handle Inter Railway - Auto-approve (no receiving office to accept)
+        if (category === 'Inter Railway') {
+            await conn.beginTransaction();
+            try {
+                // Insert transfer request as Approved
+                const [result] = await conn.query(
+                    `INSERT INTO div_transfer_requests
+                     (staff_hrms_id, from_office_code, to_office_code, transfer_category, current_cms_id,
+                      request_date, requested_by, remarks, status, reviewed_by, review_date, created_at)
+                     VALUES (?, ?, 'OTHER', ?, ?, ?, ?, ?, 'Approved', ?, CURDATE(), NOW())`,
+                    [
+                        staff_hrms_id,
+                        from_office_code,
+                        category,
+                        current_cms_id,
+                        effectiveDate,
+                        req.session.user.username,
+                        remarks,
+                        req.session.user.username
+                    ]
+                );
+
+                // Insert into transfer history
+                await conn.query(
+                    `INSERT INTO div_transfer_history
+                     (staff_hrms_id, from_office_code, to_office_code, transfer_category, from_cms_id, to_cms_id,
+                      transfer_date, transfer_order_no, transfer_reason,
+                      initiated_by, approved_by, status, remarks, created_at)
+                     VALUES (?, ?, 'OTHER', ?, ?, ?, CURDATE(), '', ?, ?, ?, 'Completed', ?, NOW())`,
+                    [
+                        staff_hrms_id,
+                        from_office_code,
+                        category,
+                        current_cms_id,
+                        current_cms_id,
+                        remarks,
+                        req.session.user.username,
+                        req.session.user.username,
+                        remarks || ''
+                    ]
+                );
+
+                // Update staff: Set office to OTHER, status to Transferred
+                await conn.query(
+                    `UPDATE div_staff_master
+                     SET current_office_code = 'OTHER', hq_station = NULL, status = 'Transferred'
+                     WHERE hrms_id = ?`,
+                    [staff_hrms_id]
+                );
+
+                await conn.commit();
+                conn.release();
+
+                return res.json({
+                    success: true,
+                    message: 'Inter Railway transfer completed successfully. Staff marked as Transferred.',
+                    request_id: result.insertId,
+                    auto_approved: true
+                });
+            } catch (error) {
+                await conn.rollback();
+                throw error;
+            }
+        }
+
+        // For other transfer types - create pending request
         const [result] = await conn.query(
             `INSERT INTO div_transfer_requests
              (staff_hrms_id, from_office_code, to_office_code, transfer_category, current_cms_id,
@@ -100,9 +168,9 @@ router.post('/transfer-request', requireAuth, async (req, res) => {
                 staff_hrms_id,
                 from_office_code,
                 to_office_code,
-                transfer_category || 'Permanent Transfer',
+                category,
                 current_cms_id,
-                request_date || new Date().toISOString().split('T')[0],
+                effectiveDate,
                 req.session.user.username,
                 remarks
             ]
