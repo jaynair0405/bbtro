@@ -900,6 +900,7 @@
         staff_hrms_id: state.selectedStaff.hrms_id,
         staff_name: state.selectedStaff.name,
         pf_no: state.selectedStaff.current_cms_id,
+        pf_number: state.selectedStaff.pf_number || null,
         designation_name: state.selectedStaff.designation_name,
         depot: state.selectedStaff.current_office_code,
         cli_name: state.selectedStaff.cli_name || null,
@@ -1055,6 +1056,7 @@
           staff_hrms_id: c.staff_hrms_id,
           staff_name: c.staff_name,
           pf_no: c.current_cms_id,
+          pf_number: c.pf_number || null,
           designation_name: c.designation_name,
           depot: c.depot,
           cli_name: c.cli_name,
@@ -1107,7 +1109,7 @@
         changeRowsEl.innerHTML = state.changes.map((row, idx) => `
           <tr>
             <td>${idx + 1}</td>
-            <td>${row.staff_name}</td>
+            <td>${row.staff_name}${row.pf_number ? `<br><span style="font-size:0.8em;color:#64748b;">PF: ${row.pf_number}</span>` : ''}</td>
             <td><code>${row.pf_no || '-'}</code></td>
             <td>${shortDesignation(row.designation_name)}</td>
             <td>${row.depot || '-'}</td>
@@ -1144,7 +1146,7 @@
       previewTableEl.innerHTML = state.changes.map((row, idx) => `
         <tr>
           <td>${idx + 1}</td>
-          <td>${row.staff_name}</td>
+          <td>${row.staff_name}${row.pf_number ? `<br><span style="font-size:0.75em;color:#64748b;">PF: ${row.pf_number}</span>` : ''}</td>
           <td>${row.pf_no || '-'}</td>
           <td>${shortDesignation(row.designation_name)}</td>
           <td>${row.depot || '-'}</td>
@@ -1277,7 +1279,7 @@
       const tableRows = state.changes.map((row, idx) => `
         <tr>
           <td style="text-align:center;">${idx + 1}</td>
-          <td>${row.staff_name}</td>
+          <td>${row.staff_name}${row.pf_number ? `<br><span style="font-size:0.8em;color:#666;">PF: ${row.pf_number}</span>` : ''}</td>
           <td>${row.pf_no || '-'}</td>
           <td>${shortDesignation(row.designation_name)}</td>
           <td>${row.depot || '-'}</td>

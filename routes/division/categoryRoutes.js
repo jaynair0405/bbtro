@@ -242,6 +242,7 @@ router.get('/letters/:id', requireDivisionAdmin, async (req, res) => {
                 h.staff_hrms_id,
                 s.name as staff_name,
                 s.current_cms_id,
+                s.pf_number,
                 s.current_office_code as depot,
                 d.designation_name,
                 h.old_category,
