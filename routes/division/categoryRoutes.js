@@ -48,7 +48,7 @@ router.get('/stats', requireDivisionAdmin, async (req, res) => {
             FROM div_staff_master s
             JOIN designations d ON s.designation_id = d.id
             WHERE s.status = 'Active'
-              AND s.designation_id NOT IN (1, 2)
+              AND s.designation_id NOT IN (1, 2, 3, 4)
               ${officeFilter}
             GROUP BY d.id, d.designation_name
             ORDER BY d.id
@@ -92,7 +92,7 @@ router.get('/staff-by-category', requireDivisionAdmin, async (req, res) => {
             LEFT JOIN div_cli_nominations n ON s.hrms_id = n.staff_hrms_id AND n.status = 'Active'
             LEFT JOIN div_cli_master c ON n.cli_id = c.cli_id
             WHERE s.status = 'Active'
-              AND s.designation_id NOT IN (1, 2)
+              AND s.designation_id NOT IN (1, 2, 3, 4)
               ${officeFilter}
         `;
         const params = [];
@@ -160,7 +160,7 @@ router.get('/search-staff', requireDivisionAdmin, async (req, res) => {
             LEFT JOIN div_cli_nominations n ON s.hrms_id = n.staff_hrms_id AND n.status = 'Active'
             LEFT JOIN div_cli_master c ON n.cli_id = c.cli_id
             WHERE s.status = 'Active'
-              AND s.designation_id NOT IN (1, 2)
+              AND s.designation_id NOT IN (1, 2, 3, 4)
               AND (s.name LIKE ? OR s.current_cms_id LIKE ? OR s.hrms_id LIKE ? OR s.pf_number LIKE ?)
               ${officeFilter}
             ORDER BY s.name
@@ -519,7 +519,7 @@ router.get('/all-staff', requireDivisionAdmin, async (req, res) => {
             LEFT JOIN div_cli_nominations n ON s.hrms_id = n.staff_hrms_id AND n.status = 'Active'
             LEFT JOIN div_cli_master c ON n.cli_id = c.cli_id
             WHERE s.status = 'Active'
-              AND s.designation_id NOT IN (1, 2)
+              AND s.designation_id NOT IN (1, 2, 3, 4)
               ${officeFilter}
               ${whereClause}
             ORDER BY d.id, s.safety_category, s.name
@@ -554,7 +554,7 @@ router.get('/filter-options', requireDivisionAdmin, async (req, res) => {
             SELECT DISTINCT s.current_office_code as depot
             FROM div_staff_master s
             WHERE s.status = 'Active'
-              AND s.designation_id NOT IN (1, 2)
+              AND s.designation_id NOT IN (1, 2, 3, 4)
               AND s.current_office_code IS NOT NULL
               ${officeFilter}
             ORDER BY s.current_office_code
@@ -566,7 +566,7 @@ router.get('/filter-options', requireDivisionAdmin, async (req, res) => {
             FROM div_staff_master s
             JOIN designations d ON s.designation_id = d.id
             WHERE s.status = 'Active'
-              AND s.designation_id NOT IN (1, 2)
+              AND s.designation_id NOT IN (1, 2, 3, 4)
               ${officeFilter}
             ORDER BY d.id
         `);
@@ -579,7 +579,7 @@ router.get('/filter-options', requireDivisionAdmin, async (req, res) => {
             JOIN div_staff_master s ON n.staff_hrms_id = s.hrms_id
             WHERE n.status = 'Active'
               AND s.status = 'Active'
-              AND s.designation_id NOT IN (1, 2)
+              AND s.designation_id NOT IN (1, 2, 3, 4)
               ${officeFilter}
             ORDER BY c.cli_name
         `);

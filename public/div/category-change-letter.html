@@ -832,7 +832,7 @@
         const staff = data.data || [];
 
         if (staff.length === 0) {
-          searchResults.innerHTML = '<div class="search-result-item"><span class="staff-detail">No staff found (ALP/Sr.ALP excluded)</span></div>';
+          searchResults.innerHTML = '<div class="search-result-item"><span class="staff-detail">No staff found (ALP/LPS excluded)</span></div>';
         } else {
           searchResults.innerHTML = staff.map(s => `
             <div class="search-result-item" data-staff='${JSON.stringify(s).replace(/'/g, "&#39;")}'>

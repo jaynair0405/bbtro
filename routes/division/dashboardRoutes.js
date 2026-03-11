@@ -536,8 +536,8 @@ router.get('/dashboard-stats', async (req, res) => {
 
         conn = await req.app.locals.pool.getConnection();
 
-        // Total staff count for the office
-        let staffQuery = 'SELECT COUNT(*) as total_staff FROM div_staff_master s WHERE s.status = "Active"';
+        // Total staff count for the office (Active + Drafted/Ex-Cadre)
+        let staffQuery = 'SELECT COUNT(*) as total_staff FROM div_staff_master s WHERE s.status IN ("Active", "Drafted/Ex-Cadre")';
         const staffParams = [];
 
         if (userRole !== 'division_admin') {
@@ -552,46 +552,92 @@ router.get('/dashboard-stats', async (req, res) => {
 
         const [staffResult] = await conn.query(staffQuery, staffParams);
 
-        // PME pending - Get staff with PME due in current month (October 2025)
+        // PME Overdue - Get staff whose LATEST PME due date has passed
         // PME training_id = 1
-        // Shows PME due from start of current month to end of current month
-        let pmeQuery = `
-            SELECT COUNT(DISTINCT tr.staff_hrms_id) as pending_pme
-            FROM div_training_records tr
-            JOIN div_staff_master s ON tr.staff_hrms_id = s.hrms_id
-            WHERE tr.training_id = 1
-            AND tr.due_date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
-            AND tr.due_date <= LAST_DAY(CURDATE())
-            AND s.status = 'Active'
-        `;
+        // Only considers the most recent PME record per staff
         const pmeParams = [];
+        let pmeOfficeFilter = '';
 
-        if (office_code) {
+        // Build office filter for PME
+        if (userRole !== 'division_admin') {
+            const filter = buildOfficeFilter(userOffice, 's');
+            pmeOfficeFilter = ' AND ' + filter.condition;
+            pmeParams.push(...filter.params);
+        } else if (office_code && office_code !== 'ALL') {
             const filter = buildOfficeFilter(office_code, 's');
-            pmeQuery += ' AND ' + filter.condition;
+            pmeOfficeFilter = ' AND ' + filter.condition;
             pmeParams.push(...filter.params);
         }
+
+        let pmeQuery = `
+            SELECT COUNT(*) as pending_pme
+            FROM (
+                SELECT tr.staff_hrms_id, MAX(tr.due_date) as latest_due_date
+                FROM div_training_records tr
+                JOIN div_staff_master s ON tr.staff_hrms_id = s.hrms_id
+                WHERE tr.training_id = 1
+                AND s.status = 'Active'
+                ${pmeOfficeFilter}
+                GROUP BY tr.staff_hrms_id
+                HAVING MAX(tr.due_date) < CURDATE()
+            ) overdue
+        `;
 
         const [pmeResult] = await conn.query(pmeQuery, pmeParams);
         const pendingPME = pmeResult[0].pending_pme;
 
-        // Leave applications - placeholder (table doesn't exist yet)
-        // TODO: Create div_leave_applications table
-        const leaveApplications = 0;
+        // Leave applications - count pending/forwarded leaves awaiting approval
+        // Note: 'Applied' is legacy status, 'Pending'/'Forwarded' are newer statuses
+        let leaveQuery = `
+            SELECT COUNT(*) as pending_leaves
+            FROM div_leave_tracking lt
+            WHERE lt.status IN ('Pending', 'Forwarded', 'Applied')
+        `;
+        const leaveParams = [];
 
-        // Attendance rate - placeholder (calculation logic to be added)
-        // TODO: Implement attendance tracking
-        const attendanceRate = 97.5;
+        // Apply office filter
+        if (userRole !== 'division_admin') {
+            leaveQuery += ' AND lt.office_code = ?';
+            leaveParams.push(userOffice);
+        } else if (office_code && office_code !== 'ALL') {
+            leaveQuery += ' AND lt.office_code = ?';
+            leaveParams.push(office_code);
+        }
+
+        const [leaveResult] = await conn.query(leaveQuery, leaveParams);
+        const leaveApplications = leaveResult[0].pending_leaves;
+
+        // Sanction Strength vs Actual - calculate vacancies
+        let sanctionQuery = `
+            SELECT COALESCE(SUM(sanction_strength), 0) as total_sanction
+            FROM div_sanction_strength_master
+        `;
+        const sanctionParams = [];
+
+        // Apply office filter for sanction strength
+        if (userRole !== 'division_admin') {
+            sanctionQuery += ' WHERE office_code = ?';
+            sanctionParams.push(userOffice);
+        } else if (office_code && office_code !== 'ALL') {
+            sanctionQuery += ' WHERE office_code = ?';
+            sanctionParams.push(office_code);
+        }
+
+        const [sanctionResult] = await conn.query(sanctionQuery, sanctionParams);
+        const sanctionStrength = sanctionResult[0].total_sanction;
+        const actualStrength = staffResult[0].total_staff;
+        const vacantPositions = sanctionStrength - actualStrength;
 
         conn.release();
 
         res.json({
             success: true,
             data: {
-                totalStaff: staffResult[0].total_staff,
+                totalStaff: actualStrength,
                 pendingPME: pendingPME,
                 leaveApplications: leaveApplications,
-                attendanceRate: attendanceRate
+                sanctionStrength: sanctionStrength,
+                vacantPositions: vacantPositions
             }
         });
 

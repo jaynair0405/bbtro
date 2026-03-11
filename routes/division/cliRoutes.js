@@ -430,6 +430,7 @@ router.get('/letters/:id', requireDivisionAdmin, async (req, res) => {
                 s.name as staff_name,
                 COALESCE(NULLIF(s.cug_number, ''), s.phone_number) as mobile,
                 s.current_cms_id as pf_no,
+                s.designation_id,
                 d.designation_name,
                 s.current_office_code as depot,
                 s.safety_category as category,

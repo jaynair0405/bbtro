@@ -77,6 +77,8 @@ router.get('/due-report', requireAuth, async (req, res) => {
         conn = await req.app.locals.pool.getConnection();
 
         // Base query for selecting latest records with common filters
+        // Uses MAX(done_date) to find latest record per staff+training (not MAX(record_id)
+        // as record_ids may not be sequential for migrated data)
         const baseQuery = `
             SELECT
                 s.hrms_id,
@@ -99,12 +101,14 @@ router.get('/due-report', requireAuth, async (req, res) => {
             LEFT JOIN designations d ON s.designation_id = d.id
             LEFT JOIN offices o ON s.current_office_code = o.office_code
             LEFT JOIN div_training_centers tc ON tr.training_center_id = tc.center_id
-            WHERE s.status = 'Active'
-            AND tr.record_id IN (
-                SELECT MAX(record_id)
+            JOIN (
+                SELECT staff_hrms_id, training_id, MAX(done_date) as max_done_date
                 FROM div_training_records
                 GROUP BY staff_hrms_id, training_id
-            )
+            ) latest ON tr.staff_hrms_id = latest.staff_hrms_id
+                    AND tr.training_id = latest.training_id
+                    AND tr.done_date = latest.max_done_date
+            WHERE s.status = 'Active'
         `;
 
         // Build common filter conditions
@@ -201,7 +205,8 @@ router.get('/matrix', requireAuth, async (req, res) => {
             'HSTAT': 19,
             'DSLAC_SIM': 14,
             'WDG4G_6G': 15,
-            'PSYCHO': 20
+            'PSYCHO': 20,
+            'TW_TRG': 13
         };
 
         const conn = await req.app.locals.pool.getConnection();

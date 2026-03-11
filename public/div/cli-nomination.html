@@ -779,6 +779,15 @@
       return state.staffType === 'SUBURBAN' ? 'BB.TRSO.EMU.15' : 'BB.TRSO.ESTB.15';
     }
 
+    // Helper to display category - returns '--' for designation IDs 1,2,3,4
+    function displayCategory(row) {
+      const skipCategoryDesignations = [1, 2, 3, 4];
+      if (row.designation_id && skipCategoryDesignations.includes(row.designation_id)) {
+        return '--';
+      }
+      return row.category || '—';
+    }
+
     // Designation short forms for PDF/tables
     function shortDesignation(designation) {
       if (!designation) return '—';
@@ -906,9 +915,12 @@
         searchResults.classList.remove('show');
         btnAdd.disabled = false;
 
-        // Pre-select category if available
-        if (state.selectedStaff.safety_category) {
+        // Pre-select category if available (not for designation IDs 1,2,3,4)
+        const skipCategoryDesignations = [1, 2, 3, 4];
+        if (state.selectedStaff.safety_category && !skipCategoryDesignations.includes(state.selectedStaff.designation_id)) {
           catSelect.value = state.selectedStaff.safety_category;
+        } else if (skipCategoryDesignations.includes(state.selectedStaff.designation_id)) {
+          catSelect.value = '';  // Clear category for these designations
         }
 
         // Fetch and show CLI history
@@ -976,19 +988,24 @@
       const newCliName = selectedCliOption.text.split(' (')[0]; // Extract CLI name
 
       // Add to local state
+      // For designation IDs 1,2,3,4, don't store/show category
+      const skipCategoryDesignations = [1, 2, 3, 4];
+      const shouldSkipCategory = skipCategoryDesignations.includes(state.selectedStaff.designation_id);
+
       const change = {
         staff_hrms_id: state.selectedStaff.hrms_id,
         staff_name: state.selectedStaff.name,
         mobile: state.selectedStaff.mobile || null,
         pf_no: state.selectedStaff.current_cms_id,
+        designation_id: state.selectedStaff.designation_id,
         designation_name: state.selectedStaff.designation_name,
         depot: state.selectedStaff.current_office_code,
-        category: catSelect.value || state.selectedStaff.safety_category,
+        category: shouldSkipCategory ? '--' : (catSelect.value || state.selectedStaff.safety_category),
         old_cli_name: state.selectedStaff.current_cli_name,
         old_cli_id: state.selectedStaff.current_cli_id,
         new_cli_id: parseInt(newCliSelect.value),
         new_cli_name: newCliName,
-        new_category: catSelect.value || null,
+        new_category: shouldSkipCategory ? null : (catSelect.value || null),
         remarks: remarksInput.value || null
       };
 
@@ -1240,7 +1257,7 @@
             <td><code>${row.pf_no || '—'}</code>${row.staff_hrms_id ? `<br><span style="font-size:0.75em;color:#64748b;">${row.staff_hrms_id}</span>` : ''}</td>
             <td>${shortDesignation(row.designation_name)}</td>
             <td>${row.depot || '—'}</td>
-            <td>${row.category || '—'}</td>
+            <td>${displayCategory(row)}</td>
             <td>${row.old_cli_name || '—'}</td>
             <td><strong>${row.new_cli_name}</strong></td>
             <td>${row.remarks || '—'}</td>
@@ -1267,7 +1284,7 @@
           <td>${row.pf_no || '—'}${row.staff_hrms_id ? `<br><span style="font-size:0.75em;color:#64748b;">${row.staff_hrms_id}</span>` : ''}</td>
           <td>${shortDesignation(row.designation_name)}</td>
           <td>${row.depot || '—'}</td>
-          <td>${row.category || '—'}</td>
+          <td>${displayCategory(row)}</td>
           <td>${row.old_cli_name || '—'}</td>
           <td>${row.new_cli_name}</td>
           <td>${row.remarks || '—'}</td>
@@ -1374,7 +1391,7 @@
           <td>${row.pf_no || '—'}${row.staff_hrms_id ? `<br><span style="font-size:0.8em;color:#666;">${row.staff_hrms_id}</span>` : ''}</td>
           <td>${shortDesignation(row.designation_name)}</td>
           <td>${row.depot || '—'}</td>
-          <td style="text-align:center;">${row.category || '—'}</td>
+          <td style="text-align:center;">${displayCategory(row)}</td>
           <td>${row.old_cli_name || '—'}</td>
           <td>${row.new_cli_name}</td>
           <td>${row.remarks || ''}</td>

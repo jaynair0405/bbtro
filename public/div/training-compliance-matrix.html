@@ -634,6 +634,7 @@
         { id: 14, key: 'DSLAC_SIM',   label: 'DSLAC SIM',    desc: 'DSLAC Simulator Training (For ALP)' },
         { id: 15, key: 'WDG4G_6G',    label: 'WDG 4G/6G',    desc: 'WDG 4G/WDG 6G Training' },
         { id: 20, key: 'PSYCHO',      label: 'Psycho Test',  desc: 'Psycho Test' },
+        { id: 13, key: 'TW_TRG',       label: 'TW TRG',       desc: 'TW Training' },
     ];
 
     // Default trainings by designation (id or name)
@@ -641,11 +642,12 @@
         // By designation ID
         '3': ['VANDE_T18', 'PUSHPULL', 'AC_DC', 'SPIC', 'WDS6', 'HS_SPART', 'WAG12'],  // LP Goods
         '4': ['VANDE_T18', 'PUSHPULL', 'AC_DC', 'SPIC', 'WDS6', 'HS_SPART', 'WAG12'],  // ALP
+        '5': ['TW_TRG'],  // LP Goods
         '6': ['KAVACH', 'VANDE_T18', 'PUSHPULL', 'HSTAT'],  // LP Mail
         '7': ['KAVACH', 'VANDE_T18', 'PUSHPULL', 'HSTAT'],  // LP Passenger
         '8': ['MEMU'],  // Motorman
         // By designation name (fallback)
-        'LP Goods': ['VANDE_T18', 'PUSHPULL', 'AC_DC', 'SPIC', 'WDS6', 'HS_SPART', 'WAG12'],
+        'LP Goods': ['VANDE_T18', 'PUSHPULL', 'AC_DC', 'SPIC', 'WDS6', 'HS_SPART', 'WAG12', 'TW_TRG'],
         'LP Mail': ['KAVACH', 'VANDE_T18', 'PUSHPULL', 'HSTAT'],
         'LP Mail/Express': ['KAVACH', 'VANDE_T18', 'PUSHPULL', 'HSTAT'],
         'LP Passenger': ['KAVACH', 'VANDE_T18', 'PUSHPULL', 'HSTAT'],
@@ -968,7 +970,7 @@
         6: 36,  // 3 years
         7: 36,  // 3 years
         8: 36,  // 3 years
-        13: 6   // 6 months
+        13: 6   // TW_TRG - 6 months
     };
 
     // Lifetime trainings don't need due dates

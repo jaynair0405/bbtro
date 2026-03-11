@@ -80,21 +80,71 @@ async function updateDashboardStats(office, staffCount) {
         if (result.success) {
             const stats = result.data;
 
-            // Update stat cards
-            const statNumbers = document.querySelectorAll('.stat-number');
-            if (statNumbers[0]) statNumbers[0].textContent = stats.totalStaff;
-            if (statNumbers[1]) statNumbers[1].textContent = stats.pendingPME;
-            if (statNumbers[2]) statNumbers[2].textContent = stats.leaveApplications;
-            if (statNumbers[3]) statNumbers[3].textContent = stats.attendanceRate.toFixed(1) + '%';
+            // Update stat cards using specific IDs
+            const totalStaffEl = document.getElementById('statTotalStaff');
+            const pendingPMEEl = document.getElementById('statPendingPME');
+            const leaveAppsEl = document.getElementById('statLeaveApps');
+            const vacancyEl = document.getElementById('statVacancy');
+
+            if (totalStaffEl) totalStaffEl.textContent = stats.totalStaff;
+            if (pendingPMEEl) pendingPMEEl.textContent = stats.pendingPME;
+            if (leaveAppsEl) leaveAppsEl.textContent = stats.leaveApplications;
+            if (vacancyEl) vacancyEl.textContent = stats.vacantPositions;
+
+            // Update stat change labels
+            const totalStaffChangeEl = document.getElementById('statTotalStaffChange');
+            const pmeChangeEl = document.getElementById('statPendingPMEChange');
+            const leaveAppsChangeEl = document.getElementById('statLeaveAppsChange');
+
+            if (totalStaffChangeEl) {
+                totalStaffChangeEl.textContent = `Active + Drafted in ${office === 'ALL' ? 'Division' : office}`;
+                totalStaffChangeEl.className = 'stat-change neutral';
+            }
+
+            // PME overdue status
+            if (pmeChangeEl && stats.pendingPME > 0) {
+                pmeChangeEl.textContent = `⚠ ${stats.pendingPME} staff overdue`;
+                pmeChangeEl.className = 'stat-change negative';
+            } else if (pmeChangeEl) {
+                pmeChangeEl.textContent = '✓ All clear';
+                pmeChangeEl.className = 'stat-change positive';
+            }
+
+            if (leaveAppsChangeEl && stats.leaveApplications > 0) {
+                leaveAppsChangeEl.textContent = `→ ${stats.leaveApplications} awaiting approval`;
+                leaveAppsChangeEl.className = 'stat-change neutral';
+            } else if (leaveAppsChangeEl) {
+                leaveAppsChangeEl.textContent = '✓ No pending';
+                leaveAppsChangeEl.className = 'stat-change positive';
+            }
+
+            // Vacancy status
+            const vacancyChangeEl = document.getElementById('statVacancyChange');
+            if (vacancyChangeEl) {
+                if (stats.vacantPositions > 0) {
+                    vacancyChangeEl.textContent = `Sanction: ${stats.sanctionStrength} | Actual: ${stats.totalStaff}`;
+                    vacancyChangeEl.className = 'stat-change neutral';
+                } else if (stats.vacantPositions < 0) {
+                    vacancyChangeEl.textContent = `⚠ ${Math.abs(stats.vacantPositions)} over sanction`;
+                    vacancyChangeEl.className = 'stat-change negative';
+                } else {
+                    vacancyChangeEl.textContent = '✓ Fully staffed';
+                    vacancyChangeEl.className = 'stat-change positive';
+                }
+            }
         }
     } catch (error) {
         console.error('Error updating dashboard stats:', error);
-        // Fallback to showing passed staffCount or 0
-        const statNumbers = document.querySelectorAll('.stat-number');
-        if (statNumbers[0]) statNumbers[0].textContent = staffCount || '0';
-        if (statNumbers[1]) statNumbers[1].textContent = '0';
-        if (statNumbers[2]) statNumbers[2].textContent = '0';
-        if (statNumbers[3]) statNumbers[3].textContent = '97.5%';
+        // Fallback to showing error state
+        const totalStaffEl = document.getElementById('statTotalStaff');
+        const pendingPMEEl = document.getElementById('statPendingPME');
+        const leaveAppsEl = document.getElementById('statLeaveApps');
+        const vacancyEl = document.getElementById('statVacancy');
+
+        if (totalStaffEl) totalStaffEl.textContent = staffCount || '0';
+        if (pendingPMEEl) pendingPMEEl.textContent = '0';
+        if (leaveAppsEl) leaveAppsEl.textContent = '0';
+        if (vacancyEl) vacancyEl.textContent = '--';
     }
 }
 
