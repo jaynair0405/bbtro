@@ -178,7 +178,7 @@ router.get('/staff', async (req, res) => {
         conn = await req.app.locals.pool.getConnection();
 
         let query = `
-            SELECT s.hrms_id, s.name, s.current_cms_id, o.office_name, d.designation_name,
+            SELECT s.hrms_id, s.name, s.current_cms_id, s.pf_number, o.office_name, d.designation_name,
                    s.safety_category, s.assignment_status
             FROM div_staff_master s
             JOIN offices o ON s.current_office_code = o.office_code

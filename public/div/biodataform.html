@@ -3492,8 +3492,9 @@ searchInput.addEventListener('input', async (e) => {
       if (result.success) {
         searchResults = result.data;
 
-        // If exactly one result and it's an exact CMS ID match, load directly
-        if (result.data.length === 1 && result.data[0].current_cms_id === searchTerm) {
+        // If exactly one result and it's an exact HRMS ID or CMS ID match, load directly
+        if (result.data.length === 1 &&
+            (result.data[0].current_cms_id === searchTerm || result.data[0].hrms_id === searchTerm)) {
           selectSearchResult(0);
           return;
         }
@@ -4602,11 +4603,22 @@ async function init() {
   // Add event listener for staff status change (to detect Drafted/Ex-Cadre selection)
   document.getElementById('staff_status').addEventListener('change', handleStaffStatusChange);
 
-  // Check if in create mode (via URL parameter)
+  // Check URL parameters
   const urlParams = new URLSearchParams(window.location.search);
   if (urlParams.get('mode') === 'create') {
     isCreateMode = true;
     initCreateMode();
+  }
+
+  // Auto-load staff if search parameter is provided
+  const searchParam = urlParams.get('search');
+  if (searchParam) {
+    const searchField = document.getElementById('searchStaff');
+    searchField.value = searchParam;
+    // Trigger the input event to start the search
+    setTimeout(() => {
+      searchField.dispatchEvent(new Event('input', { bubbles: true }));
+    }, 300);
   }
 
   // If user is not admin and not viewing their own office staff, make read-only

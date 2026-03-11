@@ -193,10 +193,65 @@
       font-size: 15px;
       color: var(--muted);
     }
+    /* Sticky table header */
+    thead {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    /* Search box */
+    .search-box {
+      padding: 8px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      font-size: 14px;
+      width: 200px;
+    }
+    .search-box:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+    /* Back to top button */
+    .back-to-top {
+      position: fixed;
+      bottom: 30px;
+      right: 30px;
+      width: 45px;
+      height: 45px;
+      border-radius: 50%;
+      background: var(--primary);
+      color: white;
+      border: none;
+      cursor: pointer;
+      font-size: 20px;
+      box-shadow: 0 4px 15px rgba(37, 99, 235, 0.3);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.2s, opacity 0.2s;
+      z-index: 100;
+    }
+    .back-to-top:hover {
+      transform: scale(1.1);
+    }
+    .back-to-top.visible {
+      display: flex;
+    }
+    /* Clickable name link */
+    .staff-name-link {
+      color: var(--primary);
+      text-decoration: none;
+      cursor: pointer;
+    }
+    .staff-name-link:hover {
+      text-decoration: underline;
+    }
     @media print {
       body { padding: 0; background: white; }
       .report-shell { border-radius: 0; box-shadow: none; }
       .controls { display: none; }
+      .back-to-top { display: none !important; }
       .multiselect-dropdown { display: none !important; }
     }
   </style>
@@ -211,6 +266,9 @@
         <div id="officeSubtext" style="color: var(--muted); font-size: 14px;"></div>
       </div>
       <div class="controls">
+        <!-- Search Box -->
+        <input type="text" class="search-box" id="searchInput" placeholder="Search name/HRMS/CMS/PF..." oninput="onSearchChange()">
+
         <!-- Office Multi-Select (Admin Only) -->
         <div class="multiselect-wrapper" id="officeMultiselectWrapper" style="display: none;">
           <div class="multiselect-button" id="officeButton">
@@ -249,6 +307,9 @@
       <div class="loading">Fetching staff list...</div>
     </div>
   </div>
+
+  <!-- Back to Top Button -->
+  <button class="back-to-top" id="backToTop" onclick="scrollToTop()">↑</button>
 
   <script>
     let currentUser = null;
@@ -447,15 +508,26 @@
         );
       }
 
+      // Apply search filter
+      const searchTerm = (document.getElementById('searchInput')?.value || '').trim().toLowerCase();
+      if (searchTerm) {
+        filtered = filtered.filter(s =>
+          (s.name || '').toLowerCase().includes(searchTerm) ||
+          (s.hrms_id || '').toLowerCase().includes(searchTerm) ||
+          (s.current_cms_id || '').toLowerCase().includes(searchTerm) ||
+          (s.pf_number || '').toLowerCase().includes(searchTerm)
+        );
+      }
+
       // Update staff count with filtered/total
-      if (selectedDesignations.length > 0 && filtered.length !== staffData.length) {
+      if (filtered.length !== staffData.length) {
         document.getElementById('officeSubtext').textContent = `${filtered.length} of ${staffData.length} staff records`;
       } else {
         document.getElementById('officeSubtext').textContent = `${staffData.length} staff records`;
       }
 
       if (!filtered.length) {
-        container.innerHTML = '<div class="empty">No staff match the selected designations.</div>';
+        container.innerHTML = '<div class="empty">No staff match the filters.</div>';
         return;
       }
 
@@ -464,7 +536,7 @@
           <td>${index + 1}</td>
           <td>${staff.hrms_id || '—'}</td>
           <td>${staff.current_cms_id || '—'}</td>
-          <td>${staff.name || '—'}</td>
+          <td><a class="staff-name-link" href="/div/biodataform.html?search=${encodeURIComponent(staff.hrms_id)}">${staff.name || '—'}</a></td>
           <td>${staff.designation_name || '—'}</td>
         </tr>
       `).join('');
@@ -575,6 +647,26 @@
     function handleBack() {
       window.location.href = '/div';
     }
+
+    // Search functionality
+    function onSearchChange() {
+      renderTable();
+    }
+
+    // Back to top functionality
+    function scrollToTop() {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // Show/hide back to top button based on scroll position
+    window.addEventListener('scroll', function() {
+      const backToTopBtn = document.getElementById('backToTop');
+      if (window.scrollY > 300) {
+        backToTopBtn.classList.add('visible');
+      } else {
+        backToTopBtn.classList.remove('visible');
+      }
+    });
   </script>
 </body>
 </html>
