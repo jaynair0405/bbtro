@@ -997,6 +997,7 @@
         staff_name: state.selectedStaff.name,
         mobile: state.selectedStaff.mobile || null,
         pf_no: state.selectedStaff.current_cms_id,
+        pf_number: state.selectedStaff.pf_number || null,
         designation_id: state.selectedStaff.designation_id,
         designation_name: state.selectedStaff.designation_name,
         depot: state.selectedStaff.current_office_code,
@@ -1253,7 +1254,7 @@
         changeRowsEl.innerHTML = state.changes.map((row, idx) => `
           <tr>
             <td>${idx + 1}</td>
-            <td>${row.staff_name}${row.mobile ? `<br><span style="font-size:0.8em;color:#64748b;">${row.mobile}</span>` : ''}</td>
+            <td>${row.staff_name}${row.pf_number ? `<br><span style="font-size:0.8em;color:#64748b;">PF: ${row.pf_number}</span>` : ''}${row.mobile ? `<br><span style="font-size:0.8em;color:#64748b;">${row.mobile}</span>` : ''}</td>
             <td><code>${row.pf_no || '—'}</code>${row.staff_hrms_id ? `<br><span style="font-size:0.75em;color:#64748b;">${row.staff_hrms_id}</span>` : ''}</td>
             <td>${shortDesignation(row.designation_name)}</td>
             <td>${row.depot || '—'}</td>
@@ -1280,7 +1281,7 @@
       previewTableEl.innerHTML = state.changes.map((row, idx) => `
         <tr>
           <td>${idx + 1}</td>
-          <td>${row.staff_name}${row.mobile ? `<br><span style="font-size:0.75em;color:#64748b;">${row.mobile}</span>` : ''}</td>
+          <td>${row.staff_name}${row.pf_number ? `<br><span style="font-size:0.75em;color:#64748b;">PF: ${row.pf_number}</span>` : ''}${row.mobile ? `<br><span style="font-size:0.75em;color:#64748b;">${row.mobile}</span>` : ''}</td>
           <td>${row.pf_no || '—'}${row.staff_hrms_id ? `<br><span style="font-size:0.75em;color:#64748b;">${row.staff_hrms_id}</span>` : ''}</td>
           <td>${shortDesignation(row.designation_name)}</td>
           <td>${row.depot || '—'}</td>
@@ -1387,7 +1388,7 @@
       const tableRows = state.changes.map((row, idx) => `
         <tr>
           <td style="text-align:center;">${idx + 1}</td>
-          <td>${row.staff_name}${row.mobile ? `<br><span style="font-size:0.8em;color:#666;">${row.mobile}</span>` : ''}</td>
+          <td>${row.staff_name}${row.pf_number ? `<br><span style="font-size:0.8em;color:#666;">PF: ${row.pf_number}</span>` : ''}${row.mobile ? `<br><span style="font-size:0.8em;color:#666;">${row.mobile}</span>` : ''}</td>
           <td>${row.pf_no || '—'}${row.staff_hrms_id ? `<br><span style="font-size:0.8em;color:#666;">${row.staff_hrms_id}</span>` : ''}</td>
           <td>${shortDesignation(row.designation_name)}</td>
           <td>${row.depot || '—'}</td>
