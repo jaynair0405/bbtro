@@ -125,6 +125,7 @@
               <option value="Promoted to CLI">Promoted to CLI</option>
               <option value="Medically Decategorised">Medically Decategorised</option>
               <option value="Drafted/Ex-Cadre">Drafted/Ex-Cadre</option>
+              <option value="Deputation">Deputation</option>
             </select>
           </div>
           <!-- Profile Completion Progress -->
@@ -203,6 +204,15 @@
                 <label class="form-label req">Designation</label>
                 <select class="form-select" id="designation" required>
                   <option value="">Loading...</option>
+                </select>
+              </div>
+              <!-- Yard Staff field - shown only for CSMT-ML + ALP/Sr.ALP/LPG -->
+              <div id="yardStaffField" style="display: none;">
+                <label class="form-label req">Staff Type</label>
+                <select class="form-select" id="is_yard_staff">
+                  <option value="">Select Staff Type</option>
+                  <option value="1">Yard Staff</option>
+                  <option value="0">Mainline Staff</option>
                 </select>
               </div>
               <div><label class="form-label req">DOB</label><input type="date" class="form-control" id="staff_dob"></div>
@@ -1131,7 +1141,7 @@ async function loadOffices() {
 
     // If user is not division_admin, only show their office
     if (currentUser && currentUser.div_role !== 'division_admin') {
-      const userOffice = offices.find(o => o.office_code === currentUser.office_code);
+      const userOffice = offices.find(o => o.office_code === currentUser.div_office_code);
       if (userOffice) {
         const option = document.createElement('option');
         option.value = userOffice.office_code;
@@ -1146,7 +1156,7 @@ async function loadOffices() {
     } else {
       // Division admin can see all offices
       // First, try to pre-select user's office if they have one
-      let userOfficeCode = currentUser?.office_code;
+      let userOfficeCode = currentUser?.div_office_code;
 
       offices.forEach(office => {
         const option = document.createElement('option');
@@ -1536,6 +1546,39 @@ function openDraftingModal() {
   modal.show();
 }
 
+// Update yard staff field visibility based on office and designation
+function updateYardStaffFieldVisibility() {
+  const officeCode = document.getElementById('officeSelect').value;
+  const designationId = parseInt(document.getElementById('designation').value) || 0;
+  const yardStaffField = document.getElementById('yardStaffField');
+  const yardStaffSelect = document.getElementById('is_yard_staff');
+
+  console.log('updateYardStaffFieldVisibility called:', { officeCode, designationId });
+  console.log('Elements found:', { yardStaffField: !!yardStaffField, yardStaffSelect: !!yardStaffSelect });
+
+  if (!yardStaffField || !yardStaffSelect) {
+    console.error('Yard staff elements not found!');
+    return;
+  }
+
+  // Show for CSMT-ML + ALP(1)/Sr.ALP(2)/LPG(5)
+  const isCsmtMl = officeCode === 'CSMT-ML';
+  const isAlpLpg = [1, 2, 5].includes(designationId);
+
+  console.log('Yard staff check:', { isCsmtMl, isAlpLpg, shouldShow: isCsmtMl && isAlpLpg });
+
+  if (isCsmtMl && isAlpLpg) {
+    yardStaffField.style.display = 'block';
+    yardStaffSelect.required = true;
+    console.log('Showing yard staff field');
+  } else {
+    yardStaffField.style.display = 'none';
+    yardStaffSelect.required = false;
+    yardStaffSelect.value = ''; // Clear selection when hidden
+    console.log('Hiding yard staff field');
+  }
+}
+
 // Submit drafting record
 async function submitDraftingRecord() {
   const staffHrmsId = window.currentStaffHrmsId;
@@ -1772,7 +1815,7 @@ function canEditStaff(staffOfficeCode) {
   if (currentUser.div_role === 'division_admin') return true;
 
   // Office user can only edit staff from their office
-  if (currentUser.office_code === staffOfficeCode) return true;
+  if (currentUser.div_office_code === staffOfficeCode) return true;
 
   return false;
 }
@@ -3433,7 +3476,7 @@ function showSearchDropdown(results) {
     <div class="search-item" data-index="${index}">
       <div class="name">${staff.name}</div>
       <div class="details">
-        HRMS: ${staff.hrms_id} | CMS: <span class="cms">${staff.current_cms_id}</span> | ${staff.office_name || staff.current_office_code}
+        HRMS: ${staff.hrms_id} | CMS: <span class="cms">${staff.current_cms_id}</span>${staff.pf_number ? ` | PF: ${staff.pf_number}` : ''} | ${staff.office_name || staff.current_office_code}
       </div>
     </div>
   `).join('');
@@ -4291,6 +4334,31 @@ async function createNewStaff() {
       }
     }
 
+    // Validate yard staff selection for CSMT-ML + ALP/Sr.ALP/LPG
+    const designationId = parseInt(document.getElementById('designation').value) || 0;
+    const isCsmtMl = officeCode === 'CSMT-ML';
+    const isAlpLpg = [1, 2, 5].includes(designationId);
+    const isLps = [3, 4].includes(designationId);
+
+    if (isCsmtMl && isAlpLpg) {
+      const yardStaffValue = document.getElementById('is_yard_staff').value;
+      if (yardStaffValue === '') {
+        showToast('Please select Staff Type (Yard Staff or Mainline Staff) for CSMT-ML', 'error');
+        document.getElementById('is_yard_staff').focus();
+        return;
+      }
+    }
+
+    // Determine is_yard_staff value
+    let isYardStaff = null;
+    if (isCsmtMl) {
+      if (isLps) {
+        isYardStaff = 1; // LPS at CSMT-ML are always yard staff
+      } else if (isAlpLpg) {
+        isYardStaff = parseInt(document.getElementById('is_yard_staff').value);
+      }
+    }
+
     const payload = {
       hrms_id: hrmsId,
       name: name,
@@ -4321,7 +4389,8 @@ async function createNewStaff() {
       identification_mark_1: document.getElementById('identification_mark_1').value.trim(),
       identification_mark_2: document.getElementById('identification_mark_2').value.trim(),
       status: document.getElementById('staff_status').value || 'Active',
-      current_office_code: document.getElementById('officeSelect').value
+      current_office_code: document.getElementById('officeSelect').value,
+      is_yard_staff: isYardStaff
     };
 
     // Disable save button
@@ -4603,6 +4672,16 @@ async function init() {
   // Add event listener for staff status change (to detect Drafted/Ex-Cadre selection)
   document.getElementById('staff_status').addEventListener('change', handleStaffStatusChange);
 
+  // Add event listeners for yard staff field visibility
+  document.getElementById('officeSelect').addEventListener('change', function() {
+    console.log('Office changed to:', this.value);
+    updateYardStaffFieldVisibility();
+  });
+  document.getElementById('designation').addEventListener('change', function() {
+    console.log('Designation changed to:', this.value);
+    updateYardStaffFieldVisibility();
+  });
+
   // Check URL parameters
   const urlParams = new URLSearchParams(window.location.search);
   if (urlParams.get('mode') === 'create') {
@@ -4801,6 +4880,9 @@ function initCreateMode() {
 
   // Hide progress ring in create mode
   document.getElementById('progressRing').style.display = 'none';
+
+  // Update yard staff field visibility based on current office/designation
+  updateYardStaffFieldVisibility();
 }
 
 // Calculate and update profile completion progress

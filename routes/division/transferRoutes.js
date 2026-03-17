@@ -202,10 +202,13 @@ router.get('/transfer-requests/pending', requireAuth, async (req, res) => {
             SELECT
                 tr.*,
                 s.name as staff_name,
+                s.designation_id,
+                d.designation_name,
                 o1.office_name as from_office_name,
                 o2.office_name as to_office_name
             FROM div_transfer_requests tr
             JOIN div_staff_master s ON tr.staff_hrms_id = s.hrms_id
+            LEFT JOIN designations d ON s.designation_id = d.id
             LEFT JOIN offices o1 ON tr.from_office_code = o1.office_code
             LEFT JOIN offices o2 ON tr.to_office_code = o2.office_code
             WHERE tr.to_office_code = ? AND tr.status = 'Pending'
@@ -228,7 +231,7 @@ router.put('/transfer-request/:id/accept', requireAuth, async (req, res) => {
     let conn;
     try {
         const { id } = req.params;
-        const { new_cms_id, remarks } = req.body;
+        const { new_cms_id, remarks, is_yard_staff } = req.body;
 
         if (!new_cms_id || !new_cms_id.trim()) {
             return res.status(400).json({ error: 'New CMS ID is required' });
@@ -321,6 +324,27 @@ router.put('/transfer-request/:id/accept', requireAuth, async (req, res) => {
             let staffUpdate = '';
             let staffParams = [];
 
+            // Determine is_yard_staff value for CSMT-ML transfers
+            // Get staff's designation_id
+            const [staffInfo] = await conn.query(
+                'SELECT designation_id FROM div_staff_master WHERE hrms_id = ?',
+                [transferReq.staff_hrms_id]
+            );
+            const designationId = staffInfo[0]?.designation_id;
+
+            // Calculate yard staff flag:
+            // - LPS/Sr.LPS (3,4): always 1
+            // - ALP/Sr.ALP/LPG (1,2,5) at CSMT-ML: use provided value
+            // - Others: 0
+            let yardStaffValue = 0;
+            if (transferReq.to_office_code === 'CSMT-ML') {
+                if ([3, 4].includes(designationId)) {
+                    yardStaffValue = 1; // LPS always yard staff
+                } else if ([1, 2, 5].includes(designationId)) {
+                    yardStaffValue = is_yard_staff ? 1 : 0; // Use provided value
+                }
+            }
+
             if (category === 'Inter Railway') {
                 // Inter Railway: Set office to OTHER, preserve home_office_code, set status to Transferred
                 staffUpdate = `UPDATE div_staff_master
@@ -330,15 +354,15 @@ router.put('/transfer-request/:id/accept', requireAuth, async (req, res) => {
             } else if (category === 'Temporary Transfer') {
                 // Temporary: Update current_office_code only, keep home_office_code unchanged
                 staffUpdate = `UPDATE div_staff_master
-                               SET current_office_code = ?, hq_station = ?, current_cms_id = ?
+                               SET current_office_code = ?, hq_station = ?, current_cms_id = ?, is_yard_staff = ?
                                WHERE hrms_id = ?`;
-                staffParams = [transferReq.to_office_code, transferReq.to_office_code, new_cms_id.trim().toUpperCase(), transferReq.staff_hrms_id];
+                staffParams = [transferReq.to_office_code, transferReq.to_office_code, new_cms_id.trim().toUpperCase(), yardStaffValue, transferReq.staff_hrms_id];
             } else if (category === 'Permanent Transfer' || category === 'Promotion') {
                 // Permanent/Promotion: Update both current and home office
                 staffUpdate = `UPDATE div_staff_master
-                               SET current_office_code = ?, home_office_code = ?, hq_station = ?, current_cms_id = ?
+                               SET current_office_code = ?, home_office_code = ?, hq_station = ?, current_cms_id = ?, is_yard_staff = ?
                                WHERE hrms_id = ?`;
-                staffParams = [transferReq.to_office_code, transferReq.to_office_code, transferReq.to_office_code, new_cms_id.trim().toUpperCase(), transferReq.staff_hrms_id];
+                staffParams = [transferReq.to_office_code, transferReq.to_office_code, transferReq.to_office_code, new_cms_id.trim().toUpperCase(), yardStaffValue, transferReq.staff_hrms_id];
             }
 
             await conn.query(staffUpdate, staffParams);

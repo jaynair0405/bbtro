@@ -64,7 +64,8 @@ const STAFF_STATUS_OPTIONS = new Set([
     'Suspended',
     'Promoted to CLI',
     'Medically Decategorised',
-    'Drafted/Ex-Cadre'
+    'Drafted/Ex-Cadre',
+    'Deputation'
 ]);
 
 // GET /api/division/offices - Get all offices
@@ -412,7 +413,8 @@ router.post('/staff', async (req, res) => {
             date_of_appointment,
             designation_id,
             safety_category,
-            current_office_code
+            current_office_code,
+            is_yard_staff
         } = req.body;
         const staffStatus = (status && status.trim()) || 'Active';
         if (!STAFF_STATUS_OPTIONS.has(staffStatus)) {
@@ -478,8 +480,8 @@ router.post('/staff', async (req, res) => {
               phone_number, cug_number, email, present_address, permanent_address, dept_rrb,
               reporting_date, hq_station,
               id_card_no, pf_number, aadhar_card_no, pan_card_no, date_of_appointment,
-              designation_id, safety_category, status, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+              designation_id, safety_category, status, is_yard_staff, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
             [
                 hrms_id.toUpperCase(), name, current_cms_id.toUpperCase(), (original_cms_id || current_cms_id).toUpperCase(),
                 officeCode, officeCode, // Set both current and home office
@@ -490,7 +492,8 @@ router.post('/staff', async (req, res) => {
                 cleanDate(reporting_date), hqStation,
                 id_card_no,
                 cleanField(pf_number), aadhar_card_no, pan_card_no, cleanDate(date_of_appointment),
-                designation_id, cleanField(safety_category), staffStatus
+                designation_id, cleanField(safety_category), staffStatus,
+                is_yard_staff !== null && is_yard_staff !== undefined ? is_yard_staff : null
             ]
         );
 

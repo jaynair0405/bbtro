@@ -562,7 +562,7 @@ function renderTransferRequests() {
             <tr style="border-bottom: 1px solid #e5e7eb;">
                 <td style="padding: 12px;">
                     <div style="font-weight: 500; color: #1a1d21;">${transfer.staff_name || '-'}</div>
-                    <div style="font-size: 12px; color: #6b7280;">HRMS: ${transfer.staff_hrms_id}</div>
+                    <div style="font-size: 12px; color: #6b7280;">HRMS: ${transfer.staff_hrms_id}${transfer.designation_name ? ` • ${transfer.designation_name}` : ''}</div>
                 </td>
                 <td style="padding: 12px;">
                     <div style="font-weight: 500; color: #1a1d21;">${transfer.from_office_name || transfer.from_office_code}</div>
@@ -601,10 +601,13 @@ function openAcceptModal(index) {
 
     const modal = document.getElementById('acceptTransferModal');
     const infoDiv = document.getElementById('acceptTransferInfo');
+    const yardStaffSection = document.getElementById('yardStaffSection');
+    const acceptBtn = document.getElementById('acceptTransferBtn');
 
     // Populate staff info
     infoDiv.innerHTML = `
         <div style="margin-bottom: 8px;"><strong>Staff:</strong> ${transfer.staff_name} (${transfer.staff_hrms_id})</div>
+        <div style="margin-bottom: 8px;"><strong>Designation:</strong> ${transfer.designation_name || '-'}</div>
         <div style="margin-bottom: 8px;"><strong>From Office:</strong> ${transfer.from_office_name || transfer.from_office_code}</div>
         <div><strong>Current CMS ID:</strong> ${transfer.current_cms_id}</div>
     `;
@@ -612,6 +615,35 @@ function openAcceptModal(index) {
     // Clear form
     document.getElementById('newCmsId').value = '';
     document.getElementById('acceptRemarks').value = '';
+
+    // Reset yard staff radio buttons
+    const yardStaffYes = document.getElementById('yardStaffYes');
+    const yardStaffNo = document.getElementById('yardStaffNo');
+    if (yardStaffYes) yardStaffYes.checked = false;
+    if (yardStaffNo) yardStaffNo.checked = false;
+
+    // Show yard staff section for CSMT-ML + ALP/Sr.ALP/LPG (designation_id 1,2,5)
+    const isCsmtMl = transfer.to_office_code === 'CSMT-ML';
+    const isAlpLpg = [1, 2, 5].includes(transfer.designation_id);
+    const needsYardStaffSelection = isCsmtMl && isAlpLpg;
+
+    if (yardStaffSection) {
+        yardStaffSection.style.display = needsYardStaffSelection ? 'block' : 'none';
+    }
+
+    // Disable Accept button until yard staff is selected (if section is visible)
+    if (needsYardStaffSelection) {
+        acceptBtn.disabled = true;
+        // Add listeners to enable button when selection is made
+        const radioButtons = document.querySelectorAll('input[name="isYardStaff"]');
+        radioButtons.forEach(radio => {
+            radio.addEventListener('change', function() {
+                acceptBtn.disabled = false;
+            });
+        });
+    } else {
+        acceptBtn.disabled = false;
+    }
 
     // Show modal
     modal.style.display = 'flex';
@@ -622,6 +654,17 @@ function closeAcceptModal() {
     const modal = document.getElementById('acceptTransferModal');
     if (modal) {
         modal.style.display = 'none';
+    }
+    // Reset yard staff section
+    const yardStaffSection = document.getElementById('yardStaffSection');
+    if (yardStaffSection) {
+        yardStaffSection.style.display = 'none';
+    }
+    // Reset Accept button
+    const acceptBtn = document.getElementById('acceptTransferBtn');
+    if (acceptBtn) {
+        acceptBtn.disabled = false;
+        acceptBtn.textContent = 'Accept Transfer';
     }
     currentTransferRequest = null;
 }
@@ -637,6 +680,7 @@ function openRejectModal(index) {
     // Populate staff info
     infoDiv.innerHTML = `
         <div style="margin-bottom: 8px;"><strong>Staff:</strong> ${transfer.staff_name} (${transfer.staff_hrms_id})</div>
+        <div style="margin-bottom: 8px;"><strong>Designation:</strong> ${transfer.designation_name || '-'}</div>
         <div style="margin-bottom: 8px;"><strong>From Office:</strong> ${transfer.from_office_name || transfer.from_office_code}</div>
         <div><strong>Current CMS ID:</strong> ${transfer.current_cms_id}</div>
     `;
@@ -678,6 +722,18 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
+            // Get yard staff selection if visible
+            const yardStaffSection = document.getElementById('yardStaffSection');
+            let isYardStaff = null;
+            if (yardStaffSection && yardStaffSection.style.display !== 'none') {
+                const selectedRadio = document.querySelector('input[name="isYardStaff"]:checked');
+                if (!selectedRadio) {
+                    alert('Please select whether staff is Yard Staff or Mainline Staff');
+                    return;
+                }
+                isYardStaff = parseInt(selectedRadio.value);
+            }
+
             const submitBtn = document.getElementById('acceptTransferBtn');
             submitBtn.disabled = true;
             submitBtn.textContent = 'Processing...';
@@ -688,7 +744,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         new_cms_id: newCmsId,
-                        remarks: remarks
+                        remarks: remarks,
+                        is_yard_staff: isYardStaff
                     })
                 });
 
