@@ -184,7 +184,7 @@ router.get('/staff', async (req, res) => {
             FROM div_staff_master s
             JOIN offices o ON s.current_office_code = o.office_code
             JOIN designations d ON s.designation_id = d.id
-            WHERE s.status IN ('Active', 'Drafted/Ex-Cadre', 'Suspended')
+            WHERE s.status IN ('Active', 'Drafted/Ex-Cadre', 'Suspended', 'Deputation')
         `;
 
         const params = [];
@@ -549,8 +549,8 @@ router.get('/dashboard-stats', async (req, res) => {
 
         conn = await req.app.locals.pool.getConnection();
 
-        // Total staff count for the office (Active + Drafted/Ex-Cadre)
-        let staffQuery = 'SELECT COUNT(*) as total_staff FROM div_staff_master s WHERE s.status IN ("Active", "Drafted/Ex-Cadre")';
+        // Total staff count for the office (Active + Drafted/Ex-Cadre + Deputation)
+        let staffQuery = 'SELECT COUNT(*) as total_staff FROM div_staff_master s WHERE s.status IN ("Active", "Drafted/Ex-Cadre", "Deputation")';
         const staffParams = [];
 
         if (userRole !== 'division_admin') {
