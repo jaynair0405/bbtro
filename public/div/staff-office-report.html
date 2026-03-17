@@ -461,6 +461,14 @@
             const payload = await res.json();
             staffResults = staffResults.concat(payload?.data || payload || []);
           }
+
+          // De-duplicate staff by hrms_id (VVH staff may appear in multiple office queries)
+          const seen = new Set();
+          staffResults = staffResults.filter(s => {
+            if (seen.has(s.hrms_id)) return false;
+            seen.add(s.hrms_id);
+            return true;
+          });
         }
       } else {
         // Non-admin users see only their office

@@ -996,6 +996,7 @@
       showLoading();
       try {
         const payload = {
+          letter_id: state.isEditing ? state.letterId : null,  // Pass letter_id when editing
           letter_date: letterDateInput.value,
           letter_no: letterNoInput.value || null,
           staff_type: state.staffType,
@@ -1247,6 +1248,27 @@
       chipDateText.textContent = formatDate(letterDateInput.value);
       previewLetterDate.textContent = formatDate(letterDateInput.value);
 
+      // If editing an existing letter, just mark as unsaved (date change will be saved)
+      if (state.isEditing && state.letterId) {
+        state.isSaved = false;
+        updateSaveButtonState();
+        // Check if new date conflicts with another letter
+        try {
+          const data = await fetchAPI(`/api/division/category/letters?staff_type=${state.staffType}`);
+          const letters = data.data || [];
+          const conflict = letters.find(l =>
+            l.letter_date && l.letter_date.split('T')[0] === letterDateInput.value && l.id !== state.letterId
+          );
+          if (conflict) {
+            showToast(`Warning: Another letter exists for this date (${conflict.letter_no})`, 'error');
+          }
+        } catch (e) {
+          console.error('Error checking date conflict:', e);
+        }
+        return;
+      }
+
+      // For new letters, reset state when date changes
       if (state.changes.length > 0 && !state.isSaved) {
         const confirmChange = confirm('You have unsaved changes. Changing date will clear them. Continue?');
         if (!confirmChange) return;
