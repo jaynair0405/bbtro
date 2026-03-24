@@ -532,7 +532,7 @@ function renderInteractiveRow(slot) {
                 ${slot.loco_no || '<span class="empty-slot">--</span>'}
             </td>
             <td class="train-cell editable" onclick="editCell(${slot.id}, 'train_no')">
-                ${slot.train_no ? `<span class="badge-train">${slot.train_no}</span>` : '<span class="empty-slot">--</span>'}
+                ${slot.train_no ? `<span class="badge-train">${slot.train_no}</span>` : '<span class="empty-slot" style="opacity: 0.5;">+ Book</span>'}
             </td>
             <td class="name-cell lp-name">${lpNameHtml}</td>
             <td class="time-cell">${formatTime(slot.slot_time)}</td>
@@ -541,7 +541,7 @@ function renderInteractiveRow(slot) {
                 ${crossSlotInfo}
             </td>
             <td class="train-cell alp-train editable" onclick="editCell(${slot.id}, 'train_no')">
-                ${slot.train_no ? `<span class="badge-train">${slot.train_no}</span>` : '<span class="empty-slot">--</span>'}
+                ${slot.train_no ? `<span class="badge-train">${slot.train_no}</span>` : '<span class="empty-slot" style="opacity: 0.5;">+ Book</span>'}
             </td>
             <td class="loco-cell editable" onclick="editCell(${slot.id}, 'loco_no')">
                 ${slot.loco_no || '<span class="empty-slot">--</span>'}

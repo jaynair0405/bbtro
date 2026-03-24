@@ -455,6 +455,8 @@ td {
 .row-forecast { background: var(--status-forecast); }
 .row-signed-on { background: var(--status-signed-on); }
 .row-online { background: var(--status-online); }
+.row-safe { background: #064e3b; opacity: 0.7; }
+.row-booked { background: #312e81; }
 .row-signed-off { opacity: 0.5; }
 
 /* Shift Color Indicators */

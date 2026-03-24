@@ -164,7 +164,9 @@ function getStatusClass(status) {
         'AVAILABLE': 'row-waiting',
         'FORECAST': 'row-forecast',
         'SIGNED_ON': 'row-signed-on',
-        'ONLINE': 'row-online'
+        'ONLINE': 'row-online',
+        'SAFE': 'row-safe',
+        'BOOKED': 'row-booked'
     };
     return statusMap[status] || 'row-waiting';
 }

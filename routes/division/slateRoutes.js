@@ -1479,6 +1479,29 @@ router.post('/booking', async (req, res) => {
             if (signOffHour >= 8 && signOffHour < 16) shiftCode = '08_16';
             else if (signOffHour >= 16) shiftCode = '16_24';
 
+            // Check if pending SAFE entry already exists for same slot
+            const lpHrmsForCheck = book_lp ? slot.lp_hrms_id : null;
+            const alpHrmsForCheck = book_alp ? slot.alp_hrms_id : null;
+
+            const [existingPending] = await conn.query(`
+                SELECT id FROM div_detail_book_log
+                WHERE office_code = ?
+                  AND shift_date = ?
+                  AND sign_on_time = ?
+                  AND is_safe_pending = TRUE
+                  AND (
+                      (lp_hrms_id = ? AND ? IS NOT NULL)
+                      OR (alp_hrms_id = ? AND ? IS NOT NULL)
+                  )
+                LIMIT 1
+            `, [slot.office_code, slotDateStr, signOnDateTime, lpHrmsForCheck, lpHrmsForCheck, alpHrmsForCheck, alpHrmsForCheck]);
+
+            if (existingPending.length > 0) {
+                await conn.commit();
+                conn.release();
+                return res.json({ success: true, message: 'Already marked SAFE - pending in Detail Book' });
+            }
+
             // Insert pending SAFE record into detail_book_log
             await conn.query(`
                 INSERT INTO div_detail_book_log (
