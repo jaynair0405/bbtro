@@ -723,6 +723,31 @@ router.post('/arrival', async (req, res) => {
             `, [source_slate_id]);
         }
 
+        // 5. Flag leave conflicts (if staff has approved leave but signed off for duty)
+        const signOffDate = sign_off_time ? sign_off_time.split('T')[0] || sign_off_time.split(' ')[0] : formatLocalDate(new Date());
+
+        // Check LP leave conflict
+        if (lp_hrms_id && lp_next_slot_date) {
+            await conn.query(`
+                UPDATE div_leave_tracking
+                SET remarks = CONCAT(IFNULL(remarks, ''), ' [CONFLICT: Assigned duty on ', ?, ' - Log#', ?, ']')
+                WHERE staff_hrms_id = ?
+                  AND status = 'Approved'
+                  AND from_date <= ? AND to_date >= ?
+            `, [lp_next_slot_date, logId, lp_hrms_id, lp_next_slot_date, lp_next_slot_date]);
+        }
+
+        // Check ALP leave conflict
+        if (alp_hrms_id && alp_next_slot_date) {
+            await conn.query(`
+                UPDATE div_leave_tracking
+                SET remarks = CONCAT(IFNULL(remarks, ''), ' [CONFLICT: Assigned duty on ', ?, ' - Log#', ?, ']')
+                WHERE staff_hrms_id = ?
+                  AND status = 'Approved'
+                  AND from_date <= ? AND to_date >= ?
+            `, [alp_next_slot_date, logId, alp_hrms_id, alp_next_slot_date, alp_next_slot_date]);
+        }
+
         await conn.commit();
         conn.release();
 

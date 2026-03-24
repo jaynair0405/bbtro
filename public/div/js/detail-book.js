@@ -646,9 +646,75 @@ async function checkStaffWarningsComprehensive() {
         }
     }
 
+    // Check rest duration compliance (client-side)
+    checkRestDurationCompliance();
+
     // Clear checking state and display warnings
     isCheckingWarnings = false;
     displayWarnings();
+}
+
+/**
+ * Check if actual rest duration meets minimum requirements
+ * NORMAL = 16hr minimum, PR = 30hr minimum
+ */
+function checkRestDurationCompliance() {
+    const signOff = document.getElementById('signOff').value;
+    if (!signOff) return;
+
+    // Get sign-off date (today or yesterday)
+    const signOffDateSelect = document.getElementById('signOffDate');
+    let signOffDate = new Date(TODAY.getTime());
+    if (signOffDateSelect && signOffDateSelect.value === 'prev') {
+        signOffDate.setDate(signOffDate.getDate() - 1);
+    }
+
+    // Parse sign-off datetime
+    const [soH, soM] = signOff.split(':').map(Number);
+    const signOffDateTime = new Date(signOffDate);
+    signOffDateTime.setHours(soH, soM, 0, 0);
+
+    // Check LP rest duration
+    const lpRest = document.getElementById('lpRest').value;
+    const lpSlotTime = document.getElementById('lpNextSlot').value;
+    const lpSlotDate = getLpSlotDate();
+
+    if (selectedLP && lpRest !== 'suspend' && lpSlotTime && lpSlotDate) {
+        const requiredHours = parseInt(lpRest);
+        const [lpH, lpM] = lpSlotTime.split(':').map(Number);
+        const lpSlotDateTime = new Date(lpSlotDate + 'T00:00:00');
+        lpSlotDateTime.setHours(lpH, lpM, 0, 0);
+
+        const actualHours = (lpSlotDateTime - signOffDateTime) / (1000 * 60 * 60);
+
+        if (actualHours < requiredHours) {
+            lpWarnings.push({
+                level: 'warning',
+                message: `Rest only ${actualHours.toFixed(1)}hr (needs ${requiredHours}hr min)`
+            });
+        }
+    }
+
+    // Check ALP rest duration
+    const alpRest = document.getElementById('alpRest').value;
+    const alpSlotTime = document.getElementById('alpNextSlot').value;
+    const alpSlotDate = getAlpSlotDate();
+
+    if (selectedALP && alpRest !== 'suspend' && alpSlotTime && alpSlotDate) {
+        const requiredHours = parseInt(alpRest);
+        const [alpH, alpM] = alpSlotTime.split(':').map(Number);
+        const alpSlotDateTime = new Date(alpSlotDate + 'T00:00:00');
+        alpSlotDateTime.setHours(alpH, alpM, 0, 0);
+
+        const actualHours = (alpSlotDateTime - signOffDateTime) / (1000 * 60 * 60);
+
+        if (actualHours < requiredHours) {
+            alpWarnings.push({
+                level: 'warning',
+                message: `Rest only ${actualHours.toFixed(1)}hr (needs ${requiredHours}hr min)`
+            });
+        }
+    }
 }
 
 function getLpSlotDate() {
@@ -2318,9 +2384,27 @@ async function doSubmit(payload) {
             }
 
             let msg = `✅ Arrival saved! Log ID: ${data.log_id}`;
+
+            // Show slot collision info
+            const lpRequestedTime = payload.lp_next_slot_time ? payload.lp_next_slot_time.substring(0,5) : null;
+            const alpRequestedTime = payload.alp_next_slot_time ? payload.alp_next_slot_time.substring(0,5) : null;
+
             if (data.lp_is_adhoc || data.alp_is_adhoc) {
-                msg += ' (Adhoc entry created)';
+                msg += ' (Adhoc slot created)';
+            } else {
+                // Check if actual slot differs from requested (collision resolved to next available)
+                let slotChanges = [];
+                if (lpRequestedTime && lpActualTime !== lpRequestedTime) {
+                    slotChanges.push(`LP: ${lpRequestedTime}→${lpActualTime}`);
+                }
+                if (alpRequestedTime && alpActualTime !== alpRequestedTime) {
+                    slotChanges.push(`ALP: ${alpRequestedTime}→${alpActualTime}`);
+                }
+                if (slotChanges.length > 0) {
+                    msg += ` (Slot moved: ${slotChanges.join(', ')})`;
+                }
             }
+
             if (!lpAdded && !alpAdded) {
                 msg = "Arrival Saved. Staff on Multi-Day Leave - not added to board.";
             }
@@ -2336,6 +2420,8 @@ async function doSubmit(payload) {
                     });
                     selectedSafeLogId = null;
                     await loadPendingSafe(); // Refresh pending SAFE list
+                    // Show SAFE-specific confirmation
+                    showToast('SAFE entry processed - crew signed off from Slate', 'success');
                 } catch (err) {
                     console.error('Error clearing SAFE pending:', err);
                 }

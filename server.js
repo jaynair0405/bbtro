@@ -21,6 +21,8 @@ const wheelMovementRoutes = require('./routes/wheelMovementRoutes');
 const utilityRoutes = require('./routes/utilityRoutes');
 const session = require('express-session');
 const MySQLStore = require('express-mysql-session')(session);
+const kioskRoutes = require('./routes/kioskRoutes');
+const { getSlateDisplay } = require('./utils/kioskDisplays');
 
 const authRoutes = require('./routes/authRoutes');
 const app = express();
@@ -385,6 +387,23 @@ app.use(
 );
 
 
+app.get('/kiosk/slate/:displayId', (req, res) => {
+  if (!getSlateDisplay(req.params.displayId)) {
+    return res.status(404).send('Kiosk display not found');
+  }
+
+  res.sendFile(path.join(__dirname, 'public', 'kiosk', 'slate.html'));
+});
+
+app.get('/kiosk/assets/slate-theme.css', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'div', 'css', 'slate-theme.css'));
+});
+
+app.get('/kiosk/assets/slate-common.js', (req, res) => {
+  res.type('application/javascript');
+  res.sendFile(path.join(__dirname, 'public', 'div', 'js', 'slate-common.js'));
+});
+
 app.use(express.static(path.join(__dirname, "public"), { index: false }));
 
 // Add realm-based authentication middleware
@@ -399,6 +418,8 @@ const requireRealm = (realm) => {
         next();
     };
 };
+
+app.use('/api/kiosk', kioskRoutes);
 
 // 🔐 API auth guard (allowlist login + current-user + status)
 const apiAllowlist = new Set(['/api/login', '/api/current-user', '/api/status']);
@@ -547,6 +568,7 @@ const midnightPositionRoutes = require("./routes/division/midnightPositionRoutes
 const ctrRoutes = require('./routes/division/ctrRoutes');
 const categoryRoutes = require('./routes/division/categoryRoutes');
 const slateRoutes = require('./routes/division/slateRoutes');
+const trainingLetterRoutes = require('./routes/division/trainingLetterRoutes');
 
 // Add division routes with realm protection
 app.use("/api/division/leave", requireRealm("division"), leaveRoutes); // mount early to avoid any catch-alls
@@ -568,6 +590,7 @@ app.use("/api/division/midnight-position", requireRealm("division"), midnightPos
 app.use("/api/division/ctr", requireRealm('division'), ctrRoutes);
 app.use("/api/division/category", requireRealm('division'), categoryRoutes);
 app.use("/api/division/slate", requireRealm('division'), slateRoutes);
+app.use("/api/division/training-letters", requireRealm('division'), trainingLetterRoutes);
 
 // Session info endpoint
 app.get('/api/session', (req, res) => {
@@ -633,4 +656,3 @@ app.listen(PORT, () => {
   console.log("📊 MySQL Railway Management System");
   console.log("✅ All API endpoints configured");
 });
-

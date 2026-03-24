@@ -977,6 +977,10 @@ router.get('/submitted', async (req, res) => {
             conditions.push("l.status NOT IN ('Rejected', 'Cancelled')");
         } else if (status === 'Approved+Absent') {
             conditions.push("l.status IN ('Approved', 'Absent')");
+        } else if (status === 'Conflict') {
+            // Show only approved leaves with duty conflict
+            conditions.push("l.status = 'Approved'");
+            conditions.push("l.remarks LIKE '%[CONFLICT:%'");
         } else {
             // Specific status filter (including 'Cancelled' when explicitly selected)
             conditions.push('l.status = ?');
@@ -1000,7 +1004,8 @@ router.get('/submitted', async (req, res) => {
                 l.reason,
                 l.remarks,
                 l.is_regularized,
-                l.created_at
+                l.created_at,
+                CASE WHEN l.remarks LIKE '%[CONFLICT:%' THEN 1 ELSE 0 END AS has_conflict
             FROM div_leave_tracking l
             JOIN div_staff_master s ON l.staff_hrms_id = s.hrms_id
             ${whereClause}
