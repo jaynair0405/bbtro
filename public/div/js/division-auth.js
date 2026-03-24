@@ -36,6 +36,17 @@
       
       // Auth OK - show page
       document.documentElement.style.visibility = 'visible';
+
+      // Show Crew Operations section for admin or PNVL-ML users
+      const crewOpsSection = document.getElementById('crewOperationsSection');
+      if (crewOpsSection) {
+        const isAdmin = user.div_role === 'admin' || user.role === 'admin';
+        const isPnvlMl = user.div_office_code === 'PNVL-ML';
+        if (isAdmin || isPnvlMl) {
+          crewOpsSection.style.display = '';
+        }
+      }
+
       return true;
       
     } catch (err) {
