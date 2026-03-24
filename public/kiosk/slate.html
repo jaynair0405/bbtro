@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CRTMS Slate Kiosk</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/kiosk/assets/slate-theme.css?v=20260324a">
+    <link rel="stylesheet" href="/kiosk/slate.css?v=20260324a">
+</head>
+<body class="display-mode">
+    <div class="header">
+        <h1 id="headerTitle">PNVL BOOKING SLATE</h1>
+        <div class="header-meta">
+            <span id="vacancySummary" class="vacancy-summary">LP: -- vacant | ALP: -- vacant</span>
+            <div class="header-clockline">
+                <span id="headerShift">08:00 x 16:00</span>
+                <span>|</span>
+                <span id="headerDate">--</span>
+                <span id="headerTime" class="header-time"></span>
+            </div>
+        </div>
+    </div>
+
+    <div id="statusBanner" class="status-banner hidden"></div>
+
+    <div class="main-container">
+        <div class="date-nav" id="dateNav"></div>
+        <div class="shift-nav" id="shiftNav"></div>
+
+        <div class="slate-container" id="slateContent">
+            <div class="no-data">Loading kiosk slate...</div>
+        </div>
+    </div>
+
+    <script src="/kiosk/assets/slate-common.js?v=20260324a"></script>
+    <script src="/kiosk/slate.js?v=20260324a"></script>
+</body>
+</html>
