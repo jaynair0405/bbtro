@@ -14,6 +14,8 @@ const dateGroups = {}; // Stores date -> { element, tables }
 let pendingPayload = null;
 let collisionInfo = null;
 let selectedSafeLogId = null; // Track which SAFE entry is being processed
+let activeForecastDate = null;
+let todayRefreshTimer = null;
 
 // Warning state - blocks submission if hard errors exist
 let lpWarnings = [];
@@ -41,6 +43,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Initialize date dropdowns
     populateDateDropdowns();
+
+    // Set active date to today BEFORE creating date groups
+    const todayStr = formatDateKey(TODAY);
+    activeForecastDate = todayStr;
 
     // Initialize with 11 days: yesterday (-1) through +9 days ahead
     for (let offset = -1; offset <= 9; offset++) {
@@ -75,11 +81,26 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Initialize scroll listener for date tab sync
     initScrollListener();
 
-    // Mark today's tab as active and scroll to it
+    // Scroll to today after a short delay to ensure DOM is fully rendered
     setTimeout(() => {
-        const todayStr = formatDateKey(TODAY);
-        scrollToDate(todayStr);
+        const scroll = document.getElementById('forecastScroll');
+        const group = dateGroups[todayStr];
+        if (scroll && group && group.element) {
+            // Disable smooth scroll, set position directly
+            scroll.style.scrollBehavior = 'auto';
+            const dates = Object.keys(dateGroups).sort();
+            const dateIndex = dates.indexOf(todayStr);
+            const groupWidth = group.element.offsetWidth;
+            scroll.scrollLeft = dateIndex * groupWidth;
+            // Re-enable smooth scroll
+            setTimeout(() => { scroll.style.scrollBehavior = ''; }, 100);
+        }
     }, 200);
+
+    // Keep forecast aligned on visibility/focus changes
+    scheduleDateBoundaryRefresh();
+    document.addEventListener('visibilitychange', handleDateBoundaryCheck);
+    window.addEventListener('focus', handleDateBoundaryCheck);
 });
 
 // ========== API: LOAD SLATE DATA ==========
@@ -1567,9 +1588,10 @@ function ensureDateGroup(dateStr) {
 function updateDateTabs() {
     const tabsContainer = document.getElementById('dateTabs');
     const dates = Object.keys(dateGroups).sort();
+    const activeDate = activeForecastDate || getVisibleDate() || formatDateKey(TODAY);
 
     tabsContainer.innerHTML = dates.map(dateStr => {
-        const date = new Date(dateStr);
+        const date = new Date(dateStr + 'T00:00:00');
         const isToday = formatDateKey(TODAY) === dateStr;
         const yesterday = new Date(TODAY);
         yesterday.setDate(yesterday.getDate() - 1);
@@ -1591,16 +1613,16 @@ function updateDateTabs() {
         const alpCount = group.tables.reduce((sum, t) => sum + t.querySelectorAll('td.alp-cell.new-entry').length, 0);
         const hasStaff = lpCount > 0 || alpCount > 0;
 
-        return `<div class="date-tab" data-date="${dateStr}" onclick="scrollToDate('${dateStr}')">${label}${hasStaff ? `<span class="count">${lpCount}/${alpCount}</span>` : ''}</div>`;
+        const isActive = activeDate === dateStr ? ' active' : '';
+        return `<div class="date-tab${isActive}" data-date="${dateStr}" onclick="scrollToDate('${dateStr}')">${label}${hasStaff ? `<span class="count">${lpCount}/${alpCount}</span>` : ''}</div>`;
     }).join('');
 
-    updateVacancySummary();
+    updateVacancySummary(activeDate);
 }
 
 function updateVacancySummary(forDate = null) {
-    // Show vacancy for specific date, or default to currently visible date
-    const dates = Object.keys(dateGroups).sort();
-    const targetDate = forDate || getVisibleDate() || formatDateKey(TODAY);
+    // Show vacancy for specific date, or default to currently visible date or today
+    const targetDate = forDate || activeForecastDate || getVisibleDate() || formatDateKey(TODAY);
 
     let lpVacant = 0;
     let alpVacant = 0;
@@ -1614,7 +1636,7 @@ function updateVacancySummary(forDate = null) {
     }
 
     // Format date label
-    const date = new Date(targetDate);
+    const date = new Date(targetDate + 'T00:00:00');
     const todayStr = formatDateKey(TODAY);
     let dateLabel = date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
     if (targetDate === todayStr) dateLabel = 'Today';
@@ -1629,18 +1651,77 @@ function getVisibleDate() {
     const scroll = document.getElementById('forecastScroll');
     if (!scroll) return null;
     const scrollLeft = scroll.scrollLeft;
-    const groupWidth = scroll.querySelector('.date-group')?.offsetWidth || scroll.offsetWidth;
-    const dates = Object.keys(dateGroups).sort();
-    const visibleIndex = Math.round(scrollLeft / groupWidth);
-    return dates[visibleIndex] || null;
+    const groups = Array.from(scroll.querySelectorAll('.date-group'));
+    if (!groups.length) return null;
+
+    let closestDate = groups[0].dataset.date;
+    let closestDistance = Number.POSITIVE_INFINITY;
+
+    groups.forEach(group => {
+        const distance = Math.abs(group.offsetLeft - scrollLeft);
+        if (distance < closestDistance) {
+            closestDistance = distance;
+            closestDate = group.dataset.date;
+        }
+    });
+
+    return closestDate || null;
 }
 
-function scrollToDate(dateStr) {
+function syncForecastToToday(attempt = 0) {
+    const todayStr = formatDateKey(TODAY);
+    const group = dateGroups[todayStr];
+
+    // Wait for layout to complete (groupWidth > 0)
+    if (!group || !group.element || group.element.offsetWidth === 0) {
+        if (attempt < 10) {
+            setTimeout(() => syncForecastToToday(attempt + 1), 50);
+        }
+        return;
+    }
+
+    scrollToDate(todayStr, true);
+
+    if (attempt >= 6) return;
+
+    requestAnimationFrame(() => {
+        if (getVisibleDate() !== todayStr) {
+            setTimeout(() => syncForecastToToday(attempt + 1), 100);
+        }
+    });
+}
+
+function scrollToDate(dateStr, instant = false) {
     const group = dateGroups[dateStr];
-    if (group) {
-        group.element.scrollIntoView({ behavior: 'smooth', inline: 'start' });
+    const scroll = document.getElementById('forecastScroll');
+
+    if (group && group.element && scroll) {
+        activeForecastDate = dateStr;
+
+        // Calculate target position based on date index and group width
+        const dates = Object.keys(dateGroups).sort();
+        const dateIndex = dates.indexOf(dateStr);
+        const groupWidth = group.element.offsetWidth;
+        const targetLeft = dateIndex * groupWidth;
+
+        if (instant) {
+            // Temporarily disable CSS smooth scroll
+            const originalBehavior = scroll.style.scrollBehavior;
+            scroll.style.scrollBehavior = 'auto';
+            scroll.scrollLeft = targetLeft;
+            // Restore after scroll completes
+            requestAnimationFrame(() => {
+                scroll.style.scrollBehavior = originalBehavior;
+            });
+        } else {
+            scroll.scrollTo({ left: targetLeft, behavior: 'smooth' });
+        }
+
         document.querySelectorAll('.date-tab').forEach(t => t.classList.remove('active'));
-        document.querySelector(`.date-tab[data-date="${dateStr}"]`)?.classList.add('active');
+        const activeTab = document.querySelector(`.date-tab[data-date="${dateStr}"]`);
+        activeTab?.classList.add('active');
+        activeTab?.scrollIntoView({ behavior: instant ? 'auto' : 'smooth', block: 'nearest', inline: 'center' });
+        updateVacancySummary(dateStr);
     }
 }
 
@@ -1652,16 +1733,11 @@ function scrollForecast(direction) {
 
 // Detect visible date and highlight corresponding tab
 function updateVisibleDateTab() {
-    const scroll = document.getElementById('forecastScroll');
-    const scrollLeft = scroll.scrollLeft;
-    const groupWidth = scroll.querySelector('.date-group')?.offsetWidth || scroll.offsetWidth;
-
-    // Find which date group is most visible
-    const dates = Object.keys(dateGroups).sort();
-    const visibleIndex = Math.round(scrollLeft / groupWidth);
-    const visibleDate = dates[visibleIndex];
+    const visibleDate = getVisibleDate();
 
     if (visibleDate) {
+        activeForecastDate = visibleDate;
+
         // Update tab highlighting
         document.querySelectorAll('.date-tab').forEach(t => t.classList.remove('active'));
         const activeTab = document.querySelector(`.date-tab[data-date="${visibleDate}"]`);
@@ -1683,6 +1759,29 @@ function initScrollListener() {
         clearTimeout(scrollTimeout);
         scrollTimeout = setTimeout(updateVisibleDateTab, 100);
     });
+}
+
+function getRealTodayKey() {
+    return formatDateKey(new Date());
+}
+
+function handleDateBoundaryCheck() {
+    if (getRealTodayKey() !== formatDateKey(TODAY)) {
+        window.location.reload();
+    }
+}
+
+function scheduleDateBoundaryRefresh() {
+    clearTimeout(todayRefreshTimer);
+
+    const now = new Date();
+    const nextCheck = new Date(now.getTime());
+    nextCheck.setHours(24, 0, 5, 0);
+
+    todayRefreshTimer = setTimeout(() => {
+        handleDateBoundaryCheck();
+        scheduleDateBoundaryRefresh();
+    }, nextCheck.getTime() - now.getTime());
 }
 
 // ========== ADD STAFF TO SLATE ==========

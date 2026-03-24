@@ -5,6 +5,13 @@ const router = express.Router();
 // DIGITAL SLATE & DETAIL BOOK API
 // ============================================================================
 
+// IST Timezone offset (UTC+5:30 = 330 minutes)
+const IST_OFFSET_MINUTES = 330;
+
+// SQL expressions for IST time (server is in UTC)
+const SQL_NOW_IST = `DATE_ADD(NOW(), INTERVAL ${IST_OFFSET_MINUTES} MINUTE)`;
+const SQL_CURDATE_IST = `DATE(DATE_ADD(NOW(), INTERVAL ${IST_OFFSET_MINUTES} MINUTE))`;
+
 // Helper to format date as YYYY-MM-DD in local timezone (avoids UTC shift)
 function formatLocalDate(date) {
     if (typeof date === 'string') date = new Date(date);
@@ -12,6 +19,21 @@ function formatLocalDate(date) {
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
+}
+
+// Get current IST date as YYYY-MM-DD string
+function getISTDate() {
+    const now = new Date();
+    // Add IST offset to UTC time
+    const istTime = new Date(now.getTime() + (IST_OFFSET_MINUTES * 60 * 1000));
+    return formatLocalDate(istTime);
+}
+
+// Get current IST datetime
+function getISTDateTime() {
+    const now = new Date();
+    const istTime = new Date(now.getTime() + (IST_OFFSET_MINUTES * 60 * 1000));
+    return istTime;
 }
 
 // ----------------------------------------------------------------------------
@@ -30,7 +52,7 @@ router.get('/active-crews', async (req, res) => {
 
         conn = await req.app.locals.pool.getConnection();
 
-        // Get crews who are ONLINE and have been on duty for 5+ hours
+        // Get crews who are ONLINE and have been on duty for 5+ hours (using IST time)
         const [crews] = await conn.query(`
             SELECT
                 ds.id AS slate_id,
@@ -45,39 +67,39 @@ router.get('/active-crews', async (req, res) => {
                 alp.name AS alp_name,
                 alp.current_cms_id AS alp_cms_id,
                 CONCAT(ds.slot_date, ' ', ds.slot_time) AS sign_on_datetime,
-                TIMESTAMPDIFF(HOUR, CONCAT(ds.slot_date, ' ', ds.slot_time), NOW()) AS duty_hours
+                TIMESTAMPDIFF(HOUR, CONCAT(ds.slot_date, ' ', ds.slot_time), ${SQL_NOW_IST}) AS duty_hours
             FROM div_daily_slate ds
             LEFT JOIN div_staff_master lp ON ds.lp_hrms_id = lp.hrms_id
             LEFT JOIN div_staff_master alp ON ds.alp_hrms_id = alp.hrms_id
             WHERE ds.office_code = ?
               AND (ds.lp_status = 'ONLINE' OR ds.alp_status = 'ONLINE')
-              AND TIMESTAMPDIFF(HOUR, CONCAT(ds.slot_date, ' ', ds.slot_time), NOW()) >= 5
+              AND TIMESTAMPDIFF(HOUR, CONCAT(ds.slot_date, ' ', ds.slot_time), ${SQL_NOW_IST}) >= 5
             ORDER BY CONCAT(ds.slot_date, ' ', ds.slot_time) ASC
         `, [userOffice]);
 
         // Check for leave warnings and future assignments
         for (const crew of crews) {
-            // Check LP leave
+            // Check LP leave (using IST date)
             const [lpLeave] = await conn.query(`
                 SELECT status, leave_type, from_date, to_date
                 FROM div_leave_tracking
                 WHERE staff_hrms_id = ?
                   AND status IN ('Approved', 'Pending', 'Forwarded')
-                  AND from_date <= DATE_ADD(CURDATE(), INTERVAL 2 DAY)
-                  AND to_date >= CURDATE()
+                  AND from_date <= DATE_ADD(${SQL_CURDATE_IST}, INTERVAL 2 DAY)
+                  AND to_date >= ${SQL_CURDATE_IST}
                 LIMIT 1
             `, [crew.lp_hrms_id]);
             crew.lp_leave_warning = lpLeave.length > 0 ? lpLeave[0] : null;
 
-            // Check ALP leave if exists
+            // Check ALP leave if exists (using IST date)
             if (crew.alp_hrms_id) {
                 const [alpLeave] = await conn.query(`
                     SELECT status, leave_type, from_date, to_date
                     FROM div_leave_tracking
                     WHERE staff_hrms_id = ?
                       AND status IN ('Approved', 'Pending', 'Forwarded')
-                      AND from_date <= DATE_ADD(CURDATE(), INTERVAL 2 DAY)
-                      AND to_date >= CURDATE()
+                      AND from_date <= DATE_ADD(${SQL_CURDATE_IST}, INTERVAL 2 DAY)
+                      AND to_date >= ${SQL_CURDATE_IST}
                     LIMIT 1
                 `, [crew.alp_hrms_id]);
                 crew.alp_leave_warning = alpLeave.length > 0 ? alpLeave[0] : null;
@@ -92,7 +114,7 @@ router.get('/active-crews', async (req, res) => {
                       AND lp_hrms_id = ?
                       AND id != ?
                       AND lp_status IN ('AVAILABLE', 'FORECAST')
-                      AND CONCAT(slot_date, ' ', slot_time) >= NOW()
+                      AND CONCAT(slot_date, ' ', slot_time) >= ${SQL_NOW_IST}
                     ORDER BY slot_date, slot_time
                     LIMIT 1
                 `, [userOffice, crew.lp_hrms_id, crew.slate_id]);
@@ -111,7 +133,7 @@ router.get('/active-crews', async (req, res) => {
                       AND alp_hrms_id = ?
                       AND id != ?
                       AND alp_status IN ('AVAILABLE', 'FORECAST')
-                      AND CONCAT(slot_date, ' ', slot_time) >= NOW()
+                      AND CONCAT(slot_date, ' ', slot_time) >= ${SQL_NOW_IST}
                     ORDER BY slot_date, slot_time
                     LIMIT 1
                 `, [userOffice, crew.alp_hrms_id, crew.slate_id]);
@@ -130,15 +152,15 @@ router.get('/active-crews', async (req, res) => {
                 `, [crew.lp_hrms_id]);
                 crew.lp_night_streak = lpFatigue.length > 0 ? lpFatigue[0].current_night_streak : null;
 
-                // Check LP PR (consecutive duty days)
+                // Check LP PR (consecutive duty days) - using IST date
                 const [lpPR] = await conn.query(`
                     SELECT COUNT(*) AS consecutive_days
                     FROM (
                         SELECT DISTINCT shift_date
                         FROM div_detail_book_log
                         WHERE lp_hrms_id = ?
-                          AND shift_date >= DATE_SUB(CURDATE(), INTERVAL 10 DAY)
-                          AND shift_date <= CURDATE()
+                          AND shift_date >= DATE_SUB(${SQL_CURDATE_IST}, INTERVAL 10 DAY)
+                          AND shift_date <= ${SQL_CURDATE_IST}
                     ) AS recent_duties
                 `, [crew.lp_hrms_id]);
                 const lpDays = lpPR.length > 0 ? lpPR[0].consecutive_days : 0;
@@ -154,15 +176,15 @@ router.get('/active-crews', async (req, res) => {
                 `, [crew.alp_hrms_id]);
                 crew.alp_night_streak = alpFatigue.length > 0 ? alpFatigue[0].current_night_streak : null;
 
-                // Check ALP PR (consecutive duty days)
+                // Check ALP PR (consecutive duty days) - using IST date
                 const [alpPR] = await conn.query(`
                     SELECT COUNT(*) AS consecutive_days
                     FROM (
                         SELECT DISTINCT shift_date
                         FROM div_detail_book_log
                         WHERE alp_hrms_id = ?
-                          AND shift_date >= DATE_SUB(CURDATE(), INTERVAL 10 DAY)
-                          AND shift_date <= CURDATE()
+                          AND shift_date >= DATE_SUB(${SQL_CURDATE_IST}, INTERVAL 10 DAY)
+                          AND shift_date <= ${SQL_CURDATE_IST}
                     ) AS recent_duties
                 `, [crew.alp_hrms_id]);
                 const alpDays = alpPR.length > 0 ? alpPR[0].consecutive_days : 0;
@@ -254,8 +276,8 @@ router.get('/board', async (req, res) => {
 
         conn = await req.app.locals.pool.getConnection();
 
-        // Calculate date range
-        const startDate = date || formatLocalDate(new Date());
+        // Calculate date range (use IST date as default)
+        const startDate = date || getISTDate();
         const numDays = Math.min(parseInt(days) || 2, 7); // Max 7 days
 
         // First, ensure slots exist for the date range (call stored procedure)
@@ -321,7 +343,7 @@ router.get('/board', async (req, res) => {
                 ds.extra_alp_source_depot,
                 ds.last_modified,
                 CASE
-                    WHEN ds.last_modified > DATE_SUB(NOW(), INTERVAL 3 MINUTE) THEN 1
+                    WHEN ds.last_modified > DATE_SUB(${SQL_NOW_IST}, INTERVAL 3 MINUTE) THEN 1
                     ELSE 0
                 END AS is_recently_modified
             FROM div_daily_slate ds
@@ -356,7 +378,7 @@ router.get('/board', async (req, res) => {
             });
         }
 
-        // Fetch PR data (consecutive duty days) for all staff
+        // Fetch PR data (consecutive duty days) for all staff - using IST date
         // Need to check both lp_hrms_id and alp_hrms_id columns
         const prMap = {};
         if (hrmsIds.size > 0) {
@@ -366,13 +388,13 @@ router.get('/board', async (req, res) => {
                 FROM (
                     SELECT lp_hrms_id AS hrms_id, shift_date FROM div_detail_book_log
                     WHERE lp_hrms_id IN (?)
-                      AND shift_date >= DATE_SUB(CURDATE(), INTERVAL 10 DAY)
-                      AND shift_date <= CURDATE()
+                      AND shift_date >= DATE_SUB(${SQL_CURDATE_IST}, INTERVAL 10 DAY)
+                      AND shift_date <= ${SQL_CURDATE_IST}
                     UNION ALL
                     SELECT alp_hrms_id AS hrms_id, shift_date FROM div_detail_book_log
                     WHERE alp_hrms_id IN (?)
-                      AND shift_date >= DATE_SUB(CURDATE(), INTERVAL 10 DAY)
-                      AND shift_date <= CURDATE()
+                      AND shift_date >= DATE_SUB(${SQL_CURDATE_IST}, INTERVAL 10 DAY)
+                      AND shift_date <= ${SQL_CURDATE_IST}
                 ) AS combined
                 GROUP BY hrms_id
                 HAVING duty_days >= 5
@@ -507,10 +529,10 @@ router.post('/arrival', async (req, res) => {
             if (signOffHour >= 8 && signOffHour < 16) shiftCode = '08_16';
             else if (signOffHour >= 16) shiftCode = '16_24';
         } else {
-            // Manual entry - use current date/time
-            const now = new Date();
-            shiftDate = formatLocalDate(now);
-            const currentHour = now.getHours();
+            // Manual entry - use current IST date/time
+            const istNow = getISTDateTime();
+            shiftDate = formatLocalDate(istNow);
+            const currentHour = istNow.getHours();
             shiftCode = '00_08';
             if (currentHour >= 8 && currentHour < 16) shiftCode = '08_16';
             else if (currentHour >= 16) shiftCode = '16_24';
@@ -598,7 +620,7 @@ router.post('/arrival', async (req, res) => {
                           AND lp_hrms_id IS NULL
                           AND is_adhoc = 0
                           AND CONCAT(slot_date, ' ', slot_time) > CONCAT(?, ' ', ?)
-                          AND CONCAT(slot_date, ' ', slot_time) >= NOW()
+                          AND CONCAT(slot_date, ' ', slot_time) >= ${SQL_NOW_IST}
                         ORDER BY slot_date ASC, slot_time ASC
                         LIMIT 1
                     `, [userOffice, lp_next_slot_date, lp_next_slot_time]);
@@ -685,7 +707,7 @@ router.post('/arrival', async (req, res) => {
                           AND alp_hrms_id IS NULL
                           AND is_adhoc = 0
                           AND CONCAT(slot_date, ' ', slot_time) > CONCAT(?, ' ', ?)
-                          AND CONCAT(slot_date, ' ', slot_time) >= NOW()
+                          AND CONCAT(slot_date, ' ', slot_time) >= ${SQL_NOW_IST}
                         ORDER BY slot_date ASC, slot_time ASC
                         LIMIT 1
                     `, [userOffice, alp_next_slot_date, alp_next_slot_time]);
@@ -724,7 +746,7 @@ router.post('/arrival', async (req, res) => {
         }
 
         // 5. Flag leave conflicts (if staff has approved leave but signed off for duty)
-        const signOffDate = sign_off_time ? sign_off_time.split('T')[0] || sign_off_time.split(' ')[0] : formatLocalDate(new Date());
+        const signOffDate = sign_off_time ? sign_off_time.split('T')[0] || sign_off_time.split(' ')[0] : getISTDate();
 
         // Check LP leave conflict
         if (lp_hrms_id && lp_next_slot_date) {
@@ -844,8 +866,8 @@ router.post('/update', async (req, res) => {
         // LP late arrival fields - setting sign-on time means staff is ONLINE (departed)
         if (req.body.lp_signed_on_at !== undefined) {
             if (req.body.lp_signed_on_at) {
-                // Convert time string to full timestamp (today's date + time)
-                updates.push('lp_signed_on_at = CONCAT(CURDATE(), " ", ?)');
+                // Convert time string to full timestamp (IST date + time)
+                updates.push(`lp_signed_on_at = CONCAT(${SQL_CURDATE_IST}, " ", ?)`);
                 params.push(req.body.lp_signed_on_at);
                 // Staff has departed - set status to ONLINE
                 updates.push('lp_status = "ONLINE"');
@@ -869,7 +891,8 @@ router.post('/update', async (req, res) => {
         // ALP late arrival fields - setting sign-on time means staff is ONLINE (departed)
         if (req.body.alp_signed_on_at !== undefined) {
             if (req.body.alp_signed_on_at) {
-                updates.push('alp_signed_on_at = CONCAT(CURDATE(), " ", ?)');
+                // Convert time string to full timestamp (IST date + time)
+                updates.push(`alp_signed_on_at = CONCAT(${SQL_CURDATE_IST}, " ", ?)`);
                 params.push(req.body.alp_signed_on_at);
                 // Staff has departed - set status to ONLINE
                 updates.push('alp_status = "ONLINE"');
@@ -1188,13 +1211,13 @@ router.post('/check-leave', async (req, res) => {
 
         conn = await req.app.locals.pool.getConnection();
 
-        // Check for any leave (approved or pending) from today onwards
+        // Check for any leave (approved or pending) from today onwards (using IST date)
         const [leave] = await conn.query(`
             SELECT id, leave_type, from_date, to_date, status
             FROM div_leave_tracking
             WHERE staff_hrms_id = ?
               AND status IN ('Approved', 'Pending', 'Forwarded', 'Applied')
-              AND to_date >= CURDATE()
+              AND to_date >= ${SQL_CURDATE_IST}
             ORDER BY from_date ASC
             LIMIT 1
         `, [hrms_id]);
@@ -1229,7 +1252,7 @@ router.get('/vacancy', async (req, res) => {
     try {
         const { office_code, date } = req.query;
         const userOffice = req.session.user?.div_office_code || office_code;
-        const targetDate = date || formatLocalDate(new Date());
+        const targetDate = date || getISTDate();
 
         if (!userOffice) {
             return res.status(400).json({ error: 'Office code required' });
@@ -1705,7 +1728,7 @@ router.get('/available-alp', async (req, res) => {
     try {
         const { office_code, date, exclude_slot_id } = req.query;
         const userOffice = req.session.user?.div_office_code || office_code;
-        const targetDate = date || formatLocalDate(new Date());
+        const targetDate = date || getISTDate();
 
         if (!userOffice) {
             return res.status(400).json({ error: 'Office code required' });
@@ -1713,7 +1736,7 @@ router.get('/available-alp', async (req, res) => {
 
         conn = await req.app.locals.pool.getConnection();
 
-        // Get ALPs from today's slate who are AVAILABLE or recently booked (< 1 hour)
+        // Get ALPs from today's slate who are AVAILABLE or recently booked (< 1 hour) - using IST time
         const [alps] = await conn.query(`
             SELECT
                 ds.id AS slot_id,
@@ -1724,7 +1747,7 @@ router.get('/available-alp', async (req, res) => {
                 ds.alp_status,
                 ds.train_no,
                 ds.booked_at,
-                TIMESTAMPDIFF(MINUTE, ds.booked_at, NOW()) AS minutes_since_booked
+                TIMESTAMPDIFF(MINUTE, ds.booked_at, ${SQL_NOW_IST}) AS minutes_since_booked
             FROM div_daily_slate ds
             JOIN div_staff_master s ON ds.alp_hrms_id = s.hrms_id
             WHERE ds.office_code = ?
@@ -1734,7 +1757,7 @@ router.get('/available-alp', async (req, res) => {
               AND (
                   ds.alp_status = 'AVAILABLE'
                   OR ds.alp_status = 'FORECAST'
-                  OR (ds.alp_status = 'BOOKED' AND TIMESTAMPDIFF(MINUTE, ds.booked_at, NOW()) < 60)
+                  OR (ds.alp_status = 'BOOKED' AND TIMESTAMPDIFF(MINUTE, ds.booked_at, ${SQL_NOW_IST}) < 60)
               )
             ORDER BY ds.slot_time ASC
         `, [userOffice, targetDate, exclude_slot_id || 0]);

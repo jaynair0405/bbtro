@@ -240,10 +240,15 @@ async function fetchSlots(officeCode, date) {
  * Fetch multiple days of slate data
  * @param {string} officeCode - Office code
  * @param {number} days - Number of days to fetch
+ * @param {string} startDate - Optional start date (YYYY-MM-DD), defaults to today
  * @returns {Promise<object>} API response
  */
-async function fetchSlateBoard(officeCode, days = 3) {
-    const res = await fetch(`${SLATE_CONFIG.API_BASE}/board?office_code=${officeCode}&days=${days}`);
+async function fetchSlateBoard(officeCode, days = 3, startDate = null) {
+    let url = `${SLATE_CONFIG.API_BASE}/board?office_code=${officeCode}&days=${days}`;
+    if (startDate) {
+        url += `&date=${startDate}`;
+    }
+    const res = await fetch(url);
     return await res.json();
 }
 

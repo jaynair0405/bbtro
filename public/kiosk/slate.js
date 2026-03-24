@@ -1,6 +1,8 @@
 const KIOSK_SLATE_CONFIG = {
     API_BASE: '/api/kiosk/slate',
     REFRESH_INTERVAL: 30000,
+    ROTATE_INTERVAL: 15000,
+    TRANSITION_WINDOW_MINUTES: 60,
     DISPLAY_TITLES: {
         'pnvl-office': 'PNVL BOOKING SLATE'
     }
@@ -15,8 +17,11 @@ let forceShift = null;
 let refreshTimer = null;
 let clockTimer = null;
 let idleTimer = null;
+let rotateTimer = null;
 let displayId = '';
 let kioskToken = '';
+let autoRotatePhase = 0;
+let lastRenderedSignature = '';
 
 const SAFETY_SLOGANS = [
     "Safety is not a choice, it's a responsibility",
@@ -65,6 +70,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     updateTitle();
     buildDateNav();
+    syncAutoRotation();
     buildShiftNav();
     updateHeader();
     startClock();
@@ -108,7 +114,12 @@ function stopClock() {
 }
 
 function updateHeader() {
+    currentShiftIndex = getCurrentShiftIndex();
+    syncAutoRotation();
+
     const now = new Date();
+    const displayTarget = getDisplayTarget(now);
+    const displaySignature = `${displayTarget.dateKey}|${displayTarget.shiftIndex}`;
     const timeStr = now.toLocaleTimeString('en-IN', {
         hour: '2-digit',
         minute: '2-digit',
@@ -116,14 +127,19 @@ function updateHeader() {
         hour12: false
     });
 
-    updateHeaderDate();
+    updateHeaderDate(displayTarget.dateKey);
     document.getElementById('headerTime').textContent = timeStr;
-    document.getElementById('headerShift').textContent = getShiftLabel(forceShift ?? currentShiftIndex);
+    document.getElementById('headerShift').textContent = getShiftLabel(displayTarget.shiftIndex);
+
+    if (displaySignature !== lastRenderedSignature) {
+        buildShiftNav();
+        renderCurrentShift();
+        updateVacancySummary();
+    }
 }
 
-function updateHeaderDate() {
-    const targetDate = new Date();
-    targetDate.setDate(targetDate.getDate() + dateOffset);
+function updateHeaderDate(dateKey = currentDate) {
+    const targetDate = new Date(`${dateKey}T00:00:00`);
 
     const dateStr = targetDate.toLocaleDateString('en-IN', {
         day: '2-digit',
@@ -142,7 +158,7 @@ function buildShiftNav() {
     const shiftColors = ['shift-night', 'shift-day', 'shift-evening'];
     const shiftLabels = ['00-08', '08-16', '16-24'];
     const shiftIcons = ['N', 'D', 'E'];
-    const activeShift = forceShift ?? currentShiftIndex;
+    const activeShift = getDisplayTarget().shiftIndex;
 
     nav.innerHTML = `
         <button class="nav-btn" onclick="changeShift(-1)" title="Previous Shift">‹</button>
@@ -160,6 +176,7 @@ function buildShiftNav() {
 
 function selectShift(index) {
     forceShift = index;
+    syncAutoRotation();
     buildShiftNav();
     renderCurrentShift();
     updateVacancySummary();
@@ -177,6 +194,7 @@ function resetIdleTimer() {
     idleTimer = setTimeout(() => {
         forceShift = null;
         currentShiftIndex = getCurrentShiftIndex();
+        syncAutoRotation();
         buildShiftNav();
         renderCurrentShift();
         updateVacancySummary();
@@ -210,16 +228,19 @@ function changeDate(offset) {
     baseDate.setDate(baseDate.getDate() + offset);
     currentDate = formatDateKey(baseDate);
 
+    syncAutoRotation();
     buildDateNav();
+    buildShiftNav();
     updateHeaderDate();
     loadSlateData();
 }
 
 function getBoardUrl() {
+    const startDate = shiftDateKey(currentDate, -1);
     const params = new URLSearchParams({
         token: kioskToken,
-        date: currentDate,
-        days: '1'
+        date: startDate,
+        days: '3'
     });
     return `${KIOSK_SLATE_CONFIG.API_BASE}/${encodeURIComponent(displayId)}/board?${params.toString()}`;
 }
@@ -272,10 +293,12 @@ function renderNoData(message) {
 }
 
 function renderCurrentShift() {
-    const shiftIndex = forceShift ?? currentShiftIndex;
+    const displayTarget = getDisplayTarget();
+    const shiftIndex = displayTarget.shiftIndex;
     const shiftCode = getShiftCode(shiftIndex);
-    const dateData = slateData[currentDate] || {};
+    const dateData = slateData[displayTarget.dateKey] || {};
     const slots = dateData[shiftCode] || [];
+    lastRenderedSignature = `${displayTarget.dateKey}|${displayTarget.shiftIndex}`;
 
     renderDisplayMode(slots, shiftIndex);
 }
@@ -426,12 +449,13 @@ function isLateArrival(slotDate, slotTime, signedOnAt) {
 }
 
 function updateVacancySummary(source = vacancyData) {
+    const displayTarget = getDisplayTarget();
     const el = document.getElementById('vacancySummary');
-    if (!el || !source || !source[currentDate]) return;
+    if (!el || !source || !source[displayTarget.dateKey]) return;
 
-    const shiftCode = getShiftCode(forceShift ?? currentShiftIndex);
-    const lpVacant = source[currentDate].lp[shiftCode] || 0;
-    const alpVacant = source[currentDate].alp[shiftCode] || 0;
+    const shiftCode = getShiftCode(displayTarget.shiftIndex);
+    const lpVacant = source[displayTarget.dateKey].lp[shiftCode] || 0;
+    const alpVacant = source[displayTarget.dateKey].alp[shiftCode] || 0;
 
     el.textContent = `LP: ${lpVacant} vacant | ALP: ${alpVacant} vacant`;
 }
@@ -473,6 +497,79 @@ function handleKeyNav(event) {
         default:
             break;
     }
+}
+
+function shiftDateKey(dateKey, dayDelta) {
+    const date = new Date(`${dateKey}T00:00:00`);
+    date.setDate(date.getDate() + dayDelta);
+    return formatDateKey(date);
+}
+
+function isTransitionWindow(now = new Date()) {
+    if (dateOffset !== 0 || forceShift !== null) return false;
+
+    const shiftStarts = [0, 8 * 60, 16 * 60];
+    const currentMinutes = (now.getHours() * 60) + now.getMinutes();
+    const minutesSinceStart = currentMinutes - shiftStarts[getCurrentShiftIndex()];
+
+    return minutesSinceStart >= 0 && minutesSinceStart < KIOSK_SLATE_CONFIG.TRANSITION_WINDOW_MINUTES;
+}
+
+function getDisplayTarget(now = new Date()) {
+    if (forceShift !== null) {
+        return {
+            dateKey: currentDate,
+            shiftIndex: forceShift
+        };
+    }
+
+    const liveShiftIndex = getCurrentShiftIndex();
+
+    if (dateOffset === 0 && isTransitionWindow(now)) {
+        const previousShiftIndex = (liveShiftIndex + 2) % 3;
+        const previousDateKey = liveShiftIndex === 0
+            ? shiftDateKey(currentDate, -1)
+            : currentDate;
+
+        if (autoRotatePhase === 0) {
+            return {
+                dateKey: previousDateKey,
+                shiftIndex: previousShiftIndex
+            };
+        }
+
+        return {
+            dateKey: currentDate,
+            shiftIndex: liveShiftIndex
+        };
+    }
+
+    return {
+        dateKey: currentDate,
+        shiftIndex: dateOffset === 0 ? liveShiftIndex : currentShiftIndex
+    };
+}
+
+function syncAutoRotation() {
+    if (!isTransitionWindow()) {
+        if (rotateTimer) {
+            clearInterval(rotateTimer);
+            rotateTimer = null;
+        }
+        autoRotatePhase = 0;
+        return;
+    }
+
+    if (rotateTimer) return;
+
+    autoRotatePhase = 0;
+    rotateTimer = setInterval(() => {
+        autoRotatePhase = autoRotatePhase === 0 ? 1 : 0;
+        buildShiftNav();
+        renderCurrentShift();
+        updateVacancySummary();
+        updateHeader();
+    }, KIOSK_SLATE_CONFIG.ROTATE_INTERVAL);
 }
 
 function showStatus(message, type = 'info') {
