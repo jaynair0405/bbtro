@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Documents - Central Railway BB Division</title>
+    <link rel="stylesheet" href="/div/css/division-main.css">
+    <style>
+        .documents-container {
+            padding: 24px;
+            max-width: 1200px;
+        }
+        .page-header {
+            margin-bottom: 24px;
+        }
+        .page-title {
+            font-size: 24px;
+            font-weight: 600;
+            color: #1e293b;
+            margin: 0 0 8px 0;
+        }
+        .page-subtitle {
+            color: #64748b;
+            font-size: 14px;
+        }
+        .documents-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+        }
+        .document-card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            border: 1px solid #e2e8f0;
+            transition: all 0.2s ease;
+            cursor: pointer;
+            text-decoration: none;
+            display: block;
+        }
+        .document-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            border-color: #3b82f6;
+        }
+        .document-icon {
+            width: 48px;
+            height: 48px;
+            background: #fee2e2;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            margin-bottom: 16px;
+        }
+        .document-icon.presentation {
+            background: #fef3c7;
+        }
+        .document-icon.brochure {
+            background: #dbeafe;
+        }
+        .document-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 8px;
+        }
+        .document-description {
+            font-size: 13px;
+            color: #64748b;
+            line-height: 1.5;
+        }
+        .document-meta {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid #f1f5f9;
+            font-size: 12px;
+            color: #94a3b8;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: #3b82f6;
+            text-decoration: none;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+        .back-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="documents-container">
+        <a href="/div/" class="back-link">
+            <span>←</span> Back to Dashboard
+        </a>
+
+        <div class="page-header">
+            <h1 class="page-title">Documents & Presentations</h1>
+            <p class="page-subtitle">Training materials, brochures, and presentations for BB Division</p>
+        </div>
+
+        <div class="documents-grid">
+            <a href="/div/pdf/TRO PRESENTATION FOR GM INSPECTION-4.pdf" target="_blank" class="document-card">
+                <div class="document-icon presentation">📊</div>
+                <div class="document-title">TRO Presentation</div>
+                <div class="document-description">GM Inspection presentation covering TRO operations and achievements</div>
+                <div class="document-meta">
+                    <span>📄</span> PDF Presentation
+                </div>
+            </a>
+
+            <a href="/div/pdf/ROHA RR presentation final-1.pdf" target="_blank" class="document-card">
+                <div class="document-icon presentation">📊</div>
+                <div class="document-title">ROHA RR Presentation</div>
+                <div class="document-description">Running Room presentation for ROHA section</div>
+                <div class="document-meta">
+                    <span>📄</span> PDF Presentation
+                </div>
+            </a>
+
+            <a href="/div/pdf/CRTMS_Brochure_Revised 4.pdf" target="_blank" class="document-card">
+                <div class="document-icon brochure">📘</div>
+                <div class="document-title">CRTMS Brochure</div>
+                <div class="document-description">Crew Resource & Time Management System - detailed brochure</div>
+                <div class="document-meta">
+                    <span>📄</span> PDF Brochure
+                </div>
+            </a>
+
+            <a href="/div/pdf/signal broucher FINAL.pdf" target="_blank" class="document-card">
+                <div class="document-icon brochure">📘</div>
+                <div class="document-title">Signal Brochure</div>
+                <div class="document-description">Signal department information brochure</div>
+                <div class="document-meta">
+                    <span>📄</span> PDF Brochure
+                </div>
+            </a>
+        </div>
+    </div>
+</body>
+</html>
