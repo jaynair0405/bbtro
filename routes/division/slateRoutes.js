@@ -678,22 +678,35 @@ router.post('/arrival', async (req, res) => {
             } else if (existingSlot.length > 0 && existingSlot[0].alp_hrms_id) {
                 // Slot occupied - check if user wants adhoc or next available
                 if (force_adhoc_alp) {
-                    // Get next adhoc number for this slot
-                    const [maxAdhoc] = await conn.query(`
-                        SELECT COALESCE(MAX(is_adhoc), 0) + 1 AS next_adhoc
-                        FROM div_daily_slate
-                        WHERE office_code = ? AND slot_date = ? AND slot_time = ?
-                    `, [userOffice, alp_next_slot_date, alp_next_slot_time]);
-                    const nextAdhocNum = maxAdhoc[0].next_adhoc;
+                    // Check if LP just created an adhoc row for the same slot (same date/time)
+                    // If so, add ALP to that row instead of creating a new one
+                    if (lpIsAdhoc && lpSlotId && lp_next_slot_date === alp_next_slot_date && lp_next_slot_time === alp_next_slot_time) {
+                        // Update the LP's adhoc row to also include this ALP
+                        await conn.query(`
+                            UPDATE div_daily_slate
+                            SET alp_hrms_id = ?, alp_status = 'AVAILABLE', alp_detail_book_id = ?, last_modified = NOW()
+                            WHERE id = ?
+                        `, [alp_hrms_id, logId, lpSlotId]);
+                        alpSlotId = lpSlotId;
+                        alpIsAdhoc = true;
+                    } else {
+                        // Get next adhoc number for this slot
+                        const [maxAdhoc] = await conn.query(`
+                            SELECT COALESCE(MAX(is_adhoc), 0) + 1 AS next_adhoc
+                            FROM div_daily_slate
+                            WHERE office_code = ? AND slot_date = ? AND slot_time = ?
+                        `, [userOffice, alp_next_slot_date, alp_next_slot_time]);
+                        const nextAdhocNum = maxAdhoc[0].next_adhoc;
 
-                    // Create adhoc entry at the same slot time - link to detail_book_log
-                    const [adhocResult] = await conn.query(`
-                        INSERT INTO div_daily_slate
-                        (office_code, slot_date, slot_time, shift_code, is_adhoc, alp_hrms_id, alp_status, alp_detail_book_id, last_modified)
-                        VALUES (?, ?, ?, ?, ?, ?, 'AVAILABLE', ?, NOW())
-                    `, [userOffice, alp_next_slot_date, alp_next_slot_time, alpShiftCode, nextAdhocNum, alp_hrms_id, logId]);
-                    alpSlotId = adhocResult.insertId;
-                    alpIsAdhoc = true;
+                        // Create adhoc entry at the same slot time - link to detail_book_log
+                        const [adhocResult] = await conn.query(`
+                            INSERT INTO div_daily_slate
+                            (office_code, slot_date, slot_time, shift_code, is_adhoc, alp_hrms_id, alp_status, alp_detail_book_id, last_modified)
+                            VALUES (?, ?, ?, ?, ?, ?, 'AVAILABLE', ?, NOW())
+                        `, [userOffice, alp_next_slot_date, alp_next_slot_time, alpShiftCode, nextAdhocNum, alp_hrms_id, logId]);
+                        alpSlotId = adhocResult.insertId;
+                        alpIsAdhoc = true;
+                    }
                 } else {
                     // Collision - find next available ALP slot (search across dates)
                     // First ensure next day slots exist
