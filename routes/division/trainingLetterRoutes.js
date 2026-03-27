@@ -38,7 +38,7 @@ const COURSE_CONFIG = {
         subject: 'ONE DAY INTENSIVE COURSE AT MTC CLA',
         bodyTemplate: (office, date) =>
             `The following Motorman working at ${office} Suburban Lobby are hereby directed to attend One Day Intensive Course at Motormen Training Centre, CLA on ${date} at 09:30 Hrs.`,
-        requirements: 'Please carry Competency Book and G&SR with correction slips.',
+        requirements: 'Trainees Please carry Competency Book and G&SR with correction slips.',
         datePrefix: 'on',
         trainingId: 5  // AUTOMATIC
     },
@@ -47,7 +47,7 @@ const COURSE_CONFIG = {
         subject: 'REFRESHER COURSE AT MTC CLA',
         bodyTemplate: (office, date) =>
             `The following Motorman working at ${office} Suburban Lobby are hereby directed to attend Refresher Course at Motormen Training Centre, CLA from ${date} at 09:30 Hrs.`,
-        requirements: 'Please carry Competency Book.',
+        requirements: 'Trainees Please carry Competency Book.',
         datePrefix: 'from',
         trainingId: 26  // MMPRC
     },
@@ -56,7 +56,7 @@ const COURSE_CONFIG = {
         subject: 'MEMU INITIAL TRAINING AT MTC CLA',
         bodyTemplate: (office, date) =>
             `The following Motorman working at ${office} Suburban Lobby are hereby directed to attend MEMU Initial Training at Motormen Training Centre, CLA from ${date} at 09:30 Hrs.`,
-        requirements: 'Please carry Competency Book.',
+        requirements: 'Trainees Please carry Competency Book.',
         datePrefix: 'from',
         trainingId: 17  // MEMU
     },
@@ -65,9 +65,18 @@ const COURSE_CONFIG = {
         subject: 'MEMU REFRESHER TRAINING AT MTC CLA',
         bodyTemplate: (office, date) =>
             `The following Motorman working at ${office} Suburban Lobby are hereby directed to attend MEMU Refresher Training at Motormen Training Centre, CLA from ${date} at 09:30 Hrs.`,
-        requirements: 'Please carry Competency Book.',
+        requirements: 'Trainees Please carry Competency Book.',
         datePrefix: 'from',
         trainingId: 17  // MEMU (same as initial)
+    },
+    'OTHERS': {
+        label: 'Others',
+        subject: '',  // User fills custom subject
+        bodyTemplate: (office, date, customSubject) =>
+            `The following Motorman working at ${office} Suburban Lobby are hereby directed to attend ${customSubject || 'Training'} at Motormen Training Centre, CLA from ${date} at 09:30 Hrs.`,
+        requirements: 'Trainees Please carry Competency Book.',
+        datePrefix: 'from',
+        trainingId: null  // No training record tracking - letter history only
     }
 };
 
@@ -484,6 +493,7 @@ router.post('/', requireDivisionAccess, async (req, res) => {
             letter_date,
             office_code,
             course_type,
+            custom_subject,  // For OTHERS type
             training_date,
             report_time,
             addressee_name,
@@ -526,6 +536,7 @@ router.post('/', requireDivisionAccess, async (req, res) => {
                     letter_date = ?,
                     office_code = ?,
                     course_type = ?,
+                    custom_subject = ?,
                     training_date = ?,
                     report_time = ?,
                     addressee_name = ?,
@@ -542,8 +553,8 @@ router.post('/', requireDivisionAccess, async (req, res) => {
                     updated_at = NOW()
                 WHERE id = ?
             `, [
-                letter_no, letter_date, office_code, course_type, training_date,
-                report_time || '09:30:00', addressee_name, addressee_office,
+                letter_no, letter_date, office_code, course_type, custom_subject,
+                training_date, report_time || '09:30:00', addressee_name, addressee_office,
                 subject_text, body_text, requirements_text, footer_text,
                 signing_designation, signing_designation_hindi, signing_place,
                 cc_text, staff.length, letterId
@@ -564,6 +575,7 @@ router.post('/', requireDivisionAccess, async (req, res) => {
                 await conn.query(`
                     UPDATE div_training_letters SET
                         letter_no = ?,
+                        custom_subject = ?,
                         training_date = ?,
                         report_time = ?,
                         addressee_name = ?,
@@ -580,7 +592,7 @@ router.post('/', requireDivisionAccess, async (req, res) => {
                         updated_at = NOW()
                     WHERE id = ?
                 `, [
-                    letter_no, training_date, report_time || '09:30:00',
+                    letter_no, custom_subject, training_date, report_time || '09:30:00',
                     addressee_name, addressee_office, subject_text, body_text,
                     requirements_text, footer_text, signing_designation,
                     signing_designation_hindi, signing_place, cc_text,
@@ -593,15 +605,15 @@ router.post('/', requireDivisionAccess, async (req, res) => {
                 // Insert new letter
                 const [result] = await conn.query(`
                     INSERT INTO div_training_letters (
-                        letter_no, letter_date, office_code, course_type, training_date,
-                        report_time, addressee_name, addressee_office, subject_text,
-                        body_text, requirements_text, footer_text, signing_designation,
-                        signing_designation_hindi, signing_place, cc_text, total_staff,
-                        created_by
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        letter_no, letter_date, office_code, course_type, custom_subject,
+                        training_date, report_time, addressee_name, addressee_office,
+                        subject_text, body_text, requirements_text, footer_text,
+                        signing_designation, signing_designation_hindi, signing_place,
+                        cc_text, total_staff, created_by
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 `, [
-                    letter_no, letter_date, office_code, course_type, training_date,
-                    report_time || '09:30:00', addressee_name, addressee_office,
+                    letter_no, letter_date, office_code, course_type, custom_subject,
+                    training_date, report_time || '09:30:00', addressee_name, addressee_office,
                     subject_text, body_text, requirements_text, footer_text,
                     signing_designation, signing_designation_hindi, signing_place,
                     cc_text, staff.length, req.session?.user?.username || 'system'
