@@ -107,6 +107,8 @@ async function loadSlateData() {
             slateData = data.board;
             renderCurrentShift();
             updateVacancySummary(data.vacancy);
+            // Reinforce date button highlighting after data load
+            updateDateButtons();
         } else {
             showToast('Failed to load slate data', 'error');
         }
@@ -1451,4 +1453,253 @@ function closeBookingModal() {
         modal.style.display = 'none';
     }
     bookingModalSlot = null;
+}
+
+// ========== EXCEPTION MODAL ==========
+
+let currentExceptionData = null;
+let exceptionCallback = null;
+
+/**
+ * Initialize exception modal (create DOM element if not exists)
+ */
+function initExceptionModal() {
+    if (document.getElementById('exceptionModal')) return;
+
+    const modalHtml = `
+        <div id="exceptionModal" class="modal-overlay" style="display: none;">
+            <div class="modal-content" style="max-width: 400px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h3 id="exceptionModalTitle" style="margin: 0; color: var(--accent); font-size: 1.1rem;">Staff Name</h3>
+                    <button onclick="closeExceptionModal()" style="background: none; border: none; color: var(--text-muted); font-size: 1.5rem; cursor: pointer;">&times;</button>
+                </div>
+                <div id="exceptionModalInfo" style="margin-bottom: 15px; color: var(--text-muted); font-size: 0.85rem;"></div>
+                <div id="exceptionOptions" style="display: flex; flex-direction: column; gap: 10px;"></div>
+            </div>
+        </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+    // Add CSS for modal if not exists
+    if (!document.getElementById('exceptionModalStyles')) {
+        const styles = document.createElement('style');
+        styles.id = 'exceptionModalStyles';
+        styles.textContent = `
+            .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+            .modal-overlay:not(.active) { display: none; }
+            .modal-content { background: var(--bg-panel); padding: 20px; border-radius: 8px; border: 1px solid var(--border); }
+        `;
+        document.head.appendChild(styles);
+    }
+}
+
+/**
+ * Open exception modal for staff
+ */
+function openExceptionModal(slotId, staffType, data, callback) {
+    currentExceptionData = { slotId, staffType, ...data };
+    exceptionCallback = callback;
+
+    const modal = document.getElementById('exceptionModal');
+    const title = document.getElementById('exceptionModalTitle');
+    const info = document.getElementById('exceptionModalInfo');
+    const options = document.getElementById('exceptionOptions');
+
+    title.textContent = data.name;
+    info.innerHTML = `Slot: ${data.slot_date} @ ${data.slot_time}<br>Type: ${staffType.toUpperCase()}`;
+
+    const canDelete = !data.signed_on_at && !data.current_exception;
+    const isSignedOn = !!data.signed_on_at;
+    const signOnTime = data.signed_on_at ? formatTime(data.signed_on_at) : '';
+
+    let buttonsHtml = '';
+
+    // Late arrival section - show for both signed on and not signed on
+    buttonsHtml += `
+        <div style="border: 1px solid var(--border); border-radius: 6px; padding: 12px; margin-bottom: 10px;">
+            <div style="font-weight: 600; margin-bottom: 8px; color: var(--accent);">Late Arrival</div>
+            <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+                <label style="width: 80px; color: var(--text-muted);">Sign-On:</label>
+                <input type="time" id="lateSignOnTime" value="${signOnTime}" style="flex: 1; padding: 6px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 4px; color: var(--text-main);">
+            </div>
+            <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+                <label style="width: 80px; color: var(--text-muted);">Reason:</label>
+                <input type="text" id="lateReason" value="${data.late_reason || ''}" placeholder="Reason for late" style="flex: 1; padding: 6px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 4px; color: var(--text-main);">
+            </div>
+            <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                    <input type="checkbox" id="trainDetained" ${data.detention === 'YES' ? 'checked' : ''}>
+                    <span style="color: var(--warning);">Train Detained</span>
+                </label>
+            </div>
+            <div id="detentionRemarkDiv" style="display: ${data.detention === 'YES' ? 'flex' : 'none'}; gap: 8px; align-items: center; margin-bottom: 8px;">
+                <label style="width: 80px; color: var(--text-muted);">Remark:</label>
+                <input type="text" id="detentionRemark" value="${data.detention_remark || ''}" placeholder="Detention details" style="flex: 1; padding: 6px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 4px; color: var(--text-main);">
+            </div>
+            <button onclick="saveLateArrival()" style="width: 100%; padding: 10px; background: #22d3ee; color: #000; border: none; border-radius: 6px; font-weight: 700; cursor: pointer;">
+                Save Late Arrival
+            </button>
+        </div>
+    `;
+
+    if (!isSignedOn) {
+        buttonsHtml += `
+            <button onclick="markException('AUC')" style="padding: 12px; background: var(--warning); color: #000; border: none; border-radius: 6px; font-weight: 700; cursor: pointer;">
+                Mark AUC (Unable to Come)
+            </button>
+            <button onclick="markException('NF')" style="padding: 12px; background: var(--danger); color: #fff; border: none; border-radius: 6px; font-weight: 700; cursor: pointer;">
+                Mark NF (Not Found)
+            </button>
+        `;
+        if (canDelete) {
+            buttonsHtml += `
+                <button onclick="deleteFromModal()" style="padding: 12px; background: #7f1d1d; color: #fca5a5; border: 1px solid var(--danger); border-radius: 6px; font-weight: 700; cursor: pointer;">
+                    Remove from Slot
+                </button>
+            `;
+        }
+    }
+
+    if (data.current_exception) {
+        info.innerHTML += `<br><span style="color: var(--warning);">Current: ${data.current_exception}</span>`;
+        buttonsHtml += `
+            <button onclick="clearException()" style="padding: 12px; background: var(--bg-input); color: var(--text-main); border: 1px solid var(--border); border-radius: 6px; font-weight: 600; cursor: pointer;">
+                Clear Exception
+            </button>
+        `;
+    }
+
+    options.innerHTML = buttonsHtml;
+    modal.style.display = 'flex';
+    modal.classList.add('active');
+
+    // Toggle detention remark visibility
+    document.getElementById('trainDetained').addEventListener('change', function() {
+        document.getElementById('detentionRemarkDiv').style.display = this.checked ? 'flex' : 'none';
+    });
+}
+
+function closeExceptionModal() {
+    const modal = document.getElementById('exceptionModal');
+    if (modal) {
+        modal.style.display = 'none';
+        modal.classList.remove('active');
+    }
+    currentExceptionData = null;
+    exceptionCallback = null;
+}
+
+async function markException(exceptionType) {
+    if (!currentExceptionData) return;
+
+    const { slotId, staffType } = currentExceptionData;
+
+    try {
+        const payload = {};
+        if (staffType === 'lp') {
+            payload.lp_exception = exceptionType;
+        } else {
+            payload.alp_exception = exceptionType;
+        }
+
+        const res = await fetch(`${SLATE_CONFIG.API_BASE}/update`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ slot_id: slotId, ...payload })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+            showToast(`Marked as ${exceptionType}`, 'success');
+            closeExceptionModal();
+            if (exceptionCallback) exceptionCallback();
+        } else {
+            showToast(`Error: ${data.error}`, 'error');
+        }
+    } catch (err) {
+        console.error('Exception error:', err);
+        showToast('Network error', 'error');
+    }
+}
+
+async function clearException() {
+    if (!currentExceptionData) return;
+
+    const { slotId, staffType } = currentExceptionData;
+
+    try {
+        const payload = {};
+        if (staffType === 'lp') {
+            payload.lp_exception = null;
+        } else {
+            payload.alp_exception = null;
+        }
+
+        const res = await fetch(`${SLATE_CONFIG.API_BASE}/update`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ slot_id: slotId, ...payload })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+            showToast('Exception cleared', 'success');
+            closeExceptionModal();
+            if (exceptionCallback) exceptionCallback();
+        } else {
+            showToast(`Error: ${data.error}`, 'error');
+        }
+    } catch (err) {
+        console.error('Clear exception error:', err);
+        showToast('Network error', 'error');
+    }
+}
+
+async function saveLateArrival() {
+    if (!currentExceptionData) return;
+
+    const { slotId, staffType } = currentExceptionData;
+    const signOnTime = document.getElementById('lateSignOnTime').value;
+    const lateReason = document.getElementById('lateReason').value.trim();
+    const trainDetained = document.getElementById('trainDetained').checked;
+    const detentionRemark = document.getElementById('detentionRemark').value.trim();
+
+    if (!signOnTime) {
+        showToast('Please enter sign-on time', 'error');
+        return;
+    }
+
+    try {
+        const payload = { slot_id: slotId };
+
+        if (staffType === 'lp') {
+            payload.lp_signed_on_at = signOnTime;
+            payload.lp_late_reason = lateReason || null;
+            payload.lp_detention = trainDetained ? 'YES' : 'NO';
+            payload.lp_detention_remark = trainDetained ? detentionRemark : null;
+        } else {
+            payload.alp_signed_on_at = signOnTime;
+            payload.alp_late_reason = lateReason || null;
+            payload.alp_detention = trainDetained ? 'YES' : 'NO';
+            payload.alp_detention_remark = trainDetained ? detentionRemark : null;
+        }
+
+        const res = await fetch(`${SLATE_CONFIG.API_BASE}/update`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+
+        if (data.success) {
+            showToast('Late arrival saved', 'success');
+            closeExceptionModal();
+            if (exceptionCallback) exceptionCallback();
+        } else {
+            showToast(`Error: ${data.error}`, 'error');
+        }
+    } catch (err) {
+        console.error('Save late arrival error:', err);
+        showToast('Network error', 'error');
+    }
 }

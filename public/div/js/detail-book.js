@@ -17,6 +17,7 @@ let selectedSafeLogId = null; // Track which SAFE entry is being processed
 let activeForecastDate = null;
 let todayRefreshTimer = null;
 let isInitialSync = true; // Prevent scroll listener from overriding during initial load
+let userClickedDate = null; // Track user's tab click to prevent scroll listener override
 
 // Warning state - blocks submission if hard errors exist
 let lpWarnings = [];
@@ -616,6 +617,42 @@ async function checkStaffWarningsComprehensive() {
     const alpSlotDate = getAlpSlotDate();
     const lpRest = document.getElementById('lpRest').value;
     const alpRest = document.getElementById('alpRest').value;
+
+    // In manual mode, parse staff from input fields (same as submit logic)
+    if (isManualMode) {
+        if (!selectedLP) {
+            const lpInput = document.getElementById('lpSearchInput');
+            if (lpInput && lpInput.value) {
+                const match = lpInput.value.match(/\(([A-Z0-9]+)\)/);
+                if (match) {
+                    const cmsId = match[1];
+                    const datalist = document.getElementById('lpDatalist');
+                    for (const opt of datalist.options) {
+                        if (opt.dataset.cms === cmsId) {
+                            selectedLP = { hrms_id: opt.dataset.hrms, name: opt.dataset.name, cms_id: cmsId };
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        if (!selectedALP) {
+            const alpInput = document.getElementById('alpSearchInput');
+            if (alpInput && alpInput.value) {
+                const match = alpInput.value.match(/\(([A-Z0-9]+)\)/);
+                if (match) {
+                    const cmsId = match[1];
+                    const datalist = document.getElementById('alpDatalist');
+                    for (const opt of datalist.options) {
+                        if (opt.dataset.cms === cmsId) {
+                            selectedALP = { hrms_id: opt.dataset.hrms, name: opt.dataset.name, cms_id: cmsId };
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     // Reset warning state
     lpWarnings = [];
@@ -1736,6 +1773,9 @@ function scrollToDate(dateStr, instant = false) {
     if (group && group.element && scroll) {
         activeForecastDate = dateStr;
 
+        // Mark this as user-clicked date to prevent scroll listener from overriding
+        userClickedDate = dateStr;
+
         // Calculate target position based on date index and group width
         const dates = getOrderedForecastDates();
         const dateIndex = dates.indexOf(dateStr);
@@ -1764,6 +1804,8 @@ function scrollToDate(dateStr, instant = false) {
 }
 
 function scrollForecast(direction) {
+    // Clear user-clicked flag since this is manual scroll via arrows
+    userClickedDate = null;
     const scroll = document.getElementById('forecastScroll');
     const groupWidth = scroll.querySelector('.date-group')?.offsetWidth || scroll.offsetWidth;
     scroll.scrollBy({ left: direction * groupWidth, behavior: 'smooth' });
@@ -1775,6 +1817,16 @@ function updateVisibleDateTab() {
     if (isInitialSync) return;
 
     const visibleDate = getVisibleDate();
+
+    // If user clicked a date tab, only update when scroll reaches that date
+    if (userClickedDate) {
+        if (visibleDate === userClickedDate) {
+            // Scroll reached the target, clear the flag
+            userClickedDate = null;
+        }
+        // Don't update tab highlighting while scrolling to user-clicked date
+        return;
+    }
 
     if (visibleDate) {
         activeForecastDate = visibleDate;
@@ -1842,13 +1894,20 @@ function addStaffToSlate(staff) {
     const rowId = `slot-${date}-${time.replace(':', '')}`;
     let slotRow = document.getElementById(rowId);
 
-    // If adhoc and row exists with staff already, create a new adhoc row
+    // If adhoc and row exists with staff already, create or reuse adhoc row
     if (isAdhoc && slotRow) {
         const cellType = type.toLowerCase();
         const existingCell = slotRow.querySelector(`td[data-type="${cellType}"]`);
         if (existingCell && existingCell.textContent.trim() && !existingCell.classList.contains('empty-slot')) {
-            slotRow = createAdhocRow(date, time, name, type);
-            return true;
+            // Check if an adhoc row already exists for this slotId (same DB row)
+            const existingAdhocRow = document.querySelector(`tr[data-slot-id="${slotId}"]`);
+            if (existingAdhocRow) {
+                // Reuse existing adhoc row for this slot (LP and ALP share same row)
+                slotRow = existingAdhocRow;
+            } else {
+                slotRow = createAdhocRow(date, time, name, type, slotId);
+                return true;
+            }
         }
     }
 
@@ -1968,7 +2027,7 @@ function addStaffToSlate(staff) {
     return true;
 }
 
-function createAdhocRow(slotDate, slotTime, staffName, staffType) {
+function createAdhocRow(slotDate, slotTime, staffName, staffType, slotId) {
     const slotHour = parseInt(slotTime.split(':')[0]);
     let shiftIndex = 0;
     if (slotHour >= 8 && slotHour < 16) shiftIndex = 1;
@@ -1988,7 +2047,8 @@ function createAdhocRow(slotDate, slotTime, staffName, staffType) {
     const existingRow = document.getElementById(`slot-${slotDate}-${slotTime.replace(':', '')}`);
 
     const adhocRow = document.createElement('tr');
-    adhocRow.id = `slot-${slotDate}-${slotTime.replace(':', '')}-adhoc-${Date.now()}`;
+    adhocRow.id = `slot-${slotDate}-${slotTime.replace(':', '')}-adhoc-${slotId || Date.now()}`;
+    adhocRow.dataset.slotId = slotId;
     adhocRow.style.background = 'rgba(245, 158, 11, 0.1)';
     adhocRow.innerHTML = `
         <td class="slot-time" style="border-left: 3px solid var(--warning);">${slotTime.slice(0,5)}</td>
@@ -2106,6 +2166,78 @@ async function submitToSlate() {
                         break;
                     }
                 }
+            }
+        }
+    }
+
+    // In manual mode, do a fresh check for duplicate assignment AFTER parsing staff
+    if (isManualMode) {
+        const lpSlotDate = getLpSlotDate();
+        const alpSlotDate = getAlpSlotDate();
+
+        // Check LP for duplicate assignment
+        if (selectedLP && lpSlotDate) {
+            try {
+                const res = await fetch(`${SLATE_CONFIG.API_BASE}/staff-warnings`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        hrms_id: selectedLP.hrms_id,
+                        next_slot_date: lpSlotDate,
+                        office_code: SLATE_CONFIG.OFFICE_CODE
+                    })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    if (!data.can_assign) {
+                        const alreadyAssigned = data.warnings.find(w => w.type === 'ALREADY_ASSIGNED');
+                        if (alreadyAssigned) {
+                            showToast(`LP ${selectedLP.name}: ${alreadyAssigned.message}`, 'error');
+                            return;
+                        }
+                    }
+                    // Check for pending assignment warning (different date)
+                    const pendingAssign = data.warnings.find(w => w.type === 'PENDING_ASSIGNMENT');
+                    if (pendingAssign) {
+                        const proceed = confirm(`⚠️ LP ${selectedLP.name}: ${pendingAssign.message}\n\nProceed anyway?`);
+                        if (!proceed) return;
+                    }
+                }
+            } catch (err) {
+                console.error('Error checking LP assignment:', err);
+            }
+        }
+
+        // Check ALP for duplicate assignment
+        if (selectedALP && alpSlotDate) {
+            try {
+                const res = await fetch(`${SLATE_CONFIG.API_BASE}/staff-warnings`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        hrms_id: selectedALP.hrms_id,
+                        next_slot_date: alpSlotDate,
+                        office_code: SLATE_CONFIG.OFFICE_CODE
+                    })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    if (!data.can_assign) {
+                        const alreadyAssigned = data.warnings.find(w => w.type === 'ALREADY_ASSIGNED');
+                        if (alreadyAssigned) {
+                            showToast(`ALP ${selectedALP.name}: ${alreadyAssigned.message}`, 'error');
+                            return;
+                        }
+                    }
+                    // Check for pending assignment warning (different date)
+                    const pendingAssign = data.warnings.find(w => w.type === 'PENDING_ASSIGNMENT');
+                    if (pendingAssign) {
+                        const proceed = confirm(`⚠️ ALP ${selectedALP.name}: ${pendingAssign.message}\n\nProceed anyway?`);
+                        if (!proceed) return;
+                    }
+                }
+            } catch (err) {
+                console.error('Error checking ALP assignment:', err);
             }
         }
     }
@@ -2582,6 +2714,39 @@ async function doSubmit(payload) {
 // ========== EXCEPTION MODAL ==========
 let currentExceptionData = null;
 let exceptionCallback = null;
+
+/**
+ * Initialize exception modal (create DOM element if not exists)
+ */
+function initExceptionModal() {
+    if (document.getElementById('exceptionModal')) return;
+
+    const modalHtml = `
+        <div id="exceptionModal" class="modal-overlay" style="display: none;">
+            <div class="modal-content" style="max-width: 400px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h3 id="exceptionModalTitle" style="margin: 0; color: var(--accent); font-size: 1.1rem;">Staff Name</h3>
+                    <button onclick="closeExceptionModal()" style="background: none; border: none; color: var(--text-muted); font-size: 1.5rem; cursor: pointer;">&times;</button>
+                </div>
+                <div id="exceptionModalInfo" style="margin-bottom: 15px; color: var(--text-muted); font-size: 0.85rem;"></div>
+                <div id="exceptionOptions" style="display: flex; flex-direction: column; gap: 10px;"></div>
+            </div>
+        </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+    // Add CSS for modal if not exists
+    if (!document.getElementById('exceptionModalStyles')) {
+        const styles = document.createElement('style');
+        styles.id = 'exceptionModalStyles';
+        styles.textContent = `
+            .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+            .modal-overlay:not(.active) { display: none; }
+            .modal-content { background: var(--bg-panel); padding: 20px; border-radius: 8px; border: 1px solid var(--border); }
+        `;
+        document.head.appendChild(styles);
+    }
+}
 
 function openExceptionModal(slotId, staffType, data, callback) {
     currentExceptionData = { slotId, staffType, ...data };

@@ -81,8 +81,19 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function getDisplayIdFromPath() {
+    // First check for query parameter 'id'
+    const urlParams = new URLSearchParams(window.location.search);
+    const idParam = urlParams.get('id');
+    if (idParam) return idParam;
+
+    // Fall back to path-based ID
     const parts = window.location.pathname.split('/').filter(Boolean);
-    return parts[parts.length - 1] || 'pnvl-office';
+    const lastPart = parts[parts.length - 1];
+    // If last part is the HTML file, default to pnvl-office
+    if (!lastPart || lastPart.endsWith('.html')) {
+        return 'pnvl-office';
+    }
+    return lastPart;
 }
 
 function updateTitle() {
@@ -229,10 +240,18 @@ function changeDate(offset) {
     currentDate = formatDateKey(baseDate);
 
     syncAutoRotation();
-    buildDateNav();
+    updateDateButtons();
     buildShiftNav();
     updateHeaderDate();
     loadSlateData();
+}
+
+function updateDateButtons() {
+    const buttons = document.querySelectorAll('.date-nav .date-btn');
+    buttons.forEach(btn => {
+        const btnOffset = parseInt(btn.dataset.offset);
+        btn.classList.toggle('active', btnOffset === dateOffset);
+    });
 }
 
 function getBoardUrl() {
@@ -366,28 +385,32 @@ function renderCompactRow(slot) {
     let lpName = slot.lp_name ? escapeHtml(slot.lp_name) : '<span class="empty-slot">--</span>';
     let alpName = slot.alp_name ? escapeHtml(slot.alp_name) : '<span class="empty-slot">--</span>';
 
-    const lpSignedOnTime = formatTime(slot.lp_signed_on_at);
-    const isLpLate = slot.lp_signed_on_at && lpSignedOnTime !== '--' &&
-        isLateArrival(slot.slot_date, slot.slot_time, slot.lp_signed_on_at);
-
-    const alpSignedOnTime = formatTime(slot.alp_signed_on_at);
-    const isAlpLate = slot.alp_signed_on_at && alpSignedOnTime !== '--' &&
-        isLateArrival(slot.slot_date, slot.slot_time, slot.alp_signed_on_at);
-
-    if (isLpLate) {
-        lpName += `<br><sub class="status-sub late-sub">@ ${lpSignedOnTime}</sub>`;
-    } else if (slot.lp_exception === 'AUC') {
+    // AUC/NF exceptions for LP
+    if (slot.lp_exception === 'AUC') {
         lpName += ' <sup class="status-sup warning-sup">AUC</sup>';
     } else if (slot.lp_exception === 'NF') {
         lpName += ' <sup class="status-sup danger-sup">NF</sup>';
     }
+    // Night streak and PR badges for LP
+    if (slot.lp_night_streak >= 3) {
+        lpName += ` <sup class="fatigue-badge night-badge">🌙${slot.lp_night_streak}</sup>`;
+    }
+    if (slot.lp_pr_days >= 5) {
+        lpName += ` <sup class="fatigue-badge pr-badge">${slot.lp_pr_days}</sup>`;
+    }
 
-    if (isAlpLate) {
-        alpName += `<br><sub class="status-sub late-sub">@ ${alpSignedOnTime}</sub>`;
-    } else if (slot.alp_exception === 'AUC') {
+    // AUC/NF exceptions for ALP
+    if (slot.alp_exception === 'AUC') {
         alpName += ' <sup class="status-sup warning-sup">AUC</sup>';
     } else if (slot.alp_exception === 'NF') {
         alpName += ' <sup class="status-sup danger-sup">NF</sup>';
+    }
+    // Night streak and PR badges for ALP
+    if (slot.alp_night_streak >= 3) {
+        alpName += ` <sup class="fatigue-badge night-badge">🌙${slot.alp_night_streak}</sup>`;
+    }
+    if (slot.alp_pr_days >= 5) {
+        alpName += ` <sup class="fatigue-badge pr-badge">${slot.alp_pr_days}</sup>`;
     }
 
     return `

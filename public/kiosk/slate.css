@@ -339,6 +339,25 @@
     color: var(--danger);
 }
 
+.fatigue-badge {
+    font-size: 0.65em;
+    padding: 0 3px;
+    margin-left: 3px;
+    border-radius: 3px;
+}
+
+.night-badge {
+    background: #1e3a5f;
+    color: #7dd3fc;
+}
+
+.pr-badge {
+    background: #7c3aed;
+    color: #fff;
+    padding: 0 4px;
+    border-radius: 50%;
+}
+
 .empty-slot {
     color: var(--text-muted);
 }

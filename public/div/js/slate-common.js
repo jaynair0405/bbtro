@@ -44,11 +44,21 @@ function formatDateDisplay(date) {
 
 /**
  * Format time string (HH:MM)
- * @param {string} time - Time string (may include seconds)
+ * @param {string} time - Time string (may include seconds or be a datetime)
  * @returns {string} Formatted time HH:MM
  */
 function formatTime(time) {
     if (!time) return '--';
+    // Handle datetime format: "2026-04-03 02:15:00" or "2026-04-03T02:15:00"
+    if (time.includes(' ')) {
+        const timePart = time.split(' ')[1];
+        return timePart ? timePart.substring(0, 5) : '--';
+    }
+    if (time.includes('T')) {
+        const timePart = time.split('T')[1];
+        return timePart ? timePart.substring(0, 5) : '--';
+    }
+    // Handle time-only format: "02:15:00" or "02:15"
     return time.substring(0, 5);
 }
 
@@ -314,6 +324,43 @@ function mapRestType(restValue) {
         'suspend': 'MULTI_DAY_LEAVE'
     };
     return map[restValue] || 'NORMAL';
+}
+
+// ========== LATE ARRIVAL CHECK ==========
+
+/**
+ * Check if staff arrival time is late (after slot time)
+ * @param {string} slotDate - Slot date (YYYY-MM-DD or Date string)
+ * @param {string} slotTime - Slot time (HH:MM or HH:MM:SS)
+ * @param {string} signedOnAt - Actual sign-on time (HH:MM or HH:MM:SS or datetime string)
+ * @returns {boolean} True if late arrival
+ */
+function isLateArrival(slotDate, slotTime, signedOnAt) {
+    if (!slotTime || !signedOnAt) return false;
+
+    try {
+        // Extract HH:MM from slot time
+        const slotTimeStr = slotTime.substring(0, 5);
+        const [slotHour, slotMin] = slotTimeStr.split(':').map(Number);
+
+        // Extract HH:MM from signed on time (may be datetime or just time)
+        let signedOnTimeStr = signedOnAt;
+        if (signedOnAt.includes(' ')) {
+            // It's a datetime string like "2026-04-03 02:15:00"
+            signedOnTimeStr = signedOnAt.split(' ')[1];
+        }
+        signedOnTimeStr = signedOnTimeStr.substring(0, 5);
+        const [signedHour, signedMin] = signedOnTimeStr.split(':').map(Number);
+
+        // Compare times (consider as late if signed on time > slot time)
+        const slotMinutes = slotHour * 60 + slotMin;
+        const signedMinutes = signedHour * 60 + signedMin;
+
+        return signedMinutes > slotMinutes;
+    } catch (e) {
+        console.error('Error checking late arrival:', e);
+        return false;
+    }
 }
 
 // ========== EXPORTS (for module systems) ==========
