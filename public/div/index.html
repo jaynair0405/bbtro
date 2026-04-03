@@ -153,6 +153,13 @@
                                 <span class="badge green">New</span>
                             </a>
                         </li>
+                        <li class="sidebar-nav-item" id="admin-centre-link" style="display:none;">
+                            <a href="/div/training-centre.html" class="sidebar-nav-link">
+                                <span class="icon">🏫</span>
+                                Training Centre Portal
+                                <span class="badge green">New</span>
+                            </a>
+                        </li>
                         <li class="sidebar-nav-item">
                             <a href="/div/midnight-position.html" class="sidebar-nav-link">
                                 <span class="icon">🌙</span>
@@ -874,6 +881,20 @@
             } catch (e) {
                 console.error('Error checking overdue retirements:', e);
             }
+        })();
+
+        // Show Training Centre Portal link for admin users only
+        (async function checkAdminCentreAccess() {
+            try {
+                const res = await fetch('/api/current-user');
+                if (res.ok) {
+                    const user = await res.json();
+                    if (user.div_role === 'division_admin') {
+                        const el = document.getElementById('admin-centre-link');
+                        if (el) el.style.display = '';
+                    }
+                }
+            } catch (e) {}
         })();
     </script>
 </body>

@@ -137,6 +137,11 @@
 - [x] Double booking detection
 - [ ] Staff search autocomplete (basic done, needs polish)
 
+**Maintenance Note (2026-03-27):**
+- Availability Forecast initial load is intentionally ordered as `Today`, `Yesterday`, then future dates.
+- This fixes the page-load mismatch where the forecast could visually open on yesterday while the today tab was highlighted.
+- The change keeps the full-day forecast panel width behavior unchanged; only the forecast date ordering was adjusted.
+
 ### 2.3 The Booking Slate (`slate.html`)
 
 **Purpose:** Used by Jr CC to assign train/loco bookings to staff on the current day's slate.

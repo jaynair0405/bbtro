@@ -418,6 +418,9 @@ td {
     align-items: center;
     justify-content: center;
 }
+.modal-overlay.active {
+    display: flex;
+}
 
 .modal-content {
     background: var(--bg-panel);
@@ -463,3 +466,4 @@ td {
 .shift-night { border-left: 4px solid var(--shift-night); }
 .shift-day { border-left: 4px solid var(--shift-day); }
 .shift-evening { border-left: 4px solid var(--shift-evening); }
+

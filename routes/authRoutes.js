@@ -38,7 +38,7 @@ router.post('/login', async (req, res) => {
 
     // Look up user in the specified realm
     const [rows] = await conn.query(
-      'SELECT id, username, password, role, full_name, office, realm, div_role, div_office_code, can_access_sub_spm FROM users WHERE username = ? AND realm = ? LIMIT 1',
+      'SELECT id, username, password, role, full_name, office, realm, div_role, div_office_code, can_access_sub_spm, training_center_id FROM users WHERE username = ? AND realm = ? LIMIT 1',
 
       [username, realm]
     );
@@ -83,7 +83,8 @@ router.post('/login', async (req, res) => {
       // Division-specific fields
       div_role: user.div_role,
       div_office_code: user.div_office_code,
-      can_access_sub_spm: !!user.can_access_sub_spm
+      can_access_sub_spm: !!user.can_access_sub_spm,
+      training_center_id: user.training_center_id || null
     };
 
     // Redirect target by realm
@@ -91,7 +92,12 @@ router.post('/login', async (req, res) => {
     if (user.realm === 'suburban') {
       redirectUrl = '/index.html';
     } else if (user.realm === 'division') {
-      redirectUrl = '/div';
+      // Training centre users go directly to centre portal
+      if (user.div_role === 'trgcentre_admin') {
+        redirectUrl = '/div/training-centre.html';
+      } else {
+        redirectUrl = '/div';
+      }
     }
 
     return res.json({
@@ -103,6 +109,7 @@ router.post('/login', async (req, res) => {
       // Division-specific fields
       div_role: user.div_role,
       div_office_code: user.div_office_code,
+      training_center_id: user.training_center_id || null,
       redirect: redirectUrl
     });
 

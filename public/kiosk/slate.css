@@ -6,23 +6,23 @@
 }
 
 .header {
-    padding: 15px 30px;
+    padding: 9px 24px;
 }
 
 .header h1 {
-    font-size: 1.6rem;
+    font-size: 1.25rem;
 }
 
 .header-meta {
     display: flex;
-    gap: 28px;
+    gap: 18px;
     align-items: center;
 }
 
 .vacancy-summary {
     color: var(--warning);
     font-weight: 600;
-    font-size: 0.95rem;
+    font-size: 0.82rem;
 }
 
 .header-clockline {
@@ -30,7 +30,7 @@
     gap: 12px;
     align-items: center;
     color: var(--text-muted);
-    font-size: 0.95rem;
+    font-size: 0.82rem;
     font-weight: 600;
 }
 
@@ -41,11 +41,11 @@
 }
 
 .status-banner {
-    margin-bottom: 10px;
-    padding: 10px 16px;
+    margin-bottom: 8px;
+    padding: 8px 14px;
     border-radius: 8px;
     border: 1px solid transparent;
-    font-size: 0.95rem;
+    font-size: 0.88rem;
     font-weight: 600;
 }
 
@@ -69,7 +69,7 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 6px 10px;
+    padding: 4px 10px;
     background: #0b1120;
     border-bottom: 1px solid var(--border);
 }
@@ -82,11 +82,11 @@
 }
 
 .shift-tab {
-    padding: 10px 30px;
+    padding: 7px 22px;
     background: var(--bg-input);
     border: 2px solid var(--border);
     border-radius: 6px;
-    font-size: 1rem;
+    font-size: 0.84rem;
     font-weight: 700;
     color: var(--text-main);
     cursor: pointer;
@@ -132,15 +132,15 @@
     display: flex;
     justify-content: center;
     gap: 15px;
-    padding: 6px 10px;
+    padding: 4px 10px;
     background: #0a0f1a;
     border-bottom: 1px solid var(--border);
 }
 
 .date-btn {
-    min-width: 120px;
-    padding: 8px 12px;
-    font-size: 0.85rem;
+    min-width: 108px;
+    padding: 6px 10px;
+    font-size: 0.78rem;
     background: var(--bg-input);
     border: 1px solid var(--border);
     border-radius: 5px;
@@ -184,9 +184,9 @@
 }
 
 .half-header {
-    padding: 6px 12px;
+    padding: 5px 10px;
     background: #0b1120;
-    font-size: 0.9rem;
+    font-size: 0.82rem;
     font-weight: 700;
     color: var(--text-main);
     text-align: center;
@@ -197,15 +197,15 @@
     width: 100%;
     border-collapse: collapse;
     table-layout: auto;
-    font-size: 0.82rem;
+    font-size: 0.88rem;
 }
 
 .slate-table th {
     background: #0b1120;
-    padding: 5px 6px;
+    padding: 4px 6px;
     text-transform: uppercase;
     letter-spacing: 0.4px;
-    font-size: 0.7rem;
+    font-size: 0.66rem;
     border-bottom: 1px solid var(--border);
 }
 
@@ -225,7 +225,7 @@
 }
 
 .slate-table td {
-    padding: 5px 6px;
+    padding: 6px 6px;
     border-bottom: 1px solid var(--border);
     vertical-align: middle;
     font-weight: 600;
@@ -247,6 +247,20 @@
     background: var(--status-online);
 }
 
+.slate-table tr.row-booked td {
+    background: #1b2432;
+    border-top: 1px solid rgba(125, 211, 252, 0.22);
+    border-bottom: 1px solid rgba(125, 211, 252, 0.22);
+}
+
+.slate-table tr.row-booked td:first-child {
+    border-left: 4px solid #7dd3fc;
+}
+
+.slate-table tr.row-booked td:last-child {
+    border-right: 4px solid #7dd3fc;
+}
+
 .slate-table tr.adhoc-row td:first-child {
     border-left: 4px solid var(--warning);
 }
@@ -256,25 +270,25 @@
     text-align: center;
     font-family: 'JetBrains Mono', monospace;
     font-weight: 800;
-    font-size: 0.9rem;
+    font-size: 1rem;
     color: var(--accent);
 }
 
 .train-cell {
-    width: 58px;
+    width: 60px;
     text-align: center;
     font-weight: 800;
     color: white;
-    font-size: 0.72rem;
+    font-size: 0.78rem;
     letter-spacing: 0.2px;
 }
 
 .loco-cell {
-    width: 60px;
+    width: 62px;
     text-align: center;
     font-family: 'JetBrains Mono', monospace;
     color: var(--text-muted);
-    font-size: 0.68rem;
+    font-size: 0.74rem;
 }
 
 .name-cell {
@@ -282,10 +296,10 @@
     text-transform: uppercase;
     overflow: hidden;
     white-space: normal;
-    line-height: 1.15;
+    line-height: 1.18;
     word-break: break-word;
     overflow-wrap: anywhere;
-    font-size: 0.8rem;
+    font-size: 0.9rem;
 }
 
 .lp-name {
@@ -300,7 +314,7 @@
 
 .cross-link {
     display: block;
-    font-size: 0.66rem;
+    font-size: 0.68rem;
     color: var(--accent);
     margin-top: 1px;
 }
@@ -386,22 +400,38 @@
     }
 
     .shift-tab {
-        padding: 8px 18px;
-        font-size: 0.9rem;
+        padding: 7px 16px;
+        font-size: 0.8rem;
     }
 
     .slate-table {
-        font-size: 0.74rem;
+        font-size: 0.8rem;
     }
 }
 
 @media (min-width: 3000px) {
     .slate-table {
-        font-size: 1rem;
+        font-size: 0.96rem;
     }
 
     .half-header {
-        font-size: 1.1rem;
-        padding: 10px 18px;
+        font-size: 0.92rem;
+        padding: 6px 12px;
+    }
+
+    .time-cell {
+        font-size: 1.08rem;
+    }
+
+    .train-cell {
+        font-size: 0.84rem;
+    }
+
+    .loco-cell {
+        font-size: 0.8rem;
+    }
+
+    .name-cell {
+        font-size: 0.98rem;
     }
 }

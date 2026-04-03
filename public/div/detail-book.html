@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>JR CC | Digital Detail Book</title>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/slate-theme.css?v=20260303b">
+    <link rel="stylesheet" href="css/slate-theme.css?v=20260326a">
     <style>
         /* Page-specific layout */
         .main-container {
@@ -86,15 +86,7 @@
                             <span style="color: var(--text-muted); font-size: 0.8rem;">Ex Stn:</span>
                             <select id="pilotStation" style="padding: 6px 10px; min-width: 100px;">
                                 <option value="">-- Select --</option>
-                                <option value="KYN">KYN</option>
-                                <option value="LNL">LNL</option>
-                                <option value="PNVL">PNVL</option>
-                                <option value="IGP">IGP</option>
-                                <option value="CLA">CLA</option>
-                                <option value="NRL">NRL</option>
-                                <option value="CSMT">CSMT</option>
-                                <option value="DR">DR</option>
-                                <option value="TNA">TNA</option>
+                                <!-- Populated dynamically from API -->
                             </select>
                         </div>
                     </div>
@@ -277,8 +269,24 @@
         </div>
     </div>
 
+    <!-- Exception/Delete Modal -->
+    <div id="exceptionModal" class="modal-overlay">
+        <div class="modal-content" style="max-width: 380px;">
+            <h3 id="exceptionModalTitle" style="margin: 0 0 15px 0; font-size: 1rem;"></h3>
+            <div id="exceptionModalInfo" style="margin-bottom: 15px; font-size: 0.85rem; color: var(--text-muted);"></div>
+
+            <div id="exceptionOptions" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px;">
+                <!-- Buttons added dynamically -->
+            </div>
+
+            <button onclick="closeExceptionModal()" style="width: 100%; padding: 10px; background: var(--bg-input); color: var(--text-muted); border: 1px solid var(--border); border-radius: 6px; font-weight: 600; cursor: pointer;">
+                Cancel
+            </button>
+        </div>
+    </div>
+
     <!-- Load shared utilities first, then page-specific code -->
     <script src="js/slate-common.js?v=20260305a"></script>
-    <script src="js/detail-book.js?v=20260324b"></script>
+    <script src="js/detail-book.js?v=20260326f"></script>
 </body>
 </html>

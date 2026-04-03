@@ -168,6 +168,15 @@ app.get('/div/biodata-form-design.html', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'div', 'biodata-form-design.html'));
 });
 
+// ✅ Training Centre Portal - accessible by trgcentre_admin and division_admin
+app.get('/div/training-centre.html', (req, res) => {
+  if (!req.session.user) return res.redirect('/');
+  if (req.session.user.realm !== 'division') return res.redirect('/');
+  const role = req.session.user.div_role;
+  if (role !== 'trgcentre_admin' && role !== 'division_admin') return res.redirect('/div');
+  res.sendFile(path.join(__dirname, 'public', 'div', 'training-centre.html'));
+});
+
 app.get('/div/bulk-upload-staff.html', (req, res) => {
   if (!req.session.user) return res.redirect('/');
   if (req.session.user.realm !== 'division') return res.redirect('/');
@@ -387,6 +396,23 @@ app.use(
 );
 
 
+// ---- SATARK Counselling reverse proxy ----
+app.use(
+  "/counselling",
+  createProxyMiddleware({
+    target: "http://127.0.0.1:5003",
+    changeOrigin: true,
+    timeout: 600000,
+    proxyTimeout: 600000,
+    onError(err, req, res) {
+      console.error("[COUNSELLING PROXY ERROR]", err.message, req.method, req.originalUrl);
+      if (!res.headersSent) res.writeHead(502, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ success: false, message: "Counselling app proxy error", error: err.message }));
+    },
+  })
+);
+console.log("✅ Counselling proxy mounted at /counselling → :5003");
+
 app.get('/kiosk/slate/:displayId', (req, res) => {
   if (!getSlateDisplay(req.params.displayId)) {
     return res.status(404).send('Kiosk display not found');
@@ -569,6 +595,7 @@ const ctrRoutes = require('./routes/division/ctrRoutes');
 const categoryRoutes = require('./routes/division/categoryRoutes');
 const slateRoutes = require('./routes/division/slateRoutes');
 const trainingLetterRoutes = require('./routes/division/trainingLetterRoutes');
+const trainingCentreRoutes = require('./routes/division/trainingCentreRoutes');
 
 // Add division routes with realm protection
 app.use("/api/division/leave", requireRealm("division"), leaveRoutes); // mount early to avoid any catch-alls
@@ -591,6 +618,7 @@ app.use("/api/division/ctr", requireRealm('division'), ctrRoutes);
 app.use("/api/division/category", requireRealm('division'), categoryRoutes);
 app.use("/api/division/slate", requireRealm('division'), slateRoutes);
 app.use("/api/division/training-letters", requireRealm('division'), trainingLetterRoutes);
+app.use("/api/division/training-centre", requireRealm('division'), trainingCentreRoutes);
 
 // Session info endpoint
 app.get('/api/session', (req, res) => {

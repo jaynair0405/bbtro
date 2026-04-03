@@ -603,20 +603,27 @@ router.post('/', requireDivisionAccess, async (req, res) => {
                 await conn.query(`DELETE FROM div_training_letter_staff WHERE letter_id = ?`, [letterId]);
             } else {
                 // Insert new letter
+                // Determine training_center_id based on addressee
+                // Suburban offices (CSMT-SUB, KYN-SUB, PNVL-SUB) always send to MTC CLA (center_id=3)
+                let letterCenterId = null;
+                if (['CSMT-SUB', 'KYN-SUB', 'PNVL-SUB'].includes(office_code)) {
+                    letterCenterId = 3; // MTC CLA
+                }
+
                 const [result] = await conn.query(`
                     INSERT INTO div_training_letters (
                         letter_no, letter_date, office_code, course_type, custom_subject,
                         training_date, report_time, addressee_name, addressee_office,
                         subject_text, body_text, requirements_text, footer_text,
                         signing_designation, signing_designation_hindi, signing_place,
-                        cc_text, total_staff, created_by
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        cc_text, total_staff, status, training_center_id, created_by
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'sent', ?, ?)
                 `, [
                     letter_no, letter_date, office_code, course_type, custom_subject,
                     training_date, report_time || '09:30:00', addressee_name, addressee_office,
                     subject_text, body_text, requirements_text, footer_text,
                     signing_designation, signing_designation_hindi, signing_place,
-                    cc_text, staff.length, req.session?.user?.username || 'system'
+                    cc_text, staff.length, letterCenterId, req.session?.user?.username || 'system'
                 ]);
                 letterId = result.insertId;
             }

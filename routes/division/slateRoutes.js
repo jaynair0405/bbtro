@@ -67,13 +67,13 @@ router.get('/active-crews', async (req, res) => {
                 alp.name AS alp_name,
                 alp.current_cms_id AS alp_cms_id,
                 CONCAT(ds.slot_date, ' ', ds.slot_time) AS sign_on_datetime,
-                TIMESTAMPDIFF(HOUR, CONCAT(ds.slot_date, ' ', ds.slot_time), ${SQL_NOW_IST}) AS duty_hours
+                TIMESTAMPDIFF(HOUR, CONCAT(ds.slot_date, ' ', ds.slot_time), NOW()) AS duty_hours
             FROM div_daily_slate ds
             LEFT JOIN div_staff_master lp ON ds.lp_hrms_id = lp.hrms_id
             LEFT JOIN div_staff_master alp ON ds.alp_hrms_id = alp.hrms_id
             WHERE ds.office_code = ?
               AND (ds.lp_status = 'ONLINE' OR ds.alp_status = 'ONLINE')
-              AND TIMESTAMPDIFF(HOUR, CONCAT(ds.slot_date, ' ', ds.slot_time), ${SQL_NOW_IST}) >= 5
+              AND TIMESTAMPDIFF(HOUR, CONCAT(ds.slot_date, ' ', ds.slot_time), NOW()) >= 5
             ORDER BY CONCAT(ds.slot_date, ' ', ds.slot_time) ASC
         `, [userOffice]);
 
@@ -952,6 +952,118 @@ router.post('/update', async (req, res) => {
 });
 
 // ----------------------------------------------------------------------------
+// DELETE /api/division/slate/:id
+// Remove staff from a slot (only for FORECAST/AVAILABLE, before sign-on)
+// ----------------------------------------------------------------------------
+router.delete('/:id', async (req, res) => {
+    let conn;
+    try {
+        const slotId = req.params.id;
+        const { role, office_code } = req.query; // 'lp' or 'alp' - which staff to remove
+        const userOffice = req.session.user?.div_office_code || office_code;
+
+        if (!userOffice) {
+            return res.status(400).json({ error: 'Office code required' });
+        }
+
+        conn = await req.app.locals.pool.getConnection();
+
+        // First check if slot exists and get current status
+        const [slot] = await conn.query(`
+            SELECT id, slot_date, slot_time, is_adhoc,
+                   lp_hrms_id, lp_status,
+                   alp_hrms_id, alp_status
+            FROM div_daily_slate
+            WHERE id = ? AND office_code = ?
+        `, [slotId, userOffice]);
+
+        if (slot.length === 0) {
+            conn.release();
+            return res.status(404).json({ error: 'Slot not found' });
+        }
+
+        const entry = slot[0];
+        const targetRole = role || 'lp';
+
+        // Check status - only allow delete for FORECAST or AVAILABLE
+        const status = targetRole === 'lp' ? entry.lp_status : entry.alp_status;
+        if (status === 'ONLINE' || status === 'SAFE') {
+            conn.release();
+            return res.status(400).json({
+                error: 'Cannot remove staff who is already signed on or marked safe',
+                status: status
+            });
+        }
+
+        // If it's an adhoc row (is_adhoc > 0), delete the entire row
+        // If it's a regular slot, just clear the LP/ALP fields
+        if (entry.is_adhoc > 0) {
+            // For adhoc: if removing LP and no ALP, or removing the only person, delete row
+            if (targetRole === 'lp' && !entry.alp_hrms_id) {
+                await conn.query('DELETE FROM div_daily_slate WHERE id = ?', [slotId]);
+            } else if (targetRole === 'alp' && !entry.lp_hrms_id) {
+                await conn.query('DELETE FROM div_daily_slate WHERE id = ?', [slotId]);
+            } else if (targetRole === 'lp') {
+                // Clear LP fields only
+                await conn.query(`
+                    UPDATE div_daily_slate SET
+                        lp_hrms_id = NULL,
+                        lp_status = 'AVAILABLE', lp_detail_book_id = NULL,
+                        lp_exception = NULL, lp_exception_remark = NULL,
+                        last_modified = NOW()
+                    WHERE id = ?
+                `, [slotId]);
+            } else {
+                // Clear ALP fields only
+                await conn.query(`
+                    UPDATE div_daily_slate SET
+                        alp_hrms_id = NULL,
+                        alp_status = 'AVAILABLE', alp_detail_book_id = NULL,
+                        alp_exception = NULL, alp_exception_remark = NULL,
+                        last_modified = NOW()
+                    WHERE id = ?
+                `, [slotId]);
+            }
+        } else {
+            // Regular slot: just clear the staff fields
+            if (targetRole === 'lp') {
+                await conn.query(`
+                    UPDATE div_daily_slate SET
+                        lp_hrms_id = NULL,
+                        lp_status = 'AVAILABLE', lp_detail_book_id = NULL,
+                        lp_exception = NULL, lp_exception_remark = NULL,
+                        last_modified = NOW()
+                    WHERE id = ?
+                `, [slotId]);
+            } else {
+                await conn.query(`
+                    UPDATE div_daily_slate SET
+                        alp_hrms_id = NULL,
+                        alp_status = 'AVAILABLE', alp_detail_book_id = NULL,
+                        alp_exception = NULL, alp_exception_remark = NULL,
+                        last_modified = NOW()
+                    WHERE id = ?
+                `, [slotId]);
+            }
+        }
+
+        conn.release();
+
+        res.json({
+            success: true,
+            message: `${targetRole.toUpperCase()} removed from slot successfully`,
+            deleted_adhoc_row: entry.is_adhoc > 0 &&
+                ((targetRole === 'lp' && !entry.alp_hrms_id) || (targetRole === 'alp' && !entry.lp_hrms_id))
+        });
+
+    } catch (error) {
+        console.error('Error deleting slot entry:', error);
+        if (conn) conn.release();
+        res.status(500).json({ error: 'Database error', details: error.message });
+    }
+});
+
+// ----------------------------------------------------------------------------
 // GET /api/division/slate/staff/search
 // Search staff for manual entry (LP or ALP dropdown)
 // ----------------------------------------------------------------------------
@@ -1571,7 +1683,7 @@ router.post('/booking', async (req, res) => {
         // Update LP status if booking LP (but preserve ONLINE status - staff still on duty)
         let lpUpdate = '';
         if (book_lp && slot.lp_hrms_id && slot.lp_status !== 'ONLINE') {
-            lpUpdate = ', lp_status = "BOOKED"';
+            lpUpdate = ', lp_status = "ONLINE"';
         }
 
         // Handle ALP selection and status
@@ -1589,11 +1701,11 @@ router.post('/booking', async (req, res) => {
 
                 if (staffCheck.length > 0) {
                     // Staff found - use their HRMS ID
-                    alpUpdate = ', alp_hrms_id = ?, alp_status = "BOOKED", alp_source = "OUT_OF_SLATE", alp_source_name = ?';
+                    alpUpdate = ', alp_hrms_id = ?, alp_status = "ONLINE", alp_source = "OUT_OF_SLATE", alp_source_name = ?';
                     alpParams.push(staffCheck[0].hrms_id, alp_source_name || null);
                 } else {
                     // Staff not found in our system - store as name only (like OTHER_DEPOT)
-                    alpUpdate = ', alp_hrms_id = NULL, alp_status = "BOOKED", alp_source = "OUT_OF_SLATE", alp_source_name = ?';
+                    alpUpdate = ', alp_hrms_id = NULL, alp_status = "ONLINE", alp_source = "OUT_OF_SLATE", alp_source_name = ?';
                     alpParams.push(alp_source_name || `Unknown (${alp_hrms_id})`);
                 }
 
@@ -1609,7 +1721,7 @@ router.post('/booking', async (req, res) => {
             } else if (alp_source === 'OTHER_DEPOT') {
                 // ALP from another depot (not in our system) - don't set alp_hrms_id (foreign key constraint)
                 // Store info in alp_source_name and alp_source_depot only
-                alpUpdate = ', alp_hrms_id = NULL, alp_status = "BOOKED", alp_source = "OTHER_DEPOT", alp_source_name = ?, alp_source_depot = ?';
+                alpUpdate = ', alp_hrms_id = NULL, alp_status = "ONLINE", alp_source = "OTHER_DEPOT", alp_source_name = ?, alp_source_depot = ?';
                 alpParams.push(alp_source_name || null, alp_source_depot || null);
 
                 // Create adhoc slot for displaced original ALP
@@ -1623,7 +1735,7 @@ router.post('/booking', async (req, res) => {
                 }
             } else if (alp_hrms_id && alp_hrms_id !== slot.alp_hrms_id) {
                 // ALP from different slot on same slate - perform ALP swap
-                alpUpdate = ', alp_hrms_id = ?, alp_status = "BOOKED", alp_source = "SLATE", alp_cross_slot_time = ?';
+                alpUpdate = ', alp_hrms_id = ?, alp_status = "ONLINE", alp_source = "SLATE", alp_cross_slot_time = ?';
 
                 // Get original slot info of the borrowed ALP
                 const [alpOriginalSlot] = await conn.query(`
@@ -1661,7 +1773,7 @@ router.post('/booking', async (req, res) => {
             } else if (slot.alp_hrms_id) {
                 // Same ALP, mark as booked (but preserve ONLINE status - staff still on duty)
                 if (slot.alp_status !== 'ONLINE') {
-                    alpUpdate = ', alp_status = "BOOKED"';
+                    alpUpdate = ', alp_status = "ONLINE"';
                 }
             }
         }
@@ -1760,7 +1872,7 @@ router.get('/available-alp', async (req, res) => {
                 ds.alp_status,
                 ds.train_no,
                 ds.booked_at,
-                TIMESTAMPDIFF(MINUTE, ds.booked_at, ${SQL_NOW_IST}) AS minutes_since_booked
+                TIMESTAMPDIFF(MINUTE, ds.booked_at, NOW()) AS minutes_since_booked
             FROM div_daily_slate ds
             JOIN div_staff_master s ON ds.alp_hrms_id = s.hrms_id
             WHERE ds.office_code = ?
@@ -1770,7 +1882,7 @@ router.get('/available-alp', async (req, res) => {
               AND (
                   ds.alp_status = 'AVAILABLE'
                   OR ds.alp_status = 'FORECAST'
-                  OR (ds.alp_status = 'BOOKED' AND TIMESTAMPDIFF(MINUTE, ds.booked_at, ${SQL_NOW_IST}) < 60)
+                  OR (ds.alp_status = 'ONLINE' AND TIMESTAMPDIFF(MINUTE, ds.booked_at, NOW()) < 60)
               )
             ORDER BY ds.slot_time ASC
         `, [userOffice, targetDate, exclude_slot_id || 0]);
@@ -1939,6 +2051,36 @@ router.get('/arrivals', async (req, res) => {
 
     } catch (error) {
         console.error('Error fetching arrivals:', error);
+        if (conn) conn.release();
+        res.status(500).json({ error: 'Database error', details: error.message });
+    }
+});
+
+// ----------------------------------------------------------------------------
+// GET /api/division/slate/stations
+// Get unique stations for pilot station dropdown
+// ----------------------------------------------------------------------------
+router.get('/stations', async (req, res) => {
+    let conn;
+    try {
+        conn = await req.app.locals.pool.getConnection();
+
+        const [stations] = await conn.query(`
+            SELECT DISTINCT station_code
+            FROM div_lrd_section_stations
+            ORDER BY station_code
+        `);
+
+        conn.release();
+
+        res.json({
+            success: true,
+            count: stations.length,
+            data: stations.map(s => s.station_code)
+        });
+
+    } catch (error) {
+        console.error('Error fetching stations:', error);
         if (conn) conn.release();
         res.status(500).json({ error: 'Database error', details: error.message });
     }

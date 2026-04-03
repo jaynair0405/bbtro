@@ -16,6 +16,7 @@ let collisionInfo = null;
 let selectedSafeLogId = null; // Track which SAFE entry is being processed
 let activeForecastDate = null;
 let todayRefreshTimer = null;
+let isInitialSync = true; // Prevent scroll listener from overriding during initial load
 
 // Warning state - blocks submission if hard errors exist
 let lpWarnings = [];
@@ -48,12 +49,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     const todayStr = formatDateKey(TODAY);
     activeForecastDate = todayStr;
 
-    // Initialize with 11 days: yesterday (-1) through +9 days ahead
-    for (let offset = -1; offset <= 9; offset++) {
+    // Initialize with 10 days: today (0) through +9 days ahead
+    // Yesterday will be loaded by loadSlateData if it has data
+    for (let offset = 0; offset <= 9; offset++) {
         const date = new Date(TODAY.getTime());
         date.setDate(date.getDate() + offset);
         ensureDateGroup(formatDateKey(date));
     }
+
+    // Load pilot stations for dropdown
+    loadPilotStations();
 
     // Load pending SAFE entries from Slate
     await loadPendingSafe();
@@ -81,21 +86,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Initialize scroll listener for date tab sync
     initScrollListener();
 
-    // Scroll to today after a short delay to ensure DOM is fully rendered
-    setTimeout(() => {
-        const scroll = document.getElementById('forecastScroll');
-        const group = dateGroups[todayStr];
-        if (scroll && group && group.element) {
-            // Disable smooth scroll, set position directly
-            scroll.style.scrollBehavior = 'auto';
-            const dates = Object.keys(dateGroups).sort();
-            const dateIndex = dates.indexOf(todayStr);
-            const groupWidth = group.element.offsetWidth;
-            scroll.scrollLeft = dateIndex * groupWidth;
-            // Re-enable smooth scroll
-            setTimeout(() => { scroll.style.scrollBehavior = ''; }, 100);
-        }
-    }, 200);
+    // Board data may insert yesterday ahead of today, so align the forecast
+    // after all groups have been rendered.
+    syncForecastToToday();
 
     // Keep forecast aligned on visibility/focus changes
     scheduleDateBoundaryRefresh();
@@ -200,6 +193,27 @@ async function loadPendingSafe() {
         }
     } catch (err) {
         console.error('Error loading pending SAFE:', err);
+    }
+}
+
+// ========== API: LOAD PILOT STATIONS ==========
+async function loadPilotStations() {
+    try {
+        const res = await fetch(`${SLATE_CONFIG.API_BASE}/stations`);
+        const data = await res.json();
+
+        if (data.success) {
+            const select = document.getElementById('pilotStation');
+            // Keep the first "-- Select --" option
+            data.data.forEach(station => {
+                const option = document.createElement('option');
+                option.value = station;
+                option.textContent = station;
+                select.appendChild(option);
+            });
+        }
+    } catch (err) {
+        console.error('Error loading pilot stations:', err);
     }
 }
 
@@ -1506,6 +1520,26 @@ function generateShiftTableRows(dateStr, shiftIndex) {
     ).join('');
 }
 
+function getForecastDateRank(dateStr) {
+    const targetDate = new Date(dateStr + 'T00:00:00');
+    const dayOffset = Math.round((targetDate - TODAY) / (24 * 60 * 60 * 1000));
+
+    // Keep today first so the forecast opens aligned to the active tab.
+    if (dayOffset === 0) return 0;
+    if (dayOffset === -1) return 1;
+    if (dayOffset > 0) return dayOffset + 1;
+    return 1000 + Math.abs(dayOffset);
+}
+
+function compareForecastDates(a, b) {
+    const rankDiff = getForecastDateRank(a) - getForecastDateRank(b);
+    return rankDiff !== 0 ? rankDiff : a.localeCompare(b);
+}
+
+function getOrderedForecastDates() {
+    return Object.keys(dateGroups).sort(compareForecastDates);
+}
+
 function ensureDateGroup(dateStr) {
     if (dateGroups[dateStr]) return dateGroups[dateStr];
 
@@ -1561,7 +1595,7 @@ function ensureDateGroup(dateStr) {
     let inserted = false;
 
     for (const group of existingGroups) {
-        if (group.dataset.date > dateStr) {
+        if (compareForecastDates(dateStr, group.dataset.date) < 0) {
             group.insertAdjacentHTML('beforebegin', groupHtml);
             inserted = true;
             break;
@@ -1587,7 +1621,7 @@ function ensureDateGroup(dateStr) {
 
 function updateDateTabs() {
     const tabsContainer = document.getElementById('dateTabs');
-    const dates = Object.keys(dateGroups).sort();
+    const dates = getOrderedForecastDates();
     const activeDate = activeForecastDate || getVisibleDate() || formatDateKey(TODAY);
 
     tabsContainer.innerHTML = dates.map(dateStr => {
@@ -1676,17 +1710,21 @@ function syncForecastToToday(attempt = 0) {
     if (!group || !group.element || group.element.offsetWidth === 0) {
         if (attempt < 10) {
             setTimeout(() => syncForecastToToday(attempt + 1), 50);
+        } else {
+            isInitialSync = false;
         }
         return;
     }
 
     scrollToDate(todayStr, true);
 
-    if (attempt >= 6) return;
-
+    // Check if scroll succeeded and allow scroll listener after sync
     requestAnimationFrame(() => {
-        if (getVisibleDate() !== todayStr) {
+        if (getVisibleDate() !== todayStr && attempt < 6) {
             setTimeout(() => syncForecastToToday(attempt + 1), 100);
+        } else {
+            // Sync complete - enable scroll listener
+            setTimeout(() => { isInitialSync = false; }, 200);
         }
     });
 }
@@ -1699,7 +1737,7 @@ function scrollToDate(dateStr, instant = false) {
         activeForecastDate = dateStr;
 
         // Calculate target position based on date index and group width
-        const dates = Object.keys(dateGroups).sort();
+        const dates = getOrderedForecastDates();
         const dateIndex = dates.indexOf(dateStr);
         const groupWidth = group.element.offsetWidth;
         const targetLeft = dateIndex * groupWidth;
@@ -1733,6 +1771,9 @@ function scrollForecast(direction) {
 
 // Detect visible date and highlight corresponding tab
 function updateVisibleDateTab() {
+    // Skip during initial sync to prevent overriding scroll to today
+    if (isInitialSync) return;
+
     const visibleDate = getVisibleDate();
 
     if (visibleDate) {
@@ -2535,5 +2576,168 @@ async function doSubmit(payload) {
     } catch (err) {
         console.error('Submit error:', err);
         showToast('❌ Network error. Please try again.', 'error');
+    }
+}
+
+// ========== EXCEPTION MODAL ==========
+let currentExceptionData = null;
+let exceptionCallback = null;
+
+function openExceptionModal(slotId, staffType, data, callback) {
+    currentExceptionData = { slotId, staffType, ...data };
+    exceptionCallback = callback;
+
+    const modal = document.getElementById('exceptionModal');
+    const title = document.getElementById('exceptionModalTitle');
+    const info = document.getElementById('exceptionModalInfo');
+    const options = document.getElementById('exceptionOptions');
+
+    title.textContent = data.name;
+    info.innerHTML = `Slot: ${data.slot_date} @ ${data.slot_time}<br>Type: ${staffType.toUpperCase()}`;
+
+    // Check if can be deleted (not signed on, no exception)
+    const canDelete = !data.signed_on_at && !data.current_exception;
+    const isSignedOn = !!data.signed_on_at;
+
+    let buttonsHtml = '';
+
+    // Show different options based on status
+    if (!isSignedOn) {
+        // Not yet signed on - can mark AUC/NF or delete
+        buttonsHtml += `
+            <button onclick="markException('AUC')" style="padding: 12px; background: var(--warning); color: #000; border: none; border-radius: 6px; font-weight: 700; cursor: pointer;">
+                Mark AUC (Unable to Come)
+            </button>
+            <button onclick="markException('NF')" style="padding: 12px; background: var(--danger); color: #fff; border: none; border-radius: 6px; font-weight: 700; cursor: pointer;">
+                Mark NF (Not Found)
+            </button>
+        `;
+        if (canDelete) {
+            buttonsHtml += `
+                <button onclick="deleteFromModal()" style="padding: 12px; background: #7f1d1d; color: #fca5a5; border: 1px solid var(--danger); border-radius: 6px; font-weight: 700; cursor: pointer;">
+                    Remove from Slot
+                </button>
+            `;
+        }
+    } else {
+        // Already signed on - show sign-on time
+        const signOnTime = data.signed_on_at ? formatTime(data.signed_on_at) : '--';
+        info.innerHTML += `<br><span style="color: var(--accent);">Signed on at: ${signOnTime}</span>`;
+        buttonsHtml += `<div style="color: var(--text-muted); text-align: center; padding: 10px;">Staff already signed on. No actions available.</div>`;
+    }
+
+    // Show current exception if any
+    if (data.current_exception) {
+        info.innerHTML += `<br><span style="color: var(--warning);">Current: ${data.current_exception}</span>`;
+        buttonsHtml += `
+            <button onclick="clearException()" style="padding: 12px; background: var(--bg-input); color: var(--text-main); border: 1px solid var(--border); border-radius: 6px; font-weight: 600; cursor: pointer;">
+                Clear Exception
+            </button>
+        `;
+    }
+
+    options.innerHTML = buttonsHtml;
+    modal.classList.add('active');
+}
+
+function closeExceptionModal() {
+    document.getElementById('exceptionModal').classList.remove('active');
+    currentExceptionData = null;
+    exceptionCallback = null;
+}
+
+async function markException(exceptionType) {
+    if (!currentExceptionData) return;
+
+    const { slotId, staffType } = currentExceptionData;
+
+    try {
+        const payload = {};
+        if (staffType === 'lp') {
+            payload.lp_exception = exceptionType;
+        } else {
+            payload.alp_exception = exceptionType;
+        }
+
+        const res = await fetch(`${SLATE_CONFIG.API_BASE}/update`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ slot_id: slotId, ...payload })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+            showToast(`Marked as ${exceptionType}`, 'success');
+            closeExceptionModal();
+            if (exceptionCallback) exceptionCallback();
+        } else {
+            showToast(`Error: ${data.error}`, 'error');
+        }
+    } catch (err) {
+        console.error('Exception error:', err);
+        showToast('Network error', 'error');
+    }
+}
+
+async function clearException() {
+    if (!currentExceptionData) return;
+
+    const { slotId, staffType } = currentExceptionData;
+
+    try {
+        const payload = {};
+        if (staffType === 'lp') {
+            payload.lp_exception = null;
+            payload.lp_exception_remark = null;
+        } else {
+            payload.alp_exception = null;
+            payload.alp_exception_remark = null;
+        }
+
+        const res = await fetch(`${SLATE_CONFIG.API_BASE}/update`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ slot_id: slotId, ...payload })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+            showToast('Exception cleared', 'success');
+            closeExceptionModal();
+            if (exceptionCallback) exceptionCallback();
+        } else {
+            showToast(`Error: ${data.error}`, 'error');
+        }
+    } catch (err) {
+        console.error('Clear exception error:', err);
+        showToast('Network error', 'error');
+    }
+}
+
+async function deleteFromModal() {
+    if (!currentExceptionData) return;
+
+    const { slotId, staffType, name, slot_date, slot_time } = currentExceptionData;
+
+    // Confirm deletion
+    const confirmed = confirm(`Remove ${name} from ${slot_date} ${slot_time} slot?\n\nThis action cannot be undone.`);
+    if (!confirmed) return;
+
+    try {
+        const res = await fetch(`${SLATE_CONFIG.API_BASE}/${slotId}?role=${staffType}&office_code=${SLATE_CONFIG.OFFICE_CODE}`, {
+            method: 'DELETE'
+        });
+        const data = await res.json();
+
+        if (data.success) {
+            showToast(`${staffType.toUpperCase()} removed from slot`, 'success');
+            closeExceptionModal();
+            location.reload(); // Refresh to show updated data
+        } else {
+            showToast(`Error: ${data.error}`, 'error');
+        }
+    } catch (err) {
+        console.error('Delete error:', err);
+        showToast('Network error', 'error');
     }
 }
