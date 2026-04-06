@@ -239,11 +239,11 @@
         <div class="card-stats">
           <div class="stat-box">
             <span class="stat-label">Yesterday</span>
-            <span class="stat-value">45</span>
+            <span class="stat-value" id="spm-yesterday-count">-</span>
           </div>
           <div class="stat-box" style="text-align: right;">
             <span class="stat-label">Total Analyzed</span>
-            <span class="stat-value">1,202</span>
+            <span class="stat-value" id="spm-total-count">-</span>
           </div>
         </div>
       </a>
@@ -393,8 +393,38 @@
       }
     }
 
+    // Fetch and update Suburban SPM statistics
+    async function loadSPMStats() {
+      try {
+        const response = await fetch('/spm/sub-spm/api/spm-stats');
+        const data = await response.json();
+
+        if (data.success) {
+          // Update yesterday count
+          const yesterdayEl = document.getElementById('spm-yesterday-count');
+          if (yesterdayEl) {
+            yesterdayEl.textContent = data.yesterday.toLocaleString();
+          }
+
+          // Update total count
+          const totalEl = document.getElementById('spm-total-count');
+          if (totalEl) {
+            totalEl.textContent = data.total.toLocaleString();
+          }
+        } else {
+          console.error('Failed to load SPM stats:', data.error);
+        }
+      } catch (error) {
+        console.error('Error fetching SPM stats:', error);
+        // Keep the "-" placeholder on error
+      }
+    }
+
     // Load stats when page loads
-    document.addEventListener('DOMContentLoaded', loadRTISStats);
+    document.addEventListener('DOMContentLoaded', () => {
+      loadRTISStats();
+      loadSPMStats();
+    });
   </script>
 
 </body>
