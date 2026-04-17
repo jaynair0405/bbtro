@@ -72,7 +72,7 @@ router.get('/active-crews', async (req, res) => {
             LEFT JOIN div_staff_master lp ON ds.lp_hrms_id = lp.hrms_id
             LEFT JOIN div_staff_master alp ON ds.alp_hrms_id = alp.hrms_id
             WHERE ds.office_code = ?
-              AND (ds.lp_status = 'ONLINE' OR ds.alp_status = 'ONLINE')
+              AND (ds.lp_status IN ('ONLINE', 'BOOKED') OR ds.alp_status IN ('ONLINE', 'BOOKED'))
               AND TIMESTAMPDIFF(HOUR, CONCAT(ds.slot_date, ' ', ds.slot_time), NOW()) >= 5
             ORDER BY CONCAT(ds.slot_date, ' ', ds.slot_time) ASC
         `, [userOffice]);
@@ -920,8 +920,8 @@ router.post('/update', async (req, res) => {
                 // Convert time string to full timestamp (IST date + time)
                 updates.push(`lp_signed_on_at = CONCAT(${SQL_CURDATE_IST}, " ", ?)`);
                 params.push(req.body.lp_signed_on_at);
-                // Staff has departed - set status to ONLINE
-                updates.push('lp_status = "ONLINE"');
+                // Staff has departed - set status to BOOKED
+                updates.push('lp_status = "BOOKED"');
             } else {
                 updates.push('lp_signed_on_at = NULL');
             }
@@ -945,8 +945,8 @@ router.post('/update', async (req, res) => {
                 // Convert time string to full timestamp (IST date + time)
                 updates.push(`alp_signed_on_at = CONCAT(${SQL_CURDATE_IST}, " ", ?)`);
                 params.push(req.body.alp_signed_on_at);
-                // Staff has departed - set status to ONLINE
-                updates.push('alp_status = "ONLINE"');
+                // Staff has departed - set status to BOOKED
+                updates.push('alp_status = "BOOKED"');
             } else {
                 updates.push('alp_signed_on_at = NULL');
             }
@@ -1025,7 +1025,7 @@ router.delete('/:id', async (req, res) => {
 
         // Check status - only allow delete for FORECAST or AVAILABLE
         const status = targetRole === 'lp' ? entry.lp_status : entry.alp_status;
-        if (status === 'ONLINE' || status === 'SAFE') {
+        if (status === 'BOOKED' || status === 'ONLINE' || status === 'SAFE') {
             conn.release();
             return res.status(400).json({
                 error: 'Cannot remove staff who is already signed on or marked safe',
@@ -1747,10 +1747,10 @@ router.post('/booking', async (req, res) => {
             return res.status(400).json({ error: 'Train number required for booking' });
         }
 
-        // Update LP status if booking LP (but preserve ONLINE status - staff still on duty)
+        // Update LP status if booking LP (but preserve BOOKED status - staff still on duty)
         let lpUpdate = '';
-        if (book_lp && slot.lp_hrms_id && slot.lp_status !== 'ONLINE') {
-            lpUpdate = ', lp_status = "ONLINE"';
+        if (book_lp && slot.lp_hrms_id && slot.lp_status !== 'BOOKED') {
+            lpUpdate = ', lp_status = "BOOKED"';
         }
 
         // Handle ALP selection and status
@@ -1768,11 +1768,11 @@ router.post('/booking', async (req, res) => {
 
                 if (staffCheck.length > 0) {
                     // Staff found - use their HRMS ID
-                    alpUpdate = ', alp_hrms_id = ?, alp_status = "ONLINE", alp_source = "OUT_OF_SLATE", alp_source_name = ?';
+                    alpUpdate = ', alp_hrms_id = ?, alp_status = "BOOKED", alp_source = "OUT_OF_SLATE", alp_source_name = ?';
                     alpParams.push(staffCheck[0].hrms_id, alp_source_name || null);
                 } else {
                     // Staff not found in our system - store as name only (like OTHER_DEPOT)
-                    alpUpdate = ', alp_hrms_id = NULL, alp_status = "ONLINE", alp_source = "OUT_OF_SLATE", alp_source_name = ?';
+                    alpUpdate = ', alp_hrms_id = NULL, alp_status = "BOOKED", alp_source = "OUT_OF_SLATE", alp_source_name = ?';
                     alpParams.push(alp_source_name || `Unknown (${alp_hrms_id})`);
                 }
 
@@ -1788,7 +1788,7 @@ router.post('/booking', async (req, res) => {
             } else if (alp_source === 'OTHER_DEPOT') {
                 // ALP from another depot (not in our system) - don't set alp_hrms_id (foreign key constraint)
                 // Store info in alp_source_name and alp_source_depot only
-                alpUpdate = ', alp_hrms_id = NULL, alp_status = "ONLINE", alp_source = "OTHER_DEPOT", alp_source_name = ?, alp_source_depot = ?';
+                alpUpdate = ', alp_hrms_id = NULL, alp_status = "BOOKED", alp_source = "OTHER_DEPOT", alp_source_name = ?, alp_source_depot = ?';
                 alpParams.push(alp_source_name || null, alp_source_depot || null);
 
                 // Create adhoc slot for displaced original ALP
@@ -1802,7 +1802,7 @@ router.post('/booking', async (req, res) => {
                 }
             } else if (alp_hrms_id && alp_hrms_id !== slot.alp_hrms_id) {
                 // ALP from different slot on same slate - perform ALP swap
-                alpUpdate = ', alp_hrms_id = ?, alp_status = "ONLINE", alp_source = "SLATE", alp_cross_slot_time = ?';
+                alpUpdate = ', alp_hrms_id = ?, alp_status = "BOOKED", alp_source = "SLATE", alp_cross_slot_time = ?';
 
                 // Get original slot info of the borrowed ALP
                 const [alpOriginalSlot] = await conn.query(`
@@ -1838,9 +1838,9 @@ router.post('/booking', async (req, res) => {
                     }
                 }
             } else if (slot.alp_hrms_id) {
-                // Same ALP, mark as booked (but preserve ONLINE status - staff still on duty)
-                if (slot.alp_status !== 'ONLINE') {
-                    alpUpdate = ', alp_status = "ONLINE"';
+                // Same ALP, mark as booked (but preserve BOOKED status - staff still on duty)
+                if (slot.alp_status !== 'BOOKED') {
+                    alpUpdate = ', alp_status = "BOOKED"';
                 }
             }
         }
@@ -1949,7 +1949,7 @@ router.get('/available-alp', async (req, res) => {
               AND (
                   ds.alp_status = 'AVAILABLE'
                   OR ds.alp_status = 'FORECAST'
-                  OR (ds.alp_status = 'ONLINE' AND TIMESTAMPDIFF(MINUTE, ds.booked_at, NOW()) < 60)
+                  OR (ds.alp_status IN ('ONLINE', 'BOOKED') AND TIMESTAMPDIFF(MINUTE, ds.booked_at, NOW()) < 60)
               )
             ORDER BY ds.slot_time ASC
         `, [userOffice, targetDate, exclude_slot_id || 0]);
@@ -2150,6 +2150,587 @@ router.get('/stations', async (req, res) => {
         console.error('Error fetching stations:', error);
         if (conn) conn.release();
         res.status(500).json({ error: 'Database error', details: error.message });
+    }
+});
+
+// ----------------------------------------------------------------------------
+// GET /api/division/slate/staff-analysis
+// Analyze slate staff for LRD and Training compliance
+// Returns staff with LRD status, training status, and incompatible pair suggestions
+// ----------------------------------------------------------------------------
+router.get('/staff-analysis', async (req, res) => {
+    let conn;
+    try {
+        const {
+            office_code,
+            date,
+            shift,  // 0=Night, 1=Day, 2=Evening
+            sections = '',  // Comma-separated beat_ids: "PNVL_KJT,KJT_BVT"
+            trainings = ''  // Comma-separated training_ids: "15,13"
+        } = req.query;
+
+        const userOffice = req.session.user?.div_office_code || office_code;
+        if (!userOffice) {
+            return res.status(400).json({ error: 'Office code required' });
+        }
+
+        conn = await req.app.locals.pool.getConnection();
+
+        const targetDate = date || getISTDate();
+        const shiftIndex = parseInt(shift) || 1;
+
+        // Shift time ranges with boundary overlap
+        // Allow ±45 mins at shift boundaries for pairing suggestions
+        const shiftRanges = {
+            0: { start: '00:00', end: '08:00', prevBoundary: '23:15', nextBoundary: '08:45' }, // Night
+            1: { start: '08:00', end: '16:00', prevBoundary: '07:15', nextBoundary: '16:45' }, // Day
+            2: { start: '16:00', end: '23:59', prevBoundary: '15:15', nextBoundary: '00:45' }  // Evening
+        };
+        const range = shiftRanges[shiftIndex];
+
+        // Get previous date for boundary slots
+        const prevDate = new Date(targetDate);
+        prevDate.setDate(prevDate.getDate() - 1);
+        const prevDateStr = formatLocalDate(prevDate);
+
+        // Get next date for boundary slots
+        const nextDate = new Date(targetDate);
+        nextDate.setDate(nextDate.getDate() + 1);
+        const nextDateStr = formatLocalDate(nextDate);
+
+        // Build date/time conditions for main shift + boundary slots
+        let dateConditions = `(ds.slot_date = ? AND ds.slot_time >= ? AND ds.slot_time < ?)`;
+        let dateParams = [targetDate, range.start, range.end];
+
+        // Add boundary slots from adjacent shifts
+        if (shiftIndex === 0) {
+            // Night shift: include previous day evening boundary (23:15-23:59)
+            dateConditions += ` OR (ds.slot_date = ? AND ds.slot_time >= ?)`;
+            dateParams.push(prevDateStr, '23:15');
+        } else if (shiftIndex === 1) {
+            // Day shift: include night boundary (07:15-07:59) and evening boundary (16:00-16:45)
+            dateConditions += ` OR (ds.slot_date = ? AND ds.slot_time >= ? AND ds.slot_time < ?)`;
+            dateParams.push(targetDate, '07:15', '08:00');
+            dateConditions += ` OR (ds.slot_date = ? AND ds.slot_time >= ? AND ds.slot_time < ?)`;
+            dateParams.push(targetDate, '16:00', '16:45');
+        } else if (shiftIndex === 2) {
+            // Evening shift: include day boundary (15:15-15:59) and next day night (00:00-00:45)
+            dateConditions += ` OR (ds.slot_date = ? AND ds.slot_time >= ? AND ds.slot_time < ?)`;
+            dateParams.push(targetDate, '15:15', '16:00');
+            dateConditions += ` OR (ds.slot_date = ? AND ds.slot_time < ?)`;
+            dateParams.push(nextDateStr, '00:45');
+        }
+
+        // Fetch all slots with staff data
+        const [slots] = await conn.query(`
+            SELECT
+                ds.id AS slot_id,
+                ds.slot_date,
+                ds.slot_time,
+                ds.shift_code,
+                ds.lp_hrms_id,
+                lp.name AS lp_name,
+                lp.current_cms_id AS lp_cms_id,
+                ds.lp_status,
+                ds.alp_hrms_id,
+                alp.name AS alp_name,
+                alp.current_cms_id AS alp_cms_id,
+                ds.alp_status
+            FROM div_daily_slate ds
+            LEFT JOIN div_staff_master lp ON ds.lp_hrms_id = lp.hrms_id
+            LEFT JOIN div_staff_master alp ON ds.alp_hrms_id = alp.hrms_id
+            WHERE ds.office_code = ?
+              AND (${dateConditions})
+              AND (ds.lp_hrms_id IS NOT NULL OR ds.alp_hrms_id IS NOT NULL)
+            ORDER BY ds.slot_date, ds.slot_time
+        `, [userOffice, ...dateParams]);
+
+        // Collect unique staff HRMS IDs
+        const staffSet = new Set();
+        slots.forEach(s => {
+            if (s.lp_hrms_id) staffSet.add(s.lp_hrms_id);
+            if (s.alp_hrms_id) staffSet.add(s.alp_hrms_id);
+        });
+        const hrmsIds = Array.from(staffSet);
+
+        if (hrmsIds.length === 0) {
+            conn.release();
+            return res.json({
+                success: true,
+                slots: [],
+                staff: [],
+                incompatible_pairs: [],
+                suggestions: []
+            });
+        }
+
+        // Parse requested sections and trainings
+        const sectionList = sections ? sections.split(',').map(s => s.trim().toUpperCase()) : [];
+        const trainingList = trainings ? trainings.split(',').map(t => parseInt(t)).filter(t => !isNaN(t)) : [];
+
+        // LP-only trainings (e.g. TW TRG = 13) - ALPs should not be marked non-compliant for these
+        const lpOnlyTrainings = [13];
+        const alpTrainingList = trainingList.filter(t => !lpOnlyTrainings.includes(t));
+
+        // Load beats data
+        const beatsData = require('../../data/lrd_beats.json');
+        const validityDays = beatsData.config?.validity_days || 90;
+        const expiringThreshold = beatsData.config?.expiring_threshold_days || 15;
+
+        // Get selected beats
+        const selectedBeats = sectionList.length > 0
+            ? beatsData.beats.filter(b => sectionList.includes(b.beat_id.toUpperCase()))
+            : [];
+
+        // Function to extract adjacent segment pairs
+        function extractAdjacentPairs(stations) {
+            const pairs = [];
+            for (let i = 0; i < stations.length - 1; i++) {
+                pairs.push([stations[i], stations[i + 1]]);
+            }
+            return pairs;
+        }
+
+        // Get LRD data for all staff
+        const [lrdLegs] = await conn.query(`
+            SELECT d.staff_hrms_id, l.from_station, l.to_station, MAX(d.duty_date) as last_worked_date
+            FROM div_ctr_legs l
+            JOIN div_ctr_duties d ON l.duty_id = d.id
+            WHERE d.staff_hrms_id IN (?)
+              AND l.duty_type IN ('WR', 'PL')
+              AND l.from_station IS NOT NULL
+              AND l.to_station IS NOT NULL
+            GROUP BY d.staff_hrms_id, l.from_station, l.to_station
+        `, [hrmsIds]);
+
+        // Build LRD map per staff
+        const staffLrdMap = new Map();
+        lrdLegs.forEach(leg => {
+            if (!staffLrdMap.has(leg.staff_hrms_id)) {
+                staffLrdMap.set(leg.staff_hrms_id, new Map());
+            }
+            staffLrdMap.get(leg.staff_hrms_id).set(`${leg.from_station}-${leg.to_station}`, leg.last_worked_date);
+        });
+
+        // Get Training data for all staff
+        let staffTrainingMap = new Map();
+        if (trainingList.length > 0) {
+            const [trainingRecords] = await conn.query(`
+                SELECT tr.staff_hrms_id, tr.training_id, tr.done_date, tt.training_name, tt.training_code
+                FROM div_training_records tr
+                JOIN div_training_types tt ON tr.training_id = tt.training_id
+                WHERE tr.staff_hrms_id IN (?)
+                  AND tr.training_id IN (?)
+                  AND tr.record_id IN (
+                      SELECT MAX(record_id) FROM div_training_records
+                      WHERE staff_hrms_id IN (?)
+                        AND training_id IN (?)
+                      GROUP BY staff_hrms_id, training_id
+                  )
+            `, [hrmsIds, trainingList, hrmsIds, trainingList]);
+
+            trainingRecords.forEach(tr => {
+                if (!staffTrainingMap.has(tr.staff_hrms_id)) {
+                    staffTrainingMap.set(tr.staff_hrms_id, new Map());
+                }
+                staffTrainingMap.get(tr.staff_hrms_id).set(tr.training_id, {
+                    done_date: tr.done_date,
+                    training_name: tr.training_name,
+                    training_code: tr.training_code
+                });
+            });
+        }
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        // Analyze LRD status for each staff
+        function analyzeLrdForStaff(hrmsId) {
+            const staffSegs = staffLrdMap.get(hrmsId) || new Map();
+            const sectionResults = {};
+
+            selectedBeats.forEach(beat => {
+                const segments = extractAdjacentPairs(beat.stations);
+                let worstStatus = 'VALID';
+                let worstDays = Infinity;
+                let worstDate = null;
+                let validCount = 0, expiredCount = 0, expiringCount = 0, neverCount = 0;
+
+                segments.forEach(([from, to]) => {
+                    const key = `${from}-${to}`;
+                    const lastWorked = staffSegs.get(key);
+
+                    if (!lastWorked) {
+                        neverCount++;
+                        return;
+                    }
+
+                    const lastWorkedDate = new Date(lastWorked);
+                    const expiresOn = new Date(lastWorkedDate);
+                    expiresOn.setDate(expiresOn.getDate() + validityDays);
+                    const daysRemaining = Math.ceil((expiresOn - today) / (1000 * 60 * 60 * 24));
+
+                    if (daysRemaining < 0) {
+                        expiredCount++;
+                        if (worstStatus !== 'EXPIRED' || daysRemaining < worstDays) {
+                            worstStatus = 'EXPIRED';
+                            worstDays = daysRemaining;
+                            worstDate = lastWorked;
+                        }
+                    } else if (daysRemaining <= expiringThreshold) {
+                        expiringCount++;
+                        if (worstStatus !== 'EXPIRED') {
+                            if (worstStatus !== 'EXPIRING' || daysRemaining < worstDays) {
+                                worstStatus = 'EXPIRING';
+                                worstDays = daysRemaining;
+                                worstDate = lastWorked;
+                            }
+                        }
+                    } else {
+                        validCount++;
+                        if (worstStatus === 'VALID' && (!worstDate || new Date(lastWorked) > new Date(worstDate))) {
+                            worstDate = lastWorked;
+                            worstDays = daysRemaining;
+                        }
+                    }
+                });
+
+                // Determine overall status
+                let status = 'VALID';
+                if (expiredCount > 0) {
+                    status = validCount > 0 || expiringCount > 0 ? 'PARTIAL_EXPIRED' : 'EXPIRED';
+                } else if (expiringCount > 0) {
+                    status = validCount > 0 ? 'PARTIAL_EXPIRING' : 'EXPIRING';
+                } else if (neverCount === segments.length) {
+                    status = 'NEVER_WORKED';
+                } else if (neverCount > 0) {
+                    status = 'PARTIAL_NEVER';
+                }
+
+                sectionResults[beat.beat_id] = {
+                    status,
+                    days: worstDays === Infinity ? null : worstDays,
+                    date: worstDate,
+                    valid: status === 'VALID' || status === 'PARTIAL_EXPIRING'
+                };
+            });
+
+            return sectionResults;
+        }
+
+        // Analyze Training status for each staff
+        function analyzeTrainingForStaff(hrmsId) {
+            const staffTrainings = staffTrainingMap.get(hrmsId) || new Map();
+            const trainingResults = {};
+
+            trainingList.forEach(tId => {
+                const record = staffTrainings.get(tId);
+                trainingResults[tId] = {
+                    trained: !!record,
+                    done_date: record?.done_date || null,
+                    training_name: record?.training_name || null
+                };
+            });
+
+            return trainingResults;
+        }
+
+        // Build staff analysis data
+        const staffAnalysis = {};
+        hrmsIds.forEach(hrmsId => {
+            staffAnalysis[hrmsId] = {
+                lrd: analyzeLrdForStaff(hrmsId),
+                training: analyzeTrainingForStaff(hrmsId)
+            };
+        });
+
+        // Analyze slots for incompatible pairs and suggestions
+        const incompatiblePairs = [];
+        const allLPs = [];
+        const allALPs = [];
+
+        // First, collect all LP and ALP info with their compliance status
+        slots.forEach(slot => {
+            const slotInfo = {
+                slot_id: slot.slot_id,
+                slot_date: slot.slot_date,
+                slot_time: slot.slot_time,
+                shift_code: slot.shift_code
+            };
+
+            if (slot.lp_hrms_id) {
+                const analysis = staffAnalysis[slot.lp_hrms_id] || { lrd: {}, training: {} };
+                const lrdValid = sectionList.length === 0 ||
+                    sectionList.every(sec => analysis.lrd[sec]?.valid);
+                const trainingValid = trainingList.length === 0 ||
+                    trainingList.every(tId => analysis.training[tId]?.trained);
+
+                allLPs.push({
+                    ...slotInfo,
+                    hrms_id: slot.lp_hrms_id,
+                    name: slot.lp_name,
+                    cms_id: slot.lp_cms_id,
+                    status: slot.lp_status,
+                    lrd: analysis.lrd,
+                    training: analysis.training,
+                    lrd_valid: lrdValid,
+                    training_valid: trainingValid,
+                    fully_compliant: lrdValid && trainingValid
+                });
+            }
+
+            if (slot.alp_hrms_id) {
+                const analysis = staffAnalysis[slot.alp_hrms_id] || { lrd: {}, training: {} };
+                const lrdValid = sectionList.length === 0 ||
+                    sectionList.every(sec => analysis.lrd[sec]?.valid);
+                // For ALP, exclude LP-only trainings from compliance check
+                const trainingValid = alpTrainingList.length === 0 ||
+                    alpTrainingList.every(tId => analysis.training[tId]?.trained);
+
+                allALPs.push({
+                    ...slotInfo,
+                    hrms_id: slot.alp_hrms_id,
+                    name: slot.alp_name,
+                    cms_id: slot.alp_cms_id,
+                    status: slot.alp_status,
+                    lrd: analysis.lrd,
+                    training: analysis.training,
+                    lrd_valid: lrdValid,
+                    training_valid: trainingValid,
+                    fully_compliant: lrdValid && trainingValid
+                });
+            }
+        });
+
+        // Find incompatible pairs and generate suggestions
+        slots.forEach(slot => {
+            if (!slot.lp_hrms_id || !slot.alp_hrms_id) return;
+
+            const lpAnalysis = staffAnalysis[slot.lp_hrms_id] || { lrd: {}, training: {} };
+            const alpAnalysis = staffAnalysis[slot.alp_hrms_id] || { lrd: {}, training: {} };
+
+            const lpLrdValid = sectionList.length === 0 || sectionList.every(sec => lpAnalysis.lrd[sec]?.valid);
+            const alpLrdValid = sectionList.length === 0 || sectionList.every(sec => alpAnalysis.lrd[sec]?.valid);
+            const lpTrainingValid = trainingList.length === 0 || trainingList.every(tId => lpAnalysis.training[tId]?.trained);
+            // For ALP, exclude LP-only trainings from compliance check
+            const alpTrainingValid = alpTrainingList.length === 0 || alpTrainingList.every(tId => alpAnalysis.training[tId]?.trained);
+
+            const issues = [];
+            if (!lpLrdValid && alpLrdValid) issues.push({ type: 'LRD', who: 'LP', message: 'LP missing LRD' });
+            if (lpLrdValid && !alpLrdValid) issues.push({ type: 'LRD', who: 'ALP', message: 'ALP missing LRD' });
+            if (!lpLrdValid && !alpLrdValid) issues.push({ type: 'LRD', who: 'BOTH', message: 'Both missing LRD' });
+            if (!lpTrainingValid && alpTrainingValid) issues.push({ type: 'TRAINING', who: 'LP', message: 'LP missing training' });
+            if (lpTrainingValid && !alpTrainingValid) issues.push({ type: 'TRAINING', who: 'ALP', message: 'ALP missing training' });
+            if (!lpTrainingValid && !alpTrainingValid) issues.push({ type: 'TRAINING', who: 'BOTH', message: 'Both missing training' });
+
+            if (issues.length > 0) {
+                // Find alternative suggestions
+                const suggestions = [];
+
+                issues.forEach(issue => {
+                    if (issue.who === 'ALP' || issue.who === 'BOTH') {
+                        // Find compliant ALPs from other slots
+                        const compliantALPs = allALPs.filter(alp =>
+                            alp.hrms_id !== slot.alp_hrms_id &&
+                            alp.slot_id !== slot.slot_id &&
+                            (issue.type === 'LRD' ? alp.lrd_valid : alp.training_valid) &&
+                            alp.status !== 'signed_off'
+                        ).slice(0, 3);
+
+                        compliantALPs.forEach(alp => {
+                            suggestions.push({
+                                type: 'SWAP_ALP',
+                                issue_type: issue.type,
+                                current: { hrms_id: slot.alp_hrms_id, name: slot.alp_name },
+                                suggested: {
+                                    hrms_id: alp.hrms_id,
+                                    name: alp.name,
+                                    slot_time: alp.slot_time,
+                                    slot_date: alp.slot_date
+                                }
+                            });
+                        });
+                    }
+
+                    if (issue.who === 'LP' || issue.who === 'BOTH') {
+                        // Find compliant LPs from other slots
+                        const compliantLPs = allLPs.filter(lp =>
+                            lp.hrms_id !== slot.lp_hrms_id &&
+                            lp.slot_id !== slot.slot_id &&
+                            (issue.type === 'LRD' ? lp.lrd_valid : lp.training_valid) &&
+                            lp.status !== 'signed_off'
+                        ).slice(0, 3);
+
+                        compliantLPs.forEach(lp => {
+                            suggestions.push({
+                                type: 'SWAP_LP',
+                                issue_type: issue.type,
+                                current: { hrms_id: slot.lp_hrms_id, name: slot.lp_name },
+                                suggested: {
+                                    hrms_id: lp.hrms_id,
+                                    name: lp.name,
+                                    slot_time: lp.slot_time,
+                                    slot_date: lp.slot_date
+                                }
+                            });
+                        });
+                    }
+                });
+
+                incompatiblePairs.push({
+                    slot_id: slot.slot_id,
+                    slot_date: slot.slot_date,
+                    slot_time: slot.slot_time,
+                    lp: {
+                        hrms_id: slot.lp_hrms_id,
+                        name: slot.lp_name,
+                        cms_id: slot.lp_cms_id,
+                        lrd_valid: lpLrdValid,
+                        training_valid: lpTrainingValid,
+                        lrd: lpAnalysis.lrd,
+                        training: lpAnalysis.training
+                    },
+                    alp: {
+                        hrms_id: slot.alp_hrms_id,
+                        name: slot.alp_name,
+                        cms_id: slot.alp_cms_id,
+                        lrd_valid: alpLrdValid,
+                        training_valid: alpTrainingValid,
+                        lrd: alpAnalysis.lrd,
+                        training: alpAnalysis.training
+                    },
+                    issues,
+                    suggestions
+                });
+            }
+        });
+
+        // Build section and training info for frontend
+        const sectionInfo = selectedBeats.map(b => ({
+            id: b.beat_id,
+            name: `${b.stations[0]}-${b.stations[b.stations.length - 1]}`
+        }));
+
+        // Get training names
+        let trainingInfo = [];
+        if (trainingList.length > 0) {
+            const [trainingTypes] = await conn.query(
+                `SELECT training_id, training_code, training_name FROM div_training_types WHERE training_id IN (?)`,
+                [trainingList]
+            );
+            trainingInfo = trainingTypes.map(t => ({
+                id: t.training_id,
+                code: t.training_code,
+                name: t.training_name,
+                lp_only: lpOnlyTrainings.includes(t.training_id)
+            }));
+        }
+
+        conn.release();
+
+        res.json({
+            success: true,
+            date: targetDate,
+            shift: shiftIndex,
+            sections: sectionInfo,
+            trainings: trainingInfo,
+            summary: {
+                total_slots: slots.length,
+                total_staff: hrmsIds.length,
+                lps: allLPs.length,
+                alps: allALPs.length,
+                lrd_compliant_lps: allLPs.filter(l => l.lrd_valid).length,
+                lrd_compliant_alps: allALPs.filter(a => a.lrd_valid).length,
+                training_compliant_lps: allLPs.filter(l => l.training_valid).length,
+                training_compliant_alps: allALPs.filter(a => a.training_valid).length,
+                incompatible_pairs: incompatiblePairs.length
+            },
+            slots: slots.map(s => ({
+                slot_id: s.slot_id,
+                slot_date: s.slot_date,
+                slot_time: s.slot_time,
+                lp_hrms_id: s.lp_hrms_id,
+                lp_name: s.lp_name,
+                alp_hrms_id: s.alp_hrms_id,
+                alp_name: s.alp_name
+            })),
+            lps: allLPs,
+            alps: allALPs,
+            incompatible_pairs: incompatiblePairs
+        });
+
+    } catch (error) {
+        console.error('Error in staff analysis:', error);
+        if (conn) conn.release();
+        res.status(500).json({ error: 'Database error', details: error.message });
+    }
+});
+
+// ----------------------------------------------------------------------------
+// GET /api/division/slate/available-sections
+// Get list of LRD sections/beats for the office
+// ----------------------------------------------------------------------------
+router.get('/available-sections', async (req, res) => {
+    try {
+        const { office_code } = req.query;
+        const userOffice = req.session.user?.div_office_code || office_code;
+
+        const baseOffice = (userOffice || 'PNVL').split('-')[0].toUpperCase();
+        const beatsData = require('../../data/lrd_beats.json');
+
+        // Sections to exclude from analysis modal
+        const excludedSections = ['JNPT_PNVL', 'PNVL_JNPT', 'PNVL_BSR', 'BSR_PNVL'];
+
+        const applicableBeats = beatsData.beats.filter(b => {
+            const beatOffice = b.office?.toUpperCase();
+            const isApplicable = beatOffice === baseOffice || beatOffice === 'SHARED';
+            return isApplicable && !excludedSections.includes(b.beat_id);
+        });
+
+        const sections = applicableBeats.map(b => ({
+            id: b.beat_id,
+            name: `${b.stations[0]}-${b.stations[b.stations.length - 1]}`,
+            full_name: b.name,
+            office: b.office
+        }));
+
+        res.json({ success: true, sections });
+    } catch (error) {
+        console.error('Error fetching sections:', error);
+        res.status(500).json({ error: 'Failed to load sections' });
+    }
+});
+
+// ----------------------------------------------------------------------------
+// GET /api/division/slate/available-trainings
+// Get list of training types for selection
+// ----------------------------------------------------------------------------
+router.get('/available-trainings', async (req, res) => {
+    let conn;
+    try {
+        conn = await req.app.locals.pool.getConnection();
+
+        const [trainings] = await conn.query(`
+            SELECT training_id, training_code, training_name
+            FROM div_training_types
+            WHERE training_id IN (10, 11, 13, 15)
+            ORDER BY training_name
+        `);
+
+        conn.release();
+        res.json({
+            success: true,
+            trainings: trainings.map(t => ({
+                id: t.training_id,
+                code: t.training_code,
+                name: t.training_name,
+                lp_only: t.training_id === 13  // TW TRG is LP only
+            }))
+        });
+    } catch (error) {
+        console.error('Error fetching trainings:', error);
+        if (conn) conn.release();
+        res.status(500).json({ error: 'Failed to load trainings' });
     }
 });
 

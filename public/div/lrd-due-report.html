@@ -1,0 +1,1852 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LRD Due Report - Division Portal</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --bg-tertiary: #334155;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --text-light: #cbd5e1;
+            --border-color: #334155;
+            --primary: #3b82f6;
+            --primary-hover: #2563eb;
+            --success: #22c55e;
+            --warning: #eab308;
+            --danger: #ef4444;
+            --info: #8b5cf6;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .back-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            text-decoration: none;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+
+        .back-btn:hover {
+            background: var(--bg-tertiary);
+        }
+
+        .title h1 {
+            font-size: 24px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .title p {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        /* Card */
+        .card {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            margin-bottom: 20px;
+        }
+
+        .card-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .card-title {
+            font-size: 16px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .card-body {
+            padding: 20px;
+        }
+
+        /* Filters */
+        .filters-row {
+            display: flex;
+            gap: 15px;
+            align-items: flex-end;
+            flex-wrap: wrap;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .filter-group label {
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .input-control {
+            padding: 10px 14px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 14px;
+            min-width: 180px;
+        }
+
+        .input-control:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        /* Radio group */
+        .radio-group {
+            display: flex;
+            gap: 15px;
+            padding: 8px 0;
+        }
+
+        .radio-label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .radio-label input[type="radio"] {
+            accent-color: var(--primary);
+        }
+
+        /* Buttons */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 18px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-hover);
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #16a34a;
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+        }
+
+        .btn-outline:hover {
+            background: var(--bg-tertiary);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        /* Stats row */
+        .stats-row {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .stat-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 16px 24px;
+            min-width: 140px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: 700;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        /* Table */
+        .table-container {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 12px 16px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        th {
+            background: var(--bg-tertiary);
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-secondary);
+        }
+
+        tr:hover {
+            background: rgba(255,255,255,0.02);
+        }
+
+        /* Badge */
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .badge-danger {
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+        }
+
+        .badge-warning {
+            background: rgba(234, 179, 8, 0.2);
+            color: #eab308;
+        }
+
+        .badge-info {
+            background: rgba(139, 92, 246, 0.2);
+            color: #8b5cf6;
+        }
+
+        .badge-secondary {
+            background: rgba(148, 163, 184, 0.2);
+            color: #94a3b8;
+        }
+
+        /* Days column */
+        .days-negative {
+            color: var(--danger);
+            font-weight: 600;
+        }
+
+        .days-positive {
+            color: var(--warning);
+            font-weight: 600;
+        }
+
+        /* Empty state */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-secondary);
+        }
+
+        .empty-state i {
+            font-size: 48px;
+            opacity: 0.3;
+            margin-bottom: 15px;
+        }
+
+        .empty-state h3 {
+            font-size: 18px;
+            margin-bottom: 8px;
+            color: var(--text-primary);
+        }
+
+        /* Loading */
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-secondary);
+        }
+
+        .spinner {
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 12px 20px;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            z-index: 1000;
+            animation: slideIn 0.3s ease;
+        }
+
+        .toast.success { border-left: 3px solid var(--success); }
+        .toast.error { border-left: 3px solid var(--danger); }
+
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        /* Mode Tabs */
+        .mode-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .mode-tab {
+            padding: 10px 20px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-secondary);
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .mode-tab:hover {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        .mode-tab.active {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: white;
+        }
+
+        /* Staff Dropdown */
+        .staff-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            max-height: 250px;
+            overflow-y: auto;
+            z-index: 100;
+            display: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+
+        .staff-dropdown.show {
+            display: block;
+        }
+
+        .staff-item {
+            padding: 10px 14px;
+            cursor: pointer;
+            border-bottom: 1px solid var(--border-color);
+            transition: background 0.2s;
+        }
+
+        .staff-item:last-child {
+            border-bottom: none;
+        }
+
+        .staff-item:hover {
+            background: var(--bg-tertiary);
+        }
+
+        .staff-item-name {
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .staff-item-info {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+
+        /* Section Checklist group styling */
+        .section-group {
+            margin-bottom: 25px;
+        }
+
+        .section-group-header {
+            background: var(--bg-tertiary);
+            padding: 12px 16px;
+            border-radius: 8px 8px 0 0;
+            border: 1px solid var(--border-color);
+            border-bottom: none;
+        }
+
+        .section-group table {
+            border: 1px solid var(--border-color);
+            border-top: none;
+            border-radius: 0 0 8px 8px;
+        }
+
+        .section-group table th {
+            background: var(--bg-secondary);
+        }
+
+        /* Matrix View styling */
+        .matrix-container {
+            overflow-x: auto;
+            max-width: 100%;
+        }
+
+        .matrix-table {
+            border-collapse: collapse;
+            font-size: 12px;
+            min-width: 100%;
+        }
+
+        .matrix-table th, .matrix-table td {
+            border: 1px solid var(--border-color);
+            padding: 6px 8px;
+            text-align: center;
+            white-space: nowrap;
+        }
+
+        .matrix-table th {
+            background: var(--bg-tertiary);
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .matrix-table th.section-header {
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
+            transform: rotate(180deg);
+            height: 120px;
+            padding: 8px 4px;
+            font-size: 11px;
+        }
+
+        .matrix-table td.staff-name {
+            text-align: left;
+            font-weight: 500;
+            position: sticky;
+            left: 0;
+            background: var(--bg-secondary);
+            z-index: 5;
+            min-width: 150px;
+        }
+
+        .matrix-table td.staff-cms {
+            text-align: left;
+            position: sticky;
+            left: 150px;
+            background: var(--bg-secondary);
+            z-index: 5;
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        .matrix-cell {
+            cursor: pointer;
+            min-width: 70px;
+            font-size: 11px;
+            transition: transform 0.1s;
+        }
+
+        .matrix-cell:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 8px rgba(0,0,0,0.3);
+            z-index: 20;
+            position: relative;
+        }
+
+        .matrix-cell.status-expired {
+            background: rgba(239, 68, 68, 0.3);
+            color: #fca5a5;
+        }
+
+        .matrix-cell.status-partial-expired {
+            background: rgba(239, 68, 68, 0.15);
+            color: #fca5a5;
+            border-left: 3px solid #ef4444;
+        }
+
+        .matrix-cell.status-expiring {
+            background: rgba(234, 179, 8, 0.3);
+            color: #fde047;
+        }
+
+        .matrix-cell.status-partial-expiring {
+            background: rgba(234, 179, 8, 0.15);
+            color: #fde047;
+            border-left: 3px solid #eab308;
+        }
+
+        .matrix-cell.status-valid {
+            background: rgba(34, 197, 94, 0.2);
+            color: #86efac;
+        }
+
+        .matrix-cell.status-never {
+            background: var(--bg-primary);
+            color: var(--text-secondary);
+        }
+
+        .matrix-cell.status-partial-never {
+            background: rgba(139, 92, 246, 0.15);
+            color: #c4b5fd;
+        }
+
+        /* Tooltip for matrix cells */
+        .matrix-cell[title] {
+            position: relative;
+        }
+
+        /* Print styles */
+        @media print {
+            body {
+                background: white;
+                color: black;
+                padding: 10px;
+            }
+
+            .no-print {
+                display: none !important;
+            }
+
+            .card {
+                border: 1px solid #ddd;
+                background: white;
+            }
+
+            th {
+                background: #f5f5f5;
+            }
+
+            .badge {
+                border: 1px solid currentColor;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header no-print">
+            <div class="header-left">
+                <a href="/div/ctr-management.html" class="back-btn">
+                    <i class="fa-solid fa-arrow-left"></i> CTR Management
+                </a>
+                <div class="title">
+                    <h1><i class="fa-solid fa-clipboard-list"></i> LRD Due Report</h1>
+                    <p>Staff with Expired or Expiring Learning Road (LRD) sections</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mode Tabs -->
+        <div class="mode-tabs no-print">
+            <button class="mode-tab active" onclick="switchMode('section')" id="tabSection">
+                <i class="fa-solid fa-route"></i> Section-wise
+            </button>
+            <button class="mode-tab" onclick="switchMode('staff')" id="tabStaff">
+                <i class="fa-solid fa-user"></i> Staff Search
+            </button>
+            <button class="mode-tab" onclick="switchMode('staffChecklist')" id="tabStaffChecklist">
+                <i class="fa-solid fa-list-check"></i> Staff Checklist
+            </button>
+            <button class="mode-tab" onclick="switchMode('sectionChecklist')" id="tabSectionChecklist">
+                <i class="fa-solid fa-layer-group"></i> Section Checklist
+            </button>
+            <button class="mode-tab" onclick="switchMode('matrix')" id="tabMatrix">
+                <i class="fa-solid fa-table-cells"></i> Matrix View
+            </button>
+        </div>
+
+        <!-- Section-wise Filters -->
+        <div class="card no-print" id="sectionFilters">
+            <div class="card-body">
+                <div class="filters-row">
+                    <div class="filter-group">
+                        <label>Depot</label>
+                        <select class="input-control" id="depotFilter" onchange="loadSections()">
+                            <option value="PNVL-ML" selected>PNVL-ML</option>
+                            <option value="KYN-ML">KYN-ML</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Section</label>
+                        <select class="input-control" id="sectionFilter">
+                            <option value="">-- Select Section --</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Designation</label>
+                        <select class="input-control" id="desigFilter" style="min-width: 100px;">
+                            <option value="all" selected>All</option>
+                            <option value="lpg">LPG</option>
+                            <option value="alp">ALP</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Status</label>
+                        <div class="radio-group">
+                            <label class="radio-label">
+                                <input type="radio" name="statusFilter" value="all" checked> All Due
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="statusFilter" value="expired"> Expired Only
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="statusFilter" value="expiring"> Expiring Only
+                            </label>
+                        </div>
+                    </div>
+                    <div class="filter-group" style="margin-left: auto;">
+                        <label>&nbsp;</label>
+                        <div style="display: flex; gap: 10px;">
+                            <button class="btn btn-primary" onclick="generateReport()">
+                                <i class="fa-solid fa-search"></i> Generate Report
+                            </button>
+                            <button class="btn btn-success" onclick="downloadExcel()" id="btnDownload" disabled>
+                                <i class="fa-solid fa-file-excel"></i> Download Excel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Staff-wise Filters -->
+        <div class="card no-print" id="staffFilters" style="display: none;">
+            <div class="card-body">
+                <div class="filters-row">
+                    <div class="filter-group" style="flex: 1; max-width: 400px; position: relative;">
+                        <label>Search Staff</label>
+                        <input type="text" class="input-control" id="staffSearch"
+                            placeholder="Type CMS ID or Name..."
+                            autocomplete="off"
+                            onkeyup="searchStaff(this.value)">
+                        <div id="staffDropdown" class="staff-dropdown"></div>
+                    </div>
+                    <div id="selectedStaffInfo" style="display: none; padding: 12px 16px; background: var(--bg-tertiary); border-radius: 8px; flex: 1;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <strong id="staffName">-</strong>
+                                <span class="badge badge-info" id="staffDesig" style="margin-left: 8px;">-</span>
+                                <span class="badge badge-secondary" id="staffOffice" style="margin-left: 4px;">-</span>
+                            </div>
+                            <button class="btn btn-outline" onclick="clearStaffSelection()" style="padding: 6px 12px;">
+                                <i class="fa-solid fa-xmark"></i> Clear
+                            </button>
+                        </div>
+                        <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">
+                            CMS: <span id="staffCms">-</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Staff Checklist Filters -->
+        <div class="card no-print" id="staffChecklistFilters" style="display: none;">
+            <div class="card-body">
+                <div class="filters-row">
+                    <div class="filter-group">
+                        <label>Depot</label>
+                        <select class="input-control" id="staffChecklistDepot">
+                            <option value="PNVL-ML" selected>PNVL-ML</option>
+                            <option value="KYN-ML">KYN-ML</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Designation</label>
+                        <select class="input-control" id="staffChecklistDesig" style="min-width: 100px;">
+                            <option value="all" selected>All</option>
+                            <option value="lpg">LPG</option>
+                            <option value="alp">ALP</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Status</label>
+                        <div class="radio-group">
+                            <label class="radio-label">
+                                <input type="radio" name="staffChecklistStatus" value="all" checked> All Due
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="staffChecklistStatus" value="expired"> Expired Only
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="staffChecklistStatus" value="expiring"> Expiring Only
+                            </label>
+                        </div>
+                    </div>
+                    <div class="filter-group" style="margin-left: auto;">
+                        <label>&nbsp;</label>
+                        <div style="display: flex; gap: 10px;">
+                            <button class="btn btn-primary" onclick="generateStaffChecklist()">
+                                <i class="fa-solid fa-search"></i> Generate
+                            </button>
+                            <button class="btn btn-success" onclick="downloadExcel()" id="btnDownloadStaffChecklist" disabled>
+                                <i class="fa-solid fa-file-excel"></i> Download Excel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section Checklist Filters -->
+        <div class="card no-print" id="sectionChecklistFilters" style="display: none;">
+            <div class="card-body">
+                <div class="filters-row">
+                    <div class="filter-group">
+                        <label>Depot</label>
+                        <select class="input-control" id="sectionChecklistDepot">
+                            <option value="PNVL-ML" selected>PNVL-ML</option>
+                            <option value="KYN-ML">KYN-ML</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Designation</label>
+                        <select class="input-control" id="sectionChecklistDesig" style="min-width: 100px;">
+                            <option value="all" selected>All</option>
+                            <option value="lpg">LPG</option>
+                            <option value="alp">ALP</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Status</label>
+                        <div class="radio-group">
+                            <label class="radio-label">
+                                <input type="radio" name="sectionChecklistStatus" value="all" checked> All Due
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="sectionChecklistStatus" value="expired"> Expired Only
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="sectionChecklistStatus" value="expiring"> Expiring Only
+                            </label>
+                        </div>
+                    </div>
+                    <div class="filter-group" style="margin-left: auto;">
+                        <label>&nbsp;</label>
+                        <div style="display: flex; gap: 10px;">
+                            <button class="btn btn-primary" onclick="generateSectionChecklist()">
+                                <i class="fa-solid fa-search"></i> Generate
+                            </button>
+                            <button class="btn btn-success" onclick="downloadExcel()" id="btnDownloadSectionChecklist" disabled>
+                                <i class="fa-solid fa-file-excel"></i> Download Excel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Matrix View Filters -->
+        <div class="card no-print" id="matrixFilters" style="display: none;">
+            <div class="card-body">
+                <div class="filters-row">
+                    <div class="filter-group">
+                        <label>Depot</label>
+                        <select class="input-control" id="matrixDepot">
+                            <option value="PNVL-ML" selected>PNVL-ML</option>
+                            <option value="KYN-ML">KYN-ML</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Designation</label>
+                        <select class="input-control" id="matrixDesig" style="min-width: 100px;">
+                            <option value="all" selected>All</option>
+                            <option value="lpg">LPG</option>
+                            <option value="alp">ALP</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="checkbox" id="matrixIncludeAll" style="width: 16px; height: 16px;">
+                            Include All Staff
+                        </label>
+                        <span style="font-size: 11px; color: var(--text-secondary);">When unchecked, shows only staff with issues</span>
+                    </div>
+                    <div class="filter-group" style="margin-left: auto;">
+                        <label>&nbsp;</label>
+                        <div style="display: flex; gap: 10px;">
+                            <button class="btn btn-primary" onclick="generateMatrixView()">
+                                <i class="fa-solid fa-table-cells"></i> Generate Matrix
+                            </button>
+                            <button class="btn btn-success" onclick="downloadExcel()" id="btnDownloadMatrix" disabled>
+                                <i class="fa-solid fa-file-excel"></i> Download Excel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats Row -->
+        <div class="stats-row" id="statsRow" style="display: none;">
+            <div class="stat-card">
+                <div class="stat-value" id="statTotal" style="color: var(--primary);">0</div>
+                <div class="stat-label"><i class="fa-solid fa-users"></i> Total Staff</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="statExpired" style="color: var(--danger);">0</div>
+                <div class="stat-label"><i class="fa-solid fa-times-circle"></i> Expired</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="statExpiring" style="color: var(--warning);">0</div>
+                <div class="stat-label"><i class="fa-solid fa-clock"></i> Expiring Soon</div>
+            </div>
+        </div>
+
+        <!-- Report Table -->
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title">
+                    <i class="fa-solid fa-table-list"></i> Due Report
+                    <span id="reportInfo" style="font-weight: 400; color: var(--text-secondary); font-size: 13px;"></span>
+                </span>
+                <button class="btn btn-outline no-print" onclick="window.print()">
+                    <i class="fa-solid fa-print"></i> Print
+                </button>
+            </div>
+            <!-- Section Header -->
+            <div id="sectionHeader" style="display: none; padding: 12px 20px; background: var(--bg-tertiary); border-bottom: 1px solid var(--border-color); font-size: 15px; font-weight: 600;">
+                <i class="fa-solid fa-route" style="margin-right: 8px; color: var(--primary);"></i>
+                Section: <span id="sectionName">-</span>
+            </div>
+            <div class="card-body table-container">
+                <table id="reportTable">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Name</th>
+                            <th>CMS ID</th>
+                            <th>Designation</th>
+                            <th>Status</th>
+                            <th>Problem Range</th>
+                            <th>Days</th>
+                        </tr>
+                    </thead>
+                    <tbody id="reportBody">
+                        <tr>
+                            <td colspan="7" class="empty-state">
+                                <i class="fa-solid fa-clipboard-list"></i>
+                                <h3>Select Filters and Generate Report</h3>
+                                <p>Choose depot, section, and status filters, then click "Generate Report"</p>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let reportData = [];
+        let matrixSections = [];
+        let currentMode = 'section';
+        let selectedStaff = null;
+        let staffSearchTimeout = null;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            loadSections();
+        });
+
+        // Mode switching
+        function switchMode(mode) {
+            currentMode = mode;
+
+            // Update tabs
+            document.getElementById('tabSection').classList.toggle('active', mode === 'section');
+            document.getElementById('tabStaff').classList.toggle('active', mode === 'staff');
+            document.getElementById('tabStaffChecklist').classList.toggle('active', mode === 'staffChecklist');
+            document.getElementById('tabSectionChecklist').classList.toggle('active', mode === 'sectionChecklist');
+            document.getElementById('tabMatrix').classList.toggle('active', mode === 'matrix');
+
+            // Show/hide filters
+            document.getElementById('sectionFilters').style.display = mode === 'section' ? 'block' : 'none';
+            document.getElementById('staffFilters').style.display = mode === 'staff' ? 'block' : 'none';
+            document.getElementById('staffChecklistFilters').style.display = mode === 'staffChecklist' ? 'block' : 'none';
+            document.getElementById('sectionChecklistFilters').style.display = mode === 'sectionChecklist' ? 'block' : 'none';
+            document.getElementById('matrixFilters').style.display = mode === 'matrix' ? 'block' : 'none';
+
+            // Reset results
+            document.getElementById('statsRow').style.display = 'none';
+            document.getElementById('sectionHeader').style.display = 'none';
+
+            // Reset table header based on mode
+            const emptyMessages = {
+                'section': { icon: 'clipboard-list', title: 'Select Section and Generate Report', desc: 'Choose filters and click Generate Report' },
+                'staff': { icon: 'user', title: 'Search and Select a Staff Member', desc: 'Type CMS ID or name to search' },
+                'staffChecklist': { icon: 'list-check', title: 'Generate Staff Checklist', desc: 'Select depot and filters, then click Generate' },
+                'sectionChecklist': { icon: 'layer-group', title: 'Generate Section Checklist', desc: 'Select depot and filters, then click Generate' },
+                'matrix': { icon: 'table-cells', title: 'Generate Matrix View', desc: 'View all staff × sections with last worked dates' }
+            };
+            const msg = emptyMessages[mode] || emptyMessages['section'];
+
+            // Reset the table container
+            const container = document.querySelector('.table-container');
+            container.innerHTML = `
+                <table id="reportTable">
+                    <thead><tr><th>#</th><th>Name</th><th>CMS ID</th><th>Designation</th><th>Status</th><th>Details</th><th>Days</th></tr></thead>
+                    <tbody id="reportBody">
+                        <tr><td colspan="7" class="empty-state">
+                            <i class="fa-solid fa-${msg.icon}"></i>
+                            <h3>${msg.title}</h3>
+                            <p>${msg.desc}</p>
+                        </td></tr>
+                    </tbody>
+                </table>
+            `;
+
+            // Disable all download buttons
+            document.getElementById('btnDownload').disabled = true;
+            document.getElementById('btnDownloadStaffChecklist').disabled = true;
+            document.getElementById('btnDownloadSectionChecklist').disabled = true;
+            document.getElementById('btnDownloadMatrix').disabled = true;
+            reportData = [];
+            matrixSections = [];
+
+            // Clear staff selection if switching away
+            if (mode !== 'staff') {
+                selectedStaff = null;
+                document.getElementById('selectedStaffInfo').style.display = 'none';
+                document.getElementById('staffSearch').value = '';
+            }
+        }
+
+        // Staff search
+        async function searchStaff(query) {
+            clearTimeout(staffSearchTimeout);
+            const dropdown = document.getElementById('staffDropdown');
+
+            if (query.length < 2) {
+                dropdown.classList.remove('show');
+                return;
+            }
+
+            staffSearchTimeout = setTimeout(async () => {
+                try {
+                    const res = await fetch(`/api/division/ctr/staff-search?q=${encodeURIComponent(query)}`);
+                    const data = await res.json();
+
+                    if (data.staff?.length > 0) {
+                        dropdown.innerHTML = data.staff.map(s => `
+                            <div class="staff-item" onclick="selectStaff('${s.hrms_id}', '${s.cms_id || ''}', '${s.name}', '${s.designation || ''}', '${s.office || ''}')">
+                                <div class="staff-item-name">${s.name}</div>
+                                <div class="staff-item-info">${s.cms_id || '-'} | ${s.designation || '-'} | ${s.office || '-'}</div>
+                            </div>
+                        `).join('');
+                        dropdown.classList.add('show');
+                    } else {
+                        dropdown.innerHTML = '<div class="staff-item"><em>No staff found</em></div>';
+                        dropdown.classList.add('show');
+                    }
+                } catch (err) {
+                    console.error('Staff search error:', err);
+                    dropdown.classList.remove('show');
+                }
+            }, 300);
+        }
+
+        function selectStaff(hrmsId, cmsId, name, designation, office) {
+            selectedStaff = { hrmsId, cmsId, name, designation, office };
+
+            // Update UI
+            document.getElementById('staffDropdown').classList.remove('show');
+            document.getElementById('staffSearch').value = '';
+            document.getElementById('selectedStaffInfo').style.display = 'block';
+            document.getElementById('staffName').textContent = name;
+            document.getElementById('staffDesig').textContent = designation || '-';
+            document.getElementById('staffOffice').textContent = office || '-';
+            document.getElementById('staffCms').textContent = cmsId || '-';
+
+            // Load staff due report
+            loadStaffDueReport(hrmsId);
+        }
+
+        function clearStaffSelection() {
+            selectedStaff = null;
+            document.getElementById('selectedStaffInfo').style.display = 'none';
+            document.getElementById('staffSearch').value = '';
+            document.getElementById('statsRow').style.display = 'none';
+            document.getElementById('sectionHeader').style.display = 'none';
+            document.getElementById('reportBody').innerHTML = `<tr><td colspan="7" class="empty-state">
+                <i class="fa-solid fa-user"></i>
+                <h3>Search and Select a Staff Member</h3>
+                <p>Type CMS ID or name to search</p>
+            </td></tr>`;
+            document.getElementById('btnDownload').disabled = true;
+            reportData = [];
+        }
+
+        async function loadStaffDueReport(hrmsId) {
+            const tbody = document.getElementById('reportBody');
+            tbody.innerHTML = '<tr><td colspan="7" class="loading"><i class="fa-solid fa-spinner spinner"></i> Loading due sections...</td></tr>';
+
+            try {
+                const res = await fetch(`/api/division/ctr/lrd/staff-due/${hrmsId}`);
+                const data = await res.json();
+
+                if (!data.success) {
+                    throw new Error(data.message || 'Failed to load staff due report');
+                }
+
+                reportData = data.sections || [];
+
+                // Show staff header
+                document.getElementById('sectionHeader').style.display = 'block';
+                document.getElementById('sectionName').textContent = `${selectedStaff.name} (${selectedStaff.cmsId || selectedStaff.hrmsId})`;
+
+                // Update stats
+                document.getElementById('statsRow').style.display = 'flex';
+                document.getElementById('statTotal').textContent = reportData.length;
+                document.getElementById('statExpired').textContent = data.summary?.expired || 0;
+                document.getElementById('statExpiring').textContent = data.summary?.expiring || 0;
+
+                // Update info
+                document.getElementById('reportInfo').textContent = `- ${data.config?.validity_days || 90} day validity`;
+
+                // Enable download
+                document.getElementById('btnDownload').disabled = reportData.length === 0;
+
+                // Render table
+                renderStaffDueTable(reportData);
+
+            } catch (err) {
+                console.error('Staff due report error:', err);
+                tbody.innerHTML = `<tr><td colspan="7" class="empty-state">
+                    <i class="fa-solid fa-exclamation-triangle" style="color: var(--danger);"></i>
+                    <h3>Error</h3>
+                    <p>${err.message}</p>
+                </td></tr>`;
+            }
+        }
+
+        function renderStaffDueTable(data) {
+            const tbody = document.getElementById('reportBody');
+
+            if (data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="empty-state">
+                    <i class="fa-solid fa-check-circle" style="color: var(--success);"></i>
+                    <h3>No Due Sections</h3>
+                    <p>All sections are valid for this staff</p>
+                </td></tr>`;
+                return;
+            }
+
+            // Update table header for staff mode
+            document.querySelector('#reportTable thead').innerHTML = `
+                <tr>
+                    <th>#</th>
+                    <th>Section</th>
+                    <th>Status</th>
+                    <th>Problem Range</th>
+                    <th>Days</th>
+                    <th>Coverage</th>
+                </tr>
+            `;
+
+            tbody.innerHTML = data.map((row, idx) => {
+                const statusBadge = getStatusBadge(row.status);
+                const daysClass = row.days !== null && row.days < 0 ? 'days-negative' : 'days-positive';
+                const daysDisplay = row.days !== null ? (row.days > 0 ? `+${row.days}` : row.days) : '-';
+                const coverage = row.coverage ? `${row.coverage.valid}/${row.coverage.total}` : '-';
+
+                return `
+                    <tr>
+                        <td>${idx + 1}</td>
+                        <td><strong>${row.section}</strong></td>
+                        <td>${statusBadge}</td>
+                        <td>${row.problem_range || '-'}</td>
+                        <td class="${daysClass}">${daysDisplay}</td>
+                        <td>${coverage}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // Load sections for dropdown based on depot (direction-wise)
+        async function loadSections() {
+            const depot = document.getElementById('depotFilter').value;
+            const select = document.getElementById('sectionFilter');
+
+            try {
+                const res = await fetch(`/api/division/ctr/lrd/sections-for-depot?depot=${depot}`);
+                const data = await res.json();
+
+                select.innerHTML = '<option value="">-- Select Section --</option>';
+
+                if (data.sections?.length > 0) {
+                    data.sections.forEach(s => {
+                        const opt = document.createElement('option');
+                        opt.value = s.name;  // e.g., "PNVL-BSR"
+                        opt.textContent = s.name;  // e.g., "PNVL-BSR"
+                        select.appendChild(opt);
+                    });
+                }
+            } catch (err) {
+                console.error('Failed to load sections:', err);
+            }
+        }
+
+        // Generate report
+        async function generateReport() {
+            const depot = document.getElementById('depotFilter').value;
+            const section = document.getElementById('sectionFilter').value;
+            const desig = document.getElementById('desigFilter').value;
+            const status = document.querySelector('input[name="statusFilter"]:checked').value;
+
+            if (!section) {
+                showToast('Please select a section', 'error');
+                return;
+            }
+
+            const tbody = document.getElementById('reportBody');
+            tbody.innerHTML = '<tr><td colspan="7" class="loading"><i class="fa-solid fa-spinner spinner"></i> Generating report...</td></tr>';
+
+            try {
+                const url = `/api/division/ctr/lrd/due-report?depot=${depot}&status=${status}&section=${section}&desig=${desig}`;
+
+                const res = await fetch(url);
+                const data = await res.json();
+
+                if (!data.success) {
+                    throw new Error(data.message || 'Failed to generate report');
+                }
+
+                reportData = data.staff || [];
+
+                // Show section header
+                document.getElementById('sectionHeader').style.display = 'block';
+                document.getElementById('sectionName').textContent = section;
+
+                // Update stats
+                document.getElementById('statsRow').style.display = 'flex';
+                document.getElementById('statTotal').textContent = data.summary?.total_staff || 0;
+                document.getElementById('statExpired').textContent = data.summary?.expired || 0;
+                document.getElementById('statExpiring').textContent = data.summary?.expiring || 0;
+
+                // Update info
+                document.getElementById('reportInfo').textContent =
+                    `- ${depot} | ${data.config?.validity_days || 90} day validity`;
+
+                // Enable download
+                document.getElementById('btnDownload').disabled = reportData.length === 0;
+
+                // Render table
+                renderTable(reportData);
+
+            } catch (err) {
+                console.error('Generate report error:', err);
+                tbody.innerHTML = `<tr><td colspan="7" class="empty-state">
+                    <i class="fa-solid fa-exclamation-triangle" style="color: var(--danger);"></i>
+                    <h3>Error</h3>
+                    <p>${err.message}</p>
+                </td></tr>`;
+            }
+        }
+
+        // Render table
+        function renderTable(data) {
+            const tbody = document.getElementById('reportBody');
+
+            if (data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="empty-state">
+                    <i class="fa-solid fa-check-circle" style="color: var(--success);"></i>
+                    <h3>No Due Records</h3>
+                    <p>All staff have valid LRD for the selected section</p>
+                </td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = data.map((row, idx) => {
+                const statusBadge = getStatusBadge(row.status);
+                const daysClass = row.days !== null && row.days < 0 ? 'days-negative' : 'days-positive';
+                const daysDisplay = row.days !== null ? (row.days > 0 ? `+${row.days}` : row.days) : '-';
+
+                return `
+                    <tr>
+                        <td>${idx + 1}</td>
+                        <td><strong>${row.name}</strong></td>
+                        <td>${row.cms_id || '-'}</td>
+                        <td>${row.designation}</td>
+                        <td>${statusBadge}</td>
+                        <td>${row.problem_range || '-'}</td>
+                        <td class="${daysClass}">${daysDisplay}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function getStatusBadge(status) {
+            const map = {
+                'EXPIRED': '<span class="badge badge-danger">Expired</span>',
+                'PARTIAL_EXPIRED': '<span class="badge badge-danger">Partial Expired</span>',
+                'EXPIRING': '<span class="badge badge-warning">Expiring</span>',
+                'PARTIAL_EXPIRING': '<span class="badge badge-warning">Partial Expiring</span>',
+                'NEVER_WORKED': '<span class="badge badge-secondary">Never Worked</span>',
+                'PARTIAL_NEVER': '<span class="badge badge-info">Partial</span>'
+            };
+            return map[status] || `<span class="badge badge-secondary">${status}</span>`;
+        }
+
+        // Download Excel
+        function downloadExcel() {
+            if (reportData.length === 0) {
+                showToast('No data to download', 'error');
+                return;
+            }
+
+            const date = new Date().toISOString().split('T')[0];
+            let excelData, filename, colWidths;
+
+            if (currentMode === 'staff' && selectedStaff) {
+                // Staff-wise report (single staff's sections)
+                excelData = reportData.map((row, idx) => ({
+                    'S.No': idx + 1,
+                    'Section': row.section,
+                    'Status': row.status.replace(/_/g, ' '),
+                    'Problem Range': row.problem_range || '',
+                    'Days': row.days !== null ? row.days : '',
+                    'Valid': row.coverage?.valid || 0,
+                    'Expired': row.coverage?.expired || 0,
+                    'Expiring': row.coverage?.expiring || 0,
+                    'Never Worked': row.coverage?.never_worked || 0
+                }));
+
+                colWidths = [
+                    { wch: 5 },   // S.No
+                    { wch: 20 },  // Section
+                    { wch: 18 },  // Status
+                    { wch: 30 },  // Problem Range
+                    { wch: 8 },   // Days
+                    { wch: 8 },   // Valid
+                    { wch: 8 },   // Expired
+                    { wch: 8 },   // Expiring
+                    { wch: 12 }   // Never Worked
+                ];
+
+                const staffName = (selectedStaff.name || '').replace(/[^a-zA-Z0-9]/g, '_');
+                filename = `LRD_Due_${staffName}_${selectedStaff.cmsId || selectedStaff.hrmsId}_${date}.xlsx`;
+
+            } else if (currentMode === 'staffChecklist') {
+                // Staff Checklist - all staff with their problem sections
+                const depot = document.getElementById('staffChecklistDepot').value;
+
+                excelData = reportData.map((row, idx) => ({
+                    'S.No': idx + 1,
+                    'Name': row.name,
+                    'CMS ID': row.cms_id || '',
+                    'HRMS ID': row.hrms_id || '',
+                    'Designation': row.designation,
+                    'Expired Sections': row.expired_sections || '-',
+                    'Expiring Sections': row.expiring_sections || '-',
+                    'Expired Count': row.expired_count || 0,
+                    'Expiring Count': row.expiring_count || 0
+                }));
+
+                colWidths = [
+                    { wch: 5 },   // S.No
+                    { wch: 25 },  // Name
+                    { wch: 12 },  // CMS ID
+                    { wch: 15 },  // HRMS ID
+                    { wch: 10 },  // Designation
+                    { wch: 50 },  // Expired Sections
+                    { wch: 50 },  // Expiring Sections
+                    { wch: 10 },  // Expired Count
+                    { wch: 10 }   // Expiring Count
+                ];
+
+                filename = `LRD_Staff_Checklist_${depot}_${date}.xlsx`;
+
+            } else if (currentMode === 'sectionChecklist') {
+                // Section Checklist - flatten grouped data
+                const depot = document.getElementById('sectionChecklistDepot').value;
+                let sno = 0;
+
+                excelData = [];
+                reportData.forEach(section => {
+                    section.staff.forEach(s => {
+                        sno++;
+                        excelData.push({
+                            'S.No': sno,
+                            'Section': section.section,
+                            'Name': s.name,
+                            'CMS ID': s.cms_id || '',
+                            'HRMS ID': s.hrms_id || '',
+                            'Designation': s.designation,
+                            'Status': s.status.replace(/_/g, ' '),
+                            'Days': s.days !== null ? s.days : ''
+                        });
+                    });
+                });
+
+                colWidths = [
+                    { wch: 5 },   // S.No
+                    { wch: 20 },  // Section
+                    { wch: 25 },  // Name
+                    { wch: 12 },  // CMS ID
+                    { wch: 15 },  // HRMS ID
+                    { wch: 10 },  // Designation
+                    { wch: 12 },  // Status
+                    { wch: 8 }    // Days
+                ];
+
+                filename = `LRD_Section_Checklist_${depot}_${date}.xlsx`;
+
+            } else if (currentMode === 'matrix') {
+                // Matrix view - staff × sections with dates
+                const depot = document.getElementById('matrixDepot').value;
+
+                // Build header row
+                const headerRow = { 'S.No': '', 'Name': '', 'CMS ID': '', 'Desig': '' };
+                matrixSections.forEach(sec => { headerRow[sec.name] = sec.name; });
+
+                excelData = reportData.map((row, idx) => {
+                    const rowData = {
+                        'S.No': idx + 1,
+                        'Name': row.name,
+                        'CMS ID': row.cms_id || '',
+                        'Desig': row.designation
+                    };
+                    matrixSections.forEach(sec => {
+                        const cell = row.sections[sec.id];
+                        if (cell) {
+                            const dateStr = cell.date ? new Date(cell.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : '-';
+                            const status = cell.status.replace(/_/g, ' ');
+                            rowData[sec.name] = cell.status === 'NEVER_WORKED' ? '-' : `${dateStr} (${status})`;
+                        } else {
+                            rowData[sec.name] = '-';
+                        }
+                    });
+                    return rowData;
+                });
+
+                colWidths = [
+                    { wch: 5 },   // S.No
+                    { wch: 25 },  // Name
+                    { wch: 12 },  // CMS ID
+                    { wch: 8 }    // Desig
+                ];
+                matrixSections.forEach(() => colWidths.push({ wch: 18 }));
+
+                filename = `LRD_Matrix_View_${depot}_${date}.xlsx`;
+
+            } else {
+                // Section-wise report (original)
+                const depot = document.getElementById('depotFilter').value;
+                const section = document.getElementById('sectionFilter').value || 'All';
+
+                excelData = reportData.map((row, idx) => ({
+                    'S.No': idx + 1,
+                    'Name': row.name,
+                    'CMS ID': row.cms_id || '',
+                    'HRMS ID': row.hrms_id || '',
+                    'Designation': row.designation,
+                    'Office': row.office || '',
+                    'Section': row.section,
+                    'Status': row.status.replace(/_/g, ' '),
+                    'Problem Range': row.problem_range || '',
+                    'Days': row.days !== null ? row.days : '',
+                    'Valid Segments': row.coverage?.valid || 0,
+                    'Expired Segments': row.coverage?.expired || 0,
+                    'Expiring Segments': row.coverage?.expiring || 0,
+                    'Never Worked': row.coverage?.never_worked || 0
+                }));
+
+                colWidths = [
+                    { wch: 5 },   // S.No
+                    { wch: 25 },  // Name
+                    { wch: 12 },  // CMS ID
+                    { wch: 15 },  // HRMS ID
+                    { wch: 12 },  // Designation
+                    { wch: 12 },  // Office
+                    { wch: 25 },  // Section
+                    { wch: 18 },  // Status
+                    { wch: 30 },  // Problem Range
+                    { wch: 8 },   // Days
+                    { wch: 10 },  // Valid
+                    { wch: 10 },  // Expired
+                    { wch: 10 },  // Expiring
+                    { wch: 12 }   // Never Worked
+                ];
+
+                filename = `LRD_Due_Report_${depot}_${section.replace(/-/g, '_')}_${date}.xlsx`;
+            }
+
+            // Create workbook
+            const ws = XLSX.utils.json_to_sheet(excelData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'LRD Due Report');
+            ws['!cols'] = colWidths;
+
+            // Download
+            XLSX.writeFile(wb, filename);
+            showToast('Excel downloaded successfully', 'success');
+        }
+
+        // ========== STAFF CHECKLIST ==========
+        async function generateStaffChecklist() {
+            const depot = document.getElementById('staffChecklistDepot').value;
+            const desig = document.getElementById('staffChecklistDesig').value;
+            const status = document.querySelector('input[name="staffChecklistStatus"]:checked').value;
+
+            const tbody = document.getElementById('reportBody');
+            tbody.innerHTML = '<tr><td colspan="7" class="loading"><i class="fa-solid fa-spinner spinner"></i> Generating staff checklist...</td></tr>';
+
+            try {
+                const url = `/api/division/ctr/lrd/staff-checklist?depot=${depot}&desig=${desig}&status=${status}`;
+                const res = await fetch(url);
+                const data = await res.json();
+
+                if (!data.success) {
+                    throw new Error(data.message || 'Failed to generate checklist');
+                }
+
+                reportData = data.staff || [];
+
+                // Show header
+                document.getElementById('sectionHeader').style.display = 'block';
+                document.getElementById('sectionHeader').innerHTML = `
+                    <i class="fa-solid fa-list-check" style="margin-right: 8px; color: var(--primary);"></i>
+                    Staff Checklist - <span style="color: var(--text-secondary);">${depot}</span>
+                `;
+
+                // Update stats
+                document.getElementById('statsRow').style.display = 'flex';
+                document.getElementById('statTotal').textContent = data.summary?.total || 0;
+                document.getElementById('statExpired').textContent = data.summary?.with_expired || 0;
+                document.getElementById('statExpiring').textContent = data.summary?.with_expiring || 0;
+
+                // Enable download
+                document.getElementById('btnDownloadStaffChecklist').disabled = reportData.length === 0;
+
+                // Render table
+                renderStaffChecklistTable(reportData);
+
+            } catch (err) {
+                console.error('Staff checklist error:', err);
+                tbody.innerHTML = `<tr><td colspan="7" class="empty-state">
+                    <i class="fa-solid fa-exclamation-triangle" style="color: var(--danger);"></i>
+                    <h3>Error</h3>
+                    <p>${err.message}</p>
+                </td></tr>`;
+            }
+        }
+
+        function renderStaffChecklistTable(data) {
+            const tbody = document.getElementById('reportBody');
+
+            if (data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="empty-state">
+                    <i class="fa-solid fa-check-circle" style="color: var(--success);"></i>
+                    <h3>No Due Records</h3>
+                    <p>All staff have valid LRD for all sections</p>
+                </td></tr>`;
+                return;
+            }
+
+            // Update table header
+            document.querySelector('#reportTable thead').innerHTML = `
+                <tr>
+                    <th>#</th>
+                    <th>Name</th>
+                    <th>CMS ID</th>
+                    <th>Desig</th>
+                    <th style="color: var(--danger);">Expired Sections</th>
+                    <th style="color: var(--warning);">Expiring Sections</th>
+                </tr>
+            `;
+
+            tbody.innerHTML = data.map((row, idx) => `
+                <tr>
+                    <td>${idx + 1}</td>
+                    <td><strong>${row.name}</strong></td>
+                    <td>${row.cms_id || '-'}</td>
+                    <td>${row.designation}</td>
+                    <td style="color: var(--danger); font-size: 0.85rem;">${row.expired_sections}</td>
+                    <td style="color: var(--warning); font-size: 0.85rem;">${row.expiring_sections}</td>
+                </tr>
+            `).join('');
+        }
+
+        // ========== SECTION CHECKLIST ==========
+        async function generateSectionChecklist() {
+            const depot = document.getElementById('sectionChecklistDepot').value;
+            const desig = document.getElementById('sectionChecklistDesig').value;
+            const status = document.querySelector('input[name="sectionChecklistStatus"]:checked').value;
+
+            const tbody = document.getElementById('reportBody');
+            tbody.innerHTML = '<tr><td colspan="7" class="loading"><i class="fa-solid fa-spinner spinner"></i> Generating section checklist...</td></tr>';
+
+            try {
+                const url = `/api/division/ctr/lrd/section-checklist?depot=${depot}&desig=${desig}&status=${status}`;
+                const res = await fetch(url);
+                const data = await res.json();
+
+                if (!data.success) {
+                    throw new Error(data.message || 'Failed to generate checklist');
+                }
+
+                reportData = data.sections || [];
+
+                // Show header
+                document.getElementById('sectionHeader').style.display = 'block';
+                document.getElementById('sectionHeader').innerHTML = `
+                    <i class="fa-solid fa-layer-group" style="margin-right: 8px; color: var(--primary);"></i>
+                    Section Checklist - <span style="color: var(--text-secondary);">${depot}</span>
+                `;
+
+                // Update stats
+                document.getElementById('statsRow').style.display = 'flex';
+                document.getElementById('statTotal').textContent = data.summary?.total_sections || 0;
+                document.getElementById('statTotal').parentElement.querySelector('.stat-label').innerHTML = '<i class="fa-solid fa-route"></i> Sections';
+                document.getElementById('statExpired').textContent = data.summary?.total_expired || 0;
+                document.getElementById('statExpiring').textContent = data.summary?.total_expiring || 0;
+
+                // Enable download
+                document.getElementById('btnDownloadSectionChecklist').disabled = reportData.length === 0;
+
+                // Render grouped table
+                renderSectionChecklistTable(reportData);
+
+            } catch (err) {
+                console.error('Section checklist error:', err);
+                tbody.innerHTML = `<tr><td colspan="7" class="empty-state">
+                    <i class="fa-solid fa-exclamation-triangle" style="color: var(--danger);"></i>
+                    <h3>Error</h3>
+                    <p>${err.message}</p>
+                </td></tr>`;
+            }
+        }
+
+        function renderSectionChecklistTable(sections) {
+            const container = document.querySelector('.table-container');
+
+            if (sections.length === 0) {
+                container.innerHTML = `<div class="empty-state">
+                    <i class="fa-solid fa-check-circle" style="color: var(--success);"></i>
+                    <h3>No Due Records</h3>
+                    <p>All staff have valid LRD for all sections</p>
+                </div>`;
+                return;
+            }
+
+            // Build grouped HTML
+            let html = '';
+            sections.forEach(section => {
+                html += `
+                    <div style="margin-bottom: 25px;">
+                        <div style="background: var(--bg-tertiary); padding: 12px 16px; border-radius: 8px 8px 0 0; border: 1px solid var(--border-color); border-bottom: none;">
+                            <span style="font-weight: 700; font-size: 15px;">
+                                <i class="fa-solid fa-route" style="color: var(--primary); margin-right: 8px;"></i>
+                                ${section.section}
+                            </span>
+                            <span style="margin-left: 15px; font-size: 13px;">
+                                <span style="color: var(--danger);">${section.expired_count} Expired</span>
+                                <span style="margin: 0 8px; color: var(--text-secondary);">|</span>
+                                <span style="color: var(--warning);">${section.expiring_count} Expiring</span>
+                            </span>
+                        </div>
+                        <table style="width: 100%; border-collapse: collapse; border: 1px solid var(--border-color); border-top: none;">
+                            <thead>
+                                <tr>
+                                    <th style="width: 50px;">#</th>
+                                    <th>Name</th>
+                                    <th style="width: 100px;">CMS ID</th>
+                                    <th style="width: 80px;">Desig</th>
+                                    <th style="width: 100px;">Status</th>
+                                    <th style="width: 80px;">Days</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${section.staff.map((s, idx) => {
+                                    const statusBadge = s.status === 'EXPIRED'
+                                        ? '<span class="badge badge-danger">Expired</span>'
+                                        : '<span class="badge badge-warning">Expiring</span>';
+                                    const daysClass = s.days < 0 ? 'days-negative' : 'days-positive';
+                                    const daysDisplay = s.days !== null ? (s.days > 0 ? `+${s.days}` : s.days) : '-';
+                                    return `
+                                        <tr>
+                                            <td>${idx + 1}</td>
+                                            <td><strong>${s.name}</strong></td>
+                                            <td>${s.cms_id || '-'}</td>
+                                            <td>${s.designation}</td>
+                                            <td>${statusBadge}</td>
+                                            <td class="${daysClass}">${daysDisplay}</td>
+                                        </tr>
+                                    `;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        // ========== MATRIX VIEW ==========
+        async function generateMatrixView() {
+            const depot = document.getElementById('matrixDepot').value;
+            const desig = document.getElementById('matrixDesig').value;
+            const includeAll = document.getElementById('matrixIncludeAll').checked;
+
+            const container = document.querySelector('.table-container');
+            container.innerHTML = '<div class="loading" style="padding: 60px;"><i class="fa-solid fa-spinner spinner"></i> Generating matrix view...</div>';
+
+            try {
+                const url = `/api/division/ctr/lrd/matrix-view?depot=${depot}&desig=${desig}&includeAll=${includeAll}`;
+                const res = await fetch(url);
+                const data = await res.json();
+
+                if (!data.success) {
+                    throw new Error(data.message || 'Failed to generate matrix');
+                }
+
+                reportData = data.matrix || [];
+                matrixSections = data.sections || [];
+
+                // Show header
+                document.getElementById('sectionHeader').style.display = 'block';
+                document.getElementById('sectionHeader').innerHTML = `
+                    <i class="fa-solid fa-table-cells" style="margin-right: 8px; color: var(--primary);"></i>
+                    Matrix View - <span style="color: var(--text-secondary);">${depot}</span>
+                    <span style="margin-left: 15px; font-size: 12px; color: var(--text-secondary);">
+                        ${reportData.length} staff × ${matrixSections.length} sections
+                    </span>
+                `;
+
+                // Update stats
+                document.getElementById('statsRow').style.display = 'flex';
+                document.getElementById('statTotal').textContent = data.summary?.total_staff || 0;
+                document.getElementById('statTotal').parentElement.querySelector('.stat-label').innerHTML = '<i class="fa-solid fa-users"></i> Staff';
+                document.getElementById('statExpired').textContent = matrixSections.length;
+                document.getElementById('statExpired').parentElement.querySelector('.stat-label').innerHTML = '<i class="fa-solid fa-route"></i> Sections';
+                document.getElementById('statExpiring').parentElement.style.display = 'none';
+
+                // Enable download
+                document.getElementById('btnDownloadMatrix').disabled = reportData.length === 0;
+
+                // Render matrix
+                renderMatrixTable(reportData, matrixSections);
+
+            } catch (err) {
+                console.error('Matrix view error:', err);
+                container.innerHTML = `<div class="empty-state">
+                    <i class="fa-solid fa-exclamation-triangle" style="color: var(--danger);"></i>
+                    <h3>Error</h3>
+                    <p>${err.message}</p>
+                </div>`;
+            }
+        }
+
+        function renderMatrixTable(data, sections) {
+            const container = document.querySelector('.table-container');
+
+            if (data.length === 0) {
+                container.innerHTML = `<div class="empty-state">
+                    <i class="fa-solid fa-check-circle" style="color: var(--success);"></i>
+                    <h3>No Staff Found</h3>
+                    <p>No staff match the selected criteria</p>
+                </div>`;
+                return;
+            }
+
+            // Build header row
+            let headerHtml = `
+                <th style="position: sticky; left: 0; z-index: 15; background: var(--bg-tertiary);">#</th>
+                <th class="staff-name" style="position: sticky; left: 30px; z-index: 15; background: var(--bg-tertiary);">Name</th>
+                <th style="position: sticky; left: 180px; z-index: 15; background: var(--bg-tertiary);">CMS</th>
+                <th style="position: sticky; left: 260px; z-index: 15; background: var(--bg-tertiary);">Desig</th>
+            `;
+            sections.forEach(sec => {
+                headerHtml += `<th class="section-header">${sec.name}</th>`;
+            });
+
+            // Build data rows
+            let rowsHtml = '';
+            data.forEach((staff, idx) => {
+                let cellsHtml = `
+                    <td style="position: sticky; left: 0; background: var(--bg-secondary); z-index: 5;">${idx + 1}</td>
+                    <td class="staff-name">${staff.name}</td>
+                    <td class="staff-cms">${staff.cms_id || '-'}</td>
+                    <td style="position: sticky; left: 260px; background: var(--bg-secondary); z-index: 5;">${staff.designation}</td>
+                `;
+
+                sections.forEach(sec => {
+                    const cell = staff.sections[sec.id];
+                    if (!cell) {
+                        cellsHtml += `<td class="matrix-cell status-never">-</td>`;
+                        return;
+                    }
+
+                    const statusClass = getMatrixCellClass(cell.status);
+                    const dateStr = cell.date
+                        ? new Date(cell.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })
+                        : '-';
+                    const tooltip = buildTooltip(cell);
+
+                    cellsHtml += `<td class="matrix-cell ${statusClass}" title="${tooltip}">${dateStr}</td>`;
+                });
+
+                rowsHtml += `<tr>${cellsHtml}</tr>`;
+            });
+
+            container.innerHTML = `
+                <div class="matrix-container">
+                    <table class="matrix-table">
+                        <thead><tr>${headerHtml}</tr></thead>
+                        <tbody>${rowsHtml}</tbody>
+                    </table>
+                </div>
+                <div style="margin-top: 15px; padding: 12px; background: var(--bg-secondary); border-radius: 8px; font-size: 12px;">
+                    <strong>Legend:</strong>
+                    <span style="margin-left: 15px; padding: 4px 8px; background: rgba(239,68,68,0.3); border-radius: 4px;">Expired</span>
+                    <span style="margin-left: 8px; padding: 4px 8px; background: rgba(239,68,68,0.15); border-left: 3px solid #ef4444; border-radius: 4px;">Partial Expired</span>
+                    <span style="margin-left: 8px; padding: 4px 8px; background: rgba(234,179,8,0.3); border-radius: 4px;">Expiring</span>
+                    <span style="margin-left: 8px; padding: 4px 8px; background: rgba(234,179,8,0.15); border-left: 3px solid #eab308; border-radius: 4px;">Partial Expiring</span>
+                    <span style="margin-left: 8px; padding: 4px 8px; background: rgba(34,197,94,0.2); border-radius: 4px;">Valid</span>
+                    <span style="margin-left: 8px; padding: 4px 8px; background: var(--bg-primary); border-radius: 4px;">Never Worked</span>
+                </div>
+            `;
+        }
+
+        function getMatrixCellClass(status) {
+            const map = {
+                'EXPIRED': 'status-expired',
+                'PARTIAL_EXPIRED': 'status-partial-expired',
+                'EXPIRING': 'status-expiring',
+                'PARTIAL_EXPIRING': 'status-partial-expiring',
+                'VALID': 'status-valid',
+                'NEVER_WORKED': 'status-never',
+                'PARTIAL_NEVER': 'status-partial-never'
+            };
+            return map[status] || 'status-never';
+        }
+
+        function buildTooltip(cell) {
+            if (!cell.breakdown) return cell.status.replace(/_/g, ' ');
+            const b = cell.breakdown;
+            let tip = `Status: ${cell.status.replace(/_/g, ' ')}\n`;
+            tip += `Valid: ${b.valid}/${b.total}, Expired: ${b.expired}, Expiring: ${b.expiring}, Never: ${b.never}`;
+            if (cell.days !== null) {
+                tip += `\nDays: ${cell.days > 0 ? '+' + cell.days : cell.days}`;
+            }
+            return tip;
+        }
+
+        // Toast notification
+        function showToast(message, type = 'success') {
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `
+                <i class="fa-solid fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i>
+                <span>${message}</span>
+            `;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+    </script>
+</body>
+</html>

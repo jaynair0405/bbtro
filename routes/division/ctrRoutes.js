@@ -2284,4 +2284,1163 @@ router.post('/lrd/backfill', async (req, res) => {
     }
 });
 
+/**
+ * GET /api/ctr/lrd/due-report
+ * Get LRD due report - staff with expired/expiring sections
+ * Groups problem segments into ranges (e.g., PEN-ROHA instead of individual segments)
+ */
+router.get('/lrd/due-report', async (req, res) => {
+    const pool = req.app.locals.pool;
+    const { depot = 'PNVL', section, status = 'all', desig = 'all' } = req.query;
+
+    try {
+        if (!beatsData) {
+            return res.status(500).json({ success: false, message: 'Beats data not loaded' });
+        }
+
+        const validityDays = beatsData.config?.validity_days || 90;
+        const expiringThreshold = beatsData.config?.expiring_threshold_days || 15;
+
+        // Get base office from depot (PNVL-ML -> PNVL)
+        const baseOffice = depot.toUpperCase().split('-')[0];
+
+        // Get applicable beats for this depot (include SHARED)
+        const applicableBeats = beatsData.beats.filter(b => {
+            const beatOffice = b.office?.toUpperCase();
+            return beatOffice === baseOffice || beatOffice === 'SHARED';
+        });
+
+        // If section specified, filter to matching beat (single direction only)
+        let targetBeats = applicableBeats;
+        if (section) {
+            const sectionUpper = section.toUpperCase().replace(/-/g, '_');
+            targetBeats = applicableBeats.filter(b => {
+                const beatId = b.beat_id.toUpperCase();
+                return beatId === sectionUpper;
+            });
+        }
+
+        if (targetBeats.length === 0) {
+            return res.json({
+                success: true,
+                depot,
+                section,
+                staff: [],
+                message: 'No matching sections found'
+            });
+        }
+
+        // Determine designation filter: all = (1,2,5), lpg = (5), alp = (1,2)
+        let desigIds;
+        if (desig === 'lpg') {
+            desigIds = [5];
+        } else if (desig === 'alp') {
+            desigIds = [1, 2];
+        } else {
+            desigIds = [1, 2, 5];
+        }
+
+        // Get all staff for this depot (exact match, filtered by designation)
+        // Sort: LPG (5) first alphabetically, then ALP (1,2) alphabetically
+        const [staffList] = await pool.query(
+            `SELECT
+                sm.hrms_id,
+                sm.current_cms_id,
+                sm.original_cms_id,
+                sm.name as staff_name,
+                sm.designation_id,
+                d.designation_name as designation,
+                sm.current_office_code as office
+             FROM div_staff_master sm
+             LEFT JOIN designations d ON sm.designation_id = d.id
+             WHERE sm.status = 'Active'
+               AND sm.current_office_code = ?
+               AND sm.designation_id IN (?)
+             ORDER BY CASE WHEN sm.designation_id = 5 THEN 0 ELSE 1 END, sm.name`,
+            [depot.toUpperCase(), desigIds]
+        );
+
+        if (staffList.length === 0) {
+            return res.json({
+                success: true,
+                depot,
+                section,
+                staff: [],
+                message: 'No staff found for depot'
+            });
+        }
+
+        // Get all CTR legs for these staff (join with duties to get staff_hrms_id)
+        const hrmsIds = staffList.map(s => s.hrms_id);
+        const [allLegs] = await pool.query(
+            `SELECT
+                d.staff_hrms_id,
+                l.from_station,
+                l.to_station,
+                MAX(d.duty_date) as last_worked_date
+             FROM div_ctr_legs l
+             JOIN div_ctr_duties d ON l.duty_id = d.id
+             WHERE d.staff_hrms_id IN (?)
+               AND l.duty_type IN ('WR', 'PL')
+               AND l.from_station IS NOT NULL
+               AND l.to_station IS NOT NULL
+             GROUP BY d.staff_hrms_id, l.from_station, l.to_station`,
+            [hrmsIds]
+        );
+
+        // Build segment map per staff
+        const staffSegmentMap = new Map();
+        for (const leg of allLegs) {
+            if (!staffSegmentMap.has(leg.staff_hrms_id)) {
+                staffSegmentMap.set(leg.staff_hrms_id, new Map());
+            }
+            const key = `${leg.from_station}-${leg.to_station}`;
+            staffSegmentMap.get(leg.staff_hrms_id).set(key, leg.last_worked_date);
+        }
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const staffResults = [];
+
+        for (const staff of staffList) {
+            const staffSegs = staffSegmentMap.get(staff.hrms_id) || new Map();
+
+            for (const beat of targetBeats) {
+                const requiredSegments = extractAdjacentPairs(beat.stations);
+                const totalSegs = requiredSegments.length;
+
+                // Analyze each segment
+                const segmentAnalysis = requiredSegments.map(([from, to], idx) => {
+                    const key = `${from}-${to}`;
+                    const lastWorked = staffSegs.get(key);
+
+                    let segStatus = 'NEVER_WORKED';
+                    let daysRemaining = null;
+
+                    if (lastWorked) {
+                        const lastWorkedDate = new Date(lastWorked);
+                        const expiresOn = new Date(lastWorkedDate);
+                        expiresOn.setDate(expiresOn.getDate() + validityDays);
+                        daysRemaining = Math.ceil((expiresOn - today) / (1000 * 60 * 60 * 24));
+
+                        if (daysRemaining < 0) {
+                            segStatus = 'EXPIRED';
+                        } else if (daysRemaining <= expiringThreshold) {
+                            segStatus = 'EXPIRING';
+                        } else {
+                            segStatus = 'VALID';
+                        }
+                    }
+
+                    return {
+                        from,
+                        to,
+                        status: segStatus,
+                        days: daysRemaining,
+                        idx
+                    };
+                });
+
+                // Find problem segments (expired or expiring)
+                const problemSegs = segmentAnalysis.filter(s =>
+                    s.status === 'EXPIRED' || s.status === 'EXPIRING' || s.status === 'NEVER_WORKED'
+                );
+
+                if (problemSegs.length === 0) continue; // All valid, skip
+
+                // Check if all segments are valid (shouldn't reach here, but safety check)
+                const validCount = segmentAnalysis.filter(s => s.status === 'VALID').length;
+                const expiredCount = segmentAnalysis.filter(s => s.status === 'EXPIRED').length;
+                const expiringCount = segmentAnalysis.filter(s => s.status === 'EXPIRING').length;
+                const neverWorkedCount = segmentAnalysis.filter(s => s.status === 'NEVER_WORKED').length;
+
+                // Determine overall status
+                let overallStatus;
+                if (expiredCount > 0) {
+                    overallStatus = validCount > 0 ? 'PARTIAL_EXPIRED' : 'EXPIRED';
+                } else if (expiringCount > 0) {
+                    overallStatus = validCount > 0 ? 'PARTIAL_EXPIRING' : 'EXPIRING';
+                } else if (neverWorkedCount === totalSegs) {
+                    overallStatus = 'NEVER_WORKED';
+                } else {
+                    overallStatus = 'PARTIAL_NEVER';
+                }
+
+                // Filter by requested status
+                if (status === 'expired' && !overallStatus.includes('EXPIRED')) {
+                    continue;
+                }
+                if (status === 'expiring' && !overallStatus.includes('EXPIRING')) {
+                    continue;
+                }
+
+                // Collapse contiguous problem segments into ranges
+                const problemRanges = collapseProblemSegments(segmentAnalysis, beat.stations);
+
+                // Find worst days (most negative or smallest positive)
+                const worstDays = problemSegs
+                    .filter(s => s.days !== null)
+                    .reduce((min, s) => s.days < min ? s.days : min, Infinity);
+
+                // Section name as FROM-TO format
+                const sectionName = `${beat.stations[0]}-${beat.stations[beat.stations.length - 1]}`;
+
+                staffResults.push({
+                    hrms_id: staff.hrms_id,
+                    cms_id: staff.current_cms_id || staff.original_cms_id,
+                    name: staff.staff_name,
+                    designation_id: staff.designation_id,
+                    designation: staff.designation || '-',
+                    office: staff.office,
+                    section: sectionName,
+                    section_id: beat.beat_id,
+                    status: overallStatus,
+                    problem_range: problemRanges.join(', '),
+                    days: worstDays === Infinity ? null : worstDays,
+                    coverage: {
+                        total: totalSegs,
+                        valid: validCount,
+                        expired: expiredCount,
+                        expiring: expiringCount,
+                        never_worked: neverWorkedCount
+                    }
+                });
+            }
+        }
+
+        // Sort: Status first, then LPG (5) before ALP (1,2), then alphabetically by name
+        staffResults.sort((a, b) => {
+            // Status priority: EXPIRED > PARTIAL_EXPIRED > EXPIRING > PARTIAL_EXPIRING > others
+            const statusOrder = {
+                'EXPIRED': 0, 'PARTIAL_EXPIRED': 1,
+                'EXPIRING': 2, 'PARTIAL_EXPIRING': 3,
+                'NEVER_WORKED': 4, 'PARTIAL_NEVER': 5
+            };
+            if (statusOrder[a.status] !== statusOrder[b.status]) {
+                return statusOrder[a.status] - statusOrder[b.status];
+            }
+            // Then by designation: LPG (5) first, then ALP (1,2)
+            const aIsLPG = a.designation_id === 5 ? 0 : 1;
+            const bIsLPG = b.designation_id === 5 ? 0 : 1;
+            if (aIsLPG !== bIsLPG) {
+                return aIsLPG - bIsLPG;
+            }
+            // Then alphabetically by name (case-insensitive)
+            return (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' });
+        });
+
+        res.json({
+            success: true,
+            depot,
+            section: section || 'All',
+            config: {
+                validity_days: validityDays,
+                expiring_threshold_days: expiringThreshold
+            },
+            summary: {
+                total_staff: staffResults.length,
+                expired: staffResults.filter(s => s.status.includes('EXPIRED')).length,
+                expiring: staffResults.filter(s => s.status.includes('EXPIRING')).length
+            },
+            staff: staffResults
+        });
+
+    } catch (err) {
+        console.error('Get LRD Due Report Error:', err);
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+/**
+ * GET /api/ctr/lrd/staff-due/:hrmsId
+ * Get all due/expiring sections for a specific staff member
+ */
+router.get('/lrd/staff-due/:hrmsId', async (req, res) => {
+    const pool = req.app.locals.pool;
+    const { hrmsId } = req.params;
+
+    try {
+        if (!beatsData) {
+            return res.status(500).json({ success: false, message: 'Beats data not loaded' });
+        }
+
+        const validityDays = beatsData.config?.validity_days || 90;
+        const expiringThreshold = beatsData.config?.expiring_threshold_days || 15;
+
+        // Get staff details
+        const [staffRows] = await pool.query(
+            `SELECT sm.hrms_id, sm.current_cms_id, sm.name, sm.current_office_code as office,
+                    d.designation_name as designation
+             FROM div_staff_master sm
+             LEFT JOIN designations d ON sm.designation_id = d.id
+             WHERE sm.hrms_id = ?`,
+            [hrmsId]
+        );
+
+        if (staffRows.length === 0) {
+            return res.status(404).json({ success: false, message: 'Staff not found' });
+        }
+
+        const staff = staffRows[0];
+        const baseOffice = (staff.office || 'PNVL').split('-')[0].toUpperCase();
+
+        // Get applicable beats for staff's office (include SHARED)
+        const applicableBeats = beatsData.beats.filter(b => {
+            const beatOffice = b.office?.toUpperCase();
+            return beatOffice === baseOffice || beatOffice === 'SHARED';
+        });
+
+        // Get all CTR legs for this staff
+        const [allLegs] = await pool.query(
+            `SELECT l.from_station, l.to_station, MAX(d.duty_date) as last_worked_date
+             FROM div_ctr_legs l
+             JOIN div_ctr_duties d ON l.duty_id = d.id
+             WHERE d.staff_hrms_id = ?
+               AND l.duty_type IN ('WR', 'PL')
+               AND l.from_station IS NOT NULL
+               AND l.to_station IS NOT NULL
+             GROUP BY l.from_station, l.to_station`,
+            [hrmsId]
+        );
+
+        // Build segment map
+        const segmentMap = new Map();
+        for (const leg of allLegs) {
+            const key = `${leg.from_station}-${leg.to_station}`;
+            segmentMap.set(key, leg.last_worked_date);
+        }
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const dueResults = [];
+
+        for (const beat of applicableBeats) {
+            const requiredSegments = extractAdjacentPairs(beat.stations);
+            const totalSegs = requiredSegments.length;
+
+            // Analyze each segment
+            const segmentAnalysis = requiredSegments.map(([from, to], idx) => {
+                const key = `${from}-${to}`;
+                const lastWorked = segmentMap.get(key);
+
+                let segStatus = 'NEVER_WORKED';
+                let daysRemaining = null;
+
+                if (lastWorked) {
+                    const lastWorkedDate = new Date(lastWorked);
+                    const expiresOn = new Date(lastWorkedDate);
+                    expiresOn.setDate(expiresOn.getDate() + validityDays);
+                    daysRemaining = Math.ceil((expiresOn - today) / (1000 * 60 * 60 * 24));
+
+                    if (daysRemaining < 0) {
+                        segStatus = 'EXPIRED';
+                    } else if (daysRemaining <= expiringThreshold) {
+                        segStatus = 'EXPIRING';
+                    } else {
+                        segStatus = 'VALID';
+                    }
+                }
+
+                return { from, to, status: segStatus, days: daysRemaining, idx };
+            });
+
+            // Find problem segments
+            const problemSegs = segmentAnalysis.filter(s =>
+                s.status === 'EXPIRED' || s.status === 'EXPIRING' || s.status === 'NEVER_WORKED'
+            );
+
+            if (problemSegs.length === 0) continue; // All valid, skip
+
+            const validCount = segmentAnalysis.filter(s => s.status === 'VALID').length;
+            const expiredCount = segmentAnalysis.filter(s => s.status === 'EXPIRED').length;
+            const expiringCount = segmentAnalysis.filter(s => s.status === 'EXPIRING').length;
+            const neverWorkedCount = segmentAnalysis.filter(s => s.status === 'NEVER_WORKED').length;
+
+            // Determine overall status
+            let overallStatus;
+            if (expiredCount > 0) {
+                overallStatus = validCount > 0 ? 'PARTIAL_EXPIRED' : 'EXPIRED';
+            } else if (expiringCount > 0) {
+                overallStatus = validCount > 0 ? 'PARTIAL_EXPIRING' : 'EXPIRING';
+            } else if (neverWorkedCount === totalSegs) {
+                overallStatus = 'NEVER_WORKED';
+            } else {
+                overallStatus = 'PARTIAL_NEVER';
+            }
+
+            // Collapse problem segments
+            const problemRanges = collapseProblemSegments(segmentAnalysis, beat.stations);
+
+            // Find worst days
+            const worstDays = problemSegs
+                .filter(s => s.days !== null)
+                .reduce((min, s) => s.days < min ? s.days : min, Infinity);
+
+            const sectionName = `${beat.stations[0]}-${beat.stations[beat.stations.length - 1]}`;
+
+            dueResults.push({
+                section: sectionName,
+                section_id: beat.beat_id,
+                status: overallStatus,
+                problem_range: problemRanges.join(', '),
+                days: worstDays === Infinity ? null : worstDays,
+                coverage: {
+                    total: totalSegs,
+                    valid: validCount,
+                    expired: expiredCount,
+                    expiring: expiringCount,
+                    never_worked: neverWorkedCount
+                }
+            });
+        }
+
+        // Sort: EXPIRED first, then EXPIRING, then by days
+        const statusOrder = {
+            'EXPIRED': 0, 'PARTIAL_EXPIRED': 1,
+            'EXPIRING': 2, 'PARTIAL_EXPIRING': 3,
+            'NEVER_WORKED': 4, 'PARTIAL_NEVER': 5
+        };
+        dueResults.sort((a, b) => {
+            if (statusOrder[a.status] !== statusOrder[b.status]) {
+                return statusOrder[a.status] - statusOrder[b.status];
+            }
+            const aDays = a.days ?? 999;
+            const bDays = b.days ?? 999;
+            return aDays - bDays;
+        });
+
+        res.json({
+            success: true,
+            staff: {
+                hrms_id: staff.hrms_id,
+                cms_id: staff.current_cms_id,
+                name: staff.name,
+                designation: staff.designation,
+                office: staff.office
+            },
+            config: {
+                validity_days: validityDays,
+                expiring_threshold_days: expiringThreshold
+            },
+            summary: {
+                total: dueResults.length,
+                expired: dueResults.filter(s => s.status.includes('EXPIRED')).length,
+                expiring: dueResults.filter(s => s.status.includes('EXPIRING')).length
+            },
+            sections: dueResults
+        });
+
+    } catch (err) {
+        console.error('Get Staff Due Report Error:', err);
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+/**
+ * GET /api/ctr/lrd/staff-checklist
+ * Get all staff with their expired/expiring sections aggregated
+ * Each staff appears once with all their problem sections listed
+ */
+router.get('/lrd/staff-checklist', async (req, res) => {
+    const pool = req.app.locals.pool;
+    const { depot = 'PNVL-ML', desig = 'all', status = 'all' } = req.query;
+
+    try {
+        if (!beatsData) {
+            return res.status(500).json({ success: false, message: 'Beats data not loaded' });
+        }
+
+        const validityDays = beatsData.config?.validity_days || 90;
+        const expiringThreshold = beatsData.config?.expiring_threshold_days || 15;
+        const baseOffice = depot.toUpperCase().split('-')[0];
+
+        // Get applicable beats for this depot (include SHARED)
+        const applicableBeats = beatsData.beats.filter(b => {
+            const beatOffice = b.office?.toUpperCase();
+            return beatOffice === baseOffice || beatOffice === 'SHARED';
+        });
+
+        // Build designation filter
+        let desigFilter = '';
+        if (desig === 'lpg') {
+            desigFilter = 'AND sm.designation_id = 5';
+        } else if (desig === 'alp') {
+            desigFilter = 'AND sm.designation_id IN (1, 2)';
+        } else {
+            desigFilter = 'AND sm.designation_id IN (1, 2, 5)';
+        }
+
+        // Get all staff for depot
+        const [staffList] = await pool.query(
+            `SELECT sm.hrms_id, sm.current_cms_id, sm.original_cms_id, sm.name as staff_name,
+                    sm.designation_id, d.designation_name as designation, sm.current_office_code as office
+             FROM div_staff_master sm
+             LEFT JOIN designations d ON sm.designation_id = d.id
+             WHERE sm.current_office_code = ?
+               AND sm.status = 'Active'
+               ${desigFilter}
+             ORDER BY sm.name`,
+            [depot]
+        );
+
+        if (staffList.length === 0) {
+            return res.json({ success: true, depot, staff: [], summary: { total: 0, with_expired: 0, with_expiring: 0 } });
+        }
+
+        const hrmsIds = staffList.map(s => s.hrms_id);
+
+        // Get all CTR legs for these staff
+        const [allLegs] = await pool.query(
+            `SELECT d.staff_hrms_id, l.from_station, l.to_station, MAX(d.duty_date) as last_worked_date
+             FROM div_ctr_legs l
+             JOIN div_ctr_duties d ON l.duty_id = d.id
+             WHERE d.staff_hrms_id IN (?)
+               AND l.duty_type IN ('WR', 'PL')
+               AND l.from_station IS NOT NULL
+               AND l.to_station IS NOT NULL
+             GROUP BY d.staff_hrms_id, l.from_station, l.to_station`,
+            [hrmsIds]
+        );
+
+        // Build segment map per staff
+        const staffSegmentMap = new Map();
+        for (const leg of allLegs) {
+            if (!staffSegmentMap.has(leg.staff_hrms_id)) {
+                staffSegmentMap.set(leg.staff_hrms_id, new Map());
+            }
+            const key = `${leg.from_station}-${leg.to_station}`;
+            staffSegmentMap.get(leg.staff_hrms_id).set(key, leg.last_worked_date);
+        }
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const staffResults = [];
+
+        for (const staff of staffList) {
+            const staffSegs = staffSegmentMap.get(staff.hrms_id) || new Map();
+            const expiredSections = [];
+            const expiringSections = [];
+
+            for (const beat of applicableBeats) {
+                const requiredSegments = extractAdjacentPairs(beat.stations);
+                const sectionName = `${beat.stations[0]}-${beat.stations[beat.stations.length - 1]}`;
+
+                // Analyze segments for this beat
+                let hasExpired = false;
+                let hasExpiring = false;
+                let worstExpiredDays = null;
+                let worstExpiringDays = null;
+
+                for (const [from, to] of requiredSegments) {
+                    const key = `${from}-${to}`;
+                    const lastWorked = staffSegs.get(key);
+
+                    if (lastWorked) {
+                        const lastWorkedDate = new Date(lastWorked);
+                        const expiresOn = new Date(lastWorkedDate);
+                        expiresOn.setDate(expiresOn.getDate() + validityDays);
+                        const daysRemaining = Math.ceil((expiresOn - today) / (1000 * 60 * 60 * 24));
+
+                        if (daysRemaining < 0) {
+                            hasExpired = true;
+                            if (worstExpiredDays === null || daysRemaining < worstExpiredDays) {
+                                worstExpiredDays = daysRemaining;
+                            }
+                        } else if (daysRemaining <= expiringThreshold) {
+                            hasExpiring = true;
+                            if (worstExpiringDays === null || daysRemaining < worstExpiringDays) {
+                                worstExpiringDays = daysRemaining;
+                            }
+                        }
+                    }
+                }
+
+                if (hasExpired) {
+                    expiredSections.push({ section: sectionName, days: worstExpiredDays });
+                } else if (hasExpiring) {
+                    expiringSections.push({ section: sectionName, days: worstExpiringDays });
+                }
+            }
+
+            // Filter by status
+            if (status === 'expired' && expiredSections.length === 0) continue;
+            if (status === 'expiring' && expiringSections.length === 0) continue;
+            if (status === 'all' && expiredSections.length === 0 && expiringSections.length === 0) continue;
+
+            // Format sections as strings
+            const expiredStr = expiredSections
+                .sort((a, b) => a.days - b.days)
+                .map(s => `${s.section} (${s.days})`)
+                .join(', ');
+            const expiringStr = expiringSections
+                .sort((a, b) => a.days - b.days)
+                .map(s => `${s.section} (+${s.days})`)
+                .join(', ');
+
+            staffResults.push({
+                hrms_id: staff.hrms_id,
+                cms_id: staff.current_cms_id || staff.original_cms_id,
+                name: staff.staff_name,
+                designation_id: staff.designation_id,
+                designation: staff.designation || '-',
+                expired_sections: expiredStr || '-',
+                expiring_sections: expiringStr || '-',
+                expired_count: expiredSections.length,
+                expiring_count: expiringSections.length
+            });
+        }
+
+        // Sort: LPG first, then by name
+        staffResults.sort((a, b) => {
+            if (a.designation_id === 5 && b.designation_id !== 5) return -1;
+            if (a.designation_id !== 5 && b.designation_id === 5) return 1;
+            return (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' });
+        });
+
+        res.json({
+            success: true,
+            depot,
+            config: { validity_days: validityDays, expiring_threshold_days: expiringThreshold },
+            summary: {
+                total: staffResults.length,
+                with_expired: staffResults.filter(s => s.expired_count > 0).length,
+                with_expiring: staffResults.filter(s => s.expiring_count > 0).length
+            },
+            staff: staffResults
+        });
+
+    } catch (err) {
+        console.error('Get Staff Checklist Error:', err);
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+/**
+ * GET /api/ctr/lrd/section-checklist
+ * Get all sections with their expired/expiring staff grouped under each section
+ */
+router.get('/lrd/section-checklist', async (req, res) => {
+    const pool = req.app.locals.pool;
+    const { depot = 'PNVL-ML', desig = 'all', status = 'all' } = req.query;
+
+    try {
+        if (!beatsData) {
+            return res.status(500).json({ success: false, message: 'Beats data not loaded' });
+        }
+
+        const validityDays = beatsData.config?.validity_days || 90;
+        const expiringThreshold = beatsData.config?.expiring_threshold_days || 15;
+        const baseOffice = depot.toUpperCase().split('-')[0];
+
+        // Get applicable beats for this depot (include SHARED)
+        const applicableBeats = beatsData.beats.filter(b => {
+            const beatOffice = b.office?.toUpperCase();
+            return beatOffice === baseOffice || beatOffice === 'SHARED';
+        });
+
+        // Build designation filter
+        let desigFilter = '';
+        if (desig === 'lpg') {
+            desigFilter = 'AND sm.designation_id = 5';
+        } else if (desig === 'alp') {
+            desigFilter = 'AND sm.designation_id IN (1, 2)';
+        } else {
+            desigFilter = 'AND sm.designation_id IN (1, 2, 5)';
+        }
+
+        // Get all staff for depot
+        const [staffList] = await pool.query(
+            `SELECT sm.hrms_id, sm.current_cms_id, sm.original_cms_id, sm.name as staff_name,
+                    sm.designation_id, d.designation_name as designation
+             FROM div_staff_master sm
+             LEFT JOIN designations d ON sm.designation_id = d.id
+             WHERE sm.current_office_code = ?
+               AND sm.status = 'Active'
+               ${desigFilter}
+             ORDER BY sm.name`,
+            [depot]
+        );
+
+        if (staffList.length === 0) {
+            return res.json({ success: true, depot, sections: [], summary: { total_sections: 0 } });
+        }
+
+        const hrmsIds = staffList.map(s => s.hrms_id);
+
+        // Get all CTR legs for these staff
+        const [allLegs] = await pool.query(
+            `SELECT d.staff_hrms_id, l.from_station, l.to_station, MAX(d.duty_date) as last_worked_date
+             FROM div_ctr_legs l
+             JOIN div_ctr_duties d ON l.duty_id = d.id
+             WHERE d.staff_hrms_id IN (?)
+               AND l.duty_type IN ('WR', 'PL')
+               AND l.from_station IS NOT NULL
+               AND l.to_station IS NOT NULL
+             GROUP BY d.staff_hrms_id, l.from_station, l.to_station`,
+            [hrmsIds]
+        );
+
+        // Build segment map per staff
+        const staffSegmentMap = new Map();
+        for (const leg of allLegs) {
+            if (!staffSegmentMap.has(leg.staff_hrms_id)) {
+                staffSegmentMap.set(leg.staff_hrms_id, new Map());
+            }
+            const key = `${leg.from_station}-${leg.to_station}`;
+            staffSegmentMap.get(leg.staff_hrms_id).set(key, leg.last_worked_date);
+        }
+
+        // Create staff lookup map
+        const staffLookup = new Map();
+        for (const staff of staffList) {
+            staffLookup.set(staff.hrms_id, staff);
+        }
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const sectionResults = [];
+
+        for (const beat of applicableBeats) {
+            const requiredSegments = extractAdjacentPairs(beat.stations);
+            const sectionName = `${beat.stations[0]}-${beat.stations[beat.stations.length - 1]}`;
+            const sectionStaff = [];
+
+            for (const staff of staffList) {
+                const staffSegs = staffSegmentMap.get(staff.hrms_id) || new Map();
+
+                // Check worst status for this staff on this beat
+                let worstStatus = 'VALID';
+                let worstDays = null;
+
+                for (const [from, to] of requiredSegments) {
+                    const key = `${from}-${to}`;
+                    const lastWorked = staffSegs.get(key);
+
+                    if (lastWorked) {
+                        const lastWorkedDate = new Date(lastWorked);
+                        const expiresOn = new Date(lastWorkedDate);
+                        expiresOn.setDate(expiresOn.getDate() + validityDays);
+                        const daysRemaining = Math.ceil((expiresOn - today) / (1000 * 60 * 60 * 24));
+
+                        if (daysRemaining < 0) {
+                            if (worstStatus !== 'EXPIRED' || (worstDays !== null && daysRemaining < worstDays)) {
+                                worstStatus = 'EXPIRED';
+                                worstDays = daysRemaining;
+                            }
+                        } else if (daysRemaining <= expiringThreshold && worstStatus !== 'EXPIRED') {
+                            if (worstStatus !== 'EXPIRING' || (worstDays !== null && daysRemaining < worstDays)) {
+                                worstStatus = 'EXPIRING';
+                                worstDays = daysRemaining;
+                            }
+                        }
+                    }
+                }
+
+                // Filter by status
+                if (worstStatus === 'VALID') continue;
+                if (status === 'expired' && worstStatus !== 'EXPIRED') continue;
+                if (status === 'expiring' && worstStatus !== 'EXPIRING') continue;
+
+                sectionStaff.push({
+                    hrms_id: staff.hrms_id,
+                    cms_id: staff.current_cms_id || staff.original_cms_id,
+                    name: staff.staff_name,
+                    designation_id: staff.designation_id,
+                    designation: staff.designation || '-',
+                    status: worstStatus,
+                    days: worstDays
+                });
+            }
+
+            if (sectionStaff.length > 0) {
+                // Sort staff: Expired first (by days), then Expiring (by days), then LPG before ALP, then by name
+                sectionStaff.sort((a, b) => {
+                    // Status first
+                    if (a.status === 'EXPIRED' && b.status !== 'EXPIRED') return -1;
+                    if (a.status !== 'EXPIRED' && b.status === 'EXPIRED') return 1;
+                    // Then by days (most negative first for expired, smallest first for expiring)
+                    if (a.days !== b.days) return (a.days ?? 999) - (b.days ?? 999);
+                    // Then LPG first
+                    if (a.designation_id === 5 && b.designation_id !== 5) return -1;
+                    if (a.designation_id !== 5 && b.designation_id === 5) return 1;
+                    // Then by name
+                    return (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' });
+                });
+
+                sectionResults.push({
+                    section: sectionName,
+                    expired_count: sectionStaff.filter(s => s.status === 'EXPIRED').length,
+                    expiring_count: sectionStaff.filter(s => s.status === 'EXPIRING').length,
+                    staff: sectionStaff
+                });
+            }
+        }
+
+        // Sort sections by total problem staff (descending)
+        sectionResults.sort((a, b) => {
+            const aTotal = a.expired_count + a.expiring_count;
+            const bTotal = b.expired_count + b.expiring_count;
+            return bTotal - aTotal;
+        });
+
+        res.json({
+            success: true,
+            depot,
+            config: { validity_days: validityDays, expiring_threshold_days: expiringThreshold },
+            summary: {
+                total_sections: sectionResults.length,
+                total_expired: sectionResults.reduce((sum, s) => sum + s.expired_count, 0),
+                total_expiring: sectionResults.reduce((sum, s) => sum + s.expiring_count, 0)
+            },
+            sections: sectionResults
+        });
+
+    } catch (err) {
+        console.error('Get Section Checklist Error:', err);
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+/**
+ * GET /api/ctr/lrd/matrix-view
+ * Get matrix view: Staff (rows) × Sections (columns) with last worked dates
+ * Each cell shows worst status and date for that staff-section combination
+ */
+router.get('/lrd/matrix-view', async (req, res) => {
+    const pool = req.app.locals.pool;
+    const { depot = 'PNVL-ML', desig = 'all', includeAll = 'false' } = req.query;
+    const showAll = includeAll === 'true';
+
+    try {
+        if (!beatsData) {
+            return res.status(500).json({ success: false, message: 'Beats data not loaded' });
+        }
+
+        const validityDays = beatsData.config?.validity_days || 90;
+        const expiringThreshold = beatsData.config?.expiring_threshold_days || 15;
+        const baseOffice = depot.toUpperCase().split('-')[0];
+
+        // Get applicable beats for this depot (include SHARED)
+        const applicableBeats = beatsData.beats.filter(b => {
+            const beatOffice = b.office?.toUpperCase();
+            return beatOffice === baseOffice || beatOffice === 'SHARED';
+        });
+
+        // Build section list (columns)
+        const sections = applicableBeats.map(b => ({
+            id: b.beat_id,
+            name: `${b.stations[0]}-${b.stations[b.stations.length - 1]}`,
+            stations: b.stations
+        }));
+
+        // Build designation filter
+        let desigFilter = '';
+        if (desig === 'lpg') {
+            desigFilter = 'AND sm.designation_id = 5';
+        } else if (desig === 'alp') {
+            desigFilter = 'AND sm.designation_id IN (1, 2)';
+        } else {
+            desigFilter = 'AND sm.designation_id IN (1, 2, 5)';
+        }
+
+        // Get all staff for depot
+        const [staffList] = await pool.query(
+            `SELECT sm.hrms_id, sm.current_cms_id, sm.original_cms_id, sm.name as staff_name,
+                    sm.designation_id, d.designation_name as designation
+             FROM div_staff_master sm
+             LEFT JOIN designations d ON sm.designation_id = d.id
+             WHERE sm.current_office_code = ?
+               AND sm.status = 'Active'
+               ${desigFilter}
+             ORDER BY
+               CASE WHEN sm.designation_id = 5 THEN 0 ELSE 1 END,
+               sm.name`,
+            [depot]
+        );
+
+        if (staffList.length === 0) {
+            return res.json({ success: true, depot, sections: [], staff: [], matrix: [] });
+        }
+
+        const hrmsIds = staffList.map(s => s.hrms_id);
+
+        // Get all CTR legs for these staff
+        const [allLegs] = await pool.query(
+            `SELECT d.staff_hrms_id, l.from_station, l.to_station, MAX(d.duty_date) as last_worked_date
+             FROM div_ctr_legs l
+             JOIN div_ctr_duties d ON l.duty_id = d.id
+             WHERE d.staff_hrms_id IN (?)
+               AND l.duty_type IN ('WR', 'PL')
+               AND l.from_station IS NOT NULL
+               AND l.to_station IS NOT NULL
+             GROUP BY d.staff_hrms_id, l.from_station, l.to_station`,
+            [hrmsIds]
+        );
+
+        // Build segment map per staff
+        const staffSegmentMap = new Map();
+        for (const leg of allLegs) {
+            if (!staffSegmentMap.has(leg.staff_hrms_id)) {
+                staffSegmentMap.set(leg.staff_hrms_id, new Map());
+            }
+            const key = `${leg.from_station}-${leg.to_station}`;
+            staffSegmentMap.get(leg.staff_hrms_id).set(key, leg.last_worked_date);
+        }
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const matrixData = [];
+
+        for (const staff of staffList) {
+            const staffSegs = staffSegmentMap.get(staff.hrms_id) || new Map();
+            const sectionStatuses = {};
+            let hasAnyIssue = false;
+
+            for (const section of sections) {
+                const requiredSegments = extractAdjacentPairs(section.stations);
+
+                let worstStatus = 'VALID';
+                let worstDays = Infinity;
+                let worstDate = null;
+                let validCount = 0, expiredCount = 0, expiringCount = 0, neverCount = 0;
+
+                for (const [from, to] of requiredSegments) {
+                    const key = `${from}-${to}`;
+                    const lastWorked = staffSegs.get(key);
+
+                    if (!lastWorked) {
+                        neverCount++;
+                        continue;
+                    }
+
+                    const lastWorkedDate = new Date(lastWorked);
+                    const expiresOn = new Date(lastWorkedDate);
+                    expiresOn.setDate(expiresOn.getDate() + validityDays);
+                    const daysRemaining = Math.ceil((expiresOn - today) / (1000 * 60 * 60 * 24));
+
+                    if (daysRemaining < 0) {
+                        expiredCount++;
+                        if (worstStatus !== 'EXPIRED' || daysRemaining < worstDays) {
+                            worstStatus = 'EXPIRED';
+                            worstDays = daysRemaining;
+                            worstDate = lastWorked;
+                        }
+                    } else if (daysRemaining <= expiringThreshold) {
+                        expiringCount++;
+                        if (worstStatus !== 'EXPIRED') {
+                            if (worstStatus !== 'EXPIRING' || daysRemaining < worstDays) {
+                                worstStatus = 'EXPIRING';
+                                worstDays = daysRemaining;
+                                worstDate = lastWorked;
+                            }
+                        }
+                    } else {
+                        validCount++;
+                        if (worstStatus === 'VALID' && (!worstDate || lastWorkedDate > new Date(worstDate))) {
+                            worstDate = lastWorked;
+                            worstDays = daysRemaining;
+                        }
+                    }
+                }
+
+                // Determine overall status for this section
+                let overallStatus = 'VALID';
+                if (expiredCount > 0) {
+                    overallStatus = validCount > 0 || expiringCount > 0 ? 'PARTIAL_EXPIRED' : 'EXPIRED';
+                    hasAnyIssue = true;
+                } else if (expiringCount > 0) {
+                    overallStatus = validCount > 0 ? 'PARTIAL_EXPIRING' : 'EXPIRING';
+                    hasAnyIssue = true;
+                } else if (neverCount === requiredSegments.length) {
+                    overallStatus = 'NEVER_WORKED';
+                } else if (neverCount > 0) {
+                    overallStatus = 'PARTIAL_NEVER';
+                }
+
+                sectionStatuses[section.id] = {
+                    status: overallStatus,
+                    days: worstDays === Infinity ? null : worstDays,
+                    date: worstDate,
+                    breakdown: { valid: validCount, expired: expiredCount, expiring: expiringCount, never: neverCount, total: requiredSegments.length }
+                };
+            }
+
+            // Skip staff with no issues if includeAll is false
+            if (!showAll && !hasAnyIssue) continue;
+
+            matrixData.push({
+                hrms_id: staff.hrms_id,
+                cms_id: staff.current_cms_id || staff.original_cms_id,
+                name: staff.staff_name,
+                designation: staff.designation || '-',
+                sections: sectionStatuses
+            });
+        }
+
+        res.json({
+            success: true,
+            depot,
+            config: { validity_days: validityDays, expiring_threshold_days: expiringThreshold },
+            sections: sections.map(s => ({ id: s.id, name: s.name })),
+            summary: {
+                total_staff: matrixData.length,
+                total_sections: sections.length
+            },
+            matrix: matrixData
+        });
+
+    } catch (err) {
+        console.error('Get Matrix View Error:', err);
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+/**
+ * GET /api/ctr/staff-search
+ * Search staff by CMS ID or name
+ */
+router.get('/staff-search', async (req, res) => {
+    const pool = req.app.locals.pool;
+    const { q } = req.query;
+
+    if (!q || q.length < 2) {
+        return res.json({ success: true, staff: [] });
+    }
+
+    try {
+        const searchTerm = `%${q}%`;
+        const [staff] = await pool.query(
+            `SELECT sm.hrms_id, sm.current_cms_id as cms_id, sm.name,
+                    d.designation_name as designation, sm.current_office_code as office
+             FROM div_staff_master sm
+             LEFT JOIN designations d ON sm.designation_id = d.id
+             WHERE sm.status = 'Active'
+               AND (sm.current_cms_id LIKE ? OR sm.name LIKE ? OR sm.hrms_id LIKE ?)
+             ORDER BY sm.name
+             LIMIT 15`,
+            [searchTerm, searchTerm, searchTerm]
+        );
+
+        res.json({ success: true, staff });
+
+    } catch (err) {
+        console.error('Staff Search Error:', err);
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+/**
+ * Collapse contiguous problem segments into ranges
+ * e.g., PEN-KASU(expired), KASU-NGTN(expired), NGTN-ROHA(expired) -> "PEN-ROHA (-18)"
+ */
+function collapseProblemSegments(segmentAnalysis, stations) {
+    const ranges = [];
+    let rangeStart = null;
+    let rangeEnd = null;
+    let rangeStatus = null;
+    let worstDays = null;
+
+    for (let i = 0; i < segmentAnalysis.length; i++) {
+        const seg = segmentAnalysis[i];
+        const isProblem = seg.status !== 'VALID';
+
+        if (isProblem) {
+            if (rangeStart === null) {
+                // Start new range
+                rangeStart = seg.from;
+                rangeEnd = seg.to;
+                rangeStatus = seg.status;
+                worstDays = seg.days;
+            } else {
+                // Extend range
+                rangeEnd = seg.to;
+                // Track worst status and days
+                if (seg.status === 'EXPIRED' || (seg.status === 'EXPIRING' && rangeStatus !== 'EXPIRED')) {
+                    rangeStatus = seg.status;
+                }
+                if (seg.days !== null && (worstDays === null || seg.days < worstDays)) {
+                    worstDays = seg.days;
+                }
+            }
+        } else {
+            // Valid segment - close any open range
+            if (rangeStart !== null) {
+                ranges.push(formatRange(rangeStart, rangeEnd, rangeStatus, worstDays));
+                rangeStart = null;
+                rangeEnd = null;
+                rangeStatus = null;
+                worstDays = null;
+            }
+        }
+    }
+
+    // Close final range if any
+    if (rangeStart !== null) {
+        ranges.push(formatRange(rangeStart, rangeEnd, rangeStatus, worstDays));
+    }
+
+    return ranges;
+}
+
+function formatRange(from, to, status, days) {
+    let label = `${from}-${to}`;
+    if (status === 'NEVER_WORKED') {
+        label += ' (Never)';
+    } else if (days !== null) {
+        label += ` (${days > 0 ? '+' + days : days}d)`;
+    }
+    return label;
+}
+
+/**
+ * GET /api/ctr/lrd/sections-for-depot
+ * Get available sections for a depot (for dropdown) - direction-wise
+ */
+router.get('/lrd/sections-for-depot', (req, res) => {
+    const { depot = 'PNVL' } = req.query;
+
+    try {
+        if (!beatsData) {
+            return res.status(500).json({ success: false, message: 'Beats data not loaded' });
+        }
+
+        const baseOffice = depot.toUpperCase().split('-')[0];
+
+        // Get beats for this depot + SHARED (each direction as separate option)
+        const applicableBeats = beatsData.beats.filter(b => {
+            const beatOffice = b.office?.toUpperCase();
+            return beatOffice === baseOffice || beatOffice === 'SHARED';
+        });
+
+        // Return each beat as a separate section (direction-wise)
+        const sections = applicableBeats.map(beat => {
+            const stations = beat.stations;
+            const first = stations[0];
+            const last = stations[stations.length - 1];
+
+            return {
+                beat_id: beat.beat_id,
+                name: `${first}-${last}`,
+                display_name: beat.name,
+                station_count: stations.length
+            };
+        }).sort((a, b) => a.name.localeCompare(b.name));
+
+        res.json({
+            success: true,
+            depot,
+            sections
+        });
+
+    } catch (err) {
+        console.error('Get Sections for Depot Error:', err);
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
 module.exports = router;

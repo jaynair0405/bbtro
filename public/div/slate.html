@@ -358,7 +358,11 @@
     <div class="header">
         <h1>PNVL BOOKING SLATE</h1>
         <div style="display: flex; gap: 30px; align-items: center;">
+            <a href="/div/" class="nav-link" title="Back to Dashboard">🏠</a>
             <a href="detail-book.html" class="nav-link" title="Open Detail Book">← Detail Book</a>
+            <button onclick="openAnalysisModal()" class="nav-link" style="background: var(--bg-input); border: 1px solid var(--border); padding: 6px 14px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 6px;" title="Staff LRD & Training Analysis">
+                📊 Analysis
+            </button>
             <span id="vacancySummary" style="color: var(--warning); font-weight: 600; font-size: 0.85rem;">LP: -- | ALP: -- vacant</span>
             <div style="color: var(--text-muted); font-size: 0.85rem; font-weight: 600;">
                 <span id="headerShift">08:00 x 16:00</span> |
@@ -382,8 +386,536 @@
         </div>
     </div>
 
+    <!-- Staff Analysis Modal -->
+    <div id="analysisModal" class="modal-overlay" style="display: none;">
+        <div class="modal-content" style="max-width: 1000px; max-height: 90vh; display: flex; flex-direction: column;">
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; border-bottom: 1px solid var(--border);">
+                <h3 style="margin: 0; font-size: 1.1rem;">📊 Staff Analysis - LRD & Training Compliance</h3>
+                <button onclick="closeAnalysisModal()" style="background: none; border: none; color: var(--text-muted); font-size: 1.5rem; cursor: pointer;">&times;</button>
+            </div>
+
+            <!-- Tabs -->
+            <div style="display: flex; gap: 0; border-bottom: 1px solid var(--border);">
+                <button class="analysis-tab active" onclick="switchAnalysisTab('lrd')" id="tabLrd">🛤️ LRD Status</button>
+                <button class="analysis-tab" onclick="switchAnalysisTab('training')" id="tabTraining">🎓 Training</button>
+                <button class="analysis-tab" onclick="switchAnalysisTab('combined')" id="tabCombined">📋 Combined</button>
+                <button class="analysis-tab" onclick="switchAnalysisTab('compliance')" id="tabCompliance">⚠️ Compliance</button>
+            </div>
+
+            <!-- Filters -->
+            <div style="padding: 12px 20px; background: var(--bg-input); border-bottom: 1px solid var(--border);">
+                <div style="display: flex; gap: 20px; flex-wrap: wrap; align-items: flex-start;">
+                    <div id="sectionFilters">
+                        <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 4px;">SECTIONS</label>
+                        <div id="sectionCheckboxes" style="display: flex; gap: 8px; flex-wrap: wrap;"></div>
+                    </div>
+                    <div id="trainingFilters">
+                        <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 4px;">TRAININGS</label>
+                        <div id="trainingCheckboxes" style="display: flex; gap: 8px; flex-wrap: wrap;"></div>
+                    </div>
+                    <button onclick="loadAnalysisData()" style="margin-left: auto; padding: 8px 16px; background: var(--accent); color: #000; border: none; border-radius: 6px; font-weight: 600; cursor: pointer;">
+                        🔄 Refresh
+                    </button>
+                </div>
+            </div>
+
+            <!-- Summary Stats -->
+            <div id="analysisSummary" style="padding: 10px 20px; background: var(--bg-panel); display: flex; gap: 20px; font-size: 0.8rem; border-bottom: 1px solid var(--border);">
+                <span>Loading...</span>
+            </div>
+
+            <!-- Content Area -->
+            <div id="analysisContent" style="flex: 1; overflow: auto; padding: 15px 20px;">
+                <div style="text-align: center; color: var(--text-muted); padding: 40px;">
+                    Select sections/trainings and click Refresh
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background: var(--bg-panel);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            width: 95%;
+        }
+        .analysis-tab {
+            padding: 10px 20px;
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+        }
+        .analysis-tab:hover {
+            color: var(--text-main);
+            background: var(--bg-input);
+        }
+        .analysis-tab.active {
+            color: var(--accent);
+            border-bottom-color: var(--accent);
+        }
+        .analysis-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 10px;
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-size: 0.75rem;
+            cursor: pointer;
+        }
+        .analysis-checkbox input {
+            margin: 0;
+        }
+        .analysis-checkbox:has(input:checked) {
+            background: var(--accent);
+            color: #000;
+            border-color: var(--accent);
+        }
+        .analysis-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.8rem;
+        }
+        .analysis-table th, .analysis-table td {
+            padding: 8px 10px;
+            border-bottom: 1px solid var(--border);
+            text-align: left;
+        }
+        .analysis-table th {
+            background: var(--bg-input);
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.7rem;
+            color: var(--text-muted);
+        }
+        .analysis-table tr:hover {
+            background: rgba(255,255,255,0.02);
+        }
+        .status-valid { color: #22c55e; }
+        .status-expiring { color: #eab308; }
+        .status-expired { color: #ef4444; }
+        .status-never { color: #6b7280; }
+        .badge-sm {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+        .badge-valid { background: rgba(34,197,94,0.2); color: #22c55e; }
+        .badge-expiring { background: rgba(234,179,8,0.2); color: #eab308; }
+        .badge-expired { background: rgba(239,68,68,0.2); color: #ef4444; }
+        .badge-never { background: rgba(107,114,128,0.2); color: #9ca3af; }
+        .badge-trained { background: rgba(34,197,94,0.2); color: #22c55e; }
+        .badge-untrained { background: rgba(239,68,68,0.2); color: #ef4444; }
+        .issue-card {
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 12px;
+        }
+        .issue-card.has-issue {
+            border-left: 3px solid #ef4444;
+        }
+        .suggestion-box {
+            background: rgba(56,189,248,0.1);
+            border: 1px dashed var(--accent);
+            border-radius: 6px;
+            padding: 8px 12px;
+            margin-top: 8px;
+            font-size: 0.75rem;
+        }
+    </style>
+
     <!-- Load shared utilities first, then page-specific code -->
     <script src="js/slate-common.js?v=20260403b"></script>
     <script src="js/slate.js?v=20260403e"></script>
+
+    <script>
+        // ========== ANALYSIS MODAL ==========
+        let analysisData = null;
+        let currentAnalysisTab = 'lrd';
+        let availableSections = [];
+        let availableTrainings = [];
+
+        async function openAnalysisModal() {
+            document.getElementById('analysisModal').style.display = 'flex';
+
+            // Load available sections and trainings if not loaded
+            if (availableSections.length === 0) {
+                await loadFilterOptions();
+            }
+
+            // Auto-load data with default selections
+            loadAnalysisData();
+        }
+
+        function closeAnalysisModal() {
+            document.getElementById('analysisModal').style.display = 'none';
+        }
+
+        async function loadFilterOptions() {
+            try {
+                // Load sections
+                const secRes = await fetch(`${SLATE_CONFIG.API_BASE}/available-sections?office_code=${SLATE_CONFIG.OFFICE_CODE}`);
+                const secData = await secRes.json();
+                if (secData.success) {
+                    availableSections = secData.sections;
+                    renderSectionCheckboxes();
+                }
+
+                // Load trainings
+                const trnRes = await fetch(`${SLATE_CONFIG.API_BASE}/available-trainings`);
+                const trnData = await trnRes.json();
+                if (trnData.success) {
+                    availableTrainings = trnData.trainings;
+                    renderTrainingCheckboxes();
+                }
+            } catch (err) {
+                console.error('Failed to load filter options:', err);
+            }
+        }
+
+        function renderSectionCheckboxes() {
+            const container = document.getElementById('sectionCheckboxes');
+            // Default selections: KJT sections and ghat sections
+            const defaultSections = ['PNVL_KJT', 'KJT_PNVL', 'KJT_BVT', 'BVT_KJT'];
+
+            container.innerHTML = availableSections.slice(0, 12).map(s => `
+                <label class="analysis-checkbox">
+                    <input type="checkbox" value="${s.id}" ${defaultSections.includes(s.id) ? 'checked' : ''}>
+                    ${s.name}
+                </label>
+            `).join('');
+        }
+
+        function renderTrainingCheckboxes() {
+            const container = document.getElementById('trainingCheckboxes');
+            // Default: WDG 4G/6G (id=15)
+            const defaultTrainings = [15];
+
+            container.innerHTML = availableTrainings.slice(0, 8).map(t => `
+                <label class="analysis-checkbox">
+                    <input type="checkbox" value="${t.id}" ${defaultTrainings.includes(t.id) ? 'checked' : ''}>
+                    ${t.code || t.name}
+                </label>
+            `).join('');
+        }
+
+        function getSelectedSections() {
+            const checkboxes = document.querySelectorAll('#sectionCheckboxes input:checked');
+            return Array.from(checkboxes).map(cb => cb.value);
+        }
+
+        function getSelectedTrainings() {
+            const checkboxes = document.querySelectorAll('#trainingCheckboxes input:checked');
+            return Array.from(checkboxes).map(cb => cb.value);
+        }
+
+        async function loadAnalysisData() {
+            const sections = getSelectedSections().join(',');
+            const trainings = getSelectedTrainings().join(',');
+            const shift = forceShift ?? currentShiftIndex;
+
+            document.getElementById('analysisContent').innerHTML = '<div style="text-align:center;padding:40px;"><span style="color:var(--accent);">Loading...</span></div>';
+
+            try {
+                const url = `${SLATE_CONFIG.API_BASE}/staff-analysis?office_code=${SLATE_CONFIG.OFFICE_CODE}&date=${currentDate}&shift=${shift}&sections=${sections}&trainings=${trainings}`;
+                const res = await fetch(url);
+                analysisData = await res.json();
+
+                if (analysisData.success) {
+                    renderAnalysisSummary();
+                    renderAnalysisTab();
+                } else {
+                    document.getElementById('analysisContent').innerHTML = `<div style="color:#ef4444;text-align:center;padding:40px;">${analysisData.error || 'Failed to load'}</div>`;
+                }
+            } catch (err) {
+                console.error('Analysis load error:', err);
+                document.getElementById('analysisContent').innerHTML = '<div style="color:#ef4444;text-align:center;padding:40px;">Network error</div>';
+            }
+        }
+
+        function renderAnalysisSummary() {
+            const s = analysisData.summary;
+            const container = document.getElementById('analysisSummary');
+            container.innerHTML = `
+                <span><strong>${s.total_slots}</strong> Slots</span>
+                <span>|</span>
+                <span>LP: <strong class="status-valid">${s.lrd_compliant_lps}</strong>/${s.lps} LRD ✓</span>
+                <span>ALP: <strong class="status-valid">${s.lrd_compliant_alps}</strong>/${s.alps} LRD ✓</span>
+                <span>|</span>
+                <span>LP: <strong class="status-valid">${s.training_compliant_lps}</strong>/${s.lps} Training ✓</span>
+                <span>ALP: <strong class="status-valid">${s.training_compliant_alps}</strong>/${s.alps} Training ✓</span>
+                <span>|</span>
+                <span style="color: ${s.incompatible_pairs > 0 ? '#ef4444' : '#22c55e'};">
+                    <strong>${s.incompatible_pairs}</strong> Issues
+                </span>
+            `;
+        }
+
+        function switchAnalysisTab(tab) {
+            currentAnalysisTab = tab;
+            document.querySelectorAll('.analysis-tab').forEach(t => t.classList.remove('active'));
+            document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
+            renderAnalysisTab();
+        }
+
+        function renderAnalysisTab() {
+            if (!analysisData) return;
+
+            const container = document.getElementById('analysisContent');
+
+            switch (currentAnalysisTab) {
+                case 'lrd':
+                    renderLrdTab(container);
+                    break;
+                case 'training':
+                    renderTrainingTab(container);
+                    break;
+                case 'combined':
+                    renderCombinedTab(container);
+                    break;
+                case 'compliance':
+                    renderComplianceTab(container);
+                    break;
+            }
+        }
+
+        // Helper to sort staff by slot time with LP and ALP of same slot together
+        function getStaffSortedBySlot() {
+            const slotMap = new Map();
+            // Group by slot_time
+            analysisData.lps.forEach(lp => {
+                if (!slotMap.has(lp.slot_time)) slotMap.set(lp.slot_time, { lp: null, alp: null });
+                slotMap.get(lp.slot_time).lp = { ...lp, isLP: true };
+            });
+            analysisData.alps.forEach(alp => {
+                if (!slotMap.has(alp.slot_time)) slotMap.set(alp.slot_time, { lp: null, alp: null });
+                slotMap.get(alp.slot_time).alp = { ...alp, isLP: false };
+            });
+            // Sort by slot_time and flatten (LP first, then ALP for each slot)
+            const sortedTimes = Array.from(slotMap.keys()).sort();
+            const result = [];
+            sortedTimes.forEach(time => {
+                const slot = slotMap.get(time);
+                if (slot.lp) result.push(slot.lp);
+                if (slot.alp) result.push(slot.alp);
+            });
+            return result;
+        }
+
+        function renderLrdTab(container) {
+            const sections = analysisData.sections || [];
+            const allStaff = getStaffSortedBySlot();
+
+            if (sections.length === 0) {
+                container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted);">Select sections above and click Refresh</div>';
+                return;
+            }
+
+            let html = `<table class="analysis-table"><thead><tr>
+                <th>#</th><th>Time</th><th>Desg</th><th>Name</th><th>CMS</th>
+                ${sections.map(s => `<th>${s.name}</th>`).join('')}
+            </tr></thead><tbody>`;
+
+            allStaff.forEach((staff, idx) => {
+                const role = staff.isLP ? 'LP' : 'ALP';
+                html += `<tr>
+                    <td>${idx + 1}</td>
+                    <td>${staff.slot_time}</td>
+                    <td>${role}</td>
+                    <td><strong>${staff.name}</strong></td>
+                    <td>${staff.cms_id || '-'}</td>
+                    ${sections.map(s => {
+                        const lrd = staff.lrd[s.id];
+                        if (!lrd) return '<td class="status-never">-</td>';
+                        const badge = getBadgeClass(lrd.status);
+                        const dateStr = lrd.date ? new Date(lrd.date).toLocaleDateString('en-GB', {day:'2-digit',month:'short'}) : '-';
+                        return `<td><span class="badge-sm ${badge}">${dateStr}</span></td>`;
+                    }).join('')}
+                </tr>`;
+            });
+
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        }
+
+        function renderTrainingTab(container) {
+            const trainings = analysisData.trainings || [];
+            const allStaff = getStaffSortedBySlot();
+
+            if (trainings.length === 0) {
+                container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted);">Select trainings above and click Refresh</div>';
+                return;
+            }
+
+            let html = `<table class="analysis-table"><thead><tr>
+                <th>#</th><th>Time</th><th>Desg</th><th>Name</th><th>CMS</th>
+                ${trainings.map(t => `<th>${t.code || t.name}</th>`).join('')}
+            </tr></thead><tbody>`;
+
+            allStaff.forEach((staff, idx) => {
+                const role = staff.isLP ? 'LP' : 'ALP';
+                html += `<tr>
+                    <td>${idx + 1}</td>
+                    <td>${staff.slot_time}</td>
+                    <td>${role}</td>
+                    <td><strong>${staff.name}</strong></td>
+                    <td>${staff.cms_id || '-'}</td>
+                    ${trainings.map(t => {
+                        // LP-only training (e.g. TW TRG) - show N/A for ALP
+                        if (t.lp_only && !staff.isLP) return '<td><span class="badge-sm" style="background:#e5e7eb;color:#6b7280;">N/A</span></td>';
+                        const trn = staff.training[t.id];
+                        if (!trn || !trn.trained) return '<td><span class="badge-sm badge-untrained">✗</span></td>';
+                        const dateStr = trn.done_date ? new Date(trn.done_date).toLocaleDateString('en-GB', {day:'2-digit',month:'short',year:'2-digit'}) : '';
+                        return `<td><span class="badge-sm badge-trained">✓ ${dateStr}</span></td>`;
+                    }).join('')}
+                </tr>`;
+            });
+
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        }
+
+        function renderCombinedTab(container) {
+            const sections = analysisData.sections || [];
+            const trainings = analysisData.trainings || [];
+            const allStaff = getStaffSortedBySlot();
+
+            let html = `<table class="analysis-table"><thead><tr>
+                <th>#</th><th>Time</th><th>Desg</th><th>Name</th>
+                ${sections.map(s => `<th>${s.name}</th>`).join('')}
+                ${trainings.map(t => `<th>${t.code || t.name}</th>`).join('')}
+                <th>Status</th>
+            </tr></thead><tbody>`;
+
+            allStaff.forEach((staff, idx) => {
+                const role = staff.isLP ? 'LP' : 'ALP';
+                const fullyCompliant = staff.lrd_valid && staff.training_valid;
+
+                html += `<tr style="${!fullyCompliant ? 'background:rgba(239,68,68,0.05);' : ''}">
+                    <td>${idx + 1}</td>
+                    <td>${staff.slot_time}</td>
+                    <td>${role}</td>
+                    <td><strong>${staff.name}</strong></td>
+                    ${sections.map(s => {
+                        const lrd = staff.lrd[s.id];
+                        if (!lrd) return '<td class="status-never">-</td>';
+                        const badge = getBadgeClass(lrd.status);
+                        return `<td><span class="badge-sm ${badge}">${lrd.status.includes('VALID') ? '✓' : lrd.days || '✗'}</span></td>`;
+                    }).join('')}
+                    ${trainings.map(t => {
+                        // LP-only training - show N/A for ALP
+                        if (t.lp_only && !staff.isLP) return '<td><span class="badge-sm" style="background:#e5e7eb;color:#6b7280;">N/A</span></td>';
+                        const trn = staff.training[t.id];
+                        return `<td><span class="badge-sm ${trn?.trained ? 'badge-trained' : 'badge-untrained'}">${trn?.trained ? '✓' : '✗'}</span></td>`;
+                    }).join('')}
+                    <td>${fullyCompliant ? '<span class="status-valid">✓ OK</span>' : '<span class="status-expired">⚠</span>'}</td>
+                </tr>`;
+            });
+
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        }
+
+        function renderComplianceTab(container) {
+            const pairs = analysisData.incompatible_pairs || [];
+            const sections = analysisData.sections || [];
+            const trainings = analysisData.trainings || [];
+
+            if (pairs.length === 0) {
+                container.innerHTML = `<div style="text-align:center;padding:60px;">
+                    <div style="font-size:3rem;margin-bottom:15px;">✅</div>
+                    <h3 style="color:#22c55e;margin:0;">All Pairs Compliant</h3>
+                    <p style="color:var(--text-muted);margin-top:8px;">No LRD or training issues found in current shift</p>
+                </div>`;
+                return;
+            }
+
+            let html = `<div style="margin-bottom:15px;color:var(--text-muted);font-size:0.85rem;">
+                <strong style="color:#ef4444;">${pairs.length}</strong> slot(s) have compliance issues
+            </div>`;
+
+            const hasTrainings = trainings.length > 0;
+            const hasSections = sections.length > 0;
+
+            pairs.forEach(pair => {
+                const dateStr = new Date(pair.slot_date).toLocaleDateString('en-GB', {day:'2-digit', month:'short'});
+                html += `<div class="issue-card has-issue">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                        <strong style="font-size:1rem;">${pair.slot_time}</strong>
+                        <span style="color:var(--text-muted);font-size:0.75rem;">${dateStr}</span>
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;">
+                        <div>
+                            <div style="font-size:0.7rem;color:var(--text-muted);margin-bottom:4px;">LP</div>
+                            <div style="font-weight:600;">${pair.lp.name}</div>
+                            <div style="font-size:0.75rem;margin-top:4px;">
+                                ${hasSections ? `LRD: <span class="${pair.lp.lrd_valid ? 'status-valid' : 'status-expired'}">${pair.lp.lrd_valid ? '✓' : '✗'}</span>` : ''}
+                                ${hasTrainings ? `Training: <span class="${pair.lp.training_valid ? 'status-valid' : 'status-expired'}">${pair.lp.training_valid ? '✓' : '✗'}</span>` : ''}
+                            </div>
+                        </div>
+                        <div>
+                            <div style="font-size:0.7rem;color:var(--text-muted);margin-bottom:4px;">ALP</div>
+                            <div style="font-weight:600;">${pair.alp.name}</div>
+                            <div style="font-size:0.75rem;margin-top:4px;">
+                                ${hasSections ? `LRD: <span class="${pair.alp.lrd_valid ? 'status-valid' : 'status-expired'}">${pair.alp.lrd_valid ? '✓' : '✗'}</span>` : ''}
+                                ${hasTrainings ? `Training: <span class="${pair.alp.training_valid ? 'status-valid' : 'status-expired'}">${pair.alp.training_valid ? '✓' : '✗'}</span>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                    ${pair.suggestions.length > 0 ? `
+                        <div class="suggestion-box">
+                            <strong>💡 Suggestions:</strong>
+                            <ul style="margin:5px 0 0 15px;padding:0;">
+                                ${pair.suggestions.slice(0, 4).map(s => `
+                                    <li>${s.type === 'SWAP_ALP' ? 'ALP' : 'LP'}: Consider <strong>${s.suggested.name}</strong> (${s.suggested.slot_time})</li>
+                                `).join('')}
+                            </ul>
+                        </div>
+                    ` : ''}
+                </div>`;
+            });
+
+            container.innerHTML = html;
+        }
+
+        function getBadgeClass(status) {
+            if (status.includes('EXPIRED')) return 'badge-expired';
+            if (status.includes('EXPIRING')) return 'badge-expiring';
+            if (status === 'VALID') return 'badge-valid';
+            return 'badge-never';
+        }
+
+        // Close modal on escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeAnalysisModal();
+        });
+
+        // Close modal on backdrop click
+        document.getElementById('analysisModal')?.addEventListener('click', (e) => {
+            if (e.target.classList.contains('modal-overlay')) closeAnalysisModal();
+        });
+    </script>
 </body>
 </html>
