@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Divisional Portal – Staff Sheet View</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jspreadsheet-ce@4/dist/jexcel.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jsuites@4/dist/jsuites.min.css">
+<style>
+  body { background: #f6f7fb; margin: 0; overflow: hidden; }
+  .sheet-page { display: flex; flex-direction: column; height: 100vh; }
+  .sheet-header { background: #fff; border-bottom: 1px solid #dee2e6; padding: 10px 20px; display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+  .sheet-header h5 { margin: 0; font-weight: 600; white-space: nowrap; }
+  .sheet-body { flex: 1; overflow: auto; padding: 0; }
+  /* jspreadsheet overrides */
+  .jexcel_container { width: 100% !important; }
+  .jexcel { font-size: 13px; }
+  .jexcel td { white-space: nowrap; }
+  .jexcel thead td { background: #f1f3f5 !important; font-weight: 600; font-size: 12px; color: #495057; }
+  /* Training column header styling */
+  .jexcel thead td.trg-col { background: #e7f3ff !important; color: #0056b3; }
+  /* Dirty row */
+  .row-dirty td { background-color: #fffbe6 !important; }
+  /* Training cell status colors */
+  .trg-valid { background-color: #d4edda !important; }
+  .trg-due-soon { background-color: #fff3cd !important; }
+  .trg-overdue { background-color: #f8d7da !important; }
+  /* Save badge */
+  .save-badge { background: #dc3545; color: #fff; border-radius: 50%; width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; margin-left: 4px; }
+  /* Toast */
+  .toast-container { position: fixed; top: 20px; right: 20px; z-index: 9999; }
+  .custom-toast { min-width: 300px; padding: 12px 20px; border-radius: 8px; color: #fff; font-weight: 500; box-shadow: 0 4px 12px rgba(0,0,0,.15); animation: slideIn .3s ease; }
+  .custom-toast.success { background: linear-gradient(135deg, #28a745, #20c997); }
+  .custom-toast.error { background: linear-gradient(135deg, #dc3545, #c82333); }
+  .custom-toast.info { background: linear-gradient(135deg, #17a2b8, #138496); }
+  @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+  /* Loading overlay */
+  .loading-overlay { position: absolute; inset: 0; background: rgba(255,255,255,0.8); display: flex; align-items: center; justify-content: center; z-index: 100; }
+  .loading-overlay.hidden { display: none; }
+</style>
+</head>
+<body>
+
+<div class="sheet-page">
+  <!-- Header -->
+  <div class="sheet-header">
+    <button class="btn btn-outline-secondary btn-sm" onclick="window.location.href='/div'" title="Back to Dashboard">
+      <span>&#8592;</span> Back
+    </button>
+    <h5>Staff Sheet View</h5>
+    <div style="width:1px;height:24px;background:#dee2e6;"></div>
+    <select class="form-select form-select-sm" id="officeSelect" style="width:180px;">
+      <option value="">Select Office</option>
+    </select>
+    <div style="flex:1;"></div>
+    <button class="btn btn-primary btn-sm" id="btnSave" onclick="saveChanges()" disabled>
+      Save Changes <span class="save-badge" id="dirtyCount" style="display:none;">0</span>
+    </button>
+    <button class="btn btn-outline-primary btn-sm" onclick="window.location.href='/div/biodataform.html'">
+      Form View
+    </button>
+  </div>
+
+  <!-- Sheet body -->
+  <div class="sheet-body" style="position:relative;">
+    <div class="loading-overlay" id="loadingOverlay">
+      <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>
+    </div>
+    <div id="spreadsheet"></div>
+  </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/jsuites@4/dist/jsuites.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspreadsheet-ce@4/dist/jexcel.min.js"></script>
+<script>
+// ---- State ----
+let sheet = null;
+let staffData = [];
+let designations = [];
+let dirtyRows = new Set();
+let userOffice = '';
+let userRole = '';
+
+// ---- Column config ----
+const BIODATA_FIELDS = ['hrms_id','name','current_cms_id','designation_id','office_name','date_of_birth','phone_number','cug_number','safety_category','pf_number','status'];
+const TRAINING_FIELDS = ['pme_done_date','refresher_done_date','auto_done_date'];
+const ALL_FIELDS = [...BIODATA_FIELDS, ...TRAINING_FIELDS];
+
+const STATUS_OPTIONS = ['Active','Transferred','Retired','Resigned','Suspended','Promoted to CLI','Medically Decategorised','Drafted/Ex-Cadre','Deputation'];
+const SAFETY_OPTIONS = ['A','B','C'];
+
+// Column indices
+const COL = { PME_DONE:11, PME_DUE:12, REF_DONE:13, REF_DUE:14, AUTO_DONE:15, AUTO_DUE:16, DOB:5 };
+
+// ---- Init ----
+document.addEventListener('DOMContentLoaded', async () => {
+  await loadDesignations();
+  await loadOffices();
+  hideLoading();
+});
+
+async function loadDesignations() {
+  try {
+    const res = await fetch('/api/division/designations');
+    const json = await res.json();
+    if (json.success) designations = json.data;
+  } catch (e) { console.error('Failed to load designations', e); }
+}
+
+async function loadOffices() {
+  try {
+    // First get current user info
+    const infoRes = await fetch('/api/current-user');
+    if (infoRes.ok) {
+      const info = await infoRes.json();
+      if (info) {
+        userOffice = info.div_office_code || '';
+        userRole = info.div_role || '';
+      }
+    }
+
+    const res = await fetch('/api/division/offices');
+    const json = await res.json();
+    if (!json.success) return;
+    const offices = json.data || [];
+
+    const sel = document.getElementById('officeSelect');
+
+    if (userRole !== 'division_admin' && userOffice) {
+      // Non-admin: show only their office, lock the dropdown, auto-load
+      const userOfficeData = offices.find(o => o.office_code === userOffice);
+      if (userOfficeData) {
+        const opt = document.createElement('option');
+        opt.value = userOfficeData.office_code;
+        opt.textContent = userOfficeData.office_name;
+        opt.selected = true;
+        sel.appendChild(opt);
+      }
+      sel.style.pointerEvents = 'none';
+      sel.style.backgroundColor = '#e9ecef';
+      loadSheetData(userOffice);
+    } else {
+      // Admin: show all offices
+      offices.forEach(o => {
+        const opt = document.createElement('option');
+        opt.value = o.office_code;
+        opt.textContent = o.office_name;
+        if (userOffice && o.office_code === userOffice) opt.selected = true;
+        sel.appendChild(opt);
+      });
+      // Auto-load if admin has an office pre-selected
+      if (userOffice) loadSheetData(userOffice);
+    }
+
+    sel.addEventListener('change', () => {
+      if (sel.value) loadSheetData(sel.value);
+    });
+  } catch (e) { console.error('Failed to load offices', e); }
+}
+
+// ---- Load data ----
+async function loadSheetData(officeCode) {
+  showLoading();
+  dirtyRows.clear();
+  updateDirtyBadge();
+
+  try {
+    const res = await fetch(`/api/division/staff-sheet?office_code=${encodeURIComponent(officeCode)}`);
+    const json = await res.json();
+    if (!json.success) { showToast('Failed to load data', 'error'); hideLoading(); return; }
+
+    staffData = json.data;
+    renderSheet();
+  } catch (e) {
+    console.error(e);
+    showToast('Error loading data', 'error');
+  }
+  hideLoading();
+}
+
+// ---- Render spreadsheet ----
+function renderSheet() {
+  const container = document.getElementById('spreadsheet');
+  container.innerHTML = '';
+
+  if (sheet) { jspreadsheet.destroy(document.getElementById('spreadsheet')); sheet = null; }
+
+  const desigNames = designations.map(d => d.designation_name);
+  const desigIds = designations.map(d => String(d.id));
+
+  const data = staffData.map(row => [
+    row.hrms_id || '',
+    row.name || '',
+    row.current_cms_id || '',
+    row.designation_name || '',
+    row.office_name || '',
+    formatDate(row.date_of_birth),
+    row.phone_number || '',
+    row.cug_number || '',
+    row.safety_category || '',
+    row.pf_number || '',
+    row.status || 'Active',
+    formatDate(row.pme_done_date),
+    formatDate(row.pme_due_date),
+    formatDate(row.refresher_done_date),
+    formatDate(row.refresher_due_date),
+    formatDate(row.auto_done_date),
+    formatDate(row.auto_due_date),
+  ]);
+
+  // Due date columns (12,14,16) are not marked readOnly to avoid jexcel internal errors.
+  // Instead we block edits via onbeforechange.
+  const READ_ONLY_COLS = new Set([0, 4, COL.PME_DUE, COL.REF_DUE, COL.AUTO_DUE]);
+
+  const columns = [
+    { type: 'text', title: 'HRMS ID', width: 90 },
+    { type: 'text', title: 'Name', width: 160 },
+    { type: 'text', title: 'CMS ID', width: 100 },
+    { type: 'dropdown', title: 'Designation', width: 130, source: desigNames, autocomplete: true },
+    { type: 'text', title: 'Office', width: 140 },
+    { type: 'text', title: 'DOB', width: 100 },
+    { type: 'text', title: 'Phone', width: 110 },
+    { type: 'text', title: 'CUG', width: 100 },
+    { type: 'dropdown', title: 'Safety', width: 70, source: SAFETY_OPTIONS },
+    { type: 'text', title: 'PF Number', width: 110 },
+    { type: 'dropdown', title: 'Status', width: 130, source: STATUS_OPTIONS },
+    { type: 'text', title: 'PME Done', width: 100 },
+    { type: 'text', title: 'PME Due', width: 100 },
+    { type: 'text', title: 'Ref Done', width: 100 },
+    { type: 'text', title: 'Ref Due', width: 100 },
+    { type: 'text', title: 'Auto Done', width: 100 },
+    { type: 'text', title: 'Auto Due', width: 100 },
+  ];
+
+  sheet = jspreadsheet(container, {
+    data: data.length ? data : [[]],
+    columns: columns,
+    freezeColumns: 2,
+    tableOverflow: true,
+    tableWidth: '100%',
+    tableHeight: (window.innerHeight - 60) + 'px',
+    defaultColWidth: 100,
+    allowInsertRow: false,
+    allowInsertColumn: false,
+    allowDeleteRow: false,
+    allowDeleteColumn: false,
+    allowRenameColumn: false,
+    columnSorting: true,
+    search: true,
+    onchange: onCellChange,
+    onselection: onSelection,
+    onbeforechange: function(instance, cell, x, y, value) {
+      // Block manual edits on read-only columns (HRMS ID, Office, Due dates)
+      if (READ_ONLY_COLS.has(parseInt(x))) return false;
+      return value;
+    },
+    contextMenu: function() { return false; },
+  });
+
+  // Apply training cell colors after render
+  applyTrainingColors();
+}
+
+// ---- Cell change handler ----
+function onCellChange(instance, cell, x, y, value) {
+  const rowIdx = parseInt(y);
+  const colIdx = parseInt(x);
+
+  dirtyRows.add(rowIdx);
+  updateDirtyBadge();
+
+  // Highlight dirty row
+  const row = instance.jexcel.rows[rowIdx];
+  if (row) row.classList.add('row-dirty');
+
+  // If a training DONE date column changed, auto-calculate the DUE date
+  if (colIdx === COL.PME_DONE || colIdx === COL.REF_DONE || colIdx === COL.AUTO_DONE) {
+    autoCalcDueDate(rowIdx, colIdx, value);
+    // Color both done and due cells
+    applyTrainingCellColor(rowIdx, colIdx);
+    applyTrainingCellColor(rowIdx, colIdx + 1);
+  }
+}
+
+function onSelection(instance, x1, y1, x2, y2) {
+  // Could be used for "Open in Form" button context
+}
+
+// ---- Training cell coloring ----
+function applyTrainingColors() {
+  if (!sheet) return;
+  // Color all done AND due columns
+  const trgCols = [COL.PME_DONE, COL.PME_DUE, COL.REF_DONE, COL.REF_DUE, COL.AUTO_DONE, COL.AUTO_DUE];
+  for (let row = 0; row < staffData.length; row++) {
+    for (const col of trgCols) {
+      applyTrainingCellColor(row, col);
+    }
+  }
+}
+
+// Direct DOM cell access using jexcel's data-x/data-y attributes — reliable regardless of sort order
+function getCellEl(col, row) {
+  return document.getElementById('spreadsheet').querySelector(`td[data-x="${col}"][data-y="${row}"]`);
+}
+
+function getCellText(col, row) {
+  const cell = getCellEl(col, row);
+  return cell ? (cell.innerText || '').trim() : '';
+}
+
+function applyTrainingCellColor(row, col) {
+  if (!sheet) return;
+  const cell = getCellEl(col, row);
+  if (!cell) return;
+
+  cell.classList.remove('trg-valid', 'trg-due-soon', 'trg-overdue');
+
+  // Find the corresponding due column for this pair
+  let dueCol;
+  if (col === COL.PME_DONE || col === COL.PME_DUE) dueCol = COL.PME_DUE;
+  else if (col === COL.REF_DONE || col === COL.REF_DUE) dueCol = COL.REF_DUE;
+  else if (col === COL.AUTO_DONE || col === COL.AUTO_DUE) dueCol = COL.AUTO_DUE;
+  else return;
+
+  // Check if done date exists for this pair
+  const doneCol = dueCol - 1;
+  const doneStr = getCellText(doneCol, row);
+  if (!doneStr) return;
+
+  // Get due date from the due column in the sheet
+  const dueStr = getCellText(dueCol, row);
+  if (!dueStr) {
+    cell.classList.add('trg-valid');
+    return;
+  }
+
+  const dueISO = parseDisplayDate(dueStr);
+  if (!dueISO) return;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const due = new Date(dueISO);
+  due.setHours(0, 0, 0, 0);
+  const daysUntilDue = Math.ceil((due - today) / (1000 * 60 * 60 * 24));
+
+  if (daysUntilDue < 0) cell.classList.add('trg-overdue');
+  else if (daysUntilDue <= 30) cell.classList.add('trg-due-soon');
+  else cell.classList.add('trg-valid');
+}
+
+// ---- Save changes ----
+async function saveChanges() {
+  if (dirtyRows.size === 0) return;
+
+  const btnSave = document.getElementById('btnSave');
+  btnSave.disabled = true;
+  btnSave.childNodes[0].textContent = 'Saving... ';
+
+  const desigNames = designations.map(d => d.designation_name);
+  const desigIds = designations.map(d => d.id);
+
+  let successCount = 0;
+  let errorCount = 0;
+
+  for (const rowIdx of dirtyRows) {
+    const rowData = sheet.getRowData(rowIdx);
+    const hrmsId = rowData[0];
+    if (!hrmsId) continue;
+
+    const original = staffData[rowIdx];
+    if (!original) continue;
+
+    // Check which columns changed
+    let biodataChanged = false;
+    let trainingChanges = {};
+
+    // Build biodata payload
+    const desigNameVal = rowData[3];
+    const desigIdx = desigNames.indexOf(desigNameVal);
+    const designationId = desigIdx >= 0 ? desigIds[desigIdx] : original.designation_id;
+
+    const biodataPayload = {
+      name: rowData[1],
+      current_cms_id: rowData[2],
+      designation_id: designationId,
+      date_of_birth: parseDisplayDate(rowData[5]) || null,
+      phone_number: rowData[6],
+      cug_number: rowData[7],
+      safety_category: rowData[8] || null,
+      pf_number: rowData[9],
+      status: rowData[10] || 'Active',
+    };
+
+    // Check if biodata fields changed
+    if (biodataPayload.name !== (original.name || '') ||
+        biodataPayload.current_cms_id !== (original.current_cms_id || '') ||
+        String(biodataPayload.designation_id) !== String(original.designation_id || '') ||
+        biodataPayload.date_of_birth !== formatDateISO(original.date_of_birth) ||
+        biodataPayload.phone_number !== (original.phone_number || '') ||
+        biodataPayload.cug_number !== (original.cug_number || '') ||
+        biodataPayload.safety_category !== (original.safety_category || null) ||
+        biodataPayload.pf_number !== (original.pf_number || '') ||
+        biodataPayload.status !== (original.status || 'Active')) {
+      biodataChanged = true;
+    }
+
+    // Check training date changes (done date columns: 11, 13, 15)
+    const pmeDate = parseDisplayDate(rowData[COL.PME_DONE]);
+    const pmeDue = parseDisplayDate(rowData[COL.PME_DUE]);
+    const refDate = parseDisplayDate(rowData[COL.REF_DONE]);
+    const refDue = parseDisplayDate(rowData[COL.REF_DUE]);
+    const autoDate = parseDisplayDate(rowData[COL.AUTO_DONE]);
+    const autoDue = parseDisplayDate(rowData[COL.AUTO_DUE]);
+
+    if (pmeDate !== formatDateISO(original.pme_done_date)) {
+      trainingChanges.pme = { done: pmeDate, due: pmeDue };
+    }
+    if (refDate !== formatDateISO(original.refresher_done_date)) {
+      trainingChanges.refresher = { done: refDate, due: refDue };
+    }
+    if (autoDate !== formatDateISO(original.auto_done_date)) {
+      trainingChanges.automatic = { done: autoDate, due: autoDue };
+    }
+
+    try {
+      // Save biodata changes
+      if (biodataChanged) {
+        const res = await fetch(`/api/division/staff/${hrmsId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(biodataPayload)
+        });
+        if (!res.ok) { errorCount++; continue; }
+      }
+
+      // Save training changes
+      for (const [type, dates] of Object.entries(trainingChanges)) {
+        if (!dates.done) continue;
+        const trainingId = type === 'pme' ? 1 : type === 'refresher' ? 26 : 5;
+
+        const res = await fetch('/api/division/training', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            staff_hrms_id: hrmsId,
+            training_id: trainingId,
+            done_date: dates.done,
+            due_date: dates.due || null,
+            medical_fit: 1,
+          })
+        });
+        if (!res.ok) { errorCount++; }
+      }
+
+      successCount++;
+
+      // Clear dirty state for this row
+      const row = sheet.rows[rowIdx];
+      if (row) row.classList.remove('row-dirty');
+
+    } catch (e) {
+      console.error(`Error saving row ${hrmsId}:`, e);
+      errorCount++;
+    }
+  }
+
+  dirtyRows.clear();
+  updateDirtyBadge();
+  btnSave.childNodes[0].textContent = 'Save Changes ';
+  btnSave.disabled = true;
+
+  if (errorCount === 0) {
+    showToast(`Saved ${successCount} row(s) successfully`, 'success');
+    // Reload to refresh due dates
+    const officeCode = document.getElementById('officeSelect').value;
+    if (officeCode) loadSheetData(officeCode);
+  } else {
+    showToast(`Saved ${successCount}, failed ${errorCount} row(s)`, 'error');
+  }
+}
+
+// ---- Due date calculation (reused from biodataform.html) ----
+
+// PME due date - age-based with milestone logic
+function calculatePMEDueDate(pmeDate, dateOfBirth) {
+  const pme = new Date(pmeDate);
+  const dob = new Date(dateOfBirth);
+
+  let ageAtPME = pme.getFullYear() - dob.getFullYear();
+  const monthDiff = pme.getMonth() - dob.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && pme.getDate() < dob.getDate())) {
+    ageAtPME--;
+  }
+
+  const age45Birthday = new Date(dob);
+  age45Birthday.setFullYear(dob.getFullYear() + 45);
+
+  const age55Birthday = new Date(dob);
+  age55Birthday.setFullYear(dob.getFullYear() + 55);
+
+  let standardValidityYears;
+  if (ageAtPME < 45) standardValidityYears = 4;
+  else if (ageAtPME < 55) standardValidityYears = 2;
+  else standardValidityYears = 1;
+
+  const standardDueDate = new Date(pme);
+  standardDueDate.setFullYear(pme.getFullYear() + standardValidityYears);
+
+  let finalDueDate = standardDueDate;
+
+  if (ageAtPME < 45 && age45Birthday <= standardDueDate) {
+    const yearsFromPMETo45 = (age45Birthday - pme) / (365.25 * 24 * 60 * 60 * 1000);
+    if (yearsFromPMETo45 >= 2) {
+      finalDueDate = age45Birthday;
+    } else {
+      finalDueDate = new Date(pme);
+      finalDueDate.setFullYear(pme.getFullYear() + 2);
+    }
+  }
+
+  if (ageAtPME < 55 && age55Birthday <= finalDueDate) {
+    const yearsFromPMETo55 = (age55Birthday - pme) / (365.25 * 24 * 60 * 60 * 1000);
+    if (yearsFromPMETo55 >= 1) {
+      finalDueDate = age55Birthday;
+    } else {
+      finalDueDate = new Date(pme);
+      finalDueDate.setFullYear(pme.getFullYear() + 1);
+    }
+  }
+
+  finalDueDate.setDate(finalDueDate.getDate() - 1);
+  return finalDueDate;
+}
+
+// Calculate due date for any training type
+function calculateDueDate(type, doneDateStr, dobStr) {
+  if (!doneDateStr) return null;
+
+  if (type === 'refresher') {
+    const due = new Date(doneDateStr);
+    due.setMonth(due.getMonth() + 36);
+    due.setDate(due.getDate() - 1);
+    return formatDateToISO(due);
+  }
+  if (type === 'automatic') {
+    const due = new Date(doneDateStr);
+    due.setMonth(due.getMonth() + 6);
+    due.setDate(due.getDate() - 1);
+    return formatDateToISO(due);
+  }
+  if (type === 'pme') {
+    if (!dobStr) return null;
+    const due = calculatePMEDueDate(doneDateStr, dobStr);
+    return formatDateToISO(due);
+  }
+  return null;
+}
+
+function formatDateToISO(d) {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+// Set a due date cell value by directly updating DOM + internal data (bypasses jexcel API)
+function setCellDirect(col, row, value) {
+  const cell = getCellEl(col, row);
+  if (cell) cell.innerText = value || '';
+  // Also update jexcel's internal data so getRowData() returns correct values on save
+  try { if (sheet.options.data[row]) sheet.options.data[row][col] = value || ''; } catch(e) {}
+}
+
+// Auto-calculate due date when done date cell is edited in the sheet
+function autoCalcDueDate(rowIdx, doneCol, doneDateDisplay) {
+  let type, dueCol;
+  if (doneCol === COL.PME_DONE)  { type = 'pme';       dueCol = COL.PME_DUE; }
+  else if (doneCol === COL.REF_DONE)  { type = 'refresher'; dueCol = COL.REF_DUE; }
+  else if (doneCol === COL.AUTO_DONE) { type = 'automatic';  dueCol = COL.AUTO_DUE; }
+  else return;
+
+  if (!doneDateDisplay) {
+    setCellDirect(dueCol, rowIdx, '');
+    return;
+  }
+
+  const doneDateISO = parseDisplayDate(doneDateDisplay);
+  if (!doneDateISO) { setCellDirect(dueCol, rowIdx, ''); return; }
+
+  // Get DOB from the sheet (needed for PME)
+  const dobDisplay = getCellText(COL.DOB, rowIdx);
+  const dobISO = parseDisplayDate(dobDisplay);
+
+  const dueISO = calculateDueDate(type, doneDateISO, dobISO);
+  if (dueISO) {
+    setCellDirect(dueCol, rowIdx, formatDate(dueISO));
+  } else {
+    setCellDirect(dueCol, rowIdx, '');
+    if (type === 'pme' && !dobISO) {
+      showToast('PME due date needs DOB — fill DOB column or use Form View', 'info');
+    }
+  }
+}
+
+// ---- Date helpers ----
+function formatDate(val) {
+  if (!val) return '';
+  const d = new Date(val);
+  if (isNaN(d.getTime())) return '';
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const yyyy = d.getFullYear();
+  return `${dd}/${mm}/${yyyy}`;
+}
+
+function parseDisplayDate(str) {
+  // Parse dd/mm/yyyy to yyyy-mm-dd
+  if (!str) return '';
+  const parts = str.split('/');
+  if (parts.length !== 3) return '';
+  const [dd, mm, yyyy] = parts;
+  if (!dd || !mm || !yyyy || yyyy.length !== 4) return '';
+  return `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
+}
+
+function formatDateISO(val) {
+  if (!val) return '';
+  const d = new Date(val);
+  if (isNaN(d.getTime())) return '';
+  return d.toISOString().split('T')[0];
+}
+
+// ---- Dirty badge ----
+function updateDirtyBadge() {
+  const badge = document.getElementById('dirtyCount');
+  const btn = document.getElementById('btnSave');
+  if (dirtyRows.size > 0) {
+    badge.textContent = dirtyRows.size;
+    badge.style.display = 'inline-flex';
+    btn.disabled = false;
+  } else {
+    badge.style.display = 'none';
+    btn.disabled = true;
+  }
+}
+
+// ---- Toast ----
+function showToast(msg, type) {
+  const container = document.getElementById('toastContainer');
+  const toast = document.createElement('div');
+  toast.className = `custom-toast ${type}`;
+  toast.textContent = msg;
+  container.appendChild(toast);
+  setTimeout(() => {
+    toast.style.animation = 'fadeOut .3s ease forwards';
+    setTimeout(() => toast.remove(), 300);
+  }, 3000);
+}
+
+// ---- Loading ----
+function showLoading() { document.getElementById('loadingOverlay').classList.remove('hidden'); }
+function hideLoading() { document.getElementById('loadingOverlay').classList.add('hidden'); }
+
+// ---- Resize ----
+window.addEventListener('resize', () => {
+  if (sheet) {
+    const container = document.getElementById('spreadsheet');
+    // jspreadsheet auto-handles resize with tableOverflow
+  }
+});
+
+// ---- Keyboard shortcut: Ctrl+S to save ----
+document.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+    e.preventDefault();
+    if (dirtyRows.size > 0) saveChanges();
+  }
+});
+</script>
+</body>
+</html>
