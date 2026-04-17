@@ -171,6 +171,64 @@ router.get('/staff-search/:search', async (req, res) => {
     }
 });
 
+// GET /api/division/staff-sheet - Get staff with training dates for sheet view
+router.get('/staff-sheet', async (req, res) => {
+    let conn;
+    try {
+        const { office_code } = req.query;
+        conn = await req.app.locals.pool.getConnection();
+
+        let query = `
+            SELECT s.hrms_id, s.name, s.current_cms_id, s.designation_id, d.designation_name,
+                   s.current_office_code, o.office_name, s.date_of_birth, s.phone_number,
+                   s.cug_number, s.safety_category, s.pf_number, s.status,
+                   tr_pme.done_date AS pme_done_date, tr_pme.due_date AS pme_due_date,
+                   tr_ref.done_date AS refresher_done_date, tr_ref.due_date AS refresher_due_date,
+                   tr_auto.done_date AS auto_done_date, tr_auto.due_date AS auto_due_date
+            FROM div_staff_master s
+            JOIN offices o ON s.current_office_code = o.office_code
+            JOIN designations d ON s.designation_id = d.id
+            LEFT JOIN (
+                SELECT staff_hrms_id, done_date, due_date
+                FROM div_training_records
+                WHERE training_id = 1
+                  AND record_id IN (SELECT MAX(record_id) FROM div_training_records WHERE training_id = 1 GROUP BY staff_hrms_id)
+            ) tr_pme ON s.hrms_id = tr_pme.staff_hrms_id
+            LEFT JOIN (
+                SELECT staff_hrms_id, done_date, due_date
+                FROM div_training_records
+                WHERE training_id = 26
+                  AND record_id IN (SELECT MAX(record_id) FROM div_training_records WHERE training_id = 26 GROUP BY staff_hrms_id)
+            ) tr_ref ON s.hrms_id = tr_ref.staff_hrms_id
+            LEFT JOIN (
+                SELECT staff_hrms_id, done_date, due_date
+                FROM div_training_records
+                WHERE training_id = 5
+                  AND record_id IN (SELECT MAX(record_id) FROM div_training_records WHERE training_id = 5 GROUP BY staff_hrms_id)
+            ) tr_auto ON s.hrms_id = tr_auto.staff_hrms_id
+            WHERE s.status IN ('Active', 'Drafted/Ex-Cadre', 'Suspended', 'Deputation')
+        `;
+
+        const params = [];
+        if (office_code) {
+            const filter = buildOfficeFilter(office_code, 's');
+            query += ' AND ' + filter.condition;
+            params.push(...filter.params);
+        }
+
+        query += ' ORDER BY o.office_name, s.name';
+
+        const [results] = await conn.query(query, params);
+        conn.release();
+
+        res.json({ success: true, data: results });
+    } catch (error) {
+        console.error('Error fetching staff sheet data:', error);
+        if (conn) conn.release();
+        res.status(500).json({ error: 'Database error', details: error.message });
+    }
+});
+
 // GET /api/division/staff - Get staff by office
 router.get('/staff', async (req, res) => {
     let conn;
@@ -534,6 +592,38 @@ router.get('/staff/check/:hrms_id', async (req, res) => {
 
     } catch (error) {
         console.error('Error checking HRMS ID:', error);
+        if (conn) conn.release();
+        res.status(500).json({ error: 'Database error', details: error.message });
+    }
+});
+
+// GET /api/division/staff/:hrms_id - Get staff details by HRMS ID
+router.get('/staff/:hrms_id', async (req, res) => {
+    let conn;
+    try {
+        const { hrms_id } = req.params;
+        conn = await req.app.locals.pool.getConnection();
+
+        const [result] = await conn.query(
+            `SELECT s.hrms_id, s.name, s.date_of_birth as dob, s.current_office_code,
+                    s.designation_id, d.designation_name, o.office_name
+             FROM div_staff_master s
+             LEFT JOIN designations d ON s.designation_id = d.id
+             LEFT JOIN offices o ON s.current_office_code = o.office_code
+             WHERE s.hrms_id = ?`,
+            [hrms_id.toUpperCase()]
+        );
+
+        conn.release();
+
+        if (result.length === 0) {
+            return res.status(404).json({ success: false, error: 'Staff not found' });
+        }
+
+        res.json({ success: true, data: result[0] });
+
+    } catch (error) {
+        console.error('Error fetching staff details:', error);
         if (conn) conn.release();
         res.status(500).json({ error: 'Database error', details: error.message });
     }
