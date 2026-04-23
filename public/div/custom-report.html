@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Divisional Portal – Custom Report</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<style>
+  body { background: #f6f7fb; margin: 0; }
+  .layout { display: flex; min-height: 100vh; }
+  .sidebar { width: 320px; background: #fff; border-right: 1px solid #dee2e6; padding: 16px; overflow-y: auto; flex-shrink: 0; max-height: 100vh; position: sticky; top: 0; }
+  .main { flex: 1; padding: 16px; overflow-x: auto; }
+  .field-group { margin-bottom: 14px; }
+  .field-group-title { font-size: 11px; font-weight: 700; color: #0d6efd; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; border-bottom: 1px solid #e9ecef; padding-bottom: 3px; }
+  .field-check { display: flex; align-items: center; gap: 6px; padding: 3px 0; font-size: 13px; cursor: pointer; }
+  .field-check input { margin: 0; }
+  .field-check:hover { background: #f8f9fa; }
+  .top-bar { display: flex; align-items: center; gap: 10px; background: #fff; padding: 10px 16px; border-bottom: 1px solid #dee2e6; flex-wrap: wrap; }
+  .top-bar h5 { margin: 0; font-weight: 600; }
+  .result-count { color: #495057; font-size: 13px; }
+  .preset-btn { font-size: 11px; padding: 3px 8px; }
+  .result-table { font-size: 12px; }
+  .result-table thead { position: sticky; top: 0; background: #f1f3f5; z-index: 5; }
+  .result-table th { font-size: 11px; color: #495057; font-weight: 600; white-space: nowrap; }
+  .result-table td { white-space: nowrap; }
+  .trg-overdue { background-color: #f8d7da !important; }
+  .trg-due-soon { background-color: #fff3cd !important; }
+  .placeholder-msg { text-align: center; padding: 60px 20px; color: #6c757d; font-size: 15px; }
+  .designation-filter { max-height: 180px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 4px; padding: 6px; font-size: 12px; }
+  /* Toast */
+  .toast-container { position: fixed; top: 20px; right: 20px; z-index: 9999; }
+  .custom-toast { min-width: 280px; padding: 10px 16px; border-radius: 6px; color: #fff; font-weight: 500; box-shadow: 0 4px 12px rgba(0,0,0,.15); animation: slideIn .25s ease; margin-bottom: 8px; }
+  .custom-toast.success { background: linear-gradient(135deg,#28a745,#20c997); }
+  .custom-toast.error { background: linear-gradient(135deg,#dc3545,#c82333); }
+  .custom-toast.info { background: linear-gradient(135deg,#17a2b8,#138496); }
+  @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+  /* Print */
+  @media print {
+    .sidebar, .top-bar, .no-print { display: none !important; }
+    .layout { display: block; }
+    .main { padding: 0; }
+    body { background: #fff; }
+    .result-table { font-size: 10px; }
+    .result-table th, .result-table td { padding: 3px 6px; }
+    @page { size: A4 landscape; margin: 10mm; }
+  }
+</style>
+</head>
+<body>
+
+<div class="top-bar no-print">
+  <button class="btn btn-outline-secondary btn-sm" onclick="window.location.href='/div/biodataform.html'">
+    &#8592; Back
+  </button>
+  <h5>Custom Report</h5>
+  <div style="width:1px;height:24px;background:#dee2e6;"></div>
+  <label class="small text-muted mb-0">Office:</label>
+  <select class="form-select form-select-sm" id="officeSelect" style="width:180px;">
+    <option value="">Select Office</option>
+    <option value="__ALL__">All offices</option>
+  </select>
+  <div style="flex:1;"></div>
+  <span class="result-count" id="resultCount">No data</span>
+  <button class="btn btn-success btn-sm" id="btnExcel" onclick="exportExcel()" disabled>Export to Excel</button>
+  <button class="btn btn-outline-primary btn-sm" id="btnPrint" onclick="window.print()" disabled>Print</button>
+</div>
+
+<div class="layout">
+  <!-- Sidebar -->
+  <div class="sidebar no-print">
+    <!-- Presets -->
+    <div class="field-group">
+      <div class="field-group-title">Quick Presets</div>
+      <div class="d-flex flex-wrap gap-1">
+        <button class="btn btn-outline-secondary preset-btn" onclick="applyPreset('contact')">Contact List</button>
+        <button class="btn btn-outline-secondary preset-btn" onclick="applyPreset('training')">Training Status</button>
+        <button class="btn btn-outline-secondary preset-btn" onclick="applyPreset('medical')">Medical/Safety</button>
+        <button class="btn btn-outline-secondary preset-btn" onclick="applyPreset('identity')">Identity Only</button>
+      </div>
+      <div class="d-flex gap-1 mt-2">
+        <button class="btn btn-outline-primary preset-btn" onclick="selectAll(true)">Select All</button>
+        <button class="btn btn-outline-danger preset-btn" onclick="selectAll(false)">Clear All</button>
+      </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="field-group">
+      <div class="field-group-title">Filters</div>
+      <label class="small text-muted mb-1">Designation (multi-select):</label>
+      <div class="designation-filter" id="designationFilter">
+        <div class="text-muted small">Loading...</div>
+      </div>
+      <div class="mt-2">
+        <label class="small text-muted mb-1">Status:</label>
+        <select class="form-select form-select-sm" id="statusFilter">
+          <option value="active">Active only (default)</option>
+          <option value="all">All statuses</option>
+          <option value="Active">Only Active</option>
+          <option value="Suspended">Only Suspended</option>
+          <option value="Deputation">Only Deputation</option>
+          <option value="Drafted/Ex-Cadre">Only Drafted/Ex-Cadre</option>
+        </select>
+      </div>
+    </div>
+
+    <button class="btn btn-primary w-100 mb-3" onclick="generateReport()">Generate Report</button>
+
+    <!-- Field groups -->
+    <div id="fieldGroups"></div>
+  </div>
+
+  <!-- Main -->
+  <div class="main">
+    <div id="reportContent">
+      <div class="placeholder-msg">
+        Select fields on the left and click <strong>Generate Report</strong>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script>
+// ---- State ----
+let allData = [];
+let reportData = [];
+let designations = [];
+let selectedDesignationIds = new Set();
+let userOffice = '';
+let userRole = '';
+
+// ---- Field definitions ----
+// { key: DB field, label: column header, group: section, type: 'text'|'date' }
+const FIELDS = [
+  // Identity
+  { key: 'hrms_id',         label: 'HRMS ID',        group: 'Identity', type: 'text', default: true },
+  { key: 'name',            label: 'Name',           group: 'Identity', type: 'text', default: true },
+  { key: 'current_cms_id',  label: 'CMS ID',         group: 'Identity', type: 'text' },
+  { key: 'pf_number',       label: 'PF Number',      group: 'Identity', type: 'text' },
+  { key: 'designation_name',label: 'Designation',    group: 'Identity', type: 'text', default: true },
+  { key: 'office_name',     label: 'Office',         group: 'Identity', type: 'text' },
+  { key: 'id_card_no',      label: 'ID Card No',     group: 'Identity', type: 'text' },
+
+  // Personal
+  { key: 'date_of_birth',   label: 'DOB',            group: 'Personal', type: 'date' },
+  { key: 'fathers_name',    label: "Father's Name",  group: 'Personal', type: 'text' },
+  { key: 'gender',          label: 'Gender',         group: 'Personal', type: 'text' },
+  { key: 'caste',           label: 'Caste',          group: 'Personal', type: 'text' },
+  { key: 'marital_status',  label: 'Marital Status', group: 'Personal', type: 'text' },
+  { key: 'qualification',   label: 'Qualification',  group: 'Personal', type: 'text' },
+
+  // Contact
+  { key: 'phone_number',    label: 'Phone',          group: 'Contact', type: 'text' },
+  { key: 'cug_number',      label: 'CUG',            group: 'Contact', type: 'text' },
+  { key: 'email',           label: 'Email',          group: 'Contact', type: 'text' },
+  { key: 'present_address', label: 'Present Address',group: 'Contact', type: 'text' },
+  { key: 'permanent_address',label:'Permanent Address',group:'Contact',type: 'text' },
+
+  // IDs
+  { key: 'aadhar_card_no',  label: 'Aadhaar',        group: 'IDs', type: 'text' },
+  { key: 'pan_card_no',     label: 'PAN',            group: 'IDs', type: 'text' },
+  { key: 'identification_mark_1', label: 'ID Mark 1',group: 'IDs', type: 'text' },
+  { key: 'identification_mark_2', label: 'ID Mark 2',group: 'IDs', type: 'text' },
+
+  // Medical
+  { key: 'vision',          label: 'Vision',         group: 'Medical', type: 'text' },
+  { key: 'blood_group',     label: 'Blood Group',    group: 'Medical', type: 'text' },
+  { key: 'safety_category', label: 'Safety Cat',     group: 'Medical', type: 'text' },
+
+  // Training
+  { key: 'pme_done_date',       label: 'PME Done',       group: 'Training', type: 'date' },
+  { key: 'pme_due_date',        label: 'PME Due',        group: 'Training', type: 'date', isDue: true },
+  { key: 'refresher_done_date', label: 'Refresher Done', group: 'Training', type: 'date' },
+  { key: 'refresher_due_date',  label: 'Refresher Due',  group: 'Training', type: 'date', isDue: true },
+  { key: 'auto_done_date',      label: 'Automatic Done', group: 'Training', type: 'date' },
+  { key: 'auto_due_date',       label: 'Automatic Due',  group: 'Training', type: 'date', isDue: true },
+
+  // Service
+  { key: 'date_of_appointment', label: 'Appointment Date', group: 'Service', type: 'date' },
+  { key: 'reporting_date',      label: 'Reporting Date',   group: 'Service', type: 'date' },
+  { key: 'dept_rrb',            label: 'Dept/RRB',         group: 'Service', type: 'text' },
+  { key: 'status',              label: 'Status',           group: 'Service', type: 'text' },
+];
+
+const PRESETS = {
+  contact:  ['hrms_id', 'name', 'designation_name', 'phone_number', 'cug_number', 'email'],
+  training: ['hrms_id', 'name', 'designation_name', 'pme_done_date', 'pme_due_date', 'refresher_done_date', 'refresher_due_date', 'auto_done_date', 'auto_due_date'],
+  medical:  ['hrms_id', 'name', 'designation_name', 'vision', 'blood_group', 'safety_category', 'date_of_birth'],
+  identity: ['hrms_id', 'name', 'current_cms_id', 'pf_number', 'designation_name', 'office_name'],
+};
+
+// ---- Init ----
+document.addEventListener('DOMContentLoaded', async () => {
+  renderFieldGroups();
+  applyPreset('identity'); // default selection
+  await loadDesignations();
+  await loadOffices();
+});
+
+// ---- Render field checkboxes ----
+function renderFieldGroups() {
+  const container = document.getElementById('fieldGroups');
+  const groups = {};
+  FIELDS.forEach(f => {
+    if (!groups[f.group]) groups[f.group] = [];
+    groups[f.group].push(f);
+  });
+
+  let html = '';
+  for (const [group, fields] of Object.entries(groups)) {
+    html += `<div class="field-group"><div class="field-group-title">${group}</div>`;
+    for (const f of fields) {
+      html += `<label class="field-check"><input type="checkbox" data-field="${f.key}" ${f.default ? 'checked' : ''}> <span>${f.label}</span></label>`;
+    }
+    html += '</div>';
+  }
+  container.innerHTML = html;
+}
+
+function selectAll(checked) {
+  document.querySelectorAll('#fieldGroups input[type=checkbox]').forEach(cb => cb.checked = checked);
+
+  if (!checked) {
+    // Clear All: also clear designation filter and report area
+    document.querySelectorAll('#designationFilter input[type=checkbox]').forEach(cb => cb.checked = false);
+    selectedDesignationIds.clear();
+    document.getElementById('statusFilter').value = 'active';
+
+    // Clear report results
+    reportData = [];
+    document.getElementById('reportContent').innerHTML = '<div class="placeholder-msg">Select fields on the left and click <strong>Generate Report</strong></div>';
+    document.getElementById('resultCount').textContent = 'No data';
+    document.getElementById('btnExcel').disabled = true;
+    document.getElementById('btnPrint').disabled = true;
+  }
+}
+
+function applyPreset(name) {
+  const fields = PRESETS[name] || [];
+  document.querySelectorAll('#fieldGroups input[type=checkbox]').forEach(cb => {
+    cb.checked = fields.includes(cb.getAttribute('data-field'));
+  });
+}
+
+function getSelectedFields() {
+  const selected = [];
+  document.querySelectorAll('#fieldGroups input[type=checkbox]:checked').forEach(cb => {
+    const key = cb.getAttribute('data-field');
+    const f = FIELDS.find(x => x.key === key);
+    if (f) selected.push(f);
+  });
+  return selected;
+}
+
+// ---- Load designations ----
+async function loadDesignations() {
+  try {
+    const res = await fetch('/api/division/designations');
+    const json = await res.json();
+    if (!json.success) return;
+    designations = json.data || [];
+
+    const container = document.getElementById('designationFilter');
+    container.innerHTML = designations.map(d =>
+      `<label class="field-check"><input type="checkbox" class="desig-cb" data-id="${d.id}"> <span>${d.designation_name}</span></label>`
+    ).join('');
+
+    container.addEventListener('change', (e) => {
+      if (!e.target.classList.contains('desig-cb')) return;
+      const id = parseInt(e.target.getAttribute('data-id'));
+      if (e.target.checked) selectedDesignationIds.add(id);
+      else selectedDesignationIds.delete(id);
+    });
+  } catch (e) { console.error('Failed to load designations', e); }
+}
+
+// ---- Load offices ----
+async function loadOffices() {
+  try {
+    const infoRes = await fetch('/api/current-user');
+    if (infoRes.ok) {
+      const info = await infoRes.json();
+      if (info) {
+        userOffice = info.div_office_code || '';
+        userRole = info.div_role || '';
+      }
+    }
+
+    const res = await fetch('/api/division/offices');
+    const json = await res.json();
+    if (!json.success) return;
+    const offices = json.data || [];
+
+    const sel = document.getElementById('officeSelect');
+
+    if (userRole !== 'division_admin' && userOffice) {
+      const userOfficeData = offices.find(o => o.office_code === userOffice);
+      if (userOfficeData) {
+        const opt = document.createElement('option');
+        opt.value = userOfficeData.office_code;
+        opt.textContent = userOfficeData.office_name;
+        opt.selected = true;
+        sel.appendChild(opt);
+      }
+      sel.style.pointerEvents = 'none';
+      sel.style.backgroundColor = '#e9ecef';
+    } else {
+      offices.forEach(o => {
+        const opt = document.createElement('option');
+        opt.value = o.office_code;
+        opt.textContent = o.office_name;
+        if (userOffice && o.office_code === userOffice) opt.selected = true;
+        sel.appendChild(opt);
+      });
+    }
+  } catch (e) { console.error('Failed to load offices', e); }
+}
+
+// ---- Generate Report ----
+async function generateReport() {
+  const officeCode = document.getElementById('officeSelect').value;
+  if (!officeCode) {
+    showToast('Please select an office first', 'error');
+    return;
+  }
+
+  // Only admins can use "All offices"
+  if (officeCode === '__ALL__' && userRole !== 'division_admin') {
+    showToast('Only division admins can view all offices', 'error');
+    return;
+  }
+
+  const selectedFields = getSelectedFields();
+  if (selectedFields.length === 0) {
+    showToast('Please select at least one field', 'error');
+    return;
+  }
+
+  const content = document.getElementById('reportContent');
+  content.innerHTML = '<div class="placeholder-msg"><div class="spinner-border text-primary" role="status"></div><div class="mt-2">Loading data...</div></div>';
+
+  try {
+    let url = '/api/division/staff-sheet';
+    const params = [];
+    if (officeCode !== '__ALL__') {
+      params.push(`office_code=${encodeURIComponent(officeCode)}`);
+    }
+    if (selectedDesignationIds.size > 0) {
+      params.push(`designation_ids=${Array.from(selectedDesignationIds).join(',')}`);
+    }
+    if (params.length > 0) url += '?' + params.join('&');
+
+    const res = await fetch(url);
+    const json = await res.json();
+    if (!json.success) { showToast('Failed to load data', 'error'); return; }
+
+    allData = json.data || [];
+
+    // Filter by status
+    const statusFilter = document.getElementById('statusFilter').value;
+    if (statusFilter === 'active') {
+      reportData = allData.filter(r => r.status === 'Active');
+    } else if (statusFilter === 'all') {
+      reportData = allData;
+    } else {
+      reportData = allData.filter(r => r.status === statusFilter);
+    }
+
+    renderResultTable(selectedFields);
+    document.getElementById('resultCount').textContent = `${reportData.length} staff`;
+    document.getElementById('btnExcel').disabled = reportData.length === 0;
+    document.getElementById('btnPrint').disabled = reportData.length === 0;
+
+  } catch (e) {
+    console.error(e);
+    showToast('Error loading data: ' + e.message, 'error');
+  }
+}
+
+// ---- Render result table ----
+function renderResultTable(selectedFields) {
+  const content = document.getElementById('reportContent');
+
+  if (reportData.length === 0) {
+    content.innerHTML = '<div class="placeholder-msg">No matching staff found</div>';
+    return;
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  let html = '<table class="table table-sm table-striped table-bordered result-table"><thead><tr>';
+  html += '<th>#</th>';
+  selectedFields.forEach(f => { html += `<th>${escapeHtml(f.label)}</th>`; });
+  html += '</tr></thead><tbody>';
+
+  reportData.forEach((row, idx) => {
+    html += `<tr><td>${idx + 1}</td>`;
+    selectedFields.forEach(f => {
+      let val = row[f.key];
+      let cellClass = '';
+
+      if (f.type === 'date') {
+        val = formatDate(val);
+      } else {
+        val = val == null ? '' : String(val);
+      }
+
+      // Color coding for due date columns
+      if (f.isDue && row[f.key]) {
+        const due = new Date(row[f.key]);
+        due.setHours(0, 0, 0, 0);
+        const days = Math.ceil((due - today) / 86400000);
+        if (days < 0) cellClass = 'trg-overdue';
+        else if (days <= 30) cellClass = 'trg-due-soon';
+      }
+
+      html += `<td${cellClass ? ` class="${cellClass}"` : ''}>${escapeHtml(val)}</td>`;
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  content.innerHTML = html;
+}
+
+// ---- Excel Export ----
+function exportExcel() {
+  const selectedFields = getSelectedFields();
+  if (selectedFields.length === 0 || reportData.length === 0) return;
+
+  const header = ['#', ...selectedFields.map(f => f.label)];
+  const aoa = [header];
+
+  reportData.forEach((row, idx) => {
+    const r = [idx + 1];
+    selectedFields.forEach(f => {
+      let val = row[f.key];
+      if (f.type === 'date') val = formatDate(val);
+      r.push(val == null ? '' : val);
+    });
+    aoa.push(r);
+  });
+
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Staff Report');
+
+  const officeSel = document.getElementById('officeSelect');
+  const officeName = officeSel.value === '__ALL__' ? 'all-offices' : (officeSel.selectedOptions[0]?.text || 'office');
+  const dateStr = new Date().toISOString().split('T')[0];
+  const filename = `staff-report-${officeName.replace(/\s+/g, '_')}-${dateStr}.xlsx`;
+
+  XLSX.writeFile(wb, filename);
+  showToast('Excel downloaded: ' + filename, 'success');
+}
+
+// ---- Helpers ----
+function formatDate(val) {
+  if (!val) return '';
+  const d = new Date(val);
+  if (isNaN(d.getTime())) return '';
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const yyyy = d.getFullYear();
+  return `${dd}/${mm}/${yyyy}`;
+}
+
+function escapeHtml(s) {
+  if (s == null) return '';
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function showToast(msg, type) {
+  const container = document.getElementById('toastContainer');
+  const toast = document.createElement('div');
+  toast.className = `custom-toast ${type}`;
+  toast.textContent = msg;
+  container.appendChild(toast);
+  setTimeout(() => toast.remove(), 3000);
+}
+</script>
+</body>
+</html>
