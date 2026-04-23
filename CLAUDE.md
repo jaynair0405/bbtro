@@ -15,6 +15,19 @@ mysql -u jay -p4310jay bbtro
 mysql -u jay -p4310jay bbtro < sql/filename.sql
 ```
 
+## Server Details
+- **Host**: 93.127.198.125
+- **User**: railway
+
+### Quick Commands
+```bash
+# SCP file to server
+scp /path/to/file railway@93.127.198.125:/path/to/destination/
+
+# SSH to server
+ssh railway@93.127.198.125
+```
+
 ## Project Info
 - Division portal for railway operations (BB Division)
 - Node.js + Express backend
@@ -41,3 +54,78 @@ mysql -u jay -p4310jay bbtro < sql/filename.sql
 ### TODO / Notes
 - **Training record update**: Do NOT update `div_training_records` when letter is prepared. Only update when training centre marks staff as "completed".
 - **OTHERS type**: For informal refresher when staff completed training but hasn't worked on certain rakes for a while. Does NOT update `div_training_types` or `div_training_records`. User enters custom subject. Letter history only.
+
+## Motormen View (Suburban Portal)
+
+### Background
+The `motormen` table was originally a standalone table for suburban portal (wheel movement analysis, reassignment, etc.). It required manual sync with division data and often had stale/outdated records.
+
+### Migration (April 2026)
+Replaced the `motormen` table with a **view** that reads from `div_staff_master`. This ensures suburban portal always has current motormen data.
+
+### Current Structure
+- `motormen` - **VIEW** (points to div_staff_master)
+- `motormen_old` - **TABLE** (backup of original data)
+
+### View Definition
+```sql
+CREATE VIEW motormen AS
+SELECT
+    current_cms_id COLLATE utf8mb4_unicode_ci AS cmsid,
+    name COLLATE utf8mb4_unicode_ci AS motorman_name,
+    cug_number COLLATE utf8mb4_unicode_ci AS mobile_number,
+    pf_number COLLATE utf8mb4_unicode_ci AS pf_number,
+    hrms_id COLLATE utf8mb4_unicode_ci AS hrms_id,
+    CASE
+        WHEN current_office_code = 'CSMT-SUB' THEN 'CSMT'
+        WHEN current_office_code = 'KYN-SUB' THEN 'KYN'
+        WHEN current_office_code = 'PNVL-SUB' THEN 'PNVL'
+    END COLLATE utf8mb4_unicode_ci AS office,
+    'active' COLLATE utf8mb4_unicode_ci AS status,
+    created_at
+FROM div_staff_master
+WHERE designation_id = 8
+  AND current_office_code IN ('CSMT-SUB', 'KYN-SUB', 'PNVL-SUB')
+  AND status = 'Active';
+```
+
+### Field Mapping
+| motormen (view) | div_staff_master |
+|-----------------|------------------|
+| cmsid | current_cms_id |
+| motorman_name | name |
+| mobile_number | cug_number |
+| pf_number | pf_number |
+| hrms_id | hrms_id |
+| office | current_office_code (mapped CSMT-SUB→CSMT, etc.) |
+| status | Always 'active' (filtered) |
+| created_at | created_at |
+
+### Filters Applied
+- `designation_id = 8` (motormen only)
+- `current_office_code IN ('CSMT-SUB', 'KYN-SUB', 'PNVL-SUB')` (suburban only)
+- `status = 'Active'` (active staff only)
+
+### Benefits
+- Auto-syncs when div_staff_master is updated
+- No dual maintenance
+- Transfers/retirements reflected automatically
+- Single source of truth
+
+### Used By
+- Wheel Movement Analysis
+- Detail Reassignment (JFO Console)
+- Duty Roster features
+
+### Rollback (if needed)
+```sql
+DROP VIEW motormen;
+RENAME TABLE motormen_old TO motormen;
+```
+
+### Convert to Table (if needed later)
+```sql
+CREATE TABLE motormen_new AS SELECT * FROM motormen;
+DROP VIEW motormen;
+RENAME TABLE motormen_new TO motormen;
+```

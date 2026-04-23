@@ -336,24 +336,52 @@
         </div>
       </a>
 
-      <a href="#" class="analysis-card theme-future" style="background: #f8fafc; opacity: 0.8;">
-        <div class="card-image" style="color: #94a3b8; background: #f1f5f9;">
-            <i class="fa-solid fa-plus"></i>
+      <a href="/div/cvvrs.html" class="analysis-card theme-cvvrs">
+        <div class="card-image" style="color: #2563eb; background: #eff6ff;">
+            <i class="fa-solid fa-video"></i>
         </div>
         <div class="card-content">
-          <div class="card-title" style="color: #64748b;">Future Module</div>
+          <div class="card-title">
+            Mainline CVVRS
+            <span class="badge" style="background:#dbeafe;color:#1e40af;">NEW</span>
+          </div>
           <div class="card-desc">
-            Reserved for upcoming analysis modules or Crew Management integration.
+            Crew Voice & Video Recording System analysis for Mail/Express. LP + ALP observations across 4 operational phases.
           </div>
         </div>
         <div class="card-stats">
           <div class="stat-box">
             <span class="stat-label">Yesterday</span>
-            <span class="stat-value">-</span>
+            <span class="stat-value" id="cvvrs-yesterday-count">-</span>
           </div>
           <div class="stat-box" style="text-align: right;">
             <span class="stat-label">Total Analyzed</span>
-            <span class="stat-value">-</span>
+            <span class="stat-value" id="cvvrs-total-count">-</span>
+          </div>
+        </div>
+      </a>
+
+      <a href="/div/adas.html" class="analysis-card theme-adas">
+        <div class="card-image" style="color: #8b5cf6; background: #f5f3ff;">
+            <i class="fa-solid fa-camera-retro"></i>
+        </div>
+        <div class="card-content">
+          <div class="card-title">
+            Suburban ADAS
+            <span class="badge" style="background:#ede9fe;color:#5b21b6;">NEW</span>
+          </div>
+          <div class="card-desc">
+            CLI cab-camera analysis for Suburban EMU Motormen. 13-point behavioural checklist as per Annexure-B.
+          </div>
+        </div>
+        <div class="card-stats">
+          <div class="stat-box">
+            <span class="stat-label">Yesterday</span>
+            <span class="stat-value" id="adas-yesterday-count">-</span>
+          </div>
+          <div class="stat-box" style="text-align: right;">
+            <span class="stat-label">Total Analyzed</span>
+            <span class="stat-value" id="adas-total-count">-</span>
           </div>
         </div>
       </a>
@@ -420,10 +448,28 @@
       }
     }
 
+    // Generic stat loader for CVVRS/ADAS
+    async function loadSimpleStats(endpoint, yesterdayId, totalId) {
+      try {
+        const res = await fetch(endpoint, { credentials: 'same-origin', cache: 'no-store' });
+        const data = await res.json();
+        if (data.success) {
+          const yEl = document.getElementById(yesterdayId);
+          const tEl = document.getElementById(totalId);
+          if (yEl) yEl.textContent = (data.yesterday || 0).toLocaleString();
+          if (tEl) tEl.textContent = (data.total || 0).toLocaleString();
+        }
+      } catch (err) {
+        console.error('Stats error for', endpoint, err);
+      }
+    }
+
     // Load stats when page loads
     document.addEventListener('DOMContentLoaded', () => {
       loadRTISStats();
       loadSPMStats();
+      loadSimpleStats('/api/division/cvvrs/stats', 'cvvrs-yesterday-count', 'cvvrs-total-count');
+      loadSimpleStats('/api/division/adas/stats', 'adas-yesterday-count', 'adas-total-count');
     });
   </script>
 

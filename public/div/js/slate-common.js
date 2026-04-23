@@ -314,16 +314,55 @@ function flashHighlight(element, color = '#10b981', duration = 800) {
 
 /**
  * Format rest type for API
- * @param {string} restValue - Rest dropdown value ('16', '30', 'suspend')
+ * @param {string} restValue - Rest dropdown value ('16', '30')
  * @returns {string} API enum value
  */
 function mapRestType(restValue) {
     const map = {
         '16': 'NORMAL',
-        '30': 'PR',
-        'suspend': 'MULTI_DAY_LEAVE'
+        '30': 'PR'
     };
     return map[restValue] || 'NORMAL';
+}
+
+/**
+ * Calculate minimum days off based on rest type and leave selection
+ * @param {string} restType - Rest type ('16' for Normal, '30' for PR)
+ * @param {string} leave - Leave selection ('0', '1B', '2B', '3B', '1A', '2A', '3A', 'MULTI')
+ * @returns {number} Minimum days until next slot
+ */
+function calculateMinDaysOff(restType, leave) {
+    // Base rest days: Normal=1, PR=2
+    let days = (restType === '30') ? 2 : 1;
+
+    // Add leave days
+    if (leave && leave !== '0' && leave !== 'MULTI') {
+        const leaveDays = parseInt(leave.charAt(0));
+        if (!isNaN(leaveDays)) {
+            days += leaveDays;
+        }
+    }
+
+    return days;
+}
+
+/**
+ * Parse leave selection to get days and position
+ * @param {string} leave - Leave selection ('0', '1B', '2B', '3B', '1A', '2A', '3A', 'MULTI')
+ * @returns {object} { days: number, position: 'before'|'after'|null, isMultiDay: boolean }
+ */
+function parseLeaveSelection(leave) {
+    if (!leave || leave === '0') {
+        return { days: 0, position: null, isMultiDay: false };
+    }
+    if (leave === 'MULTI') {
+        return { days: 0, position: null, isMultiDay: true };
+    }
+
+    const days = parseInt(leave.charAt(0));
+    const position = leave.charAt(1) === 'B' ? 'before' : 'after';
+
+    return { days, position, isMultiDay: false };
 }
 
 // ========== LATE ARRIVAL CHECK ==========
@@ -390,6 +429,8 @@ if (typeof module !== 'undefined' && module.exports) {
         searchStaff,
         showToast,
         flashHighlight,
-        mapRestType
+        mapRestType,
+        calculateMinDaysOff,
+        parseLeaveSelection
     };
 }

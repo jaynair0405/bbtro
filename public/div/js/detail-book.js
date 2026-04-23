@@ -80,9 +80,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('lpDatePicker').addEventListener('blur', () => handleDatePickerBlur('lp'));
     document.getElementById('alpDatePicker').addEventListener('blur', () => handleDatePickerBlur('alp'));
 
-    // Attach rest rule change handlers for leave validation
-    document.getElementById('lpRest').addEventListener('change', (e) => handleRestChange('lp', e.target.value));
-    document.getElementById('alpRest').addEventListener('change', (e) => handleRestChange('alp', e.target.value));
+    // Rest/Leave change handlers are attached via onchange in HTML
 
     // Initialize scroll listener for date tab sync
     initScrollListener();
@@ -525,6 +523,7 @@ function selectCrewCard(slateId) {
         lpSelect.innerHTML = `<option value="${crew.lp_hrms_id}" selected>${crew.lp_name} (${crew.lp_cms_id})</option>`;
         lpSelect.disabled = true;
         document.getElementById('lpRest').value = '16';
+        document.getElementById('lpLeave').value = '0';
         lpRestGroup.style.opacity = '1';
         lpRestGroup.style.pointerEvents = 'auto';
     }
@@ -534,7 +533,8 @@ function selectCrewCard(slateId) {
         selectedALP = null;
         alpSelect.innerHTML = `<option value="none" selected style="color: var(--warning);">[ALP Already @ ${alpAssigned.date.substring(5)} ${alpAssigned.time}]</option>`;
         alpSelect.disabled = true;
-        document.getElementById('alpRest').value = 'suspend';
+        document.getElementById('alpRest').value = '16';
+        document.getElementById('alpLeave').value = 'MULTI';
         alpRestGroup.style.opacity = '0.4';
         alpRestGroup.style.pointerEvents = 'none';
     } else if (crew.alp_hrms_id) {
@@ -546,6 +546,7 @@ function selectCrewCard(slateId) {
         `;
         alpSelect.disabled = true;
         document.getElementById('alpRest').value = '16';
+        document.getElementById('alpLeave').value = '0';
         alpRestGroup.style.opacity = '1';
         alpRestGroup.style.pointerEvents = 'auto';
     } else {
@@ -914,7 +915,15 @@ function enableManualEntry() {
     document.getElementById('alpAlert').className = 'alert';
     document.getElementById('alpAlert').innerHTML = '';
     document.getElementById('lpRest').value = '16';
+    document.getElementById('lpLeave').value = '0';
     document.getElementById('alpRest').value = '16';
+    document.getElementById('alpLeave').value = '0';
+
+    // Re-enable slot inputs (in case they were disabled for multi-day leave)
+    document.getElementById('lpSlotDate').disabled = false;
+    document.getElementById('lpNextSlot').disabled = false;
+    document.getElementById('alpSlotDate').disabled = false;
+    document.getElementById('alpNextSlot').disabled = false;
 
     // Reset warning state
     lpWarnings = [];
@@ -1534,9 +1543,11 @@ function clearArrivalForm() {
         alpSearch.value = '';
     }
 
-    // Reset rest dropdowns
+    // Reset rest and leave dropdowns
     document.getElementById('lpRest').value = '16';
+    document.getElementById('lpLeave').value = '0';
     document.getElementById('alpRest').value = '16';
+    document.getElementById('alpLeave').value = '0';
     document.getElementById('lpNextSlot').disabled = false;
     document.getElementById('alpNextSlot').disabled = false;
     document.getElementById('lpSlotDate').disabled = false;
@@ -2264,8 +2275,10 @@ async function submitToSlate() {
     // Get slot info
     const lpSlotBox = document.getElementById('lpNextSlot');
     const lpRest = document.getElementById('lpRest').value;
+    const lpLeave = document.getElementById('lpLeave').value;
     const alpSlotBox = document.getElementById('alpNextSlot');
     const alpRest = document.getElementById('alpRest').value;
+    const alpLeave = document.getElementById('alpLeave').value;
 
     // Get pilot and train info
     let trainNo = document.getElementById('incomingTrain').value.trim();
@@ -2285,15 +2298,23 @@ async function submitToSlate() {
 
     const lpDateSelect = document.getElementById('lpSlotDate');
     if (selectedLP) {
-        if (lpRest !== 'suspend' && lpDateSelect.value === 'pick') {
+        const lpIsMultiDay = lpLeave === 'MULTI';
+        if (!lpIsMultiDay && lpDateSelect.value === 'pick') {
             alert('Please select a date for LP slot');
             lpDateSelect.focus();
             return;
         }
+
+        // Validate minimum rest
+        if (!lpIsMultiDay) {
+            validateSlotDate('lp');
+        }
+
         payload.lp_hrms_id = selectedLP.hrms_id;
-        payload.lp_rest_type = mapRestType(lpRest);
-        payload.lp_next_slot_date = lpRest !== 'suspend' ? lpDateSelect.value : null;
-        payload.lp_next_slot_time = lpRest !== 'suspend' ? lpSlotBox.value + ':00' : null;
+        payload.lp_rest_type = lpIsMultiDay ? 'MULTI_DAY_LEAVE' : mapRestType(lpRest);
+        payload.lp_leave = lpLeave; // Send leave selection to backend
+        payload.lp_next_slot_date = !lpIsMultiDay ? lpDateSelect.value : null;
+        payload.lp_next_slot_time = !lpIsMultiDay ? lpSlotBox.value + ':00' : null;
         // Source slate ID to mark old slot as signed-off
         if (selectedLP.source_slate_id) {
             payload.source_slate_id = selectedLP.source_slate_id;
@@ -2319,15 +2340,23 @@ async function submitToSlate() {
 
     const alpDateSelect = document.getElementById('alpSlotDate');
     if (selectedALP) {
-        if (alpRest !== 'suspend' && alpDateSelect.value === 'pick') {
+        const alpIsMultiDay = alpLeave === 'MULTI';
+        if (!alpIsMultiDay && alpDateSelect.value === 'pick') {
             alert('Please select a date for ALP slot');
             alpDateSelect.focus();
             return;
         }
+
+        // Validate minimum rest
+        if (!alpIsMultiDay) {
+            validateSlotDate('alp');
+        }
+
         payload.alp_hrms_id = selectedALP.hrms_id;
-        payload.alp_rest_type = mapRestType(alpRest);
-        payload.alp_next_slot_date = alpRest !== 'suspend' ? alpDateSelect.value : null;
-        payload.alp_next_slot_time = alpRest !== 'suspend' ? alpSlotBox.value + ':00' : null;
+        payload.alp_rest_type = alpIsMultiDay ? 'MULTI_DAY_LEAVE' : mapRestType(alpRest);
+        payload.alp_leave = alpLeave; // Send leave selection to backend
+        payload.alp_next_slot_date = !alpIsMultiDay ? alpDateSelect.value : null;
+        payload.alp_next_slot_time = !alpIsMultiDay ? alpSlotBox.value + ':00' : null;
     }
 
     // Check for collisions first
@@ -2514,15 +2543,108 @@ function resolveCollision(choice) {
     }
 }
 
-// ========== LEAVE CONFIRMATION MODAL ==========
-async function handleRestChange(type, value) {
+// ========== REST/LEAVE CHANGE HANDLER ==========
+async function handleRestLeaveChange(type) {
+    const restSelect = document.getElementById(type === 'lp' ? 'lpRest' : 'alpRest');
+    const leaveSelect = document.getElementById(type === 'lp' ? 'lpLeave' : 'alpLeave');
+    const slotDateSelect = document.getElementById(type === 'lp' ? 'lpSlotDate' : 'alpSlotDate');
+
+    const restValue = restSelect.value;
+    const leaveValue = leaveSelect.value;
+
     // When Multi-Day Leave is selected, check if staff has leave application
-    if (value === 'suspend') {
+    if (leaveValue === 'MULTI') {
         const staff = type === 'lp' ? selectedLP : selectedALP;
         if (staff && staff.hrms_id) {
             await checkLeaveForMultiDay(type, staff.hrms_id, staff.name);
         }
+        // Disable slot selection for multi-day leave
+        slotDateSelect.disabled = true;
+        document.getElementById(type === 'lp' ? 'lpNextSlot' : 'alpNextSlot').disabled = true;
+    } else {
+        // Enable slot selection
+        slotDateSelect.disabled = false;
+        document.getElementById(type === 'lp' ? 'lpNextSlot' : 'alpNextSlot').disabled = false;
+
+        // Calculate and preset minimum date based on rest + leave
+        presetMinimumDate(type, restValue, leaveValue);
     }
+
+    // Recalculate slots
+    if (isManualMode) {
+        calculateSlotsManual();
+    } else {
+        calculateSlots();
+    }
+}
+
+/**
+ * Preset the minimum next slot date based on rest type and leave selection
+ */
+function presetMinimumDate(type, restType, leave) {
+    const slotDateSelect = document.getElementById(type === 'lp' ? 'lpSlotDate' : 'alpSlotDate');
+
+    // Calculate minimum days off
+    const minDays = calculateMinDaysOff(restType, leave);
+
+    // Get sign-off date (today or from selected card)
+    const signOffDate = new Date(TODAY.getTime());
+    signOffDate.setDate(signOffDate.getDate() + minDays);
+
+    const targetDateStr = formatLocalDate(signOffDate);
+
+    // Try to select this date in dropdown
+    const options = slotDateSelect.options;
+    for (let i = 0; i < options.length; i++) {
+        if (options[i].value === targetDateStr) {
+            slotDateSelect.value = targetDateStr;
+            handleDateSelect(type);
+            return;
+        }
+    }
+
+    // If date not in dropdown, show in label
+    const label = document.getElementById(type === 'lp' ? 'lpSlotDateLabel' : 'alpSlotDateLabel');
+    label.textContent = `(Min: ${targetDateStr})`;
+    label.style.color = 'var(--warning)';
+}
+
+/**
+ * Validate if selected date meets minimum rest requirement
+ */
+function validateSlotDate(type) {
+    const restSelect = document.getElementById(type === 'lp' ? 'lpRest' : 'alpRest');
+    const leaveSelect = document.getElementById(type === 'lp' ? 'lpLeave' : 'alpLeave');
+    const slotDateSelect = document.getElementById(type === 'lp' ? 'lpSlotDate' : 'alpSlotDate');
+
+    const restValue = restSelect.value;
+    const leaveValue = leaveSelect.value;
+    const selectedDate = slotDateSelect.value;
+
+    if (!selectedDate || selectedDate === 'pick' || leaveValue === 'MULTI') {
+        return true; // Skip validation
+    }
+
+    const minDays = calculateMinDaysOff(restValue, leaveValue);
+    const signOffDate = new Date(TODAY.getTime());
+    const minDate = new Date(signOffDate.getTime());
+    minDate.setDate(minDate.getDate() + minDays);
+
+    const selected = new Date(selectedDate);
+
+    if (selected < minDate) {
+        const minDateStr = formatLocalDate(minDate);
+        showToast(`Warning: ${type.toUpperCase()} needs rest until ${minDateStr}`, 'warning');
+        return false;
+    }
+
+    return true;
+}
+
+// Legacy function for backward compatibility
+async function handleRestChange(type, value) {
+    // Redirect to new handler
+    handleRestLeaveChange(type);
 }
 
 async function checkLeaveForMultiDay(type, hrmsId, staffName) {
@@ -2571,22 +2693,30 @@ function resolveLeaveConfirm(choice) {
     if (!pendingLeaveConfirm) return;
 
     const { type } = pendingLeaveConfirm;
-    const restSelect = document.getElementById(type === 'lp' ? 'lpRest' : 'alpRest');
+    const leaveSelect = document.getElementById(type === 'lp' ? 'lpLeave' : 'alpLeave');
+    const slotDateSelect = document.getElementById(type === 'lp' ? 'lpSlotDate' : 'alpSlotDate');
+    const slotTimeInput = document.getElementById(type === 'lp' ? 'lpNextSlot' : 'alpNextSlot');
 
     if (choice === 'normal') {
-        // Switch to normal rest (16hr)
-        restSelect.value = '16';
+        // Switch to no leave
+        leaveSelect.value = '0';
+        slotDateSelect.disabled = false;
+        slotTimeInput.disabled = false;
         if (isManualMode) {
             calculateSlotsManual();
         } else {
             calculateSlots();
         }
-        showToast(`${type.toUpperCase()} switched to Normal Rest`, 'info');
+        showToast(`${type.toUpperCase()} switched to No Leave`, 'info');
     } else if (choice === 'proceed') {
         // User confirmed to proceed with multi-day leave
         showToast(`Proceeding with Multi-Day Leave for ${type.toUpperCase()}`, 'warning');
+    } else if (choice === 'cancel') {
+        // Reset to no leave
+        leaveSelect.value = '0';
+        slotDateSelect.disabled = false;
+        slotTimeInput.disabled = false;
     }
-    // 'cancel' - just close modal, leave fields as-is
 
     pendingLeaveConfirm = null;
 }

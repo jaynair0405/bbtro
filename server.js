@@ -195,6 +195,42 @@ app.get('/div/biodataform.html', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'div', 'biodataform.html'));
 });
 
+app.get('/div/biodata-sheet.html', (req, res) => {
+  if (!req.session.user) return res.redirect('/');
+  if (req.session.user.realm !== 'division') return res.redirect('/');
+  res.sendFile(path.join(__dirname, 'public', 'div', 'biodata-sheet.html'));
+});
+
+app.get('/div/custom-report.html', (req, res) => {
+  if (!req.session.user) return res.redirect('/');
+  if (req.session.user.realm !== 'division') return res.redirect('/');
+  res.sendFile(path.join(__dirname, 'public', 'div', 'custom-report.html'));
+});
+
+app.get('/div/cvvrs.html', (req, res) => {
+  if (!req.session.user) return res.redirect('/');
+  if (req.session.user.realm !== 'division') return res.redirect('/');
+  res.sendFile(path.join(__dirname, 'public', 'div', 'cvvrs.html'));
+});
+
+app.get('/div/cvvrs-reports.html', (req, res) => {
+  if (!req.session.user) return res.redirect('/');
+  if (req.session.user.realm !== 'division') return res.redirect('/');
+  res.sendFile(path.join(__dirname, 'public', 'div', 'cvvrs-reports.html'));
+});
+
+app.get('/div/adas.html', (req, res) => {
+  if (!req.session.user) return res.redirect('/');
+  if (req.session.user.realm !== 'division') return res.redirect('/');
+  res.sendFile(path.join(__dirname, 'public', 'div', 'adas.html'));
+});
+
+app.get('/div/adas-reports.html', (req, res) => {
+  if (!req.session.user) return res.redirect('/');
+  if (req.session.user.realm !== 'division') return res.redirect('/');
+  res.sendFile(path.join(__dirname, 'public', 'div', 'adas-reports.html'));
+});
+
 app.get('/div/training-due-report.html', (req, res) => {
   if (!req.session.user) return res.redirect('/');
   if (req.session.user.realm !== 'division') return res.redirect('/');
@@ -595,6 +631,8 @@ const ctrRoutes = require('./routes/division/ctrRoutes');
 const categoryRoutes = require('./routes/division/categoryRoutes');
 const slateRoutes = require('./routes/division/slateRoutes');
 const trainingLetterRoutes = require('./routes/division/trainingLetterRoutes');
+const cvvrsRoutes = require('./routes/division/cvvrsRoutes');
+const adasRoutes = require('./routes/division/adasRoutes');
 const trainingCentreRoutes = require('./routes/division/trainingCentreRoutes');
 
 // Add division routes with realm protection
@@ -619,6 +657,8 @@ app.use("/api/division/category", requireRealm('division'), categoryRoutes);
 app.use("/api/division/slate", requireRealm('division'), slateRoutes);
 app.use("/api/division/training-letters", requireRealm('division'), trainingLetterRoutes);
 app.use("/api/division/training-centre", requireRealm('division'), trainingCentreRoutes);
+app.use("/api/division/cvvrs", requireRealm('division'), cvvrsRoutes);
+app.use("/api/division/adas", requireRealm('division'), adasRoutes);
 
 // Session info endpoint
 app.get('/api/session', (req, res) => {

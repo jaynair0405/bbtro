@@ -635,7 +635,11 @@ router.put('/:record_id', requireAuth, async (req, res) => {
             done_date,
             due_date,
             training_center_id,
-            remarks
+            remarks,
+            medical_fit,
+            decategorized_date,
+            decategorized_reason,
+            medical_remarks
         } = req.body;
 
         // Basic validation
@@ -650,8 +654,17 @@ router.put('/:record_id', requireAuth, async (req, res) => {
         const LIFETIME_TRAININGS = [4, 9, 10, 11, 12, 14, 15, 16, 18, 19, 20, 21, 22, 23, 24, 25];
         const isLifetimeTraining = LIFETIME_TRAININGS.includes(parseInt(training_id));
 
-        // Require due date only for non-lifetime trainings
-        if (!isLifetimeTraining && !due_date) {
+        // Check if medically unfit (PME)
+        const isMedicallyUnfit = medical_fit === 0;
+
+        // Validate based on medical fitness
+        if (isMedicallyUnfit) {
+            if (!decategorized_date || !decategorized_reason) {
+                return res.status(400).json({
+                    error: 'Decategorized date and reason are required for medically unfit staff'
+                });
+            }
+        } else if (!isLifetimeTraining && !due_date) {
             return res.status(400).json({
                 error: 'Due date is required for this training type'
             });
@@ -659,10 +672,26 @@ router.put('/:record_id', requireAuth, async (req, res) => {
 
         conn = await req.app.locals.pool.getConnection();
 
+        // Get staff_hrms_id for the record (needed if updating staff status)
+        let staffHrmsId = null;
+        if (isMedicallyUnfit) {
+            const [recordCheck] = await conn.query(
+                'SELECT staff_hrms_id FROM div_training_records WHERE record_id = ?',
+                [record_id]
+            );
+            if (recordCheck.length > 0) {
+                staffHrmsId = recordCheck[0].staff_hrms_id;
+            }
+        }
+
+        await conn.beginTransaction();
+
         const [result] = await conn.query(
             `UPDATE div_training_records
              SET training_id = ?, done_date = ?, due_date = ?,
-                 training_center_id = ?, general_remarks = ?
+                 training_center_id = ?, general_remarks = ?,
+                 medical_fit = ?, decategorized_date = ?,
+                 decategorized_reason = ?, medical_remarks = ?
              WHERE record_id = ?`,
             [
                 training_id,
@@ -670,10 +699,25 @@ router.put('/:record_id', requireAuth, async (req, res) => {
                 due_date || null,
                 training_center_id || null,
                 remarks || null,
+                medical_fit !== undefined ? medical_fit : 1,
+                decategorized_date || null,
+                decategorized_reason || null,
+                medical_remarks || null,
                 record_id
             ]
         );
 
+        // If medically unfit, update staff status
+        if (isMedicallyUnfit && staffHrmsId) {
+            await conn.query(
+                `UPDATE div_staff_master
+                 SET status = 'Medically Decategorised', updated_at = NOW()
+                 WHERE hrms_id = ?`,
+                [staffHrmsId]
+            );
+        }
+
+        await conn.commit();
         conn.release();
 
         if (result.affectedRows === 0) {
@@ -682,12 +726,17 @@ router.put('/:record_id', requireAuth, async (req, res) => {
 
         res.json({
             success: true,
-            message: 'Training record updated successfully'
+            message: isMedicallyUnfit
+                ? 'Training record updated and staff marked as Medically Decategorised'
+                : 'Training record updated successfully'
         });
 
     } catch (error) {
         console.error('Error updating training record:', error);
-        if (conn) conn.release();
+        if (conn) {
+            try { await conn.rollback(); } catch (_) {}
+            conn.release();
+        }
         res.status(500).json({ error: 'Database error', details: error.message });
     }
 });

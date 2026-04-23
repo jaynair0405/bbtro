@@ -211,9 +211,9 @@ function renderSheet() {
     formatDate(row.auto_due_date),
   ]);
 
-  // Due date columns (12,14,16) are not marked readOnly to avoid jexcel internal errors.
-  // Instead we block edits via onbeforechange.
-  const READ_ONLY_COLS = new Set([0, 4, COL.PME_DUE, COL.REF_DUE, COL.AUTO_DUE]);
+  // Read-only columns: HRMS ID(0), CMS ID(2), Office(4), and Due date columns.
+  // (CMS ID is not editable via the API, same as form view.)
+  const READ_ONLY_COLS = new Set([0, 2, 4, COL.PME_DUE, COL.REF_DUE, COL.AUTO_DUE]);
 
   const columns = [
     { type: 'text', title: 'HRMS ID', width: 90 },
@@ -384,7 +384,6 @@ async function saveChanges() {
 
     const biodataPayload = {
       name: rowData[1],
-      current_cms_id: rowData[2],
       designation_id: designationId,
       date_of_birth: parseDisplayDate(rowData[5]) || null,
       phone_number: rowData[6],
@@ -394,9 +393,8 @@ async function saveChanges() {
       status: rowData[10] || 'Active',
     };
 
-    // Check if biodata fields changed
+    // Check if biodata fields changed (CMS ID is read-only, not included)
     if (biodataPayload.name !== (original.name || '') ||
-        biodataPayload.current_cms_id !== (original.current_cms_id || '') ||
         String(biodataPayload.designation_id) !== String(original.designation_id || '') ||
         biodataPayload.date_of_birth !== formatDateISO(original.date_of_birth) ||
         biodataPayload.phone_number !== (original.phone_number || '') ||
@@ -437,9 +435,13 @@ async function saveChanges() {
       }
 
       // Save training changes
+      // Refresher: id=26 (MMPRC) for motormen (designation_id=8), id=2 (REF_IC) for others
+      const isMotorman = parseInt(biodataPayload.designation_id) === 8;
       for (const [type, dates] of Object.entries(trainingChanges)) {
         if (!dates.done) continue;
-        const trainingId = type === 'pme' ? 1 : type === 'refresher' ? 26 : 5;
+        const trainingId = type === 'pme' ? 1
+                          : type === 'refresher' ? (isMotorman ? 26 : 2)
+                          : 5;
 
         const res = await fetch('/api/division/training', {
           method: 'POST',

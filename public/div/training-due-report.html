@@ -688,8 +688,23 @@
             border-color: #9ca3af;
         }
 
+        .edit-justification-btn[title="Update Training"]:hover {
+            background: #eef2ff;
+            border-color: #6366f1;
+        }
+
         .justification-action {
             text-align: center;
+            white-space: nowrap;
+        }
+
+        /* Update Training Modal */
+        #updateTrainingModal .modal-body {
+            padding: 24px 28px;
+        }
+
+        #updateTrainingModal .staff-info-banner {
+            margin-bottom: 20px;
         }
 
         /* Justification Modal */
@@ -1092,6 +1107,106 @@
             <div class="modal-footer">
                 <button class="btn-secondary" onclick="closePrintModal()">Cancel</button>
                 <button class="btn-primary" id="printModalButton" onclick="executePrint()">🖨️ Print Report</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Update Training Modal -->
+    <div class="modal-overlay" id="updateTrainingModal" onclick="closeUpdateTrainingModal(event)">
+        <div class="modal-content" style="max-width: 550px;" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h2>📝 Update Training Record</h2>
+                <button class="modal-close" onclick="closeUpdateTrainingModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- Staff Info Banner -->
+                <div class="staff-info-banner" id="updateTrainingStaffInfo">
+                    <h3 id="updateTrainingStaffName">Staff Name</h3>
+                    <p id="updateTrainingStaffDetails">HRMS ID • Designation • Office</p>
+                </div>
+
+                <!-- Training Info (Read-only) -->
+                <div style="background: #f3f4f6; padding: 12px 16px; border-radius: 10px; margin-bottom: 20px;">
+                    <div style="font-size: 12px; text-transform: uppercase; font-weight: 600; color: #6b7280; margin-bottom: 4px;">Training Type</div>
+                    <div style="font-size: 16px; font-weight: 600; color: #1f2937;" id="updateTrainingTypeName">-</div>
+                </div>
+
+                <div class="justification-form-group">
+                    <label for="updateDoneDate">Done Date <span style="color: #dc2626;">*</span></label>
+                    <input type="date" id="updateDoneDate" style="width: 100%; padding: 12px 14px; border-radius: 10px; border: 1px solid #d1d5db; font-size: 14px; background: #f9fafb; color: #374151;">
+                </div>
+
+                <!-- Medical Fitness (PME only) -->
+                <div class="justification-form-group" id="updateMedicalFitnessGroup" style="display: none;">
+                    <label>Medical Fitness Result <span style="color: #dc2626;">*</span></label>
+                    <div style="display: flex; gap: 16px; margin-top: 8px;">
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="radio" name="updateMedicalResult" id="updateMedicalFit" value="1" checked style="width: 18px; height: 18px;">
+                            <span style="color: #166534; font-weight: 500;">Fit</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="radio" name="updateMedicalResult" id="updateMedicalUnfit" value="0" style="width: 18px; height: 18px;">
+                            <span style="color: #dc2626; font-weight: 500;">Declared Unfit</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Decategorization Fields (when Unfit) -->
+                <div id="updateDecategorizationFields" style="display: none;">
+                    <div class="justification-form-group">
+                        <label for="updateDecatDate">Decategorization Date <span style="color: #dc2626;">*</span></label>
+                        <input type="date" id="updateDecatDate" style="width: 100%; padding: 12px 14px; border-radius: 10px; border: 1px solid #d1d5db; font-size: 14px; background: #f9fafb; color: #374151;">
+                    </div>
+                    <div class="justification-form-group">
+                        <label for="updateDecatReason">Decategorization Reason <span style="color: #dc2626;">*</span></label>
+                        <select id="updateDecatReason" style="width: 100%; padding: 12px 14px; border-radius: 10px; border: 1px solid #d1d5db; font-size: 14px; background: #f9fafb; color: #374151;">
+                            <option value="">-- Select Reason --</option>
+                            <option value="Vision">Vision</option>
+                            <option value="Hearing">Hearing</option>
+                            <option value="Color Vision">Color Vision</option>
+                            <option value="Blood Pressure">Blood Pressure</option>
+                            <option value="Diabetes">Diabetes</option>
+                            <option value="Heart Condition">Heart Condition</option>
+                            <option value="Other Medical">Other Medical</option>
+                        </select>
+                    </div>
+                    <div class="justification-form-group">
+                        <label for="updateMedicalRemarks">Medical Remarks</label>
+                        <textarea id="updateMedicalRemarks" placeholder="Additional medical details (optional)" style="width: 100%; padding: 12px 14px; border-radius: 10px; border: 1px solid #d1d5db; font-size: 14px; background: #f9fafb; color: #374151; min-height: 60px; resize: vertical;"></textarea>
+                    </div>
+                </div>
+
+                <div class="justification-form-group" id="updateDueDateGroup">
+                    <label for="updateDueDate">Due Date <span style="color: #dc2626;">*</span></label>
+                    <input type="date" id="updateDueDate" style="width: 100%; padding: 12px 14px; border-radius: 10px; border: 1px solid #d1d5db; font-size: 14px; background: #f9fafb; color: #374151;">
+                    <div style="margin-top: 8px;">
+                        <button type="button" id="autoCalcDueDateBtn" onclick="autoCalculateUpdateDueDate()" style="padding: 6px 12px; background: #eef2ff; color: #4338ca; border: none; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer;">
+                            🔄 Auto-Calculate Due Date
+                        </button>
+                    </div>
+                </div>
+
+                <div class="justification-form-group">
+                    <label for="updateTrainingCenter">Training Center / PME Done at</label>
+                    <select id="updateTrainingCenter" style="width: 100%; padding: 12px 14px; border-radius: 10px; border: 1px solid #d1d5db; font-size: 14px; background: #f9fafb; color: #374151;">
+                        <option value="">-- Select Center --</option>
+                    </select>
+                </div>
+
+                <div class="justification-form-group">
+                    <label for="updateTrainingRemarks">Remarks</label>
+                    <textarea id="updateTrainingRemarks" placeholder="Additional notes (optional)" style="width: 100%; padding: 12px 14px; border-radius: 10px; border: 1px solid #d1d5db; font-size: 14px; background: #f9fafb; color: #374151; min-height: 60px; resize: vertical;"></textarea>
+                </div>
+
+                <!-- Hidden fields -->
+                <input type="hidden" id="updateRecordId">
+                <input type="hidden" id="updateTrainingId">
+                <input type="hidden" id="updateStaffHrmsId">
+                <input type="hidden" id="updateStaffDob">
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeUpdateTrainingModal()">Cancel</button>
+                <button class="btn-primary" id="saveUpdateTrainingBtn" onclick="saveUpdateTraining()">💾 Update Training</button>
             </div>
         </div>
     </div>
@@ -1591,9 +1706,13 @@
                     const safeName = (item.name || '').replace(/'/g, "\\'");
                     const safeDesig = (item.designation_name || item.designation || '').replace(/'/g, "\\'");
                     const safeOffice = (item.office_name || '').replace(/'/g, "\\'");
+                    const safeTrainingName = (item.training_name || '').replace(/'/g, "\\'");
+                    const safeRemarks = (item.general_remarks || '').replace(/'/g, "\\'");
+                    const doneDateVal = item.done_date ? item.done_date.split('T')[0] : '';
+                    const dueDateVal = item.due_date ? item.due_date.split('T')[0] : '';
                     return `
-                    <tr onclick="openHistoryModal('${item.hrms_id}', '${safeName}', '${safeDesig}', '${safeOffice}')">
-                        <td>
+                    <tr>
+                        <td onclick="openHistoryModal('${item.hrms_id}', '${safeName}', '${safeDesig}', '${safeOffice}')" style="cursor: pointer;">
                             <div style="font-weight: 600; color: #111827;">${item.name || '-'}</div>
                             <div style="font-size: 12px; color: #6b7280;">HRMS ${item.hrms_id}</div>
                         </td>
@@ -1609,6 +1728,11 @@
                                 ${item.proximity.label}
                             </span>
                         </td>
+                        <td class="no-print" onclick="event.stopPropagation()">
+                            <button class="edit-justification-btn" title="Update Training" onclick="openUpdateTrainingModal(${item.record_id}, '${item.hrms_id}', '${safeName}', '${safeDesig}', '${safeOffice}', ${item.training_id}, '${safeTrainingName}', '${doneDateVal}', '${dueDateVal}', '${item.training_center_id || ''}', '${safeRemarks}')">
+                                📝
+                            </button>
+                        </td>
                     </tr>
                 `}).join('');
             };
@@ -1619,8 +1743,11 @@
                     const safeName = (item.name || '').replace(/'/g, "\\'");
                     const safeDesig = (item.designation_name || item.designation || '').replace(/'/g, "\\'");
                     const safeOffice = (item.office_name || '').replace(/'/g, "\\'");
+                    const safeTrainingName = (item.training_name || '').replace(/'/g, "\\'");
                     const currentStatus = item.status || '';
                     const currentRemarks = item.general_remarks || '';
+                    const doneDateVal = item.done_date ? item.done_date.split('T')[0] : '';
+                    const dueDateVal = item.due_date ? item.due_date.split('T')[0] : '';
 
                     // Display text: If "Other", show the remarks; otherwise show the status
                     let displayText = '';
@@ -1656,6 +1783,9 @@
                         <td class="justification-action no-print" onclick="event.stopPropagation()">
                             <button class="edit-justification-btn" onclick="openJustificationModal(${item.record_id}, '${currentStatus}', '${currentRemarks.replace(/'/g, "\\'")}')">
                                 ${displayText ? '✏️' : '➕'}
+                            </button>
+                            <button class="edit-justification-btn" style="margin-left: 4px;" title="Update Training" onclick="openUpdateTrainingModal(${item.record_id}, '${item.hrms_id}', '${safeName}', '${safeDesig}', '${safeOffice}', ${item.training_id}, '${safeTrainingName}', '${doneDateVal}', '${dueDateVal}', '${item.training_center_id || ''}', '${currentRemarks.replace(/'/g, "\\'")}')">
+                                📝
                             </button>
                         </td>
                     </tr>
@@ -1728,6 +1858,7 @@
                                     <th>Last Done</th>
                                     <th>Due Date</th>
                                     <th>Proximity</th>
+                                    <th class="no-print">Update</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -1905,6 +2036,7 @@
                 closeHistoryModal();
                 closePrintModal();
                 closeJustificationModal();
+                closeUpdateTrainingModal();
             }
         });
 
@@ -2285,6 +2417,379 @@
             } finally {
                 saveBtn.disabled = false;
                 saveBtn.textContent = '💾 Save';
+            }
+        }
+
+        // ============================================
+        // UPDATE TRAINING MODAL FUNCTIONS
+        // ============================================
+
+        let trainingCenters = [];
+
+        // Training validity periods (in months) - 0 means lifetime/no due date, -1 means PME special calc
+        function getTrainingValidityMonths(trainingName) {
+            const nameLower = trainingName.toLowerCase();
+
+            // PME - special age-based calculation
+            if (nameLower.includes('pme') || nameLower.includes('periodic medical')) return -1;
+
+            // 6 months validity
+            if (nameLower.includes('automatic')) return 6;
+            if (nameLower.includes('tower') || nameLower.includes('tw_trg') || nameLower.includes('tw trg')) return 6;
+
+            // 3 years (36 months)
+            if (nameLower.includes('refresher')) return 36;
+            if (nameLower.includes('promotion course')) return 36;
+            if (nameLower.includes('safety camp')) return 36;
+            if (nameLower.includes('memu')) return 36;
+
+            // Lifetime trainings (no due date)
+            if (nameLower.includes('kavach')) return 0;
+            if (nameLower.includes('ac/dc') || nameLower.includes('ac_dc') || nameLower.includes('ac dc')) return 0;
+            if (nameLower.includes('wag12') || nameLower.includes('wag 12')) return 0;
+            if (nameLower.includes('spic')) return 0;
+            if (nameLower.includes('vande') || nameLower.includes('t18')) return 0;
+            if (nameLower.includes('push') && nameLower.includes('pull')) return 0;
+            if (nameLower.includes('hstat')) return 0;
+            if (nameLower.includes('psycho')) return 0;
+            if (nameLower.includes('wds6') || nameLower.includes('wds 6')) return 0;
+            if (nameLower.includes('ghat')) return 0;
+            if (nameLower.includes('neghat') || nameLower.includes('seghat')) return 0;
+            if (nameLower.includes('hs_spart') || nameLower.includes('hs spart')) return 0;
+            if (nameLower.includes('dslac') || nameLower.includes('simulator')) return 0;
+            if (nameLower.includes('wdg4') || nameLower.includes('wdg 4')) return 0;
+
+            // Default: 12 months
+            return 12;
+        }
+
+        function isTrainingLifetime(trainingName) {
+            return getTrainingValidityMonths(trainingName) === 0;
+        }
+
+        // PME due date calculation based on age milestones
+        function calculatePMEDueDate(pmeDate, dateOfBirth) {
+            const pme = new Date(pmeDate);
+            const dob = new Date(dateOfBirth);
+
+            // Calculate age at PME date
+            let ageAtPME = pme.getFullYear() - dob.getFullYear();
+            const monthDiff = pme.getMonth() - dob.getMonth();
+            if (monthDiff < 0 || (monthDiff === 0 && pme.getDate() < dob.getDate())) {
+                ageAtPME--;
+            }
+
+            // Calculate milestone birthdays
+            const age45Birthday = new Date(dob);
+            age45Birthday.setFullYear(dob.getFullYear() + 45);
+
+            const age55Birthday = new Date(dob);
+            age55Birthday.setFullYear(dob.getFullYear() + 55);
+
+            // Standard validity based on age
+            let standardValidityYears;
+            if (ageAtPME < 45) {
+                standardValidityYears = 4;
+            } else if (ageAtPME < 55) {
+                standardValidityYears = 2;
+            } else {
+                standardValidityYears = 1;
+            }
+
+            // Calculate standard due date
+            const standardDueDate = new Date(pme);
+            standardDueDate.setFullYear(pme.getFullYear() + standardValidityYears);
+
+            let finalDueDate = standardDueDate;
+
+            // Check if crossing age 45
+            if (ageAtPME < 45 && age45Birthday <= standardDueDate) {
+                const yearsFromPMETo45 = (age45Birthday - pme) / (365.25 * 24 * 60 * 60 * 1000);
+                if (yearsFromPMETo45 >= 2) {
+                    finalDueDate = age45Birthday;
+                } else {
+                    finalDueDate = new Date(pme);
+                    finalDueDate.setFullYear(pme.getFullYear() + 2);
+                }
+            }
+
+            // Check if crossing age 55
+            if (ageAtPME < 55 && age55Birthday <= finalDueDate) {
+                const yearsFromPMETo55 = (age55Birthday - pme) / (365.25 * 24 * 60 * 60 * 1000);
+                if (yearsFromPMETo55 >= 1) {
+                    finalDueDate = age55Birthday;
+                } else {
+                    finalDueDate = new Date(pme);
+                    finalDueDate.setFullYear(pme.getFullYear() + 1);
+                }
+            }
+
+            return finalDueDate;
+        }
+
+        // Load training centers
+        async function loadTrainingCenters() {
+            if (trainingCenters.length > 0) return;
+            try {
+                const response = await fetch('/api/division/training-centers', { credentials: 'same-origin' });
+                const result = await response.json();
+                if (result.success) {
+                    trainingCenters = result.data;
+                    const select = document.getElementById('updateTrainingCenter');
+                    select.innerHTML = '<option value="">-- Select Center --</option>' +
+                        trainingCenters.map(c => `<option value="${c.center_id}">${c.center_name}</option>`).join('');
+                }
+            } catch (error) {
+                console.error('Error loading training centers:', error);
+            }
+        }
+
+        // Fetch staff DOB for PME calculation
+        async function fetchStaffDob(hrmsId) {
+            try {
+                const response = await fetch(`/api/division/staff/${hrmsId}`, { credentials: 'same-origin' });
+                const result = await response.json();
+                if (result.success && result.data && result.data.dob) {
+                    return result.data.dob;
+                }
+            } catch (error) {
+                console.error('Error fetching staff DOB:', error);
+            }
+            return null;
+        }
+
+        // Open update training modal
+        async function openUpdateTrainingModal(recordId, hrmsId, staffName, designation, office, trainingId, trainingName, doneDate, dueDate, centerId, remarks) {
+            const modal = document.getElementById('updateTrainingModal');
+
+            // Load training centers if not loaded
+            await loadTrainingCenters();
+
+            // Set staff info
+            document.getElementById('updateTrainingStaffName').textContent = staffName || 'Staff';
+            document.getElementById('updateTrainingStaffDetails').textContent = `HRMS ID: ${hrmsId} • ${designation || '-'} • ${office || '-'}`;
+            document.getElementById('updateTrainingTypeName').textContent = trainingName || '-';
+
+            // Set hidden fields
+            document.getElementById('updateRecordId').value = recordId;
+            document.getElementById('updateTrainingId').value = trainingId;
+            document.getElementById('updateStaffHrmsId').value = hrmsId;
+
+            // Set form values
+            document.getElementById('updateDoneDate').value = doneDate ? doneDate.split('T')[0] : '';
+            document.getElementById('updateDueDate').value = dueDate ? dueDate.split('T')[0] : '';
+            document.getElementById('updateTrainingCenter').value = centerId || '';
+            document.getElementById('updateTrainingRemarks').value = remarks || '';
+
+            // Check if this is PME (training_id = 1)
+            const isPME = trainingId == 1;
+            const medicalFitnessGroup = document.getElementById('updateMedicalFitnessGroup');
+            const decatFields = document.getElementById('updateDecategorizationFields');
+            const dueDateGroup = document.getElementById('updateDueDateGroup');
+            const autoCalcBtn = document.getElementById('autoCalcDueDateBtn');
+
+            // Reset medical fields
+            document.getElementById('updateMedicalFit').checked = true;
+            document.getElementById('updateDecatDate').value = '';
+            document.getElementById('updateDecatReason').value = '';
+            document.getElementById('updateMedicalRemarks').value = '';
+            decatFields.style.display = 'none';
+
+            if (isPME) {
+                medicalFitnessGroup.style.display = 'block';
+                // Fetch DOB for PME calculation
+                const dob = await fetchStaffDob(hrmsId);
+                document.getElementById('updateStaffDob').value = dob || '';
+            } else {
+                medicalFitnessGroup.style.display = 'none';
+            }
+
+            // Check if lifetime training
+            const isLifetime = isTrainingLifetime(trainingName);
+            if (isLifetime) {
+                dueDateGroup.style.display = 'none';
+                autoCalcBtn.style.display = 'none';
+            } else {
+                dueDateGroup.style.display = 'block';
+                autoCalcBtn.style.display = 'inline-block';
+            }
+
+            modal.classList.add('active');
+        }
+
+        // Close update training modal
+        function closeUpdateTrainingModal(event) {
+            if (event && event.target.closest('.modal-content') && !event.target.classList.contains('modal-close')) {
+                return;
+            }
+            const modal = document.getElementById('updateTrainingModal');
+            modal.classList.remove('active');
+        }
+
+        // Handle medical result change
+        document.addEventListener('DOMContentLoaded', function() {
+            const fitRadio = document.getElementById('updateMedicalFit');
+            const unfitRadio = document.getElementById('updateMedicalUnfit');
+
+            if (fitRadio) {
+                fitRadio.addEventListener('change', handleUpdateMedicalResultChange);
+            }
+            if (unfitRadio) {
+                unfitRadio.addEventListener('change', handleUpdateMedicalResultChange);
+            }
+
+            // Done date change - auto-calculate due date
+            const doneDateInput = document.getElementById('updateDoneDate');
+            if (doneDateInput) {
+                doneDateInput.addEventListener('change', autoCalculateUpdateDueDate);
+            }
+        });
+
+        function handleUpdateMedicalResultChange() {
+            const isUnfit = document.getElementById('updateMedicalUnfit').checked;
+            const dueDateGroup = document.getElementById('updateDueDateGroup');
+            const decatFields = document.getElementById('updateDecategorizationFields');
+
+            if (isUnfit) {
+                dueDateGroup.style.display = 'none';
+                decatFields.style.display = 'block';
+            } else {
+                dueDateGroup.style.display = 'block';
+                decatFields.style.display = 'none';
+            }
+        }
+
+        // Auto-calculate due date
+        function autoCalculateUpdateDueDate() {
+            const trainingName = document.getElementById('updateTrainingTypeName').textContent;
+            const doneDate = document.getElementById('updateDoneDate').value;
+            const dueDateInput = document.getElementById('updateDueDate');
+
+            if (!doneDate) return;
+
+            // Check if lifetime training
+            if (isTrainingLifetime(trainingName)) {
+                dueDateInput.value = '';
+                return;
+            }
+
+            // Get validity period
+            const validityMonths = getTrainingValidityMonths(trainingName);
+            if (validityMonths === 0) {
+                dueDateInput.value = '';
+                return;
+            }
+
+            let finalDueDate;
+
+            // PME uses special age-based calculation
+            if (validityMonths === -1) {
+                const staffDob = document.getElementById('updateStaffDob').value;
+                if (!staffDob) {
+                    alert('DOB not available for PME due date calculation. Please enter due date manually.');
+                    return;
+                }
+                finalDueDate = calculatePMEDueDate(doneDate, staffDob);
+            } else {
+                // Standard calculation for other trainings
+                finalDueDate = new Date(doneDate);
+                finalDueDate.setMonth(finalDueDate.getMonth() + validityMonths);
+                finalDueDate.setDate(finalDueDate.getDate() - 1); // Due date is one day before the anniversary
+            }
+
+            // Format as YYYY-MM-DD
+            const year = finalDueDate.getFullYear();
+            const month = String(finalDueDate.getMonth() + 1).padStart(2, '0');
+            const day = String(finalDueDate.getDate()).padStart(2, '0');
+
+            dueDateInput.value = `${year}-${month}-${day}`;
+        }
+
+        // Save update training
+        async function saveUpdateTraining() {
+            const recordId = document.getElementById('updateRecordId').value;
+            const trainingId = document.getElementById('updateTrainingId').value;
+            const hrmsId = document.getElementById('updateStaffHrmsId').value;
+            const doneDate = document.getElementById('updateDoneDate').value;
+            const dueDate = document.getElementById('updateDueDate').value;
+            const centerId = document.getElementById('updateTrainingCenter').value;
+            const remarks = document.getElementById('updateTrainingRemarks').value.trim();
+            const trainingName = document.getElementById('updateTrainingTypeName').textContent;
+
+            // Validation
+            if (!doneDate) {
+                alert('Please enter done date');
+                document.getElementById('updateDoneDate').focus();
+                return;
+            }
+
+            // Check if PME and if declared unfit
+            const isPME = trainingId == 1;
+            const isUnfit = isPME && document.getElementById('updateMedicalUnfit').checked;
+
+            let payload = {
+                training_id: trainingId,
+                done_date: doneDate,
+                due_date: null,
+                training_center_id: centerId || null,
+                remarks: remarks || null
+            };
+
+            if (isUnfit) {
+                // Validate decategorization fields
+                const decatDate = document.getElementById('updateDecatDate').value;
+                const decatReason = document.getElementById('updateDecatReason').value;
+
+                if (!decatDate || !decatReason) {
+                    alert('Please fill in decategorization date and reason');
+                    return;
+                }
+
+                payload.medical_fit = 0;
+                payload.decategorized_date = decatDate;
+                payload.decategorized_reason = decatReason;
+                payload.medical_remarks = document.getElementById('updateMedicalRemarks').value.trim() || null;
+            } else {
+                // Check if lifetime training
+                const isLifetime = isTrainingLifetime(trainingName);
+
+                if (!isLifetime) {
+                    if (!dueDate) {
+                        alert('Please enter due date');
+                        document.getElementById('updateDueDate').focus();
+                        return;
+                    }
+                    payload.due_date = dueDate;
+                }
+            }
+
+            const saveBtn = document.getElementById('saveUpdateTrainingBtn');
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Saving...';
+
+            try {
+                const response = await fetch(`/api/division/training/${recordId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'same-origin',
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    closeUpdateTrainingModal();
+                    // Refresh data to show updated value
+                    fetchAndRenderData();
+                } else {
+                    throw new Error(result.error || 'Failed to update training');
+                }
+            } catch (error) {
+                console.error('Error updating training:', error);
+                alert('Failed to update: ' + error.message);
+            } finally {
+                saveBtn.disabled = false;
+                saveBtn.textContent = '💾 Update Training';
             }
         }
     </script>

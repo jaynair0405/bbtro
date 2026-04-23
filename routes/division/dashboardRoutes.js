@@ -171,19 +171,27 @@ router.get('/staff-search/:search', async (req, res) => {
     }
 });
 
-// GET /api/division/staff-sheet - Get staff with training dates for sheet view
+// GET /api/division/staff-sheet - Get staff with training dates for sheet view + custom report
 router.get('/staff-sheet', async (req, res) => {
     let conn;
     try {
-        const { office_code } = req.query;
+        const { office_code, designation_ids } = req.query;
         conn = await req.app.locals.pool.getConnection();
 
+        // Refresher: use training_id=26 (MMPRC) for motormen (designation_id=8),
+        // training_id=2 (REF_IC) for all others.
         let query = `
             SELECT s.hrms_id, s.name, s.current_cms_id, s.designation_id, d.designation_name,
                    s.current_office_code, o.office_name, s.date_of_birth, s.phone_number,
-                   s.cug_number, s.safety_category, s.pf_number, s.status,
+                   s.cug_number, s.email, s.safety_category, s.pf_number, s.status,
+                   s.gender, s.fathers_name, s.caste, s.marital_status, s.vision, s.blood_group,
+                   s.identification_mark_1, s.identification_mark_2, s.qualification,
+                   s.present_address, s.permanent_address,
+                   s.aadhar_card_no, s.pan_card_no, s.id_card_no,
+                   s.date_of_appointment, s.reporting_date, s.dept_rrb,
                    tr_pme.done_date AS pme_done_date, tr_pme.due_date AS pme_due_date,
-                   tr_ref.done_date AS refresher_done_date, tr_ref.due_date AS refresher_due_date,
+                   CASE WHEN s.designation_id = 8 THEN tr_mmprc.done_date ELSE tr_refic.done_date END AS refresher_done_date,
+                   CASE WHEN s.designation_id = 8 THEN tr_mmprc.due_date  ELSE tr_refic.due_date  END AS refresher_due_date,
                    tr_auto.done_date AS auto_done_date, tr_auto.due_date AS auto_due_date
             FROM div_staff_master s
             JOIN offices o ON s.current_office_code = o.office_code
@@ -197,9 +205,15 @@ router.get('/staff-sheet', async (req, res) => {
             LEFT JOIN (
                 SELECT staff_hrms_id, done_date, due_date
                 FROM div_training_records
+                WHERE training_id = 2
+                  AND record_id IN (SELECT MAX(record_id) FROM div_training_records WHERE training_id = 2 GROUP BY staff_hrms_id)
+            ) tr_refic ON s.hrms_id = tr_refic.staff_hrms_id
+            LEFT JOIN (
+                SELECT staff_hrms_id, done_date, due_date
+                FROM div_training_records
                 WHERE training_id = 26
                   AND record_id IN (SELECT MAX(record_id) FROM div_training_records WHERE training_id = 26 GROUP BY staff_hrms_id)
-            ) tr_ref ON s.hrms_id = tr_ref.staff_hrms_id
+            ) tr_mmprc ON s.hrms_id = tr_mmprc.staff_hrms_id
             LEFT JOIN (
                 SELECT staff_hrms_id, done_date, due_date
                 FROM div_training_records
@@ -214,6 +228,15 @@ router.get('/staff-sheet', async (req, res) => {
             const filter = buildOfficeFilter(office_code, 's');
             query += ' AND ' + filter.condition;
             params.push(...filter.params);
+        }
+
+        // Designation filter (comma-separated list of IDs)
+        if (designation_ids) {
+            const ids = String(designation_ids).split(',').map(x => parseInt(x)).filter(x => !isNaN(x));
+            if (ids.length > 0) {
+                query += ' AND s.designation_id IN (' + ids.map(() => '?').join(',') + ')';
+                params.push(...ids);
+            }
         }
 
         query += ' ORDER BY o.office_name, s.name';

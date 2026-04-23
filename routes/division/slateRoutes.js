@@ -152,17 +152,24 @@ router.get('/active-crews', async (req, res) => {
                 `, [crew.lp_hrms_id]);
                 crew.lp_night_streak = lpFatigue.length > 0 ? lpFatigue[0].current_night_streak : null;
 
-                // Check LP PR (consecutive duty days) - using IST date
+                // Check LP PR (consecutive duty days) - count days AFTER last PR or MULTI_DAY_LEAVE
+                // Short leave (1-3 days) counts toward streak, PR and MULTI_DAY_LEAVE reset it
                 const [lpPR] = await conn.query(`
                     SELECT COUNT(*) AS consecutive_days
                     FROM (
                         SELECT DISTINCT shift_date
                         FROM div_detail_book_log
                         WHERE lp_hrms_id = ?
+                          AND lp_rest_type NOT IN ('PR', 'MULTI_DAY_LEAVE')
                           AND shift_date >= DATE_SUB(${SQL_CURDATE_IST}, INTERVAL 10 DAY)
                           AND shift_date <= ${SQL_CURDATE_IST}
+                          AND shift_date > COALESCE(
+                              (SELECT MAX(shift_date) FROM div_detail_book_log
+                               WHERE lp_hrms_id = ? AND lp_rest_type IN ('PR', 'MULTI_DAY_LEAVE')),
+                              '1970-01-01'
+                          )
                     ) AS recent_duties
-                `, [crew.lp_hrms_id]);
+                `, [crew.lp_hrms_id, crew.lp_hrms_id]);
                 const lpDays = lpPR.length > 0 ? lpPR[0].consecutive_days : 0;
                 crew.lp_pr_days = lpDays >= 5 ? lpDays : null;
             }
@@ -176,17 +183,24 @@ router.get('/active-crews', async (req, res) => {
                 `, [crew.alp_hrms_id]);
                 crew.alp_night_streak = alpFatigue.length > 0 ? alpFatigue[0].current_night_streak : null;
 
-                // Check ALP PR (consecutive duty days) - using IST date
+                // Check ALP PR (consecutive duty days) - count days AFTER last PR or MULTI_DAY_LEAVE
+                // Short leave (1-3 days) counts toward streak, PR and MULTI_DAY_LEAVE reset it
                 const [alpPR] = await conn.query(`
                     SELECT COUNT(*) AS consecutive_days
                     FROM (
                         SELECT DISTINCT shift_date
                         FROM div_detail_book_log
                         WHERE alp_hrms_id = ?
+                          AND alp_rest_type NOT IN ('PR', 'MULTI_DAY_LEAVE')
                           AND shift_date >= DATE_SUB(${SQL_CURDATE_IST}, INTERVAL 10 DAY)
                           AND shift_date <= ${SQL_CURDATE_IST}
+                          AND shift_date > COALESCE(
+                              (SELECT MAX(shift_date) FROM div_detail_book_log
+                               WHERE alp_hrms_id = ? AND alp_rest_type IN ('PR', 'MULTI_DAY_LEAVE')),
+                              '1970-01-01'
+                          )
                     ) AS recent_duties
-                `, [crew.alp_hrms_id]);
+                `, [crew.alp_hrms_id, crew.alp_hrms_id]);
                 const alpDays = alpPR.length > 0 ? alpPR[0].consecutive_days : 0;
                 crew.alp_pr_days = alpDays >= 5 ? alpDays : null;
             }
@@ -378,23 +392,35 @@ router.get('/board', async (req, res) => {
             });
         }
 
-        // Fetch PR data (consecutive duty days) for all staff - using IST date
-        // Need to check both lp_hrms_id and alp_hrms_id columns
+        // Fetch PR data (consecutive duty days) for all staff - count days AFTER last PR or MULTI_DAY_LEAVE
+        // Short leave (1-3 days) counts toward streak, PR and MULTI_DAY_LEAVE reset it
         const prMap = {};
         if (hrmsIds.size > 0) {
             const hrmsArray = Array.from(hrmsIds);
             const [prRows] = await conn.query(`
                 SELECT hrms_id, COUNT(DISTINCT shift_date) AS duty_days
                 FROM (
-                    SELECT lp_hrms_id AS hrms_id, shift_date FROM div_detail_book_log
-                    WHERE lp_hrms_id IN (?)
-                      AND shift_date >= DATE_SUB(${SQL_CURDATE_IST}, INTERVAL 10 DAY)
-                      AND shift_date <= ${SQL_CURDATE_IST}
+                    SELECT d1.lp_hrms_id AS hrms_id, d1.shift_date FROM div_detail_book_log d1
+                    WHERE d1.lp_hrms_id IN (?)
+                      AND d1.lp_rest_type NOT IN ('PR', 'MULTI_DAY_LEAVE')
+                      AND d1.shift_date >= DATE_SUB(${SQL_CURDATE_IST}, INTERVAL 10 DAY)
+                      AND d1.shift_date <= ${SQL_CURDATE_IST}
+                      AND d1.shift_date > COALESCE(
+                          (SELECT MAX(d2.shift_date) FROM div_detail_book_log d2
+                           WHERE d2.lp_hrms_id = d1.lp_hrms_id AND d2.lp_rest_type IN ('PR', 'MULTI_DAY_LEAVE')),
+                          '1970-01-01'
+                      )
                     UNION ALL
-                    SELECT alp_hrms_id AS hrms_id, shift_date FROM div_detail_book_log
-                    WHERE alp_hrms_id IN (?)
-                      AND shift_date >= DATE_SUB(${SQL_CURDATE_IST}, INTERVAL 10 DAY)
-                      AND shift_date <= ${SQL_CURDATE_IST}
+                    SELECT d1.alp_hrms_id AS hrms_id, d1.shift_date FROM div_detail_book_log d1
+                    WHERE d1.alp_hrms_id IN (?)
+                      AND d1.alp_rest_type NOT IN ('PR', 'MULTI_DAY_LEAVE')
+                      AND d1.shift_date >= DATE_SUB(${SQL_CURDATE_IST}, INTERVAL 10 DAY)
+                      AND d1.shift_date <= ${SQL_CURDATE_IST}
+                      AND d1.shift_date > COALESCE(
+                          (SELECT MAX(d2.shift_date) FROM div_detail_book_log d2
+                           WHERE d2.alp_hrms_id = d1.alp_hrms_id AND d2.alp_rest_type IN ('PR', 'MULTI_DAY_LEAVE')),
+                          '1970-01-01'
+                      )
                 ) AS combined
                 GROUP BY hrms_id
                 HAVING duty_days >= 5
@@ -478,11 +504,13 @@ router.post('/arrival', async (req, res) => {
             // LP data
             lp_hrms_id,
             lp_rest_type,
+            lp_leave,  // Leave selection: '0', '1B', '2B', '3B', '1A', '2A', '3A', 'MULTI'
             lp_next_slot_date,
             lp_next_slot_time,
             // ALP data (optional)
             alp_hrms_id,
             alp_rest_type,
+            alp_leave,  // Leave selection for ALP
             alp_next_slot_date,
             alp_next_slot_time,
             // ALP overrides (null = same as LP)
@@ -518,6 +546,20 @@ router.post('/arrival', async (req, res) => {
 
         conn = await req.app.locals.pool.getConnection();
         await conn.beginTransaction();
+
+        // Prevent duplicate PR entries for same staff on same date
+        if (lp_rest_type === 'PR' && lp_hrms_id) {
+            const [existingPR] = await conn.query(`
+                SELECT id FROM div_detail_book_log
+                WHERE lp_hrms_id = ? AND lp_rest_type = 'PR' AND shift_date = ${SQL_CURDATE_IST}
+                LIMIT 1
+            `, [lp_hrms_id]);
+            if (existingPR.length > 0) {
+                await conn.rollback();
+                conn.release();
+                return res.status(400).json({ error: 'PR already marked for this staff today' });
+            }
+        }
 
         // Calculate shift_date and shift_code
         let shiftDate, shiftCode;
@@ -556,6 +598,80 @@ router.post('/arrival', async (req, res) => {
         ]);
 
         const logId = logResult.insertId;
+
+        // 1b. Create leave day entries based on leave selection
+        // Parse leave selection: '1B' = 1 day before, '2A' = 2 days after, etc.
+        const parseLeave = (leave) => {
+            if (!leave || leave === '0' || leave === 'MULTI') return { days: 0, position: null };
+            const days = parseInt(leave.charAt(0));
+            const position = leave.charAt(1) === 'B' ? 'before' : 'after';
+            return { days, position };
+        };
+
+        const createLeaveEntries = async (hrmsId, leave, restType, baseDate, role) => {
+            const { days, position } = parseLeave(leave);
+            if (days === 0) return;
+
+            const baseDateObj = new Date(baseDate);
+
+            if (position === 'before') {
+                // Leave days come before rest
+                // Day 1 after sign-off is first leave day, then more leave days, then rest
+                for (let i = 1; i <= days; i++) {
+                    const leaveDate = new Date(baseDateObj);
+                    leaveDate.setDate(leaveDate.getDate() + i);
+                    const leaveDateStr = leaveDate.toISOString().split('T')[0];
+
+                    await conn.query(`
+                        INSERT INTO div_detail_book_log (
+                            office_code, incoming_detail, shift_date, shift_code,
+                            ${role}_hrms_id, ${role}_rest_type
+                        ) VALUES (?, 'off/leave', ?, '08_16', ?, 'SHORT_LEAVE')
+                    `, [userOffice, leaveDateStr, hrmsId]);
+                }
+
+                // If PR is selected, create PR entry after leave days
+                if (restType === 'PR') {
+                    const prDate = new Date(baseDateObj);
+                    prDate.setDate(prDate.getDate() + days + 1);
+                    const prDateStr = prDate.toISOString().split('T')[0];
+
+                    await conn.query(`
+                        INSERT INTO div_detail_book_log (
+                            office_code, incoming_detail, shift_date, shift_code,
+                            ${role}_hrms_id, ${role}_rest_type
+                        ) VALUES (?, 'off/rest', ?, '08_16', ?, 'PR')
+                    `, [userOffice, prDateStr, hrmsId]);
+                }
+            } else if (position === 'after') {
+                // Leave days come after rest
+                // If PR, rest day is day 1-2, then leave days start
+                const restDays = (restType === 'PR') ? 2 : 1;
+
+                for (let i = 1; i <= days; i++) {
+                    const leaveDate = new Date(baseDateObj);
+                    leaveDate.setDate(leaveDate.getDate() + restDays + i);
+                    const leaveDateStr = leaveDate.toISOString().split('T')[0];
+
+                    await conn.query(`
+                        INSERT INTO div_detail_book_log (
+                            office_code, incoming_detail, shift_date, shift_code,
+                            ${role}_hrms_id, ${role}_rest_type
+                        ) VALUES (?, 'off/leave', ?, '08_16', ?, 'SHORT_LEAVE')
+                    `, [userOffice, leaveDateStr, hrmsId]);
+                }
+            }
+        };
+
+        // Create leave entries for LP
+        if (lp_hrms_id && lp_leave && lp_leave !== '0' && lp_leave !== 'MULTI') {
+            await createLeaveEntries(lp_hrms_id, lp_leave, lp_rest_type, shiftDate, 'lp');
+        }
+
+        // Create leave entries for ALP
+        if (alp_hrms_id && alp_leave && alp_leave !== '0' && alp_leave !== 'MULTI') {
+            await createLeaveEntries(alp_hrms_id, alp_leave, alp_rest_type, shiftDate, 'alp');
+        }
 
         // 2. Assign LP to slot (if LP provided and not multi-day leave)
         let lpSlotId = null;
@@ -1279,14 +1395,23 @@ router.post('/staff-warnings', async (req, res) => {
         }
 
         // 3. CHECK PERIODIC REST (6 consecutive duty days = PR due)
-        // Count duty days in last 7 days from detail_book_log or daily_slate
+        // Count duty days AFTER last PR or MULTI_DAY_LEAVE (short leave 1-3 days counts toward streak)
         const [dutyDays] = await conn.query(`
-            SELECT COUNT(DISTINCT DATE(sign_off_time)) AS consecutive_days
+            SELECT COUNT(DISTINCT shift_date) AS consecutive_days
             FROM div_detail_book_log
-            WHERE (lp_hrms_id = ? OR alp_hrms_id = ?)
-              AND sign_off_time >= DATE_SUB(?, INTERVAL 7 DAY)
-              AND sign_off_time < ?
-        `, [hrms_id, hrms_id, next_slot_date, next_slot_date]);
+            WHERE (
+                (lp_hrms_id = ? AND lp_rest_type NOT IN ('PR', 'MULTI_DAY_LEAVE'))
+                OR (alp_hrms_id = ? AND alp_rest_type NOT IN ('PR', 'MULTI_DAY_LEAVE'))
+            )
+              AND shift_date >= DATE_SUB(?, INTERVAL 10 DAY)
+              AND shift_date <= ?
+              AND shift_date > COALESCE(
+                  (SELECT MAX(shift_date) FROM div_detail_book_log
+                   WHERE (lp_hrms_id = ? AND lp_rest_type IN ('PR', 'MULTI_DAY_LEAVE'))
+                      OR (alp_hrms_id = ? AND alp_rest_type IN ('PR', 'MULTI_DAY_LEAVE'))),
+                  '1970-01-01'
+              )
+        `, [hrms_id, hrms_id, next_slot_date, next_slot_date, hrms_id, hrms_id]);
 
         const consecutiveDays = dutyDays[0]?.consecutive_days || 0;
         if (consecutiveDays >= 6) {

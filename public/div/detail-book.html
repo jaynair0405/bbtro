@@ -138,13 +138,27 @@
                 <div class="form-row">
                     <div class="form-group">
                         <label>Rest Rule (LP)</label>
-                        <select id="lpRest" onchange="isManualMode ? calculateSlotsManual() : calculateSlots()">
-                            <option value="16">Normal Rest (Min. 16hr)</option>
-                            <option value="30">PR (Min. 30hr) / 1-Day Leave</option>
-                            <option value="suspend">Multi-Day Leave</option>
+                        <select id="lpRest" onchange="handleRestLeaveChange('lp')">
+                            <option value="16">Normal Rest (16hr)</option>
+                            <option value="30">PR (30hr Rest)</option>
                         </select>
                     </div>
                     <div class="form-group">
+                        <label>Leave (LP)</label>
+                        <select id="lpLeave" onchange="handleRestLeaveChange('lp')">
+                            <option value="0">No Leave</option>
+                            <option value="1B">1 Day (Before Rest)</option>
+                            <option value="2B">2 Days (Before Rest)</option>
+                            <option value="3B">3 Days (Before Rest)</option>
+                            <option value="1A">1 Day (After Rest)</option>
+                            <option value="2A">2 Days (After Rest)</option>
+                            <option value="3A">3 Days (After Rest)</option>
+                            <option value="MULTI">Multi-Day Leave (4+)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group" style="flex: 1;">
                         <label>Next Slot (LP) <span id="lpSlotDateLabel" style="margin-left: 8px; font-weight: 700; font-size: 0.7rem;"></span></label>
                         <div style="display: flex; gap: 6px;">
                             <select id="lpSlotDate" style="width: 100px; padding: 10px 6px;" onchange="handleDateSelect('lp')">
@@ -167,13 +181,27 @@
                 <div class="form-row">
                     <div class="form-group">
                         <label>Rest Rule (ALP)</label>
-                        <select id="alpRest" onchange="isManualMode ? calculateSlotsManual() : calculateSlots()">
-                            <option value="16">Normal Rest (Min. 16hr)</option>
-                            <option value="30">PR (Min. 30hr) / 1-Day Leave</option>
-                            <option value="suspend">Multi-Day Leave</option>
+                        <select id="alpRest" onchange="handleRestLeaveChange('alp')">
+                            <option value="16">Normal Rest (16hr)</option>
+                            <option value="30">PR (30hr Rest)</option>
                         </select>
                     </div>
                     <div class="form-group">
+                        <label>Leave (ALP)</label>
+                        <select id="alpLeave" onchange="handleRestLeaveChange('alp')">
+                            <option value="0">No Leave</option>
+                            <option value="1B">1 Day (Before Rest)</option>
+                            <option value="2B">2 Days (Before Rest)</option>
+                            <option value="3B">3 Days (Before Rest)</option>
+                            <option value="1A">1 Day (After Rest)</option>
+                            <option value="2A">2 Days (After Rest)</option>
+                            <option value="3A">3 Days (After Rest)</option>
+                            <option value="MULTI">Multi-Day Leave (4+)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group" style="flex: 1;">
                         <label>Next Slot (ALP) <span id="alpSlotDateLabel" style="margin-left: 8px; font-weight: 700; font-size: 0.7rem;"></span></label>
                         <div style="display: flex; gap: 6px;">
                             <select id="alpSlotDate" style="width: 100px; padding: 10px 6px;" onchange="handleDateSelect('alp')">
