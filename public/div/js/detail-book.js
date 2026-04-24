@@ -1342,6 +1342,29 @@ function checkStaffStatus() {
     calculateSlots();
 }
 
+/**
+ * Check if staff has existing returning card and warn user
+ * @param {string} hrmsId - Staff HRMS ID
+ * @param {string} name - Staff name
+ * @param {string} role - 'LP' or 'ALP'
+ */
+function checkExistingCard(hrmsId, name, role) {
+    // Find if staff exists in activeCrews (returning cards)
+    const existingCard = activeCrews.find(crew =>
+        crew.lp_hrms_id === hrmsId || crew.alp_hrms_id === hrmsId
+    );
+
+    if (existingCard) {
+        const trainInfo = existingCard.train_no || 'Unknown';
+        const dutyHours = existingCard.duty_hours || '?';
+        showToast(
+            `⚠️ ${role} ${name} has a returning card (${trainInfo}, ${dutyHours}h duty). Use the card to avoid duplicates. Card will be cleared on save.`,
+            'warning',
+            6000
+        );
+    }
+}
+
 // ========== STAFF SEARCH ==========
 function setupStaffSearch() {
     // Create datalists for autocomplete
@@ -1392,6 +1415,8 @@ function setupStaffSearch() {
             for (const opt of datalist.options) {
                 if (opt.dataset.cms === cmsId) {
                     selectedLP = { hrms_id: opt.dataset.hrms, name: opt.dataset.name, cms_id: cmsId };
+                    // Check if staff has existing returning card
+                    checkExistingCard(selectedLP.hrms_id, selectedLP.name, 'LP');
                     break;
                 }
             }
@@ -1421,6 +1446,8 @@ function setupStaffSearch() {
             for (const opt of datalist.options) {
                 if (opt.dataset.cms === cmsId) {
                     selectedALP = { hrms_id: opt.dataset.hrms, name: opt.dataset.name, cms_id: cmsId };
+                    // Check if staff has existing returning card
+                    checkExistingCard(selectedALP.hrms_id, selectedALP.name, 'ALP');
                     break;
                 }
             }
@@ -2293,7 +2320,8 @@ async function submitToSlate() {
     // Build API payload
     const payload = {
         office_code: SLATE_CONFIG.OFFICE_CODE,
-        is_pilot: isPilot
+        is_pilot: isPilot,
+        is_manual_mode: isManualMode
     };
 
     const lpDateSelect = document.getElementById('lpSlotDate');

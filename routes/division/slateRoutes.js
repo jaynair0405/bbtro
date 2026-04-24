@@ -521,7 +521,9 @@ router.post('/arrival', async (req, res) => {
             force_adhoc_lp,  // If true, create adhoc slot instead of bumping
             force_adhoc_alp,
             // Source slate to mark as signed-off (for returning crew)
-            source_slate_id
+            source_slate_id,
+            // Manual mode flag - clear existing cards when set
+            is_manual_mode
         } = req.body;
 
         const userOffice = req.session.user?.div_office_code || office_code;
@@ -558,6 +560,33 @@ router.post('/arrival', async (req, res) => {
                 await conn.rollback();
                 conn.release();
                 return res.status(400).json({ error: 'PR already marked for this staff today' });
+            }
+        }
+
+        // Clear existing returning cards for staff if manual mode
+        // This prevents duplicate cards when user does manual entry instead of using card
+        if (is_manual_mode) {
+            if (lp_hrms_id) {
+                await conn.query(`
+                    UPDATE div_daily_slate
+                    SET lp_status = 'AVAILABLE', lp_hrms_id = NULL
+                    WHERE office_code = ?
+                      AND lp_hrms_id = ?
+                      AND lp_status IN ('BOOKED', 'ONLINE')
+                      AND TIMESTAMPDIFF(HOUR, CONCAT(slot_date, ' ', slot_time), NOW()) >= 5
+                `, [userOffice, lp_hrms_id]);
+                console.log(`[ARRIVAL] Cleared existing LP cards for ${lp_hrms_id}`);
+            }
+            if (alp_hrms_id) {
+                await conn.query(`
+                    UPDATE div_daily_slate
+                    SET alp_status = 'AVAILABLE', alp_hrms_id = NULL
+                    WHERE office_code = ?
+                      AND alp_hrms_id = ?
+                      AND alp_status IN ('BOOKED', 'ONLINE')
+                      AND TIMESTAMPDIFF(HOUR, CONCAT(slot_date, ' ', slot_time), NOW()) >= 5
+                `, [userOffice, alp_hrms_id]);
+                console.log(`[ARRIVAL] Cleared existing ALP cards for ${alp_hrms_id}`);
             }
         }
 
