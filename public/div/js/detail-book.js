@@ -518,10 +518,20 @@ function selectCrewCard(slateId) {
         lpRestGroup.style.opacity = '0.4';
         lpRestGroup.style.pointerEvents = 'none';
     } else {
-        // LP is available - populate normally
+        // LP is available - populate normally, allow ALP-only option if ALP exists
         selectedLP = { hrms_id: crew.lp_hrms_id, name: crew.lp_name, cms_id: crew.lp_cms_id, source_slate_id: crew.slate_id };
-        lpSelect.innerHTML = `<option value="${crew.lp_hrms_id}" selected>${crew.lp_name} (${crew.lp_cms_id})</option>`;
-        lpSelect.disabled = true;
+        if (crew.alp_hrms_id) {
+            // Both exist - allow LP to be deselected for ALP-only sign-off
+            lpSelect.innerHTML = `
+                <option value="none">[ No LP / ALP Only ]</option>
+                <option value="${crew.lp_hrms_id}" selected>${crew.lp_name} (${crew.lp_cms_id})</option>
+            `;
+            lpSelect.disabled = false;
+        } else {
+            // LP only - no option to deselect
+            lpSelect.innerHTML = `<option value="${crew.lp_hrms_id}" selected>${crew.lp_name} (${crew.lp_cms_id})</option>`;
+            lpSelect.disabled = true;
+        }
         document.getElementById('lpRest').value = '16';
         document.getElementById('lpLeave').value = '0';
         lpRestGroup.style.opacity = '1';
@@ -538,15 +548,16 @@ function selectCrewCard(slateId) {
         alpRestGroup.style.opacity = '0.4';
         alpRestGroup.style.pointerEvents = 'none';
     } else if (crew.alp_hrms_id) {
-        // ALP exists and is available - populate normally
+        // ALP exists and is available - populate normally, allow single man option
         selectedALP = { hrms_id: crew.alp_hrms_id, name: crew.alp_name, cms_id: crew.alp_cms_id, source_slate_id: crew.slate_id };
         alpSelect.innerHTML = `
             <option value="none">[ No ALP / Single Man ]</option>
             <option value="${crew.alp_hrms_id}" selected>${crew.alp_name} (${crew.alp_cms_id})</option>
         `;
-        alpSelect.disabled = true;
+        alpSelect.disabled = false; // Allow user to select single man
         document.getElementById('alpRest').value = '16';
         document.getElementById('alpLeave').value = '0';
+        document.getElementById('alpSignOff').disabled = false;
         alpRestGroup.style.opacity = '1';
         alpRestGroup.style.pointerEvents = 'auto';
     } else {
@@ -554,6 +565,8 @@ function selectCrewCard(slateId) {
         selectedALP = null;
         alpSelect.innerHTML = `<option value="none" selected>[ No ALP / Single Man ]</option>`;
         alpSelect.disabled = true;
+        document.getElementById('alpSignOff').disabled = true;
+        document.getElementById('alpSignOff').value = '';
         alpRestGroup.style.opacity = '0.4';
         alpRestGroup.style.pointerEvents = 'none';
     }
@@ -1365,6 +1378,108 @@ function checkExistingCard(hrmsId, name, role) {
     }
 }
 
+/**
+ * Handle LP Sign-Off change - copy to ALP Sign-Off by default
+ */
+function handleLpSignOffChange() {
+    const lpSignOff = document.getElementById('signOff').value;
+    const alpSignOff = document.getElementById('alpSignOff');
+
+    // Auto-copy to ALP if ALP field is empty
+    if (!alpSignOff.value && lpSignOff) {
+        alpSignOff.value = lpSignOff;
+    }
+
+    // Trigger slot calculation
+    if (isManualMode) {
+        calculateSlotsManual();
+    } else {
+        calculateSlots();
+    }
+}
+
+/**
+ * Handle ALP Select change - for single man entry from card
+ */
+function handleAlpSelectChange() {
+    const alpSelect = document.getElementById('alpSelect');
+    const alpRestGroup = document.getElementById('alpRest').closest('.form-row');
+    const alpSignOff = document.getElementById('alpSignOff');
+
+    if (alpSelect.value === 'none') {
+        // Single man - clear ALP selection
+        selectedALP = null;
+        alpRestGroup.style.opacity = '0.4';
+        alpRestGroup.style.pointerEvents = 'none';
+        alpSignOff.value = '';
+        alpSignOff.disabled = true;
+    } else {
+        // ALP selected - restore from activeCrews
+        const crew = activeCrews.find(c =>
+            c.alp_hrms_id === alpSelect.value
+        );
+        if (crew) {
+            selectedALP = {
+                hrms_id: crew.alp_hrms_id,
+                name: crew.alp_name,
+                cms_id: crew.alp_cms_id,
+                source_slate_id: crew.slate_id
+            };
+        }
+        alpRestGroup.style.opacity = '1';
+        alpRestGroup.style.pointerEvents = 'auto';
+        alpSignOff.disabled = false;
+        // Copy LP sign-off to ALP if empty
+        if (!alpSignOff.value) {
+            alpSignOff.value = document.getElementById('signOff').value;
+        }
+    }
+
+    // Recalculate slots
+    if (isManualMode) {
+        calculateSlotsManual();
+    } else {
+        calculateSlots();
+    }
+}
+
+/**
+ * Handle LP Select change - for ALP-only sign-off from card
+ */
+function handleLpSelectChange() {
+    const lpSelect = document.getElementById('lpSelect');
+    const lpRestGroup = document.getElementById('lpRest').closest('.form-row');
+
+    if (lpSelect.value === 'none') {
+        // ALP only - clear LP selection
+        selectedLP = null;
+        lpRestGroup.style.opacity = '0.4';
+        lpRestGroup.style.pointerEvents = 'none';
+    } else {
+        // LP selected - restore from activeCrews
+        const crew = activeCrews.find(c =>
+            c.lp_hrms_id === lpSelect.value
+        );
+        if (crew) {
+            selectedLP = {
+                hrms_id: crew.lp_hrms_id,
+                name: crew.lp_name,
+                cms_id: crew.lp_cms_id,
+                source_slate_id: crew.slate_id
+            };
+        }
+        lpRestGroup.style.opacity = '1';
+        lpRestGroup.style.pointerEvents = 'auto';
+    }
+
+    // Recalculate slots
+    if (isManualMode) {
+        calculateSlotsManual();
+    } else {
+        calculateSlots();
+    }
+}
+
 // ========== STAFF SEARCH ==========
 function setupStaffSearch() {
     // Create datalists for autocomplete
@@ -1498,6 +1613,8 @@ function clearArrivalForm() {
     document.getElementById('incomingLoco').value = '';
     document.getElementById('signOn').value = '';
     document.getElementById('signOff').value = '';
+    document.getElementById('alpSignOff').value = '';
+    document.getElementById('alpSignOff').disabled = false;
     document.getElementById('signOffDate').value = 'today';
     document.getElementById('lpNextSlot').value = '';
     document.getElementById('alpNextSlot').value = '';
@@ -2359,11 +2476,21 @@ async function submitToSlate() {
         }
         payload.sign_on_time = signOn ? `${formatDateKey(TODAY)} ${signOn}:00` : null;
         payload.sign_off_time = signOff ? `${getSignOffDate()} ${signOff}:00` : null;
+        // ALP sign-off time (if different from LP)
+        const alpSignOffVal = document.getElementById('alpSignOff').value;
+        if (alpSignOffVal && alpSignOffVal !== signOff) {
+            payload.alp_sign_off_time = `${getSignOffDate()} ${alpSignOffVal}:00`;
+        }
     } else {
         payload.incoming_detail = trainNo;
         payload.loco_no = locoNo;
         payload.sign_on_time = `${formatDateKey(TODAY)} ${signOn}:00`;
         payload.sign_off_time = `${getSignOffDate()} ${signOff}:00`;
+        // ALP sign-off time (if different from LP)
+        const alpSignOffVal = document.getElementById('alpSignOff').value;
+        if (alpSignOffVal && alpSignOffVal !== signOff) {
+            payload.alp_sign_off_time = `${getSignOffDate()} ${alpSignOffVal}:00`;
+        }
     }
 
     const alpDateSelect = document.getElementById('alpSlotDate');

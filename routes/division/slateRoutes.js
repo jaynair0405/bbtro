@@ -932,13 +932,34 @@ router.post('/arrival', async (req, res) => {
         }
 
         // 4. Mark source slot as completed (for returning crew)
-        // Setting status to AVAILABLE removes them from the returning crew query
+        // Handle partial sign-off: only clear the staff that signed off
         if (source_slate_id) {
-            await conn.query(`
-                UPDATE div_daily_slate
-                SET lp_status = 'AVAILABLE', alp_status = 'AVAILABLE'
-                WHERE id = ?
-            `, [source_slate_id]);
+            if (lp_hrms_id && alp_hrms_id) {
+                // Both signing off - clear entire slot
+                await conn.query(`
+                    UPDATE div_daily_slate
+                    SET lp_status = 'AVAILABLE', lp_hrms_id = NULL,
+                        alp_status = 'AVAILABLE', alp_hrms_id = NULL
+                    WHERE id = ?
+                `, [source_slate_id]);
+                console.log(`[ARRIVAL] Cleared entire slot ${source_slate_id}`);
+            } else if (lp_hrms_id && !alp_hrms_id) {
+                // Only LP signing off - keep ALP on card
+                await conn.query(`
+                    UPDATE div_daily_slate
+                    SET lp_status = 'AVAILABLE', lp_hrms_id = NULL
+                    WHERE id = ?
+                `, [source_slate_id]);
+                console.log(`[ARRIVAL] Cleared LP from slot ${source_slate_id}, ALP remains`);
+            } else if (!lp_hrms_id && alp_hrms_id) {
+                // Only ALP signing off - keep LP on card
+                await conn.query(`
+                    UPDATE div_daily_slate
+                    SET alp_status = 'AVAILABLE', alp_hrms_id = NULL
+                    WHERE id = ?
+                `, [source_slate_id]);
+                console.log(`[ARRIVAL] Cleared ALP from slot ${source_slate_id}, LP remains`);
+            }
         }
 
         // 5. Flag leave conflicts (if staff has approved leave but signed off for duty)

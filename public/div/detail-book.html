@@ -99,8 +99,12 @@
                         <input type="time" id="signOn">
                     </div>
                     <div class="form-group">
-                        <label style="color:var(--accent);">Sign-Off Time</label>
-                        <input type="time" id="signOff" onchange="isManualMode ? calculateSlotsManual() : calculateSlots()">
+                        <label style="color:var(--accent);">Sign-Off (LP)</label>
+                        <input type="time" id="signOff" onchange="handleLpSignOffChange()">
+                    </div>
+                    <div class="form-group">
+                        <label style="color:var(--text-muted);">Sign-Off (ALP)</label>
+                        <input type="time" id="alpSignOff" onchange="isManualMode ? calculateSlotsManual() : calculateSlots()">
                     </div>
                     <div class="form-group" style="width: 100px;">
                         <label style="color:var(--text-muted); font-size: 0.7rem;">Sign-Off Date</label>
@@ -129,7 +133,7 @@
 
                 <div class="form-group" style="margin-top: 10px;">
                     <label>Loco Pilot (LP)</label>
-                    <select id="lpSelect" onchange="checkStaffStatus()">
+                    <select id="lpSelect" onchange="handleLpSelectChange(); checkStaffStatus()">
                         <option value="none">-- Select LP --</option>
                     </select>
                 </div>
@@ -172,7 +176,7 @@
 
                 <div class="form-group" style="margin-top: 5px;">
                     <label>Asst. Loco Pilot (ALP)</label>
-                    <select id="alpSelect">
+                    <select id="alpSelect" onchange="handleAlpSelectChange()">
                         <option value="none">[ No ALP / Single Man ]</option>
                     </select>
                 </div>
