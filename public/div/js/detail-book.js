@@ -2591,7 +2591,7 @@ function presetMinimumDate(type, restType, leave) {
     const signOffDate = new Date(TODAY.getTime());
     signOffDate.setDate(signOffDate.getDate() + minDays);
 
-    const targetDateStr = formatLocalDate(signOffDate);
+    const targetDateStr = formatDateKey(signOffDate);
 
     // Try to select this date in dropdown
     const options = slotDateSelect.options;
@@ -2633,7 +2633,7 @@ function validateSlotDate(type) {
     const selected = new Date(selectedDate);
 
     if (selected < minDate) {
-        const minDateStr = formatLocalDate(minDate);
+        const minDateStr = formatDateKey(minDate);
         showToast(`Warning: ${type.toUpperCase()} needs rest until ${minDateStr}`, 'warning');
         return false;
     }
