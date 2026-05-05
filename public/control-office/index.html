@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Control Office | BB Division</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --brand: #0b3d91;
+            --brand-light: #1e5fb8;
+            --bg: #f1f5f9;
+            --surface: #ffffff;
+            --border: #e2e8f0;
+            --text-main: #1e293b;
+            --text-light: #64748b;
+            --danger: #dc2626;
+            --danger-bg: #fee2e2;
+            --warning: #d97706;
+            --warning-bg: #fef3c7;
+            --success: #059669;
+            --success-bg: #d1fae5;
+            --muted: #94a3b8;
+        }
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg);
+            margin: 0;
+            color: var(--text-main);
+            min-height: 100vh;
+        }
+
+        /* Header */
+        .header {
+            background: var(--brand);
+            color: white;
+            padding: 14px 28px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 6px rgba(0,0,0,.08);
+        }
+        .header-title {
+            font-size: 1.15rem;
+            font-weight: 600;
+            letter-spacing: .3px;
+        }
+        .header-title .sub {
+            font-size: .8rem;
+            opacity: .85;
+            font-weight: 400;
+            margin-left: 10px;
+        }
+        .header-user {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            font-size: .9rem;
+        }
+        .header-user a {
+            color: white;
+            text-decoration: none;
+            background: rgba(255,255,255,.15);
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: .85rem;
+        }
+        .header-user a:hover { background: rgba(255,255,255,.25); }
+
+        /* Lookup widget — sticky below header */
+        .lookup-bar {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 14px 28px;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            box-shadow: 0 1px 3px rgba(0,0,0,.05);
+        }
+        .lookup-form {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            max-width: 900px;
+        }
+        .lookup-form label {
+            font-weight: 600;
+            color: var(--text-main);
+            font-size: .9rem;
+        }
+        .lookup-form input {
+            font-size: 1rem;
+            padding: 8px 12px;
+            border: 2px solid var(--border);
+            border-radius: 6px;
+            width: 180px;
+            font-family: 'Courier New', monospace;
+            font-weight: 600;
+        }
+        .lookup-form input:focus {
+            outline: none;
+            border-color: var(--brand);
+        }
+        .lookup-form button {
+            padding: 8px 18px;
+            background: var(--brand);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: .9rem;
+        }
+        .lookup-form button:hover { background: var(--brand-light); }
+        .lookup-form .hint {
+            color: var(--text-light);
+            font-size: .8rem;
+            margin-left: auto;
+        }
+
+        /* Main content area */
+        .main {
+            padding: 24px 28px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        /* Lookup result panel */
+        .lookup-result {
+            background: var(--surface);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,.06);
+            border: 1px solid var(--border);
+            display: none;
+        }
+        .lookup-result.show { display: block; }
+        .lookup-result.error {
+            border-left: 4px solid var(--danger);
+            background: var(--danger-bg);
+            color: var(--danger);
+        }
+        .loco-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid var(--border);
+            padding-bottom: 12px;
+            margin-bottom: 14px;
+        }
+        .loco-no {
+            font-size: 1.4rem;
+            font-weight: 700;
+            font-family: 'Courier New', monospace;
+            color: var(--brand);
+        }
+        .loco-tags { display: flex; gap: 8px; }
+        .tag {
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: .75rem;
+            font-weight: 600;
+            background: var(--bg);
+            color: var(--text-light);
+        }
+        .tag.electric { background: #dbeafe; color: #1e40af; }
+        .tag.diesel   { background: #fed7aa; color: #9a3412; }
+        .tag.dual     { background: #e9d5ff; color: #6b21a8; }
+        .tag.sick     { background: var(--danger-bg); color: var(--danger); }
+        .tag.hog      { background: var(--success-bg); color: var(--success); }
+
+        .loco-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 14px 22px;
+            margin-bottom: 18px;
+        }
+        .loco-field {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        .loco-field .lbl {
+            font-size: .72rem;
+            color: var(--text-light);
+            text-transform: uppercase;
+            letter-spacing: .5px;
+            font-weight: 600;
+        }
+        .loco-field .val {
+            font-size: .95rem;
+            font-weight: 500;
+        }
+        .loco-field .val.muted { color: var(--muted); font-style: italic; }
+
+        .sick-banner {
+            background: var(--danger-bg);
+            border-left: 4px solid var(--danger);
+            color: var(--danger);
+            padding: 12px 16px;
+            border-radius: 6px;
+            margin-bottom: 16px;
+            font-weight: 500;
+        }
+        .sick-banner .ttl { font-weight: 700; }
+
+        .recent-trains-ttl {
+            font-size: .85rem;
+            font-weight: 600;
+            color: var(--text-light);
+            text-transform: uppercase;
+            letter-spacing: .5px;
+            margin-bottom: 8px;
+        }
+        .recent-trains {
+            display: table;
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .recent-trains th, .recent-trains td {
+            padding: 8px 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+            font-size: .9rem;
+        }
+        .recent-trains th {
+            background: var(--bg);
+            font-size: .75rem;
+            color: var(--text-light);
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+        .recent-trains .mislink { color: var(--danger); font-weight: 600; }
+        .recent-trains .ok      { color: var(--success); }
+        .empty-msg {
+            color: var(--text-light);
+            font-style: italic;
+            font-size: .9rem;
+            padding: 12px 0;
+        }
+
+        /* Dashboard cards */
+        .dashboard-section {
+            margin-bottom: 28px;
+        }
+        .section-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 14px;
+            color: var(--text-main);
+        }
+        .stat-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 14px;
+            margin-bottom: 20px;
+        }
+        .stat-card {
+            background: var(--surface);
+            border-radius: 8px;
+            padding: 16px;
+            box-shadow: 0 1px 3px rgba(0,0,0,.05);
+            border-left: 4px solid var(--brand);
+        }
+        .stat-card .lbl {
+            font-size: .75rem;
+            color: var(--text-light);
+            text-transform: uppercase;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        .stat-card .val {
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: var(--text-main);
+        }
+
+        .quick-links {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 14px;
+        }
+        .link-card {
+            background: var(--surface);
+            border-radius: 8px;
+            padding: 18px;
+            box-shadow: 0 1px 3px rgba(0,0,0,.05);
+            border: 1px solid var(--border);
+            text-decoration: none;
+            color: var(--text-main);
+            transition: all .15s ease;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+        .link-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,.08);
+            border-color: var(--brand);
+        }
+        .link-card.disabled {
+            opacity: .55;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+        .link-card .icn {
+            font-size: 1.6rem;
+            color: var(--brand);
+            width: 40px;
+            text-align: center;
+        }
+        .link-card .ttl {
+            font-weight: 600;
+            font-size: .95rem;
+            margin-bottom: 2px;
+        }
+        .link-card .desc {
+            font-size: .8rem;
+            color: var(--text-light);
+        }
+        .link-card .badge {
+            background: var(--warning-bg);
+            color: var(--warning);
+            font-size: .65rem;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-left: 6px;
+            text-transform: uppercase;
+            font-weight: 700;
+        }
+    </style>
+</head>
+<body>
+
+<header class="header">
+    <div class="header-title">
+        <i class="fa-solid fa-train" style="margin-right:10px"></i>
+        Control Office <span class="sub">BB Division</span>
+    </div>
+    <div class="header-user">
+        <span id="userInfo">…</span>
+        <a href="/api/logout" title="Logout"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+    </div>
+</header>
+
+<!-- Always-visible Loco Lookup widget -->
+<section class="lookup-bar">
+    <form class="lookup-form" id="lookupForm" onsubmit="return false;">
+        <label for="lookupInput"><i class="fa-solid fa-magnifying-glass"></i> Loco Lookup</label>
+        <input id="lookupInput" type="text" placeholder="e.g. 30263" autocomplete="off" maxlength="10">
+        <button type="submit" id="lookupBtn">Search</button>
+        <span class="hint">type loco number and press Enter for full details + recent trains</span>
+    </form>
+</section>
+
+<main class="main">
+
+    <!-- Lookup result -->
+    <div class="lookup-result" id="lookupResult"></div>
+
+    <!-- Dashboard stub (cards become real in slice 2+) -->
+    <section class="dashboard-section">
+        <div class="section-title">Today — <span id="todayDate"></span></div>
+        <div class="stat-cards">
+            <div class="stat-card">
+                <div class="lbl">Entries Today</div>
+                <div class="val">— / —</div>
+            </div>
+            <div class="stat-card" style="border-left-color: var(--danger);">
+                <div class="lbl">Mis-links Today</div>
+                <div class="val">—</div>
+            </div>
+            <div class="stat-card" style="border-left-color: var(--warning);">
+                <div class="lbl">Currently Sick</div>
+                <div class="val">—</div>
+            </div>
+            <div class="stat-card" style="border-left-color: var(--success);">
+                <div class="lbl">Total Locos</div>
+                <div class="val" id="totalLocos">…</div>
+            </div>
+        </div>
+    </section>
+
+    <section class="dashboard-section">
+        <div class="section-title">Daily Loco Link Entry</div>
+        <div class="quick-links">
+            <a class="link-card disabled" href="#">
+                <i class="fa-solid fa-arrow-down icn"></i>
+                <div>
+                    <div class="ttl">CSMT-DN <span class="badge">soon</span></div>
+                    <div class="desc">DN trains departing CSMT</div>
+                </div>
+            </a>
+            <a class="link-card disabled" href="#">
+                <i class="fa-solid fa-arrow-up icn"></i>
+                <div>
+                    <div class="ttl">CSMT-UP <span class="badge">soon</span></div>
+                    <div class="desc">UP trains arriving CSMT</div>
+                </div>
+            </a>
+            <a class="link-card disabled" href="#">
+                <i class="fa-solid fa-arrow-down icn"></i>
+                <div>
+                    <div class="ttl">VVH-DN <span class="badge">soon</span></div>
+                    <div class="desc">DN trains departing VVH</div>
+                </div>
+            </a>
+            <a class="link-card disabled" href="#">
+                <i class="fa-solid fa-arrow-up icn"></i>
+                <div>
+                    <div class="ttl">VVH-UP <span class="badge">soon</span></div>
+                    <div class="desc">UP trains arriving VVH</div>
+                </div>
+            </a>
+            <a class="link-card disabled" href="#">
+                <i class="fa-solid fa-mountain icn"></i>
+                <div>
+                    <div class="ttl">KR Trains <span class="badge">soon</span></div>
+                    <div class="desc">Konkan Railway DN/UP</div>
+                </div>
+            </a>
+            <a class="link-card disabled" href="#">
+                <i class="fa-solid fa-route icn"></i>
+                <div>
+                    <div class="ttl">Bypass <span class="badge">soon</span></div>
+                    <div class="desc">Trains passing through</div>
+                </div>
+            </a>
+        </div>
+    </section>
+
+    <section class="dashboard-section">
+        <div class="section-title">Reports & Tools</div>
+        <div class="quick-links">
+            <a class="link-card disabled" href="#">
+                <i class="fa-solid fa-triangle-exclamation icn" style="color:var(--danger)"></i>
+                <div>
+                    <div class="ttl">Mis-link Reports <span class="badge">soon</span></div>
+                    <div class="desc">By shed, date, train, loco</div>
+                </div>
+            </a>
+            <a class="link-card disabled" href="#">
+                <i class="fa-solid fa-stethoscope icn" style="color:var(--warning)"></i>
+                <div>
+                    <div class="ttl">Sick Loco Mgmt <span class="badge">soon</span></div>
+                    <div class="desc">Mark sick / fit, view list</div>
+                </div>
+            </a>
+            <a class="link-card disabled" href="#">
+                <i class="fa-solid fa-gear icn"></i>
+                <div>
+                    <div class="ttl">Loco Management <span class="badge">soon</span></div>
+                    <div class="desc">Transfer, status, history</div>
+                </div>
+            </a>
+        </div>
+    </section>
+
+</main>
+
+<script>
+const $ = sel => document.querySelector(sel);
+
+// Format date as "Mon, 5 May 2026"
+function todayHuman() {
+    return new Date().toLocaleDateString('en-IN', {
+        weekday: 'short', day: 'numeric', month: 'short', year: 'numeric'
+    });
+}
+
+// Load session info into header
+async function loadMe() {
+    try {
+        const r = await fetch('/api/division/loco-link/me');
+        if (!r.ok) { $('#userInfo').textContent = '—'; return; }
+        const u = await r.json();
+        const role = u.div_role === 'lpc' ? 'LPC' : (u.div_role || u.role);
+        $('#userInfo').innerHTML = `<i class="fa-solid fa-user"></i> ${u.full_name || u.username} <small>(${role})</small>`;
+    } catch (e) {
+        $('#userInfo').textContent = '—';
+    }
+}
+
+// Loco lookup
+async function doLookup() {
+    const locoNo = $('#lookupInput').value.trim();
+    const out = $('#lookupResult');
+    if (!locoNo) {
+        out.classList.remove('show');
+        return;
+    }
+    out.className = 'lookup-result show';
+    out.innerHTML = '<div class="empty-msg"><i class="fa-solid fa-spinner fa-spin"></i> Looking up…</div>';
+
+    try {
+        const r = await fetch(`/api/division/loco-link/loco/${encodeURIComponent(locoNo)}/details`);
+        if (r.status === 404) {
+            out.className = 'lookup-result show error';
+            out.innerHTML = `<i class="fa-solid fa-circle-exclamation"></i> Loco <b>${locoNo}</b> not found in master.`;
+            return;
+        }
+        if (!r.ok) throw new Error('Lookup failed');
+        const data = await r.json();
+        renderLoco(data);
+    } catch (e) {
+        out.className = 'lookup-result show error';
+        out.innerHTML = `<i class="fa-solid fa-circle-exclamation"></i> Lookup failed — ${e.message}`;
+    }
+}
+
+function fmt(v, fallback = '—') {
+    return v === null || v === undefined || v === '' ? fallback : v;
+}
+
+function renderLoco({ loco, sick, recent_trains }) {
+    const out = $('#lookupResult');
+    out.className = 'lookup-result show';
+
+    const tractionTag =
+        loco.traction_type === 'Diesel' ? '<span class="tag diesel">Diesel</span>' :
+        loco.traction_type === 'Dual'   ? '<span class="tag dual">Dual</span>' :
+                                          '<span class="tag electric">Electric</span>';
+    const hogTag = loco.hotel_load_oem
+        ? `<span class="tag hog">HOG: ${loco.hotel_load_oem}</span>` : '';
+    const sickTag = sick ? '<span class="tag sick"><i class="fa-solid fa-stethoscope"></i> SICK</span>' : '';
+
+    let sickBanner = '';
+    if (sick) {
+        const days = Math.floor((Date.now() - new Date(sick.sick_from)) / 86400000);
+        sickBanner = `
+            <div class="sick-banner">
+                <span class="ttl"><i class="fa-solid fa-triangle-exclamation"></i> CURRENTLY SICK</span>
+                — since ${sick.sick_from} (${days} day${days === 1 ? '' : 's'})
+                ${sick.sick_at_shed ? `at <b>${sick.sick_at_shed}</b>` : ''}
+                ${sick.sick_reason ? `· ${sick.sick_reason}` : ''}
+                ${sick.sicked_by ? `<small>(reported by ${sick.sicked_by})</small>` : ''}
+            </div>`;
+    }
+
+    const recentRows = (recent_trains || []).map(t => `
+        <tr>
+            <td>${t.working_date}</td>
+            <td>${t.direction}</td>
+            <td><b>${t.train_no}</b></td>
+            <td>${fmt(t.base_shed)} ${t.position === 'rear' ? '<small>(rear)</small>' : ''}</td>
+            <td class="${t.is_mislink ? 'mislink' : 'ok'}">
+                ${t.is_mislink ? '⚠ MIS-LINK' : '✓ OK'}
+            </td>
+        </tr>
+    `).join('');
+
+    out.innerHTML = `
+        <div class="loco-header">
+            <div class="loco-no">${loco.loco_number}</div>
+            <div class="loco-tags">
+                ${tractionTag} ${hogTag} ${sickTag}
+            </div>
+        </div>
+        ${sickBanner}
+        <div class="loco-grid">
+            <div class="loco-field"><div class="lbl">Type</div><div class="val">${fmt(loco.loco_type)}</div></div>
+            <div class="loco-field"><div class="lbl">Home Shed</div><div class="val">${fmt(loco.home_shed)}</div></div>
+            <div class="loco-field"><div class="lbl">Railway Zone</div><div class="val">${fmt(loco.railway_zone)}</div></div>
+            <div class="loco-field"><div class="lbl">Status</div><div class="val">${fmt(loco.status)}</div></div>
+            <div class="loco-field"><div class="lbl">Commissioned</div><div class="val">${fmt(loco.commission_date)}</div></div>
+            <div class="loco-field"><div class="lbl">Traction Conv.</div><div class="val ${loco.traction_converter ? '' : 'muted'}">${fmt(loco.traction_converter, 'n/a')}</div></div>
+            <div class="loco-field"><div class="lbl">ARNO / SIV</div><div class="val ${loco.arno_siv ? '' : 'muted'}">${fmt(loco.arno_siv, 'n/a')}</div></div>
+            <div class="loco-field"><div class="lbl">RTIS OEM</div><div class="val ${loco.rtis_oem ? '' : 'muted'}">${fmt(loco.rtis_oem, 'n/a')}</div></div>
+            <div class="loco-field"><div class="lbl">HRPT</div><div class="val">${loco.hrpt_count || 0}</div></div>
+            <div class="loco-field"><div class="lbl">µ-processor</div><div class="val ${loco.microprocessor_type ? '' : 'muted'}">${fmt(loco.microprocessor_type, 'n/a')}</div></div>
+            <div class="loco-field"><div class="lbl">Hotel Load</div><div class="val ${loco.hotel_load_oem ? '' : 'muted'}">${fmt(loco.hotel_load_oem, 'n/a')}</div></div>
+            <div class="loco-field"><div class="lbl">Source</div><div class="val">${fmt(loco.data_source)}</div></div>
+        </div>
+        <div class="recent-trains-ttl">Last ${recent_trains.length || 0} train${recent_trains.length === 1 ? '' : 's'} worked</div>
+        ${recent_trains.length ? `
+            <table class="recent-trains">
+                <thead>
+                    <tr><th>Date</th><th>Dir</th><th>Train</th><th>Base</th><th>Status</th></tr>
+                </thead>
+                <tbody>${recentRows}</tbody>
+            </table>
+        ` : '<div class="empty-msg">No log entries yet.</div>'}
+    `;
+}
+
+// Bind events
+$('#lookupForm').addEventListener('submit', doLookup);
+$('#lookupInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); doLookup(); }
+});
+
+// Init
+$('#todayDate').textContent = todayHuman();
+loadMe();
+$('#lookupInput').focus();
+</script>
+
+</body>
+</html>

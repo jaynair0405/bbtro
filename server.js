@@ -26,7 +26,7 @@ const { getSlateDisplay } = require('./utils/kioskDisplays');
 
 const authRoutes = require('./routes/authRoutes');
 const app = express();
-const PORT = 3000;
+const PORT = parseInt(process.env.PORT, 10) || 3000;
 console.log("✅ server.js loaded — Sub-SPM change marker v1");
 
 // app.use(express.json());
@@ -175,6 +175,21 @@ app.get('/div/training-centre.html', (req, res) => {
   const role = req.session.user.div_role;
   if (role !== 'trgcentre_admin' && role !== 'division_admin') return res.redirect('/div');
   res.sendFile(path.join(__dirname, 'public', 'div', 'training-centre.html'));
+});
+
+// ✅ Control Office Portal — accessible by lpc and division_admin
+function requireControlOffice(req, res, next) {
+  if (!req.session.user) return res.redirect('/');
+  if (req.session.user.realm !== 'division') return res.redirect('/');
+  const role = req.session.user.div_role;
+  if (role !== 'lpc' && role !== 'division_admin') return res.redirect('/div');
+  next();
+}
+app.get('/control-office/', requireControlOffice, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'control-office', 'index.html'));
+});
+app.get('/control-office/index.html', requireControlOffice, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'control-office', 'index.html'));
 });
 
 app.get('/div/bulk-upload-staff.html', (req, res) => {
@@ -634,6 +649,7 @@ const trainingLetterRoutes = require('./routes/division/trainingLetterRoutes');
 const cvvrsRoutes = require('./routes/division/cvvrsRoutes');
 const adasRoutes = require('./routes/division/adasRoutes');
 const trainingCentreRoutes = require('./routes/division/trainingCentreRoutes');
+const locoLinkRoutes = require('./routes/division/locoLinkRoutes');
 
 // Add division routes with realm protection
 app.use("/api/division/leave", requireRealm("division"), leaveRoutes); // mount early to avoid any catch-alls
@@ -659,6 +675,7 @@ app.use("/api/division/training-letters", requireRealm('division'), trainingLett
 app.use("/api/division/training-centre", requireRealm('division'), trainingCentreRoutes);
 app.use("/api/division/cvvrs", requireRealm('division'), cvvrsRoutes);
 app.use("/api/division/adas", requireRealm('division'), adasRoutes);
+app.use("/api/division/loco-link", requireRealm('division'), locoLinkRoutes);
 
 // Session info endpoint
 app.get('/api/session', (req, res) => {
