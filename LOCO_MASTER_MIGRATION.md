@@ -24,6 +24,7 @@ CREATE TABLE div_locos (
   id INT AUTO_INCREMENT PRIMARY KEY,
   loco_number VARCHAR(20) NOT NULL UNIQUE,
   loco_type VARCHAR(20),
+  traction_type ENUM('Electric','Diesel','Dual') DEFAULT 'Electric',  -- Phase 1.5
   railway_zone VARCHAR(10),
   home_shed VARCHAR(20),
   status ENUM('Active','Transferred Out','Condemned') DEFAULT 'Active',
@@ -34,14 +35,20 @@ CREATE TABLE div_locos (
   hrpt_count TINYINT DEFAULT 0,          -- 0 / 1 / 2
   microprocessor_type VARCHAR(30),       -- MEDHA Ver2/Ver3, LAXVEN Ver3, STESALIT Ver2, ...
   hotel_load_oem VARCHAR(30),            -- Siemens / Medha / AAL / BHEL / ABB / HIRECT / ... (NULL on freight)
+  data_source ENUM('CSV_UPLOAD','LPC_ENTRY','MANUAL') DEFAULT 'CSV_UPLOAD',  -- Phase 1.5
+  entered_by VARCHAR(100),               -- Phase 1.5 — LPC username for LPC-entered diesel locos
   remarks VARCHAR(255),
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   INDEX (railway_zone),
   INDEX (loco_type),
-  INDEX (home_shed)
+  INDEX (home_shed),
+  INDEX (traction_type),
+  INDEX (data_source)
 );
 ```
+
+> **Note**: this is the *current* table shape after Phase 1 + Phase 1.5. The Phase 1 CREATE table ([sql/2026-04-23_div_locos.sql](sql/2026-04-23_div_locos.sql)) creates the original columns; Phase 1.5 ([sql/2026-05-04_div_locos_traction.sql](sql/2026-05-04_div_locos_traction.sql)) adds the 3 traction columns via ALTER.
 
 **Design notes:**
 - **Single `home_shed`** — a loco has exactly one home shed. Transfers rewrite this field (and append a row to `div_loco_transfers` for audit). No separate `current_shed`.
