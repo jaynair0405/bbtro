@@ -1,0 +1,1926 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daily Loco Link Entry | Control Office</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --brand: #0b3d91;
+            --brand-light: #1e5fb8;
+            --bg: #f1f5f9;
+            --surface: #ffffff;
+            --border: #e2e8f0;
+            --border-strong: #cbd5e1;
+            --text-main: #1e293b;
+            --text-light: #64748b;
+            --danger: #dc2626;
+            --danger-bg: #fee2e2;
+            --warning: #d97706;
+            --warning-bg: #fef3c7;
+            --success: #059669;
+            --success-bg: #d1fae5;
+            --muted: #94a3b8;
+            --info: #0284c7;
+            --info-bg: #e0f2fe;
+        }
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg);
+            margin: 0;
+            color: var(--text-main);
+        }
+
+        /* Header */
+        .header {
+            background: var(--brand);
+            color: white;
+            padding: 12px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 6px rgba(0,0,0,.08);
+        }
+        .header-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+        .header-title a {
+            color: white;
+            text-decoration: none;
+            opacity: .85;
+        }
+        .header-title a:hover { opacity: 1; }
+        .header-title .sep { margin: 0 10px; opacity: .6; }
+        .header-user {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            font-size: .9rem;
+        }
+        .header-user a {
+            color: white;
+            text-decoration: none;
+            background: rgba(255,255,255,.15);
+            padding: 5px 11px;
+            border-radius: 4px;
+            font-size: .82rem;
+        }
+        .header-user a:hover { background: rgba(255,255,255,.25); }
+
+        /* Filter bar */
+        .filter-bar {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 12px 24px;
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            flex-wrap: wrap;
+            position: sticky;
+            top: 0;
+            z-index: 8;
+            box-shadow: 0 1px 3px rgba(0,0,0,.05);
+        }
+        .filter-bar label { font-size: .85rem; font-weight: 600; }
+        .filter-bar input[type=date] {
+            padding: 6px 10px;
+            border: 1px solid var(--border-strong);
+            border-radius: 5px;
+            font-size: .9rem;
+            font-family: inherit;
+        }
+        .filter-bar .quick-btn {
+            padding: 6px 12px;
+            border: 1px solid var(--border-strong);
+            background: var(--surface);
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: .82rem;
+            font-weight: 500;
+        }
+        .filter-bar .quick-btn:hover { background: var(--bg); }
+        .filter-bar .quick-btn.active {
+            background: var(--brand);
+            color: white;
+            border-color: var(--brand);
+        }
+        .filter-bar .segment-switcher {
+            padding: 6px 10px;
+            border: 1px solid var(--border-strong);
+            border-radius: 5px;
+            font-size: .9rem;
+            font-family: inherit;
+            background: var(--surface);
+            cursor: pointer;
+        }
+        .filter-bar .segment-switcher:focus {
+            outline: none;
+            border-color: var(--brand);
+        }
+        .filter-bar .stats {
+            margin-left: auto;
+            font-size: .9rem;
+            color: var(--text-light);
+            display: flex;
+            gap: 14px;
+        }
+        .filter-bar .stat-num { font-weight: 700; color: var(--text-main); }
+        .filter-bar .stat-num.bad { color: var(--danger); }
+        .read-only-banner {
+            background: var(--warning-bg);
+            color: var(--warning);
+            padding: 10px 24px;
+            font-size: .88rem;
+            font-weight: 500;
+            border-bottom: 1px solid var(--warning);
+        }
+
+        /* Main */
+        .main { padding: 18px 24px; max-width: 1500px; margin: 0 auto; }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 4px;
+            border-bottom: 2px solid var(--border);
+            margin-bottom: 14px;
+        }
+        .tab {
+            padding: 10px 18px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: .9rem;
+            color: var(--text-light);
+            border-bottom: 3px solid transparent;
+            margin-bottom: -2px;
+        }
+        .tab.active {
+            color: var(--brand);
+            border-bottom-color: var(--brand);
+        }
+        .tab.disabled {
+            opacity: .4;
+            cursor: not-allowed;
+        }
+
+        /* Sheet table */
+        .sheet-wrap {
+            background: var(--surface);
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,.05);
+            overflow: auto;
+            border: 1px solid var(--border);
+        }
+        table.sheet {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: .85rem;
+        }
+        .sheet th, .sheet td {
+            padding: 7px 9px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+            vertical-align: middle;
+        }
+        .sheet thead th {
+            background: var(--bg);
+            font-size: .72rem;
+            text-transform: uppercase;
+            font-weight: 700;
+            color: var(--text-light);
+            letter-spacing: .4px;
+            position: sticky;
+            top: 0;
+            z-index: 1;
+            border-bottom: 2px solid var(--border-strong);
+        }
+        .sheet tbody tr:hover { background: #f8fafc; }
+        .sheet tbody tr.row-saved { background: #f0fdf4; }
+        .sheet tbody tr.row-saved:hover { background: #dcfce7; }
+        .sheet tbody tr.row-error { background: #fef2f2; }
+        .sheet tbody tr.row-pending { background: #fff7ed; }
+
+        .sheet td.col-sr     { width: 42px; color: var(--text-light); font-size: .78rem; }
+        .sheet td.col-time   { width: 70px; font-family: 'Courier New', monospace; font-weight: 600; }
+        .sheet td.col-train  {
+            width: 90px;
+            font-family: 'Courier New', monospace;
+            font-weight: 700;
+            font-size: .95rem;
+            color: var(--brand);
+        }
+        .sheet td.col-link   { width: 120px; }
+        .sheet td.col-actual { width: 200px; }
+        .sheet td.col-base   { width: 80px; }
+        .sheet td.col-hog    { width: 50px; text-align: center; }
+        .sheet td.col-other  { width: 110px; }
+        .sheet td.col-remark { min-width: 140px; }
+        .sheet td.col-status { width: 130px; text-align: center; }
+        .sheet td.col-actual input.loco-input { min-width: 95px; flex: 1; }
+
+        .link-summary {
+            display: flex;
+            flex-direction: column;
+            gap: 1px;
+        }
+        .link-summary .shed {
+            font-weight: 600;
+            font-size: .82rem;
+        }
+        .link-summary .attr {
+            font-size: .72rem;
+            color: var(--text-light);
+        }
+        .rake-tag {
+            display: inline-block;
+            padding: 1px 6px;
+            border-radius: 3px;
+            background: var(--bg);
+            color: var(--text-light);
+            font-size: .68rem;
+            font-weight: 600;
+            margin-right: 4px;
+        }
+
+        .sheet input[type="text"], .sheet input[type="number"] {
+            width: 100%;
+            padding: 5px 7px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-size: .85rem;
+            font-family: inherit;
+        }
+        .sheet input.loco-input {
+            font-family: 'Courier New', monospace;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .sheet input:focus {
+            outline: none;
+            border-color: var(--brand);
+            box-shadow: 0 0 0 2px rgba(11,61,145,.15);
+        }
+        .sheet input:disabled, .sheet select:disabled {
+            background: #f8fafc;
+            color: var(--text-light);
+            cursor: not-allowed;
+        }
+
+        .base-display {
+            font-family: 'Courier New', monospace;
+            font-weight: 600;
+            font-size: .85rem;
+            padding: 5px 7px;
+            background: #f8fafc;
+            border-radius: 4px;
+            min-height: 1.2em;
+        }
+        .base-display.empty { color: var(--muted); font-style: italic; font-weight: normal; }
+
+        .hog-toggle {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: .82rem;
+        }
+        .hog-toggle input { width: auto !important; }
+
+        /* Push-pull sub-row (rear) */
+        /* Terminal: section header (NE / SE / KR / etc.) */
+        .sheet tr.section-header td {
+            background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+            color: var(--text-light);
+            font-size: .72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            padding: 6px 12px;
+            border-top: 2px solid var(--border-strong);
+            border-bottom: 1px solid var(--border);
+        }
+        .sheet tr.section-header:hover td { background: #e2e8f0; }
+        .sheet tr.section-header td small {
+            font-size: .68rem;
+            font-weight: 500;
+            color: var(--muted);
+            text-transform: none;
+            letter-spacing: 0;
+            margin-left: 4px;
+        }
+
+        /* Bypass: route group header */
+        .sheet tr.route-header td {
+            background: linear-gradient(180deg, #eff6ff 0%, #dbeafe 100%);
+            color: var(--brand);
+            font-weight: 700;
+            font-size: .82rem;
+            padding: 8px 12px;
+            border-top: 2px solid var(--brand);
+            border-bottom: 2px solid var(--border-strong);
+            letter-spacing: .5px;
+        }
+        .sheet tr.route-header:hover td { background: linear-gradient(180deg, #dbeafe 0%, #bfdbfe 100%); }
+        .sheet tr.route-header td .route-name { display: inline-block; }
+        .sheet tr.route-header td .route-count {
+            float: right;
+            font-size: .75rem;
+            font-weight: 600;
+            color: var(--text-light);
+            background: var(--surface);
+            padding: 1px 8px;
+            border-radius: 9px;
+        }
+
+        .sheet tr.row-rear {
+            background: #fafafa !important;
+        }
+        .sheet tr.row-rear td.col-sr {
+            font-size: .65rem;
+            color: var(--warning);
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+        /* On a rear row, irrelevant cells are simply visually muted, not hidden.
+           The rear row may have legitimate inputs in col-other (outgoing_train_rear)
+           and col-remark (remarks_rear). */
+        .sheet tr.row-rear td.col-time,
+        .sheet tr.row-rear td.col-train,
+        .sheet tr.row-rear td.col-link,
+        .sheet tr.row-rear td.col-hog {
+            color: var(--muted);
+            user-select: none;
+        }
+
+        /* Visual separation between train groups — thicker bottom border on the LAST row of a train */
+        .sheet tbody tr:not(.row-rear):not(.section-header):not(.route-header):not(.row-blank-special):not(.row-add-special):not(.row-special) {
+            border-top: 2px solid var(--border-strong);
+        }
+        .sheet tbody tr.row-rear {
+            border-top: none;
+        }
+        /* First content row inside a card should not have an extra top border (cleaner header transition) */
+        .sheet tbody tr:not(.row-rear):not(.section-header):not(.route-header):first-child {
+            border-top: none;
+        }
+
+        /* Inline pills */
+        .pill {
+            display: inline-block;
+            padding: 1px 7px;
+            border-radius: 9px;
+            font-size: .65rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            margin-left: 4px;
+        }
+        .pill.mislink { background: var(--danger-bg); color: var(--danger); }
+        .pill.hog-warn { background: var(--warning-bg); color: var(--warning); }
+        .pill.sick { background: var(--danger-bg); color: var(--danger); }
+        .pill.ok { background: var(--success-bg); color: var(--success); }
+        .pill.pp  { background: var(--info-bg); color: var(--info); }
+
+        /* Save button */
+        .save-btn {
+            padding: 5px 10px;
+            border: none;
+            border-radius: 4px;
+            background: var(--brand);
+            color: white;
+            font-weight: 600;
+            font-size: .78rem;
+            cursor: pointer;
+        }
+        .save-btn:hover { background: var(--brand-light); }
+        .save-btn.dirty { background: var(--warning); }
+        .save-btn.dirty:hover { background: #b45309; }
+
+        /* Dead-main controls (below the front loco input) */
+        .dead-controls {
+            font-size: .7rem;
+            color: var(--text-light);
+            margin-top: 3px;
+            display: flex;
+            gap: 6px;
+            align-items: center;
+            line-height: 1.2;
+        }
+        .dead-controls label {
+            display: inline-flex;
+            align-items: center;
+            gap: 2px;
+            cursor: pointer;
+        }
+        .dead-controls input[type=checkbox],
+        .dead-controls input[type=radio] {
+            transform: scale(0.85);
+            margin: 0;
+        }
+        .dead-controls .failed-where { display: none; gap: 6px; align-items: center; }
+        .dead-controls.dead-on .failed-where { display: inline-flex; }
+        .dead-pill {
+            background: var(--danger-bg);
+            color: var(--danger);
+            font-size: .65rem;
+            padding: 1px 6px;
+            border-radius: 3px;
+            font-weight: 700;
+            margin-left: 4px;
+            letter-spacing: .3px;
+        }
+
+        /* "+" button to reveal assist/coupler/dead loco row */
+        .loco-cell-wrap { display: flex; gap: 4px; align-items: center; }
+        .add-second-btn {
+            flex: 0 0 auto;
+            width: 22px;
+            height: 22px;
+            padding: 0;
+            border: 1px dashed var(--border-strong);
+            background: var(--surface);
+            border-radius: 4px;
+            color: var(--text-light);
+            font-weight: 700;
+            cursor: pointer;
+            font-size: .95rem;
+            line-height: 1;
+        }
+        .add-second-btn:hover {
+            background: var(--warning-bg);
+            color: var(--warning);
+            border-color: var(--warning);
+            border-style: solid;
+        }
+        /* Role selector inside the rear row */
+        .role-select {
+            font-size: .72rem;
+            padding: 2px 5px;
+            border: 1px solid var(--border-strong);
+            border-radius: 3px;
+            background: var(--surface);
+            font-family: inherit;
+            margin-right: 4px;
+        }
+        .save-btn:disabled { opacity: .5; cursor: not-allowed; background: var(--muted); }
+        .row-status {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 3px;
+            font-size: .7rem;
+        }
+        .row-status .err { color: var(--danger); font-weight: 600; }
+
+        .empty {
+            padding: 60px 24px;
+            text-align: center;
+            color: var(--text-light);
+            font-style: italic;
+        }
+        .loading { padding: 40px 24px; text-align: center; color: var(--text-light); }
+
+        /* Special-train rows (master-less) — gentle amber tint */
+        .sheet tr.row-special td { background: #fffbeb; }
+        .sheet tr.row-special.row-saved td { background: #f0fdf4; }
+        .sheet tr.row-blank-special td { background: #fefce8; }
+        .pill.spl {
+            background: #fef3c7;
+            color: #92400e;
+            font-weight: 700;
+        }
+        .del-btn {
+            padding: 4px 8px;
+            border: 1px solid var(--border-strong);
+            background: var(--surface);
+            color: var(--text-light);
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: .75rem;
+        }
+        .del-btn:hover {
+            background: var(--danger-bg);
+            color: var(--danger);
+            border-color: var(--danger);
+        }
+        .row-status .del-btn { margin-top: 2px; }
+
+        /* Add Special row */
+        .sheet tr.row-add-special td {
+            padding: 4px 12px;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+        }
+        .add-special-btn {
+            padding: 5px 10px;
+            background: transparent;
+            border: 1px dashed var(--border-strong);
+            border-radius: 4px;
+            color: var(--text-light);
+            font-size: .78rem;
+            cursor: pointer;
+            font-weight: 500;
+        }
+        .add-special-btn:hover {
+            background: #fef3c7;
+            color: #92400e;
+            border-color: #d97706;
+            border-style: solid;
+        }
+
+        /* Sticky Save All bar */
+        .save-all-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--surface);
+            border-top: 2px solid var(--border-strong);
+            padding: 10px 24px;
+            display: none;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 -3px 12px rgba(0,0,0,.08);
+            z-index: 9;
+        }
+        .save-all-bar.visible { display: flex; }
+        .save-all-info {
+            font-size: .9rem;
+            color: var(--text-main);
+            font-weight: 500;
+        }
+        .save-all-info i { color: var(--warning); margin-right: 6px; }
+        .save-all-info #dirtyCount { font-weight: 700; color: var(--brand); }
+        .save-all-info small {
+            margin-left: 12px;
+            font-weight: 400;
+            color: var(--text-light);
+        }
+        .save-all-btn {
+            padding: 8px 18px;
+            background: var(--brand);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: .9rem;
+            cursor: pointer;
+        }
+        .save-all-btn:hover { background: var(--brand-light); }
+        .save-all-btn:disabled { opacity: .5; cursor: not-allowed; }
+        body.has-save-bar { padding-bottom: 64px; }
+    </style>
+</head>
+<body>
+
+<header class="header">
+    <div class="header-title">
+        <a href="/control-office/" title="Back to dashboard">
+            <i class="fa-solid fa-arrow-left"></i> Control Office
+        </a>
+        <span class="sep">›</span>
+        <span id="pageTitle">Daily Loco Link Entry</span>
+    </div>
+    <div class="header-user">
+        <span id="userInfo">…</span>
+        <a href="/api/logout" title="Logout"><i class="fa-solid fa-right-from-bracket"></i></a>
+    </div>
+</header>
+
+<section class="filter-bar">
+    <label for="dateInput"><i class="fa-regular fa-calendar"></i> Date:</label>
+    <input id="dateInput" type="date">
+    <button class="quick-btn" data-rel="-1">Yesterday</button>
+    <button class="quick-btn active" data-rel="0">Today</button>
+    <button class="quick-btn" data-rel="1">Tomorrow</button>
+    <span style="color:var(--text-light)">·</span>
+    <span id="dayLabel" style="font-size:.85rem; color:var(--text-light); min-width:80px"></span>
+    <span style="color:var(--text-light)">·</span>
+    <label for="segmentSwitcher" style="font-size:.85rem">Sheet:</label>
+    <select id="segmentSwitcher" class="segment-switcher">
+        <optgroup label="Terminal">
+            <option value="?sheet_source=CSMT-DN">CSMT-DN</option>
+            <option value="?sheet_source=CSMT-UP">CSMT-UP</option>
+            <option value="?sheet_source=LTT-DN">LTT-DN</option>
+            <option value="?sheet_source=LTT-UP">LTT-UP</option>
+            <option value="?sheet_source=KR-DN">KR-DN</option>
+            <option value="?sheet_source=KR-UP">KR-UP</option>
+        </optgroup>
+        <optgroup label="Other">
+            <option value="?direction=BYPASS">Bypass Trains</option>
+        </optgroup>
+    </select>
+
+    <span class="stats">
+        <span>
+            <span class="stat-num" id="statTotal">—</span> trains
+            <small id="statBreakdown" style="font-weight:normal;color:var(--text-light);margin-left:4px"></small>
+        </span>
+        <span><span class="stat-num" id="statFilled">—</span> entered</span>
+        <span><span class="stat-num bad" id="statMislink">—</span> mis-links</span>
+    </span>
+</section>
+
+<div class="read-only-banner" id="readOnlyBanner" style="display:none">
+    <i class="fa-solid fa-lock"></i>
+    <span id="readOnlyMsg">This date is outside the editable window.</span>
+</div>
+
+<main class="main">
+    <div class="tabs">
+        <div class="tab active" data-tab="terminal">Terminal Trains</div>
+        <div class="tab disabled" title="Coming in next slice">Bypass Trains</div>
+    </div>
+
+    <div class="sheet-wrap">
+        <table class="sheet" id="sheet">
+            <thead>
+                <tr>
+                    <th class="col-sr">SR</th>
+                    <th class="col-time">Time</th>
+                    <th class="col-train">Train</th>
+                    <th class="col-link">Link</th>
+                    <th class="col-actual">Actual Loco</th>
+                    <th class="col-base">Base</th>
+                    <th class="col-hog">HOG</th>
+                    <th class="col-other" id="thInOut">Incoming</th>
+                    <th class="col-remark">Remark</th>
+                    <th class="col-status">Save / Status</th>
+                </tr>
+            </thead>
+            <tbody id="sheetBody">
+                <tr><td colspan="10" class="loading"><i class="fa-solid fa-spinner fa-spin"></i> Loading…</td></tr>
+            </tbody>
+        </table>
+    </div>
+</main>
+
+<!-- Save All bar — sticky bottom, only visible when there are unsaved rows -->
+<div class="save-all-bar" id="saveAllBar">
+    <div class="save-all-info">
+        <i class="fa-solid fa-circle-exclamation"></i>
+        <span id="dirtyCount">0</span> row<span id="dirtyPlural">s</span> with unsaved changes
+        <small id="saveAllStatus"></small>
+    </div>
+    <button class="save-all-btn" id="saveAllBtn">
+        <i class="fa-solid fa-cloud-arrow-up"></i> Save All
+    </button>
+</div>
+
+<script>
+const $  = sel => document.querySelector(sel);
+const $$ = sel => document.querySelectorAll(sel);
+
+const params = new URLSearchParams(window.location.search);
+const sheetSource = params.get('sheet_source') || '';            // preferred
+const directionParam = (params.get('direction') || '').toUpperCase();
+const fromStation = params.get('from_station') || params.get('from') || '';
+const routeLabel = params.get('route_label') || '';
+
+// Derive direction from sheet_source if needed (for the column header label)
+let direction = directionParam;
+if (!direction && sheetSource) {
+    if (sheetSource.endsWith('-DN')) direction = 'DN';
+    else if (sheetSource.endsWith('-UP')) direction = 'UP';
+    else if (sheetSource.startsWith('BYPASS')) direction = 'BYPASS';
+}
+
+const isBypass = direction === 'BYPASS' || (sheetSource && sheetSource.startsWith('BYPASS'));
+
+// Header title
+let titleSegment;
+if (sheetSource) titleSegment = sheetSource;
+else if (isBypass) titleSegment = routeLabel ? `BYPASS · ${routeLabel}` : 'BYPASS Trains';
+else titleSegment = `${fromStation || '?'}-${direction || '?'}`;
+$('#pageTitle').textContent = `${titleSegment} — Daily Loco Link`;
+
+// Column header for the IN/OUT col differs by direction
+if (isBypass) {
+    $('#thInOut').textContent = 'Next Train';
+} else {
+    $('#thInOut').textContent = direction === 'UP' ? 'Outgoing' : 'Incoming';
+}
+
+// Tabs: highlight + cross-mode navigation.
+// Terminal tab when in bypass → goes to last terminal segment (sessionStorage),
+// or CSMT-DN as default. Bypass tab when in terminal → goes to ?direction=BYPASS.
+(function setupTabs() {
+    const tabs = $$('.tab');
+    if (tabs.length < 2) return;
+    tabs[0].classList.toggle('active', !isBypass);
+    tabs[1].classList.toggle('active', isBypass);
+    tabs[0].classList.remove('disabled');
+    tabs[1].classList.remove('disabled');
+    tabs[1].title = '';
+
+    tabs[0].addEventListener('click', () => {
+        if (!isBypass) return;
+        const last = sessionStorage.getItem('lastTerminalSegment') || 'CSMT-DN';
+        const date = $('#dateInput').value || '';
+        window.location = `/control-office/daily-entry.html?sheet_source=${encodeURIComponent(last)}` +
+                          (date ? `&date=${encodeURIComponent(date)}` : '');
+    });
+    tabs[1].addEventListener('click', () => {
+        if (isBypass) return;
+        const date = $('#dateInput').value || '';
+        window.location = `/control-office/daily-entry.html?direction=BYPASS` +
+                          (date ? `&date=${encodeURIComponent(date)}` : '');
+    });
+})();
+
+// Remember the current terminal segment so the Terminal tab in bypass mode
+// can return to it later.
+if (!isBypass && sheetSource) {
+    sessionStorage.setItem('lastTerminalSegment', sheetSource);
+}
+
+// Segment switcher dropdown — pick current value, navigate on change.
+(function setupSwitcher() {
+    const sel = $('#segmentSwitcher');
+    if (!sel) return;
+    const target = sheetSource ? `?sheet_source=${sheetSource}` : (isBypass ? '?direction=BYPASS' : '');
+    if (target) {
+        for (const opt of sel.options) {
+            if (opt.value === target) { opt.selected = true; break; }
+        }
+    }
+    sel.addEventListener('change', () => {
+        const v = sel.value;
+        const date = $('#dateInput').value || '';
+        const sep = v.includes('?') ? '&' : '?';
+        window.location = `/control-office/daily-entry.html${v}` +
+                          (date ? `${sep}date=${encodeURIComponent(date)}` : '');
+    });
+})();
+
+// Date helpers
+function todayISO() { return new Date().toISOString().slice(0, 10); }
+function isoPlusDays(d, n) {
+    const dt = new Date(d + 'T00:00:00Z');
+    dt.setUTCDate(dt.getUTCDate() + n);
+    return dt.toISOString().slice(0, 10);
+}
+function dayLabelIR(iso) {
+    const dt = new Date(iso + 'T00:00:00Z');
+    return dt.toLocaleDateString('en-IN', { weekday: 'long', timeZone: 'UTC' });
+}
+
+let currentDate = params.get('date') || todayISO();
+let currentSheet = null; // last loaded {rows, editable, ...}
+
+// ── load + render ────────────────────────────────────────────────────
+async function loadSheet() {
+    if (!sheetSource && !isBypass && !(direction && fromStation)) {
+        $('#sheetBody').innerHTML = `<tr><td colspan="10" class="empty">
+            Missing URL parameter. Use <code>?sheet_source=CSMT-DN</code> or <code>?direction=BYPASS</code></td></tr>`;
+        return;
+    }
+    $('#dateInput').value = currentDate;
+    updateQuickBtns();
+    $('#dayLabel').textContent = dayLabelIR(currentDate);
+
+    const qs = new URLSearchParams({ date: currentDate });
+    if (sheetSource) {
+        qs.set('sheet_source', sheetSource);
+    } else if (isBypass) {
+        qs.set('direction', 'BYPASS');
+        if (routeLabel) qs.set('route_label', routeLabel);
+    } else {
+        qs.set('direction', direction);
+        qs.set('from_station', fromStation);
+    }
+    const url = `/api/division/loco-link/today?${qs.toString()}`;
+    $('#sheetBody').innerHTML = `<tr><td colspan="10" class="loading"><i class="fa-solid fa-spinner fa-spin"></i> Loading…</td></tr>`;
+
+    try {
+        const r = await fetch(url);
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const data = await r.json();
+        currentSheet = data;
+        // Set direction from response if not derived locally (e.g. legacy URL)
+        if (!direction && data.direction) {
+            direction = data.direction;
+            if (!isBypass) $('#thInOut').textContent = direction === 'UP' ? 'Outgoing' : 'Incoming';
+        }
+        if (isBypass) renderBypass(data);
+        else renderSheet(data);
+    } catch (e) {
+        $('#sheetBody').innerHTML = `<tr><td colspan="10" class="empty" style="color:var(--danger)">
+            Failed to load — ${e.message}</td></tr>`;
+    }
+}
+
+function renderSheet(data) {
+    const body = $('#sheetBody');
+    body.innerHTML = '';
+
+    // Stats — total + section breakdown + entered + mis-links
+    $('#statTotal').textContent = data.total;
+    $('#statBreakdown').textContent = buildSectionBreakdown(data.rows);
+    $('#statFilled').textContent = data.filled;
+    const mislinkCount = data.rows.filter(r =>
+        r.log && (r.log.is_mislink || r.log.is_mislink_rear)).length;
+    $('#statMislink').textContent = mislinkCount;
+
+    // Read-only banner
+    if (!data.editable) {
+        $('#readOnlyBanner').style.display = 'block';
+        const w = data.edit_window;
+        $('#readOnlyMsg').textContent =
+            `This date is outside the editable window (today − ${w.past_days} days to today + ${w.future_days} day). View only.`;
+    } else {
+        $('#readOnlyBanner').style.display = 'none';
+    }
+
+    if (!data.rows.length) {
+        body.innerHTML = `<tr><td colspan="10" class="empty">
+            No trains scheduled for ${dayLabelIR(data.date)} on ${fromStation}-${direction}.</td></tr>`;
+        return;
+    }
+
+    // Identify the "main" from_station for this segment (most-frequent) so PNVL/BIRD/etc.
+    // can be highlighted as separate sub-blocks
+    const mainFrom = mostCommonFromStation(data.rows);
+
+    // Specials grouped by section (data.specials is an array of log rows with master_id=NULL)
+    const specialsBySection = new Map();
+    for (const sp of (data.specials || [])) {
+        const k = sp.section || '_OTHER_';
+        if (!specialsBySection.has(k)) specialsBySection.set(k, []);
+        specialsBySection.get(k).push(sp);
+    }
+
+    let prevSection = null, prevFrom = null;
+    const flushSectionTail = (section, fromStation) => {
+        // After a section's master rows: render any saved specials, then 1 blank + Add button
+        const k = section || '_OTHER_';
+        const sps = specialsBySection.get(k) || [];
+        for (const sp of sps) {
+            body.appendChild(renderSpecialRow(sp, data.editable));
+        }
+        specialsBySection.delete(k);
+        if (data.editable) {
+            body.appendChild(renderBlankRow(section, fromStation));
+            body.appendChild(renderAddButton(section, fromStation));
+        }
+    };
+
+    for (const row of data.rows) {
+        const sectionKey = row.section || '';
+        const fromKey = row.from_station || '';
+        if (sectionKey !== prevSection || fromKey !== prevFrom) {
+            // Close the previous section: render its specials + blank + add
+            if (prevSection !== null) flushSectionTail(prevSection, prevFrom);
+            body.appendChild(renderSectionHeader(sectionKey, fromKey, mainFrom));
+            prevSection = sectionKey;
+            prevFrom = fromKey;
+        }
+        body.appendChild(renderRow(row, data.editable));
+        // Render a rear row whenever:
+        //   - master is push-pull (always show the rear slot, even if empty), OR
+        //   - log has a saved rear loco / secondary_role (preserve ad-hoc assist/coupler/dead-in-tow)
+        const hasAdHocRear = row.log && (row.log.actual_loco_no_rear || row.log.secondary_role);
+        if (row.is_push_pull || hasAdHocRear) {
+            body.appendChild(renderRearRow(row, data.editable, {
+                removable: !row.is_push_pull,  // ad-hoc rears get the "×" delete button
+            }));
+        }
+    }
+    // Final section's tail
+    if (prevSection !== null) flushSectionTail(prevSection, prevFrom);
+
+    // Any specials whose section didn't match a master section — render under "OTHER" header
+    for (const [sec, sps] of specialsBySection.entries()) {
+        body.appendChild(renderSectionHeader(sec === '_OTHER_' ? 'OTHER' : sec, '', mainFrom));
+        for (const sp of sps) body.appendChild(renderSpecialRow(sp, data.editable));
+        if (data.editable) {
+            body.appendChild(renderBlankRow(sec === '_OTHER_' ? '' : sec, ''));
+            body.appendChild(renderAddButton(sec === '_OTHER_' ? '' : sec, ''));
+        }
+    }
+}
+
+function mostCommonFromStation(rows) {
+    const counts = {};
+    for (const r of rows) counts[r.from_station] = (counts[r.from_station] || 0) + 1;
+    return Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || '';
+}
+
+// ── Special trains (master-less) — saved row, blank row, add button ──
+let blankRowSeq = 0;
+
+// Saved special — train_no locked, other fields editable, has trash icon
+function renderSpecialRow(log, editable) {
+    const tr = document.createElement('tr');
+    tr.classList.add('row-special');
+    tr.dataset.logId = log.id;
+    tr.dataset.trainNo = log.train_no;
+    tr.dataset.section = log.section || '';
+    tr.dataset.position = 'front';
+    tr.dataset.special = '1';
+    if (log.actual_loco_no) tr.classList.add('row-saved');
+    const dis = editable ? '' : 'disabled';
+    const inOutField = direction === 'UP' ? 'outgoing_train' : 'incoming_train';
+    const inOutVal = log[inOutField] || '';
+
+    tr.innerHTML = `
+        <td class="col-sr"><span class="pill spl">★ SPL</span></td>
+        <td class="col-time">—</td>
+        <td class="col-train">${esc(log.train_no || '—')}</td>
+        <td class="col-link"><small style="color:var(--muted)">special train</small></td>
+        <td class="col-actual">
+            <input type="text" class="loco-input" maxlength="10" placeholder="loco no"
+                   value="${esc(log.actual_loco_no || '')}" ${dis}
+                   data-field="actual_loco_no">
+        </td>
+        <td class="col-base">
+            <div class="base-display ${log.base_shed ? '' : 'empty'}" data-field="base_shed">
+                ${esc(log.base_shed || '—')}
+            </div>
+        </td>
+        <td class="col-hog">
+            <label class="hog-toggle"><input type="checkbox" ${dis} ${log.hog ? 'checked' : ''} data-field="hog"></label>
+        </td>
+        <td class="col-other">
+            <input type="text" maxlength="20" placeholder="train no" value="${esc(inOutVal)}" ${dis} data-field="${inOutField}">
+        </td>
+        <td class="col-remark">
+            <input type="text" maxlength="200" placeholder="—" value="${esc(log.remark || '')}" ${dis} data-field="remark">
+        </td>
+        <td class="col-status">
+            <div class="row-status">
+                ${editable ? `<button class="save-btn" data-action="save">Save</button>` : ''}
+                ${editable ? `<button class="del-btn" data-action="delete-special" title="Delete special train"><i class="fa-solid fa-trash"></i></button>` : ''}
+                <span class="status-msg">${log.actual_loco_no ? '<span class="pill ok">OK</span>' : ''}</span>
+            </div>
+        </td>
+    `;
+    if (editable) attachRowHandlers(tr);
+    if (editable) {
+        const delBtn = tr.querySelector('button[data-action="delete-special"]');
+        if (delBtn) delBtn.addEventListener('click', () => deleteSpecialRow(tr));
+    }
+    return tr;
+}
+
+// Blank row — all fields editable including train_no
+function renderBlankRow(section, fromStation) {
+    const tr = document.createElement('tr');
+    tr.classList.add('row-blank-special');
+    tr.dataset.section = section || '';
+    tr.dataset.fromStation = fromStation || '';
+    tr.dataset.blankSeq = ++blankRowSeq;
+    tr.dataset.position = 'front';
+    tr.dataset.special = '1';
+    const inOutField = direction === 'UP' ? 'outgoing_train' : 'incoming_train';
+
+    tr.innerHTML = `
+        <td class="col-sr"><span class="pill spl">★ NEW</span></td>
+        <td class="col-time">—</td>
+        <td class="col-train">
+            <input type="text" maxlength="10" placeholder="train no" autocomplete="off"
+                   data-field="train_no"
+                   style="font-family:'Courier New',monospace;font-weight:600">
+        </td>
+        <td class="col-link"><small style="color:var(--muted)">special train</small></td>
+        <td class="col-actual">
+            <input type="text" class="loco-input" maxlength="10" placeholder="loco no" autocomplete="off"
+                   data-field="actual_loco_no">
+        </td>
+        <td class="col-base">
+            <div class="base-display empty" data-field="base_shed">—</div>
+        </td>
+        <td class="col-hog">
+            <label class="hog-toggle"><input type="checkbox" data-field="hog"></label>
+        </td>
+        <td class="col-other">
+            <input type="text" maxlength="20" placeholder="train no" data-field="${inOutField}">
+        </td>
+        <td class="col-remark">
+            <input type="text" maxlength="200" placeholder="—" data-field="remark">
+        </td>
+        <td class="col-status">
+            <div class="row-status">
+                <button class="save-btn" data-action="save-blank">Save</button>
+                <button class="del-btn" data-action="cancel-blank" title="Discard"><i class="fa-solid fa-xmark"></i></button>
+                <span class="status-msg"></span>
+            </div>
+        </td>
+    `;
+    attachBlankRowHandlers(tr);
+    return tr;
+}
+
+function renderAddButton(section, fromStation) {
+    const tr = document.createElement('tr');
+    tr.classList.add('row-add-special');
+    tr.dataset.section = section || '';
+    tr.dataset.fromStation = fromStation || '';
+    tr.innerHTML = `
+        <td colspan="10">
+            <button class="add-special-btn" data-action="add-blank">
+                <i class="fa-solid fa-plus"></i> Add another special train
+            </button>
+        </td>
+    `;
+    tr.querySelector('button').addEventListener('click', () => {
+        const blank = renderBlankRow(section, fromStation);
+        tr.parentNode.insertBefore(blank, tr);
+        const tnInput = blank.querySelector('input[data-field="train_no"]');
+        if (tnInput) tnInput.focus();
+    });
+    return tr;
+}
+
+function renderSectionHeader(section, fromStation, mainFrom) {
+    const tr = document.createElement('tr');
+    tr.classList.add('section-header');
+    let label = section || '—';
+    if (fromStation && fromStation !== mainFrom) {
+        label += ` &middot; <small>ex ${esc(fromStation)}</small>`;
+    }
+    tr.innerHTML = `<td colspan="10">${label}</td>`;
+    return tr;
+}
+
+// "NE 27 · SE 18 · NE/PNVL 2 · NE/BIRD 2 · SE/PNVL 2"
+function buildSectionBreakdown(rows) {
+    if (!rows.length) return '';
+    const mainFrom = mostCommonFromStation(rows);
+    const counts = new Map();
+    for (const r of rows) {
+        let k = r.section || '?';
+        if (r.from_station && r.from_station !== mainFrom) k += `/${r.from_station}`;
+        counts.set(k, (counts.get(k) || 0) + 1);
+    }
+    return Array.from(counts.entries()).map(([k, v]) => `${k} ${v}`).join(' · ');
+}
+
+function renderRow(m, editable) {
+    const tr = document.createElement('tr');
+    tr.dataset.masterId = m.id;
+    tr.dataset.trainNo = m.train_no;
+    tr.dataset.position = 'front';
+    const log = m.log || {};
+    const filled = !!log.actual_loco_no;
+    if (filled) tr.classList.add('row-saved');
+
+    const dis = editable ? '' : 'disabled';
+    const ppPill = m.is_push_pull ? '<span class="pill pp">PP</span>' : '';
+    const traction = m.traction_type === 'Diesel' ? '<span class="pill pp" style="background:#fed7aa;color:#9a3412">DSL</span>' : '';
+
+    // Strip HOG from link_attr display since the green HOG marker on the shed line covers it.
+    // Same for PUSH-PULL (the PP pill on the train cell already conveys it).
+    const cleanedAttr = (m.link_attr || '')
+        .replace(/\bHOG\b/i, '')
+        .replace(/\bPUSH[\s-]?PULL\b/i, '')
+        .replace(/\s+/g, ' ').trim();
+
+    tr.innerHTML = `
+        <td class="col-sr">${esc(m.sr_no || '')}</td>
+        <td class="col-time">${esc(m.event_time || '')}</td>
+        <td class="col-train">${esc(m.train_no)}${ppPill}</td>
+        <td class="col-link">
+            <div class="link-summary">
+                <span class="shed">${esc(m.shed_code || '—')} ${m.expected_hog ? '<small style="color:var(--success)">HOG</small>' : ''}</span>
+                <span class="attr">
+                    <span class="rake-tag">${esc(m.rake_type || '')}</span>
+                    ${esc(cleanedAttr)} ${traction}
+                </span>
+            </div>
+        </td>
+        <td class="col-actual">
+            <div class="loco-cell-wrap">
+                <input type="text" class="loco-input" maxlength="20"
+                       placeholder="loco no"
+                       value="${esc(log.actual_loco_no || '')}" ${dis}
+                       data-field="actual_loco_no">
+                ${editable && !m.is_push_pull ? `<button class="add-second-btn" data-action="add-second" title="Add assist / coupler loco">+</button>` : ''}
+                ${log.main_loco_dead ? '<span class="dead-pill">DEAD</span>' : ''}
+            </div>
+            ${editable ? (() => {
+                // For UP: failure happens BEFORE entering (0) vs IN our div (1) — order: before, in-div
+                // For DN: failure happens IN our div (1) vs AFTER leaving (0) — order: in-div, after
+                // For BYPASS: outside means outside/not attributable to BB — order: outside, in-div
+                // DB value is the same: 0 = outside our div, 1 = inside our div. Only UI labels/order change.
+                const isDn = direction === 'DN';
+                const isBypassRow = direction === 'BYPASS';
+                const labelOut = isBypassRow ? 'outside' : (isDn ? 'after' : 'before');
+                const tipOut = isBypassRow
+                    ? 'Failed outside our division / not attributable to BB'
+                    : isDn
+                    ? 'Failed after leaving our division (next division\'s responsibility)'
+                    : 'Failed before entering our division (handover division\'s responsibility)';
+                const tipIn = 'Failed within our division';
+                const radIn  = `<label title="${tipIn}"><input type="radio" name="fail-${m.id}" value="1" data-field="failed_in_division" ${log.failed_in_division === 1 ? 'checked' : ''}> in-div</label>`;
+                const radOut = `<label title="${tipOut}"><input type="radio" name="fail-${m.id}" value="0" data-field="failed_in_division" ${log.failed_in_division === 0 ? 'checked' : ''}> ${labelOut}</label>`;
+                return `
+                <div class="dead-controls ${log.main_loco_dead ? 'dead-on' : ''}">
+                    <label><input type="checkbox" data-field="main_loco_dead" ${log.main_loco_dead ? 'checked' : ''}> Dead</label>
+                    <span class="failed-where">
+                        ${isDn ? radIn + radOut : radOut + radIn}
+                    </span>
+                </div>`;
+            })() : ''}
+        </td>
+        <td class="col-base">
+            <div class="base-display ${log.base_shed ? '' : 'empty'}" data-field="base_shed">
+                ${esc(log.base_shed || '—')}
+            </div>
+        </td>
+        <td class="col-hog">
+            <label class="hog-toggle">
+                <input type="checkbox" ${dis} ${log.hog ? 'checked' : ''} data-field="hog">
+            </label>
+        </td>
+        <td class="col-other">
+            <input type="text" maxlength="20" placeholder="train no"
+                   value="${esc(log.incoming_train || log.outgoing_train || '')}" ${dis}
+                   data-field="${direction === 'UP' ? 'outgoing_train' : 'incoming_train'}">
+        </td>
+        <td class="col-remark">
+            <input type="text" maxlength="200" placeholder="—"
+                   value="${esc(log.remark || '')}" ${dis}
+                   data-field="remark">
+        </td>
+        <td class="col-status">
+            <div class="row-status">
+                ${editable ? `<button class="save-btn" data-action="save">Save</button>` : ''}
+                <span class="status-msg">${renderStatusPills(log, /*rear=*/false)}</span>
+            </div>
+        </td>
+    `;
+
+    if (editable) attachRowHandlers(tr);
+    return tr;
+}
+
+// Render the rear (second-loco) row. For push-pull masters, role is fixed to 'rear'.
+// For ad-hoc additions on non-push-pull rows, the LPC picks the role.
+function renderRearRow(m, editable, options) {
+    options = options || {};
+    const tr = document.createElement('tr');
+    tr.classList.add('row-rear');
+    tr.dataset.masterId = m.id;
+    tr.dataset.trainNo = m.train_no;
+    tr.dataset.position = 'rear';
+    const log = m.log || {};
+    const dis = editable ? '' : 'disabled';
+
+    // Determine default role: push-pull = 'rear'; ad-hoc = options.defaultRole (e.g., 'coupler')
+    const isPushPull = !!m.is_push_pull;
+    const currentRole = (log && log.secondary_role) || options.defaultRole || (isPushPull ? 'rear' : 'assist');
+    const isAdHoc = !isPushPull;
+    const removeBtn = options.removable
+        ? `<button class="add-second-btn" data-action="remove-second" title="Remove second loco" style="margin-left:4px">×</button>`
+        : '';
+    const roleSelect = isAdHoc
+        ? `<select class="role-select" data-field="secondary_role" ${dis}>
+               <option value="assist"${currentRole==='assist'?' selected':''}>Assist</option>
+               <option value="coupler"${currentRole==='coupler'?' selected':''}>Coupler</option>
+               <option value="dead_in_tow"${currentRole==='dead_in_tow'?' selected':''}>Dead-in-tow</option>
+           </select>`
+        : '';
+
+    tr.innerHTML = `
+        <td class="col-sr">${isPushPull ? 'REAR' : roleSelect || '+'}</td>
+        <td class="col-time"></td>
+        <td class="col-train"></td>
+        <td class="col-link"></td>
+        <td class="col-actual">
+            <div class="loco-cell-wrap">
+                <input type="text" class="loco-input" maxlength="20"
+                       placeholder="${isPushPull ? 'rear loco' : '2nd loco'}"
+                       value="${esc(log.actual_loco_no_rear || '')}" ${dis}
+                       data-field="actual_loco_no_rear">
+                ${removeBtn}
+            </div>
+        </td>
+        <td class="col-base">
+            <div class="base-display ${log.base_shed_rear ? '' : 'empty'}" data-field="base_shed_rear">
+                ${esc(log.base_shed_rear || '—')}
+            </div>
+        </td>
+        <td class="col-hog"></td>
+        <td class="col-other">
+            ${isAdHoc ? `<input type="text" maxlength="20" placeholder="next train (if reassigned)"
+                            value="${esc(log.outgoing_train_rear || '')}" ${dis}
+                            data-field="outgoing_train_rear"
+                            title="If this assist/coupler loco is to be attached to a DN train later, type it here">` : ''}
+        </td>
+        <td class="col-remark">
+            <input type="text" maxlength="500" placeholder="remarks for this loco" ${dis}
+                   value="${esc(log.remarks_rear || '')}"
+                   data-field="remarks_rear">
+        </td>
+        <td class="col-status">
+            <span class="status-msg">${renderStatusPills(log, /*rear=*/true)}</span>
+        </td>
+    `;
+
+    // Hidden marker carrying the role for non-push-pull additions when no select shown
+    // (push-pull rows save with secondary_role='rear' by default — backend computes that)
+    if (isPushPull) {
+        tr.dataset.secondaryRole = 'rear';
+    }
+
+    if (editable) attachRowHandlers(tr);
+    return tr;
+}
+
+// ── bypass rendering ─────────────────────────────────────────────────
+function renderBypass(data) {
+    const body = $('#sheetBody');
+    body.innerHTML = '';
+
+    $('#statTotal').textContent = data.total;
+    $('#statFilled').textContent = data.filled;
+    // Bypass has no shed_code → no mis-link concept
+    $('#statMislink').textContent = '—';
+    $('#statMislink').title = 'mis-link not applicable for bypass';
+
+    if (!data.editable) {
+        $('#readOnlyBanner').style.display = 'block';
+        const w = data.edit_window;
+        $('#readOnlyMsg').textContent =
+            `This date is outside the editable window (today − ${w.past_days} days to today + ${w.future_days} day). View only.`;
+    } else {
+        $('#readOnlyBanner').style.display = 'none';
+    }
+
+    if (!data.rows.length) {
+        body.innerHTML = `<tr><td colspan="10" class="empty">
+            No bypass trains scheduled for ${dayLabelIR(data.date)}.</td></tr>`;
+        return;
+    }
+
+    // Group by route_label, preserve master id ordering within each group
+    const groups = new Map();
+    for (const row of data.rows) {
+        const k = row.route_label || '(no route)';
+        if (!groups.has(k)) groups.set(k, []);
+        groups.get(k).push(row);
+    }
+
+    for (const [route, rows] of groups) {
+        const filled = rows.filter(r => r.log && r.log.actual_loco_no).length;
+        const header = document.createElement('tr');
+        header.classList.add('route-header');
+        header.innerHTML = `<td colspan="10">
+            <span class="route-name"><i class="fa-solid fa-route"></i> ${esc(route)}</span>
+            <span class="route-count">${filled}/${rows.length}</span>
+        </td>`;
+        body.appendChild(header);
+
+        for (const row of rows) {
+            body.appendChild(renderBypassRow(row, data.editable));
+        }
+    }
+}
+
+function renderBypassRow(m, editable) {
+    const tr = document.createElement('tr');
+    tr.dataset.masterId = m.id;
+    tr.dataset.trainNo = m.train_no;
+    tr.dataset.position = 'front';
+    const log = m.log || {};
+    if (log.actual_loco_no) tr.classList.add('row-saved');
+    const dis = editable ? '' : 'disabled';
+
+    // Via station summary (small text below the from→to)
+    let viaTxt = '';
+    if (m.via_stations && Array.isArray(m.via_stations) && m.via_stations.length) {
+        viaTxt = ' via ' + m.via_stations.map(v => esc(v.station)).join(', ');
+    }
+
+    tr.innerHTML = `
+        <td class="col-sr">${esc(m.sr_no || '')}</td>
+        <td class="col-time">${esc(m.event_time || '')}</td>
+        <td class="col-train">${esc(m.train_no)}</td>
+        <td class="col-link">
+            <div class="link-summary">
+                <span class="shed">${esc(m.train_name || '—')}</span>
+                <span class="attr">
+                    ${esc(m.from_station || '')}${m.to_station ? ' → ' + esc(m.to_station) : ''}${viaTxt}
+                </span>
+            </div>
+        </td>
+        <td class="col-actual">
+            <input type="text" class="loco-input" maxlength="10" placeholder="loco no"
+                   value="${esc(log.actual_loco_no || '')}" ${dis}
+                   data-field="actual_loco_no">
+        </td>
+        <td class="col-base">
+            <div class="base-display ${log.base_shed ? '' : 'empty'}" data-field="base_shed">
+                ${esc(log.base_shed || '—')}
+            </div>
+        </td>
+        <td class="col-hog"><span style="color:var(--muted);font-size:.7rem">—</span></td>
+        <td class="col-other">
+            <input type="text" maxlength="20" placeholder="next train"
+                   value="${esc(log.outgoing_train || '')}" ${dis}
+                   data-field="outgoing_train">
+        </td>
+        <td class="col-remark">
+            <input type="text" maxlength="200" placeholder="—"
+                   value="${esc(log.remark || '')}" ${dis}
+                   data-field="remark">
+        </td>
+        <td class="col-status">
+            <div class="row-status">
+                ${editable ? `<button class="save-btn" data-action="save">Save</button>` : ''}
+                <span class="status-msg">${log.actual_loco_no ? '<span class="pill ok">OK</span>' : ''}</span>
+            </div>
+        </td>
+    `;
+
+    if (editable) attachRowHandlers(tr);
+    return tr;
+}
+
+function renderStatusPills(log, rear) {
+    if (!log) return '';
+    const isMislink = rear ? log.is_mislink_rear : log.is_mislink;
+    const has = rear ? log.actual_loco_no_rear : log.actual_loco_no;
+    if (!has) return '';
+    if (isMislink) return '<span class="pill mislink">Mis-link</span>';
+    return '<span class="pill ok">OK</span>';
+}
+
+// ── row interactions ─────────────────────────────────────────────────
+// Insert (or update) a rear row immediately after the given front row.
+// Used by both the "+" button and the auto-split "X+Y" parser.
+function ensureRearRow(frontTr, rearLocoNo, role) {
+    const masterId = frontTr.dataset.masterId;
+    let rearTr = document.querySelector(`tr[data-master-id="${masterId}"][data-position="rear"]`);
+    if (rearTr) {
+        // already exists — update the loco no + role select
+        const rearInput = rearTr.querySelector('input[data-field="actual_loco_no_rear"]');
+        if (rearInput && rearLocoNo) {
+            rearInput.value = rearLocoNo;
+            rearInput.dispatchEvent(new Event('blur'));  // trigger autofill
+        }
+        const roleSel = rearTr.querySelector('select[data-field="secondary_role"]');
+        if (roleSel && role) roleSel.value = role;
+    } else {
+        // create one (ad-hoc, removable)
+        const masterRow = currentSheet && currentSheet.rows.find(r => String(r.id) === String(masterId));
+        if (!masterRow) return;
+        // Fake a log object so renderRearRow shows the new loco
+        const masterCopy = { ...masterRow, log: { ...(masterRow.log || {}), actual_loco_no_rear: rearLocoNo || '', secondary_role: role || 'assist' } };
+        rearTr = renderRearRow(masterCopy, true, { defaultRole: role || 'assist', removable: true });
+        frontTr.parentNode.insertBefore(rearTr, frontTr.nextSibling);
+        // Trigger autofill on the new rear input
+        const rearInput = rearTr.querySelector('input[data-field="actual_loco_no_rear"]');
+        if (rearInput && rearLocoNo) {
+            rearInput.value = rearLocoNo;
+            rearInput.dispatchEvent(new Event('blur'));
+        }
+    }
+    return rearTr;
+}
+
+// "+" button click — open an empty rear row with role select (default 'assist')
+function addSecondLocoRow(frontTr) {
+    const masterId = frontTr.dataset.masterId;
+    const existing = document.querySelector(`tr[data-master-id="${masterId}"][data-position="rear"]`);
+    if (existing) {
+        // Already has one — focus its loco input
+        existing.querySelector('input[data-field="actual_loco_no_rear"]')?.focus();
+        return;
+    }
+    const newRow = ensureRearRow(frontTr, '', 'assist');
+    setTimeout(() => newRow?.querySelector('input[data-field="actual_loco_no_rear"]')?.focus(), 0);
+}
+
+function attachRowHandlers(tr) {
+    const locoInput = tr.querySelector('input[data-field="actual_loco_no"], input[data-field="actual_loco_no_rear"]');
+    // Save button is always on the front row; rear rows look it up by master_id.
+    const saveBtn = tr.querySelector('button[data-action="save"]')
+        || document.querySelector(`tr[data-master-id="${tr.dataset.masterId}"][data-position="front"] button[data-action="save"]`);
+    const baseDisplay = tr.querySelector('.base-display');
+
+    // Mark dirty on any change (works for both front + rear inputs/selects)
+    tr.querySelectorAll('input, select').forEach(el => {
+        const evt = el.tagName === 'SELECT' ? 'change' : 'input';
+        el.addEventListener(evt, () => {
+            if (saveBtn) {
+                saveBtn.classList.add('dirty');
+                updateDirtyBar();
+            }
+        });
+    });
+
+    // Dead toggle: show/hide failure-origin radio when Dead checked
+    const deadCheckbox = tr.querySelector('input[data-field="main_loco_dead"]');
+    const deadControls = tr.querySelector('.dead-controls');
+    if (deadCheckbox && deadControls) {
+        deadCheckbox.addEventListener('change', () => {
+            deadControls.classList.toggle('dead-on', deadCheckbox.checked);
+            // Add/remove the visual DEAD pill next to the loco input
+            let pill = tr.querySelector('.loco-cell-wrap .dead-pill');
+            if (deadCheckbox.checked && !pill) {
+                pill = document.createElement('span');
+                pill.className = 'dead-pill';
+                pill.textContent = 'DEAD';
+                tr.querySelector('.loco-cell-wrap').appendChild(pill);
+            } else if (!deadCheckbox.checked && pill) {
+                pill.remove();
+                // Clear failure-origin radios
+                tr.querySelectorAll('input[data-field="failed_in_division"]').forEach(r => r.checked = false);
+            }
+        });
+    }
+
+    // "+" button to add a second loco (assist / coupler / dead-in-tow) on non-push-pull rows
+    const addSecondBtn = tr.querySelector('button[data-action="add-second"]');
+    if (addSecondBtn) {
+        addSecondBtn.addEventListener('click', () => addSecondLocoRow(tr));
+    }
+    // "×" button on an ad-hoc rear row → remove it
+    const removeSecondBtn = tr.querySelector('button[data-action="remove-second"]');
+    if (removeSecondBtn) {
+        removeSecondBtn.addEventListener('click', () => {
+            tr.remove();
+            if (saveBtn) { saveBtn.classList.add('dirty'); updateDirtyBar(); }
+        });
+    }
+
+    // Auto-split: if user types "X+Y" in front input, split into front + rear coupler
+    const frontInput = tr.querySelector('input[data-field="actual_loco_no"]');
+    if (frontInput && !tr.dataset.position?.includes('rear')) {
+        frontInput.addEventListener('blur', () => {
+            const v = (frontInput.value || '').trim();
+            if (!v.includes('+')) return;
+            const parts = v.split('+').map(s => s.trim()).filter(Boolean);
+            if (parts.length !== 2) return;
+            frontInput.value = parts[0];
+            // Insert (or update) a rear coupler row
+            ensureRearRow(tr, parts[1], 'coupler');
+            // Re-fire autofill on the front input now that value changed
+            frontInput.dispatchEvent(new Event('blur'));
+        });
+    }
+
+    // autofill on loco input blur
+    if (locoInput) {
+        locoInput.addEventListener('blur', async () => {
+            const rawValue = locoInput.value.trim();
+            if (!rawValue) {
+                baseDisplay.textContent = '—';
+                baseDisplay.classList.add('empty');
+                clearStatus(tr);
+                return;
+            }
+            // For the rear input, allow "X+Y" coupler-as-assist notation. Store verbatim,
+            // but lookup shed from the FIRST part only.
+            const isRearInput = locoInput.dataset.field === 'actual_loco_no_rear';
+            const hasPair = isRearInput && rawValue.includes('+');
+            const lookupNo = hasPair ? rawValue.split('+')[0].trim() : rawValue;
+            try {
+                const r = await fetch(`/api/division/loco-link/loco/${encodeURIComponent(lookupNo)}/autofill`);
+                if (r.status === 404) {
+                    baseDisplay.textContent = '—';
+                    baseDisplay.classList.add('empty');
+                    setStatus(tr, '<span class="pill mislink">NOT IN MASTER</span>', true);
+                    return;
+                }
+                if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                const { loco, sick } = await r.json();
+                const shedText = loco.home_shed || '—';
+                baseDisplay.textContent = hasPair ? `${shedText} (+pair)` : shedText;
+                baseDisplay.classList.toggle('empty', !loco.home_shed);
+                // pills: mislink check vs master shed_code — but only when applicable:
+                //   - Front row: always check
+                //   - Rear row with role='rear' (push-pull): check
+                //   - Rear row with role in {coupler, assist, dead_in_tow}: SKIP (rear is informational)
+                const expected = findExpectedShed(tr.dataset.masterId);
+                const isRearRow = tr.dataset.position === 'rear';
+                const rearRoleSel = isRearRow ? tr.querySelector('select[data-field="secondary_role"]') : null;
+                const rearRole = rearRoleSel ? rearRoleSel.value : (tr.dataset.secondaryRole || null);
+                const skipMislink = isRearRow && rearRole && rearRole !== 'rear';
+                let pills = '';
+                if (sick) pills += '<span class="pill sick">SICK</span>';
+                if (!skipMislink && expected && loco.home_shed && expected !== loco.home_shed) {
+                    pills += '<span class="pill mislink">MISLINK</span>';
+                } else if (loco.home_shed && !isRearRow) {
+                    // Show OK only on front rows; rear rows skip the OK pill to reduce noise
+                    pills += '<span class="pill ok">OK</span>';
+                }
+                const expectsHog = isHogExpected(tr.dataset.masterId);
+                if (expectsHog && !loco.hotel_load_oem) {
+                    pills += '<span class="pill hog-warn">NON-HOG</span>';
+                }
+                // Auto-check the HOG checkbox only when the master expects HOG AND
+                // the loco has a hotel-load OEM (i.e. is HOG-capable).
+                // Find the front row's HOG checkbox (rear rows don't have one).
+                const masterId = tr.dataset.masterId;
+                const frontRow = document.querySelector(`tr[data-master-id="${masterId}"][data-position="front"]`);
+                const hogBox = frontRow ? frontRow.querySelector('input[data-field="hog"]') : null;
+                if (hogBox && !hogBox.disabled) {
+                    if (expectsHog && loco.hotel_load_oem) {
+                        hogBox.checked = true;
+                        // mark the row dirty so Save All picks it up
+                        const saveBtn = frontRow.querySelector('button[data-action="save"]');
+                        if (saveBtn) saveBtn.classList.add('dirty');
+                    }
+                }
+                setStatus(tr, pills, false);
+            } catch (e) {
+                setStatus(tr, `<span class="err">lookup failed</span>`, true);
+            }
+        });
+    }
+
+    // save
+    if (saveBtn) {
+        saveBtn.addEventListener('click', () => saveRow(tr));
+    }
+}
+
+// ── Special-row handlers ─────────────────────────────────────────────
+function attachBlankRowHandlers(tr) {
+    const locoInput = tr.querySelector('input[data-field="actual_loco_no"]');
+    const baseDisplay = tr.querySelector('.base-display');
+    const saveBtn = tr.querySelector('button[data-action="save-blank"]');
+    const cancelBtn = tr.querySelector('button[data-action="cancel-blank"]');
+
+    // Mark dirty + autofill same way as regular rows
+    tr.querySelectorAll('input').forEach(el => {
+        el.addEventListener('input', () => {
+            if (saveBtn) {
+                saveBtn.classList.add('dirty');
+                updateDirtyBar();
+            }
+        });
+    });
+
+    if (locoInput) {
+        locoInput.addEventListener('blur', async () => {
+            const locoNo = locoInput.value.trim();
+            if (!locoNo) {
+                baseDisplay.textContent = '—';
+                baseDisplay.classList.add('empty');
+                clearStatus(tr);
+                return;
+            }
+            try {
+                const r = await fetch(`/api/division/loco-link/loco/${encodeURIComponent(locoNo)}/autofill`);
+                if (r.status === 404) {
+                    baseDisplay.textContent = '—';
+                    baseDisplay.classList.add('empty');
+                    setStatus(tr, '<span class="pill mislink">NOT IN MASTER</span>', true);
+                    return;
+                }
+                if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                const { loco, sick } = await r.json();
+                baseDisplay.textContent = loco.home_shed || '—';
+                baseDisplay.classList.toggle('empty', !loco.home_shed);
+                let pills = '';
+                if (sick) pills += '<span class="pill sick">SICK</span>';
+                else if (loco.home_shed) pills += '<span class="pill ok">OK</span>';
+                setStatus(tr, pills, false);
+            } catch (e) {
+                setStatus(tr, `<span class="err">lookup failed</span>`, true);
+            }
+        });
+    }
+
+    saveBtn.addEventListener('click', () => saveBlankRow(tr));
+    cancelBtn.addEventListener('click', () => {
+        tr.remove();
+        updateDirtyBar();
+    });
+}
+
+async function saveBlankRow(tr) {
+    const trainNoInput = tr.querySelector('input[data-field="train_no"]');
+    const trainNo = (trainNoInput.value || '').trim();
+    if (!trainNo) {
+        setStatus(tr, '<span class="err">enter train no</span>', true);
+        trainNoInput.focus();
+        return false;
+    }
+
+    const get = (field) => {
+        const el = tr.querySelector(`[data-field="${field}"]`);
+        if (!el) return null;
+        if (el.type === 'checkbox') return el.checked;
+        return (el.value || '').trim() || null;
+    };
+
+    const body = {
+        working_date: currentDate,
+        direction,
+        train_no: trainNo,
+        master_id: null,
+        sheet_source: sheetSource || (currentSheet && currentSheet.sheet_source),
+        section: tr.dataset.section || null,
+        actual_loco_no: get('actual_loco_no'),
+        hog: get('hog') ? 1 : 0,
+        incoming_train: get('incoming_train'),
+        outgoing_train: get('outgoing_train'),
+        remark: get('remark'),
+    };
+
+    const saveBtn = tr.querySelector('button[data-action="save-blank"]');
+    saveBtn.disabled = true;
+    saveBtn.textContent = '…';
+    let success = false;
+
+    try {
+        const r = await fetch('/api/division/loco-link/log', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
+        const data = await r.json();
+        if (!r.ok) {
+            setStatus(tr, `<span class="err">${esc(data.error || 'Save failed')}</span>`, true);
+        } else if (data.log) {
+            // Replace this blank row with a saved special row
+            const newRow = renderSpecialRow(data.log, true);
+            tr.parentNode.replaceChild(newRow, tr);
+            success = true;
+        }
+    } catch (e) {
+        setStatus(tr, `<span class="err">network error</span>`, true);
+    } finally {
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Save';
+        if (!success) saveBtn.classList.add('dirty');
+        updateDirtyBar();
+    }
+    return success;
+}
+
+async function deleteSpecialRow(tr) {
+    const logId = tr.dataset.logId;
+    const trainNo = tr.dataset.trainNo;
+    if (!logId) return;
+    if (!confirm(`Delete special train ${trainNo}?`)) return;
+    try {
+        const r = await fetch(`/api/division/loco-link/log/${logId}`, { method: 'DELETE' });
+        const data = await r.json();
+        if (!r.ok) {
+            setStatus(tr, `<span class="err">${esc(data.error || 'Delete failed')}</span>`, true);
+            return;
+        }
+        tr.remove();
+        updateDirtyBar();
+    } catch (e) {
+        setStatus(tr, `<span class="err">network error</span>`, true);
+    }
+}
+
+function findExpectedShed(masterId) {
+    const m = (currentSheet?.rows || []).find(r => String(r.id) === String(masterId));
+    return m ? m.shed_code : null;
+}
+function isHogExpected(masterId) {
+    const m = (currentSheet?.rows || []).find(r => String(r.id) === String(masterId));
+    return m ? !!m.expected_hog : false;
+}
+function setStatus(tr, html, isError) {
+    const slot = tr.querySelector('.status-msg');
+    if (slot) slot.innerHTML = html;
+    tr.classList.toggle('row-error', !!isError);
+}
+function clearStatus(tr) {
+    const slot = tr.querySelector('.status-msg');
+    if (slot) slot.innerHTML = '';
+    tr.classList.remove('row-error');
+}
+
+// ── save ─────────────────────────────────────────────────────────────
+async function saveRow(tr) {
+    const isSpecial = tr.dataset.special === '1';
+    const masterIdRaw = parseInt(tr.dataset.masterId, 10);
+    const masterId = Number.isFinite(masterIdRaw) ? masterIdRaw : null;
+    const trainNo = tr.dataset.trainNo;
+
+    // Front + rear share a log row only on master-linked push-pull rows.
+    // Special rows are always single-row.
+    const frontRow = isSpecial ? tr
+        : document.querySelector(`tr[data-master-id="${masterId}"][data-position="front"]`);
+    const rearRow = isSpecial ? null
+        : document.querySelector(`tr[data-master-id="${masterId}"][data-position="rear"]`);
+
+    const get = (row, field) => {
+        if (!row) return null;
+        const el = row.querySelector(`[data-field="${field}"]`);
+        if (!el) return null;
+        if (el.type === 'checkbox') return el.checked;
+        return el.value.trim() || null;
+    };
+
+    // Read the secondary role from the rear row (select for ad-hoc, dataset for push-pull)
+    let secondaryRole = null;
+    if (rearRow) {
+        const roleSel = rearRow.querySelector('select[data-field="secondary_role"]');
+        secondaryRole = roleSel ? roleSel.value : (rearRow.dataset.secondaryRole || 'rear');
+    }
+
+    // Main loco dead + failure-origin (radio: 0=before our div, 1=in our div)
+    const deadCheckbox = frontRow ? frontRow.querySelector('input[data-field="main_loco_dead"]') : null;
+    const main_loco_dead = deadCheckbox && deadCheckbox.checked ? 1 : 0;
+    let failed_in_division = null;
+    if (main_loco_dead) {
+        const radioIn = frontRow.querySelector('input[data-field="failed_in_division"]:checked');
+        if (radioIn) failed_in_division = Number(radioIn.value);
+    }
+
+    const body = {
+        working_date: currentDate,
+        direction,
+        train_no: trainNo,
+        master_id: masterId,
+        actual_loco_no: get(frontRow, 'actual_loco_no'),
+        main_loco_dead,
+        failed_in_division,
+        actual_loco_no_rear: get(rearRow, 'actual_loco_no_rear'),
+        secondary_role: secondaryRole,
+        outgoing_train_rear: get(rearRow, 'outgoing_train_rear'),
+        remarks_rear: get(rearRow, 'remarks_rear'),
+        hog: get(frontRow, 'hog') ? 1 : 0,
+        incoming_train: get(frontRow, 'incoming_train'),
+        outgoing_train: get(frontRow, 'outgoing_train'),
+        remark: get(frontRow, 'remark'),
+    };
+    // Special rows need sheet_source + section since they have no master to snapshot from
+    if (isSpecial) {
+        body.sheet_source = sheetSource || (currentSheet && currentSheet.sheet_source);
+        body.section = tr.dataset.section || null;
+    }
+
+    const saveBtn = tr.querySelector('button[data-action="save"]') || frontRow?.querySelector('button[data-action="save"]');
+    if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = '…'; }
+
+    let success = false;
+    try {
+        const r = await fetch('/api/division/loco-link/log', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
+        const data = await r.json();
+        if (!r.ok) {
+            const msg = data.error || 'Save failed';
+            const target = data.position === 'rear' ? rearRow : frontRow;
+            setStatus(target, `<span class="err">${esc(msg)}</span>`, true);
+        } else if (data.log) {
+            // success — repopulate row(s) from canonical response
+            applyLogToRow(frontRow, data.log, false);
+            if (rearRow) applyLogToRow(rearRow, data.log, true);
+            frontRow?.classList.add('row-saved');
+            frontRow?.classList.remove('row-error');
+            rearRow?.classList.add('row-saved');
+            rearRow?.classList.remove('row-error');
+            // recompute mis-link count
+            if (currentSheet) {
+                const idx = currentSheet.rows.findIndex(r => String(r.id) === String(masterId));
+                if (idx >= 0) currentSheet.rows[idx].log = data.log;
+                const mislinkCount = currentSheet.rows.filter(r =>
+                    r.log && (r.log.is_mislink || r.log.is_mislink_rear)).length;
+                $('#statMislink').textContent = mislinkCount;
+                const filledCount = currentSheet.rows.filter(r => r.log && r.log.actual_loco_no).length;
+                $('#statFilled').textContent = filledCount;
+            }
+            success = true;
+        }
+    } catch (e) {
+        setStatus(frontRow, `<span class="err">network error</span>`, true);
+    } finally {
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.textContent = 'Save';
+            if (success) saveBtn.classList.remove('dirty');
+        }
+        updateDirtyBar();
+    }
+    return success;
+}
+
+// ── Save All bar ─────────────────────────────────────────────────────
+function updateDirtyBar() {
+    const dirtyBtns = document.querySelectorAll('button.save-btn.dirty');
+    const n = dirtyBtns.length;
+    const bar = $('#saveAllBar');
+    const cnt = $('#dirtyCount');
+    const plr = $('#dirtyPlural');
+    if (!bar) return;
+    cnt.textContent = n;
+    plr.textContent = n === 1 ? '' : 's';
+    bar.classList.toggle('visible', n > 0);
+    document.body.classList.toggle('has-save-bar', n > 0);
+}
+
+async function saveAll() {
+    const dirtyBtns = Array.from(document.querySelectorAll('button.save-btn.dirty'));
+    if (!dirtyBtns.length) return;
+    const status = $('#saveAllStatus');
+    const allBtn = $('#saveAllBtn');
+    allBtn.disabled = true;
+    status.textContent = `· saving ${dirtyBtns.length}...`;
+
+    const trs = dirtyBtns.map(b => b.closest('tr'));
+    const results = await Promise.allSettled(trs.map(tr => saveRow(tr)));
+    const ok = results.filter(r => r.status === 'fulfilled' && r.value === true).length;
+    const fail = results.length - ok;
+
+    status.textContent = fail
+        ? `· saved ${ok}, ${fail} failed (see row errors)`
+        : `· all ${ok} saved ✓`;
+
+    allBtn.disabled = false;
+    setTimeout(() => { status.textContent = ''; }, 4000);
+    updateDirtyBar();
+}
+
+function applyLogToRow(tr, log, rear) {
+    if (!tr) return;
+    const setField = (field, val) => {
+        const el = tr.querySelector(`[data-field="${field}"]`);
+        if (!el) return;
+        if (el.classList.contains('base-display')) {
+            el.textContent = val || '—';
+            el.classList.toggle('empty', !val);
+        } else if (el.type === 'checkbox') {
+            el.checked = !!val;
+        } else {
+            el.value = val || '';
+        }
+    };
+    if (rear) {
+        setField('actual_loco_no_rear', log.actual_loco_no_rear);
+        setField('base_shed_rear', log.base_shed_rear);
+    } else {
+        setField('actual_loco_no', log.actual_loco_no);
+        setField('base_shed', log.base_shed);
+        setField('hog', log.hog);
+        setField('incoming_train', log.incoming_train);
+        setField('outgoing_train', log.outgoing_train);
+        setField('remark', log.remark);
+    }
+    // status pills
+    const slot = tr.querySelector('.status-msg');
+    if (slot) slot.innerHTML = renderStatusPills(log, rear);
+}
+
+// ── filter bar ───────────────────────────────────────────────────────
+function updateQuickBtns() {
+    const todayD = todayISO();
+    $$('.quick-btn').forEach(b => {
+        const rel = parseInt(b.dataset.rel, 10);
+        const target = isoPlusDays(todayD, rel);
+        b.classList.toggle('active', target === currentDate);
+    });
+}
+$('#dateInput').addEventListener('change', e => {
+    currentDate = e.target.value;
+    loadSheet();
+});
+$$('.quick-btn').forEach(b => {
+    b.addEventListener('click', () => {
+        currentDate = isoPlusDays(todayISO(), parseInt(b.dataset.rel, 10));
+        loadSheet();
+    });
+});
+
+function esc(s) {
+    if (s === null || s === undefined) return '';
+    return String(s).replace(/[&<>"']/g, c => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    })[c]);
+}
+
+// Header user info
+async function loadMe() {
+    try {
+        const r = await fetch('/api/division/loco-link/me');
+        if (!r.ok) return;
+        const u = await r.json();
+        const role = u.div_role === 'lpc' ? 'LPC' : (u.div_role || u.role);
+        $('#userInfo').innerHTML = `<i class="fa-solid fa-user"></i> ${u.full_name || u.username} <small>(${role})</small>`;
+    } catch (e) { /* swallow */ }
+}
+
+// Save All button click
+$('#saveAllBtn').addEventListener('click', saveAll);
+// Hint with Ctrl/Cmd+S
+window.addEventListener('keydown', e => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        saveAll();
+    }
+});
+
+loadMe();
+loadSheet();
+</script>
+
+</body>
+</html>

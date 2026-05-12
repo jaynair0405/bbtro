@@ -350,4 +350,45 @@ source sql/2026-02-15_category_change_letters.sql
 
 ---
 
-*Last Updated: 2026-02-15*
+## 11. Loco Link Feature — Control Office Module
+**Files (run in order):**
+- `sql/2026-04-23_div_locos.sql`
+- `sql/2026-05-04_div_locos_traction.sql`
+- `sql/2026-05-04_div_loco_link.sql`
+- `sql/2026-05-04_loco_link_extras.sql`
+- `sql/2026-05-04_lpc_role.sql`
+- `sql/2026-05-08_loco_link_round_2.sql`  ← **consolidated post-baseline ALTERs**
+
+**Status:** ⏳ PENDING (applied locally; consolidated migration ready)
+
+Creates the full Loco Link feature: all-India electric loco master, planning template, daily LPC entry log, sick/dead loco workflow, mis-link reports (with zone-acceptable tier classification), cross-direction loco propagation.
+
+**Tables created/modified:**
+1. `div_locos` (13,792 rows from `locodb.csv`) + traction-type columns for diesel-incremental flow
+2. `div_loco_link_master` (414 rows from `CO_Loco_link_final.xlsx`) + `expected_loco_type` / `accepted_loco_types`
+3. `div_loco_link_log` — push-pull, sheet_source/section snapshots, `secondary_role` (rear/coupler/assist/dead_in_tow), `main_loco_dead`, `failed_in_division`, `outgoing_train_rear`, `remarks_rear`
+4. `div_loco_sick_records` — full xlsx-parity (11 added fields: status enum, shed_arr, HOC, sch_done, paired_with_id, etc.)
+
+**Execution order on server:**
+```bash
+mysql -u <user> -p <db> < sql/2026-04-23_div_locos.sql
+node scripts/load_locos.js                          # loads 13,792 rows
+mysql ... < sql/2026-05-04_div_locos_traction.sql
+mysql ... < sql/2026-05-04_div_loco_link.sql
+mysql ... < sql/2026-05-04_loco_link_extras.sql
+mysql ... < sql/2026-05-04_lpc_role.sql
+node scripts/load_loco_link_master.js               # loads 414 master rows
+mysql ... < sql/2026-05-08_loco_link_round_2.sql    # all post-baseline ALTERs + data fixes
+```
+
+`sql/2026-05-08_loco_link_round_2.sql` is a run-once migration after the 2026-05-04 baseline files. It is safe for a fresh post-baseline deploy, but it is not fully idempotent; guard externally before any re-run.
+
+**Plan docs:**
+- [LOCO_LINK_FEATURE.md](../LOCO_LINK_FEATURE.md)
+- [LOCO_MASTER_MIGRATION.md](../LOCO_MASTER_MIGRATION.md)
+
+**Test users to create after deploy:** `bblpc1`, `bblpc2` with `realm='division'`, `div_role='lpc'`, password `lpcpass123` (use existing bcrypt logic in `routes/authRoutes.js`).
+
+---
+
+*Last Updated: 2026-05-08*

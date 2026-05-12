@@ -1,0 +1,2645 @@
+/**
+ * awsUploadRoutes.js — AWS CMS Excel Upload endpoints
+ * Mounted at /api/division/aws
+ *
+ * Phase 5: AWS raw import
+ *   - POST /upload              → Upload CMS Excel, parse, preview, save raw rows
+ *   - GET  /uploads             → List upload batches
+ *   - GET  /uploads/:id         → Get upload batch details with raw rows
+ *   - GET  /uploads/:id/raw     → Get raw rows for an upload batch
+ *   - DELETE /uploads/:id       → Delete an upload batch (and associated raw rows)
+ */
+
+const express = require('express');
+const router = express.Router();
+const upload = require('../../middleware/upload');
+const xlsx = require('xlsx');
+const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
+
+// ── Helper: Generate unique batch ID ──────────────────────────────────────
+function generateBatchId() {
+    const now = new Date();
+    const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
+    const timeStr = now.toTimeString().slice(0, 8).replace(/:/g, '');
+    const short = crypto.randomBytes(4).toString('hex').toUpperCase();
+    return `AWS-${dateStr}-${timeStr}-${short}`;
+}
+
+// ── Helper: Parse Excel date to YYYY-MM-DD ────────────────────────────────
+function parseExcelDate(value) {
+    if (!value) return null;
+
+    // Excel serial date
+    if (typeof value === 'number') {
+        const excelEpoch = new Date(Date.UTC(1899, 11, 30));
+        const date = new Date(excelEpoch.getTime() + value * 86400000);
+        const yyyy = date.getUTCFullYear();
+        const mm = String(date.getUTCMonth() + 1).padStart(2, '0');
+        const dd = String(date.getUTCDate()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
+    }
+
+    // String date: DD/MM/YYYY or DD-MM-YYYY or YYYY-MM-DD
+    if (typeof value === 'string') {
+        const trimmed = value.trim();
+
+        // Already YYYY-MM-DD
+        if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+            return trimmed;
+        }
+
+        // DD/MM/YYYY or DD-MM-YYYY
+        const match = trimmed.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+        if (match) {
+            const dd = match[1].padStart(2, '0');
+            const mm = match[2].padStart(2, '0');
+            const yyyy = match[3];
+            return `${yyyy}-${mm}-${dd}`;
+        }
+    }
+
+    return null;
+}
+
+// ── Helper: Parse Excel time to HH:MM:SS ──────────────────────────────────
+function parseExcelTime(value) {
+    if (!value) return null;
+
+    // Excel serial time (fraction of day)
+    if (typeof value === 'number') {
+        const totalSeconds = Math.round(value * 86400);
+        const hours = Math.floor(totalSeconds / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const seconds = totalSeconds % 60;
+        return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    }
+
+    // String time: HH:MM or HH:MM:SS
+    if (typeof value === 'string') {
+        const trimmed = value.trim();
+        const match = trimmed.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+        if (match) {
+            const hh = match[1].padStart(2, '0');
+            const mm = match[2].padStart(2, '0');
+            const ss = (match[3] || '00').padStart(2, '0');
+            return `${hh}:${mm}:${ss}`;
+        }
+    }
+
+    return null;
+}
+
+// ── Helper: Normalize column names ────────────────────────────────────────
+function normalizeColumnName(name) {
+    if (!name) return '';
+    return String(name)
+        .trim()
+        .toUpperCase()
+        .replace(/[.\s\/\\-]+/g, '_')  // Replace dots, spaces, slashes, backslashes, hyphens with underscore
+        .replace(/_+/g, '_')            // Collapse multiple underscores
+        .replace(/^_|_$/g, '');         // Trim leading/trailing underscores
+}
+
+// ── Helper: Map Excel columns to DB columns ───────────────────────────────
+const COLUMN_MAP = {
+    // ABN ID
+    'ABN_ID': 'abn_id',
+    'ABNID': 'abn_id',
+
+    // ABN Type
+    'ABN_TYPE': 'abn_type',
+    'ABNTYPE': 'abn_type',
+
+    // Subhead
+    'SUBHEAD': 'subhead',
+    'SUB_HEAD': 'subhead',
+
+    // Report Station (various abbreviations)
+    'REPORT_STATION': 'report_station',
+    'REPORTSTATION': 'report_station',
+    'REPORTSTTN': 'report_station',
+    'REPORT_STTN': 'report_station',
+    'RPT_STATION': 'report_station',
+    'RPTSTTN': 'report_station',
+
+    // Report Division (various abbreviations)
+    'REPORT_DIVISION': 'report_division',
+    'REPORTDIVISION': 'report_division',
+    'REPORTDIV': 'report_division',
+    'REPORT_DIV': 'report_division',
+    'RPT_DIV': 'report_division',
+    'RPTDIV': 'report_division',
+
+    // From Station
+    'FROM_STATION': 'from_station',
+    'FROMSTATION': 'from_station',
+    'FROMSTTN': 'from_station',
+    'FROM_STTN': 'from_station',
+    'FROM': 'from_station',
+
+    // To Station
+    'TO_STATION': 'to_station',
+    'TOSTATION': 'to_station',
+    'TOSTTN': 'to_station',
+    'TO_STTN': 'to_station',
+    'TO': 'to_station',
+
+    // Crew ID
+    'CREW_ID': 'crew_id',
+    'CREWID': 'crew_id',
+    'CREW': 'crew_id',
+    'CREW_CLIID': 'crew_id',
+    'CREWCLIID': 'crew_id',
+
+    // Crew Name
+    'CREW_NAME': 'crew_name',
+    'CREWNAME': 'crew_name',
+    'CREW_CLINAME': 'crew_name',
+    'CREWCLINAME': 'crew_name',
+
+    // Designation
+    'DESIGNATION': 'designation',
+    'DESIG': 'designation',
+    'DESG': 'designation',
+
+    // ABN Date
+    'ABN_DATE': 'abn_date',
+    'ABNDATE': 'abn_date',
+    'DATE': 'abn_date',
+
+    // ABN Time
+    'ABN_TIME': 'abn_time',
+    'ABNTIME': 'abn_time',
+    'TIME': 'abn_time',
+
+    // KM fields
+    'FROM_KM': 'from_km',
+    'FROMKM': 'from_km',
+    'TO_KM': 'to_km',
+    'TOKM': 'to_km',
+
+    // Status
+    'STATUS': 'status',
+
+    // Filled By
+    'FILLED_BY': 'filled_by',
+    'FILLEDBY': 'filled_by',
+
+    // Loco/D-Cab
+    'LOCO': 'loco_raw',
+    'LOCO_RAW': 'loco_raw',
+    'D_CAB': 'loco_raw',
+    'DCAB': 'loco_raw',
+    'D-CAB': 'loco_raw',
+
+    // Loco Shed
+    'LOCO_SHED': 'loco_shed',
+    'LOCOSHED': 'loco_shed',
+    'SHED': 'loco_shed',
+
+    // Train Number
+    'TRAIN_NUMBER': 'train_number',
+    'TRAINNUMBER': 'train_number',
+    'TRAIN_NO': 'train_number',
+    'TRAINNO': 'train_number',
+    'TR_NO': 'train_number',
+    'TRNO': 'train_number',
+    'TRAIN': 'train_number',
+
+    // SMS to LP
+    'SMS_TO_LP': 'sms_to_lp',
+    'SMSTOLP': 'sms_to_lp',
+    'SMSTO_LP': 'sms_to_lp',
+    'SMSTOLP': 'sms_to_lp',
+    'SMS': 'sms_to_lp',
+
+    // Detail
+    'DETAIL': 'detail',
+    'DETAILS': 'detail',
+
+    // Closing Remarks
+    'CLOSING_REMARKS': 'closing_remarks',
+    'CLOSINGREMARKS': 'closing_remarks',
+    'CLOSING_REM': 'closing_remarks',
+    'CLOSINGREM': 'closing_remarks',
+    'REMARKS': 'closing_remarks',
+
+    // App Remarks Date
+    'APP_REMARKS_DATE': 'app_remarks_date',
+    'APPREMARKSDATE': 'app_remarks_date',
+    'APP_REM_DATE': 'app_remarks_date',
+    'APPREMDATE': 'app_remarks_date',
+
+    // Reporting Date
+    'REPORTING_DATE': 'reporting_date',
+    'REPORTINGDATE': 'reporting_date',
+    'RPTG_DATE': 'reporting_date',
+    'RPTGDATE': 'reporting_date',
+    'RPT_DATE': 'reporting_date',
+    'RPTDATE': 'reporting_date',
+};
+
+function mapColumnName(excelCol) {
+    const normalized = normalizeColumnName(excelCol);
+    return COLUMN_MAP[normalized] || null;
+}
+
+// ── Helper: Check if row is AWS candidate ─────────────────────────────────
+// AWS events almost always have braking type codes: A, B, C, D, E, P, Q, R, or AUX
+// Just mentioning "AWS" without a type code is usually a suggestion/feedback, not an event
+function isAwsCandidate(row) {
+    const abnType = String(row.abn_type || '').toUpperCase();
+    const detail = String(row.detail || '').toUpperCase();
+
+    // Must be ST or EMU type
+    if (!['ST', 'EMU'].includes(abnType)) {
+        return false;
+    }
+
+    // Pattern 1: "TYPE A", "TYPE B", ... "TYPE R" (with optional space)
+    // Examples: "TYPE A at signal", "TYPE-B BRAKING", "TYPEC at KM 45"
+    if (/TYPE[\s\-]*[ABCDEPQR]\b/i.test(detail)) {
+        return true;
+    }
+
+    // Pattern 2: "A TYPE", "B TYPE", etc. (reverse order)
+    // Examples: "A TYPE at CSMT", "C-TYPE braking"
+    if (/\b[ABCDEPQR][\s\-]*TYPE\b/i.test(detail)) {
+        return true;
+    }
+
+    // Pattern 3: AUX braking (standalone word)
+    // Examples: "AUX at NRL S 18", "AUX BRAKING"
+    if (/\bAUX\b/.test(detail)) {
+        return true;
+    }
+
+    // Pattern 4: Standalone braking codes with context
+    // Examples: "A BRKING at signal", "B BRKG", "C at signal S-18"
+    // Must have single letter A-E or P-R followed by location/braking context
+    if (/\b[ABCDEPQR]\s+(BRKING|BRKG|AT\s+\w+|SIGNAL|SIG\b)/i.test(detail)) {
+        return true;
+    }
+
+    // Pattern 5: "AWS TYPE" followed by code
+    // Examples: "AWS TYPE A", "AWS TYPE-C"
+    if (/AWS\s+TYPE[\s\-]*[ABCDEPQR]\b/i.test(detail)) {
+        return true;
+    }
+
+    // Pattern 6: "ON A", "ON B", etc. - code follows "ON" (acted on [code] aspect)
+    // Examples: "AWS act BY S 46 On A", "acted on B", "on C aspect"
+    if (/\bON\s+[ABCDEPQR]\b/i.test(detail)) {
+        return true;
+    }
+
+    // Pattern 7: "ACT" or "ACTED" followed by signal/location then code at end
+    // Examples: "AWS ACT at S-18 A", "acted S 46 B"
+    if (/\b(ACT|ACTED)\b.*\b[ABCDEPQR]\s*$/i.test(detail)) {
+        return true;
+    }
+
+    // Pattern 8: "AWS ACTED" or "AWS ACT" - clear AWS event indicator
+    // Examples: "AWS ACTED ON GREEN ASPECT OF H2212", "AWS ACT at signal"
+    if (/\bAWS\s+(ACT|ACTED|ACTING)\b/i.test(detail)) {
+        return true;
+    }
+
+    // Pattern 9: Aspect color mentions (implies specific codes)
+    // GREEN ASPECT/SIGNAL = A, DOUBLE YELLOW = B, YELLOW = C
+    // Examples: "acted on green aspect", "double yellow signal", "at yellow"
+    if (/\b(GREEN|DOUBLE\s*YELLOW|YELLOW)\s*(ASPECT|SIGNAL|SIG)\b/i.test(detail)) {
+        return true;
+    }
+
+    // Pattern 10: Quoted or parenthesized codes like "D", 'A', (B)
+    // Examples: AWS "D" @ NE 54/26, AWS Act 'AUX', AWS (C) at signal
+    if (/["'(][ABCDEPQR]["')]/.test(detail)) {
+        return true;
+    }
+
+    return false;
+}
+
+// ── Helper: Check if row is "suspected" AWS ───────────────────────────────
+// ST/EMU type that contains AWS-related words but doesn't have clear type codes
+// Also checks crew_id - only suburban motormen (PNVS/KYNS/CSTS) deal with AWS
+function isSuspectedAws(row) {
+    // If already detected as AWS candidate, not suspected
+    if (isAwsCandidate(row)) {
+        return false;
+    }
+
+    const abnType = String(row.abn_type || '').toUpperCase();
+    const detail = String(row.detail || '').toUpperCase();
+    const crewId = String(row.crew_id || '').toUpperCase();
+
+    // Must be ST or EMU type
+    if (!['ST', 'EMU'].includes(abnType)) {
+        return false;
+    }
+
+    // Must be suburban motorman (PNVS, KYNS, CSTS prefix)
+    // LP goods, LP mail, LP ghat etc. don't deal with AWS
+    const suburbanPrefixes = ['PNVS', 'KYNS', 'CSTS'];
+    const isSuburbanCrew = suburbanPrefixes.some(prefix => crewId.startsWith(prefix));
+    if (!isSuburbanCrew && crewId.length > 0) {
+        return false;
+    }
+
+    // Contains AWS-related keywords but no clear type code
+    const suspectedKeywords = [
+        'AWS',
+        'SIGNAL',
+        'SIG ',
+        'SIG.',
+        'MAGNET',
+        'HOOTER',
+        'VIGILANCE',
+        'BRAKING',
+        'BRKG',
+    ];
+
+    for (const kw of suspectedKeywords) {
+        if (detail.includes(kw)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+// ── POST /upload ──────────────────────────────────────────────────────────
+// Upload CMS Excel, parse rows, show preview, save to div_aws_cms_raw
+router.post('/upload', upload.single('file'), async (req, res) => {
+    let filePath = null;
+    let conn = null;
+
+    try {
+        if (!req.session.user) {
+            return res.status(401).json({ error: 'Not authenticated' });
+        }
+
+        if (!req.file) {
+            return res.status(400).json({ error: 'No file uploaded' });
+        }
+
+        filePath = req.file.path;
+        const ext = path.extname(req.file.originalname).toLowerCase();
+
+        if (ext !== '.xlsx' && ext !== '.xls') {
+            fs.unlinkSync(filePath);
+            return res.status(400).json({ error: 'Only Excel files (.xlsx, .xls) are supported' });
+        }
+
+        console.log('[AWS Upload] Processing:', req.file.originalname);
+
+        // Read Excel file
+        const workbook = xlsx.readFile(filePath);
+        const sheetName = workbook.SheetNames[0];
+        const sheet = workbook.Sheets[sheetName];
+
+        // First, read as array of arrays to find the header row
+        const rawArrays = xlsx.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+        console.log(`[AWS Upload] Sheet has ${rawArrays.length} rows`);
+
+        if (rawArrays.length === 0) {
+            fs.unlinkSync(filePath);
+            return res.status(400).json({ error: 'Excel file is empty' });
+        }
+
+        // Find the header row - look for row containing ABN.ID or similar
+        let headerRowIndex = 0;
+        const headerKeywords = ['ABN.ID', 'ABN_ID', 'ABNID', 'ABN.TYPE', 'ABN_TYPE', 'ABNTYPE', 'FROM STATION', 'DETAIL'];
+
+        for (let i = 0; i < Math.min(10, rawArrays.length); i++) {
+            const row = rawArrays[i];
+            const rowStr = row.map(c => String(c || '').toUpperCase()).join(' ');
+
+            for (const kw of headerKeywords) {
+                if (rowStr.includes(kw)) {
+                    headerRowIndex = i;
+                    console.log(`[AWS Upload] Found header row at index ${i}: "${row.slice(0, 5).join(', ')}..."`);
+                    break;
+                }
+            }
+            if (headerRowIndex > 0) break;
+        }
+
+        // Now read with the correct header row
+        const rawData = xlsx.utils.sheet_to_json(sheet, {
+            defval: '',
+            range: headerRowIndex  // Start from the header row
+        });
+
+        console.log(`[AWS Upload] Found ${rawData.length} data rows (header at row ${headerRowIndex + 1})`);
+
+        if (rawData.length === 0) {
+            fs.unlinkSync(filePath);
+            return res.status(400).json({ error: 'No data rows found after header' });
+        }
+
+        // Get column mapping from first row
+        const firstRow = rawData[0];
+        const excelColumns = Object.keys(firstRow);
+        const columnMapping = {};
+        const unmappedColumns = [];
+
+        for (const col of excelColumns) {
+            const dbCol = mapColumnName(col);
+            if (dbCol) {
+                columnMapping[col] = dbCol;
+            } else {
+                unmappedColumns.push(col);
+            }
+        }
+
+        console.log('[AWS Upload] Excel columns found:', excelColumns);
+        console.log('[AWS Upload] Column mapping:', columnMapping);
+        console.log('[AWS Upload] Unmapped columns:', unmappedColumns);
+
+        // Transform rows
+        const transformedRows = [];
+        let minDate = null, maxDate = null;
+
+        for (const row of rawData) {
+            const transformed = {};
+
+            for (const [excelCol, dbCol] of Object.entries(columnMapping)) {
+                let value = row[excelCol];
+
+                // Handle date columns
+                if (dbCol === 'abn_date' || dbCol === 'reporting_date') {
+                    value = parseExcelDate(value);
+                }
+                // Handle time columns
+                else if (dbCol === 'abn_time') {
+                    value = parseExcelTime(value);
+                }
+                // Trim strings
+                else if (typeof value === 'string') {
+                    value = value.trim();
+                }
+
+                transformed[dbCol] = value || null;
+            }
+
+            // Track date range
+            if (transformed.abn_date) {
+                if (!minDate || transformed.abn_date < minDate) minDate = transformed.abn_date;
+                if (!maxDate || transformed.abn_date > maxDate) maxDate = transformed.abn_date;
+            }
+
+            // Store original row as JSON
+            transformed.raw_json = JSON.stringify(row);
+
+            transformedRows.push(transformed);
+        }
+
+        // Identify AWS candidates
+        const awsCandidates = transformedRows.filter(isAwsCandidate);
+        console.log(`[AWS Upload] AWS candidates: ${awsCandidates.length} of ${transformedRows.length}`);
+
+        // Get pool and check for duplicates
+        const pool = req.app.locals.pool;
+        conn = await pool.getConnection();
+
+        // Get existing ABN IDs
+        const abnIds = transformedRows
+            .map(r => r.abn_id)
+            .filter(id => id);
+
+        let existingIds = new Set();
+        if (abnIds.length > 0) {
+            const [existing] = await conn.query(
+                'SELECT abn_id FROM div_aws_cms_raw WHERE abn_id IN (?)',
+                [abnIds]
+            );
+            existingIds = new Set(existing.map(r => r.abn_id));
+        }
+
+        // Separate new and duplicate rows
+        const newRows = transformedRows.filter(r => r.abn_id && !existingIds.has(r.abn_id));
+        const duplicateRows = transformedRows.filter(r => r.abn_id && existingIds.has(r.abn_id));
+        const noIdRows = transformedRows.filter(r => !r.abn_id);
+
+        // For preview mode, return without saving
+        if (req.query.preview === 'true') {
+            fs.unlinkSync(filePath);
+            conn.release();
+
+            // If no columns were mapped, show raw data preview instead
+            const hasMapping = Object.keys(columnMapping).length > 0;
+
+            if (!hasMapping) {
+                // For unmapped files, show first few columns
+                const sampleRows = rawData.slice(0, 10).map(r => {
+                    const preview = {};
+                    const keys = Object.keys(r).slice(0, 8);
+                    for (const k of keys) {
+                        let val = r[k];
+                        if (typeof val === 'string' && val.length > 50) {
+                            val = val.substring(0, 50) + '...';
+                        }
+                        preview[k] = val;
+                    }
+                    return preview;
+                });
+
+                return res.json({
+                    preview: true,
+                    filename: req.file.originalname,
+                    total_rows: transformedRows.length,
+                    has_mapping: false,
+                    columns_found: excelColumns,
+                    sample_rows: sampleRows,
+                });
+            }
+
+            // Categorize rows: detected AWS, suspected AWS, other
+            const suspectedAws = transformedRows.filter(r => isSuspectedAws(r));
+
+            // Detect potential duplicates within the file (same crew + date + location)
+            const duplicateKeys = new Map(); // key -> first index
+            const potentialDuplicates = new Set(); // indices of potential duplicates
+            transformedRows.forEach((r, idx) => {
+                // Extract location from detail for duplicate detection
+                const { raw: locRaw } = extractLocation(r.detail);
+
+                // Key: crew_id + date + (km OR signal location OR loco)
+                const locationPart = r.from_km || locRaw || r.loco_raw || '';
+                const key = [
+                    r.crew_id || '',
+                    r.abn_date || '',
+                    locationPart
+                ].join('|').toUpperCase();
+
+                if (key.length > 3) { // Only if key has meaningful data
+                    if (duplicateKeys.has(key)) {
+                        potentialDuplicates.add(idx);
+                        potentialDuplicates.add(duplicateKeys.get(key));
+                    } else {
+                        duplicateKeys.set(key, idx);
+                    }
+                }
+            });
+
+            // Build row mapper function
+            const mapRow = (r, idx) => ({
+                _idx: idx,  // Original index for tracking
+                abn_id: r.abn_id,
+                abn_type: r.abn_type,
+                abn_date: r.abn_date,
+                from_station: r.from_station,
+                to_station: r.to_station,
+                train_number: r.train_number,
+                loco_raw: r.loco_raw,
+                crew_id: r.crew_id,
+                from_km: r.from_km,
+                detail: r.detail ? r.detail.substring(0, 150) + (r.detail.length > 150 ? '...' : '') : null,
+                detail_full: r.detail || null,
+                is_duplicate: r.abn_id && existingIds.has(r.abn_id),
+                is_potential_duplicate: potentialDuplicates.has(idx),
+            });
+
+            // Get indices for each category
+            const detectedRows = [];
+            const suspectedRows = [];
+            const otherRows = [];
+
+            // Helper: Check if crew is relevant (suburban motormen or CLI)
+            const isRelevantCrew = (crewId) => {
+                if (!crewId) return false;
+                const id = String(crewId).toUpperCase();
+                // Suburban motormen: PNVS, CSTS, KYNS
+                // CLI: CSTM (like CSTM0012, CSTM0102)
+                const relevantPrefixes = ['PNVS', 'CSTS', 'KYNS', 'CSTM'];
+                return relevantPrefixes.some(prefix => id.startsWith(prefix));
+            };
+
+            transformedRows.forEach((r, idx) => {
+                const mapped = mapRow(r, idx);
+                if (isAwsCandidate(r)) {
+                    detectedRows.push(mapped);
+                } else if (isSuspectedAws(r)) {
+                    suspectedRows.push(mapped);
+                } else if (isRelevantCrew(r.crew_id)) {
+                    // Only show other rows from suburban motormen or CLI
+                    otherRows.push(mapped);
+                }
+            });
+
+            return res.json({
+                preview: true,
+                filename: req.file.originalname,
+                total_rows: transformedRows.length,
+                aws_candidate_rows: awsCandidates.length,
+                suspected_aws_rows: suspectedAws.length,
+                new_rows: newRows.length,
+                duplicate_rows: duplicateRows.length,
+                no_id_rows: noIdRows.length,
+                date_range: { from: minDate, to: maxDate },
+                columns_found: excelColumns,
+                columns_mapped: Object.entries(columnMapping).map(([k, v]) => `${k} → ${v}`),
+                unmapped_columns: unmappedColumns,
+                has_mapping: true,
+                // Categorized rows
+                detected_aws: detectedRows,
+                suspected_aws: suspectedRows,
+                other_rows: otherRows,
+            });
+        }
+
+        // Get user-selected AWS candidate indices from request
+        // Sent as JSON string in FormData field 'aws_candidate_indices'
+        let awsCandidateIndices = new Set();
+        if (req.body && req.body.aws_candidate_indices) {
+            try {
+                const indices = JSON.parse(req.body.aws_candidate_indices);
+                if (Array.isArray(indices)) {
+                    awsCandidateIndices = new Set(indices);
+                }
+            } catch (e) {
+                console.log('[AWS Upload] Could not parse aws_candidate_indices, using auto-detection');
+            }
+        }
+
+        // If no indices provided, use auto-detected AWS candidates
+        if (awsCandidateIndices.size === 0) {
+            transformedRows.forEach((r, idx) => {
+                if (isAwsCandidate(r)) {
+                    awsCandidateIndices.add(idx);
+                }
+            });
+        }
+
+        // Create upload batch
+        const batchId = generateBatchId();
+        const userId = req.session.user.id || null;
+
+        await conn.query(
+            `INSERT INTO div_aws_cms_uploads
+                (upload_batch_id, source_filename, uploaded_by_user_id, report_from_date, report_to_date,
+                 total_rows, aws_candidate_rows, imported_rows, skipped_duplicate_rows, status)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'IMPORTING')`,
+            [batchId, req.file.originalname, userId, minDate, maxDate,
+             transformedRows.length, awsCandidateIndices.size, 0, duplicateRows.length]
+        );
+
+        const [[{ id: uploadId }]] = await conn.query(
+            'SELECT id FROM div_aws_cms_uploads WHERE upload_batch_id = ?',
+            [batchId]
+        );
+
+        // Insert ALL rows (not just AWS candidates)
+        let importedCount = 0;
+        let awsCount = 0;
+        for (let idx = 0; idx < transformedRows.length; idx++) {
+            const row = transformedRows[idx];
+
+            // Skip rows without abn_id or duplicates
+            if (!row.abn_id || existingIds.has(row.abn_id)) {
+                continue;
+            }
+
+            const isAws = awsCandidateIndices.has(idx) ? 1 : 0;
+            if (isAws) awsCount++;
+
+            try {
+                await conn.query(
+                    `INSERT INTO div_aws_cms_raw
+                        (upload_id, abn_id, abn_type, subhead, report_station, report_division,
+                         from_station, to_station, crew_id, crew_name, designation,
+                         abn_date, abn_time, from_km, to_km, status, filled_by,
+                         loco_raw, loco_shed, train_number, sms_to_lp,
+                         detail, closing_remarks, app_remarks_date, reporting_date, raw_json, is_aws_candidate)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                    [uploadId, row.abn_id, row.abn_type, row.subhead, row.report_station, row.report_division,
+                     row.from_station, row.to_station, row.crew_id, row.crew_name, row.designation,
+                     row.abn_date, row.abn_time, row.from_km, row.to_km, row.status, row.filled_by,
+                     row.loco_raw, row.loco_shed, row.train_number, row.sms_to_lp,
+                     row.detail, row.closing_remarks, row.app_remarks_date, row.reporting_date, row.raw_json, isAws]
+                );
+                importedCount++;
+            } catch (err) {
+                // Skip duplicates (unique constraint on abn_id)
+                if (err.code !== 'ER_DUP_ENTRY') {
+                    console.error('[AWS Upload] Row insert error:', err.message);
+                }
+            }
+        }
+
+        // Update upload status
+        await conn.query(
+            `UPDATE div_aws_cms_uploads
+             SET imported_rows = ?, aws_candidate_rows = ?, status = 'COMPLETED'
+             WHERE id = ?`,
+            [importedCount, awsCount, uploadId]
+        );
+
+        // ── Auto-parse AWS candidates into events ──
+        let parsedCount = 0, needsReviewCount = 0;
+        if (awsCount > 0) {
+            const [awsRows] = await conn.query(
+                `SELECT * FROM div_aws_cms_raw WHERE upload_id = ? AND is_aws_candidate = 1`,
+                [uploadId]
+            );
+
+            for (const raw of awsRows) {
+                try {
+                    const { code: awsCode, confidence } = extractAwsCode(raw.detail);
+                    const { raw: locationRaw, type: locationType } = extractLocation(raw.detail);
+                    const needsManualReview = !awsCode || confidence === 'LOW' || !locationRaw ? 1 : 0;
+                    if (needsManualReview) needsReviewCount++;
+
+                    await conn.query(
+                        `INSERT INTO div_aws_events
+                            (raw_id, abn_id, entry_source, entered_by_user_id,
+                             abn_date, abn_time, aws_code, location_raw, location_type,
+                             needs_manual_review, loco_raw, train_number,
+                             crew_id, crew_name, status)
+                         VALUES (?, ?, 'CMS_IMPORT', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING')`,
+                        [raw.id, raw.abn_id, userId,
+                         raw.abn_date, raw.abn_time, awsCode, locationRaw, locationType,
+                         needsManualReview, raw.loco_raw, raw.train_number,
+                         raw.crew_id, raw.crew_name]
+                    );
+                    parsedCount++;
+                } catch (err) {
+                    if (err.code !== 'ER_DUP_ENTRY') {
+                        console.error(`[AWS Auto-Parse] Error:`, err.message);
+                    }
+                }
+            }
+            console.log(`[AWS Auto-Parse] ${parsedCount} events created, ${needsReviewCount} need review`);
+        }
+
+        // Cleanup
+        fs.unlinkSync(filePath);
+        conn.release();
+
+        console.log(`[AWS Upload] Completed: ${importedCount} rows imported (${awsCount} AWS), ${duplicateRows.length} duplicates skipped`);
+
+        res.json({
+            success: true,
+            upload_id: uploadId,
+            batch_id: batchId,
+            filename: req.file.originalname,
+            total_rows: transformedRows.length,
+            aws_candidate_rows: awsCount,
+            imported_rows: importedCount,
+            skipped_duplicate_rows: duplicateRows.length,
+            skipped_no_id_rows: noIdRows.length,
+            date_range: { from: minDate, to: maxDate },
+            // Auto-parse results
+            events_created: parsedCount,
+            events_need_review: needsReviewCount,
+            events_auto_approved: parsedCount - needsReviewCount,
+        });
+
+    } catch (err) {
+        console.error('[AWS Upload] Error:', err);
+
+        if (filePath && fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+        }
+        if (conn) {
+            conn.release();
+        }
+
+        res.status(500).json({ error: 'Upload failed', message: err.message });
+    }
+});
+
+// ── GET /uploads ──────────────────────────────────────────────────────────
+// List all upload batches with summary stats
+router.get('/uploads', async (req, res) => {
+    try {
+        const pool = req.app.locals.pool;
+        const [rows] = await pool.query(
+            `SELECT id, upload_batch_id, source_filename, uploaded_by_user_id,
+                    report_from_date, report_to_date,
+                    total_rows, aws_candidate_rows, imported_rows, skipped_duplicate_rows,
+                    status, remarks, created_at
+             FROM div_aws_cms_uploads
+             ORDER BY created_at DESC
+             LIMIT 100`
+        );
+
+        res.json({ uploads: rows });
+    } catch (err) {
+        console.error('[AWS /uploads] Error:', err);
+        res.status(500).json({ error: 'Failed to load uploads' });
+    }
+});
+
+// ── GET /uploads/:id ──────────────────────────────────────────────────────
+// Get single upload batch details
+router.get('/uploads/:id', async (req, res) => {
+    try {
+        const pool = req.app.locals.pool;
+        const uploadId = parseInt(req.params.id, 10);
+
+        const [[upload]] = await pool.query(
+            `SELECT * FROM div_aws_cms_uploads WHERE id = ?`,
+            [uploadId]
+        );
+
+        if (!upload) {
+            return res.status(404).json({ error: 'Upload not found' });
+        }
+
+        // Get summary by abn_type
+        const [typeSummary] = await pool.query(
+            `SELECT abn_type, COUNT(*) AS count
+             FROM div_aws_cms_raw
+             WHERE upload_id = ?
+             GROUP BY abn_type
+             ORDER BY count DESC`,
+            [uploadId]
+        );
+
+        // Get summary by from_station
+        const [stationSummary] = await pool.query(
+            `SELECT from_station, COUNT(*) AS count
+             FROM div_aws_cms_raw
+             WHERE upload_id = ?
+             GROUP BY from_station
+             ORDER BY count DESC
+             LIMIT 10`,
+            [uploadId]
+        );
+
+        res.json({
+            upload,
+            summary: {
+                by_type: typeSummary,
+                by_station: stationSummary,
+            },
+        });
+    } catch (err) {
+        console.error('[AWS /uploads/:id] Error:', err);
+        res.status(500).json({ error: 'Failed to load upload details' });
+    }
+});
+
+// ── GET /uploads/:id/raw ──────────────────────────────────────────────────
+// Get raw rows for an upload batch with pagination
+router.get('/uploads/:id/raw', async (req, res) => {
+    try {
+        const pool = req.app.locals.pool;
+        const uploadId = parseInt(req.params.id, 10);
+        const limit = Math.min(parseInt(req.query.limit, 10) || 50, 500);
+        const offset = parseInt(req.query.offset, 10) || 0;
+        const abnType = req.query.abn_type || null;
+        const awsOnly = req.query.aws_only === 'true';
+
+        // Build query
+        let where = 'upload_id = ?';
+        const params = [uploadId];
+
+        if (abnType) {
+            where += ' AND abn_type = ?';
+            params.push(abnType);
+        }
+
+        // Count total
+        const [[{ total }]] = await pool.query(
+            `SELECT COUNT(*) AS total FROM div_aws_cms_raw WHERE ${where}`,
+            params
+        );
+
+        // Get rows
+        const [rows] = await pool.query(
+            `SELECT id, abn_id, abn_type, subhead, from_station, to_station,
+                    crew_id, crew_name, abn_date, abn_time,
+                    loco_raw, loco_shed, train_number, detail, closing_remarks
+             FROM div_aws_cms_raw
+             WHERE ${where}
+             ORDER BY abn_date DESC, abn_time DESC
+             LIMIT ? OFFSET ?`,
+            [...params, limit, offset]
+        );
+
+        // Mark AWS candidates
+        const rowsWithFlag = rows.map(r => ({
+            ...r,
+            is_aws_candidate: isAwsCandidate(r),
+        }));
+
+        // Filter if requested
+        const finalRows = awsOnly
+            ? rowsWithFlag.filter(r => r.is_aws_candidate)
+            : rowsWithFlag;
+
+        res.json({
+            total,
+            limit,
+            offset,
+            rows: finalRows,
+        });
+    } catch (err) {
+        console.error('[AWS /uploads/:id/raw] Error:', err);
+        res.status(500).json({ error: 'Failed to load raw rows' });
+    }
+});
+
+// ── DELETE /uploads/:id ───────────────────────────────────────────────────
+// Delete an upload batch and all associated raw rows
+router.delete('/uploads/:id', async (req, res) => {
+    try {
+        if (!req.session.user) {
+            return res.status(401).json({ error: 'Not authenticated' });
+        }
+
+        const pool = req.app.locals.pool;
+        const uploadId = parseInt(req.params.id, 10);
+
+        // Check if upload exists
+        const [[upload]] = await pool.query(
+            'SELECT id, upload_batch_id FROM div_aws_cms_uploads WHERE id = ?',
+            [uploadId]
+        );
+
+        if (!upload) {
+            return res.status(404).json({ error: 'Upload not found' });
+        }
+
+        // Check if any events have been parsed from this upload
+        const [[{ eventCount }]] = await pool.query(
+            `SELECT COUNT(*) AS eventCount FROM div_aws_events e
+             JOIN div_aws_cms_raw r ON r.id = e.raw_id
+             WHERE r.upload_id = ?`,
+            [uploadId]
+        );
+
+        if (eventCount > 0) {
+            return res.status(409).json({
+                error: 'Cannot delete: parsed events exist',
+                event_count: eventCount,
+            });
+        }
+
+        // Delete raw rows first (FK will cascade, but explicit is clearer)
+        await pool.query('DELETE FROM div_aws_cms_raw WHERE upload_id = ?', [uploadId]);
+
+        // Delete upload batch
+        await pool.query('DELETE FROM div_aws_cms_uploads WHERE id = ?', [uploadId]);
+
+        console.log(`[AWS DELETE] Deleted upload ${upload.upload_batch_id}`);
+
+        res.json({
+            success: true,
+            deleted_batch_id: upload.upload_batch_id,
+        });
+    } catch (err) {
+        console.error('[AWS DELETE /uploads/:id] Error:', err);
+        res.status(500).json({ error: 'Delete failed' });
+    }
+});
+
+// ── GET /stats ────────────────────────────────────────────────────────────
+// Dashboard stats for AWS module
+router.get('/stats', async (req, res) => {
+    try {
+        const pool = req.app.locals.pool;
+
+        // Total uploads
+        const [[{ uploadCount }]] = await pool.query(
+            'SELECT COUNT(*) AS uploadCount FROM div_aws_cms_uploads'
+        );
+
+        // Total raw rows
+        const [[{ rawCount }]] = await pool.query(
+            'SELECT COUNT(*) AS rawCount FROM div_aws_cms_raw'
+        );
+
+        // Total events
+        const [[{ eventCount }]] = await pool.query(
+            'SELECT COUNT(*) AS eventCount FROM div_aws_events'
+        );
+
+        // Pending review
+        const [[{ pendingReview }]] = await pool.query(
+            'SELECT COUNT(*) AS pendingReview FROM div_aws_events WHERE needs_manual_review = 1'
+        );
+
+        // Recent uploads
+        const [recentUploads] = await pool.query(
+            `SELECT id, upload_batch_id, source_filename, imported_rows, created_at
+             FROM div_aws_cms_uploads
+             ORDER BY created_at DESC
+             LIMIT 5`
+        );
+
+        res.json({
+            upload_count: uploadCount,
+            raw_row_count: rawCount,
+            event_count: eventCount,
+            pending_review: pendingReview,
+            recent_uploads: recentUploads,
+        });
+    } catch (err) {
+        console.error('[AWS /stats] Error:', err);
+        res.status(500).json({ error: 'Failed to load stats' });
+    }
+});
+
+// ══════════════════════════════════════════════════════════════════════════
+// PHASE 6: AWS Parser and Review
+// ══════════════════════════════════════════════════════════════════════════
+
+// ── Helper: Extract AWS code from detail text ─────────────────────────────
+function extractAwsCode(detail) {
+    if (!detail) return { code: null, confidence: null };
+
+    // Strip "DETAIL:" prefix if present
+    let text = detail.toUpperCase().replace(/^DETAIL:\s*/i, '');
+
+    // Priority 0: Code at START followed by "at" + location (most common pattern)
+    // Examples: "B at H-16 AWS ACT", "A at S 46", "C at KM 45"
+    const startCodeMatch = text.match(/^([ABCDEPQR])\s+AT\b/);
+    if (startCodeMatch) {
+        return { code: startCodeMatch[1], confidence: 'HIGH' };
+    }
+
+    // Priority 0b: "AWS [code] at" pattern
+    // Examples: "AWS E at Km 55", "AWS C at KYN"
+    const awsCodeAtMatch = text.match(/\bAWS\s+([ABCDEPQR])\s+AT\b/);
+    if (awsCodeAtMatch) {
+        return { code: awsCodeAtMatch[1], confidence: 'HIGH' };
+    }
+
+    // Priority 0c: "AWS ACT/ACTED [code] AT" pattern
+    // Examples: "AWS ACT E AT THA PF-5", "AWS acted E At KM 76"
+    const awsActCodeMatch = text.match(/\bAWS\s+(?:ACT|ACTED|ACTING)\s+([ABCDEPQR])\s+AT\b/);
+    if (awsActCodeMatch) {
+        return { code: awsActCodeMatch[1], confidence: 'HIGH' };
+    }
+
+    // Priority 0d: "On [code]" at end or "On [code] aspect"
+    // Examples: "AWS act BY S 46 On A", "acted on B"
+    const onCodeMatch = text.match(/\bON\s+([ABCDEPQR])\s*$/);
+    if (onCodeMatch) {
+        return { code: onCodeMatch[1], confidence: 'HIGH' };
+    }
+
+    // Priority 0e: Code in quotes like "A" or 'A'
+    // Examples: AWS ACT ON ASO STR SIG "A"ON GREEN
+    const quotedCodeMatch = text.match(/["']([ABCDEPQR])["']/);
+    if (quotedCodeMatch) {
+        return { code: quotedCodeMatch[1], confidence: 'HIGH' };
+    }
+
+    // Priority 0f: Code in parentheses like (B) or ( A )
+    // Examples: AWS Act (B), acted (C)
+    const parenCodeMatch = text.match(/\([\s]*([ABCDEPQR])[\s]*\)/);
+    if (parenCodeMatch) {
+        return { code: parenCodeMatch[1], confidence: 'HIGH' };
+    }
+
+    // Priority 0g: Code in commas like ,C, or , C ,
+    // Examples: AWS ACT ,C, AT ASO
+    const commaCodeMatch = text.match(/,[\s]*([ABCDEPQR])[\s]*,/);
+    if (commaCodeMatch) {
+        return { code: commaCodeMatch[1], confidence: 'HIGH' };
+    }
+
+    // Priority 0h: Single letter code at END of text (after signal/location)
+    // Examples: "AWS ACT ON CLA S12 C", "acted at BY S-46 A"
+    const endCodeMatch = text.match(/\b[A-Z]?\d+[A-Z]?\s+([ABCDEPQR])\s*$/);
+    if (endCodeMatch) {
+        return { code: endCodeMatch[1], confidence: 'HIGH' };
+    }
+
+    // Priority 1: Explicit TYPE codes (TYPE A, TYPE B, etc.)
+    const explicitMatch = text.match(/TYPE[\s\-]*([ABCDEPQR])\b/);
+    if (explicitMatch) {
+        return { code: explicitMatch[1], confidence: 'HIGH' };
+    }
+
+    // Priority 2: Letter + ACT/BRKG pattern (A ACT, B BRKG, etc.)
+    const actMatch = text.match(/\b([ABCDEPQR])[\s\-]*(ACT|ACTED|ACTING|BRKG|BRKING)\b/);
+    if (actMatch) {
+        return { code: actMatch[1], confidence: 'HIGH' };
+    }
+
+    // Priority 2b: Code letter followed by "at" + signal/location pattern anywhere
+    // Examples: "AWS B at H-16", "defect A at S 46"
+    const codeAtMatch = text.match(/\b([ABCDEPQR])\s+AT\s+([A-Z][\-\s]?\d+|\w{2,5}\s+S[\s\-\/]?\d+|KM)/);
+    if (codeAtMatch) {
+        return { code: codeAtMatch[1], confidence: 'HIGH' };
+    }
+
+    // Priority 3: AUX patterns
+    const auxPatterns = [
+        /\bAUX\b/,
+        /CALLING[\s\-]*ON/,
+        /CALL[\s\-]*ON/,
+        /SHUNT(ING)?[\s\-]*SIG/,
+        /\bA[\s\-]*MARKER\b/,
+        /\bA[\s\-]*BOARD\b/,
+        /\bG[\s\-]*BOARD\b/,
+        /BLANK[\s\-]*SIG/,
+        /T[\s\/]*A[\s\-]*912/,
+        /WITH[\s\-]*AUTHORITY/,
+        /PASSED.*AUTHORITY/,
+    ];
+    for (const pattern of auxPatterns) {
+        if (pattern.test(text)) {
+            return { code: 'AUX', confidence: 'HIGH' };
+        }
+    }
+
+    // Priority 4: Aspect change patterns (P, Q, R)
+    if (/GREEN.*TO.*DOUBLE[\s\-]*YELLOW|G[\s\-]*TO[\s\-]*DY|GREEN.*→.*D/i.test(text)) {
+        return { code: 'P', confidence: 'MEDIUM' };
+    }
+    if (/GREEN.*TO.*YELLOW|G[\s\-]*TO[\s\-]*Y|GREEN.*→.*Y/i.test(text) && !/DOUBLE/.test(text)) {
+        return { code: 'Q', confidence: 'MEDIUM' };
+    }
+    if (/DOUBLE[\s\-]*YELLOW.*TO.*YELLOW|DY[\s\-]*TO[\s\-]*Y|D.*→.*Y/i.test(text)) {
+        return { code: 'R', confidence: 'MEDIUM' };
+    }
+
+    // Priority 5: Aspect color keywords
+    // A - Green
+    if (/GREEN[\s\-]*(ASPECT|SIGNAL|SIG)|PROCEED/i.test(text) && !/DOUBLE|CHANGE|TO/.test(text)) {
+        return { code: 'A', confidence: 'MEDIUM' };
+    }
+
+    // B - Double Yellow
+    if (/DOUBLE[\s\-]*YELLOW|DBL[\s\-]*YELLOW|D[\s\/]Y\b/i.test(text) && !/TO|CHANGE/.test(text)) {
+        return { code: 'B', confidence: 'MEDIUM' };
+    }
+
+    // C - Yellow (single)
+    // Patterns: "Yellow aspect", "yellow signal", "signal yellow", "on yellow", "at yellow"
+    if ((/YELLOW[\s\-]*(ASPECT|SIGNAL|SIG)?|SIGNAL\s+YELLOW|(ON|AT)\s+YELLOW|CAUTION/i.test(text)) &&
+        !/DOUBLE|TO|CHANGE/.test(text)) {
+        return { code: 'C', confidence: 'MEDIUM' };
+    }
+
+    // D - Additional magnet
+    if (/ADD(ITIONAL|L)?[\s\.\-]*MAGNET/i.test(text)) {
+        return { code: 'D', confidence: 'MEDIUM' };
+    }
+
+    // E - Without magnet/signal
+    if (/WITHOUT[\s\-]*MAGNET|NO[\s\-]*MAGNET|W[\s\/]O[\s\-]*MAGNET|NO[\s\-]*SIG/i.test(text)) {
+        return { code: 'E', confidence: 'MEDIUM' };
+    }
+
+    // Priority 6: Red aspect (usually shouldn't happen with AWS, but include for completeness)
+    if (/RED[\s\-]*(ASPECT|SIGNAL|SIG)|DANGER/i.test(text)) {
+        return { code: 'OTHER', confidence: 'LOW' };
+    }
+
+    return { code: null, confidence: null };
+}
+
+// ── Helper: Extract location from detail text ─────────────────────────────
+function extractLocation(detail) {
+    if (!detail) return { raw: null, type: 'UNKNOWN' };
+
+    // Strip "DETAIL:" prefix if present
+    let text = detail.toUpperCase().replace(/^DETAIL:\s*/i, '');
+
+    // Pattern 0: "SIGNAL NO [station] S[number]" like "SIGNAL NO NEU S4"
+    const signalNoMatch = text.match(/SIGNAL\s+NO\.?\s+([A-Z]{2,5})\s+S[\s\-]*(\d+[A-Z]?)\b/);
+    if (signalNoMatch) {
+        return { raw: `${signalNoMatch[1]} S ${signalNoMatch[2]}`, type: 'SIGNAL' };
+    }
+
+    // Pattern 0b: "SIGNAL NO [2 letters][4-5 digits]" like "Signal No NE6111" or "Signal No NE 6111"
+    // With or without space between letters and digits
+    const signalNo2LetterMatch = text.match(/SIGNAL\s+NO\.?\s+([A-Z]{2})\s*(\d{4,5})\b/);
+    if (signalNo2LetterMatch) {
+        return { raw: `${signalNo2LetterMatch[1]}${signalNo2LetterMatch[2]}`, type: 'SIGNAL' };
+    }
+
+    // Pattern 0c: "SIGNAL NO [letter] [2-5 digits]" like "Signal No K 48", "Signal No L 4810"
+    // Single letter signal ID
+    const signalNoLetterMatch = text.match(/SIGNAL\s+NO\.?\s+([A-Z])\s*(\d{2,5})\b/);
+    if (signalNoLetterMatch) {
+        return { raw: `${signalNoLetterMatch[1]}${signalNoLetterMatch[2]}`, type: 'SIGNAL' };
+    }
+
+    // Pattern 1: Station + Signal format like "BY S 46", "NRL S-18", "KYN /S-78", "ASO.S23"
+    // Format: [2-5 letter station code] [space/./] S [hyphen/space/slash/.] [number]
+    // Exclude common English words (2-3 letters only) that appear before signals
+    // Note: Uses exact match so ASO, ATG, BEPR etc are NOT excluded
+    const stationSignalMatch = text.match(/\b([A-Z]{2,5})[\s\.\/]+S[\s\-\.\/]*(\d+[A-Z]?)\b/);
+    if (stationSignalMatch) {
+        const station = stationSignalMatch[1];
+        const sigNum = stationSignalMatch[2];
+        // Only exclude very common English words that appear before "S [number]" in descriptions
+        const excludedWords = ['OF', 'THE', 'AND', 'FOR', 'BUT', 'NOT', 'ALL', 'ONE', 'TWO', 'OUT', 'OUR'];
+        if (!excludedWords.includes(station)) {
+            return { raw: `${station} S ${sigNum}`, type: 'SIGNAL' };
+        }
+        // If station word is excluded, keep it as a signal but let manual review confirm station context.
+        return { raw: `S ${sigNum}`, type: 'SIGNAL' };
+    }
+
+    // Pattern 1a: Standalone "S-[number]" signal without station prefix (when no station word before)
+    // Examples: "at S-22", "signal S 46" (no station code, needs CLI verification)
+    const standaloneSignalMatch = text.match(/\bS[\s\-\/]*(\d+[A-Z]?)\b/);
+    if (standaloneSignalMatch) {
+        return { raw: `S ${standaloneSignalMatch[1]}`, type: 'SIGNAL' };
+    }
+
+    // Pattern 1b: Station + Signal Type like "ASO STR SIG", "CLA HOME SIG", "BY DIST SIG"
+    // STR=Starter, HOME=Home, DIST=Distant, ADV=Advanced
+    const stationSigTypeMatch = text.match(/\b([A-Z]{2,5})\s+(STR|STRTR|STARTER|HOME|DIST|DISTANT|ADV|ADVANCED)\s*SIG/);
+    if (stationSigTypeMatch) {
+        const station = stationSigTypeMatch[1];
+        const sigType = stationSigTypeMatch[2];
+        return { raw: `${station} ${sigType} SIG`, type: 'SIGNAL' };
+    }
+
+    // Pattern 1c: Station + Shunt signal like "KJT SH 22", "CLA SH-5"
+    const shuntSignalMatch = text.match(/\b([A-Z]{2,5})\s+SH[\s\-]*(\d+[A-Z]?)\b/);
+    if (shuntSignalMatch) {
+        const station = shuntSignalMatch[1];
+        const sigNum = shuntSignalMatch[2];
+        return { raw: `${station} SH ${sigNum}`, type: 'SIGNAL' };
+    }
+
+    // Pattern 1d: Gate/LC signal like "Gate No7 S1", "Gate No.12 S-2", "LC 45 S1"
+    const gateSignalMatch = text.match(/\b(?:GATE|LC)[\s\.]*(?:NO\.?)?[\s]*(\d+)[\s\.]*S[\s\-]*(\d+[A-Z]?)\b/i);
+    if (gateSignalMatch) {
+        return { raw: `Gate ${gateSignalMatch[1]} S ${gateSignalMatch[2]}`, type: 'SIGNAL' };
+    }
+
+    // Pattern 2: Letter + space + digits like "L 4810", "K 48" (common signal format)
+    const letterSpaceDigits = text.match(/\b([A-Z])\s+(\d{2,5})\b/);
+    if (letterSpaceDigits) {
+        return { raw: letterSpaceDigits[1] + letterSpaceDigits[2], type: 'SIGNAL' };
+    }
+
+    // Pattern 2b: Alphanumeric signal IDs like "H38", "H2212", "T1234" (1 letter + 2-5 digits)
+    const alphaNumSignal = text.match(/\b([A-Z]\d{2,5}[A-Z]?)\b/);
+    if (alphaNumSignal) {
+        return { raw: alphaNumSignal[1], type: 'SIGNAL' };
+    }
+
+    // Pattern 2c: Two-letter alphanumeric like "NE6111", "SE7306", "KJ4810" (2 letters + 3-5 digits)
+    const twoLetterAlphaNum = text.match(/\b([A-Z]{2}\d{3,5})\b/);
+    if (twoLetterAlphaNum) {
+        return { raw: twoLetterAlphaNum[1], type: 'SIGNAL' };
+    }
+
+    // Pattern 2d: Two letters + space + digits/digits like "NE 54/26", "SE 12/5" (OHE KM marker)
+    // Format: Line code (NE/SE/etc) + KM chainage - used for D type (Additional Magnet) locations
+    const twoLetterChainage = text.match(/\b([A-Z]{2})\s+(\d+\/\d+)\b/);
+    if (twoLetterChainage) {
+        return { raw: `${twoLetterChainage[1]} ${twoLetterChainage[2]}`, type: 'KM' };
+    }
+
+    // Pattern 3: Two letters + hyphen + number like "SE-8205", "NE-6111"
+    const twoLetterHyphenSignal = text.match(/\b([A-Z]{2})-(\d{3,5})\b/);
+    if (twoLetterHyphenSignal) {
+        return { raw: `${twoLetterHyphenSignal[1]} ${twoLetterHyphenSignal[2]}`, type: 'SIGNAL' };
+    }
+
+    // Pattern 3b: Single letter + hyphen + number (H-16, S-18, T-5)
+    // Must have hyphen to avoid matching random letters
+    const hyphenSignal = text.match(/\b([A-Z])-(\d+[A-Z]?)\b/);
+    if (hyphenSignal) {
+        return { raw: `${hyphenSignal[1]}-${hyphenSignal[2]}`, type: 'SIGNAL' };
+    }
+
+    // Pattern 4: KM patterns like "KM 55", "KM 123/4", "Km 76/18", "Km.No.24/324"
+    // Handles: KM, KM., KM.NO, KM.NO., KM NO etc.
+    const kmMatch = text.match(/\bKM\.?\s*(?:NO\.?)?\s*(\d+(?:[\s\/]\d+)?)\b/i);
+    if (kmMatch) {
+        return { raw: kmMatch[1], type: 'KM' };
+    }
+
+    // Pattern 4b: Standalone chainage like "18/211", "24/324" (digits/digits without prefix)
+    // Usually appears after "at" - for additional magnet locations
+    const chainageMatch = text.match(/\bAT\s+(\d+\/\d+)\b/i);
+    if (chainageMatch) {
+        return { raw: chainageMatch[1], type: 'KM' };
+    }
+
+    // Pattern 5: Platform patterns like "PF-5", "PF 3"
+    const pfMatch = text.match(/\bPF[\s\-]*(\d+[A-Z]?)\b/i);
+    if (pfMatch) {
+        return { raw: `PF ${pfMatch[1]}`, type: 'PLATFORM' };
+    }
+
+    // Pattern 6: Station codes after "AT" (fallback)
+    const stnMatch = text.match(/\bAT[\s\-]+([A-Z]{2,5})\b/);
+    if (stnMatch) {
+        return { raw: stnMatch[1], type: 'SECTION' };
+    }
+
+    return { raw: null, type: 'UNKNOWN' };
+}
+
+// ── POST /parse ───────────────────────────────────────────────────────────
+// Parse raw AWS candidates and create events
+router.post('/parse', async (req, res) => {
+    if (!req.session.user) {
+        return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    try {
+        const pool = req.app.locals.pool;
+        const userId = req.session.user.id || null;
+
+        // Get all unparsed AWS candidates
+        const [rawRows] = await pool.query(
+            `SELECT r.* FROM div_aws_cms_raw r
+             LEFT JOIN div_aws_events e ON e.raw_id = r.id
+             WHERE r.is_aws_candidate = 1 AND e.id IS NULL
+             ORDER BY r.abn_date DESC, r.id`
+        );
+
+        console.log(`[AWS Parse] Found ${rawRows.length} unparsed AWS candidates`);
+
+        let parsed = 0, needsReview = 0, errors = 0;
+
+        for (const raw of rawRows) {
+            try {
+                // Extract AWS code
+                const { code: awsCode, confidence } = extractAwsCode(raw.detail);
+
+                // Extract location
+                const { raw: locationRaw, type: locationType } = extractLocation(raw.detail);
+
+                // Determine if manual review needed
+                const needsManualReview = !awsCode || confidence === 'LOW' || !locationRaw ? 1 : 0;
+                if (needsManualReview) needsReview++;
+
+                // Insert event
+                await pool.query(
+                    `INSERT INTO div_aws_events
+                        (raw_id, abn_id, entry_source, entered_by_user_id,
+                         abn_date, abn_time, aws_code, location_raw, location_type,
+                         needs_manual_review, loco_raw, train_number,
+                         crew_id, crew_name, status)
+                     VALUES (?, ?, 'CMS_IMPORT', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING')`,
+                    [raw.id, raw.abn_id, userId,
+                     raw.abn_date, raw.abn_time, awsCode, locationRaw, locationType,
+                     needsManualReview, raw.loco_raw, raw.train_number,
+                     raw.crew_id, raw.crew_name]
+                );
+
+                parsed++;
+            } catch (err) {
+                if (err.code !== 'ER_DUP_ENTRY') {
+                    console.error(`[AWS Parse] Error parsing ${raw.abn_id}:`, err.message);
+                    errors++;
+                }
+            }
+        }
+
+        console.log(`[AWS Parse] Completed: ${parsed} parsed, ${needsReview} need review, ${errors} errors`);
+
+        res.json({
+            success: true,
+            total_candidates: rawRows.length,
+            parsed,
+            needs_review: needsReview,
+            errors,
+        });
+    } catch (err) {
+        console.error('[AWS /parse] Error:', err);
+        res.status(500).json({ error: 'Parse failed' });
+    }
+});
+
+// ── GET /events ───────────────────────────────────────────────────────────
+// Get parsed events with optional filters
+router.get('/events', async (req, res) => {
+    try {
+        const pool = req.app.locals.pool;
+        const needsReview = req.query.needs_review === 'true';
+        const awsCode = req.query.aws_code || null;
+        const limit = Math.min(parseInt(req.query.limit, 10) || 50, 200);
+        const offset = parseInt(req.query.offset, 10) || 0;
+
+        let where = '1=1';
+        const params = [];
+
+        if (needsReview) {
+            where += ' AND e.needs_manual_review = 1';
+        }
+        if (awsCode) {
+            where += ' AND e.aws_code = ?';
+            params.push(awsCode);
+        }
+
+        // Get count
+        const [[{ total }]] = await pool.query(
+            `SELECT COUNT(*) AS total FROM div_aws_events e WHERE ${where}`,
+            params
+        );
+
+        // Get events with raw detail
+        const [events] = await pool.query(
+            `SELECT e.*, r.detail, r.from_station, r.to_station, r.abn_type
+             FROM div_aws_events e
+             LEFT JOIN div_aws_cms_raw r ON r.id = e.raw_id
+             WHERE ${where}
+             ORDER BY e.abn_date DESC, e.id DESC
+             LIMIT ? OFFSET ?`,
+            [...params, limit, offset]
+        );
+
+        res.json({ total, limit, offset, events });
+    } catch (err) {
+        console.error('[AWS /events] Error:', err);
+        res.status(500).json({ error: 'Failed to load events' });
+    }
+});
+
+// ── GET /events/:id ───────────────────────────────────────────────────────
+// Get single event with full details
+router.get('/events/:id', async (req, res) => {
+    try {
+        const pool = req.app.locals.pool;
+        const eventId = parseInt(req.params.id, 10);
+
+        const [[event]] = await pool.query(
+            `SELECT e.*, r.detail, r.from_station, r.to_station, r.abn_type,
+                    r.report_station, r.closing_remarks
+             FROM div_aws_events e
+             LEFT JOIN div_aws_cms_raw r ON r.id = e.raw_id
+             WHERE e.id = ?`,
+            [eventId]
+        );
+
+        if (!event) {
+            return res.status(404).json({ error: 'Event not found' });
+        }
+
+        res.json({ event });
+    } catch (err) {
+        console.error('[AWS /events/:id] Error:', err);
+        res.status(500).json({ error: 'Failed to load event' });
+    }
+});
+
+// ── PATCH /events/:id ─────────────────────────────────────────────────────
+// Update event (for manual review)
+router.patch('/events/:id', async (req, res) => {
+    if (!req.session.user) {
+        return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    try {
+        const pool = req.app.locals.pool;
+        const eventId = parseInt(req.params.id, 10);
+        const b = req.body || {};
+
+        // Allowed fields to update
+        const updates = [];
+        const params = [];
+
+        if (b.aws_code !== undefined) {
+            const validCodes = ['A', 'B', 'C', 'D', 'E', 'AUX', 'P', 'Q', 'R', 'OTHER'];
+            if (!validCodes.includes(b.aws_code)) {
+                return res.status(400).json({ error: 'Invalid aws_code' });
+            }
+            updates.push('aws_code = ?');
+            params.push(b.aws_code);
+        }
+
+        if (b.location_raw !== undefined) {
+            updates.push('location_raw = ?');
+            params.push(b.location_raw || null);
+        }
+
+        if (b.location_type !== undefined) {
+            updates.push('location_type = ?');
+            params.push(b.location_type || 'UNKNOWN');
+        }
+
+        if (b.responsibility !== undefined) {
+            updates.push('responsibility = ?');
+            params.push(b.responsibility || 'NOT_DETERMINED');
+        }
+
+        if (b.root_cause !== undefined) {
+            updates.push('root_cause = ?');
+            params.push(b.root_cause || null);
+        }
+
+        if (b.analysis_text !== undefined) {
+            updates.push('analysis_text = ?');
+            params.push(b.analysis_text || null);
+        }
+
+        if (b.status !== undefined) {
+            updates.push('status = ?');
+            params.push(b.status);
+        }
+
+        if (b.signal_id !== undefined) {
+            updates.push('signal_id = ?');
+            params.push(b.signal_id || null);
+            if (b.signal_id) {
+                updates.push("signal_match_confidence = 'HIGH'");
+            }
+        }
+
+        // Review is complete only when both code and location are present.
+        if (b.aws_code !== undefined || b.location_raw !== undefined) {
+            const [[currentEvent]] = await pool.query(
+                'SELECT aws_code, location_raw FROM div_aws_events WHERE id = ?',
+                [eventId]
+            );
+            const nextCode = b.aws_code !== undefined ? b.aws_code : currentEvent?.aws_code;
+            const nextLocation = b.location_raw !== undefined ? b.location_raw : currentEvent?.location_raw;
+            updates.push('needs_manual_review = ?');
+            params.push(nextCode && nextLocation ? 0 : 1);
+        }
+
+        if (updates.length === 0) {
+            return res.status(400).json({ error: 'No fields to update' });
+        }
+
+        params.push(eventId);
+
+        await pool.query(
+            `UPDATE div_aws_events SET ${updates.join(', ')} WHERE id = ?`,
+            params
+        );
+
+        // Return updated event
+        const [[event]] = await pool.query(
+            'SELECT * FROM div_aws_events WHERE id = ?',
+            [eventId]
+        );
+
+        res.json({ success: true, event });
+    } catch (err) {
+        console.error('[AWS PATCH /events/:id] Error:', err);
+        res.status(500).json({ error: 'Update failed' });
+    }
+});
+
+// ── GET /review/pending ───────────────────────────────────────────────────
+// Get count of events needing review
+router.get('/review/pending', async (req, res) => {
+    try {
+        const pool = req.app.locals.pool;
+
+        const [[{ count }]] = await pool.query(
+            'SELECT COUNT(*) AS count FROM div_aws_events WHERE needs_manual_review = 1'
+        );
+
+        // Get breakdown by issue type
+        const [breakdown] = await pool.query(
+            `SELECT
+                SUM(CASE WHEN aws_code IS NULL THEN 1 ELSE 0 END) AS no_code,
+                SUM(CASE WHEN location_raw IS NULL THEN 1 ELSE 0 END) AS no_location
+             FROM div_aws_events
+             WHERE needs_manual_review = 1`
+        );
+
+        res.json({
+            pending_count: count,
+            no_code: breakdown[0]?.no_code || 0,
+            no_location: breakdown[0]?.no_location || 0,
+        });
+    } catch (err) {
+        console.error('[AWS /review/pending] Error:', err);
+        res.status(500).json({ error: 'Failed to load pending count' });
+    }
+});
+
+// ══════════════════════════════════════════════════════════════════════════
+// PHASE 7: AWS Report Data API
+// ══════════════════════════════════════════════════════════════════════════
+
+// ── GET /report-data ───────────────────────────────────────────────────────
+// Get aggregated report data for a date range
+router.get('/report-data', async (req, res) => {
+    try {
+        const pool = req.app.locals.pool;
+        const fromDate = req.query.from || null;
+        const toDate = req.query.to || null;
+
+        // Build date filter
+        let dateFilter = '';
+        const dateParams = [];
+        if (fromDate && toDate) {
+            dateFilter = 'AND e.abn_date BETWEEN ? AND ?';
+            dateParams.push(fromDate, toDate);
+        } else if (fromDate) {
+            dateFilter = 'AND e.abn_date >= ?';
+            dateParams.push(fromDate);
+        } else if (toDate) {
+            dateFilter = 'AND e.abn_date <= ?';
+            dateParams.push(toDate);
+        }
+
+        // 1. Type-wise counts
+        // S&T = has identified signal/location (location_type IN SIGNAL, KM, PLATFORM, SECTION)
+        // CAB = no location identified but has loco_raw (cab-side defect)
+        // Transient = location_type is UNKNOWN or neither condition met
+        const [typeCounts] = await pool.query(
+            `SELECT
+                aws_code,
+                COUNT(*) AS total,
+                SUM(CASE WHEN location_type IN ('SIGNAL', 'KM', 'PLATFORM', 'SECTION') THEN 1 ELSE 0 END) AS st_count,
+                SUM(CASE WHEN (location_type IS NULL OR location_type = 'UNKNOWN' OR location_raw IS NULL OR location_raw = '')
+                              AND loco_raw IS NOT NULL AND loco_raw != '' THEN 1 ELSE 0 END) AS cab_count,
+                SUM(CASE WHEN (location_type IS NULL OR location_type = 'UNKNOWN' OR location_raw IS NULL OR location_raw = '')
+                              AND (loco_raw IS NULL OR loco_raw = '') THEN 1 ELSE 0 END) AS transient_count
+             FROM div_aws_events e
+             WHERE aws_code IS NOT NULL ${dateFilter}
+             GROUP BY aws_code
+             ORDER BY FIELD(aws_code, 'A','B','C','D','E','P','Q','R','AUX','OTHER')`,
+            dateParams
+        );
+
+        // 2. Summary stats
+        const [[summary]] = await pool.query(
+            `SELECT
+                COUNT(*) AS total_events,
+                SUM(CASE WHEN location_type IN ('SIGNAL', 'KM', 'PLATFORM', 'SECTION') THEN 1 ELSE 0 END) AS st_count,
+                SUM(CASE WHEN (location_type IS NULL OR location_type = 'UNKNOWN' OR location_raw IS NULL OR location_raw = '')
+                              AND loco_raw IS NOT NULL AND loco_raw != '' THEN 1 ELSE 0 END) AS cab_count,
+                SUM(CASE WHEN (location_type IS NULL OR location_type = 'UNKNOWN' OR location_raw IS NULL OR location_raw = '')
+                              AND (loco_raw IS NULL OR loco_raw = '') THEN 1 ELSE 0 END) AS transient_count
+             FROM div_aws_events e
+             WHERE 1=1 ${dateFilter}`,
+            dateParams
+        );
+
+        // 3. Repeated S&T defects - signals/locations with > 1 occurrence
+        const [repeatedSignals] = await pool.query(
+            `SELECT
+                location_raw,
+                location_type,
+                COUNT(*) AS braking_count,
+                GROUP_CONCAT(DISTINCT aws_code ORDER BY aws_code) AS codes,
+                GROUP_CONCAT(DISTINCT DATE_FORMAT(e.abn_date, '%d-%m') ORDER BY e.abn_date) AS dates,
+                GROUP_CONCAT(e.id ORDER BY e.abn_date) AS event_ids,
+                MAX(e.abn_date) AS last_date
+             FROM div_aws_events e
+             WHERE location_raw IS NOT NULL AND location_raw != '' ${dateFilter}
+             GROUP BY location_raw, location_type
+             HAVING COUNT(*) > 1
+             ORDER BY braking_count DESC
+             LIMIT 50`,
+            dateParams
+        );
+
+        // 4. Repeated EMU/Cab defects - cabs with > 1 occurrence, joined with rake info
+        const [repeatedCabs] = await pool.query(
+            `SELECT
+                e.loco_raw AS cab_number,
+                COUNT(*) AS braking_count,
+                GROUP_CONCAT(DISTINCT e.aws_code ORDER BY e.aws_code) AS codes,
+                GROUP_CONCAT(DISTINCT DATE_FORMAT(e.abn_date, '%d-%m') ORDER BY e.abn_date) AS dates,
+                GROUP_CONCAT(e.id ORDER BY e.abn_date) AS event_ids,
+                MAX(e.abn_date) AS last_date,
+                MAX(f.unit_no) AS unit_no,
+                MAX(f.shed_code) AS shed_code
+             FROM div_aws_events e
+             LEFT JOIN rake_coaches c ON c.coach_number = CONCAT(e.loco_raw, 'C')
+             LEFT JOIN rake_formations f ON f.id = c.rake_id
+             WHERE e.loco_raw IS NOT NULL AND e.loco_raw != '' ${dateFilter}
+             GROUP BY e.loco_raw
+             HAVING COUNT(*) > 1
+             ORDER BY braking_count DESC
+             LIMIT 50`,
+            dateParams
+        );
+
+        // 5. Transient/unverified cases (for detail table)
+        const [transientCases] = await pool.query(
+            `SELECT
+                e.id,
+                e.abn_date,
+                e.train_number,
+                e.loco_raw,
+                e.aws_code,
+                e.location_raw,
+                e.crew_id,
+                e.crew_name,
+                e.analysis_text,
+                r.from_station,
+                r.to_station,
+                r.detail
+             FROM div_aws_events e
+             LEFT JOIN div_aws_cms_raw r ON r.id = e.raw_id
+             WHERE (
+                e.responsibility = 'TRANSIENT'
+                OR (
+                    (e.responsibility IS NULL OR e.responsibility = 'NOT_DETERMINED')
+                    AND (e.location_type IS NULL OR e.location_type = 'UNKNOWN' OR e.location_raw IS NULL OR e.location_raw = '')
+                    AND (e.loco_raw IS NULL OR e.loco_raw = '')
+                )
+             )
+               ${dateFilter}
+             ORDER BY e.abn_date DESC, e.id DESC
+             LIMIT 100`,
+            dateParams
+        );
+
+        // 6. Section-wise breakdown using div_sub_sections master
+        const [sectionWise] = await pool.query(
+            `WITH event_section AS (
+                SELECT
+                    e.id as event_id,
+                    s.section_code,
+                    s.section_name,
+                    s.line_type,
+                    e.location_type,
+                    e.loco_raw,
+                    e.aws_code,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY e.id
+                        ORDER BY FIELD(s.line_type, 'HARBOUR', 'TRANS_HB', 'LOCAL', 'FAST', 'NE', 'SE', 'WESTERN', 'PORT', 'OTHER')
+                    ) as rn
+                FROM div_aws_events e
+                JOIN div_aws_cms_raw r ON r.id = e.raw_id
+                JOIN div_sub_section_stations ss1 ON ss1.station_code = r.from_station
+                JOIN div_sub_section_stations ss2 ON ss2.station_code = r.to_station AND ss2.section_code = ss1.section_code
+                JOIN div_sub_sections s ON s.section_code = ss1.section_code
+                WHERE r.from_station IS NOT NULL
+                  AND ss1.seq_order < ss2.seq_order
+                  ${dateFilter.replace(/e\./g, 'e.')}
+            )
+            SELECT
+                section_code,
+                section_name,
+                line_type,
+                COUNT(*) as braking_count,
+                SUM(CASE WHEN location_type IN ('SIGNAL', 'KM', 'PLATFORM', 'SECTION') THEN 1 ELSE 0 END) AS st_count,
+                SUM(CASE WHEN (location_type IS NULL OR location_type = 'UNKNOWN') AND loco_raw IS NOT NULL THEN 1 ELSE 0 END) AS cab_count,
+                GROUP_CONCAT(DISTINCT aws_code ORDER BY aws_code) AS codes,
+                GROUP_CONCAT(event_id ORDER BY event_id) AS event_ids
+            FROM event_section
+            WHERE rn = 1
+            GROUP BY section_code, section_name, line_type
+            ORDER BY
+                FIELD(line_type, 'HARBOUR', 'TRANS_HB', 'LOCAL', 'FAST', 'NE', 'SE', 'WESTERN', 'PORT', 'OTHER'),
+                braking_count DESC`,
+            dateParams
+        );
+
+        // 7. Date range info
+        const [[dateRange]] = await pool.query(
+            `SELECT MIN(abn_date) AS min_date, MAX(abn_date) AS max_date
+             FROM div_aws_events`
+        );
+
+        res.json({
+            date_filter: { from: fromDate, to: toDate },
+            available_range: dateRange,
+            summary: {
+                total_events: summary?.total_events || 0,
+                repeated_st_locations: summary?.repeated_st_locations || 0,
+                repeated_cab_count: summary?.repeated_cab_count || 0,
+                transient_count: summary?.transient_count || 0,
+            },
+            type_counts: typeCounts,
+            repeated_signals: repeatedSignals,
+            repeated_cabs: repeatedCabs,
+            transient_cases: transientCases,
+            section_wise: sectionWise,
+        });
+    } catch (err) {
+        console.error('[AWS /report-data] Error:', err);
+        res.status(500).json({ error: 'Failed to load report data' });
+    }
+});
+
+async function ensureAwsReportDraftTable(pool) {
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS div_aws_report_drafts (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            period_from DATE NOT NULL,
+            period_to DATE NOT NULL,
+            office_code VARCHAR(20) NOT NULL DEFAULT '',
+            payload JSON NOT NULL,
+            saved_by_user_id INT DEFAULT NULL,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY uk_aws_report_period_office (period_from, period_to, office_code)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
+}
+
+// ── GET /report-draft ─────────────────────────────────────────────────────
+// Load the saved editable report draft for a date range and office.
+router.get('/report-draft', async (req, res) => {
+    try {
+        const pool = req.app.locals.pool;
+        const { from, to, office } = req.query;
+
+        if (!from || !to) {
+            return res.status(400).json({ error: 'from and to dates are required' });
+        }
+
+        await ensureAwsReportDraftTable(pool);
+
+        const [[draft]] = await pool.query(
+            `SELECT id, payload, saved_by_user_id, updated_at
+             FROM div_aws_report_drafts
+             WHERE period_from = ? AND period_to = ? AND office_code = ?
+             LIMIT 1`,
+            [from, to, office || '']
+        );
+
+        res.json({ draft: draft || null });
+    } catch (err) {
+        console.error('[AWS /report-draft GET] Error:', err);
+        res.status(500).json({ error: 'Failed to load report draft' });
+    }
+});
+
+// ── POST /report-draft ────────────────────────────────────────────────────
+// Save the editable report draft for a date range and office.
+router.post('/report-draft', async (req, res) => {
+    try {
+        const pool = req.app.locals.pool;
+        const { meta, summary, typesOfBraking, jointInspection } = req.body || {};
+        const periodFrom = meta?.periodFromApi || meta?.periodFrom;
+        const periodTo = meta?.periodToApi || meta?.periodTo;
+        const office = meta?.office || '';
+
+        if (!periodFrom || !periodTo) {
+            return res.status(400).json({ error: 'Report period is required' });
+        }
+
+        await ensureAwsReportDraftTable(pool);
+
+        const payload = { meta, summary, typesOfBraking, jointInspection };
+        const userId = req.session.user?.id || null;
+
+        await pool.query(
+            `INSERT INTO div_aws_report_drafts
+                (period_from, period_to, office_code, payload, saved_by_user_id)
+             VALUES (?, ?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE
+                payload = VALUES(payload),
+                saved_by_user_id = VALUES(saved_by_user_id),
+                updated_at = CURRENT_TIMESTAMP`,
+            [periodFrom, periodTo, office, JSON.stringify(payload), userId]
+        );
+
+        res.json({ success: true });
+    } catch (err) {
+        console.error('[AWS /report-draft POST] Error:', err);
+        res.status(500).json({ error: 'Failed to save report draft' });
+    }
+});
+
+// ── GET /events-by-ids ─────────────────────────────────────────────────────
+// Get event details by comma-separated IDs (for drill-down from repeated cases)
+router.get('/events-by-ids', async (req, res) => {
+    try {
+        const pool = req.app.locals.pool;
+        const idsParam = req.query.ids || '';
+
+        // Parse and validate IDs
+        const ids = idsParam.split(',').map(id => parseInt(id.trim(), 10)).filter(id => !isNaN(id) && id > 0);
+
+        if (ids.length === 0) {
+            return res.json({ events: [] });
+        }
+
+        // Limit to 50 events max
+        const limitedIds = ids.slice(0, 50);
+
+        const [events] = await pool.query(
+            `SELECT
+                e.id,
+                e.abn_id,
+                e.abn_date,
+                e.abn_time,
+                e.aws_code,
+                e.location_raw,
+                e.location_type,
+                e.loco_raw,
+                e.train_number,
+                e.crew_id,
+                e.crew_name,
+                e.responsibility,
+                e.analysis_text,
+                e.status,
+                r.detail,
+                r.from_station,
+                r.to_station,
+                f.unit_no,
+                f.shed_code
+             FROM div_aws_events e
+             LEFT JOIN div_aws_cms_raw r ON r.id = e.raw_id
+             LEFT JOIN rake_coaches c ON c.coach_number = CONCAT(e.loco_raw, 'C')
+             LEFT JOIN rake_formations f ON f.id = c.rake_id
+             WHERE e.id IN (?)
+             ORDER BY e.abn_date DESC, e.abn_time DESC`,
+            [limitedIds]
+        );
+
+        res.json({ events });
+    } catch (err) {
+        console.error('[AWS /events-by-ids] Error:', err);
+        res.status(500).json({ error: 'Failed to load events' });
+    }
+});
+
+// ── GET /export-excel ─────────────────────────────────────────────────────
+// Export AWS report data to Excel
+router.get('/export-excel', async (req, res) => {
+    try {
+        const pool = req.app.locals.pool;
+        const { from, to } = req.query;
+
+        // Build date filter
+        let dateFilter = '';
+        const dateParams = [];
+        if (from) {
+            const fromDate = from.split('-').reverse().join('-'); // DD-MM-YYYY to YYYY-MM-DD
+            dateFilter += ' AND e.abn_date >= ?';
+            dateParams.push(fromDate);
+        }
+        if (to) {
+            const toDate = to.split('-').reverse().join('-');
+            dateFilter += ' AND e.abn_date <= ?';
+            dateParams.push(toDate);
+        }
+
+        // 1. Summary
+        const [[summary]] = await pool.query(
+            `SELECT
+                COUNT(*) AS total_events,
+                SUM(CASE WHEN location_type IN ('SIGNAL','KM','PLATFORM','SECTION') THEN 1 ELSE 0 END) AS st_count,
+                SUM(CASE WHEN (location_type IS NULL OR location_type = 'UNKNOWN') AND loco_raw IS NOT NULL THEN 1 ELSE 0 END) AS cab_count
+             FROM div_aws_events e
+             WHERE 1=1 ${dateFilter}`,
+            dateParams
+        );
+
+        // 2. Type-wise counts
+        const [typeCounts] = await pool.query(
+            `SELECT
+                aws_code,
+                COUNT(*) AS total,
+                SUM(CASE WHEN location_type IN ('SIGNAL','KM','PLATFORM','SECTION') THEN 1 ELSE 0 END) AS st_count,
+                SUM(CASE WHEN (location_type IS NULL OR location_type = 'UNKNOWN') AND loco_raw IS NOT NULL THEN 1 ELSE 0 END) AS cab_count
+             FROM div_aws_events e
+             WHERE 1=1 ${dateFilter}
+             GROUP BY aws_code
+             ORDER BY FIELD(aws_code,'A','B','C','D','E','P','Q','R','AUX','OTHER')`,
+            dateParams
+        );
+
+        // 3. Repeated locations
+        const [repeatedLocations] = await pool.query(
+            `SELECT location_raw, location_type, COUNT(*) as cnt, GROUP_CONCAT(id) as event_ids
+             FROM div_aws_events e
+             WHERE location_raw IS NOT NULL AND location_raw != '' ${dateFilter}
+             GROUP BY location_raw, location_type
+             HAVING cnt > 1
+             ORDER BY cnt DESC`,
+            dateParams
+        );
+
+        // 4. Repeated cabs
+        const [repeatedCabs] = await pool.query(
+            `SELECT loco_raw, COUNT(*) as cnt, GROUP_CONCAT(id) as event_ids
+             FROM div_aws_events e
+             WHERE loco_raw IS NOT NULL AND loco_raw != '' ${dateFilter}
+             GROUP BY loco_raw
+             HAVING cnt > 1
+             ORDER BY cnt DESC`,
+            dateParams
+        );
+
+        // 5. Section-wise
+        const [sectionWise] = await pool.query(
+            `WITH event_section AS (
+                SELECT e.id as event_id, s.section_code, s.section_name, s.line_type, e.location_type, e.loco_raw,
+                    ROW_NUMBER() OVER (PARTITION BY e.id ORDER BY FIELD(s.line_type, 'HARBOUR', 'TRANS_HB', 'LOCAL', 'FAST', 'NE', 'SE', 'PORT', 'OTHER')) as rn
+                FROM div_aws_events e
+                JOIN div_aws_cms_raw r ON r.id = e.raw_id
+                JOIN div_sub_section_stations ss1 ON ss1.station_code = r.from_station
+                JOIN div_sub_section_stations ss2 ON ss2.station_code = r.to_station AND ss2.section_code = ss1.section_code
+                JOIN div_sub_sections s ON s.section_code = ss1.section_code
+                WHERE r.from_station IS NOT NULL AND ss1.seq_order < ss2.seq_order ${dateFilter.replace(/e\./g, 'e.')}
+            )
+            SELECT section_code, section_name, line_type, COUNT(*) as braking_count,
+                SUM(CASE WHEN location_type IN ('SIGNAL','KM','PLATFORM','SECTION') THEN 1 ELSE 0 END) AS st_count,
+                SUM(CASE WHEN (location_type IS NULL OR location_type = 'UNKNOWN') AND loco_raw IS NOT NULL THEN 1 ELSE 0 END) AS cab_count
+            FROM event_section WHERE rn = 1
+            GROUP BY section_code, section_name, line_type
+            ORDER BY FIELD(line_type, 'HARBOUR', 'TRANS_HB', 'LOCAL', 'FAST', 'NE', 'SE', 'PORT', 'OTHER'), braking_count DESC`,
+            dateParams
+        );
+
+        // 6. All events
+        const [allEvents] = await pool.query(
+            `SELECT
+                e.id, e.abn_date, e.abn_time, e.aws_code, e.location_raw, e.location_type,
+                e.loco_raw, f.unit_no, e.train_number, e.crew_name, e.crew_id,
+                r.detail, r.from_station, r.to_station
+             FROM div_aws_events e
+             LEFT JOIN div_aws_cms_raw r ON r.id = e.raw_id
+             LEFT JOIN rake_coaches c ON c.coach_number = CONCAT(e.loco_raw, 'C')
+             LEFT JOIN rake_formations f ON f.id = c.rake_id
+             WHERE 1=1 ${dateFilter}
+             ORDER BY e.abn_date DESC, e.abn_time DESC`,
+            dateParams
+        );
+
+        // Build Excel workbook
+        const XLSX = require('xlsx');
+        const wb = XLSX.utils.book_new();
+
+        // Summary sheet
+        const summaryData = [
+            ['AWS Weekly Report'],
+            ['Period', from || 'All', 'to', to || 'All'],
+            [],
+            ['Metric', 'Count'],
+            ['Total AWS Events', summary.total_events],
+            ['S&T Account', summary.st_count],
+            ['Cab/D-Cab', summary.cab_count],
+        ];
+        const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
+        XLSX.utils.book_append_sheet(wb, wsSummary, 'Summary');
+
+        // Type-wise sheet
+        const typeData = [
+            ['Code', 'Total', 'S&T', 'Cab'],
+            ...typeCounts.map(t => [t.aws_code, t.total, t.st_count, t.cab_count])
+        ];
+        const wsTypes = XLSX.utils.aoa_to_sheet(typeData);
+        XLSX.utils.book_append_sheet(wb, wsTypes, 'Type-wise');
+
+        // Repeated Locations sheet
+        const locData = [
+            ['Location', 'Type', 'Count'],
+            ...repeatedLocations.map(l => [l.location_raw, l.location_type, l.cnt])
+        ];
+        const wsLoc = XLSX.utils.aoa_to_sheet(locData);
+        XLSX.utils.book_append_sheet(wb, wsLoc, 'Repeated Locations');
+
+        // Repeated Cabs sheet
+        const cabData = [
+            ['D/Cab', 'Count'],
+            ...repeatedCabs.map(c => [c.loco_raw, c.cnt])
+        ];
+        const wsCabs = XLSX.utils.aoa_to_sheet(cabData);
+        XLSX.utils.book_append_sheet(wb, wsCabs, 'Repeated Cabs');
+
+        // Section-wise sheet
+        const secData = [
+            ['Section', 'Line Type', 'Total', 'S&T', 'Cab'],
+            ...sectionWise.map(s => [s.section_name, s.line_type, s.braking_count, s.st_count, s.cab_count])
+        ];
+        const wsSec = XLSX.utils.aoa_to_sheet(secData);
+        XLSX.utils.book_append_sheet(wb, wsSec, 'Section-wise');
+
+        // All Events sheet
+        const evtData = [
+            ['Date', 'Time', 'Code', 'Location', 'Type', 'D/Cab', 'Unit', 'Train', 'Crew', 'Crew ID', 'From', 'To', 'Detail'],
+            ...allEvents.map(e => [
+                e.abn_date ? new Date(e.abn_date).toLocaleDateString('en-GB') : '',
+                e.abn_time ? e.abn_time.toString().substring(0, 5) : '',
+                e.aws_code,
+                e.location_raw,
+                e.location_type,
+                e.loco_raw,
+                e.unit_no,
+                e.train_number,
+                e.crew_name,
+                e.crew_id,
+                e.from_station,
+                e.to_station,
+                e.detail
+            ])
+        ];
+        const wsEvents = XLSX.utils.aoa_to_sheet(evtData);
+        XLSX.utils.book_append_sheet(wb, wsEvents, 'All Events');
+
+        // Generate buffer and send
+        const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename=AWS_Report.xlsx`);
+        res.send(buffer);
+
+    } catch (err) {
+        console.error('[AWS /export-excel] Error:', err);
+        res.status(500).json({ error: 'Failed to export Excel' });
+    }
+});
+
+// ══════════════════════════════════════════════════════════════════════════
+// PHASE 6: Signal Matching
+// ══════════════════════════════════════════════════════════════════════════
+
+// ── Helper: Normalize text for signal matching ─────────────────────────────
+// Removes spaces, hyphens, slashes, dots and converts to uppercase
+function normalizeForSignalMatch(text) {
+    if (!text) return '';
+    return String(text)
+        .toUpperCase()
+        .replace(/[\s\-\/\.\,]+/g, '')  // Remove spaces, hyphens, slashes, dots, commas
+        .trim();
+}
+
+// ── Helper: Match signal against database ──────────────────────────────────
+// Returns { signal_id, signal_number, confidence } or { signal_id: null }
+async function matchSignalFromDb(pool, locationRaw) {
+    if (!locationRaw) return { signal_id: null, signal_number: null, confidence: null };
+
+    const normalized = normalizeForSignalMatch(locationRaw);
+    if (!normalized) return { signal_id: null, signal_number: null, confidence: null };
+
+    // 1. Exact match on normalized_alias (HIGH confidence)
+    const [exactMatch] = await pool.query(
+        `SELECT a.signal_id, s.signal_number
+         FROM div_signal_aliases a
+         JOIN div_signals s ON s.id = a.signal_id
+         WHERE a.normalized_alias = ? AND a.is_active = 1 AND s.is_active = 1
+         LIMIT 1`,
+        [normalized]
+    );
+
+    if (exactMatch.length > 0) {
+        return {
+            signal_id: exactMatch[0].signal_id,
+            signal_number: exactMatch[0].signal_number,
+            confidence: 'HIGH'
+        };
+    }
+
+    // 2. Exact match on normalized_signal_number (HIGH confidence)
+    const [directMatch] = await pool.query(
+        `SELECT id, signal_number
+         FROM div_signals
+         WHERE normalized_signal_number = ? AND is_active = 1
+         LIMIT 1`,
+        [normalized]
+    );
+
+    if (directMatch.length > 0) {
+        return {
+            signal_id: directMatch[0].id,
+            signal_number: directMatch[0].signal_number,
+            confidence: 'HIGH'
+        };
+    }
+
+    // 3. Partial match - try with LIKE pattern (MEDIUM confidence)
+    // E.g., "KYNS8" might match "KYNS08" or vice versa
+    // Build pattern: insert % between letters and numbers
+    const likePattern = normalized.replace(/([A-Z]+)(\d+)/, '$1%$2');
+    if (likePattern !== normalized) {
+        const [partialMatch] = await pool.query(
+            `SELECT a.signal_id, s.signal_number
+             FROM div_signal_aliases a
+             JOIN div_signals s ON s.id = a.signal_id
+             WHERE a.normalized_alias LIKE ? AND a.is_active = 1 AND s.is_active = 1
+             LIMIT 1`,
+            [likePattern]
+        );
+
+        if (partialMatch.length > 0) {
+            return {
+                signal_id: partialMatch[0].signal_id,
+                signal_number: partialMatch[0].signal_number,
+                confidence: 'MEDIUM'
+            };
+        }
+    }
+
+    // 4. Try matching with leading zero padding (MEDIUM confidence)
+    // E.g., "KYNS8" -> "KYNS08" or "H34" -> "H034"
+    const paddedMatch = normalized.replace(/([A-Z]+)(\d{1,2})$/, (m, letters, num) => {
+        return letters + num.padStart(2, '0');
+    });
+    if (paddedMatch !== normalized) {
+        const [padMatch] = await pool.query(
+            `SELECT a.signal_id, s.signal_number
+             FROM div_signal_aliases a
+             JOIN div_signals s ON s.id = a.signal_id
+             WHERE a.normalized_alias = ? AND a.is_active = 1 AND s.is_active = 1
+             LIMIT 1`,
+            [paddedMatch]
+        );
+
+        if (padMatch.length > 0) {
+            return {
+                signal_id: padMatch[0].signal_id,
+                signal_number: padMatch[0].signal_number,
+                confidence: 'MEDIUM'
+            };
+        }
+    }
+
+    // No match found
+    return { signal_id: null, signal_number: null, confidence: null };
+}
+
+// ── POST /match-signals ────────────────────────────────────────────────────
+// Run signal matching on all unmatched SIGNAL-type events
+router.post('/match-signals', async (req, res) => {
+    try {
+        const pool = req.app.locals.pool;
+
+        // Get all events that need signal matching
+        const [events] = await pool.query(
+            `SELECT id, location_raw
+             FROM div_aws_events
+             WHERE location_type = 'SIGNAL'
+               AND location_raw IS NOT NULL
+               AND location_raw != ''
+               AND signal_id IS NULL`
+        );
+
+        let matched = 0;
+        let unmatched = 0;
+        const results = [];
+
+        for (const event of events) {
+            const match = await matchSignalFromDb(pool, event.location_raw);
+
+            if (match.signal_id) {
+                // Update the event with matched signal
+                await pool.query(
+                    `UPDATE div_aws_events
+                     SET signal_id = ?,
+                         signal_match_confidence = ?,
+                         normalized_location = ?
+                     WHERE id = ?`,
+                    [match.signal_id, match.confidence, normalizeForSignalMatch(event.location_raw), event.id]
+                );
+                matched++;
+                results.push({
+                    event_id: event.id,
+                    location_raw: event.location_raw,
+                    signal_id: match.signal_id,
+                    signal_number: match.signal_number,
+                    confidence: match.confidence
+                });
+            } else {
+                // Update normalized_location even if no match
+                await pool.query(
+                    `UPDATE div_aws_events
+                     SET normalized_location = ?
+                     WHERE id = ?`,
+                    [normalizeForSignalMatch(event.location_raw), event.id]
+                );
+                unmatched++;
+            }
+        }
+
+        res.json({
+            success: true,
+            total: events.length,
+            matched,
+            unmatched,
+            matches: results
+        });
+    } catch (err) {
+        console.error('[AWS /match-signals] Error:', err);
+        res.status(500).json({ error: 'Signal matching failed' });
+    }
+});
+
+// ── GET /unmatched-signals ─────────────────────────────────────────────────
+// Get distinct unmatched signal locations for review
+router.get('/unmatched-signals', async (req, res) => {
+    try {
+        const pool = req.app.locals.pool;
+
+        const [signals] = await pool.query(
+            `SELECT
+                location_raw,
+                normalized_location,
+                COUNT(*) as occurrence_count,
+                GROUP_CONCAT(DISTINCT DATE_FORMAT(abn_date, '%d-%m') ORDER BY abn_date) as dates,
+                GROUP_CONCAT(DISTINCT id) as event_ids
+             FROM div_aws_events
+             WHERE location_type = 'SIGNAL'
+               AND location_raw IS NOT NULL
+               AND location_raw != ''
+               AND signal_id IS NULL
+             GROUP BY location_raw, normalized_location
+             ORDER BY occurrence_count DESC`
+        );
+
+        // Get available signals for manual linking
+        const [availableSignals] = await pool.query(
+            `SELECT id, signal_number, station_code, section, line
+             FROM div_signals
+             WHERE is_active = 1
+             ORDER BY signal_number`
+        );
+
+        res.json({
+            unmatched: signals,
+            available_signals: availableSignals
+        });
+    } catch (err) {
+        console.error('[AWS /unmatched-signals] Error:', err);
+        res.status(500).json({ error: 'Failed to load unmatched signals' });
+    }
+});
+
+// ── POST /link-signal ──────────────────────────────────────────────────────
+// Manually link a location_raw to a signal and optionally create alias
+router.post('/link-signal', async (req, res) => {
+    try {
+        const pool = req.app.locals.pool;
+        const { location_raw, signal_id, create_alias } = req.body;
+
+        if (!location_raw || !signal_id) {
+            return res.status(400).json({ error: 'location_raw and signal_id required' });
+        }
+
+        // Verify signal exists
+        const [[signal]] = await pool.query(
+            'SELECT id, signal_number FROM div_signals WHERE id = ?',
+            [signal_id]
+        );
+
+        if (!signal) {
+            return res.status(404).json({ error: 'Signal not found' });
+        }
+
+        const normalized = normalizeForSignalMatch(location_raw);
+
+        // Update all events with this location_raw
+        const [updateResult] = await pool.query(
+            `UPDATE div_aws_events
+             SET signal_id = ?,
+                 signal_match_confidence = 'HIGH',
+                 normalized_location = ?
+             WHERE location_raw = ? AND location_type = 'SIGNAL'`,
+            [signal_id, normalized, location_raw]
+        );
+
+        // Create alias if requested
+        let aliasCreated = false;
+        if (create_alias && normalized) {
+            // Check if alias already exists
+            const [[existing]] = await pool.query(
+                'SELECT id FROM div_signal_aliases WHERE normalized_alias = ?',
+                [normalized]
+            );
+
+            if (!existing) {
+                await pool.query(
+                    `INSERT INTO div_signal_aliases
+                     (signal_id, alias_text, normalized_alias, source, confidence)
+                     VALUES (?, ?, ?, 'cms_parser', 'HIGH')`,
+                    [signal_id, location_raw, normalized]
+                );
+                aliasCreated = true;
+            }
+        }
+
+        res.json({
+            success: true,
+            events_updated: updateResult.affectedRows,
+            alias_created: aliasCreated,
+            signal_number: signal.signal_number
+        });
+    } catch (err) {
+        console.error('[AWS /link-signal] Error:', err);
+        res.status(500).json({ error: 'Failed to link signal' });
+    }
+});
+
+// ── GET /signals/search ────────────────────────────────────────────────────
+// Search signals for manual linking dropdown
+router.get('/signals/search', async (req, res) => {
+    try {
+        const pool = req.app.locals.pool;
+        const query = req.query.q || '';
+
+        if (query.length < 2) {
+            return res.json({ signals: [] });
+        }
+
+        const searchPattern = `%${query}%`;
+        const [signals] = await pool.query(
+            `SELECT DISTINCT s.id, s.signal_number, s.station_code, s.section, s.line
+             FROM div_signals s
+             LEFT JOIN div_signal_aliases a ON a.signal_id = s.id
+             WHERE s.is_active = 1
+               AND (s.signal_number LIKE ?
+                    OR s.normalized_signal_number LIKE ?
+                    OR a.alias_text LIKE ?
+                    OR a.normalized_alias LIKE ?)
+             ORDER BY s.signal_number
+             LIMIT 20`,
+            [searchPattern, searchPattern.replace(/\s/g, ''), searchPattern, searchPattern.replace(/\s/g, '')]
+        );
+
+        res.json({ signals });
+    } catch (err) {
+        console.error('[AWS /signals/search] Error:', err);
+        res.status(500).json({ error: 'Search failed' });
+    }
+});
+
+// ══════════════════════════════════════════════════════════════════════════
+// PHASE 6: Rake/Cab Matching
+// ══════════════════════════════════════════════════════════════════════════
+
+// ── Helper: Match rake/cab from database ───────────────────────────────────
+// loco_raw is typically "1002" or "5322" - the D/Cab number
+// rake_coaches.coach_number is "1002C" (with C suffix for cab/driving motor)
+async function matchRakeFromDb(pool, locoRaw) {
+    if (!locoRaw) return { coach_id: null, rake_id: null, unit_no: null, shed_code: null };
+
+    // Clean the loco number - remove any existing suffix and whitespace
+    const cleanLoco = String(locoRaw).trim().replace(/[A-Za-z]+$/, '');
+    if (!cleanLoco) return { coach_id: null, rake_id: null, unit_no: null, shed_code: null };
+
+    // Try matching with C suffix (driving cab)
+    const coachNumber = cleanLoco + 'C';
+
+    const [match] = await pool.query(
+        `SELECT c.id AS coach_id, c.rake_id, f.unit_no, f.shed_code
+         FROM rake_coaches c
+         JOIN rake_formations f ON f.id = c.rake_id
+         WHERE c.coach_number = ?
+         LIMIT 1`,
+        [coachNumber]
+    );
+
+    if (match.length > 0) {
+        return {
+            coach_id: match[0].coach_id,
+            rake_id: match[0].rake_id,
+            unit_no: match[0].unit_no,
+            shed_code: match[0].shed_code
+        };
+    }
+
+    // No match found
+    return { coach_id: null, rake_id: null, unit_no: null, shed_code: null };
+}
+
+// ── POST /match-rakes ──────────────────────────────────────────────────────
+// Run rake matching on all unmatched events with loco_raw
+router.post('/match-rakes', async (req, res) => {
+    try {
+        const pool = req.app.locals.pool;
+
+        // Get all events that need rake matching
+        const [events] = await pool.query(
+            `SELECT id, loco_raw
+             FROM div_aws_events
+             WHERE loco_raw IS NOT NULL
+               AND loco_raw != ''
+               AND matched_rake_id IS NULL`
+        );
+
+        let matched = 0;
+        let unmatched = 0;
+        const results = [];
+
+        for (const event of events) {
+            const match = await matchRakeFromDb(pool, event.loco_raw);
+
+            if (match.rake_id) {
+                // Update the event with matched rake
+                await pool.query(
+                    `UPDATE div_aws_events
+                     SET matched_coach_id = ?,
+                         matched_rake_id = ?
+                     WHERE id = ?`,
+                    [match.coach_id, match.rake_id, event.id]
+                );
+                matched++;
+                results.push({
+                    event_id: event.id,
+                    loco_raw: event.loco_raw,
+                    coach_id: match.coach_id,
+                    rake_id: match.rake_id,
+                    unit_no: match.unit_no,
+                    shed_code: match.shed_code
+                });
+            } else {
+                unmatched++;
+            }
+        }
+
+        res.json({
+            success: true,
+            total: events.length,
+            matched,
+            unmatched,
+            matches: results.slice(0, 20) // Return first 20 for display
+        });
+    } catch (err) {
+        console.error('[AWS /match-rakes] Error:', err);
+        res.status(500).json({ error: 'Rake matching failed' });
+    }
+});
+
+// ── GET /unmatched-rakes ───────────────────────────────────────────────────
+// Get distinct unmatched cab numbers for review
+router.get('/unmatched-rakes', async (req, res) => {
+    try {
+        const pool = req.app.locals.pool;
+
+        const [cabs] = await pool.query(
+            `SELECT
+                loco_raw,
+                COUNT(*) as occurrence_count,
+                GROUP_CONCAT(DISTINCT DATE_FORMAT(abn_date, '%d-%m') ORDER BY abn_date) as dates,
+                GROUP_CONCAT(DISTINCT id) as event_ids
+             FROM div_aws_events
+             WHERE loco_raw IS NOT NULL
+               AND loco_raw != ''
+               AND matched_rake_id IS NULL
+             GROUP BY loco_raw
+             ORDER BY occurrence_count DESC`
+        );
+
+        res.json({ unmatched: cabs });
+    } catch (err) {
+        console.error('[AWS /unmatched-rakes] Error:', err);
+        res.status(500).json({ error: 'Failed to load unmatched rakes' });
+    }
+});
+
+// ── POST /match-all ────────────────────────────────────────────────────────
+// Run both signal and rake matching in one call
+router.post('/match-all', async (req, res) => {
+    try {
+        const pool = req.app.locals.pool;
+
+        // 1. Signal matching
+        const [signalEvents] = await pool.query(
+            `SELECT id, location_raw
+             FROM div_aws_events
+             WHERE location_type = 'SIGNAL'
+               AND location_raw IS NOT NULL
+               AND location_raw != ''
+               AND signal_id IS NULL`
+        );
+
+        let signalsMatched = 0;
+        for (const event of signalEvents) {
+            const match = await matchSignalFromDb(pool, event.location_raw);
+            if (match.signal_id) {
+                await pool.query(
+                    `UPDATE div_aws_events
+                     SET signal_id = ?, signal_match_confidence = ?, normalized_location = ?
+                     WHERE id = ?`,
+                    [match.signal_id, match.confidence, normalizeForSignalMatch(event.location_raw), event.id]
+                );
+                signalsMatched++;
+            } else {
+                await pool.query(
+                    `UPDATE div_aws_events SET normalized_location = ? WHERE id = ?`,
+                    [normalizeForSignalMatch(event.location_raw), event.id]
+                );
+            }
+        }
+
+        // 2. Rake matching
+        const [rakeEvents] = await pool.query(
+            `SELECT id, loco_raw
+             FROM div_aws_events
+             WHERE loco_raw IS NOT NULL
+               AND loco_raw != ''
+               AND matched_rake_id IS NULL`
+        );
+
+        let rakesMatched = 0;
+        for (const event of rakeEvents) {
+            const match = await matchRakeFromDb(pool, event.loco_raw);
+            if (match.rake_id) {
+                await pool.query(
+                    `UPDATE div_aws_events SET matched_coach_id = ?, matched_rake_id = ? WHERE id = ?`,
+                    [match.coach_id, match.rake_id, event.id]
+                );
+                rakesMatched++;
+            }
+        }
+
+        res.json({
+            success: true,
+            signals: { total: signalEvents.length, matched: signalsMatched },
+            rakes: { total: rakeEvents.length, matched: rakesMatched }
+        });
+    } catch (err) {
+        console.error('[AWS /match-all] Error:', err);
+        res.status(500).json({ error: 'Matching failed' });
+    }
+});
+
+module.exports = router;

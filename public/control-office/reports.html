@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mis-link Reports | Control Office</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --brand: #0b3d91;
+            --brand-light: #1e5fb8;
+            --bg: #f1f5f9;
+            --surface: #ffffff;
+            --border: #e2e8f0;
+            --border-strong: #cbd5e1;
+            --text-main: #1e293b;
+            --text-light: #64748b;
+            --danger: #dc2626;
+            --danger-bg: #fee2e2;
+            --warning: #d97706;
+            --warning-bg: #fef3c7;
+            --success: #059669;
+            --success-bg: #d1fae5;
+            --muted: #94a3b8;
+        }
+        * { box-sizing: border-box; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; color: var(--text-main); }
+
+        /* Header */
+        .header {
+            background: var(--brand); color: white;
+            padding: 12px 24px;
+            display: flex; align-items: center; justify-content: space-between;
+            box-shadow: 0 2px 6px rgba(0,0,0,.08);
+        }
+        .header-title { font-size: 1.1rem; font-weight: 600; }
+        .header-title a { color: white; text-decoration: none; opacity: .85; }
+        .header-title a:hover { opacity: 1; }
+        .header-title .sep { margin: 0 10px; opacity: .6; }
+        .header-user { display: flex; align-items: center; gap: 14px; font-size: .9rem; }
+        .header-user a { color: white; background: rgba(255,255,255,.15); padding: 5px 11px; border-radius: 4px; text-decoration: none; font-size: .82rem; }
+        .header-user a:hover { background: rgba(255,255,255,.25); }
+
+        /* Tabs */
+        .tabs {
+            display: flex; gap: 4px;
+            background: var(--surface);
+            border-bottom: 2px solid var(--border);
+            padding: 0 24px;
+            position: sticky; top: 0; z-index: 8;
+        }
+        .tab {
+            padding: 12px 18px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: .9rem;
+            color: var(--text-light);
+            border-bottom: 3px solid transparent;
+            margin-bottom: -2px;
+            background: none;
+            border-top: none;
+            border-left: none;
+            border-right: none;
+            font-family: inherit;
+        }
+        .tab:hover { color: var(--text-main); }
+        .tab.active { color: var(--brand); border-bottom-color: var(--brand); }
+
+        .main { padding: 18px 24px; max-width: 1400px; margin: 0 auto; }
+
+        /* Filter row */
+        .filter-row {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 14px 18px;
+            display: flex;
+            gap: 14px;
+            flex-wrap: wrap;
+            align-items: center;
+            margin-bottom: 18px;
+            box-shadow: 0 1px 3px rgba(0,0,0,.04);
+        }
+        .filter-row label { font-size: .82rem; font-weight: 600; color: var(--text-main); }
+        .filter-row input, .filter-row select {
+            padding: 6px 10px;
+            border: 1px solid var(--border-strong);
+            border-radius: 5px;
+            font-size: .88rem;
+            font-family: inherit;
+        }
+        .filter-row input[type=text] { width: 130px; font-family: 'Courier New', monospace; }
+        .filter-row .quick-btn {
+            padding: 5px 11px;
+            border: 1px solid var(--border-strong);
+            background: var(--surface);
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: .8rem;
+            font-weight: 500;
+            font-family: inherit;
+        }
+        .filter-row .quick-btn:hover { background: var(--bg); }
+        .filter-row .quick-btn.active { background: var(--brand); color: white; border-color: var(--brand); }
+        .filter-row .apply-btn {
+            padding: 6px 14px;
+            background: var(--brand);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: inherit;
+        }
+        .filter-row .apply-btn:hover { background: var(--brand-light); }
+        .filter-row .summary {
+            margin-left: auto;
+            font-size: .9rem;
+            color: var(--text-light);
+        }
+        .filter-row .summary .num { font-weight: 700; color: var(--text-main); }
+        .filter-row .summary .num.bad { color: var(--danger); }
+
+        /* Cards */
+        .card {
+            background: var(--surface);
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,.04);
+            border: 1px solid var(--border);
+            margin-bottom: 18px;
+            overflow: hidden;
+        }
+        .card-head {
+            padding: 12px 18px;
+            border-bottom: 1px solid var(--border);
+            font-weight: 600;
+            color: var(--text-main);
+            background: var(--bg);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* Table */
+        table.report-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: .88rem;
+        }
+        .report-table th, .report-table td {
+            padding: 8px 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+        .report-table th {
+            background: var(--bg);
+            font-size: .72rem;
+            text-transform: uppercase;
+            font-weight: 700;
+            color: var(--text-light);
+            letter-spacing: .4px;
+        }
+        .report-table tbody tr:hover { background: #f8fafc; }
+        .report-table tbody tr.is-mislink { background: #fef2f2; }
+        .report-table tbody tr.is-mislink:hover { background: #fee2e2; }
+        .report-table .train,
+        .report-table .loco { font-family: 'Courier New', monospace; font-weight: 700; color: var(--brand); }
+        .report-table .num { font-family: 'Courier New', monospace; font-weight: 600; }
+        .report-table .small-tag {
+            display: inline-block;
+            font-size: .7rem;
+            padding: 1px 6px;
+            border-radius: 3px;
+            background: var(--bg);
+            color: var(--text-light);
+            font-weight: 600;
+            margin-left: 4px;
+        }
+        .report-table .small-tag.rear { background: #ede9fe; color: #5b21b6; }
+        .pill {
+            display: inline-block;
+            padding: 1px 7px;
+            border-radius: 9px;
+            font-size: .7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+        .pill.mislink { background: var(--danger-bg); color: var(--danger); }
+        .pill.ok { background: var(--success-bg); color: var(--success); }
+
+        /* Bar chart */
+        .bar-row {
+            display: grid;
+            grid-template-columns: 80px 100px 1fr 80px;
+            gap: 12px;
+            padding: 8px 18px;
+            align-items: center;
+            border-bottom: 1px solid var(--border);
+            font-size: .9rem;
+        }
+        .bar-row:hover { background: #f8fafc; }
+        .bar-row .shed { font-weight: 700; font-family: 'Courier New', monospace; color: var(--brand); }
+        .bar-row .runs { color: var(--text-light); font-size: .8rem; }
+        .bar-row .runs .ml { font-weight: 700; color: var(--danger); }
+        .bar-row .bar-bg { background: var(--bg); border-radius: 4px; height: 18px; overflow: hidden; }
+        .bar-row .bar-fg {
+            background: linear-gradient(90deg, var(--warning) 0%, var(--danger) 100%);
+            height: 100%;
+            transition: width .3s;
+        }
+        .bar-row .pct {
+            text-align: right;
+            font-weight: 700;
+            color: var(--danger);
+            font-family: 'Courier New', monospace;
+        }
+        .bar-row .pct.zero { color: var(--text-light); }
+
+        .empty { padding: 60px 24px; text-align: center; color: var(--text-light); font-style: italic; }
+        .loading { padding: 40px 24px; text-align: center; color: var(--text-light); }
+        .search-form { display: flex; gap: 8px; align-items: center; }
+        .search-form input { width: 180px; font-size: 1rem; padding: 7px 12px; font-family: 'Courier New', monospace; font-weight: 600; }
+        .search-form button { padding: 7px 18px; background: var(--brand); color: white; border: none; border-radius: 5px; font-weight: 600; cursor: pointer; }
+
+        .panel { display: none; }
+        .panel.active { display: block; }
+    </style>
+</head>
+<body>
+
+<header class="header">
+    <div class="header-title">
+        <a href="/control-office/" title="Back"><i class="fa-solid fa-arrow-left"></i> Control Office</a>
+        <span class="sep">›</span>
+        <span>Mis-link &amp; History Reports</span>
+    </div>
+    <div class="header-user">
+        <span id="userInfo">…</span>
+        <a href="/api/logout" title="Logout"><i class="fa-solid fa-right-from-bracket"></i></a>
+    </div>
+</header>
+
+<nav class="tabs">
+    <button class="tab active" data-tab="mislinks"><i class="fa-solid fa-triangle-exclamation"></i> Mis-link List</button>
+    <button class="tab" data-tab="byShed"><i class="fa-solid fa-warehouse"></i> By Shed</button>
+    <button class="tab" data-tab="train"><i class="fa-solid fa-train"></i> Train History</button>
+    <button class="tab" data-tab="loco"><i class="fa-solid fa-bolt"></i> Loco History</button>
+</nav>
+
+<main class="main">
+
+<!-- ─── Mis-link list ─────────────────────────────────────────────────────── -->
+<section class="panel active" id="panel-mislinks">
+    <div class="filter-row">
+        <label>From <input type="date" id="ml-from"></label>
+        <label>To <input type="date" id="ml-to"></label>
+        <button class="quick-btn" data-range="7">Last 7d</button>
+        <button class="quick-btn active" data-range="30">Last 30d</button>
+        <button class="quick-btn" data-range="90">Last 90d</button>
+        <label>Sheet
+            <select id="ml-sheet">
+                <option value="">All</option>
+                <option>CSMT-DN</option><option>CSMT-UP</option>
+                <option>LTT-DN</option><option>LTT-UP</option>
+                <option>KR-DN</option><option>KR-UP</option>
+            </select>
+        </label>
+        <label>Shed <input type="text" id="ml-shed" placeholder="e.g. KYNE"></label>
+        <button class="apply-btn" id="ml-apply">Apply</button>
+        <span class="summary">
+            <span class="num bad" id="ml-count-real">—</span> real
+            · <span class="num" id="ml-count-zoneok" style="color:var(--warning)">—</span> zone-OK
+            · <span class="num" id="ml-count-total">—</span> total
+        </span>
+    </div>
+    <div class="filter-row" style="margin-top:-12px; padding:10px 18px;">
+        <span style="font-size:.82rem; font-weight:600; color:var(--text-main)">Show:</span>
+        <button class="quick-btn tier-btn active" data-tier="real">Real mis-links only</button>
+        <button class="quick-btn tier-btn" data-tier="zone-ok">Zone-acceptable only</button>
+        <button class="quick-btn tier-btn" data-tier="all">All strict mis-links</button>
+        <span style="margin-left:auto; font-size:.78rem; color:var(--text-light)">
+            <i class="fa-solid fa-info-circle"></i>
+            Zone-OK = different shed but same railway zone &amp; matching loco type
+        </span>
+    </div>
+    <div class="card">
+        <table class="report-table" id="ml-table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Train</th>
+                    <th>Expected</th>
+                    <th>Actual loco</th>
+                    <th>Base shed</th>
+                    <th>Tier</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td colspan="6" class="loading"><i class="fa-solid fa-spinner fa-spin"></i> Loading…</td></tr>
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<!-- ─── By shed ─────────────────────────────────────────────────────────── -->
+<section class="panel" id="panel-byShed">
+    <div class="filter-row">
+        <label>From <input type="date" id="bs-from"></label>
+        <label>To <input type="date" id="bs-to"></label>
+        <button class="quick-btn" data-range="7">Last 7d</button>
+        <button class="quick-btn active" data-range="30">Last 30d</button>
+        <button class="quick-btn" data-range="90">Last 90d</button>
+        <button class="apply-btn" id="bs-apply">Apply</button>
+        <span class="summary">
+            <span class="num" id="bs-runs">—</span> runs ·
+            <span class="num bad" id="bs-mislinks">—</span> mis-links
+        </span>
+    </div>
+
+    <div class="card">
+        <div class="card-head">
+            Sheds (Actual Loco Origin) — % of runs that were mis-linked
+            <span style="font-weight:400;color:var(--text-light);font-size:.8rem">
+                <i class="fa-solid fa-info-circle"></i> Bars = mis-link rate %
+            </span>
+        </div>
+        <div id="bs-shed-list">
+            <div class="loading"><i class="fa-solid fa-spinner fa-spin"></i> Loading…</div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-head">
+            Expected Sheds — slots that got filled by other sheds' locos
+        </div>
+        <div id="bs-expected-list">
+            <div class="loading"><i class="fa-solid fa-spinner fa-spin"></i> Loading…</div>
+        </div>
+    </div>
+</section>
+
+<!-- ─── Train history ──────────────────────────────────────────────────── -->
+<section class="panel" id="panel-train">
+    <div class="filter-row">
+        <form class="search-form" id="train-form" onsubmit="return false">
+            <label>Train no.
+                <input type="text" id="train-input" placeholder="e.g. 22177" maxlength="10" autocomplete="off">
+            </label>
+            <button type="submit">Search</button>
+        </form>
+        <span class="summary"><span class="num" id="train-count">—</span> entries</span>
+    </div>
+    <div class="card">
+        <table class="report-table" id="train-table">
+            <thead>
+                <tr>
+                    <th>Date</th><th>Dir</th><th>Sheet</th>
+                    <th>Loco (front)</th><th>Base</th>
+                    <th>Loco (rear)</th><th>Base</th>
+                    <th>Expected</th><th>Status</th>
+                </tr>
+            </thead>
+            <tbody><tr><td colspan="9" class="empty">Type a train number above to search.</td></tr></tbody>
+        </table>
+    </div>
+</section>
+
+<!-- ─── Loco history ───────────────────────────────────────────────────── -->
+<section class="panel" id="panel-loco">
+    <div class="filter-row">
+        <form class="search-form" id="loco-form" onsubmit="return false">
+            <label>Loco no.
+                <input type="text" id="loco-input" placeholder="e.g. 30263" maxlength="10" autocomplete="off">
+            </label>
+            <button type="submit">Search</button>
+        </form>
+        <span class="summary"><span class="num" id="loco-count">—</span> entries</span>
+    </div>
+    <div class="card">
+        <table class="report-table" id="loco-table">
+            <thead>
+                <tr>
+                    <th>Date</th><th>Train</th><th>Dir</th><th>Sheet</th>
+                    <th>Position</th><th>Base</th><th>Expected</th><th>Status</th>
+                </tr>
+            </thead>
+            <tbody><tr><td colspan="8" class="empty">Type a loco number above to search.</td></tr></tbody>
+        </table>
+    </div>
+</section>
+
+</main>
+
+<script>
+const $  = sel => document.querySelector(sel);
+const $$ = sel => document.querySelectorAll(sel);
+
+function todayISO() { return new Date().toISOString().slice(0, 10); }
+function isoDaysAgo(n) {
+    const d = new Date(todayISO() + 'T00:00:00Z');
+    d.setUTCDate(d.getUTCDate() - n);
+    return d.toISOString().slice(0, 10);
+}
+function fmtDate(v, fb = '—') {
+    if (!v) return fb;
+    const m = String(v).match(/^(\d{4})-(\d{2})-(\d{2})/);
+    return m ? `${m[3]}-${m[2]}-${m[1]}` : fb;
+}
+function esc(s) {
+    if (s == null) return '';
+    return String(s).replace(/[&<>"']/g, c => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    })[c]);
+}
+
+// Shed → railway zone map, fetched once at page load
+let shedZoneMap = {};
+async function loadShedZoneMap() {
+    try {
+        const r = await fetch('/api/division/loco-link/shed-zone-map');
+        if (r.ok) shedZoneMap = await r.json();
+    } catch (e) { /* non-critical, falls back to plain shed code */ }
+}
+
+// Render a shed code as "CR/AQE" if we know its zone, else just "AQE".
+// Returns '—' for null/empty.
+function shedWithZone(shed) {
+    if (!shed) return '—';
+    const zone = shedZoneMap[shed];
+    if (!zone) return esc(shed);
+    return `<small style="color:var(--text-light);font-weight:500">${esc(zone)}/</small><span class="num">${esc(shed)}</span>`;
+}
+
+// Classify a strict shed mis-link as real vs zone-acceptable.
+// Returns 'real' | 'zone-ok' | 'unknown' (when zone or accepted-types missing).
+//   - zone-ok: shed differs BUT same railway zone AND loco type is in accepted_loco_types
+//   - real: anything else (zone differs OR type mismatch)
+function classifyMislinkTier(row) {
+    const exp = row.expected_shed, act = row.base_shed;
+    if (!exp || !act) return 'unknown';
+    const zExp = shedZoneMap[exp];
+    const zAct = shedZoneMap[act];
+    const zoneOK = zExp && zAct && zExp === zAct;
+    // Type check: only meaningful when accepted_loco_types is set on the master row
+    let typeOK = null;  // null = no info, treat as not-failing
+    if (row.accepted_loco_types) {
+        const accepted = row.accepted_loco_types.split(',').map(s => s.trim());
+        typeOK = !!(row.loco_type && accepted.includes(row.loco_type));
+    }
+    if (zoneOK && typeOK !== false) return 'zone-ok';
+    return 'real';
+}
+
+// ── Tab switcher ────────────────────────────────────────────────────
+$$('.tab').forEach(t => {
+    t.addEventListener('click', () => {
+        $$('.tab').forEach(x => x.classList.remove('active'));
+        $$('.panel').forEach(x => x.classList.remove('active'));
+        t.classList.add('active');
+        $('#panel-' + t.dataset.tab).classList.add('active');
+        // Lazy-load the panel data on first activation
+        if (t.dataset.tab === 'byShed' && !bsLoaded) loadByShed();
+    });
+});
+
+// ── User info ───────────────────────────────────────────────────────
+async function loadMe() {
+    try {
+        const r = await fetch('/api/division/loco-link/me');
+        if (!r.ok) return;
+        const u = await r.json();
+        const role = u.div_role === 'lpc' ? 'LPC' : (u.div_role || u.role);
+        $('#userInfo').innerHTML = `<i class="fa-solid fa-user"></i> ${u.full_name || u.username} <small>(${role})</small>`;
+    } catch (e) { /* swallow */ }
+}
+
+// ── Quick range buttons (shared) ────────────────────────────────────
+function bindQuickRange(scope, fromEl, toEl, onChange) {
+    // Only the date-range buttons (which carry data-range) — not other .quick-btn
+    // siblings like the tier-filter buttons.
+    scope.querySelectorAll('.quick-btn[data-range]').forEach(b => {
+        b.addEventListener('click', () => {
+            scope.querySelectorAll('.quick-btn[data-range]').forEach(x => x.classList.remove('active'));
+            b.classList.add('active');
+            const days = parseInt(b.dataset.range, 10);
+            fromEl.value = isoDaysAgo(days);
+            toEl.value = todayISO();
+            if (onChange) onChange();
+        });
+    });
+}
+
+// ── Mis-link list panel ─────────────────────────────────────────────
+let mlAllRows = [];                 // last fetch (full strict-mislink list)
+let mlActiveTier = 'real';          // 'real' | 'zone-ok' | 'all'
+
+async function loadMislinks() {
+    const from = $('#ml-from').value;
+    const to = $('#ml-to').value;
+    const sheet = $('#ml-sheet').value;
+    const shed = $('#ml-shed').value.trim();
+
+    const qs = new URLSearchParams({ from, to });
+    if (sheet) qs.set('sheet', sheet);
+    if (shed) qs.set('shed', shed);
+
+    const tbody = $('#ml-table tbody');
+    tbody.innerHTML = '<tr><td colspan="6" class="loading"><i class="fa-solid fa-spinner fa-spin"></i> Loading…</td></tr>';
+
+    try {
+        const r = await fetch(`/api/division/loco-link/reports/mislinks?${qs}`);
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const data = await r.json();
+        mlAllRows = (data.rows || []).map(row => ({ ...row, tier: classifyMislinkTier(row) }));
+        renderMislinks();
+    } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="6" class="empty" style="color:var(--danger)">Failed: ${esc(e.message)}</td></tr>`;
+    }
+}
+
+function renderMislinks() {
+    const tbody = $('#ml-table tbody');
+    const total = mlAllRows.length;
+    const real = mlAllRows.filter(r => r.tier === 'real').length;
+    const zoneOk = mlAllRows.filter(r => r.tier === 'zone-ok').length;
+    $('#ml-count-real').textContent = real;
+    $('#ml-count-zoneok').textContent = zoneOk;
+    $('#ml-count-total').textContent = total;
+
+    let visible = mlAllRows;
+    if (mlActiveTier === 'real')    visible = mlAllRows.filter(r => r.tier === 'real');
+    if (mlActiveTier === 'zone-ok') visible = mlAllRows.filter(r => r.tier === 'zone-ok');
+
+    if (!visible.length) {
+        const lbl = mlActiveTier === 'all' ? 'mis-links' : `${mlActiveTier} mis-links`;
+        tbody.innerHTML = `<tr><td colspan="6" class="empty">No ${lbl} in this window.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = visible.map(row => {
+        const rear = row.position === 'rear'
+            ? ' <span class="small-tag rear" title="rear loco of push-pull train">(R)</span>'
+            : '';
+        const tierBadge = row.tier === 'real'
+            ? '<span class="pill mislink">Real</span>'
+            : (row.tier === 'zone-ok'
+                ? '<span class="pill" style="background:var(--warning-bg);color:var(--warning)" title="Same zone &amp; matching type — operationally OK">Zone-OK</span>'
+                : '<span class="pill" style="background:var(--bg);color:var(--text-light)">?</span>');
+        return `
+            <tr class="${row.tier === 'real' ? 'is-mislink' : ''}">
+                <td>${fmtDate(row.working_date)}</td>
+                <td><span class="train">${esc(row.train_no)}</span>${rear}
+                    <small style="color:var(--text-light); margin-left:4px">${esc(row.direction)}</small></td>
+                <td>${shedWithZone(row.expected_shed)}</td>
+                <td><span class="loco">${esc(row.actual_loco_no || '—')}</span>
+                    ${row.loco_type ? `<small style="color:var(--text-light); margin-left:4px">${esc(row.loco_type)}</small>` : ''}</td>
+                <td>${shedWithZone(row.base_shed)}</td>
+                <td>${tierBadge}</td>
+            </tr>
+        `;
+    }).join('');
+}
+
+// ── By shed panel ───────────────────────────────────────────────────
+let bsLoaded = false;
+async function loadByShed() {
+    bsLoaded = true;
+    const from = $('#bs-from').value;
+    const to = $('#bs-to').value;
+    const qs = new URLSearchParams({ from, to });
+
+    $('#bs-shed-list').innerHTML = '<div class="loading"><i class="fa-solid fa-spinner fa-spin"></i> Loading…</div>';
+    $('#bs-expected-list').innerHTML = '<div class="loading"><i class="fa-solid fa-spinner fa-spin"></i> Loading…</div>';
+
+    try {
+        const [r1, r2] = await Promise.all([
+            fetch(`/api/division/loco-link/reports/by-shed?${qs}`),
+            fetch(`/api/division/loco-link/reports/by-expected-shed?${qs}`),
+        ]);
+        if (!r1.ok || !r2.ok) throw new Error('report fetch failed');
+        const d1 = await r1.json();
+        const d2 = await r2.json();
+
+        $('#bs-runs').textContent = d1.total_runs;
+        $('#bs-mislinks').textContent = d1.total_mislinks;
+
+        renderShedBars($('#bs-shed-list'), d1.sheds, 'mislinks', 'total_runs');
+        renderShedBars($('#bs-expected-list'), d2.sheds, 'mislinks', 'total_slots');
+    } catch (e) {
+        $('#bs-shed-list').innerHTML = `<div class="empty" style="color:var(--danger)">Failed: ${esc(e.message)}</div>`;
+        $('#bs-expected-list').innerHTML = '';
+    }
+}
+
+function renderShedBars(container, sheds, mlField, totalField) {
+    if (!sheds || !sheds.length) {
+        container.innerHTML = '<div class="empty">No data in this window.</div>';
+        return;
+    }
+    // Compute the max % so the bar bg is proportional
+    const maxPct = Math.max(...sheds.map(s => Number(s.mislink_pct || 0)), 5);
+    container.innerHTML = sheds.map(s => {
+        const ml = Number(s[mlField] || 0);
+        const total = Number(s[totalField] || 0);
+        const pct = Number(s.mislink_pct || 0);
+        const w = total === 0 ? 0 : (pct / maxPct) * 100;
+        return `
+            <div class="bar-row">
+                <div class="shed">${shedWithZone(s.shed)}</div>
+                <div class="runs">${total} runs · <span class="ml">${ml}</span> ml</div>
+                <div class="bar-bg">
+                    ${ml > 0 ? `<div class="bar-fg" style="width:${w.toFixed(1)}%"></div>` : ''}
+                </div>
+                <div class="pct ${pct === 0 ? 'zero' : ''}">${pct}%</div>
+            </div>
+        `;
+    }).join('');
+}
+
+// ── Train history panel ─────────────────────────────────────────────
+async function loadTrainHistory(trainNo) {
+    if (!trainNo) return;
+    const tbody = $('#train-table tbody');
+    tbody.innerHTML = '<tr><td colspan="9" class="loading"><i class="fa-solid fa-spinner fa-spin"></i> Loading…</td></tr>';
+    try {
+        const r = await fetch(`/api/division/loco-link/reports/train/${encodeURIComponent(trainNo)}/history`);
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const data = await r.json();
+        $('#train-count').textContent = data.total;
+        if (!data.total) {
+            tbody.innerHTML = `<tr><td colspan="9" class="empty">No log entries for train ${esc(trainNo)}.</td></tr>`;
+            return;
+        }
+        tbody.innerHTML = data.rows.map(row => {
+            const ml = !!(row.is_mislink || row.is_mislink_rear);
+            const status = ml ? '<span class="pill mislink">Mis-link</span>'
+                              : (row.actual_loco_no ? '<span class="pill ok">OK</span>' : '');
+            return `
+                <tr class="${ml ? 'is-mislink' : ''}">
+                    <td>${fmtDate(row.working_date)}</td>
+                    <td><small>${esc(row.direction)}</small></td>
+                    <td><small>${esc(row.sheet_source || '')}</small></td>
+                    <td><span class="loco">${esc(row.actual_loco_no || '—')}</span></td>
+                    <td>${shedWithZone(row.base_shed)}</td>
+                    <td>${row.actual_loco_no_rear ? `<span class="loco">${esc(row.actual_loco_no_rear)}</span>` : '—'}</td>
+                    <td>${shedWithZone(row.base_shed_rear)}</td>
+                    <td>${shedWithZone(row.expected_shed)}</td>
+                    <td>${status}</td>
+                </tr>
+            `;
+        }).join('');
+    } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="9" class="empty" style="color:var(--danger)">Failed: ${esc(e.message)}</td></tr>`;
+    }
+}
+
+// ── Loco history panel ──────────────────────────────────────────────
+async function loadLocoHistory(locoNo) {
+    if (!locoNo) return;
+    const tbody = $('#loco-table tbody');
+    tbody.innerHTML = '<tr><td colspan="8" class="loading"><i class="fa-solid fa-spinner fa-spin"></i> Loading…</td></tr>';
+    try {
+        const r = await fetch(`/api/division/loco-link/reports/loco/${encodeURIComponent(locoNo)}/history`);
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const data = await r.json();
+        $('#loco-count').textContent = data.total;
+        if (!data.total) {
+            tbody.innerHTML = `<tr><td colspan="8" class="empty">No log entries for loco ${esc(locoNo)}.</td></tr>`;
+            return;
+        }
+        tbody.innerHTML = data.rows.map(row => {
+            const ml = !!row.mislink;
+            const status = ml ? '<span class="pill mislink">Mis-link</span>' : '<span class="pill ok">OK</span>';
+            return `
+                <tr class="${ml ? 'is-mislink' : ''}">
+                    <td>${fmtDate(row.working_date)}</td>
+                    <td><span class="train">${esc(row.train_no)}</span></td>
+                    <td><small>${esc(row.direction)}</small></td>
+                    <td><small>${esc(row.sheet_source || '')}</small></td>
+                    <td>${row.position === 'rear' ? '<span class="small-tag rear">REAR</span>' : '<span class="small-tag">front</span>'}</td>
+                    <td>${shedWithZone(row.base_shed)}</td>
+                    <td>${shedWithZone(row.expected_shed)}</td>
+                    <td>${status}</td>
+                </tr>
+            `;
+        }).join('');
+    } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="8" class="empty" style="color:var(--danger)">Failed: ${esc(e.message)}</td></tr>`;
+    }
+}
+
+// ── Bind events ─────────────────────────────────────────────────────
+const mlPanel = $('#panel-mislinks');
+$('#ml-from').value = isoDaysAgo(30);
+$('#ml-to').value = todayISO();
+bindQuickRange(mlPanel, $('#ml-from'), $('#ml-to'), loadMislinks);
+$('#ml-apply').addEventListener('click', loadMislinks);
+$$('.tier-btn').forEach(b => {
+    b.addEventListener('click', () => {
+        $$('.tier-btn').forEach(x => x.classList.remove('active'));
+        b.classList.add('active');
+        mlActiveTier = b.dataset.tier;
+        renderMislinks();
+    });
+});
+
+const bsPanel = $('#panel-byShed');
+$('#bs-from').value = isoDaysAgo(30);
+$('#bs-to').value = todayISO();
+bindQuickRange(bsPanel, $('#bs-from'), $('#bs-to'), loadByShed);
+$('#bs-apply').addEventListener('click', loadByShed);
+
+$('#train-form').addEventListener('submit', () => loadTrainHistory($('#train-input').value.trim()));
+$('#train-input').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); loadTrainHistory(e.target.value.trim()); } });
+$('#loco-form').addEventListener('submit', () => loadLocoHistory($('#loco-input').value.trim()));
+$('#loco-input').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); loadLocoHistory(e.target.value.trim()); } });
+
+// Init — load shed→zone map first, then render the default panel
+(async () => {
+    await loadShedZoneMap();
+    loadMe();
+    loadMislinks();
+})();
+</script>
+
+</body>
+</html>

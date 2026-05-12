@@ -53,6 +53,12 @@
     <select class="form-select form-select-sm" id="officeSelect" style="width:180px;">
       <option value="">Select Office</option>
     </select>
+    <select class="form-select form-select-sm" id="sortByDue" style="width:160px;">
+      <option value="">Sort by Due...</option>
+      <option value="12">PME Due</option>
+      <option value="14">Refresher Due</option>
+      <option value="16">Auto Due</option>
+    </select>
     <div style="flex:1;"></div>
     <button class="btn btn-primary btn-sm" id="btnSave" onclick="saveChanges()" disabled>
       Save Changes <span class="save-badge" id="dirtyCount" style="display:none;">0</span>
@@ -100,6 +106,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadDesignations();
   await loadOffices();
   hideLoading();
+
+  // Sort by due date dropdown (custom sort for dd/mm/yyyy dates)
+  document.getElementById('sortByDue').addEventListener('change', function() {
+    if (!sheet || !this.value) return;
+    const colIdx = parseInt(this.value);
+    sortByDateColumn(colIdx);
+  });
 });
 
 async function loadDesignations() {
@@ -605,6 +618,46 @@ function autoCalcDueDate(rowIdx, doneCol, doneDateDisplay) {
       showToast('PME due date needs DOB — fill DOB column or use Form View', 'info');
     }
   }
+}
+
+// ---- Custom date column sort ----
+function sortByDateColumn(colIdx) {
+  if (!sheet) return;
+
+  // Get all row data from the sheet
+  const data = sheet.getData();
+  if (!data || data.length === 0) return;
+
+  // Parse dd/mm/yyyy to sortable timestamp (empty dates go to bottom)
+  function parseDateValue(str) {
+    if (!str) return Infinity; // Empty dates at bottom
+    const parts = str.split('/');
+    if (parts.length !== 3) return Infinity;
+    const [dd, mm, yyyy] = parts;
+    const d = new Date(parseInt(yyyy), parseInt(mm) - 1, parseInt(dd));
+    return isNaN(d.getTime()) ? Infinity : d.getTime();
+  }
+
+  // Create array of [originalIndex, dateValue] for sorting
+  const indexed = data.map((row, i) => ({
+    index: i,
+    dateVal: parseDateValue(row[colIdx]),
+    row: row
+  }));
+
+  // Sort by date ascending (earliest first, empty at bottom)
+  indexed.sort((a, b) => a.dateVal - b.dateVal);
+
+  // Also reorder staffData to match (needed for save to work correctly)
+  const newStaffData = indexed.map(item => staffData[item.index]);
+  staffData = newStaffData;
+
+  // Update sheet with sorted data
+  const sortedData = indexed.map(item => item.row);
+  sheet.setData(sortedData);
+
+  // Re-apply training colors
+  applyTrainingColors();
 }
 
 // ---- Date helpers ----

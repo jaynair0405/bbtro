@@ -191,6 +191,15 @@ app.get('/control-office/', requireControlOffice, (req, res) => {
 app.get('/control-office/index.html', requireControlOffice, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'control-office', 'index.html'));
 });
+app.get('/control-office/daily-entry.html', requireControlOffice, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'control-office', 'daily-entry.html'));
+});
+app.get('/control-office/reports.html', requireControlOffice, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'control-office', 'reports.html'));
+});
+app.get('/control-office/sick-locos.html', requireControlOffice, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'control-office', 'sick-locos.html'));
+});
 
 app.get('/div/bulk-upload-staff.html', (req, res) => {
   if (!req.session.user) return res.redirect('/');
@@ -244,6 +253,24 @@ app.get('/div/adas-reports.html', (req, res) => {
   if (!req.session.user) return res.redirect('/');
   if (req.session.user.realm !== 'division') return res.redirect('/');
   res.sendFile(path.join(__dirname, 'public', 'div', 'adas-reports.html'));
+});
+
+app.get('/div/aws.html', (req, res) => {
+  if (!req.session.user) return res.redirect('/');
+  if (req.session.user.realm !== 'division') return res.redirect('/');
+  res.sendFile(path.join(__dirname, 'public', 'div', 'aws.html'));
+});
+
+app.get('/div/aws-upload.html', (req, res) => {
+  if (!req.session.user) return res.redirect('/');
+  if (req.session.user.realm !== 'division') return res.redirect('/');
+  res.sendFile(path.join(__dirname, 'public', 'div', 'aws-upload.html'));
+});
+
+app.get('/div/aws-review.html', (req, res) => {
+  if (!req.session.user) return res.redirect('/');
+  if (req.session.user.realm !== 'division') return res.redirect('/');
+  res.sendFile(path.join(__dirname, 'public', 'div', 'aws-review.html'));
 });
 
 app.get('/div/training-due-report.html', (req, res) => {
@@ -650,6 +677,7 @@ const cvvrsRoutes = require('./routes/division/cvvrsRoutes');
 const adasRoutes = require('./routes/division/adasRoutes');
 const trainingCentreRoutes = require('./routes/division/trainingCentreRoutes');
 const locoLinkRoutes = require('./routes/division/locoLinkRoutes');
+const awsUploadRoutes = require('./routes/division/awsUploadRoutes');
 
 // Add division routes with realm protection
 app.use("/api/division/leave", requireRealm("division"), leaveRoutes); // mount early to avoid any catch-alls
@@ -676,6 +704,7 @@ app.use("/api/division/training-centre", requireRealm('division'), trainingCentr
 app.use("/api/division/cvvrs", requireRealm('division'), cvvrsRoutes);
 app.use("/api/division/adas", requireRealm('division'), adasRoutes);
 app.use("/api/division/loco-link", requireRealm('division'), locoLinkRoutes);
+app.use("/api/division/aws", requireRealm('division'), awsUploadRoutes);
 
 // Session info endpoint
 app.get('/api/session', (req, res) => {

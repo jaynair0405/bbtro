@@ -330,6 +330,24 @@
             text-transform: uppercase;
             font-weight: 700;
         }
+        .link-card .segment-count {
+            background: var(--bg);
+            color: var(--text-light);
+            font-size: .7rem;
+            padding: 2px 8px;
+            border-radius: 9px;
+            margin-left: 6px;
+            font-weight: 600;
+            font-family: 'Courier New', monospace;
+        }
+        .link-card .segment-count.has-mislink {
+            background: var(--danger-bg);
+            color: var(--danger);
+        }
+        .link-card .segment-count.complete {
+            background: var(--success-bg);
+            color: var(--success);
+        }
     </style>
 </head>
 <body>
@@ -366,19 +384,19 @@
         <div class="stat-cards">
             <div class="stat-card">
                 <div class="lbl">Entries Today</div>
-                <div class="val">— / —</div>
+                <div class="val" id="statEntries">…</div>
             </div>
             <div class="stat-card" style="border-left-color: var(--danger);">
                 <div class="lbl">Mis-links Today</div>
-                <div class="val">—</div>
+                <div class="val" id="statMislinks">…</div>
             </div>
             <div class="stat-card" style="border-left-color: var(--warning);">
                 <div class="lbl">Currently Sick</div>
-                <div class="val">—</div>
+                <div class="val" id="statSick">…</div>
             </div>
             <div class="stat-card" style="border-left-color: var(--success);">
                 <div class="lbl">Total Locos</div>
-                <div class="val" id="totalLocos">…</div>
+                <div class="val" id="statTotalLocos">…</div>
             </div>
         </div>
     </section>
@@ -386,46 +404,53 @@
     <section class="dashboard-section">
         <div class="section-title">Daily Loco Link Entry</div>
         <div class="quick-links">
-            <a class="link-card disabled" href="#">
+            <a class="link-card" href="/control-office/daily-entry.html?sheet_source=CSMT-DN" data-segment="CSMT-DN">
                 <i class="fa-solid fa-arrow-down icn"></i>
                 <div>
-                    <div class="ttl">CSMT-DN <span class="badge">soon</span></div>
+                    <div class="ttl">CSMT-DN <small class="segment-count" data-count="CSMT-DN"></small></div>
                     <div class="desc">DN trains departing CSMT</div>
                 </div>
             </a>
-            <a class="link-card disabled" href="#">
+            <a class="link-card" href="/control-office/daily-entry.html?sheet_source=CSMT-UP" data-segment="CSMT-UP">
                 <i class="fa-solid fa-arrow-up icn"></i>
                 <div>
-                    <div class="ttl">CSMT-UP <span class="badge">soon</span></div>
+                    <div class="ttl">CSMT-UP <small class="segment-count" data-count="CSMT-UP"></small></div>
                     <div class="desc">UP trains arriving CSMT</div>
                 </div>
             </a>
-            <a class="link-card disabled" href="#">
+            <a class="link-card" href="/control-office/daily-entry.html?sheet_source=LTT-DN" data-segment="LTT-DN">
                 <i class="fa-solid fa-arrow-down icn"></i>
                 <div>
-                    <div class="ttl">VVH-DN <span class="badge">soon</span></div>
-                    <div class="desc">DN trains departing VVH</div>
+                    <div class="ttl">LTT-DN <small class="segment-count" data-count="LTT-DN"></small></div>
+                    <div class="desc">DN trains departing LTT (VVH shed)</div>
                 </div>
             </a>
-            <a class="link-card disabled" href="#">
+            <a class="link-card" href="/control-office/daily-entry.html?sheet_source=LTT-UP" data-segment="LTT-UP">
                 <i class="fa-solid fa-arrow-up icn"></i>
                 <div>
-                    <div class="ttl">VVH-UP <span class="badge">soon</span></div>
-                    <div class="desc">UP trains arriving VVH</div>
+                    <div class="ttl">LTT-UP <small class="segment-count" data-count="LTT-UP"></small></div>
+                    <div class="desc">UP trains arriving LTT (VVH shed)</div>
                 </div>
             </a>
-            <a class="link-card disabled" href="#">
+            <a class="link-card" href="/control-office/daily-entry.html?sheet_source=KR-UP" data-segment="KR-UP">
                 <i class="fa-solid fa-mountain icn"></i>
                 <div>
-                    <div class="ttl">KR Trains <span class="badge">soon</span></div>
-                    <div class="desc">Konkan Railway DN/UP</div>
+                    <div class="ttl">KR-UP <small class="segment-count" data-count="KR-UP"></small></div>
+                    <div class="desc">Konkan UP — entry at ROHA</div>
                 </div>
             </a>
-            <a class="link-card disabled" href="#">
+            <a class="link-card" href="/control-office/daily-entry.html?sheet_source=KR-DN" data-segment="KR-DN">
+                <i class="fa-solid fa-mountain icn"></i>
+                <div>
+                    <div class="ttl">KR-DN <small class="segment-count" data-count="KR-DN"></small></div>
+                    <div class="desc">Konkan DN from CSMT/LTT/DW</div>
+                </div>
+            </a>
+            <a class="link-card" href="/control-office/daily-entry.html?direction=BYPASS" data-segment="bypass">
                 <i class="fa-solid fa-route icn"></i>
                 <div>
-                    <div class="ttl">Bypass <span class="badge">soon</span></div>
-                    <div class="desc">Trains passing through</div>
+                    <div class="ttl">Bypass <small class="segment-count" data-count="bypass"></small></div>
+                    <div class="desc">Trains passing through (LNL-BSR / KR / etc.)</div>
                 </div>
             </a>
         </div>
@@ -434,17 +459,17 @@
     <section class="dashboard-section">
         <div class="section-title">Reports & Tools</div>
         <div class="quick-links">
-            <a class="link-card disabled" href="#">
+            <a class="link-card" href="/control-office/reports.html">
                 <i class="fa-solid fa-triangle-exclamation icn" style="color:var(--danger)"></i>
                 <div>
-                    <div class="ttl">Mis-link Reports <span class="badge">soon</span></div>
+                    <div class="ttl">Mis-link Reports</div>
                     <div class="desc">By shed, date, train, loco</div>
                 </div>
             </a>
-            <a class="link-card disabled" href="#">
+            <a class="link-card" href="/control-office/sick-locos.html">
                 <i class="fa-solid fa-stethoscope icn" style="color:var(--warning)"></i>
                 <div>
-                    <div class="ttl">Sick Loco Mgmt <span class="badge">soon</span></div>
+                    <div class="ttl">Sick Loco Mgmt <small id="sickBadge" style="color:var(--danger);font-weight:700"></small></div>
                     <div class="desc">Mark sick / fit, view list</div>
                 </div>
             </a>
@@ -514,6 +539,17 @@ function fmt(v, fallback = '—') {
     return v === null || v === undefined || v === '' ? fallback : v;
 }
 
+// Format a date value (ISO string or YYYY-MM-DD) as DD-MM-YYYY.
+// Returns the fallback for null / empty / unparseable input.
+function fmtDate(v, fallback = '—') {
+    if (v === null || v === undefined || v === '') return fallback;
+    const s = String(v);
+    // Match YYYY-MM-DD prefix — handles both "2014-11-22" and "2014-11-22T18:30:00.000Z"
+    const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (!m) return fallback;
+    return `${m[3]}-${m[2]}-${m[1]}`;
+}
+
 function renderLoco({ loco, sick, recent_trains }) {
     const out = $('#lookupResult');
     out.className = 'lookup-result show';
@@ -532,7 +568,7 @@ function renderLoco({ loco, sick, recent_trains }) {
         sickBanner = `
             <div class="sick-banner">
                 <span class="ttl"><i class="fa-solid fa-triangle-exclamation"></i> CURRENTLY SICK</span>
-                — since ${sick.sick_from} (${days} day${days === 1 ? '' : 's'})
+                — since ${fmtDate(sick.sick_from)} (${days} day${days === 1 ? '' : 's'})
                 ${sick.sick_at_shed ? `at <b>${sick.sick_at_shed}</b>` : ''}
                 ${sick.sick_reason ? `· ${sick.sick_reason}` : ''}
                 ${sick.sicked_by ? `<small>(reported by ${sick.sicked_by})</small>` : ''}
@@ -541,7 +577,7 @@ function renderLoco({ loco, sick, recent_trains }) {
 
     const recentRows = (recent_trains || []).map(t => `
         <tr>
-            <td>${t.working_date}</td>
+            <td>${fmtDate(t.working_date)}</td>
             <td>${t.direction}</td>
             <td><b>${t.train_no}</b></td>
             <td>${fmt(t.base_shed)} ${t.position === 'rear' ? '<small>(rear)</small>' : ''}</td>
@@ -564,7 +600,7 @@ function renderLoco({ loco, sick, recent_trains }) {
             <div class="loco-field"><div class="lbl">Home Shed</div><div class="val">${fmt(loco.home_shed)}</div></div>
             <div class="loco-field"><div class="lbl">Railway Zone</div><div class="val">${fmt(loco.railway_zone)}</div></div>
             <div class="loco-field"><div class="lbl">Status</div><div class="val">${fmt(loco.status)}</div></div>
-            <div class="loco-field"><div class="lbl">Commissioned</div><div class="val">${fmt(loco.commission_date)}</div></div>
+            <div class="loco-field"><div class="lbl">Commissioned</div><div class="val">${fmtDate(loco.commission_date)}</div></div>
             <div class="loco-field"><div class="lbl">Traction Conv.</div><div class="val ${loco.traction_converter ? '' : 'muted'}">${fmt(loco.traction_converter, 'n/a')}</div></div>
             <div class="loco-field"><div class="lbl">ARNO / SIV</div><div class="val ${loco.arno_siv ? '' : 'muted'}">${fmt(loco.arno_siv, 'n/a')}</div></div>
             <div class="loco-field"><div class="lbl">RTIS OEM</div><div class="val ${loco.rtis_oem ? '' : 'muted'}">${fmt(loco.rtis_oem, 'n/a')}</div></div>
@@ -591,9 +627,53 @@ $('#lookupInput').addEventListener('keydown', e => {
     if (e.key === 'Enter') { e.preventDefault(); doLookup(); }
 });
 
+// Load dashboard stats — top cards + per-segment "filled/total" badges
+async function loadStats() {
+    try {
+        const r = await fetch('/api/division/loco-link/dashboard-stats');
+        if (!r.ok) return;
+        const data = await r.json();
+
+        // Top cards
+        $('#statEntries').textContent = data.entries_today;
+        $('#statMislinks').textContent = data.mislinks_today;
+        $('#statSick').textContent = data.sick_count;
+        // Mirror onto the Sick Loco Mgmt card subtitle
+        const badge = $('#sickBadge');
+        if (badge) {
+            badge.textContent = data.sick_count > 0
+                ? `(${data.sick_count} active)` : '';
+        }
+        $('#statTotalLocos').textContent = (data.total_locos || 0).toLocaleString('en-IN');
+
+        // Segment badges
+        const bySegment = new Map();
+        for (const s of (data.segments || [])) bySegment.set(s.sheet_source, s);
+
+        // Bypass card aggregates all bypass segments (BYPASS-LNL-BSR, BYPASS-BSR-LNL, ...)
+        let bypassTotal = 0, bypassFilled = 0;
+        for (const [k, v] of bySegment.entries()) {
+            if (k.startsWith('BYPASS-')) { bypassTotal += v.total; bypassFilled += v.filled; }
+        }
+
+        document.querySelectorAll('.segment-count').forEach(el => {
+            const key = el.dataset.count;
+            let total, filled;
+            if (key === 'bypass') { total = bypassTotal; filled = bypassFilled; }
+            else { const s = bySegment.get(key); if (!s) return; total = s.total; filled = s.filled; }
+            if (!total) { el.textContent = ''; return; }
+            el.textContent = `${filled}/${total}`;
+            el.classList.toggle('complete', filled === total);
+        });
+    } catch (e) {
+        // swallow — stats are non-critical
+    }
+}
+
 // Init
 $('#todayDate').textContent = todayHuman();
 loadMe();
+loadStats();
 $('#lookupInput').focus();
 </script>
 

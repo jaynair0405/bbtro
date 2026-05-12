@@ -78,7 +78,27 @@ function deriveTraction(linkAttr) {
 }
 
 function deriveExpectedHog(linkAttr) {
+    // Detect the HOG intent BEFORE we normalize HOG → P/7 in link_attr text
     return linkAttr && /\bhog\b/i.test(linkAttr) ? 1 : 0;
+}
+
+// HOG is operational (not a loco-class spec). Both WAP7 and WAP5 are HOG-capable
+// passenger locos and operationally interchangeable for any passenger service.
+// Canonicalize link_attr by mapping HOG → P/7 so loco-type matching uses a
+// clean P/7 / P/4 / P/5 vocabulary; HOG-ness lives in the expected_hog flag.
+function normalizeLinkAttr(linkAttr) {
+    if (!linkAttr) return linkAttr;
+    return linkAttr.replace(/\bHOG\b/g, 'P/7');
+}
+
+// Returns [expected_loco_type, accepted_loco_types] from the (already-normalized) link_attr.
+// NULL for codes that don't pin a loco class (DSL, AC/DC, 130 kmph).
+function deriveLocoTypes(normalizedLinkAttr) {
+    if (!normalizedLinkAttr) return [null, null];
+    if (/^P\/7/.test(normalizedLinkAttr)) return ['WAP7', 'WAP5,WAP7'];   // WAP5 ≡ WAP7
+    if (/^P\/4/.test(normalizedLinkAttr)) return ['WAP4', 'WAP4'];        // strict
+    if (/^P\/5/.test(normalizedLinkAttr)) return ['WAP5', 'WAP5'];        // strict
+    return [null, null]; // DSL / 130 kmph / AC/DC / other — no type check
 }
 
 function deriveIsPushPull(linkAttr, remark) {
@@ -140,10 +160,14 @@ function readCanonicalSheet(wb, sheetName) {
             to_station: null,
             route_label: null,
             shed_code: clean(row[idxs.shed_code]),
-            link_attr: linkAttr,
-            expected_hog: deriveExpectedHog(linkAttr),
+            link_attr: normalizeLinkAttr(linkAttr),  // HOG → P/7
+            expected_hog: deriveExpectedHog(linkAttr),  // computed from ORIGINAL value
             is_push_pull: deriveIsPushPull(linkAttr, clean(row[idxs.remark])),
             traction_type: deriveTraction(linkAttr),
+            ...(() => {
+                const [el, al] = deriveLocoTypes(normalizeLinkAttr(linkAttr));
+                return { expected_loco_type: el, accepted_loco_types: al };
+            })(),
             rake_type: clean(row[idxs.rake_type]),
             train_no: trainNo,
             train_name: trainNameExtra,
@@ -225,6 +249,8 @@ function readBypassSheet(wb) {
                 expected_hog: 0,
                 is_push_pull: 0,
                 traction_type: 'Electric',
+                expected_loco_type: null,
+                accepted_loco_types: null,
                 rake_type: null,
                 train_no: leftTrain,
                 train_name: leftExtra || clean(row[2]),
@@ -257,6 +283,8 @@ function readBypassSheet(wb) {
                 expected_hog: 0,
                 is_push_pull: 0,
                 traction_type: 'Electric',
+                expected_loco_type: null,
+                accepted_loco_types: null,
                 rake_type: null,
                 train_no: rightTrain,
                 train_name: rightExtra || clean(row[12]),
@@ -317,32 +345,38 @@ async function main() {
             INSERT INTO div_loco_link_master
                 (sheet_source, sr_no, section, direction, is_bypass,
                  from_station, to_station, route_label, shed_code, link_attr,
-                 expected_hog, is_push_pull, traction_type, rake_type, train_no, train_name,
+                 expected_hog, is_push_pull, traction_type,
+                 expected_loco_type, accepted_loco_types,
+                 rake_type, train_no, train_name,
                  event_time, via_stations, run_days, remark)
             VALUES ?
             ON DUPLICATE KEY UPDATE
-                sheet_source  = VALUES(sheet_source),
-                sr_no         = VALUES(sr_no),
-                section       = VALUES(section),
-                is_bypass     = VALUES(is_bypass),
-                to_station    = VALUES(to_station),
-                route_label   = VALUES(route_label),
-                shed_code     = VALUES(shed_code),
-                link_attr     = VALUES(link_attr),
-                expected_hog  = VALUES(expected_hog),
-                is_push_pull  = VALUES(is_push_pull),
-                traction_type = VALUES(traction_type),
-                rake_type     = VALUES(rake_type),
-                train_name    = VALUES(train_name),
-                event_time    = VALUES(event_time),
-                via_stations  = VALUES(via_stations),
-                run_days      = VALUES(run_days),
-                remark        = VALUES(remark)
+                sheet_source         = VALUES(sheet_source),
+                sr_no                = VALUES(sr_no),
+                section              = VALUES(section),
+                is_bypass            = VALUES(is_bypass),
+                to_station           = VALUES(to_station),
+                route_label          = VALUES(route_label),
+                shed_code            = VALUES(shed_code),
+                link_attr            = VALUES(link_attr),
+                expected_hog         = VALUES(expected_hog),
+                is_push_pull         = VALUES(is_push_pull),
+                traction_type        = VALUES(traction_type),
+                expected_loco_type   = VALUES(expected_loco_type),
+                accepted_loco_types  = VALUES(accepted_loco_types),
+                rake_type            = VALUES(rake_type),
+                train_name           = VALUES(train_name),
+                event_time           = VALUES(event_time),
+                via_stations         = VALUES(via_stations),
+                run_days             = VALUES(run_days),
+                remark               = VALUES(remark)
         `;
         const tuples = dedup.map(r => [
             r.sheet_source, r.sr_no, r.section, r.direction, r.is_bypass,
             r.from_station, r.to_station, r.route_label, r.shed_code, r.link_attr,
-            r.expected_hog, r.is_push_pull, r.traction_type, r.rake_type, r.train_no, r.train_name,
+            r.expected_hog, r.is_push_pull, r.traction_type,
+            r.expected_loco_type ?? null, r.accepted_loco_types ?? null,
+            r.rake_type, r.train_no, r.train_name,
             r.event_time, r.via_stations ? JSON.stringify(r.via_stations) : null,
             r.run_days, r.remark,
         ]);

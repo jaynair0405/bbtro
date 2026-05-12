@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sick Loco Position | Control Office</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --brand: #0b3d91;
+            --brand-light: #1e5fb8;
+            --bg: #f1f5f9;
+            --surface: #ffffff;
+            --border: #e2e8f0;
+            --border-strong: #cbd5e1;
+            --text-main: #1e293b;
+            --text-light: #64748b;
+            --danger: #dc2626;
+            --danger-bg: #fee2e2;
+            --warning: #d97706;
+            --warning-bg: #fef3c7;
+            --success: #059669;
+            --success-bg: #d1fae5;
+            --info: #0284c7;
+            --info-bg: #e0f2fe;
+            --muted: #94a3b8;
+            --pending-bg: #fffbeb;
+        }
+        * { box-sizing: border-box; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; color: var(--text-main); }
+
+        /* Header */
+        .header {
+            background: var(--brand); color: white;
+            padding: 12px 24px;
+            display: flex; align-items: center; justify-content: space-between;
+            box-shadow: 0 2px 6px rgba(0,0,0,.08);
+        }
+        .header-title { font-size: 1.1rem; font-weight: 600; }
+        .header-title a { color: white; text-decoration: none; opacity: .85; }
+        .header-title a:hover { opacity: 1; }
+        .header-title .sep { margin: 0 10px; opacity: .6; }
+        .header-user { display: flex; align-items: center; gap: 14px; font-size: .9rem; }
+        .header-user a { color: white; background: rgba(255,255,255,.15); padding: 5px 11px; border-radius: 4px; text-decoration: none; font-size: .82rem; }
+        .header-user a:hover { background: rgba(255,255,255,.25); }
+
+        .main { padding: 16px 20px; max-width: 100%; margin: 0 auto; }
+
+        .action-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+            gap: 14px;
+        }
+        .summary {
+            font-size: .9rem;
+            color: var(--text-light);
+            display: flex;
+            gap: 18px;
+        }
+        .summary span { display: inline-flex; align-items: baseline; gap: 5px; }
+        .summary .num { font-weight: 700; color: var(--text-main); font-size: 1.2rem; }
+        .summary .num.bad { color: var(--danger); }
+        .primary-btn {
+            padding: 10px 18px; background: var(--danger); color: white;
+            border: none; border-radius: 6px; font-weight: 600; cursor: pointer;
+            font-size: .9rem; font-family: inherit;
+        }
+        .primary-btn:hover { background: #b91c1c; }
+        .primary-btn i { margin-right: 6px; }
+
+        /* Category section */
+        .cat-header {
+            display: flex; align-items: center; gap: 12px;
+            background: var(--brand);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 6px 6px 0 0;
+            font-weight: 700;
+            font-size: .9rem;
+            letter-spacing: .5px;
+        }
+        .cat-header.pending { background: var(--warning); }
+        .cat-header.cog { background: var(--brand); }
+        .cat-header.goods { background: #6b21a8; }
+        .cat-header.cog-dsl, .cat-header.goods-dsl { background: #92400e; }
+        .cat-header.other { background: var(--text-light); }
+        .cat-header .count {
+            margin-left: auto;
+            background: rgba(255,255,255,.2);
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: .75rem;
+        }
+
+        .card {
+            background: var(--surface);
+            border-radius: 0 0 8px 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,.04);
+            border: 1px solid var(--border);
+            border-top: none;
+            margin-bottom: 22px;
+            overflow: auto;
+        }
+
+        /* Sheet table — fully inline-editable */
+        table.sheet {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: .8rem;
+            min-width: 1900px;
+        }
+        .sheet th, .sheet td {
+            padding: 6px 8px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+            border-right: 1px solid var(--border);
+            vertical-align: middle;
+        }
+        .sheet th {
+            background: var(--bg);
+            font-size: .68rem;
+            text-transform: uppercase;
+            font-weight: 700;
+            color: var(--text-light);
+            letter-spacing: .3px;
+            white-space: nowrap;
+            position: sticky;
+            top: 0;
+            z-index: 2;
+        }
+        .sheet th.compound { padding-bottom: 2px; }
+        .sheet th.compound + th.sub { font-size: .62rem; padding-top: 0; padding-bottom: 6px; }
+
+        /* Cell widths — calibrated for content */
+        .sheet th.col-loco,    .sheet td.col-loco    { width: 110px; }
+        .sheet th.col-base,    .sheet td.col-base    { width: 70px; }
+        .sheet th.col-train,   .sheet td.col-train   { width: 90px; }
+        .sheet th.col-date,    .sheet td.col-date    { width: 120px; }
+        .sheet th.col-time,    .sheet td.col-time    { width: 100px; }
+        .sheet th.col-place,   .sheet td.col-place   { width: 110px; }
+        .sheet th.col-cur,     .sheet td.col-cur     { width: 130px; }
+        .sheet th.col-defect,  .sheet td.col-defect  { width: 220px; }
+        .sheet th.col-status,  .sheet td.col-status  { width: 110px; }
+        .sheet th.col-cat,     .sheet td.col-cat     { width: 110px; }
+        .sheet th.col-hoc,     .sheet td.col-hoc     { width: 90px; }
+        .sheet th.col-sch,     .sheet td.col-sch     { width: 110px; }
+        .sheet th.col-prop,    .sheet td.col-prop    { width: 80px; }
+        .sheet th.col-rem,     .sheet td.col-rem     { width: 240px; }
+        .sheet th.col-days,    .sheet td.col-days    { width: 60px; text-align: center; }
+        .sheet th.col-act,     .sheet td.col-act     { width: 130px; text-align: right; }
+
+        /* Row states */
+        .sheet tbody tr:hover { background: #fef2f2; }
+        .sheet tbody tr.row-pending { background: var(--pending-bg); }
+        .sheet tbody tr.row-pending:hover { background: #fef3c7; }
+        .sheet tbody tr.row-saving { opacity: .6; pointer-events: none; }
+
+        /* Inputs in cells */
+        .sheet input, .sheet select, .sheet textarea {
+            width: 100%;
+            padding: 4px 6px;
+            border: 1px solid transparent;
+            background: transparent;
+            font-size: .8rem;
+            font-family: inherit;
+            border-radius: 3px;
+        }
+        .sheet input:hover, .sheet select:hover, .sheet textarea:hover {
+            border-color: var(--border);
+            background: var(--surface);
+        }
+        .sheet input:focus, .sheet select:focus, .sheet textarea:focus {
+            outline: none;
+            border-color: var(--brand);
+            background: var(--surface);
+            box-shadow: 0 0 0 2px rgba(11,61,145,.12);
+        }
+        .sheet input.loco, .sheet input.train, .sheet input.shed-input {
+            font-family: 'Courier New', monospace;
+            font-weight: 700;
+        }
+        .sheet input.loco { color: var(--brand); }
+        .sheet input.train { color: var(--brand); }
+        .sheet input.shed-input { font-weight: 600; }
+        .sheet td.col-base, .sheet td.col-prop {
+            font-family: 'Courier New', monospace;
+            font-weight: 600;
+            font-size: .82rem;
+            color: var(--text-main);
+        }
+        .sheet td.col-base.empty, .sheet td.col-prop.empty {
+            color: var(--muted); font-style: italic; font-weight: normal;
+        }
+        .sheet input::placeholder, .sheet textarea::placeholder {
+            color: var(--muted); font-style: italic;
+        }
+        .sheet input[readonly] {
+            color: var(--text-light);
+            background: var(--bg);
+            cursor: default;
+        }
+
+        /* Compound time/date cell stack */
+        .stack { display: flex; flex-direction: column; gap: 2px; }
+        .stack input { font-size: .76rem !important; padding: 3px 5px !important; }
+
+        /* Status pill (displayed when status is set) */
+        .status-pill {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: .7rem;
+            font-weight: 700;
+            font-family: 'Courier New', monospace;
+            margin-left: 4px;
+        }
+        .status-pill.ur   { background: var(--warning-bg); color: var(--warning); }
+        .status-pill.dead { background: var(--danger-bg);  color: var(--danger); }
+        .status-pill.ho   { background: #ede9fe; color: #6b21a8; }
+        .status-pill.wkg  { background: var(--info-bg); color: var(--info); }
+        .status-pill.rdy  { background: var(--success-bg); color: var(--success); }
+
+        .days-pill {
+            display: inline-block;
+            padding: 1px 7px;
+            border-radius: 10px;
+            font-size: .72rem;
+            font-weight: 700;
+            font-family: 'Courier New', monospace;
+        }
+        .days-pill.fresh { background: var(--warning-bg); color: var(--warning); }
+        .days-pill.stale { background: var(--danger-bg); color: var(--danger); }
+        .days-pill.ancient { background: #4c0519; color: #fecaca; }
+
+        /* Row action buttons */
+        .save-btn, .cancel-btn {
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: .76rem;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            border: 1px solid transparent;
+            margin-left: 3px;
+        }
+        .save-btn {
+            background: var(--brand);
+            color: white;
+            border-color: var(--brand);
+        }
+        .save-btn:hover { background: var(--brand-light); }
+        .save-btn.dirty { background: var(--warning); border-color: var(--warning); }
+        .save-btn.dirty:hover { background: #b45309; }
+        .save-btn.fit-mode { background: var(--success); border-color: var(--success); }
+        .save-btn.fit-mode:hover { background: #047857; }
+        .save-btn:disabled { opacity: .5; cursor: not-allowed; }
+        .cancel-btn {
+            background: var(--surface);
+            color: var(--text-light);
+            border-color: var(--border-strong);
+        }
+        .cancel-btn:hover { color: var(--danger); border-color: var(--danger); background: var(--danger-bg); }
+
+        .row-status {
+            font-size: .7rem;
+            color: var(--text-light);
+            display: block;
+            margin-top: 3px;
+        }
+        .row-status.err { color: var(--danger); font-weight: 600; }
+
+        .empty {
+            padding: 36px 24px;
+            text-align: center;
+            color: var(--text-light);
+            font-style: italic;
+        }
+        .empty.success-empty { color: var(--success); font-style: normal; font-weight: 500; }
+        .loading { padding: 30px 24px; text-align: center; color: var(--text-light); }
+
+        .info-tip {
+            font-size: .8rem;
+            color: var(--text-light);
+            margin-bottom: 10px;
+        }
+        .info-tip i { color: var(--info); margin-right: 5px; }
+    </style>
+</head>
+<body>
+
+<header class="header">
+    <div class="header-title">
+        <a href="/control-office/" title="Back"><i class="fa-solid fa-arrow-left"></i> Control Office</a>
+        <span class="sep">›</span>
+        <span>Sick / Dead Loco Position</span>
+    </div>
+    <div class="header-user">
+        <span id="userInfo">…</span>
+        <a href="/api/logout" title="Logout"><i class="fa-solid fa-right-from-bracket"></i></a>
+    </div>
+</header>
+
+<main class="main">
+    <div class="action-row">
+        <div class="summary">
+            <span><span class="num bad" id="sickCount">…</span> total sick</span>
+            <span><span class="num" id="cogCount">—</span> COG</span>
+            <span><span class="num" id="goodsCount">—</span> GOODS</span>
+            <span><span class="num" id="dslCount">—</span> DSL</span>
+        </div>
+        <button class="primary-btn" id="btnAddRow">
+            <i class="fa-solid fa-plus"></i> Add Sick Loco
+        </button>
+    </div>
+    <div class="info-tip">
+        <i class="fa-solid fa-circle-info"></i>
+        Type directly into cells. Save button lights up when row has unsaved changes.
+        Set <b>Status = RDY</b> + fill Ready date/time → Save closes the record (loco back in service).
+    </div>
+
+    <div id="sickContent">
+        <div class="loading"><i class="fa-solid fa-spinner fa-spin"></i> Loading…</div>
+    </div>
+</main>
+
+<script>
+const $  = sel => document.querySelector(sel);
+const $$ = sel => document.querySelectorAll(sel);
+
+let pendingSeq = 0;          // counter for unsaved blank rows
+let cachedRows = [];         // last-loaded saved sick rows (for re-rendering)
+
+function todayISO() { return new Date().toISOString().slice(0, 10); }
+function fmtDate(v, fb = '') {
+    if (!v) return fb;
+    const m = String(v).match(/^(\d{4})-(\d{2})-(\d{2})/);
+    return m ? `${m[3]}-${m[2]}-${m[1]}` : fb;
+}
+function isoDate(v) {
+    if (!v) return '';
+    return String(v).slice(0, 10);
+}
+function fmtTime(v, fb = '') {
+    if (!v) return fb;
+    return String(v).slice(0, 5);
+}
+function esc(s) {
+    if (s == null) return '';
+    return String(s).replace(/[&<>"']/g, c => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    })[c]);
+}
+
+async function loadMe() {
+    try {
+        const r = await fetch('/api/division/loco-link/me');
+        if (!r.ok) return;
+        const u = await r.json();
+        const role = u.div_role === 'lpc' ? 'LPC' : (u.div_role || u.role);
+        $('#userInfo').innerHTML = `<i class="fa-solid fa-user"></i> ${u.full_name || u.username} <small>(${role})</small>`;
+    } catch (e) {}
+}
+
+// ── Load saved rows from server, then render the entire grid ────────
+async function loadSickList() {
+    const root = $('#sickContent');
+    root.innerHTML = '<div class="loading"><i class="fa-solid fa-spinner fa-spin"></i> Loading…</div>';
+    try {
+        const r = await fetch('/api/division/loco-link/sick');
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const data = await r.json();
+        cachedRows = data.rows || [];
+        renderGrid();
+    } catch (e) {
+        root.innerHTML = `<div class="card" style="border-radius:8px"><div class="empty" style="color:var(--danger)">
+            Failed: ${esc(e.message)}
+        </div></div>`;
+    }
+}
+
+function renderGrid() {
+    const root = $('#sickContent');
+    root.innerHTML = '';
+
+    // Stats from saved rows only (pending don't count yet) — use category_final which is
+    // the override (when LPC has set one) or the derived value.
+    const total = cachedRows.length;
+    const cog = cachedRows.filter(r => r.category_final === 'COG' || r.category_final === 'COG-DSL').length;
+    const goods = cachedRows.filter(r => r.category_final === 'GOODS' || r.category_final === 'GOODS-DSL').length;
+    const dsl = cachedRows.filter(r => r.category_final === 'COG-DSL' || r.category_final === 'GOODS-DSL').length;
+    $('#sickCount').textContent = total;
+    $('#cogCount').textContent = cog;
+    $('#goodsCount').textContent = goods;
+    $('#dslCount').textContent = dsl;
+
+    // Pending rows currently visible in DOM (we preserve them across reloads via dataset)
+    const pending = Array.from(document.querySelectorAll('tr[data-pending="1"]'));
+
+    // Determine which sections to render
+    const cats = [
+        { key: 'PENDING', label: 'Pending (unsaved)', icon: 'plus-circle', cls: 'pending', rows: pending /* DOM trs */ },
+        { key: 'COG',       label: 'COG (Passenger)',         icon: 'bolt',     cls: 'cog',       rows: cachedRows.filter(r => r.category_final === 'COG') },
+        { key: 'COG-DSL',   label: 'COG (Diesel Passenger)',  icon: 'gas-pump', cls: 'cog-dsl',   rows: cachedRows.filter(r => r.category_final === 'COG-DSL') },
+        { key: 'GOODS',     label: 'GOODS (Freight)',         icon: 'bolt',     cls: 'goods',     rows: cachedRows.filter(r => r.category_final === 'GOODS') },
+        { key: 'GOODS-DSL', label: 'GOODS (Diesel Freight)',  icon: 'gas-pump', cls: 'goods-dsl', rows: cachedRows.filter(r => r.category_final === 'GOODS-DSL') },
+        { key: 'OTHER',     label: 'OTHER',                    icon: 'circle-question', cls: 'other', rows: cachedRows.filter(r => r.category_final === 'OTHER' || !r.category_final) },
+    ];
+
+    // Always render Pending section (even if empty initially) so the user sees a place for new rows
+    const totalSaved = cachedRows.length;
+    if (!totalSaved && !pending.length) {
+        // Show empty state but still allow Add
+        root.innerHTML = `
+            ${sectionHeaderHTML('Pending (unsaved)', 'plus-circle', 'pending', 0)}
+            <div class="card"><table class="sheet">${tableHeaderHTML()}<tbody id="tbody-PENDING"></tbody></table></div>
+            <div class="empty success-empty">
+                <i class="fa-solid fa-check-circle"></i> No locos currently sick. All clear.
+            </div>
+        `;
+        return;
+    }
+
+    let html = '';
+    for (const cat of cats) {
+        if (cat.key === 'PENDING') {
+            // Always show Pending section so the Add button has a destination
+            html += `
+                ${sectionHeaderHTML(cat.label, cat.icon, cat.cls, cat.rows.length)}
+                <div class="card">
+                    <table class="sheet">${tableHeaderHTML()}
+                        <tbody id="tbody-PENDING"></tbody>
+                    </table>
+                </div>
+            `;
+            continue;
+        }
+        if (!cat.rows.length) continue;
+        html += `
+            ${sectionHeaderHTML(cat.label, cat.icon, cat.cls, cat.rows.length)}
+            <div class="card">
+                <table class="sheet">${tableHeaderHTML()}
+                    <tbody id="tbody-${cat.key}">
+                        ${cat.rows.map(r => savedRowHTML(r)).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
+    }
+    root.innerHTML = html;
+
+    // Re-attach pending rows (preserved across reload)
+    const pendingTBody = $('#tbody-PENDING');
+    for (const tr of pending) pendingTBody.appendChild(tr);
+
+    // Bind handlers on saved rows
+    document.querySelectorAll('tr[data-saved-id]').forEach(bindRowHandlers);
+}
+
+function sectionHeaderHTML(label, icon, cls, count) {
+    return `<div class="cat-header ${cls}">
+        <span><i class="fa-solid fa-${icon}"></i> ${esc(label)}</span>
+        <span class="count">${count}</span>
+    </div>`;
+}
+
+function tableHeaderHTML() {
+    return `<thead>
+        <tr>
+            <th class="col-loco">Loco no</th>
+            <th class="col-base">Base</th>
+            <th class="col-train">Train no</th>
+            <th class="col-date">Ineffective date</th>
+            <th class="col-time">Time</th>
+            <th class="col-place">Place</th>
+            <th class="col-cur">Current location</th>
+            <th class="col-defect">Defect</th>
+            <th class="col-date">Shed Arr date</th>
+            <th class="col-time">Time</th>
+            <th class="col-date">Ready date</th>
+            <th class="col-time">Time</th>
+            <th class="col-status">Status</th>
+            <th class="col-cat">Category</th>
+            <th class="col-hoc">HOC train</th>
+            <th class="col-date">HOC date</th>
+            <th class="col-sch">Sch done</th>
+            <th class="col-prop">Propulsion</th>
+            <th class="col-rem">Action / Remarks</th>
+            <th class="col-days">Days</th>
+            <th class="col-act">Save</th>
+        </tr>
+    </thead>`;
+}
+
+function categorySelect(currentOverride, derived) {
+    // currentOverride is what's stored (NULL = auto-detect); derived is what auto-detect produced.
+    // The "Auto" option label includes the derived value so LPC sees what auto would pick.
+    const cur = currentOverride || '';
+    const autoLabel = derived ? `Auto (${derived})` : 'Auto (?)';
+    const opt = (v, l) => `<option value="${v}"${v === cur ? ' selected' : ''}>${l}</option>`;
+    return `<select data-field="category">
+        ${opt('', autoLabel)}
+        ${opt('COG', 'COG (Pass.)')}
+        ${opt('GOODS', 'GOODS')}
+        ${opt('COG-DSL', 'COG-DSL')}
+        ${opt('GOODS-DSL', 'GOODS-DSL')}
+        ${opt('OTHER', 'OTHER')}
+    </select>`;
+}
+
+// ── Saved-row HTML (all cells editable from page load) ──────────────
+function savedRowHTML(r) {
+    const days = Number(r.days_sick || 0);
+    const dCls = days >= 30 ? 'ancient' : days >= 7 ? 'stale' : 'fresh';
+    return `
+        <tr data-saved-id="${r.id}" data-orig='${esc(JSON.stringify(toRowState(r)))}'>
+            <td class="col-loco"><input class="loco" type="text" maxlength="10" value="${esc(r.loco_number)}" data-field="loco_number" readonly></td>
+            <td class="col-base ${r.home_shed ? '' : 'empty'}" data-field="base">${esc(r.home_shed || '—')}</td>
+            <td class="col-train"><input class="train" type="text" maxlength="20" value="${esc(r.sick_train_no || '')}" data-field="sick_train_no" placeholder="train no"></td>
+            <td class="col-date"><input type="date" value="${esc(isoDate(r.sick_from))}" data-field="sick_from"></td>
+            <td class="col-time"><input type="time" value="${esc(fmtTime(r.ineffective_time))}" data-field="ineffective_time"></td>
+            <td class="col-place"><input class="shed-input" type="text" maxlength="10" value="${esc(r.sick_at_shed || '')}" data-field="sick_at_shed" placeholder="VVH T/S"></td>
+            <td class="col-cur"><input type="text" maxlength="30" value="${esc(r.current_location || '')}" data-field="current_location" placeholder="CSMT T/S"></td>
+            <td class="col-defect"><input type="text" maxlength="200" value="${esc(r.sick_reason || '')}" data-field="sick_reason" placeholder="defect"></td>
+            <td class="col-date"><input type="date" value="${esc(isoDate(r.shed_arr_date))}" data-field="shed_arr_date"></td>
+            <td class="col-time"><input type="time" value="${esc(fmtTime(r.shed_arr_time))}" data-field="shed_arr_time"></td>
+            <td class="col-date"><input type="date" value="" data-field="ready_date" placeholder="(on ready)"></td>
+            <td class="col-time"><input type="time" value="" data-field="ready_time"></td>
+            <td class="col-status">${statusSelect(r.status || 'U/R')}</td>
+            <td class="col-cat">${categorySelect(r.category, r.derived_category)}</td>
+            <td class="col-hoc"><input class="train" type="text" maxlength="20" value="${esc(r.hoc_train_no || '')}" data-field="hoc_train_no"></td>
+            <td class="col-date"><input type="date" value="${esc(isoDate(r.hoc_date))}" data-field="hoc_date"></td>
+            <td class="col-sch"><input type="text" maxlength="50" value="${esc(r.sch_done || '')}" data-field="sch_done"></td>
+            <td class="col-prop ${r.traction_converter ? '' : 'empty'}">${esc(r.traction_converter || '—')}</td>
+            <td class="col-rem"><input type="text" maxlength="500" value="${esc(r.remarks || '')}" data-field="remarks" placeholder="action taken / remarks"></td>
+            <td class="col-days"><span class="days-pill ${dCls}">${days}d</span></td>
+            <td class="col-act">
+                <button class="save-btn" data-action="save">Save</button>
+                <span class="row-status"></span>
+            </td>
+        </tr>
+    `;
+}
+
+// ── Pending (unsaved) row — same columns, no id yet ─────────────────
+function pendingRowHTML(seq) {
+    return `
+        <tr data-pending="1" data-pending-seq="${seq}">
+            <td class="col-loco"><input class="loco" type="text" maxlength="10" data-field="loco_number" placeholder="loco no" autocomplete="off"></td>
+            <td class="col-base empty" data-field="base">—</td>
+            <td class="col-train"><input class="train" type="text" maxlength="20" data-field="sick_train_no" placeholder="train no"></td>
+            <td class="col-date"><input type="date" data-field="sick_from" value="${todayISO()}"></td>
+            <td class="col-time"><input type="time" data-field="ineffective_time"></td>
+            <td class="col-place"><input class="shed-input" type="text" maxlength="10" data-field="sick_at_shed" placeholder="VVH T/S"></td>
+            <td class="col-cur"><input type="text" maxlength="30" data-field="current_location" placeholder="CSMT T/S"></td>
+            <td class="col-defect"><input type="text" maxlength="200" data-field="sick_reason" placeholder="defect"></td>
+            <td class="col-date"><input type="date" data-field="shed_arr_date"></td>
+            <td class="col-time"><input type="time" data-field="shed_arr_time"></td>
+            <td class="col-date"><input type="date" data-field="ready_date" placeholder="(on ready)"></td>
+            <td class="col-time"><input type="time" data-field="ready_time"></td>
+            <td class="col-status">${statusSelect('U/R')}</td>
+            <td class="col-cat">${categorySelect(null, null)}</td>
+            <td class="col-hoc"><input class="train" type="text" maxlength="20" data-field="hoc_train_no"></td>
+            <td class="col-date"><input type="date" data-field="hoc_date"></td>
+            <td class="col-sch"><input type="text" maxlength="50" data-field="sch_done" placeholder="IB 04/04/26"></td>
+            <td class="col-prop empty" data-field="propulsion">—</td>
+            <td class="col-rem"><input type="text" maxlength="500" data-field="remarks" placeholder="action taken / remarks"></td>
+            <td class="col-days">—</td>
+            <td class="col-act">
+                <button class="save-btn dirty" data-action="save">Save</button>
+                <button class="cancel-btn" data-action="cancel" title="Discard"><i class="fa-solid fa-xmark"></i></button>
+                <span class="row-status"></span>
+            </td>
+        </tr>
+    `;
+}
+
+function statusSelect(current) {
+    const opts = [['U/R', 'U/R'], ['DEAD', 'DEAD'], ['WKG', 'WKG'], ['H/O', 'H/O'], ['RDY', 'RDY']];
+    return `<select data-field="status">
+        ${opts.map(([v, l]) => `<option value="${v}"${v === current ? ' selected' : ''}>${l}</option>`).join('')}
+    </select>`;
+}
+
+// ── Snapshot of the saved row's editable fields (for diff/dirty detection) ──
+function toRowState(r) {
+    return {
+        sick_train_no: r.sick_train_no || '',
+        sick_from: isoDate(r.sick_from),
+        ineffective_time: fmtTime(r.ineffective_time),
+        sick_at_shed: r.sick_at_shed || '',
+        current_location: r.current_location || '',
+        sick_reason: r.sick_reason || '',
+        shed_arr_date: isoDate(r.shed_arr_date),
+        shed_arr_time: fmtTime(r.shed_arr_time),
+        status: r.status || 'U/R',
+        hoc_train_no: r.hoc_train_no || '',
+        hoc_date: isoDate(r.hoc_date),
+        sch_done: r.sch_done || '',
+        remarks: r.remarks || '',
+    };
+}
+function readRowFields(tr) {
+    const out = {};
+    tr.querySelectorAll('[data-field]').forEach(el => {
+        if (el.tagName === 'TD') return;  // skip display-only cells
+        out[el.dataset.field] = (el.value || '').trim();
+    });
+    return out;
+}
+
+// ── Bind events on a row (saved or pending) ─────────────────────────
+function bindRowHandlers(tr) {
+    const isPending = tr.dataset.pending === '1';
+    const saveBtn = tr.querySelector('button[data-action="save"]');
+    const cancelBtn = tr.querySelector('button[data-action="cancel"]');
+    const locoInput = tr.querySelector('input[data-field="loco_number"]');
+    const baseCell = tr.querySelector('td[data-field="base"]');
+    const propCell = tr.querySelector('td[data-field="propulsion"]');
+    const statusSel = tr.querySelector('select[data-field="status"]');
+
+    // Mark dirty + retag Save → Mark Ready when status switches to RDY
+    function refreshSaveBtn() {
+        if (!saveBtn) return;
+        const current = readRowFields(tr);
+        let dirty = isPending;
+        if (!isPending) {
+            try {
+                const orig = JSON.parse(tr.dataset.orig || '{}');
+                dirty = Object.keys(current).some(k => current[k] !== (orig[k] || ''));
+            } catch (e) { dirty = true; }
+        }
+        saveBtn.classList.toggle('dirty', dirty);
+        const isRdy = statusSel && statusSel.value === 'RDY';
+        saveBtn.classList.toggle('fit-mode', isRdy && dirty);
+        saveBtn.textContent = isRdy ? 'Mark Ready' : 'Save';
+    }
+    tr.querySelectorAll('input, select, textarea').forEach(el => {
+        el.addEventListener('input', refreshSaveBtn);
+        el.addEventListener('change', refreshSaveBtn);
+    });
+
+    // Loco lookup on blur — fills base shed + propulsion (pending only; saved rows have loco locked)
+    if (isPending && locoInput) {
+        locoInput.addEventListener('blur', async () => {
+            const locoNo = (locoInput.value || '').trim();
+            if (!locoNo) {
+                baseCell.textContent = '—'; baseCell.classList.add('empty');
+                if (propCell) { propCell.textContent = '—'; propCell.classList.add('empty'); }
+                return;
+            }
+            try {
+                const r = await fetch(`/api/division/loco-link/loco/${encodeURIComponent(locoNo)}/details`);
+                if (r.status === 404) {
+                    baseCell.textContent = 'NOT IN MASTER';
+                    baseCell.classList.remove('empty');
+                    baseCell.style.color = 'var(--danger)';
+                    return;
+                }
+                if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                const data = await r.json();
+                const loco = data.loco || {};
+                const sick = data.sick;
+                if (sick) {
+                    setRowStatus(tr, `Already sick since ${fmtDate(sick.sick_from)}`, true);
+                    return;
+                }
+                baseCell.textContent = loco.home_shed || '—';
+                baseCell.classList.toggle('empty', !loco.home_shed);
+                baseCell.style.color = '';
+                if (propCell) {
+                    propCell.textContent = loco.traction_converter || '—';
+                    propCell.classList.toggle('empty', !loco.traction_converter);
+                }
+                // If place is empty, default to home shed
+                const placeInput = tr.querySelector('input[data-field="sick_at_shed"]');
+                if (placeInput && !placeInput.value) placeInput.value = loco.home_shed || '';
+                clearRowStatus(tr);
+            } catch (e) {
+                setRowStatus(tr, 'lookup failed', true);
+            }
+        });
+    }
+
+    if (saveBtn) saveBtn.addEventListener('click', () => saveRow(tr));
+    if (cancelBtn) cancelBtn.addEventListener('click', () => { tr.remove(); });
+}
+
+function setRowStatus(tr, msg, isErr) {
+    const slot = tr.querySelector('.row-status');
+    if (!slot) return;
+    slot.textContent = msg;
+    slot.classList.toggle('err', !!isErr);
+}
+function clearRowStatus(tr) {
+    const slot = tr.querySelector('.row-status');
+    if (slot) { slot.textContent = ''; slot.classList.remove('err'); }
+}
+
+// ── Save a row (pending = POST, saved = PATCH; RDY routes to fit) ───
+async function saveRow(tr) {
+    const isPending = tr.dataset.pending === '1';
+    const fields = readRowFields(tr);
+    const status = fields.status || 'U/R';
+
+    // Validate
+    if (isPending) {
+        if (!fields.loco_number) { setRowStatus(tr, 'loco no required', true); return; }
+        if (!fields.sick_from)   { setRowStatus(tr, 'ineffective date required', true); return; }
+    }
+
+    const saveBtn = tr.querySelector('button[data-action="save"]');
+    saveBtn.disabled = true;
+    tr.classList.add('row-saving');
+    setRowStatus(tr, 'saving…', false);
+
+    try {
+        let id, ok = false;
+        if (isPending) {
+            // POST /sick (initial create — exclude ready_date/time, status RDY handled below after creation)
+            const body = {
+                loco_number: fields.loco_number,
+                sick_from: fields.sick_from,
+                ineffective_time: fields.ineffective_time || null,
+                sick_at_shed: fields.sick_at_shed || null,
+                sick_train_no: fields.sick_train_no || null,
+                current_location: fields.current_location || null,
+                status: status === 'RDY' ? 'U/R' : status,  // create as U/R then close if RDY
+                sick_reason: fields.sick_reason || null,
+                sch_done: fields.sch_done || null,
+                remarks: fields.remarks || null,
+            };
+            const r = await fetch('/api/division/loco-link/sick', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            });
+            const data = await r.json();
+            if (!r.ok) { setRowStatus(tr, data.error || 'save failed', true); return; }
+            id = data.sick.id;
+
+            // If shed_arr or hoc were set on the pending row, push them via PATCH
+            const extra = {};
+            if (fields.shed_arr_date) extra.shed_arr_date = fields.shed_arr_date;
+            if (fields.shed_arr_time) extra.shed_arr_time = fields.shed_arr_time;
+            if (fields.hoc_train_no)  extra.hoc_train_no  = fields.hoc_train_no;
+            if (fields.hoc_date)      extra.hoc_date      = fields.hoc_date;
+            if (Object.keys(extra).length) {
+                await fetch(`/api/division/loco-link/sick/${id}`, {
+                    method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(extra),
+                });
+            }
+            ok = true;
+        } else {
+            id = parseInt(tr.dataset.savedId, 10);
+        }
+
+        // If status is RDY → call fit endpoint to close the record
+        if (status === 'RDY') {
+            const fitBody = {
+                fit_from: fields.ready_date || todayISO(),
+                ready_time: fields.ready_time || null,
+                fit_remarks: fields.remarks || null,
+            };
+            const r2 = await fetch(`/api/division/loco-link/sick/${id}/fit`, {
+                method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(fitBody),
+            });
+            const d2 = await r2.json();
+            if (!r2.ok) { setRowStatus(tr, d2.error || 'mark ready failed', true); return; }
+            // Saved record closes — refresh to drop it from list
+            await loadSickList();
+            return;
+        }
+
+        // Non-RDY existing-row save → PATCH
+        if (!isPending) {
+            const body = {
+                sick_train_no: fields.sick_train_no || null,
+                sick_at_shed: fields.sick_at_shed || null,
+                current_location: fields.current_location || null,
+                status,
+                shed_arr_date: fields.shed_arr_date || null,
+                shed_arr_time: fields.shed_arr_time || null,
+                sick_reason: fields.sick_reason || null,
+                sch_done: fields.sch_done || null,
+                hoc_train_no: fields.hoc_train_no || null,
+                hoc_date: fields.hoc_date || null,
+                remarks: fields.remarks || null,
+                ineffective_time: fields.ineffective_time || null,
+            };
+            const r = await fetch(`/api/division/loco-link/sick/${id}`, {
+                method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            });
+            const data = await r.json();
+            if (!r.ok) { setRowStatus(tr, data.error || 'save failed', true); return; }
+            ok = true;
+        }
+
+        if (ok) await loadSickList();
+    } catch (e) {
+        setRowStatus(tr, 'network error', true);
+    } finally {
+        saveBtn.disabled = false;
+        tr.classList.remove('row-saving');
+    }
+}
+
+// ── Add a new pending row at top of Pending section ─────────────────
+function addPendingRow() {
+    const seq = ++pendingSeq;
+    const tbody = $('#tbody-PENDING');
+    if (!tbody) {
+        // Force a re-render to get the structure, then add
+        renderGrid();
+        return setTimeout(() => addPendingRow(), 0);
+    }
+    const tmp = document.createElement('tbody');
+    tmp.innerHTML = pendingRowHTML(seq);
+    const tr = tmp.firstElementChild;
+    tbody.insertBefore(tr, tbody.firstChild);
+    bindRowHandlers(tr);
+    // Update Pending count badge
+    const header = document.querySelector('.cat-header.pending .count');
+    if (header) header.textContent = tbody.children.length;
+    // Focus loco no
+    setTimeout(() => tr.querySelector('input[data-field="loco_number"]').focus(), 0);
+}
+
+$('#btnAddRow').addEventListener('click', addPendingRow);
+
+// Init
+loadMe();
+loadSickList();
+</script>
+
+</body>
+</html>
