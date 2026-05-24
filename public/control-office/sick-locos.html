@@ -281,12 +281,177 @@
         .empty.success-empty { color: var(--success); font-style: normal; font-weight: 500; }
         .loading { padding: 30px 24px; text-align: center; color: var(--text-light); }
 
+        /* Modal styles */
+        .modal-overlay {
+            display: none;
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,.5);
+            z-index: 1000;
+            align-items: center; justify-content: center;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal-box {
+            background: var(--surface);
+            border-radius: 10px;
+            width: 380px;
+            max-width: 95vw;
+            box-shadow: 0 8px 32px rgba(0,0,0,.2);
+        }
+        .modal-header {
+            padding: 14px 18px;
+            background: var(--success);
+            color: white;
+            border-radius: 10px 10px 0 0;
+            font-weight: 600;
+            font-size: .95rem;
+        }
+        .modal-body { padding: 18px; }
+        .modal-body label {
+            display: block;
+            font-size: .8rem;
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: var(--text-light);
+        }
+        .modal-body select, .modal-body input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--border-strong);
+            border-radius: 6px;
+            font-size: .9rem;
+            font-family: inherit;
+            margin-bottom: 14px;
+        }
+        .modal-body select:focus, .modal-body input:focus {
+            outline: none;
+            border-color: var(--brand);
+            box-shadow: 0 0 0 3px rgba(11,61,145,.1);
+        }
+        .modal-body .hint {
+            font-size: .75rem;
+            color: var(--text-light);
+            margin-top: -10px;
+            margin-bottom: 14px;
+        }
+        .modal-footer {
+            padding: 12px 18px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+        .modal-footer button {
+            padding: 9px 18px;
+            border-radius: 5px;
+            font-size: .85rem;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+        }
+        .modal-footer .btn-cancel {
+            background: var(--surface);
+            color: var(--text-light);
+            border: 1px solid var(--border-strong);
+        }
+        .modal-footer .btn-cancel:hover { background: var(--bg); }
+        .modal-footer .btn-confirm {
+            background: var(--success);
+            color: white;
+            border: none;
+        }
+        .modal-footer .btn-confirm:hover { background: #047857; }
+
         .info-tip {
             font-size: .8rem;
             color: var(--text-light);
             margin-bottom: 10px;
         }
         .info-tip i { color: var(--info); margin-right: 5px; }
+
+        /* Print button */
+        .print-btn {
+            padding: 10px 18px;
+            background: var(--surface);
+            color: var(--text-main);
+            border: 1px solid var(--border-strong);
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: .9rem;
+            font-family: inherit;
+            margin-left: 10px;
+        }
+        .print-btn:hover { background: var(--bg); }
+        .print-btn i { margin-right: 6px; }
+
+        /* Print styles */
+        @media print {
+            body { background: white; margin: 0; font-size: 9pt; }
+            .header, .action-row, .info-tip, .modal-overlay,
+            .save-btn, .cancel-btn, .col-act, th.col-act { display: none !important; }
+            .main { padding: 10px; max-width: 100%; }
+
+            /* Print header */
+            .print-header {
+                display: block !important;
+                text-align: center;
+                margin-bottom: 12px;
+                padding-bottom: 8px;
+                border-bottom: 2px solid #000;
+            }
+            .print-header h1 {
+                margin: 0 0 5px;
+                font-size: 14pt;
+            }
+            .print-header .print-date {
+                font-size: 9pt;
+                color: #666;
+            }
+            .print-header .print-summary {
+                font-size: 10pt;
+                margin-top: 5px;
+            }
+
+            .cat-header {
+                background: #333 !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+                padding: 5px 10px;
+                font-size: 10pt;
+                border-radius: 0;
+            }
+            .card {
+                border-radius: 0;
+                margin-bottom: 12px;
+                break-inside: avoid;
+            }
+            table.sheet {
+                min-width: auto;
+                font-size: 8pt;
+            }
+            .sheet th, .sheet td {
+                padding: 3px 5px;
+            }
+            .sheet input, .sheet select, .sheet textarea {
+                border: none !important;
+                background: none !important;
+                padding: 0 !important;
+                font-size: 8pt;
+            }
+            .days-pill {
+                background: none !important;
+                color: #000 !important;
+                padding: 0;
+            }
+            .status-pill { padding: 1px 4px; font-size: 7pt; }
+
+            /* Hide certain columns for cleaner print */
+            .col-sch, th.col-sch,
+            .col-hoc, th.col-hoc { display: none; }
+        }
+        @media screen {
+            .print-header { display: none; }
+        }
     </style>
 </head>
 <body>
@@ -314,6 +479,9 @@
         <button class="primary-btn" id="btnAddRow">
             <i class="fa-solid fa-plus"></i> Add Sick Loco
         </button>
+        <button class="print-btn" onclick="printReport()">
+            <i class="fa-solid fa-print"></i> Print
+        </button>
     </div>
     <div class="info-tip">
         <i class="fa-solid fa-circle-info"></i>
@@ -321,10 +489,47 @@
         Set <b>Status = RDY</b> + fill Ready date/time → Save closes the record (loco back in service).
     </div>
 
+    <div class="print-header">
+        <h1>Sick Loco Position Report</h1>
+        <div class="print-date" id="printDate"></div>
+        <div class="print-summary" id="printSummary"></div>
+    </div>
+
     <div id="sickContent">
         <div class="loading"><i class="fa-solid fa-spinner fa-spin"></i> Loading…</div>
     </div>
 </main>
+
+<!-- Shed Selection Modal (when location is not recognized) -->
+<div class="modal-overlay" id="shedModal">
+    <div class="modal-box">
+        <div class="modal-header">
+            <i class="fa-solid fa-check-circle"></i> Mark Loco Ready
+        </div>
+        <div class="modal-body">
+            <p style="font-size:.85rem;color:var(--text-main);margin:0 0 14px;">
+                The sick location could not be mapped to a terminal. Please select where the loco is now available:
+            </p>
+            <label for="readyShed">Available at Shed/Terminal</label>
+            <select id="readyShed">
+                <option value="">-- Select --</option>
+                <option value="VVH">VVH</option>
+                <option value="CSMT">CSMT</option>
+                <option value="LTT">LTT</option>
+                <option value="DR">DR</option>
+                <option value="PNVL">PNVL</option>
+                <option value="KYN">KYN</option>
+                <option value="TNA">TNA</option>
+                <option value="OUT_OF_DIV">Handed Over / Out of Division</option>
+            </select>
+            <p class="hint">This determines where the loco appears in availability tracking.</p>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-cancel" id="shedModalCancel">Cancel</button>
+            <button class="btn-confirm" id="shedModalConfirm">Confirm Ready</button>
+        </div>
+    </div>
+</div>
 
 <script>
 const $  = sel => document.querySelector(sel);
@@ -332,6 +537,7 @@ const $$ = sel => document.querySelectorAll(sel);
 
 let pendingSeq = 0;          // counter for unsaved blank rows
 let cachedRows = [];         // last-loaded saved sick rows (for re-rendering)
+let pendingFitData = null;   // stores fit data when shed modal is shown
 
 function todayISO() { return new Date().toISOString().slice(0, 10); }
 function fmtDate(v, fb = '') {
@@ -769,6 +975,15 @@ async function saveRow(tr) {
                 body: JSON.stringify(fitBody),
             });
             const d2 = await r2.json();
+
+            // If location couldn't be normalized, ask for shed
+            if (d2.needs_shed_input) {
+                pendingFitData = { id, fitBody, tr };
+                $('#readyShed').value = '';
+                $('#shedModal').classList.add('active');
+                return;
+            }
+
             if (!r2.ok) { setRowStatus(tr, d2.error || 'mark ready failed', true); return; }
             // Saved record closes — refresh to drop it from list
             await loadSickList();
@@ -831,6 +1046,84 @@ function addPendingRow() {
 }
 
 $('#btnAddRow').addEventListener('click', addPendingRow);
+
+// ── Shed Selection Modal Handlers ────────────────────────────────────
+$('#shedModalCancel').addEventListener('click', () => {
+    $('#shedModal').classList.remove('active');
+    if (pendingFitData && pendingFitData.tr) {
+        setRowStatus(pendingFitData.tr, 'Cancelled - shed not selected', false);
+        pendingFitData.tr.querySelector('button[data-action="save"]').disabled = false;
+        pendingFitData.tr.classList.remove('row-saving');
+    }
+    pendingFitData = null;
+});
+
+$('#shedModalConfirm').addEventListener('click', async () => {
+    const shed = $('#readyShed').value;
+    if (!shed) {
+        alert('Please select a shed/terminal');
+        return;
+    }
+    if (!pendingFitData) {
+        $('#shedModal').classList.remove('active');
+        return;
+    }
+
+    const { id, fitBody, tr } = pendingFitData;
+    fitBody.ready_at_shed = shed;
+
+    try {
+        const r = await fetch(`/api/division/loco-link/sick/${id}/fit`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(fitBody),
+        });
+        const d = await r.json();
+        if (!r.ok) {
+            setRowStatus(tr, d.error || 'mark ready failed', true);
+            tr.querySelector('button[data-action="save"]').disabled = false;
+            tr.classList.remove('row-saving');
+            $('#shedModal').classList.remove('active');
+            pendingFitData = null;
+            return;
+        }
+        // Success - refresh list
+        $('#shedModal').classList.remove('active');
+        pendingFitData = null;
+        await loadSickList();
+    } catch (e) {
+        setRowStatus(tr, 'network error', true);
+        tr.querySelector('button[data-action="save"]').disabled = false;
+        tr.classList.remove('row-saving');
+        $('#shedModal').classList.remove('active');
+        pendingFitData = null;
+    }
+});
+
+// Close modal on overlay click
+$('#shedModal').addEventListener('click', (e) => {
+    if (e.target === $('#shedModal')) {
+        $('#shedModalCancel').click();
+    }
+});
+
+// Print function
+function printReport() {
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('en-IN', {
+        day: '2-digit', month: 'short', year: 'numeric',
+        hour: '2-digit', minute: '2-digit', hour12: false
+    });
+    $('#printDate').textContent = `Generated: ${dateStr}`;
+
+    // Add summary to print header
+    const total = cachedRows.length;
+    const cog = cachedRows.filter(r => r.category_final === 'COG' || r.category_final === 'COG-DSL').length;
+    const goods = cachedRows.filter(r => r.category_final === 'GOODS' || r.category_final === 'GOODS-DSL').length;
+    $('#printSummary').textContent = `Total: ${total} | COG: ${cog} | GOODS: ${goods}`;
+
+    window.print();
+}
 
 // Init
 loadMe();

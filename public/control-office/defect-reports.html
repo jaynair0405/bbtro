@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Defect Reports | Control Office</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --brand: #0b3d91;
+            --brand-light: #1e5fb8;
+            --bg: #f1f5f9;
+            --surface: #ffffff;
+            --border: #e2e8f0;
+            --border-strong: #cbd5e1;
+            --text-main: #1e293b;
+            --text-light: #64748b;
+            --danger: #dc2626;
+            --danger-bg: #fee2e2;
+            --warning: #d97706;
+            --warning-bg: #fef3c7;
+            --success: #059669;
+            --success-bg: #d1fae5;
+        }
+        * { box-sizing: border-box; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; color: var(--text-main); }
+
+        .header {
+            background: var(--brand); color: white;
+            padding: 12px 24px;
+            display: flex; align-items: center; justify-content: space-between;
+            box-shadow: 0 2px 6px rgba(0,0,0,.08);
+        }
+        .header-title { font-size: 1.1rem; font-weight: 600; }
+        .header-title a { color: white; text-decoration: none; opacity: .85; }
+        .header-title a:hover { opacity: 1; }
+        .header-title .sep { margin: 0 10px; opacity: .6; }
+        .header-user { display: flex; align-items: center; gap: 14px; font-size: .9rem; }
+        .header-user a { color: white; background: rgba(255,255,255,.15); padding: 5px 11px; border-radius: 4px; text-decoration: none; font-size: .82rem; }
+        .header-user a:hover { background: rgba(255,255,255,.25); }
+
+        .main { padding: 20px 24px; max-width: 1400px; margin: 0 auto; }
+
+        .tabs {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 20px;
+        }
+        .tab-btn {
+            padding: 10px 20px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px 6px 0 0;
+            font-weight: 600;
+            font-size: .9rem;
+            cursor: pointer;
+            color: var(--text-light);
+            font-family: inherit;
+        }
+        .tab-btn:hover { background: var(--bg); }
+        .tab-btn.active {
+            background: var(--brand);
+            color: white;
+            border-color: var(--brand);
+        }
+
+        .filters {
+            background: var(--surface);
+            padding: 16px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            align-items: flex-end;
+            box-shadow: 0 1px 3px rgba(0,0,0,.04);
+        }
+        .filter-group label {
+            display: block;
+            font-size: .75rem;
+            font-weight: 600;
+            color: var(--text-light);
+            margin-bottom: 4px;
+            text-transform: uppercase;
+        }
+        .filter-group input, .filter-group select {
+            padding: 8px 12px;
+            border: 1px solid var(--border-strong);
+            border-radius: 5px;
+            font-size: .9rem;
+            font-family: inherit;
+        }
+        .filter-group input:focus, .filter-group select:focus {
+            outline: none;
+            border-color: var(--brand);
+        }
+        .filter-btn {
+            padding: 9px 18px;
+            background: var(--brand);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: inherit;
+        }
+        .filter-btn:hover { background: var(--brand-light); }
+
+        .summary-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .summary-card {
+            background: var(--surface);
+            padding: 16px 20px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,.04);
+            border-left: 4px solid var(--brand);
+        }
+        .summary-card.danger { border-left-color: var(--danger); }
+        .summary-card.warning { border-left-color: var(--warning); }
+        .summary-card.success { border-left-color: var(--success); }
+        .summary-card .num {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--text-main);
+        }
+        .summary-card .lbl {
+            font-size: .8rem;
+            color: var(--text-light);
+            margin-top: 4px;
+        }
+
+        .section {
+            margin-bottom: 24px;
+        }
+        .section-header {
+            background: var(--brand);
+            color: white;
+            padding: 10px 16px;
+            border-radius: 6px 6px 0 0;
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .section-header.terminal { background: #6366f1; }
+        .section-header .count {
+            background: rgba(255,255,255,.2);
+            padding: 2px 10px;
+            border-radius: 10px;
+            font-size: .8rem;
+        }
+        .table-wrap {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-top: none;
+            border-radius: 0 0 6px 6px;
+            overflow-x: auto;
+        }
+        table.defect-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: .85rem;
+        }
+        .defect-table th, .defect-table td {
+            padding: 10px 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+        .defect-table th {
+            background: var(--bg);
+            font-size: .72rem;
+            text-transform: uppercase;
+            font-weight: 700;
+            color: var(--text-light);
+        }
+        .defect-table tbody tr:hover { background: #fef2f2; }
+        .defect-table .loco {
+            font-family: 'Courier New', monospace;
+            font-weight: 700;
+            color: var(--brand);
+        }
+        .defect-table .train {
+            font-family: 'Courier New', monospace;
+            color: var(--text-light);
+        }
+        .cat-pill {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: .72rem;
+            font-weight: 600;
+            background: var(--danger-bg);
+            color: var(--danger);
+        }
+        .sev-pill {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: .7rem;
+            font-weight: 700;
+        }
+        .sev-pill.MINOR { background: var(--warning-bg); color: var(--warning); }
+        .sev-pill.MAJOR { background: #fecaca; color: #b91c1c; }
+        .sev-pill.CRITICAL { background: #b91c1c; color: white; }
+        .status-pill {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: .7rem;
+            font-weight: 600;
+        }
+        .status-pill.OPEN { background: var(--danger-bg); color: var(--danger); }
+        .status-pill.ACKNOWLEDGED { background: var(--warning-bg); color: var(--warning); }
+        .status-pill.RESOLVED { background: var(--success-bg); color: var(--success); }
+
+        .empty-state {
+            padding: 40px;
+            text-align: center;
+            color: var(--text-light);
+        }
+        .empty-state i { font-size: 2rem; margin-bottom: 10px; opacity: .5; }
+        .loading { padding: 40px; text-align: center; color: var(--text-light); }
+
+        /* Print button */
+        .print-btn {
+            padding: 9px 18px;
+            background: var(--surface);
+            color: var(--text-main);
+            border: 1px solid var(--border-strong);
+            border-radius: 5px;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: inherit;
+            margin-left: auto;
+        }
+        .print-btn:hover { background: var(--bg); }
+        .print-btn i { margin-right: 6px; }
+
+        /* Print styles */
+        @media print {
+            body { background: white; margin: 0; font-size: 9pt; }
+            .header, .tabs, .filters, .summary-cards { display: none !important; }
+            .main { padding: 10px; max-width: 100%; }
+
+            /* Print header */
+            .print-header {
+                display: block !important;
+                text-align: center;
+                margin-bottom: 15px;
+                padding-bottom: 10px;
+                border-bottom: 2px solid #000;
+            }
+            .print-header h1 {
+                margin: 0 0 5px;
+                font-size: 14pt;
+            }
+            .print-header .print-date {
+                font-size: 9pt;
+                color: #666;
+            }
+            .print-header .print-summary {
+                font-size: 10pt;
+                margin-top: 8px;
+            }
+            .print-header .print-filters {
+                font-size: 9pt;
+                color: #666;
+                margin-top: 5px;
+            }
+
+            .section {
+                break-inside: avoid;
+                margin-bottom: 15px;
+            }
+            .section-header {
+                background: #333 !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+                padding: 6px 12px;
+                font-size: 10pt;
+                border-radius: 0;
+            }
+            .table-wrap {
+                border-radius: 0;
+            }
+            .defect-table {
+                font-size: 8pt;
+            }
+            .defect-table th, .defect-table td {
+                padding: 5px 8px;
+            }
+            .cat-pill, .sev-pill, .status-pill {
+                background: none !important;
+                color: #000 !important;
+                padding: 0;
+                font-size: 8pt;
+            }
+            .sev-pill.CRITICAL { font-weight: bold; text-decoration: underline; }
+        }
+        @media screen {
+            .print-header { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+<header class="header">
+    <div class="header-title">
+        <a href="/control-office/" title="Back"><i class="fa-solid fa-arrow-left"></i> Control Office</a>
+        <span class="sep">›</span>
+        <span>Defect Reports</span>
+    </div>
+    <div class="header-user">
+        <span id="userInfo">...</span>
+        <a href="/api/logout" title="Logout"><i class="fa-solid fa-right-from-bracket"></i></a>
+    </div>
+</header>
+
+<main class="main">
+    <div class="tabs">
+        <button class="tab-btn active" data-tab="terminal">
+            <i class="fa-solid fa-train"></i> By Terminal (CSMT/LTT/PNVL)
+        </button>
+        <button class="tab-btn" data-tab="shed">
+            <i class="fa-solid fa-warehouse"></i> By Home Shed
+        </button>
+    </div>
+
+    <div class="filters">
+        <div class="filter-group">
+            <label>From Date</label>
+            <input type="date" id="filterFromDate">
+        </div>
+        <div class="filter-group">
+            <label>To Date</label>
+            <input type="date" id="filterToDate">
+        </div>
+        <div class="filter-group">
+            <label>Category</label>
+            <select id="filterCategory">
+                <option value="">All Categories</option>
+                <option value="BRAKE">Brake</option>
+                <option value="TRACTION">Traction</option>
+                <option value="PANTOGRAPH">Pantograph</option>
+                <option value="HOTEL_LOAD">Hotel Load</option>
+                <option value="AC">AC</option>
+                <option value="SPEEDOMETER">Speedometer</option>
+                <option value="HORN">Horn</option>
+                <option value="VIGILANCE">Vigilance</option>
+                <option value="AUX_CONVERTOR">Auxiliary Convertor</option>
+                <option value="BATTERY">Battery/Battery Charger</option>
+                <option value="SI_UNIT">SI Unit</option>
+                <option value="OTHER">Other</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Status</label>
+            <select id="filterStatus">
+                <option value="">All</option>
+                <option value="OPEN" selected>Open</option>
+                <option value="ACKNOWLEDGED">Acknowledged</option>
+                <option value="RESOLVED">Resolved</option>
+            </select>
+        </div>
+        <button class="filter-btn" id="applyFilters">
+            <i class="fa-solid fa-filter"></i> Apply
+        </button>
+        <button class="print-btn" onclick="printReport()">
+            <i class="fa-solid fa-print"></i> Print
+        </button>
+    </div>
+
+    <div class="print-header">
+        <h1 id="printTitle">Loco Defect Report</h1>
+        <div class="print-date" id="printDate"></div>
+        <div class="print-filters" id="printFilters"></div>
+        <div class="print-summary" id="printSummary"></div>
+    </div>
+
+    <div class="summary-cards">
+        <div class="summary-card danger">
+            <div class="num" id="totalDefects">—</div>
+            <div class="lbl">Total Defects</div>
+        </div>
+        <div class="summary-card warning">
+            <div class="num" id="criticalCount">—</div>
+            <div class="lbl">Critical</div>
+        </div>
+        <div class="summary-card">
+            <div class="num" id="majorCount">—</div>
+            <div class="lbl">Major</div>
+        </div>
+        <div class="summary-card success">
+            <div class="num" id="groupCount">—</div>
+            <div class="lbl" id="groupLabel">Terminals</div>
+        </div>
+    </div>
+
+    <div id="reportContent">
+        <div class="loading"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</div>
+    </div>
+</main>
+
+<script>
+const $ = sel => document.querySelector(sel);
+const $$ = sel => document.querySelectorAll(sel);
+
+let currentTab = 'terminal';
+
+function esc(s) {
+    if (s == null) return '';
+    return String(s).replace(/[&<>"']/g, c => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    })[c]);
+}
+
+function fmtDate(v) {
+    if (!v) return '—';
+    const d = new Date(v);
+    return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function todayISO() {
+    return new Date().toISOString().slice(0, 10);
+}
+
+// Set default dates (last 30 days)
+const today = new Date();
+const thirtyDaysAgo = new Date(today);
+thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+$('#filterFromDate').value = thirtyDaysAgo.toISOString().slice(0, 10);
+$('#filterToDate').value = todayISO();
+
+async function loadMe() {
+    try {
+        const r = await fetch('/api/division/loco-link/me');
+        if (!r.ok) return;
+        const u = await r.json();
+        const role = u.div_role === 'lpc' ? 'LPC' : (u.div_role || u.role);
+        $('#userInfo').innerHTML = `<i class="fa-solid fa-user"></i> ${u.full_name || u.username} <small>(${role})</small>`;
+    } catch (e) {}
+}
+
+async function loadReport() {
+    const content = $('#reportContent');
+    content.innerHTML = '<div class="loading"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</div>';
+
+    const fromDate = $('#filterFromDate').value;
+    const toDate = $('#filterToDate').value;
+    const category = $('#filterCategory').value;
+    const status = $('#filterStatus').value;
+
+    const endpoint = currentTab === 'terminal' ? '/api/division/loco-link/defects/by-terminal' : '/api/division/loco-link/defects/by-shed';
+    let url = `${endpoint}?`;
+    if (fromDate) url += `from_date=${fromDate}&`;
+    if (toDate) url += `to_date=${toDate}&`;
+    if (status) url += `status=${status}&`;
+
+    try {
+        const r = await fetch(url);
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const data = await r.json();
+
+        // Get grouped data based on tab
+        let grouped = currentTab === 'terminal' ? (data.byTerminal || {}) : (data.byShed || {});
+        const groupKey = currentTab === 'terminal' ? 'reported_at_terminal' : 'home_shed';
+
+        // Apply client-side category filter
+        if (category) {
+            for (const key in grouped) {
+                grouped[key] = grouped[key].filter(d => d.defect_category === category);
+                if (!grouped[key].length) delete grouped[key];
+            }
+        }
+
+        // Calculate summary
+        let total = 0, critical = 0, major = 0;
+        for (const key in grouped) {
+            for (const d of grouped[key]) {
+                total++;
+                if (d.severity === 'CRITICAL') critical++;
+                if (d.severity === 'MAJOR') major++;
+            }
+        }
+        $('#totalDefects').textContent = total;
+        $('#criticalCount').textContent = critical;
+        $('#majorCount').textContent = major;
+        $('#groupCount').textContent = Object.keys(grouped).length;
+        $('#groupLabel').textContent = currentTab === 'terminal' ? 'Terminals' : 'Sheds';
+
+        if (!total) {
+            content.innerHTML = `
+                <div class="empty-state">
+                    <i class="fa-solid fa-check-circle"></i>
+                    <div>No defects found for the selected criteria</div>
+                </div>
+            `;
+            return;
+        }
+
+        // Render grouped
+        let html = '';
+        const sortedKeys = Object.keys(grouped).sort();
+        for (const key of sortedKeys) {
+            const defects = grouped[key];
+            const headerClass = currentTab === 'terminal' ? 'section-header terminal' : 'section-header';
+            const icon = currentTab === 'terminal' ? 'train' : 'warehouse';
+            html += `
+                <div class="section">
+                    <div class="${headerClass}">
+                        <span><i class="fa-solid fa-${icon}"></i> ${esc(key)}</span>
+                        <span class="count">${defects.length} defect${defects.length === 1 ? '' : 's'}</span>
+                    </div>
+                    <div class="table-wrap">
+                        <table class="defect-table">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Loco</th>
+                                    <th>Train</th>
+                                    ${currentTab === 'terminal' ? '<th>Home Shed</th>' : '<th>Terminal</th>'}
+                                    <th>Category</th>
+                                    <th>Severity</th>
+                                    <th>Description</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${defects.map(d => `
+                                    <tr>
+                                        <td>${fmtDate(d.working_date)}</td>
+                                        <td class="loco">${esc(d.loco_number)}</td>
+                                        <td class="train">${esc(d.train_no || '—')}</td>
+                                        <td>${currentTab === 'terminal' ? esc(d.home_shed || '—') : esc(d.reported_at_terminal || '—')}</td>
+                                        <td><span class="cat-pill">${esc(d.defect_category)}</span></td>
+                                        <td><span class="sev-pill ${d.severity}">${d.severity}</span></td>
+                                        <td>${esc(d.description)}</td>
+                                        <td><span class="status-pill ${d.status}">${d.status}</span></td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }
+        content.innerHTML = html;
+    } catch (e) {
+        content.innerHTML = `<div class="empty-state" style="color:var(--danger)">
+            <i class="fa-solid fa-exclamation-triangle"></i>
+            <div>Failed to load: ${esc(e.message)}</div>
+        </div>`;
+    }
+}
+
+// Tab switching
+$$('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        $$('.tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentTab = btn.dataset.tab;
+        loadReport();
+    });
+});
+
+$('#applyFilters').addEventListener('click', loadReport);
+
+// Print function
+function printReport() {
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('en-IN', {
+        day: '2-digit', month: 'short', year: 'numeric',
+        hour: '2-digit', minute: '2-digit', hour12: false
+    });
+
+    // Set print title based on current tab
+    const tabLabel = currentTab === 'terminal' ? 'By Terminal' : 'By Home Shed';
+    $('#printTitle').textContent = `Loco Defect Report - ${tabLabel}`;
+    $('#printDate').textContent = `Generated: ${dateStr}`;
+
+    // Show applied filters
+    const fromDate = $('#filterFromDate').value;
+    const toDate = $('#filterToDate').value;
+    const category = $('#filterCategory').value;
+    const status = $('#filterStatus').value;
+    let filterParts = [];
+    if (fromDate || toDate) filterParts.push(`Period: ${fromDate || '...'} to ${toDate || '...'}`);
+    if (category) filterParts.push(`Category: ${category}`);
+    if (status) filterParts.push(`Status: ${status}`);
+    $('#printFilters').textContent = filterParts.length ? filterParts.join(' | ') : 'All records';
+
+    // Add summary
+    const total = $('#totalDefects').textContent;
+    const critical = $('#criticalCount').textContent;
+    const major = $('#majorCount').textContent;
+    $('#printSummary').textContent = `Total: ${total} | Critical: ${critical} | Major: ${major}`;
+
+    window.print();
+}
+
+// Init
+loadMe();
+loadReport();
+</script>
+
+</body>
+</html>

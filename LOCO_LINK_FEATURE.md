@@ -10,7 +10,7 @@ If you're picking this up cold, read in this order:
 
 1. **This doc** (the file you're reading)
 2. **DDL block below** — gives you the exact current schema for the 4 tables
-3. **[routes/division/locoLinkRoutes.js](routes/division/locoLinkRoutes.js)** — all backend endpoints (~1650 lines)
+3. **[routes/division/locoLinkRoutes.js](routes/division/locoLinkRoutes.js)** — all backend endpoints (~1600 lines)
 4. **[public/control-office/daily-entry.html](public/control-office/daily-entry.html)** — the main LPC working surface (~2100 lines)
 5. **Open work** section at the bottom — where to pick up
 
@@ -46,6 +46,7 @@ To verify local matches this doc: `mysql -u jay -p4310jay bbtro -e "SHOW CREATE 
 | `+` button to add second loco; auto-split on `X+Y`; rear input accepts coupler verbatim | ✅ DONE 2026-05-08 |
 | `main_loco_dead` + `failed_in_division` (Dead checkbox + before/in/after radios) | ✅ DONE 2026-05-08 |
 | Cross-direction loco propagation (UP↔DN via outgoing/incoming) with reverse-pointer fill | ✅ DONE 2026-05-08 |
+| Day-change logic for cross-direction propagation (midnight-crossing trains) | ✅ DONE 2026-05-17 |
 | Conflict validation (same-loco same-direction same-day → 409) | ✅ DONE 2026-05-08 |
 | `outgoing_train_rear`, `remarks_rear` on log | ✅ DONE 2026-05-08 |
 | Rear-row visibility on reload (CSS bug + rendering loop fix) | ✅ DONE 2026-05-08 |
@@ -53,8 +54,12 @@ To verify local matches this doc: `mysql -u jay -p4310jay bbtro -e "SHOW CREATE 
 | **Loco Link section ready for LPC use in production** | ✅ READY |
 | Sick loco section enhancements (under active development) | 🔄 IN PROGRESS |
 | Loco management (transfer workflow, edit shed/zone) | ⏳ TODO (slice 6) |
-| Available-loco picker for DN trains | ⏳ post-MVP |
-| `div_trains` master (train names, from/to, type) | ⏳ deferred |
+| **WTT tables** (`div_stations`, `div_trains`, `div_train_stops`, `div_train_aliases`) | ✅ DONE 2026-05-20 |
+| **Loco Availability Tracking** (`div_loco_positions`, `div_loco_position_history`) | ✅ DONE 2026-05-20 |
+| Available-loco picker for DN trains | ✅ DONE 2026-05-20 |
+| **Loco Defect Reporting** (`div_loco_defects`) | ✅ DONE 2026-05-22 |
+| Defect reports by terminal and by shed | ✅ DONE 2026-05-22 |
+| **Print functionality** (availability, sick, defects) | ✅ DONE 2026-05-23 |
 
 ---
 
@@ -77,7 +82,7 @@ Imported by `scripts/load_loco_link_master.js` — idempotent UPSERT on `(train_
 
 ## Current schema (post-all-ALTERs)
 
-The DDL below reflects the LIVE local state as of 2026-05-12. The migration files in `sql/` build up to this state in chronological order.
+The DDL below reflects the LIVE local state as of 2026-05-17. The migration files in `sql/` build up to this state in chronological order.
 
 ### `div_locos`
 
@@ -237,6 +242,170 @@ CREATE TABLE `div_loco_sick_records` (
 );
 ```
 
+### `div_stations` (station master)
+
+```sql
+CREATE TABLE `div_stations` (
+  `station_code` varchar(10) NOT NULL,
+  `station_name` varchar(100) DEFAULT NULL,
+  `division` varchar(20) DEFAULT 'BB',
+  `zone` varchar(10) DEFAULT 'CR',
+  `is_terminal` tinyint(1) DEFAULT '0',
+  `is_junction` tinyint(1) DEFAULT '0',
+  `km_from_csmt` decimal(6,2) DEFAULT NULL,
+  `is_active` tinyint(1) DEFAULT '1',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`station_code`)
+);
+```
+
+### `div_trains` (train master)
+
+```sql
+CREATE TABLE `div_trains` (
+  `train_no` varchar(10) NOT NULL,
+  `train_name` varchar(120) DEFAULT NULL,
+  `train_type` enum('Express','Superfast','Mail','Passenger','Suburban','Special','Goods') DEFAULT 'Express',
+  `direction` enum('UP','DN') DEFAULT NULL,
+  `run_days` varchar(20) DEFAULT NULL,
+  `traction_type` enum('Electric','Diesel') DEFAULT 'Electric',
+  `is_regular` tinyint(1) DEFAULT '1',
+  `is_active` tinyint(1) DEFAULT '1',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `from_station` varchar(10) DEFAULT NULL,      -- Division entry/departure point
+  `to_station` varchar(10) DEFAULT NULL,        -- Division exit/terminal point
+  `loco_change_station` varchar(10) DEFAULT NULL, -- Intermediate loco change (e.g., PNVL for bypass)
+  PRIMARY KEY (`train_no`),
+  KEY `idx_direction` (`direction`),
+  KEY `idx_to_station` (`to_station`)
+);
+```
+
+**Loco position detection columns:**
+| Column | UP trains | DN trains |
+|--------|-----------|-----------|
+| `from_station` | Division entry (takeover point) | Departure terminal |
+| `to_station` | Destination terminal | Handover point |
+| `loco_change_station` | If set, loco becomes available here instead of OUT_OF_DIV | If set, loco becomes available here instead of OUT_OF_DIV |
+
+**Example - Bypass with loco change:**
+| train_no | direction | from | to | loco_change |
+|----------|-----------|------|-----|-------------|
+| 22149 | UP | RN | PUNE | PNVL |
+| 22150 | DN | PUNE | RN | PNVL |
+
+For 22149/22150, neither RN nor PUNE are Mumbai terminals. But since loco change happens at PNVL, the incoming loco is detached there and becomes available at PNVL.
+
+### `div_train_aliases` (train renumbering history)
+
+```sql
+CREATE TABLE `div_train_aliases` (
+  `old_train_no` varchar(10) NOT NULL,
+  `new_train_no` varchar(10) NOT NULL,
+  `renamed_date` date DEFAULT NULL,
+  PRIMARY KEY (`old_train_no`),
+  KEY `idx_new` (`new_train_no`)
+);
+```
+
+### `div_train_stops` (station-wise timings)
+
+```sql
+CREATE TABLE `div_train_stops` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `train_no` varchar(10) NOT NULL,
+  `station_code` varchar(10) NOT NULL,
+  `seq_order` int NOT NULL,
+  `arrival_time` time DEFAULT NULL,
+  `departure_time` time DEFAULT NULL,
+  `is_halt` tinyint(1) DEFAULT '1',
+  `platform_no` varchar(5) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_train_station` (`train_no`,`station_code`),
+  KEY `idx_station` (`station_code`),
+  KEY `idx_train` (`train_no`),
+  KEY `idx_seq` (`train_no`,`seq_order`),
+  CONSTRAINT `div_train_stops_ibfk_1` FOREIGN KEY (`train_no`) REFERENCES `div_trains` (`train_no`) ON DELETE CASCADE
+);
+```
+
+### `div_loco_positions` (current loco positions)
+
+```sql
+CREATE TABLE `div_loco_positions` (
+  `loco_number` varchar(20) NOT NULL,
+  `current_location` enum('CSMT','LTT','DR','PNVL','VVH','KYN','TNA','IN_TRANSIT','OUT_OF_DIV') NOT NULL,
+  `arrived_via_train` varchar(20) DEFAULT NULL COMMENT 'UP train that brought it (NULL if manual)',
+  `arrived_at` datetime DEFAULT NULL COMMENT 'When it arrived at current location',
+  `departed_via_train` varchar(20) DEFAULT NULL COMMENT 'DN train it left on (for reference)',
+  `departed_at` datetime DEFAULT NULL COMMENT 'When it departed (for reference)',
+  `remarks` varchar(255) DEFAULT NULL,
+  `updated_by` varchar(100) DEFAULT NULL,
+  `created_at` timestamp DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`loco_number`),
+  KEY `idx_location` (`current_location`),
+  KEY `idx_arrived_at` (`arrived_at`),
+  KEY `idx_updated_at` (`updated_at`)
+);
+```
+
+### `div_loco_position_history` (movement audit trail)
+
+```sql
+CREATE TABLE `div_loco_position_history` (
+  `id` int AUTO_INCREMENT PRIMARY KEY,
+  `loco_number` varchar(20) NOT NULL,
+  `from_location` varchar(20) DEFAULT NULL COMMENT 'Previous location (NULL for first entry)',
+  `to_location` varchar(20) NOT NULL COMMENT 'New location',
+  `movement_type` enum('ARRIVAL','DEPARTURE','TRANSFER','MANUAL') NOT NULL,
+  `train_no` varchar(20) DEFAULT NULL COMMENT 'Associated train (if any)',
+  `working_date` date DEFAULT NULL COMMENT 'Working date of the train movement',
+  `moved_at` datetime NOT NULL COMMENT 'When the movement occurred',
+  `remarks` varchar(255) DEFAULT NULL,
+  `moved_by` varchar(100) DEFAULT NULL COMMENT 'User who recorded the movement',
+  `created_at` timestamp DEFAULT CURRENT_TIMESTAMP,
+  KEY `idx_loco` (`loco_number`),
+  KEY `idx_moved_at` (`moved_at`),
+  KEY `idx_to_location` (`to_location`),
+  KEY `idx_train` (`train_no`),
+  KEY `idx_working_date` (`working_date`),
+  KEY `idx_movement_type` (`movement_type`)
+);
+```
+
+### `div_loco_defects` (defect tracking)
+
+```sql
+CREATE TABLE `div_loco_defects` (
+  `id` int AUTO_INCREMENT PRIMARY KEY,
+  `loco_number` varchar(20) NOT NULL,
+  `train_no` varchar(20) DEFAULT NULL,
+  `working_date` date NOT NULL,
+  `defect_category` enum('BRAKE','TRACTION','PANTOGRAPH','HOTEL_LOAD','AC','SPEEDOMETER','HORN','VIGILANCE','AUX_CONVERTOR','BATTERY','SI_UNIT','OTHER') NOT NULL DEFAULT 'OTHER',
+  `description` varchar(500) NOT NULL,
+  `severity` enum('MINOR','MAJOR','CRITICAL') DEFAULT 'MINOR',
+  `home_shed` varchar(20) DEFAULT NULL,
+  `loco_type` varchar(20) DEFAULT NULL,
+  `reported_at_terminal` varchar(10) DEFAULT NULL COMMENT 'Terminal where defect reported (CSMT/LTT/PNVL)',
+  `reported_by` varchar(100) DEFAULT NULL,
+  `reported_at` datetime DEFAULT CURRENT_TIMESTAMP,
+  `status` enum('OPEN','ACKNOWLEDGED','RESOLVED') DEFAULT 'OPEN',
+  `resolved_by` varchar(100) DEFAULT NULL,
+  `resolved_at` datetime DEFAULT NULL,
+  `resolution_remarks` varchar(500) DEFAULT NULL,
+  `created_at` timestamp DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  KEY `idx_loco` (`loco_number`),
+  KEY `idx_date` (`working_date`),
+  KEY `idx_shed` (`home_shed`),
+  KEY `idx_terminal` (`reported_at_terminal`),
+  KEY `idx_category` (`defect_category`),
+  KEY `idx_status` (`status`)
+);
+```
+
 ---
 
 ## Migration history (chronological)
@@ -249,6 +418,11 @@ CREATE TABLE `div_loco_sick_records` (
 | 2026-05-04 | `sql/2026-05-04_loco_link_extras.sql` | Push-pull columns on log + master; CREATE `div_loco_sick_records` (initial slim version) |
 | 2026-05-04 | `sql/2026-05-04_lpc_role.sql` | Add `'lpc'` to `users.div_role` ENUM |
 | 2026-05-08 | `sql/2026-05-08_loco_link_round_2.sql` | **CONSOLIDATED** — all post-baseline ALTERs in one file (HOG→P/7, type columns, secondary_role, main_loco_dead, failed_in_division, outgoing_train_rear, remarks_rear, sheet_source/section on log, sick-records xlsx-parity, **category override on sick**, VVH→LTT rename) |
+| 2026-05-19 | `sql/2026-05-19_wtt_tables.sql` | CREATE `div_stations` + `div_trains` + `div_train_stops` + `div_train_aliases`; seed 153 stations + 6 train renumberings |
+| 2026-05-20 | `sql/2026-05-20_loco_positions.sql` | ALTER `div_trains` (add from_station/to_station); CREATE `div_loco_positions` + `div_loco_position_history`; seed positions from recent UP logs |
+| 2026-05-22 | `sql/2026-05-22_loco_change_station.sql` | ALTER `div_trains` add loco_change_station for bypass trains with intermediate loco changes (e.g., 22149/22150 at PNVL) |
+| 2026-05-22 | `sql/2026-05-22_loco_defects.sql` | CREATE `div_loco_defects` for tracking defects reported by LPC on incoming locos |
+| 2026-05-24 | `sql/fresh_import_div_trains.sql` | Fresh import of div_trains from `div_trains_stations.csv` (419 trains with correct from/to/direction) |
 
 Run them in this order for a fresh production deploy. After each ALTER file, run the corresponding loader script (see PENDING-DB-CHANGES.md §11 for the exact sequence).
 
@@ -318,8 +492,44 @@ When a saved log row has `outgoing_train` (UP→DN) or `incoming_train` (DN→UP
 - Backend auto-fills the target train's log with the same loco
 - Sets the reverse pointer (incoming on DN target = source UP train, and vice versa)
 - Only fills if target's `actual_loco_no` is empty (won't overwrite)
-- Target master must exist + be running today
+- Target master must exist + be running on the computed target date
 - Result returned in `propagated[]` array of the POST response
+
+#### Day-change logic (added 2026-05-17)
+
+For trains that cross midnight, the target working_date may differ from the source:
+
+**Priority rules** (checked in order):
+
+1. **Already departed today**: If `working_date == today` AND `target_dep < current_IST_time` → **next day**
+   - Train has already departed today, so assignment must be for tomorrow
+   - Example: It's 14:00 IST, LPC assigns to 22177 (departs 00:15) → next day
+
+2. **Time comparison**: If `target_dep < source_takeover` → **next day**
+   - Standard logic for back-filling or when rule 1 doesn't apply
+   - Example: UP takeover 22:05, DN departs 00:15 → next day
+
+3. **Otherwise** → same day
+
+| Current IST | Source (UP) Takeover | Target (DN) Dep | Result | Reason |
+|-------------|----------------------|-----------------|--------|--------|
+| 14:00 | 22:05 | 00:15 | **Next day** | `already_departed_today` |
+| 23:30 | 22:05 | 00:15 | **Next day** | `already_departed_today` |
+| 10:00 | 22:05 | 23:30 | Same day | `same_day` (23:30 > 10:00 & > 22:05) |
+| 08:00 (back-fill) | 22:05 | 00:15 | **Next day** | `time_comparison` |
+| 02:00 | 02:00 | 05:30 | Same day | `same_day` (05:30 > 02:00) |
+
+**Notes**:
+- UP `event_time` = takeover time at division entry (IGP/LNL/Roha), NOT arrival at terminal
+- DN `event_time` = departure time from terminal
+- All date calculations use **IST** (UTC+5:30), not server UTC
+- LPC can override via "Same day" checkbox in the UI
+- If target train doesn't run on the computed date, propagation skips with `status: 'no_run_on_target_date'`
+
+**UI indicators**:
+- Orange indicator: `→ 18-May (Sun)` for next-day assignments
+- Red indicator if target train doesn't run on that date
+- "☐ Same day" checkbox allows LPC to override auto-detection
 
 ### Conflict validation
 
@@ -352,11 +562,12 @@ For grouping currently-sick locos into COG / GOODS / COG-DSL / GOODS-DSL section
 | GET | `/me` | session info |
 | GET | `/loco/:n/details` | full loco record + sick status + last 5 trains worked |
 | GET | `/loco/:n/autofill` | lightweight lookup (home_shed, loco_type, hotel_load_oem) — used by cell autofill |
+| GET | `/train/:n/target-date?source_date=&source_time=&target_direction=` | preview target working_date for cross-direction propagation (returns `target_date`, `is_next_day`, `runs_on_target`, `display_date`) |
 | GET | `/shed-zone-map` | `{ shed: zone, ... }` cached by frontend for `CR/AQE` formatting |
 | GET | `/dashboard-stats?date=` | totals + per-segment counts for the landing page |
 | GET | `/today?sheet_source=&date=` | master rows + log rows + specials for a terminal segment |
 | GET | `/today?direction=BYPASS&date=` | bypass rows |
-| POST | `/log` | upsert daily log row. Runs sick-check, conflict-check, push-pull validation, mis-link computation, then cross-direction propagation. Returns `propagated[]` array if any cross-fill happened. |
+| POST | `/log` | upsert daily log row. Runs sick-check, conflict-check, push-pull validation, mis-link computation, then cross-direction propagation with day-change logic. Optional `outgoing_date_override` / `outgoing_date_override_rear` params to force same-day assignment. Returns `propagated[]` array with `target_date`, `is_next_day` if any cross-fill happened. |
 | DELETE | `/log/:id` | delete a special-train log row (only allowed for `master_id IS NULL`) |
 | POST | `/sick` | mark loco sick (all xlsx fields including `category` override) |
 | PATCH | `/sick/:id` | update an open sick record's mid-flight fields |
@@ -368,6 +579,18 @@ For grouping currently-sick locos into COG / GOODS / COG-DSL / GOODS-DSL section
 | GET | `/reports/by-expected-shed?from=&to=` | aggregate per `expected_shed` |
 | GET | `/reports/train/:n/history?limit=` | recent entries for a train |
 | GET | `/reports/loco/:n/history?limit=` | recent entries for a loco (front + rear UNION) |
+| GET | `/positions?location=&all=` | list loco positions (grouped by terminal, or filtered by location) |
+| POST | `/position` | manually move loco between terminals (`{ loco_number, to_location, remarks? }`) |
+| GET | `/position/:n` | current position of a specific loco |
+| GET | `/position/:n/history?limit=` | movement history for a loco |
+| GET | `/available?terminal=` | locos available for DN train assignment at a terminal (not sick, not assigned DN today) |
+| GET | `/assigned-today` | list of locos already assigned to DN trains today (used by availability page) |
+| POST | `/defects` | report a new defect (auto-detects terminal from sheet_source) |
+| GET | `/defects?loco=&from_date=&to_date=&category=&status=` | list defects with filters |
+| GET | `/defects/by-shed?from_date=&to_date=&status=` | defects grouped by home shed |
+| GET | `/defects/by-terminal?from_date=&to_date=&status=` | defects grouped by reported_at_terminal |
+| GET | `/defects/for-log?loco=&date=` | defects for a specific loco/date (for daily-entry UI) |
+| PATCH | `/defects/:id` | update defect status/resolution |
 
 ---
 
@@ -381,7 +604,10 @@ For grouping currently-sick locos into COG / GOODS / COG-DSL / GOODS-DSL section
 | `sql/2026-05-04_loco_link_extras.sql` | Push-pull cols + initial `div_loco_sick_records` |
 | `sql/2026-05-04_lpc_role.sql` | Add `lpc` to `users.div_role` |
 | `sql/2026-05-08_loco_link_round_2.sql` | **CONSOLIDATED** post-baseline ALTERs (one-file deploy) |
+| `sql/2026-05-19_wtt_tables.sql` | WTT tables + station seed (153 stations) |
+| `sql/2026-05-20_loco_positions.sql` | Loco position tracking tables + from/to station columns on div_trains |
 | `scripts/load_locos.js` | Loads `locodb.csv` → `div_locos` (idempotent, UPSERT on loco_number) |
+| `scripts/import-wtt.js` | Loads `Train_Timings_Summary.xlsx` → `div_trains` + `div_train_stops` (sorts stops by time for correct geographic sequence; syncs run_days from div_loco_link_master) |
 | `scripts/load_loco_link_master.js` | Loads `CO_Loco_link_final.xlsx` → `div_loco_link_master` (handles HOG→P/7, push-pull detection, type derivation, bypass unpivot) |
 | `routes/division/locoLinkRoutes.js` | All backend endpoints (mounted at `/api/division/loco-link`) |
 | `routes/authRoutes.js` | LPC redirect to `/control-office/` on login |
@@ -389,7 +615,9 @@ For grouping currently-sick locos into COG / GOODS / COG-DSL / GOODS-DSL section
 | `public/control-office/index.html` | LPC portal dashboard + always-visible Loco Lookup widget |
 | `public/control-office/daily-entry.html` | Sheet view — terminal + bypass + special trains + auto-propagation |
 | `public/control-office/reports.html` | 4-tab reports (mis-link list with tier filter, by-shed, train history, loco history) |
-| `public/control-office/sick-locos.html` | Sheet-style sick loco position with categorized sub-tables + LPC category override |
+| `public/control-office/sick-locos.html` | Sheet-style sick loco position with categorized sub-tables + LPC category override + print |
+| `public/control-office/loco-availability.html` | Loco availability by terminal with add/move/sick actions + print |
+| `public/control-office/defect-reports.html` | Two-tab defect reports (by terminal / by shed) with filters + print |
 | `LOCO_LINK_FEATURE.md` | This doc |
 | `LOCO_MASTER_MIGRATION.md` | The `div_locos` migration story (separate concern) |
 | `sql/PENDING-DB-CHANGES.md` | §11 has the full deploy sequence for production |
@@ -413,11 +641,77 @@ For production, create equivalent users with real LPC names — the bcrypt passw
 
 ### 🔄 Sick Loco section (in progress)
 
-Last touched 2026-05-12. Remaining items LPC may ask for:
+Last touched 2026-05-22. Recent updates:
+
+**Sick → Ready integration with Loco Availability (2026-05-22):**
+- When a sick loco is marked Ready (status=RDY), it now appears in the loco availability page
+- The system attempts to normalize the sick location (e.g., "VVH TS" → "VVH", "CSMT ELS" → "CSMT")
+- If location cannot be normalized, a modal prompts the user to select the terminal where the loco is now available
+- This ensures locos marked ready are immediately trackable for DN train assignment
+- `PATCH /sick/:id/fit` now accepts `ready_at_shed` parameter for explicit terminal selection
+- If already-fit record receives `ready_at_shed`, it updates just the position (allows correction)
+
+Remaining items LPC may ask for:
 - **Coupler-pair sick** — when both halves of a coupler are sick together (xlsx pattern `38226+32660`). Schema has `paired_with_id` but UI doesn't yet support entering pairs as one operation.
 - **History view** for a single loco's sick episodes (we have the endpoint `/sick/history?loco=`, no UI yet)
 - **Shed-wise sick summary** report — how many sick at each shed right now, by category
 - **Sick → Mis-link cross-link** — when a loco is currently sick, daily-entry should also forbid assigning it (already enforced via POST /log sick check). Verify the UI surfaces this clearly.
+
+### ✅ Loco Defect Reporting (completed 2026-05-22)
+
+Track defects reported by LPC on incoming locos (UP trains) for terminal and shed-wise analysis.
+
+**Schema:**
+```sql
+CREATE TABLE div_loco_defects (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    loco_number VARCHAR(20) NOT NULL,
+    train_no VARCHAR(20),
+    working_date DATE NOT NULL,
+    defect_category ENUM('BRAKE','TRACTION','PANTOGRAPH','HOTEL_LOAD','AC','SPEEDOMETER','HORN','VIGILANCE','AUX_CONVERTOR','BATTERY','SI_UNIT','OTHER'),
+    description VARCHAR(500) NOT NULL,
+    severity ENUM('MINOR','MAJOR','CRITICAL'),
+    home_shed VARCHAR(20),              -- From div_locos lookup
+    loco_type VARCHAR(20),
+    reported_at_terminal VARCHAR(10),   -- Terminal where defect reported (CSMT/LTT/PNVL)
+    reported_by VARCHAR(100),
+    reported_at DATETIME,
+    status ENUM('OPEN','ACKNOWLEDGED','RESOLVED'),
+    resolved_by VARCHAR(100),
+    resolved_at DATETIME,
+    resolution_remarks VARCHAR(500)
+);
+```
+
+**Categories:** BRAKE, TRACTION, PANTOGRAPH, HOTEL_LOAD, AC, SPEEDOMETER, HORN, VIGILANCE, AUX_CONVERTOR (Auxiliary Convertor), BATTERY (Battery/Battery Charger), SI_UNIT, OTHER
+
+**Endpoints:**
+- `POST /defects` — report a new defect (auto-detects terminal from sheet_source)
+- `GET /defects` — list defects (filters: loco, shed, terminal, category, status, date range)
+- `GET /defects/by-shed` — grouped by home shed for reports
+- `GET /defects/by-terminal` — grouped by reported_at_terminal (CSMT/LTT/PNVL)
+- `GET /defects/for-log` — defects for specific loco/date
+- `PATCH /defects/:id` — update status/resolution
+
+**UI:**
+- **daily-entry.html**: Wrench button (🔧) on UP rows next to loco input. Opens modal to report defect with category, severity, description. Info tip bar explains feature to new LPC users (can be dismissed, saved in localStorage).
+- **defect-reports.html**: Two-tab report (By Terminal / By Home Shed) with filters (date range, category, status). Summary cards show total defects, critical, major, and group counts. Print button for simple Excel-like printout.
+
+**Flow:**
+1. LPC enters loco number for UP train
+2. If defect observed, clicks 🔧 button
+3. Modal opens with category dropdown, severity, description
+4. Submit creates defect record with loco's home_shed + reported_at_terminal auto-populated
+5. Reports page shows defects grouped by terminal or by shed for analysis
+
+### ⏳ WTT Management Page
+
+Not started. Scope:
+- View all trains with halts/timings
+- Add/edit/delete train halts
+- Edit arrival/departure times
+- Bulk import from Excel
+- Required for SPM analysis app (under development)
 
 ### ⏳ Loco Management (slice 6)
 
@@ -429,19 +723,89 @@ Not started. Scope:
 - Search/filter + bulk operations
 - Estimated ~700 LOC
 
-### ⏳ Available-loco picker (post-MVP UX)
+### ✅ Loco Availability Tracking (completed 2026-05-20)
 
-For DN trains, show a side panel listing locos available for assignment:
-- Arrived in our div via a UP train (have log entry with direction=UP, working_date=today or yesterday)
-- Not yet assigned to a DN train today
-- Not currently sick
-- Filter by base_shed for shed-aware allocation
+Track loco positions at Mumbai division terminals to enable DN train assignment.
 
-Pure read-only feature on top of existing tables.
+**How it works:**
+- When an UP train is logged with a loco, the loco's position is automatically set to the terminal (CSMT/LTT/DR/PNVL/VVH/KYN/TNA)
+- When a DN train is logged, the loco is marked as OUT_OF_DIV (departed the division)
+- Manual transfers between terminals are supported via POST /position
+- Full movement history is maintained in `div_loco_position_history`
 
-### ⏳ `div_trains` master (deferred)
+**Available Loco Picker (DN sheets):**
+- Side panel shows locos available at the departure terminal
+- Filters out: sick locos, locos already assigned to DN trains today
+- Click-to-fill: clicking a loco fills the focused loco input field
+- Shows loco type, home shed, arrival train, and arrival time
 
-Train name, from/to stations, train type. Optional but useful for display/reports. Schema sketched in earlier discussion but not implemented.
+**Terminal detection:**
+- Uses `div_trains.from_station` and `div_trains.to_station` columns (pre-computed from WTT)
+- Falls back to `div_train_stops` if train not in master
+- Mumbai terminals: CSMT, LTT, DR, PNVL, VVH, KYN, TNA
+- Non-Mumbai destinations: mark as OUT_OF_DIV (handover points like IGP, LNL, ROHA)
+- **Loco-change bypass trains** (e.g., 22149/22150 RN↔PUNE): Uses `loco_change_station` column — incoming loco from either direction becomes available at that station (PNVL)
+
+**Files:**
+- `sql/2026-05-20_loco_positions.sql` — migration + seed from recent logs
+- `routes/division/locoLinkRoutes.js` — position endpoints + auto-update in POST /log
+- `public/control-office/daily-entry.html` — available-loco picker panel
+
+### ✅ WTT Tables (completed 2026-05-20, updated 2026-05-24)
+
+Working Time Table tables for BB Division — station master, train master with names and run_days, station-wise timings, and train renumbering history.
+
+**Tables created:**
+
+| Table | Rows | Purpose |
+|-------|------|---------|
+| `div_stations` | 153 | Station master (code, name, terminal/junction flags) |
+| `div_trains` | 419 | Train master — imported fresh from `div_trains_stations.csv` with correct from_station/to_station/direction |
+| `div_train_stops` | 0 (deferred) | Station-wise timings — table exists but data import deferred |
+| `div_train_aliases` | 6 | Train renumbering history (old_train_no → new_train_no) |
+
+**Data source for div_trains:** `div_trains_stations.csv` (419 Mumbai division trains with correct from_station, to_station, direction, run_days)
+
+**Deferred: Halts data (div_train_stops)**
+- Station-wise arrival/departure timings not yet imported
+- Required for SPM (Speed/Punctuality Monitoring) analysis app (under development)
+- Will need comprehensive WTT data with all halts
+- **TODO:** Create WTT management page with:
+  - View train halts/timings
+  - Add/edit/delete halts
+  - Edit halt timings
+  - Bulk import from Excel
+
+**Data cleanup performed:**
+- Removed trains that don't touch Mumbai division (BSR/MMR/JL only → 95 trains)
+- Removed incomplete 99xxx series trains (22 trains)
+- Removed `*` and `#` prefixes from train numbers
+- Deleted orphan trains 11113, 11114, 11119, 11120
+- All 398 remaining trains have `train_name` and `run_days` populated
+
+**Train renumbering handled:**
+| Old | New | Notes |
+|-----|-----|-------|
+| 12519 | 15659 | Renamed train |
+| 12520 | 15660 | Renamed train |
+| 12617 | 19301 | Renamed train |
+| 12618 | 19302 | Renamed train |
+| 17031 | 17003 | Renamed train |
+| 17032 | 17004 | Renamed train |
+
+**Important: run_days semantics**
+- `run_days` in `div_trains` represent **takeover days at Mumbai division**, NOT departure day from origin station
+- Example: Train 11007 (Deccan Express) departs Pune 07:15, but run_days = "Daily" means it's taken over at Lonavla/Karjat daily (arrives Mumbai same day)
+- For overnight trains, the run_day may differ from origin departure by 1 day
+
+**Files:**
+- `sql/2026-05-19_wtt_tables.sql` — migration with all tables + station seed
+- `scripts/import-wtt.js` — ETL script for Train_Timings_Summary.xlsx (sorts stops by time for correct geographic sequence)
+
+**Source data:**
+- `Train_Timings_Summary.xlsx` — 538 trains with station-wise timings
+- Train names from user-provided screenshots
+- run_days from `div_loco_link_master` (372 trains) + manual entry for remaining
 
 ---
 
@@ -469,4 +833,4 @@ node scripts/load_locos.js /Users/neeraja/loco-link/ir_elec_loco_sample.csv
 
 ---
 
-*Last updated: 2026-05-12 — Loco Link section production-ready; Sick Loco enhancements in progress; Loco Management not yet started.*
+*Last updated: 2026-05-23 — Added loco defect reporting (div_loco_defects table with by-terminal and by-shed reports), loco_change_station for bypass trains with intermediate loco changes, and print functionality for loco-availability, sick-locos, and defect-reports pages.*

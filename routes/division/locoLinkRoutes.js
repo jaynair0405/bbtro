@@ -24,16 +24,82 @@ const router = express.Router();
 const EDITABLE_DAYS_PAST = 3;       // today + past 3 days editable
 const EDITABLE_DAYS_FUTURE = 1;     // today + tomorrow editable
 
+// Mumbai Division terminals where locos can be stabled
+const MUMBAI_TERMINALS = ['CSMT', 'LTT', 'DR', 'PNVL', 'VVH', 'KYN', 'TNA'];
+
+// Valid location values for div_loco_positions
+const VALID_LOCATIONS = [...MUMBAI_TERMINALS, 'IN_TRANSIT', 'OUT_OF_DIV'];
+
+/**
+ * Normalize a location string to a standard terminal code.
+ * Examples: "VVH TS" → "VVH", "csmt" → "CSMT", "LTT ELS" → "LTT"
+ * Returns null if not recognized as a Mumbai terminal.
+ */
+function normalizeTerminal(locationStr) {
+    if (!locationStr) return null;
+    const upper = String(locationStr).toUpperCase().trim();
+
+    // Direct match
+    if (MUMBAI_TERMINALS.includes(upper)) return upper;
+
+    // Check if it starts with a known terminal
+    for (const t of MUMBAI_TERMINALS) {
+        if (upper.startsWith(t + ' ') || upper.startsWith(t + '-')) {
+            return t;
+        }
+    }
+
+    // Common aliases
+    const aliases = {
+        'DADAR': 'DR',
+        'PANVEL': 'PNVL',
+        'KALYAN': 'KYN',
+        'THANE': 'TNA',
+        'VASHI': 'VVH',
+    };
+    for (const [alias, terminal] of Object.entries(aliases)) {
+        if (upper.startsWith(alias)) return terminal;
+    }
+
+    return null;
+}
+
 function isTableNotExistError(err) {
     return err && (err.code === 'ER_NO_SUCH_TABLE' || err.errno === 1146);
 }
 
+/**
+ * Get current datetime in IST (UTC+5:30).
+ * Railway operations use IST, not UTC.
+ */
+function nowIST() {
+    const now = new Date();
+    // IST offset is +5:30 = 330 minutes
+    const istOffset = 330;
+    return new Date(now.getTime() + (istOffset + now.getTimezoneOffset()) * 60000);
+}
+
+/**
+ * Get current date in IST as "YYYY-MM-DD".
+ */
 function todayISO() {
-    return new Date().toISOString().slice(0, 10);
+    const istTime = nowIST();
+    const y = istTime.getFullYear();
+    const m = String(istTime.getMonth() + 1).padStart(2, '0');
+    const d = String(istTime.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+}
+
+/**
+ * Get current time in IST as minutes since midnight.
+ */
+function currentISTMinutes() {
+    const istTime = nowIST();
+    return istTime.getHours() * 60 + istTime.getMinutes();
 }
 
 function diffDays(dateStr) {
-    // dateStr "YYYY-MM-DD" → +N for future, -N for past, relative to today (UTC date)
+    // dateStr "YYYY-MM-DD" → +N for future, -N for past, relative to today (IST date)
     const a = new Date(dateStr + 'T00:00:00Z').getTime();
     const b = new Date(todayISO() + 'T00:00:00Z').getTime();
     return Math.round((a - b) / 86400000);
@@ -55,6 +121,244 @@ function runsToday(runDays, dowIR) {
     const s = String(runDays).trim().toUpperCase();
     if (s === 'DAILY') return true;
     return s.replace(/\s+/g, '').split(',').includes(String(dowIR));
+}
+
+/**
+ * Parse event_time string (e.g., "22:05", "0:30", "02:25 03:00") to minutes since midnight.
+ * For compound times like "02:25 03:00", uses the first time.
+ * Returns null if unparseable.
+ */
+function parseEventTime(timeStr) {
+    if (!timeStr) return null;
+    // Take first time if compound (e.g., "02:25 03:00" → "02:25")
+    const firstTime = String(timeStr).trim().split(/\s+/)[0];
+    const match = firstTime.match(/^(\d{1,2}):(\d{2})$/);
+    if (!match) return null;
+    const h = parseInt(match[1], 10);
+    const m = parseInt(match[2], 10);
+    if (h < 0 || h > 23 || m < 0 || m > 59) return null;
+    return h * 60 + m;
+}
+
+/**
+ * Add N days to a date string "YYYY-MM-DD" and return the new date string.
+ */
+function addDays(dateStr, n) {
+    const d = new Date(dateStr + 'T00:00:00Z');
+    d.setUTCDate(d.getUTCDate() + n);
+    return d.toISOString().slice(0, 10);
+}
+
+/**
+ * Compute target working_date for cross-direction propagation.
+ *
+ * Priority rules:
+ * 1. If sourceDate == today AND target_dep < current_IST_time → next day
+ *    (train has already departed today, so assignment must be for tomorrow)
+ * 2. If target_event_time < source_event_time → next day
+ *    (standard time comparison for back-filling or when rule 1 doesn't apply)
+ * 3. Otherwise → same day
+ *
+ * @param {string} sourceDate - Source working_date "YYYY-MM-DD"
+ * @param {string} sourceEventTime - Source train's event_time (e.g., "22:05")
+ * @param {string} targetEventTime - Target train's event_time (e.g., "00:15")
+ * @returns {{ targetDate: string, isNextDay: boolean, reason: string }}
+ */
+function computeTargetDate(sourceDate, sourceEventTime, targetEventTime) {
+    const tgtMin = parseEventTime(targetEventTime);
+
+    // If target time is unparseable, default to same day
+    if (tgtMin === null) {
+        return { targetDate: sourceDate, isNextDay: false, reason: 'unparseable_target_time' };
+    }
+
+    // Rule 1: If filling for today and target train has already departed
+    const today = todayISO();
+    if (sourceDate === today) {
+        const nowMin = currentISTMinutes();
+        if (tgtMin < nowMin) {
+            // Target train has already departed today → must be for tomorrow
+            return { targetDate: addDays(sourceDate, 1), isNextDay: true, reason: 'already_departed_today' };
+        }
+    }
+
+    // Rule 2: Standard time comparison (for back-filling or real-time when train hasn't departed)
+    const srcMin = parseEventTime(sourceEventTime);
+    if (srcMin === null) {
+        // Source time unparseable, can't compare → default to same day
+        return { targetDate: sourceDate, isNextDay: false, reason: 'unparseable_source_time' };
+    }
+
+    // If target time < source time → next day
+    if (tgtMin < srcMin) {
+        return { targetDate: addDays(sourceDate, 1), isNextDay: true, reason: 'time_comparison' };
+    }
+    return { targetDate: sourceDate, isNextDay: false, reason: 'same_day' };
+}
+
+/**
+ * Get the terminal for a train from div_trains or div_train_stops.
+ * For UP trains: returns to_station (last stop / terminal)
+ * For DN trains: returns from_station (first stop / departure terminal)
+ *
+ * @param {Object} pool - MySQL connection pool
+ * @param {string} trainNo - Train number
+ * @param {string} direction - UP or DN
+ * @returns {Promise<{terminal: string|null, locoChangeStation: string|null}>}
+ *          terminal: where loco arrives/departs based on direction
+ *          locoChangeStation: intermediate loco change point (e.g., PNVL for bypass trains)
+ */
+async function getTrainTerminal(pool, trainNo, direction) {
+    // First try div_trains (faster, pre-computed)
+    const [trainRows] = await pool.query(
+        `SELECT from_station, to_station, loco_change_station FROM div_trains WHERE train_no = ? LIMIT 1`,
+        [trainNo]
+    );
+    if (trainRows.length) {
+        const row = trainRows[0];
+        // UP: loco arrives at to_station (terminal)
+        // DN: loco departs from from_station (terminal)
+        const terminal = direction === 'UP' ? row.to_station : row.from_station;
+        return { terminal, locoChangeStation: row.loco_change_station || null };
+    }
+
+    // Fallback to div_train_stops
+    try {
+        if (direction === 'UP') {
+            // Get last stop for UP train
+            const [stops] = await pool.query(
+                `SELECT station_code FROM div_train_stops
+                 WHERE train_no = ?
+                 ORDER BY seq_order DESC LIMIT 1`,
+                [trainNo]
+            );
+            return { terminal: stops.length ? stops[0].station_code : null, locoChangeStation: null };
+        } else {
+            // Get first stop for DN train
+            const [stops] = await pool.query(
+                `SELECT station_code FROM div_train_stops
+                 WHERE train_no = ?
+                 ORDER BY seq_order ASC LIMIT 1`,
+                [trainNo]
+            );
+            return { terminal: stops.length ? stops[0].station_code : null, locoChangeStation: null };
+        }
+    } catch (e) {
+        if (!isTableNotExistError(e)) throw e;
+        return { terminal: null, locoChangeStation: null };
+    }
+}
+
+/**
+ * Update loco position after a train movement is logged.
+ *
+ * @param {Object} pool - MySQL connection pool
+ * @param {Object} params
+ * @param {string} params.locoNo - Loco number
+ * @param {string} params.location - New location (CSMT, LTT, OUT_OF_DIV, etc.)
+ * @param {string} params.movementType - ARRIVAL, DEPARTURE, TRANSFER, or MANUAL
+ * @param {string} [params.trainNo] - Associated train number
+ * @param {string} [params.workingDate] - Working date for the movement
+ * @param {string} [params.remarks] - Optional remarks
+ * @param {string} [params.userId] - User who triggered the update
+ * @returns {Promise<Object>} { success, from_location, to_location }
+ */
+async function updateLocoPosition(pool, { locoNo, location, movementType, trainNo, workingDate, remarks, userId }) {
+    if (!locoNo || !location) {
+        return { success: false, error: 'loco_number and location required' };
+    }
+
+    // Validate location
+    if (!VALID_LOCATIONS.includes(location)) {
+        return { success: false, error: `invalid location: ${location}` };
+    }
+
+    const now = nowIST();
+    const movedAt = now.toISOString().slice(0, 19).replace('T', ' ');
+
+    // Get current position (if any) for history tracking
+    let fromLocation = null;
+    try {
+        const [current] = await pool.query(
+            `SELECT current_location FROM div_loco_positions WHERE loco_number = ? LIMIT 1`,
+            [locoNo]
+        );
+        if (current.length) {
+            fromLocation = current[0].current_location;
+        }
+    } catch (e) {
+        if (!isTableNotExistError(e)) throw e;
+    }
+
+    // Skip update if location hasn't changed (except for manual moves)
+    if (fromLocation === location && movementType !== 'MANUAL') {
+        return { success: true, skipped: true, from_location: fromLocation, to_location: location };
+    }
+
+    try {
+        // UPSERT div_loco_positions
+        if (movementType === 'ARRIVAL') {
+            await pool.query(
+                `INSERT INTO div_loco_positions
+                    (loco_number, current_location, arrived_via_train, arrived_at, remarks, updated_by)
+                 VALUES (?, ?, ?, ?, ?, ?)
+                 ON DUPLICATE KEY UPDATE
+                    current_location = VALUES(current_location),
+                    arrived_via_train = VALUES(arrived_via_train),
+                    arrived_at = VALUES(arrived_at),
+                    departed_via_train = NULL,
+                    departed_at = NULL,
+                    remarks = VALUES(remarks),
+                    updated_by = VALUES(updated_by)`,
+                [locoNo, location, trainNo, movedAt, remarks, userId]
+            );
+        } else if (movementType === 'DEPARTURE') {
+            await pool.query(
+                `INSERT INTO div_loco_positions
+                    (loco_number, current_location, departed_via_train, departed_at, remarks, updated_by)
+                 VALUES (?, ?, ?, ?, ?, ?)
+                 ON DUPLICATE KEY UPDATE
+                    current_location = VALUES(current_location),
+                    departed_via_train = VALUES(departed_via_train),
+                    departed_at = VALUES(departed_at),
+                    remarks = VALUES(remarks),
+                    updated_by = VALUES(updated_by)`,
+                [locoNo, location, trainNo, movedAt, remarks, userId]
+            );
+        } else {
+            // TRANSFER or MANUAL
+            await pool.query(
+                `INSERT INTO div_loco_positions
+                    (loco_number, current_location, arrived_at, remarks, updated_by)
+                 VALUES (?, ?, ?, ?, ?)
+                 ON DUPLICATE KEY UPDATE
+                    current_location = VALUES(current_location),
+                    arrived_via_train = NULL,
+                    arrived_at = VALUES(arrived_at),
+                    departed_via_train = NULL,
+                    departed_at = NULL,
+                    remarks = VALUES(remarks),
+                    updated_by = VALUES(updated_by)`,
+                [locoNo, location, movedAt, remarks, userId]
+            );
+        }
+
+        // Insert history record
+        await pool.query(
+            `INSERT INTO div_loco_position_history
+                (loco_number, from_location, to_location, movement_type, train_no, working_date, moved_at, remarks, moved_by)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [locoNo, fromLocation, location, movementType, trainNo, workingDate, movedAt, remarks, userId]
+        );
+
+        return { success: true, from_location: fromLocation, to_location: location, moved_at: movedAt };
+    } catch (e) {
+        if (isTableNotExistError(e)) {
+            // Tables don't exist yet — skip silently
+            return { success: false, error: 'position tables not yet created' };
+        }
+        throw e;
+    }
 }
 
 // ── GET /loco/:loco_number/details ───────────────────────────────────────
@@ -267,6 +571,83 @@ router.get('/loco/:loco_number/autofill', async (req, res) => {
     }
 });
 
+// ── GET /train/:train_no/target-date ──────────────────────────────────────
+// Preview endpoint: given a source train, compute the target working_date
+// for a cross-direction propagation. Used by the frontend to show the
+// "→ Assigns to May 18 (Sun)" indicator before saving.
+//
+// Query params:
+//   source_date       YYYY-MM-DD — working_date of the source train entry
+//   source_time       HH:MM — event_time of the source train (takeover for UP)
+//   target_direction  DN | UP — direction of the target train
+//
+// Returns:
+//   { train_no, target_direction, target_date, is_next_day, runs_on_target, event_time }
+router.get('/train/:train_no/target-date', async (req, res) => {
+    const trainNo = String(req.params.train_no || '').trim();
+    const sourceDate = String(req.query.source_date || '').trim();
+    const sourceTime = String(req.query.source_time || '').trim();
+    const targetDirection = String(req.query.target_direction || 'DN').trim().toUpperCase();
+
+    if (!trainNo) return res.status(400).json({ error: 'train_no required' });
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(sourceDate)) {
+        return res.status(400).json({ error: 'source_date must be YYYY-MM-DD' });
+    }
+    if (!['UP', 'DN'].includes(targetDirection)) {
+        return res.status(400).json({ error: 'target_direction must be UP or DN' });
+    }
+
+    try {
+        const pool = req.app.locals.pool;
+
+        // Find target train in master
+        const [masters] = await pool.query(
+            `SELECT id, event_time, run_days, train_name
+             FROM div_loco_link_master
+             WHERE train_no = ? AND direction = ? AND active = 1
+             LIMIT 1`,
+            [trainNo, targetDirection]
+        );
+        if (!masters.length) {
+            return res.status(404).json({
+                error: 'Train not found in master',
+                train_no: trainNo,
+                direction: targetDirection,
+            });
+        }
+        const target = masters[0];
+
+        // Compute target date using time comparison + current IST time check
+        const { targetDate, isNextDay, reason } = computeTargetDate(sourceDate, sourceTime, target.event_time);
+
+        // Check if target train runs on the computed date
+        const dow = dayOfWeekIR(targetDate);
+        const runsOnTarget = runsToday(target.run_days, dow);
+
+        // Format date for display (e.g., "18-May (Sun)")
+        const d = new Date(targetDate + 'T00:00:00Z');
+        const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const displayDate = `${d.getUTCDate()}-${monthNames[d.getUTCMonth()]} (${dayNames[d.getUTCDay()]})`;
+
+        res.json({
+            train_no: trainNo,
+            train_name: target.train_name,
+            target_direction: targetDirection,
+            target_date: targetDate,
+            display_date: displayDate,
+            is_next_day: isNextDay,
+            reason,  // 'already_departed_today' | 'time_comparison' | 'same_day' | ...
+            runs_on_target: runsOnTarget,
+            event_time: target.event_time,
+            day_of_week: dow,
+        });
+    } catch (err) {
+        console.error('[loco-link /train/:n/target-date]', err);
+        res.status(500).json({ error: 'Lookup failed' });
+    }
+});
+
 // ── GET /today ───────────────────────────────────────────────────────────
 // Returns master rows for the given date + segment, LEFT JOIN-ed with any
 // existing log entries for that date. UI renders the sheet view from this.
@@ -462,6 +843,10 @@ router.post('/log', async (req, res) => {
     const outgoing_train = b.outgoing_train ? String(b.outgoing_train).trim() : null;
     // Where the rear/assist/coupler loco goes after this trip (for reassignment to a DN train, etc.)
     const outgoing_train_rear = b.outgoing_train_rear ? String(b.outgoing_train_rear).trim() : null;
+    // Date override for outgoing trains — LPC can force same-day or next-day assignment
+    // Format: "YYYY-MM-DD" or null (auto-detect using time comparison)
+    const outgoing_date_override = b.outgoing_date_override ? String(b.outgoing_date_override).trim() : null;
+    const outgoing_date_override_rear = b.outgoing_date_override_rear ? String(b.outgoing_date_override_rear).trim() : null;
     const remark = b.remark ? String(b.remark).trim().slice(0, 255) : null;
     const remarks_rear = b.remarks_rear ? String(b.remarks_rear).trim().slice(0, 500) : null;
     // Special-train fields — only used when master_id is null
@@ -488,12 +873,12 @@ router.post('/log', async (req, res) => {
     try {
         const pool = req.app.locals.pool;
 
-        // Master row — for expected_shed snapshot + push-pull validation
+        // Master row — for expected_shed snapshot + push-pull validation + event_time for day-change logic
         let master = null;
         if (master_id) {
             const [mRows] = await pool.query(
                 `SELECT id, shed_code, expected_hog, is_push_pull, traction_type,
-                        sheet_source AS m_sheet_source, section AS m_section
+                        sheet_source AS m_sheet_source, section AS m_section, event_time
                  FROM div_loco_link_master WHERE id = ? LIMIT 1`,
                 [master_id]
             );
@@ -701,46 +1086,78 @@ router.post('/log', async (req, res) => {
              remark, remarks_rear, u.username]
         );
 
-        // ── Cross-direction propagation ──────────────────────────────────
+        // ── Cross-direction propagation with day-change logic ────────────
         // If LPC filled outgoing_train (DN-bound from this loco) → auto-fill
         // the corresponding DN train's log with this same loco.
         // Same for incoming_train → fills the UP train's log.
         // Only propagates when target log has no actual_loco_no yet
         // (won't overwrite an existing assignment).
+        //
+        // Day-change rule: if target train's event_time < source train's event_time,
+        // the target belongs to the next calendar day.
+        // LPC can override this via outgoing_date_override / outgoing_date_override_rear.
         const propagated = [];
-        async function propagateLoco(targetTrainNo, targetDirection, locoNo, sourceTrainNo) {
+        const sourceEventTime = master ? master.event_time : null;
+
+        async function propagateLoco(targetTrainNo, targetDirection, locoNo, sourceTrainNo, dateOverride) {
             if (!locoNo || !targetTrainNo) return;
             const tn = String(targetTrainNo).trim();
             if (!tn) return;
             // Skip self-references
             if (tn === train_no && targetDirection === direction) return;
 
-            // Find target master row (must be active + run today)
+            // Find target master row (must be active) — includes event_time for day-change calc
             const [masters] = await pool.query(
-                `SELECT id, sheet_source, section, shed_code, expected_hog, run_days
+                `SELECT id, sheet_source, section, shed_code, expected_hog, run_days, event_time
                  FROM div_loco_link_master
                  WHERE train_no = ? AND direction = ? AND active = 1`,
                 [tn, targetDirection]
             );
-            const dow2 = dayOfWeekIR(working_date);
-            const tgtMaster = masters.find(m => runsToday(m.run_days, dow2));
-            if (!tgtMaster) {
-                propagated.push({ train_no: tn, direction: targetDirection, status: 'no_master_today' });
+            if (!masters.length) {
+                propagated.push({ train_no: tn, direction: targetDirection, status: 'no_master' });
                 return;
             }
 
-            // Check existing log
+            // Calculate target date using time comparison (or use override if provided)
+            const targetEventTime = masters[0].event_time;
+            let targetDate, isNextDay;
+            if (dateOverride && /^\d{4}-\d{2}-\d{2}$/.test(dateOverride)) {
+                targetDate = dateOverride;
+                isNextDay = targetDate !== working_date;
+            } else {
+                const result = computeTargetDate(working_date, sourceEventTime, targetEventTime);
+                targetDate = result.targetDate;
+                isNextDay = result.isNextDay;
+            }
+
+            // Check if target train runs on the computed target date
+            const dow2 = dayOfWeekIR(targetDate);
+            const tgtMaster = masters.find(m => runsToday(m.run_days, dow2));
+            if (!tgtMaster) {
+                propagated.push({
+                    train_no: tn, direction: targetDirection,
+                    status: 'no_run_on_target_date',
+                    target_date: targetDate,
+                    is_next_day: isNextDay,
+                    day_of_week: dow2,
+                });
+                return;
+            }
+
+            // Check existing log for the target date
             const [existing] = await pool.query(
                 `SELECT id, actual_loco_no, incoming_train, outgoing_train FROM div_loco_link_log
                  WHERE working_date = ? AND train_no = ? AND direction = ?
                  LIMIT 1`,
-                [working_date, tn, targetDirection]
+                [targetDate, tn, targetDirection]
             );
             if (existing.length && existing[0].actual_loco_no && existing[0].actual_loco_no !== locoNo) {
                 propagated.push({
                     train_no: tn, direction: targetDirection,
                     status: 'conflict_skipped',
                     existing_loco: existing[0].actual_loco_no,
+                    target_date: targetDate,
+                    is_next_day: isNextDay,
                 });
                 return;
             }
@@ -779,6 +1196,7 @@ router.post('/log', async (req, res) => {
                     train_no: tn, direction: targetDirection,
                     status: 'updated', id: existing[0].id, loco_no: locoNo,
                     reverse_field: reverseField, reverse_train: newReverse,
+                    target_date: targetDate, is_next_day: isNextDay,
                 });
             } else {
                 // Insert new log row with propagated snapshot + reverse pointer
@@ -788,7 +1206,7 @@ router.post('/log', async (req, res) => {
                          actual_loco_no, base_shed, loco_type, traction_type,
                          expected_shed, is_mislink, ${reverseField}, entered_by)
                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                    [working_date, targetDirection, tn, tgtMaster.id,
+                    [targetDate, targetDirection, tn, tgtMaster.id,
                      tgtMaster.sheet_source, tgtMaster.section,
                      locoNo, tgtBase, tgtType, tgtTraction,
                      tgtExpected, tgtMislink, newReverse, u.username]
@@ -797,17 +1215,18 @@ router.post('/log', async (req, res) => {
                     train_no: tn, direction: targetDirection,
                     status: 'inserted', id: ins.insertId, loco_no: locoNo,
                     reverse_field: reverseField, reverse_train: newReverse,
+                    target_date: targetDate, is_next_day: isNextDay,
                 });
             }
         }
 
         // UP/Bypass log with outgoing_train set → propagate to DN train log
         if (outgoing_train && actual_loco_no) {
-            await propagateLoco(outgoing_train, 'DN', actual_loco_no, train_no);
+            await propagateLoco(outgoing_train, 'DN', actual_loco_no, train_no, outgoing_date_override);
         }
         // DN log with incoming_train set → propagate to UP train log
         if (incoming_train && actual_loco_no) {
-            await propagateLoco(incoming_train, 'UP', actual_loco_no, train_no);
+            await propagateLoco(incoming_train, 'UP', actual_loco_no, train_no, null);
         }
         // Rear loco can also have an outgoing → DN target
         if (outgoing_train_rear && actual_loco_no_rear) {
@@ -815,7 +1234,110 @@ router.post('/log', async (req, res) => {
             const rearLocoForProp = actual_loco_no_rear.includes('+')
                 ? actual_loco_no_rear.split('+')[0].trim()
                 : actual_loco_no_rear;
-            await propagateLoco(outgoing_train_rear, 'DN', rearLocoForProp, train_no);
+            await propagateLoco(outgoing_train_rear, 'DN', rearLocoForProp, train_no, outgoing_date_override_rear);
+        }
+
+        // ── Loco Position Update ──────────────────────────────────────────
+        // Track loco positions at Mumbai terminals based on train direction:
+        // - UP trains: loco arrives at terminal (CSMT/LTT/DR/PNVL) → set position
+        // - DN trains: loco departs division → mark as OUT_OF_DIV
+        // - BYPASS: no position change (locos pass through)
+        // - Loco-change trains (e.g., 22149/22150): Both directions → loco available at locoChangeStation
+        const positionUpdates = [];
+        if (actual_loco_no && direction !== 'BYPASS') {
+            try {
+                const { terminal, locoChangeStation } = await getTrainTerminal(pool, train_no, direction);
+
+                // If train has loco_change_station, incoming loco becomes available there (both UP and DN)
+                if (locoChangeStation && MUMBAI_TERMINALS.includes(locoChangeStation)) {
+                    const posResult = await updateLocoPosition(pool, {
+                        locoNo: actual_loco_no,
+                        location: locoChangeStation,
+                        movementType: 'ARRIVAL',
+                        trainNo: train_no,
+                        workingDate: working_date,
+                        remarks: `loco change at ${locoChangeStation}`,
+                        userId: u.username,
+                    });
+                    if (posResult.success) positionUpdates.push({ loco: actual_loco_no, ...posResult });
+                } else if (direction === 'UP') {
+                    // UP train arriving — set position to terminal (or OUT_OF_DIV for handover points)
+                    const location = MUMBAI_TERMINALS.includes(terminal) ? terminal : 'OUT_OF_DIV';
+                    const posResult = await updateLocoPosition(pool, {
+                        locoNo: actual_loco_no,
+                        location,
+                        movementType: 'ARRIVAL',
+                        trainNo: train_no,
+                        workingDate: working_date,
+                        userId: u.username,
+                    });
+                    if (posResult.success) positionUpdates.push({ loco: actual_loco_no, ...posResult });
+                } else if (direction === 'DN') {
+                    // DN train departing — loco leaving the division
+                    const posResult = await updateLocoPosition(pool, {
+                        locoNo: actual_loco_no,
+                        location: 'OUT_OF_DIV',
+                        movementType: 'DEPARTURE',
+                        trainNo: train_no,
+                        workingDate: working_date,
+                        userId: u.username,
+                    });
+                    if (posResult.success) positionUpdates.push({ loco: actual_loco_no, ...posResult });
+                }
+            } catch (posErr) {
+                // Position tracking errors should not fail the main log save
+                console.warn('[loco-link POST /log] position update error:', posErr.message);
+            }
+        }
+
+        // Handle rear loco position (for push-pull or coupler)
+        if (actual_loco_no_rear && direction !== 'BYPASS') {
+            try {
+                // For coupler-as-assist ("X+Y"), track first part only
+                const rearLocoForPos = actual_loco_no_rear.includes('+')
+                    ? actual_loco_no_rear.split('+')[0].trim()
+                    : actual_loco_no_rear;
+                const { terminal, locoChangeStation } = await getTrainTerminal(pool, train_no, direction);
+
+                // If train has loco_change_station, incoming loco becomes available there (both UP and DN)
+                if (locoChangeStation && MUMBAI_TERMINALS.includes(locoChangeStation)) {
+                    const posResult = await updateLocoPosition(pool, {
+                        locoNo: rearLocoForPos,
+                        location: locoChangeStation,
+                        movementType: 'ARRIVAL',
+                        trainNo: train_no,
+                        workingDate: working_date,
+                        remarks: `rear loco, loco change at ${locoChangeStation}`,
+                        userId: u.username,
+                    });
+                    if (posResult.success) positionUpdates.push({ loco: rearLocoForPos, ...posResult });
+                } else if (direction === 'UP') {
+                    const location = MUMBAI_TERMINALS.includes(terminal) ? terminal : 'OUT_OF_DIV';
+                    const posResult = await updateLocoPosition(pool, {
+                        locoNo: rearLocoForPos,
+                        location,
+                        movementType: 'ARRIVAL',
+                        trainNo: train_no,
+                        workingDate: working_date,
+                        remarks: `rear loco (${secondary_role || 'rear'})`,
+                        userId: u.username,
+                    });
+                    if (posResult.success) positionUpdates.push({ loco: rearLocoForPos, ...posResult });
+                } else if (direction === 'DN') {
+                    const posResult = await updateLocoPosition(pool, {
+                        locoNo: rearLocoForPos,
+                        location: 'OUT_OF_DIV',
+                        movementType: 'DEPARTURE',
+                        trainNo: train_no,
+                        workingDate: working_date,
+                        remarks: `rear loco (${secondary_role || 'rear'})`,
+                        userId: u.username,
+                    });
+                    if (posResult.success) positionUpdates.push({ loco: rearLocoForPos, ...posResult });
+                }
+            } catch (posErr) {
+                console.warn('[loco-link POST /log] rear position update error:', posErr.message);
+            }
         }
 
         // Read back the canonical row for the client
@@ -831,6 +1353,7 @@ router.post('/log', async (req, res) => {
             updated: result.affectedRows === 2,
             log: final[0] || null,
             propagated,
+            position_updates: positionUpdates,
             warnings: {
                 hog_mismatch: master && master.expected_hog === 1
                     && front.snapshot && !front.snapshot.hotel_load_oem ? true : false,
@@ -839,6 +1362,239 @@ router.post('/log', async (req, res) => {
     } catch (err) {
         console.error('[loco-link POST /log]', err);
         res.status(500).json({ error: 'Save failed' });
+    }
+});
+
+// ─── LOCO POSITION TRACKING ──────────────────────────────────────────────
+
+// GET /positions — list locos by location (grouped) or at a specific location
+//   Query params: location=CSMT (optional), all=true to get all
+router.get('/positions', async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'not logged in' });
+    const location = String(req.query.location || '').trim().toUpperCase();
+    const all = req.query.all === 'true' || req.query.all === '1';
+
+    try {
+        const pool = req.app.locals.pool;
+        let sql, params;
+
+        if (location && VALID_LOCATIONS.includes(location)) {
+            sql = `SELECT lp.*, dl.loco_type, dl.home_shed, dl.railway_zone
+                   FROM div_loco_positions lp
+                   LEFT JOIN div_locos dl ON lp.loco_number = dl.loco_number
+                   WHERE lp.current_location = ?
+                   ORDER BY lp.arrived_at DESC`;
+            params = [location];
+        } else if (all) {
+            sql = `SELECT lp.*, dl.loco_type, dl.home_shed, dl.railway_zone
+                   FROM div_loco_positions lp
+                   LEFT JOIN div_locos dl ON lp.loco_number = dl.loco_number
+                   ORDER BY lp.current_location, lp.arrived_at DESC`;
+            params = [];
+        } else {
+            // Return grouped by location (summary for dashboard)
+            const [rows] = await pool.query(
+                `SELECT lp.current_location, COUNT(*) AS count,
+                        GROUP_CONCAT(lp.loco_number ORDER BY lp.arrived_at DESC SEPARATOR ',') AS locos
+                 FROM div_loco_positions lp
+                 WHERE lp.current_location IN (?)
+                 GROUP BY lp.current_location`,
+                [MUMBAI_TERMINALS]
+            );
+            const grouped = {};
+            for (const loc of MUMBAI_TERMINALS) {
+                grouped[loc] = { count: 0, locos: [] };
+            }
+            for (const r of rows) {
+                grouped[r.current_location] = {
+                    count: r.count,
+                    locos: r.locos ? r.locos.split(',') : [],
+                };
+            }
+            return res.json({ grouped, terminals: MUMBAI_TERMINALS });
+        }
+
+        const [rows] = await pool.query(sql, params);
+        res.json({ location: location || 'all', total: rows.length, rows });
+    } catch (err) {
+        if (isTableNotExistError(err)) {
+            return res.json({ location: location || 'all', total: 0, rows: [], error: 'tables_not_created' });
+        }
+        console.error('[loco-link GET /positions]', err);
+        res.status(500).json({ error: 'Failed to load positions' });
+    }
+});
+
+// POST /position — manually move a loco between terminals
+//   Body: { loco_number, to_location, remarks? }
+router.post('/position', async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'not logged in' });
+    const u = req.session.user;
+    const b = req.body || {};
+
+    const locoNo = String(b.loco_number || '').trim();
+    const toLocation = String(b.to_location || '').trim().toUpperCase();
+    const remarks = b.remarks ? String(b.remarks).trim().slice(0, 255) : null;
+
+    if (!locoNo) return res.status(400).json({ error: 'loco_number required' });
+    if (!toLocation || !VALID_LOCATIONS.includes(toLocation)) {
+        return res.status(400).json({ error: `invalid to_location; must be one of: ${VALID_LOCATIONS.join(', ')}` });
+    }
+
+    try {
+        const pool = req.app.locals.pool;
+        const result = await updateLocoPosition(pool, {
+            locoNo,
+            location: toLocation,
+            movementType: 'MANUAL',
+            remarks,
+            userId: u.username,
+        });
+
+        if (!result.success) {
+            return res.status(400).json({ error: result.error || 'Move failed' });
+        }
+
+        res.json({
+            ok: true,
+            loco_number: locoNo,
+            from_location: result.from_location,
+            to_location: result.to_location,
+            moved_at: result.moved_at,
+        });
+    } catch (err) {
+        console.error('[loco-link POST /position]', err);
+        res.status(500).json({ error: 'Move failed' });
+    }
+});
+
+// GET /position/:loco_number — current position of a specific loco
+router.get('/position/:loco_number', async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'not logged in' });
+    const locoNo = String(req.params.loco_number || '').trim();
+    if (!locoNo) return res.status(400).json({ error: 'loco_number required' });
+
+    try {
+        const pool = req.app.locals.pool;
+        const [rows] = await pool.query(
+            `SELECT lp.*, dl.loco_type, dl.home_shed, dl.railway_zone
+             FROM div_loco_positions lp
+             LEFT JOIN div_locos dl ON lp.loco_number = dl.loco_number
+             WHERE lp.loco_number = ? LIMIT 1`,
+            [locoNo]
+        );
+        if (!rows.length) {
+            return res.json({ loco_number: locoNo, position: null, message: 'No position recorded' });
+        }
+        res.json({ loco_number: locoNo, position: rows[0] });
+    } catch (err) {
+        if (isTableNotExistError(err)) {
+            return res.json({ loco_number: locoNo, position: null, error: 'tables_not_created' });
+        }
+        console.error('[loco-link GET /position/:n]', err);
+        res.status(500).json({ error: 'Lookup failed' });
+    }
+});
+
+// GET /position/:loco_number/history — movement history for a loco
+router.get('/position/:loco_number/history', async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'not logged in' });
+    const locoNo = String(req.params.loco_number || '').trim();
+    if (!locoNo) return res.status(400).json({ error: 'loco_number required' });
+    const limit = Math.min(parseInt(req.query.limit, 10) || 50, 200);
+
+    try {
+        const pool = req.app.locals.pool;
+        const [rows] = await pool.query(
+            `SELECT * FROM div_loco_position_history
+             WHERE loco_number = ?
+             ORDER BY moved_at DESC
+             LIMIT ?`,
+            [locoNo, limit]
+        );
+        res.json({ loco_number: locoNo, total: rows.length, rows });
+    } catch (err) {
+        if (isTableNotExistError(err)) {
+            return res.json({ loco_number: locoNo, total: 0, rows: [], error: 'tables_not_created' });
+        }
+        console.error('[loco-link GET /position/:n/history]', err);
+        res.status(500).json({ error: 'History lookup failed' });
+    }
+});
+
+// GET /available — locos available for DN train assignment at a terminal
+//   Query params: terminal=CSMT (required)
+router.get('/available', async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'not logged in' });
+    const terminal = String(req.query.terminal || '').trim().toUpperCase();
+
+    if (!terminal || !MUMBAI_TERMINALS.includes(terminal)) {
+        return res.status(400).json({ error: `terminal required; must be one of: ${MUMBAI_TERMINALS.join(', ')}` });
+    }
+
+    try {
+        const pool = req.app.locals.pool;
+        const today = todayISO();
+
+        // Locos at the terminal that are:
+        // 1. Not sick
+        // 2. Not already assigned to a DN train today
+        const [rows] = await pool.query(
+            `SELECT lp.loco_number, lp.arrived_via_train, lp.arrived_at, lp.remarks,
+                    dl.loco_type, dl.home_shed, dl.railway_zone, dl.hotel_load_oem
+             FROM div_loco_positions lp
+             LEFT JOIN div_locos dl ON lp.loco_number = dl.loco_number
+             LEFT JOIN div_loco_sick_records sr
+                ON lp.loco_number = sr.loco_number AND sr.fit_from IS NULL
+             WHERE lp.current_location = ?
+               AND sr.id IS NULL
+               AND NOT EXISTS (
+                   SELECT 1 FROM div_loco_link_log ll
+                   WHERE ll.actual_loco_no = lp.loco_number
+                     AND ll.direction = 'DN'
+                     AND ll.working_date = ?
+               )
+             ORDER BY lp.arrived_at ASC`,
+            [terminal, today]
+        );
+
+        res.json({
+            terminal,
+            date: today,
+            total: rows.length,
+            locos: rows,
+        });
+    } catch (err) {
+        if (isTableNotExistError(err)) {
+            return res.json({ terminal, date: todayISO(), total: 0, locos: [], error: 'tables_not_created' });
+        }
+        console.error('[loco-link GET /available]', err);
+        res.status(500).json({ error: 'Lookup failed' });
+    }
+});
+
+// GET /assigned-today — locos assigned to DN trains today (for availability page)
+router.get('/assigned-today', async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'not logged in' });
+
+    try {
+        const pool = req.app.locals.pool;
+        const today = todayISO();
+
+        const [rows] = await pool.query(
+            `SELECT DISTINCT actual_loco_no
+             FROM div_loco_link_log
+             WHERE direction = 'DN'
+               AND working_date = ?
+               AND actual_loco_no IS NOT NULL`,
+            [today]
+        );
+
+        const locos = rows.map(r => r.actual_loco_no);
+        res.json({ date: today, total: locos.length, locos });
+    } catch (err) {
+        console.error('[loco-link GET /assigned-today]', err);
+        res.status(500).json({ error: 'Lookup failed' });
     }
 });
 
@@ -1263,7 +2019,7 @@ router.patch('/sick/:id', async (req, res) => {
     try {
         const pool = req.app.locals.pool;
         const [exists] = await pool.query(
-            'SELECT id, fit_from FROM div_loco_sick_records WHERE id = ? LIMIT 1', [id]
+            'SELECT id, loco_number, fit_from, status FROM div_loco_sick_records WHERE id = ? LIMIT 1', [id]
         );
         if (!exists.length) return res.status(404).json({ error: 'record not found' });
         if (exists[0].fit_from) return res.status(400).json({ error: 'cannot update a closed (fit) record' });
@@ -1272,10 +2028,23 @@ router.patch('/sick/:id', async (req, res) => {
         const params = [...Object.values(updates), id];
         await pool.query(`UPDATE div_loco_sick_records SET ${sets} WHERE id = ?`, params);
 
+        // If status changed to H/O (handed over), update loco position to OUT_OF_DIV
+        let positionUpdate = null;
+        if (updates.status === 'H/O' && exists[0].status !== 'H/O') {
+            const u = req.session.user;
+            positionUpdate = await updateLocoPosition(pool, {
+                locoNo: exists[0].loco_number,
+                location: 'OUT_OF_DIV',
+                movementType: 'MANUAL',
+                remarks: 'Handed over (sick loco)',
+                userId: u.username,
+            });
+        }
+
         const [updated] = await pool.query(
             'SELECT * FROM div_loco_sick_records WHERE id = ? LIMIT 1', [id]
         );
-        res.json({ ok: true, record: updated[0] });
+        res.json({ ok: true, record: updated[0], position_update: positionUpdate });
     } catch (err) {
         console.error('[loco-link PATCH /sick/:id]', err);
         res.status(500).json({ error: 'Update failed' });
@@ -1283,7 +2052,9 @@ router.patch('/sick/:id', async (req, res) => {
 });
 
 // PATCH /sick/:id/fit — close an open sick record (mark loco fit/RDY)
-//   body: { fit_from?, ready_time?, fit_remarks? }
+//   body: { fit_from?, ready_time?, fit_remarks?, handed_over?, ready_at_shed? }
+//   If handed_over=true, marks status as H/O and loco as OUT_OF_DIV
+//   ready_at_shed: Terminal where loco is now available (if sick location was custom/unknown)
 router.patch('/sick/:id/fit', async (req, res) => {
     if (!req.session.user) return res.status(401).json({ error: 'not logged in' });
     const u = req.session.user;
@@ -1294,17 +2065,42 @@ router.patch('/sick/:id/fit', async (req, res) => {
     const fit_from = cleanDate(b.fit_from) || todayISO();
     const ready_time = cleanTime(b.ready_time);
     const fit_remarks = cleanStrSick(b.fit_remarks, 255);
+    const handed_over = b.handed_over === true || b.handed_over === 'true' || b.handed_over === 1;
+    const ready_at_shed = b.ready_at_shed ? String(b.ready_at_shed).toUpperCase().trim() : null;
 
     if (!/^\d{4}-\d{2}-\d{2}$/.test(fit_from)) return res.status(400).json({ error: 'fit_from must be YYYY-MM-DD' });
 
     try {
         const pool = req.app.locals.pool;
         const [rows] = await pool.query(
-            'SELECT id, fit_from, sick_from FROM div_loco_sick_records WHERE id = ? LIMIT 1', [id]
+            `SELECT id, loco_number, fit_from, sick_from, sick_at_shed, current_location
+             FROM div_loco_sick_records WHERE id = ? LIMIT 1`, [id]
         );
         if (!rows.length) return res.status(404).json({ error: 'sick record not found' });
         const rec = rows[0];
-        if (rec.fit_from) {
+        const alreadyFit = !!rec.fit_from;
+
+        // If already fit but ready_at_shed provided, just update position (allow correction)
+        if (alreadyFit && ready_at_shed && MUMBAI_TERMINALS.includes(ready_at_shed)) {
+            const positionUpdate = await updateLocoPosition(pool, {
+                locoNo: rec.loco_number,
+                location: ready_at_shed,
+                movementType: 'MANUAL',
+                remarks: 'Ready location corrected after sick repair',
+                userId: u.username,
+            });
+            const [updated] = await pool.query(
+                'SELECT * FROM div_loco_sick_records WHERE id = ? LIMIT 1', [id]
+            );
+            return res.json({
+                ok: true,
+                record: updated[0],
+                position_update: positionUpdate,
+                available_at: ready_at_shed,
+            });
+        }
+
+        if (alreadyFit) {
             return res.status(400).json({ error: 'Loco already marked fit', fit_from: rec.fit_from });
         }
         const sickFromStr = rec.sick_from instanceof Date
@@ -1314,17 +2110,59 @@ router.patch('/sick/:id/fit', async (req, res) => {
             return res.status(400).json({ error: `fit_from cannot be before sick_from (${sickFromStr})` });
         }
 
+        const newStatus = handed_over ? 'H/O' : 'RDY';
         await pool.query(
             `UPDATE div_loco_sick_records
-             SET fit_from = ?, ready_time = ?, fitted_by = ?, fit_remarks = ?, status = 'RDY'
+             SET fit_from = ?, ready_time = ?, fitted_by = ?, fit_remarks = ?, status = ?
              WHERE id = ?`,
-            [fit_from, ready_time, u.username, fit_remarks, id]
+            [fit_from, ready_time, u.username, fit_remarks, newStatus, id]
         );
+
+        // Update loco position based on status
+        const locoNo = rec.loco_number;
+        const sickLocationRaw = rec.current_location || rec.sick_at_shed || '';
+        // Normalize location: "VVH TS" → "VVH", "csmt" → "CSMT", "LTT ELS" → "LTT"
+        const normalizedLocation = normalizeTerminal(sickLocationRaw);
+        // Use ready_at_shed if provided, otherwise use normalized sick location
+        const availableAt = (ready_at_shed && MUMBAI_TERMINALS.includes(ready_at_shed))
+            ? ready_at_shed
+            : normalizedLocation;
+        let positionUpdate = null;
+        let needsShedInput = false;
+
+        if (handed_over) {
+            // Handed over — mark as OUT_OF_DIV
+            positionUpdate = await updateLocoPosition(pool, {
+                locoNo,
+                location: 'OUT_OF_DIV',
+                movementType: 'MANUAL',
+                remarks: 'Handed over after sick repair',
+                userId: u.username,
+            });
+        } else if (availableAt && MUMBAI_TERMINALS.includes(availableAt)) {
+            // Ready at a Mumbai terminal — make available
+            positionUpdate = await updateLocoPosition(pool, {
+                locoNo,
+                location: availableAt,
+                movementType: 'MANUAL',
+                remarks: 'Ready after sick repair',
+                userId: u.username,
+            });
+        } else {
+            // Location not recognized — flag that shed input is needed
+            needsShedInput = true;
+        }
 
         const [updated] = await pool.query(
             'SELECT * FROM div_loco_sick_records WHERE id = ? LIMIT 1', [id]
         );
-        res.json({ ok: true, record: updated[0] });
+        res.json({
+            ok: true,
+            record: updated[0],
+            position_update: positionUpdate,
+            needs_shed_input: needsShedInput,
+            available_at: availableAt,
+        });
     } catch (err) {
         console.error('[loco-link PATCH /sick/:id/fit]', err);
         res.status(500).json({ error: 'Mark fit failed' });
@@ -1423,6 +2261,308 @@ router.delete('/log/:id', async (req, res) => {
     } catch (err) {
         console.error('[loco-link DELETE /log/:id]', err);
         res.status(500).json({ error: 'Delete failed' });
+    }
+});
+
+// ══════════════════════════════════════════════════════════════════════════
+// LOCO DEFECTS — Track defects reported by LPC on incoming locos
+// ══════════════════════════════════════════════════════════════════════════
+
+const DEFECT_CATEGORIES = [
+    'BRAKE', 'TRACTION', 'PANTOGRAPH', 'HOTEL_LOAD',
+    'AC', 'SPEEDOMETER', 'HORN', 'VIGILANCE',
+    'AUX_CONVERTOR', 'BATTERY', 'SI_UNIT', 'OTHER'
+];
+
+// POST /defects — report a new defect
+router.post('/defects', async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'not logged in' });
+    const u = req.session.user;
+    const b = req.body || {};
+
+    const loco_number = String(b.loco_number || '').trim().toUpperCase();
+    const train_no = String(b.train_no || '').trim();
+    const working_date = cleanDate(b.working_date) || todayISO();
+    const defect_category = DEFECT_CATEGORIES.includes(b.defect_category) ? b.defect_category : 'OTHER';
+    const description = String(b.description || '').trim().slice(0, 500);
+    const severity = ['MINOR', 'MAJOR', 'CRITICAL'].includes(b.severity) ? b.severity : 'MINOR';
+    const reported_at_terminal = String(b.reported_at_terminal || '').trim().toUpperCase() || null;
+
+    if (!loco_number) return res.status(400).json({ error: 'loco_number required' });
+    if (!description) return res.status(400).json({ error: 'description required' });
+
+    try {
+        const pool = req.app.locals.pool;
+
+        // Get loco details for home_shed and loco_type
+        let home_shed = null, loco_type = null;
+        const [locoRows] = await pool.query(
+            'SELECT home_shed, loco_type FROM div_locos WHERE loco_number = ? LIMIT 1',
+            [loco_number]
+        );
+        if (locoRows.length) {
+            home_shed = locoRows[0].home_shed;
+            loco_type = locoRows[0].loco_type;
+        }
+
+        const [result] = await pool.query(
+            `INSERT INTO div_loco_defects
+             (loco_number, train_no, working_date, defect_category, description, severity,
+              home_shed, loco_type, reported_by, reported_at, reported_at_terminal)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?)`,
+            [loco_number, train_no || null, working_date, defect_category, description, severity,
+             home_shed, loco_type, u.username, reported_at_terminal]
+        );
+
+        const [newRow] = await pool.query('SELECT * FROM div_loco_defects WHERE id = ?', [result.insertId]);
+        res.json({ ok: true, defect: newRow[0] });
+    } catch (err) {
+        console.error('[loco-link POST /defects]', err);
+        res.status(500).json({ error: 'Failed to save defect' });
+    }
+});
+
+// GET /defects — list defects with optional filters
+// Query params: loco, shed, terminal, category, status, from_date, to_date, limit
+router.get('/defects', async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'not logged in' });
+    const { loco, shed, terminal, category, status, from_date, to_date } = req.query;
+    const limit = Math.min(parseInt(req.query.limit, 10) || 100, 500);
+
+    try {
+        const pool = req.app.locals.pool;
+        let sql = 'SELECT * FROM div_loco_defects WHERE 1=1';
+        const params = [];
+
+        if (loco) {
+            sql += ' AND loco_number = ?';
+            params.push(loco.toUpperCase());
+        }
+        if (shed) {
+            sql += ' AND home_shed = ?';
+            params.push(shed.toUpperCase());
+        }
+        if (terminal) {
+            sql += ' AND reported_at_terminal = ?';
+            params.push(terminal.toUpperCase());
+        }
+        if (category && DEFECT_CATEGORIES.includes(category)) {
+            sql += ' AND defect_category = ?';
+            params.push(category);
+        }
+        if (status && ['OPEN', 'ACKNOWLEDGED', 'RESOLVED'].includes(status)) {
+            sql += ' AND status = ?';
+            params.push(status);
+        }
+        if (from_date) {
+            sql += ' AND working_date >= ?';
+            params.push(from_date);
+        }
+        if (to_date) {
+            sql += ' AND working_date <= ?';
+            params.push(to_date);
+        }
+
+        sql += ' ORDER BY working_date DESC, reported_at DESC LIMIT ?';
+        params.push(limit);
+
+        const [rows] = await pool.query(sql, params);
+        res.json({ total: rows.length, defects: rows });
+    } catch (err) {
+        console.error('[loco-link GET /defects]', err);
+        res.status(500).json({ error: 'Failed to fetch defects' });
+    }
+});
+
+// GET /defects/by-shed — defects grouped by home shed (for reports)
+// Query params: from_date, to_date, status
+router.get('/defects/by-shed', async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'not logged in' });
+    const { from_date, to_date, status } = req.query;
+
+    try {
+        const pool = req.app.locals.pool;
+        let sql = `
+            SELECT home_shed, defect_category, severity, COUNT(*) as count
+            FROM div_loco_defects
+            WHERE home_shed IS NOT NULL
+        `;
+        const params = [];
+
+        if (from_date) {
+            sql += ' AND working_date >= ?';
+            params.push(from_date);
+        }
+        if (to_date) {
+            sql += ' AND working_date <= ?';
+            params.push(to_date);
+        }
+        if (status && ['OPEN', 'ACKNOWLEDGED', 'RESOLVED'].includes(status)) {
+            sql += ' AND status = ?';
+            params.push(status);
+        }
+
+        sql += ' GROUP BY home_shed, defect_category, severity ORDER BY home_shed, count DESC';
+
+        const [rows] = await pool.query(sql, params);
+
+        // Also get detailed list
+        let detailSql = 'SELECT * FROM div_loco_defects WHERE home_shed IS NOT NULL';
+        const detailParams = [];
+        if (from_date) {
+            detailSql += ' AND working_date >= ?';
+            detailParams.push(from_date);
+        }
+        if (to_date) {
+            detailSql += ' AND working_date <= ?';
+            detailParams.push(to_date);
+        }
+        if (status) {
+            detailSql += ' AND status = ?';
+            detailParams.push(status);
+        }
+        detailSql += ' ORDER BY home_shed, working_date DESC LIMIT 500';
+        const [details] = await pool.query(detailSql, detailParams);
+
+        // Group by shed
+        const byShed = {};
+        for (const d of details) {
+            const shed = d.home_shed || 'UNKNOWN';
+            if (!byShed[shed]) byShed[shed] = [];
+            byShed[shed].push(d);
+        }
+
+        res.json({ summary: rows, byShed, total: details.length });
+    } catch (err) {
+        console.error('[loco-link GET /defects/by-shed]', err);
+        res.status(500).json({ error: 'Failed to fetch defects by shed' });
+    }
+});
+
+// GET /defects/by-terminal — defects grouped by terminal (CSMT, LTT, VVH, PNVL)
+// Query params: from_date, to_date, status
+router.get('/defects/by-terminal', async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'not logged in' });
+    const { from_date, to_date, status } = req.query;
+
+    try {
+        const pool = req.app.locals.pool;
+        let sql = `
+            SELECT reported_at_terminal, defect_category, severity, COUNT(*) as count
+            FROM div_loco_defects
+            WHERE reported_at_terminal IS NOT NULL
+        `;
+        const params = [];
+
+        if (from_date) {
+            sql += ' AND working_date >= ?';
+            params.push(from_date);
+        }
+        if (to_date) {
+            sql += ' AND working_date <= ?';
+            params.push(to_date);
+        }
+        if (status && ['OPEN', 'ACKNOWLEDGED', 'RESOLVED'].includes(status)) {
+            sql += ' AND status = ?';
+            params.push(status);
+        }
+
+        sql += ' GROUP BY reported_at_terminal, defect_category, severity ORDER BY reported_at_terminal, count DESC';
+
+        const [rows] = await pool.query(sql, params);
+
+        // Also get detailed list
+        let detailSql = 'SELECT * FROM div_loco_defects WHERE reported_at_terminal IS NOT NULL';
+        const detailParams = [];
+        if (from_date) {
+            detailSql += ' AND working_date >= ?';
+            detailParams.push(from_date);
+        }
+        if (to_date) {
+            detailSql += ' AND working_date <= ?';
+            detailParams.push(to_date);
+        }
+        if (status) {
+            detailSql += ' AND status = ?';
+            detailParams.push(status);
+        }
+        detailSql += ' ORDER BY reported_at_terminal, working_date DESC LIMIT 500';
+        const [details] = await pool.query(detailSql, detailParams);
+
+        // Group by terminal
+        const byTerminal = {};
+        for (const d of details) {
+            const terminal = d.reported_at_terminal || 'UNKNOWN';
+            if (!byTerminal[terminal]) byTerminal[terminal] = [];
+            byTerminal[terminal].push(d);
+        }
+
+        res.json({ summary: rows, byTerminal, total: details.length });
+    } catch (err) {
+        console.error('[loco-link GET /defects/by-terminal]', err);
+        res.status(500).json({ error: 'Failed to fetch defects by terminal' });
+    }
+});
+
+// GET /defects/for-log — get defects for a specific log entry (loco + date)
+router.get('/defects/for-log', async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'not logged in' });
+    const { loco, date } = req.query;
+    if (!loco || !date) return res.status(400).json({ error: 'loco and date required' });
+
+    try {
+        const pool = req.app.locals.pool;
+        const [rows] = await pool.query(
+            `SELECT * FROM div_loco_defects
+             WHERE loco_number = ? AND working_date = ?
+             ORDER BY reported_at DESC`,
+            [loco.toUpperCase(), date]
+        );
+        res.json({ defects: rows });
+    } catch (err) {
+        console.error('[loco-link GET /defects/for-log]', err);
+        res.status(500).json({ error: 'Failed to fetch defects' });
+    }
+});
+
+// PATCH /defects/:id — update defect status or add resolution
+router.patch('/defects/:id', async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'not logged in' });
+    const u = req.session.user;
+    const id = parseInt(req.params.id, 10);
+    if (!id) return res.status(400).json({ error: 'invalid id' });
+
+    const b = req.body || {};
+    const updates = {};
+
+    if (b.status && ['OPEN', 'ACKNOWLEDGED', 'RESOLVED'].includes(b.status)) {
+        updates.status = b.status;
+        if (b.status === 'RESOLVED') {
+            updates.resolved_by = u.username;
+            updates.resolved_at = new Date();
+        }
+    }
+    if ('resolution_remarks' in b) {
+        updates.resolution_remarks = String(b.resolution_remarks || '').slice(0, 500);
+    }
+
+    if (!Object.keys(updates).length) {
+        return res.status(400).json({ error: 'no valid fields to update' });
+    }
+
+    try {
+        const pool = req.app.locals.pool;
+        const sets = Object.keys(updates).map(k => `${k} = ?`).join(', ');
+        await pool.query(
+            `UPDATE div_loco_defects SET ${sets} WHERE id = ?`,
+            [...Object.values(updates), id]
+        );
+        const [updated] = await pool.query('SELECT * FROM div_loco_defects WHERE id = ?', [id]);
+        if (!updated.length) return res.status(404).json({ error: 'defect not found' });
+        res.json({ ok: true, defect: updated[0] });
+    } catch (err) {
+        console.error('[loco-link PATCH /defects/:id]', err);
+        res.status(500).json({ error: 'Failed to update defect' });
     }
 });
 

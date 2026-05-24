@@ -1,0 +1,1151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Loco Availability | Control Office</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --brand: #0b3d91;
+            --brand-light: #1e5fb8;
+            --bg: #f1f5f9;
+            --surface: #ffffff;
+            --border: #e2e8f0;
+            --border-strong: #cbd5e1;
+            --text-main: #1e293b;
+            --text-light: #64748b;
+            --danger: #dc2626;
+            --danger-bg: #fee2e2;
+            --warning: #d97706;
+            --warning-bg: #fef3c7;
+            --success: #059669;
+            --success-bg: #d1fae5;
+            --muted: #94a3b8;
+            --info: #0284c7;
+            --info-bg: #e0f2fe;
+        }
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg);
+            margin: 0;
+            color: var(--text-main);
+        }
+
+        /* Header */
+        .header {
+            background: var(--brand);
+            color: white;
+            padding: 12px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 6px rgba(0,0,0,.08);
+        }
+        .header-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+        .header-title a {
+            color: white;
+            text-decoration: none;
+            opacity: .85;
+        }
+        .header-title a:hover { opacity: 1; }
+        .header-title .sep { margin: 0 10px; opacity: .6; }
+        .header-user {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            font-size: .9rem;
+        }
+        .header-user a {
+            color: white;
+            text-decoration: none;
+            background: rgba(255,255,255,.15);
+            padding: 5px 11px;
+            border-radius: 4px;
+            font-size: .82rem;
+        }
+        .header-user a:hover { background: rgba(255,255,255,.25); }
+
+        /* Main */
+        .main { padding: 18px 24px; max-width: 1400px; margin: 0 auto; }
+
+        /* Summary bar */
+        .summary-bar {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .summary-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 14px 20px;
+            min-width: 140px;
+            text-align: center;
+        }
+        .summary-card .num {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--brand);
+        }
+        .summary-card .label {
+            font-size: .8rem;
+            color: var(--text-light);
+            margin-top: 2px;
+        }
+        .summary-card.sick .num { color: var(--danger); }
+        .summary-card.assigned .num { color: var(--warning); }
+
+        /* Terminal sections */
+        .terminal-section {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+        .terminal-header {
+            background: var(--brand);
+            color: white;
+            padding: 12px 18px;
+            font-weight: 600;
+            font-size: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .terminal-header .count {
+            background: rgba(255,255,255,.2);
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: .85rem;
+        }
+        .terminal-body {
+            padding: 12px;
+        }
+        .loco-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 10px;
+        }
+        .loco-card {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 10px 12px;
+            transition: all .15s;
+        }
+        .loco-card:hover {
+            border-color: var(--brand);
+            box-shadow: 0 2px 8px rgba(0,0,0,.08);
+        }
+        .loco-card.sick {
+            background: var(--danger-bg);
+            border-color: var(--danger);
+        }
+        .loco-card.assigned {
+            background: #f1f5f9;
+            border-color: var(--border);
+            opacity: 0.6;
+        }
+        .loco-card .loco-no {
+            font-family: 'Courier New', monospace;
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--brand);
+        }
+        .loco-card.sick .loco-no { color: var(--danger); }
+        .loco-card.assigned .loco-no { color: var(--muted); text-decoration: line-through; }
+        .loco-card .loco-meta {
+            font-size: .75rem;
+            color: var(--text-light);
+            margin-top: 4px;
+        }
+        .loco-card .loco-meta .shed {
+            font-weight: 600;
+            color: var(--text-main);
+        }
+        .loco-card .arrived-info {
+            font-size: .7rem;
+            color: var(--muted);
+            margin-top: 4px;
+        }
+        .loco-card .status-badge {
+            display: inline-block;
+            font-size: .65rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            padding: 2px 6px;
+            border-radius: 3px;
+            margin-top: 6px;
+        }
+        .loco-card .status-badge.sick {
+            background: var(--danger);
+            color: white;
+        }
+        .loco-card .status-badge.assigned {
+            background: var(--warning);
+            color: white;
+        }
+        .loco-card .hog-icon {
+            color: var(--success);
+            margin-left: 4px;
+        }
+
+        .empty-msg {
+            padding: 24px;
+            text-align: center;
+            color: var(--text-light);
+            font-style: italic;
+        }
+        .loading {
+            padding: 40px;
+            text-align: center;
+            color: var(--text-light);
+        }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,.4);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+        .modal-overlay.visible { display: flex; }
+        .modal {
+            background: var(--surface);
+            border-radius: 10px;
+            box-shadow: 0 8px 32px rgba(0,0,0,.2);
+            width: 400px;
+            max-width: 90vw;
+        }
+        .modal-header {
+            background: var(--brand);
+            color: white;
+            padding: 14px 18px;
+            font-weight: 600;
+            border-radius: 10px 10px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .modal-header .close-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.2rem;
+            cursor: pointer;
+            opacity: .7;
+        }
+        .modal-header .close-btn:hover { opacity: 1; }
+        .modal-body {
+            padding: 18px;
+        }
+        .form-group {
+            margin-bottom: 14px;
+        }
+        .form-group label {
+            display: block;
+            font-size: .85rem;
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: var(--text-main);
+        }
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            padding: 9px 12px;
+            border: 1px solid var(--border-strong);
+            border-radius: 6px;
+            font-size: .9rem;
+            font-family: inherit;
+        }
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: var(--brand);
+            box-shadow: 0 0 0 2px rgba(11,61,145,.15);
+        }
+        .form-group input.loco-input {
+            font-family: 'Courier New', monospace;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .form-group .hint {
+            font-size: .75rem;
+            color: var(--text-light);
+            margin-top: 4px;
+        }
+        .modal-footer {
+            padding: 14px 18px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+        .btn {
+            padding: 9px 18px;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: .9rem;
+            cursor: pointer;
+        }
+        .btn-primary {
+            background: var(--brand);
+            color: white;
+        }
+        .btn-primary:hover { background: var(--brand-light); }
+        .btn-secondary {
+            background: var(--bg);
+            color: var(--text-main);
+            border: 1px solid var(--border-strong);
+        }
+        .btn-secondary:hover { background: var(--border); }
+        .btn:disabled { opacity: .5; cursor: not-allowed; }
+        .form-error {
+            color: var(--danger);
+            font-size: .8rem;
+            margin-top: 6px;
+        }
+
+        /* Action buttons */
+        .action-bar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+        .action-btn {
+            padding: 10px 16px;
+            background: var(--brand);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: .85rem;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .action-btn:hover { background: var(--brand-light); }
+        .action-btn.secondary {
+            background: var(--surface);
+            color: var(--text-main);
+            border: 1px solid var(--border-strong);
+        }
+        .action-btn.secondary:hover { background: var(--bg); }
+
+        /* Loco card actions */
+        .loco-card .card-actions {
+            margin-top: 8px;
+            display: flex;
+            gap: 6px;
+        }
+        .loco-card .card-actions button {
+            padding: 4px 8px;
+            font-size: .7rem;
+            border: 1px solid var(--border);
+            background: var(--surface);
+            border-radius: 4px;
+            cursor: pointer;
+            color: var(--text-light);
+        }
+        .loco-card .card-actions button:hover {
+            background: var(--bg);
+            color: var(--text-main);
+            border-color: var(--border-strong);
+        }
+        .loco-card .card-actions button.move-btn:hover {
+            color: var(--brand);
+            border-color: var(--brand);
+        }
+        .loco-card .card-actions button.remove-btn:hover {
+            color: var(--danger);
+            border-color: var(--danger);
+        }
+        .loco-card .card-actions button.sick-btn:hover {
+            color: var(--warning);
+            border-color: var(--warning);
+        }
+
+        /* Refresh button */
+        .refresh-btn {
+            background: var(--surface);
+            border: 1px solid var(--border-strong);
+            padding: 8px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: .85rem;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .refresh-btn:hover {
+            background: var(--bg);
+            border-color: var(--brand);
+            color: var(--brand);
+        }
+        .last-updated {
+            font-size: .8rem;
+            color: var(--text-light);
+            margin-left: 12px;
+        }
+
+        /* Print button */
+        .print-btn {
+            background: var(--surface);
+            border: 1px solid var(--border-strong);
+            padding: 8px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: .85rem;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-left: 8px;
+        }
+        .print-btn:hover {
+            background: var(--bg);
+            border-color: var(--brand);
+            color: var(--brand);
+        }
+
+        /* Print styles */
+        @media print {
+            body { background: white; margin: 0; font-size: 10pt; }
+            .header, .action-bar, .summary-bar, .modal-overlay,
+            .card-actions, .loco-card:hover { display: none !important; }
+            .main { padding: 0; max-width: 100%; }
+
+            /* Print header */
+            .print-header {
+                display: block !important;
+                text-align: center;
+                margin-bottom: 15px;
+                padding-bottom: 10px;
+                border-bottom: 2px solid #000;
+            }
+            .print-header h1 {
+                margin: 0 0 5px;
+                font-size: 16pt;
+            }
+            .print-header .print-date {
+                font-size: 10pt;
+                color: #666;
+            }
+
+            .terminal-section {
+                break-inside: avoid;
+                margin-bottom: 15px;
+                border: 1px solid #ccc;
+            }
+            .terminal-header {
+                background: #333 !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+                padding: 6px 12px;
+                font-size: 11pt;
+            }
+            .terminal-body { padding: 0; }
+            .loco-grid { display: none; }
+
+            /* Print table - simple format */
+            .print-table {
+                display: table !important;
+                width: 100%;
+                border-collapse: collapse;
+                font-size: 9pt;
+            }
+            .print-table th, .print-table td {
+                border: 1px solid #ccc;
+                padding: 4px 8px;
+                text-align: left;
+            }
+            .print-table th {
+                background: #f0f0f0;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+                font-weight: bold;
+            }
+            .print-table .loco-col {
+                font-family: 'Courier New', monospace;
+                font-weight: bold;
+            }
+            .print-table tr.sick { background: #fee; }
+            .print-table tr.assigned { color: #999; }
+        }
+        @media screen {
+            .print-header, .print-table { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+<header class="header">
+    <div class="header-title">
+        <a href="/control-office/" title="Back to dashboard">
+            <i class="fa-solid fa-arrow-left"></i> Control Office
+        </a>
+        <span class="sep">›</span>
+        <span>Loco Availability</span>
+    </div>
+    <div class="header-user">
+        <span id="userInfo">...</span>
+        <a href="/api/logout" title="Logout"><i class="fa-solid fa-right-from-bracket"></i></a>
+    </div>
+</header>
+
+<main class="main">
+    <div class="action-bar">
+        <button class="action-btn" onclick="openAddModal()">
+            <i class="fa-solid fa-plus"></i> Add Loco
+        </button>
+        <button class="action-btn secondary" onclick="openMoveModal()">
+            <i class="fa-solid fa-right-left"></i> Move Loco
+        </button>
+        <div style="flex:1"></div>
+        <button class="refresh-btn" onclick="loadAll()">
+            <i class="fa-solid fa-arrows-rotate"></i> Refresh
+        </button>
+        <button class="print-btn" onclick="printReport()">
+            <i class="fa-solid fa-print"></i> Print
+        </button>
+        <span class="last-updated" id="lastUpdated"></span>
+    </div>
+
+    <div class="print-header">
+        <h1>Loco Availability Report</h1>
+        <div class="print-date" id="printDate"></div>
+    </div>
+
+    <div class="summary-bar" id="summaryBar">
+        <div class="summary-card"><div class="num" id="totalAvailable">-</div><div class="label">Available</div></div>
+        <div class="summary-card assigned"><div class="num" id="totalAssigned">-</div><div class="label">Assigned Today</div></div>
+        <div class="summary-card sick"><div class="num" id="totalSick">-</div><div class="label">Sick</div></div>
+    </div>
+
+    <div id="terminalsContainer">
+        <div class="loading"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</div>
+    </div>
+</main>
+
+<!-- Add Loco Modal -->
+<div class="modal-overlay" id="addModal">
+    <div class="modal">
+        <div class="modal-header">
+            <span><i class="fa-solid fa-plus"></i> Add Loco to Availability</span>
+            <button class="close-btn" onclick="closeAddModal()"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label>Loco Number *</label>
+                <input type="text" id="addLocoNo" class="loco-input" maxlength="10" placeholder="e.g. 30263">
+            </div>
+            <div class="form-group">
+                <label>Terminal *</label>
+                <select id="addTerminal">
+                    <option value="">— Select —</option>
+                    <option value="CSMT">CSMT</option>
+                    <option value="LTT">LTT (VVH)</option>
+                    <option value="DR">DR (Dadar)</option>
+                    <option value="PNVL">PNVL (Panvel)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Arrival Mode *</label>
+                <select id="addMode">
+                    <option value="">— Select —</option>
+                    <option value="LE">Light Engine (LE)</option>
+                    <option value="GOODS">Attached to Goods Train</option>
+                    <option value="TRANSFER">Transfer from Other Shed</option>
+                    <option value="OTHER">Other</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Remarks</label>
+                <input type="text" id="addRemarks" maxlength="200" placeholder="Optional details...">
+            </div>
+            <div class="form-error" id="addError"></div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeAddModal()">Cancel</button>
+            <button class="btn btn-primary" id="addSubmitBtn" onclick="submitAddLoco()">Add Loco</button>
+        </div>
+    </div>
+</div>
+
+<!-- Mark Sick Modal -->
+<div class="modal-overlay" id="sickModal">
+    <div class="modal">
+        <div class="modal-header" style="background:var(--warning)">
+            <span><i class="fa-solid fa-stethoscope"></i> Mark Loco Sick</span>
+            <button class="close-btn" onclick="closeSickModal()"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label>Loco Number</label>
+                <input type="text" id="sickLocoNo" class="loco-input" readonly style="background:#f8fafc">
+            </div>
+            <div class="form-group">
+                <label>Sick Location *</label>
+                <select id="sickLocation">
+                    <option value="">— Select —</option>
+                    <option value="CSMT">CSMT</option>
+                    <option value="LTT">LTT (VVH)</option>
+                    <option value="DR">DR (Dadar)</option>
+                    <option value="PNVL">PNVL (Panvel)</option>
+                    <option value="KYN">KYN (Kalyan ELS)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Defect / Reason *</label>
+                <input type="text" id="sickReason" maxlength="255" placeholder="e.g. Traction motor fault, Pantograph issue...">
+            </div>
+            <div class="form-group">
+                <label>Failed on Train (if any)</label>
+                <input type="text" id="sickTrainNo" maxlength="20" placeholder="e.g. 12124">
+                <div class="hint">Leave blank if not failed on a train</div>
+            </div>
+            <div class="form-group">
+                <label>Category</label>
+                <select id="sickCategory">
+                    <option value="">Auto-detect</option>
+                    <option value="COG">COG (Coaching)</option>
+                    <option value="GOODS">GOODS</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Remarks</label>
+                <input type="text" id="sickRemarks" maxlength="500" placeholder="Additional details...">
+            </div>
+            <div class="form-error" id="sickError"></div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeSickModal()">Cancel</button>
+            <button class="btn btn-primary" id="sickSubmitBtn" style="background:var(--warning)" onclick="submitMarkSick()">Mark Sick</button>
+        </div>
+    </div>
+</div>
+
+<!-- Move Loco Modal -->
+<div class="modal-overlay" id="moveModal">
+    <div class="modal">
+        <div class="modal-header">
+            <span><i class="fa-solid fa-right-left"></i> Move Loco</span>
+            <button class="close-btn" onclick="closeMoveModal()"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label>Loco Number *</label>
+                <input type="text" id="moveLocoNo" class="loco-input" maxlength="10" placeholder="e.g. 30263">
+                <div class="hint" id="moveCurrentLoc"></div>
+            </div>
+            <div class="form-group">
+                <label>Move To *</label>
+                <select id="moveToTerminal">
+                    <option value="">— Select —</option>
+                    <option value="CSMT">CSMT</option>
+                    <option value="LTT">LTT (VVH)</option>
+                    <option value="DR">DR (Dadar)</option>
+                    <option value="PNVL">PNVL (Panvel)</option>
+                    <option value="KYN">KYN (Kalyan)</option>
+                    <option value="OUT_OF_DIV">Left Division (OUT)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Reason</label>
+                <select id="moveReason">
+                    <option value="LE">Light Engine Movement</option>
+                    <option value="TRANSFER">Transfer</option>
+                    <option value="SHED_MOVE">Shed Movement</option>
+                    <option value="OTHER">Other</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Remarks</label>
+                <input type="text" id="moveRemarks" maxlength="200" placeholder="Optional details...">
+            </div>
+            <div class="form-error" id="moveError"></div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeMoveModal()">Cancel</button>
+            <button class="btn btn-primary" id="moveSubmitBtn" onclick="submitMoveLoco()">Move Loco</button>
+        </div>
+    </div>
+</div>
+
+<script>
+const $ = sel => document.querySelector(sel);
+const TERMINALS = ['CSMT', 'LTT', 'DR', 'PNVL'];
+
+let allPositions = [];
+let sickLocos = new Set();
+let assignedToday = new Set();
+
+async function loadAll() {
+    try {
+        // Load positions, sick locos, and today's DN assignments in parallel
+        const [posRes, sickRes, assignedRes] = await Promise.all([
+            fetch('/api/division/loco-link/positions?all=true'),
+            fetch('/api/division/loco-link/sick'),
+            fetch('/api/division/loco-link/assigned-today')
+        ]);
+
+        const posData = await posRes.json();
+        allPositions = posData.rows || [];
+
+        // Build sick set
+        sickLocos.clear();
+        if (sickRes.ok) {
+            const sickData = await sickRes.json();
+            for (const s of (sickData.rows || [])) {
+                sickLocos.add(s.loco_number);
+            }
+        }
+
+        // Build assigned-today set (DN trains)
+        assignedToday.clear();
+        if (assignedRes.ok) {
+            const assignedData = await assignedRes.json();
+            for (const a of (assignedData.locos || [])) {
+                assignedToday.add(a);
+            }
+        }
+
+        render();
+        $('#lastUpdated').textContent = `Updated: ${new Date().toLocaleTimeString('en-IN')}`;
+    } catch (e) {
+        console.error(e);
+        $('#terminalsContainer').innerHTML = `<div class="empty-msg" style="color:var(--danger)">Failed to load: ${e.message}</div>`;
+    }
+}
+
+function render() {
+    const container = $('#terminalsContainer');
+    container.innerHTML = '';
+
+    // Group by terminal
+    const byTerminal = {};
+    for (const t of TERMINALS) byTerminal[t] = [];
+
+    let totalAvailable = 0, totalAssignedCount = 0, totalSickCount = 0;
+
+    for (const pos of allPositions) {
+        if (!TERMINALS.includes(pos.current_location)) continue;
+
+        const isSick = sickLocos.has(pos.loco_number);
+        const isAssigned = assignedToday.has(pos.loco_number);
+
+        if (isSick) totalSickCount++;
+        else if (isAssigned) totalAssignedCount++;
+        else totalAvailable++;
+
+        byTerminal[pos.current_location].push({
+            ...pos,
+            isSick,
+            isAssigned
+        });
+    }
+
+    $('#totalAvailable').textContent = totalAvailable;
+    $('#totalAssigned').textContent = totalAssignedCount;
+    $('#totalSick').textContent = totalSickCount;
+
+    for (const terminal of TERMINALS) {
+        const locos = byTerminal[terminal];
+        // Sort: available first, then assigned, then sick
+        locos.sort((a, b) => {
+            if (a.isSick !== b.isSick) return a.isSick ? 1 : -1;
+            if (a.isAssigned !== b.isAssigned) return a.isAssigned ? 1 : -1;
+            return 0;
+        });
+
+        const section = document.createElement('div');
+        section.className = 'terminal-section';
+
+        const availableCount = locos.filter(l => !l.isSick && !l.isAssigned).length;
+        // Build print table HTML
+        const printTableHTML = locos.length === 0 ? '' : `
+            <table class="print-table">
+                <thead>
+                    <tr><th>Loco No</th><th>Home Shed</th><th>Status</th><th>Arrived Via</th></tr>
+                </thead>
+                <tbody>
+                    ${locos.map(l => `
+                        <tr class="${l.isSick ? 'sick' : (l.isAssigned ? 'assigned' : '')}">
+                            <td class="loco-col">${esc(l.loco_number)}</td>
+                            <td>${esc(l.home_shed || '—')}</td>
+                            <td>${l.isSick ? 'SICK' : (l.isAssigned ? 'Assigned DN' : 'Available')}</td>
+                            <td>${l.arrived_via_train ? esc(l.arrived_via_train) : (l.remarks || 'Manual')}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        `;
+
+        section.innerHTML = `
+            <div class="terminal-header">
+                <span><i class="fa-solid fa-warehouse"></i> ${terminal}</span>
+                <span class="count">${availableCount} available / ${locos.length} total</span>
+            </div>
+            <div class="terminal-body">
+                ${locos.length === 0 ? '<div class="empty-msg">No locos at this terminal</div>' : ''}
+                <div class="loco-grid">
+                    ${locos.map(l => renderLocoCard(l)).join('')}
+                </div>
+                ${printTableHTML}
+            </div>
+        `;
+        container.appendChild(section);
+    }
+}
+
+function renderLocoCard(loco) {
+    const classes = ['loco-card'];
+    if (loco.isSick) classes.push('sick');
+    else if (loco.isAssigned) classes.push('assigned');
+
+    const arrivedAt = loco.arrived_at ? new Date(loco.arrived_at).toLocaleString('en-IN', {
+        day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false
+    }) : '—';
+
+    const hogIcon = loco.hotel_load_oem ? '<i class="fa-solid fa-plug hog-icon" title="HOG capable"></i>' : '';
+
+    let statusBadge = '';
+    if (loco.isSick) {
+        statusBadge = '<span class="status-badge sick">SICK</span>';
+    } else if (loco.isAssigned) {
+        statusBadge = '<span class="status-badge assigned">ASSIGNED DN</span>';
+    }
+
+    const arrivalInfo = loco.arrived_via_train
+        ? `via ${esc(loco.arrived_via_train)}`
+        : (loco.remarks ? esc(loco.remarks) : 'Manual');
+
+    return `
+        <div class="${classes.join(' ')}">
+            <div class="loco-no">${esc(loco.loco_number)} ${hogIcon}</div>
+            <div class="loco-meta">
+                <span class="shed">${esc(loco.home_shed || '—')}</span>
+                · ${esc(loco.loco_type || '—')}
+            </div>
+            <div class="arrived-info">
+                ${arrivalInfo} · ${arrivedAt}
+            </div>
+            ${statusBadge}
+            <div class="card-actions">
+                <button class="move-btn" onclick="openMoveModalFor('${esc(loco.loco_number)}', '${esc(loco.current_location)}')" title="Move to another terminal">
+                    <i class="fa-solid fa-right-left"></i> Move
+                </button>
+                ${!loco.isSick ? `<button class="sick-btn" onclick="openSickModalFor('${esc(loco.loco_number)}', '${esc(loco.current_location)}')" title="Mark as sick">
+                    <i class="fa-solid fa-stethoscope"></i> Sick
+                </button>` : ''}
+                <button class="remove-btn" onclick="removeLoco('${esc(loco.loco_number)}')" title="Remove from availability">
+                    <i class="fa-solid fa-xmark"></i> Remove
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+function esc(s) {
+    if (s === null || s === undefined) return '';
+    return String(s).replace(/[&<>"']/g, c => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    })[c]);
+}
+
+async function loadMe() {
+    try {
+        const r = await fetch('/api/division/loco-link/me');
+        if (!r.ok) return;
+        const u = await r.json();
+        const role = u.div_role === 'lpc' ? 'LPC' : (u.div_role || u.role);
+        $('#userInfo').innerHTML = `<i class="fa-solid fa-user"></i> ${u.full_name || u.username} <small>(${role})</small>`;
+    } catch (e) { /* swallow */ }
+}
+
+// ── Add Loco Modal ────────────────────────────────────────────────────
+function openAddModal() {
+    $('#addLocoNo').value = '';
+    $('#addTerminal').value = '';
+    $('#addMode').value = '';
+    $('#addRemarks').value = '';
+    $('#addError').textContent = '';
+    $('#addModal').classList.add('visible');
+    $('#addLocoNo').focus();
+}
+
+function closeAddModal() {
+    $('#addModal').classList.remove('visible');
+}
+
+async function submitAddLoco() {
+    const locoNo = $('#addLocoNo').value.trim().toUpperCase();
+    const terminal = $('#addTerminal').value;
+    const mode = $('#addMode').value;
+    const remarks = $('#addRemarks').value.trim();
+
+    if (!locoNo) {
+        $('#addError').textContent = 'Loco number is required';
+        return;
+    }
+    if (!terminal) {
+        $('#addError').textContent = 'Terminal is required';
+        return;
+    }
+    if (!mode) {
+        $('#addError').textContent = 'Arrival mode is required';
+        return;
+    }
+
+    const btn = $('#addSubmitBtn');
+    btn.disabled = true;
+    btn.textContent = 'Adding...';
+    $('#addError').textContent = '';
+
+    try {
+        const fullRemarks = mode + (remarks ? ': ' + remarks : '');
+        const r = await fetch('/api/division/loco-link/position', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                loco_number: locoNo,
+                to_location: terminal,
+                remarks: fullRemarks
+            })
+        });
+        const data = await r.json();
+        if (!r.ok) {
+            $('#addError').textContent = data.error || 'Failed to add loco';
+            return;
+        }
+        closeAddModal();
+        loadAll();
+    } catch (e) {
+        $('#addError').textContent = 'Network error: ' + e.message;
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Add Loco';
+    }
+}
+
+// ── Move Loco Modal ───────────────────────────────────────────────────
+function openMoveModal() {
+    $('#moveLocoNo').value = '';
+    $('#moveToTerminal').value = '';
+    $('#moveReason').value = 'LE';
+    $('#moveRemarks').value = '';
+    $('#moveError').textContent = '';
+    $('#moveCurrentLoc').textContent = '';
+    $('#moveModal').classList.add('visible');
+    $('#moveLocoNo').focus();
+}
+
+function openMoveModalFor(locoNo, currentLoc) {
+    $('#moveLocoNo').value = locoNo;
+    $('#moveToTerminal').value = '';
+    $('#moveReason').value = 'LE';
+    $('#moveRemarks').value = '';
+    $('#moveError').textContent = '';
+    $('#moveCurrentLoc').textContent = `Currently at: ${currentLoc}`;
+    $('#moveModal').classList.add('visible');
+    $('#moveToTerminal').focus();
+}
+
+function closeMoveModal() {
+    $('#moveModal').classList.remove('visible');
+}
+
+// Lookup current location when loco number is entered
+$('#moveLocoNo').addEventListener('blur', async function() {
+    const locoNo = this.value.trim().toUpperCase();
+    if (!locoNo) {
+        $('#moveCurrentLoc').textContent = '';
+        return;
+    }
+    try {
+        const r = await fetch(`/api/division/loco-link/position/${encodeURIComponent(locoNo)}`);
+        const data = await r.json();
+        if (data.position) {
+            $('#moveCurrentLoc').textContent = `Currently at: ${data.position.current_location}`;
+        } else {
+            $('#moveCurrentLoc').textContent = 'Not in availability list';
+        }
+    } catch (e) {
+        $('#moveCurrentLoc').textContent = '';
+    }
+});
+
+async function submitMoveLoco() {
+    const locoNo = $('#moveLocoNo').value.trim().toUpperCase();
+    const toTerminal = $('#moveToTerminal').value;
+    const reason = $('#moveReason').value;
+    const remarks = $('#moveRemarks').value.trim();
+
+    if (!locoNo) {
+        $('#moveError').textContent = 'Loco number is required';
+        return;
+    }
+    if (!toTerminal) {
+        $('#moveError').textContent = 'Destination is required';
+        return;
+    }
+
+    const btn = $('#moveSubmitBtn');
+    btn.disabled = true;
+    btn.textContent = 'Moving...';
+    $('#moveError').textContent = '';
+
+    try {
+        const fullRemarks = reason + (remarks ? ': ' + remarks : '');
+        const r = await fetch('/api/division/loco-link/position', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                loco_number: locoNo,
+                to_location: toTerminal,
+                remarks: fullRemarks
+            })
+        });
+        const data = await r.json();
+        if (!r.ok) {
+            $('#moveError').textContent = data.error || 'Failed to move loco';
+            return;
+        }
+        closeMoveModal();
+        loadAll();
+    } catch (e) {
+        $('#moveError').textContent = 'Network error: ' + e.message;
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Move Loco';
+    }
+}
+
+// ── Mark Sick Modal ───────────────────────────────────────────────────
+function openSickModalFor(locoNo, currentLoc) {
+    $('#sickLocoNo').value = locoNo;
+    $('#sickLocation').value = currentLoc || '';
+    $('#sickReason').value = '';
+    $('#sickTrainNo').value = '';
+    $('#sickCategory').value = '';
+    $('#sickRemarks').value = '';
+    $('#sickError').textContent = '';
+    $('#sickModal').classList.add('visible');
+    $('#sickReason').focus();
+}
+
+function closeSickModal() {
+    $('#sickModal').classList.remove('visible');
+}
+
+async function submitMarkSick() {
+    const locoNo = $('#sickLocoNo').value.trim();
+    const location = $('#sickLocation').value;
+    const reason = $('#sickReason').value.trim();
+    const trainNo = $('#sickTrainNo').value.trim();
+    const category = $('#sickCategory').value;
+    const remarks = $('#sickRemarks').value.trim();
+
+    if (!location) {
+        $('#sickError').textContent = 'Sick location is required';
+        return;
+    }
+    if (!reason) {
+        $('#sickError').textContent = 'Defect/reason is required';
+        return;
+    }
+
+    const btn = $('#sickSubmitBtn');
+    btn.disabled = true;
+    btn.textContent = 'Marking...';
+    $('#sickError').textContent = '';
+
+    try {
+        const body = {
+            loco_number: locoNo,
+            sick_at_shed: location,
+            sick_reason: reason,
+            current_location: location
+        };
+        if (trainNo) body.sick_train_no = trainNo;
+        if (category) body.category = category;
+        if (remarks) body.remarks = remarks;
+
+        const r = await fetch('/api/division/loco-link/sick', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+        const data = await r.json();
+        if (!r.ok) {
+            $('#sickError').textContent = data.error || 'Failed to mark sick';
+            return;
+        }
+        closeSickModal();
+        loadAll();
+    } catch (e) {
+        $('#sickError').textContent = 'Network error: ' + e.message;
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Mark Sick';
+    }
+}
+
+// ── Remove Loco ───────────────────────────────────────────────────────
+async function removeLoco(locoNo) {
+    if (!confirm(`Remove ${locoNo} from availability?\n\nThis will mark the loco as left the division.`)) {
+        return;
+    }
+
+    try {
+        const r = await fetch('/api/division/loco-link/position', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                loco_number: locoNo,
+                to_location: 'OUT_OF_DIV',
+                remarks: 'Removed from availability'
+            })
+        });
+        const data = await r.json();
+        if (!r.ok) {
+            alert(data.error || 'Failed to remove loco');
+            return;
+        }
+        loadAll();
+    } catch (e) {
+        alert('Network error: ' + e.message);
+    }
+}
+
+loadMe();
+loadAll();
+
+// Auto-refresh every 2 minutes
+setInterval(loadAll, 120000);
+
+// Print function
+function printReport() {
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('en-IN', {
+        day: '2-digit', month: 'short', year: 'numeric',
+        hour: '2-digit', minute: '2-digit', hour12: false
+    });
+    $('#printDate').textContent = `Generated: ${dateStr}`;
+    window.print();
+}
+</script>
+
+</body>
+</html>

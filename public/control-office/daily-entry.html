@@ -216,8 +216,43 @@
         .sheet td.col-actual { width: 200px; }
         .sheet td.col-base   { width: 80px; }
         .sheet td.col-hog    { width: 50px; text-align: center; }
-        .sheet td.col-other  { width: 110px; }
+        .sheet td.col-other  { width: 130px; }
         .sheet td.col-remark { min-width: 140px; }
+
+        /* Target date indicator for outgoing train */
+        .outgoing-wrap {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        .target-date-indicator {
+            font-size: .7rem;
+            color: var(--text-light);
+            padding: 0 2px;
+            display: none;
+        }
+        .target-date-indicator.visible { display: block; }
+        .target-date-indicator.next-day {
+            color: var(--warning);
+            font-weight: 600;
+        }
+        .target-date-indicator.no-run {
+            color: var(--danger);
+            font-weight: 600;
+        }
+        .target-date-override {
+            display: none;
+            align-items: center;
+            gap: 4px;
+            font-size: .68rem;
+            color: var(--text-light);
+            margin-top: 2px;
+        }
+        .target-date-override.visible { display: flex; }
+        .target-date-override input[type="checkbox"] {
+            width: auto;
+            margin: 0;
+        }
         .sheet td.col-status { width: 130px; text-align: center; }
         .sheet td.col-actual input.loco-input { min-width: 95px; flex: 1; }
 
@@ -455,6 +490,90 @@
             border-color: var(--warning);
             border-style: solid;
         }
+        /* Defect button (wrench icon) for UP rows */
+        .defect-btn {
+            flex: 0 0 auto;
+            width: 22px;
+            height: 22px;
+            padding: 0;
+            border: 1px solid var(--border);
+            background: var(--surface);
+            border-radius: 4px;
+            color: var(--text-light);
+            cursor: pointer;
+            font-size: .75rem;
+            line-height: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .defect-btn:hover {
+            background: var(--danger-bg);
+            color: var(--danger);
+            border-color: var(--danger);
+        }
+        .defect-btn.has-defect {
+            background: var(--danger-bg);
+            color: var(--danger);
+            border-color: var(--danger);
+        }
+        .defect-badge {
+            position: absolute;
+            top: -4px;
+            right: -4px;
+            background: var(--danger);
+            color: white;
+            font-size: .6rem;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+        }
+        .defect-btn-wrap {
+            position: relative;
+            display: inline-flex;
+        }
+        /* Info tip bar for UP sheets */
+        .defect-info-tip {
+            display: none;
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            border-radius: 6px;
+            padding: 8px 14px;
+            margin-bottom: 12px;
+            font-size: .82rem;
+            color: #1e40af;
+            align-items: center;
+            gap: 8px;
+        }
+        .defect-info-tip.visible { display: flex; }
+        .defect-info-tip i { color: #3b82f6; }
+        .defect-info-tip .wrench-demo {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 20px;
+            height: 20px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-size: .7rem;
+            color: var(--text-light);
+            margin: 0 2px;
+        }
+        .defect-info-tip .dismiss {
+            margin-left: auto;
+            background: none;
+            border: none;
+            color: #64748b;
+            cursor: pointer;
+            font-size: .9rem;
+            padding: 2px 6px;
+        }
+        .defect-info-tip .dismiss:hover { color: #1e40af; }
         /* Role selector inside the rear row */
         .role-select {
             font-size: .72rem;
@@ -572,9 +691,323 @@
         .save-all-btn:hover { background: var(--brand-light); }
         .save-all-btn:disabled { opacity: .5; cursor: not-allowed; }
         body.has-save-bar { padding-bottom: 64px; }
+
+        /* Available Locos Panel — side panel for DN sheets */
+        .available-panel {
+            position: fixed;
+            top: 120px;
+            right: 0;
+            width: 280px;
+            max-height: calc(100vh - 180px);
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-right: none;
+            border-radius: 8px 0 0 8px;
+            box-shadow: -2px 2px 12px rgba(0,0,0,.08);
+            z-index: 7;
+            display: none;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .available-panel.visible { display: flex; }
+        .available-panel-header {
+            background: var(--brand);
+            color: white;
+            padding: 10px 14px;
+            font-weight: 600;
+            font-size: .9rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .available-panel-header .terminal-badge {
+            background: rgba(255,255,255,.2);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: .8rem;
+        }
+        .available-panel-header .close-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.1rem;
+            cursor: pointer;
+            opacity: .7;
+        }
+        .available-panel-header .close-btn:hover { opacity: 1; }
+        .available-panel-count {
+            padding: 8px 14px;
+            background: var(--bg);
+            font-size: .8rem;
+            color: var(--text-light);
+            border-bottom: 1px solid var(--border);
+        }
+        .available-panel-count .num { font-weight: 700; color: var(--brand); }
+        .available-panel-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px;
+        }
+        .available-loco-item {
+            padding: 8px 10px;
+            margin-bottom: 4px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background .15s, border-color .15s;
+        }
+        .available-loco-item:hover {
+            background: var(--info-bg);
+            border-color: var(--info);
+        }
+        .available-loco-item .loco-no {
+            font-family: 'Courier New', monospace;
+            font-weight: 700;
+            font-size: .95rem;
+            color: var(--brand);
+        }
+        .available-loco-item .loco-meta {
+            font-size: .72rem;
+            color: var(--text-light);
+            margin-top: 2px;
+        }
+        .available-loco-item .loco-meta .shed {
+            font-weight: 600;
+            color: var(--text-main);
+        }
+        .available-loco-item .arrived-info {
+            font-size: .68rem;
+            color: var(--muted);
+            margin-top: 2px;
+        }
+        .available-panel-empty {
+            padding: 24px 14px;
+            text-align: center;
+            color: var(--text-light);
+            font-size: .85rem;
+            font-style: italic;
+        }
+        .available-panel-toggle {
+            position: fixed;
+            top: 120px;
+            right: 0;
+            background: var(--brand);
+            color: white;
+            border: none;
+            padding: 8px 10px;
+            border-radius: 6px 0 0 6px;
+            cursor: pointer;
+            font-size: .78rem;
+            font-weight: 600;
+            z-index: 6;
+            display: none;
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
+        }
+        .available-panel-toggle.visible { display: block; }
+        .available-panel-toggle:hover { background: var(--brand-light); }
+        .available-panel-toggle .cnt {
+            background: rgba(255,255,255,.25);
+            padding: 2px 4px;
+            border-radius: 3px;
+            margin-top: 6px;
+        }
+        body.panel-open .main { margin-right: 290px; }
+
+        /* Defect Modal */
+        .defect-modal-overlay {
+            display: none;
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,.5);
+            z-index: 2000;
+            align-items: center; justify-content: center;
+        }
+        .defect-modal-overlay.active { display: flex; }
+        .defect-modal {
+            background: var(--surface);
+            border-radius: 10px;
+            width: 420px;
+            max-width: 95vw;
+            box-shadow: 0 8px 32px rgba(0,0,0,.2);
+        }
+        .defect-modal-header {
+            padding: 14px 18px;
+            background: var(--danger);
+            color: white;
+            border-radius: 10px 10px 0 0;
+            font-weight: 600;
+            font-size: .95rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .defect-modal-header .loco-tag {
+            background: rgba(255,255,255,.2);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+        }
+        .defect-modal-body { padding: 18px; }
+        .defect-modal-body label {
+            display: block;
+            font-size: .8rem;
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: var(--text-light);
+        }
+        .defect-modal-body select,
+        .defect-modal-body input,
+        .defect-modal-body textarea {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--border-strong);
+            border-radius: 6px;
+            font-size: .9rem;
+            font-family: inherit;
+            margin-bottom: 14px;
+        }
+        .defect-modal-body textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+        .defect-modal-body select:focus,
+        .defect-modal-body input:focus,
+        .defect-modal-body textarea:focus {
+            outline: none;
+            border-color: var(--brand);
+            box-shadow: 0 0 0 3px rgba(11,61,145,.1);
+        }
+        .defect-modal-body .row-2col {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        .defect-modal-footer {
+            padding: 12px 18px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .defect-modal-footer button {
+            padding: 9px 18px;
+            border-radius: 5px;
+            font-size: .85rem;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+        }
+        .defect-modal-footer .btn-cancel {
+            background: var(--surface);
+            color: var(--text-light);
+            border: 1px solid var(--border-strong);
+        }
+        .defect-modal-footer .btn-cancel:hover { background: var(--bg); }
+        .defect-modal-footer .btn-submit {
+            background: var(--danger);
+            color: white;
+            border: none;
+        }
+        .defect-modal-footer .btn-submit:hover { background: #b91c1c; }
+        .defect-list {
+            max-height: 150px;
+            overflow-y: auto;
+            margin-bottom: 14px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+        }
+        .defect-list-item {
+            padding: 8px 12px;
+            border-bottom: 1px solid var(--border);
+            font-size: .82rem;
+        }
+        .defect-list-item:last-child { border-bottom: none; }
+        .defect-list-item .cat {
+            font-weight: 600;
+            color: var(--danger);
+        }
+        .defect-list-item .sev {
+            font-size: .7rem;
+            padding: 1px 5px;
+            border-radius: 3px;
+            margin-left: 6px;
+        }
+        .defect-list-item .sev.MINOR { background: var(--warning-bg); color: var(--warning); }
+        .defect-list-item .sev.MAJOR { background: #fecaca; color: #b91c1c; }
+        .defect-list-item .sev.CRITICAL { background: #b91c1c; color: white; }
+        .defect-list-item .desc { color: var(--text-main); margin-top: 4px; }
+        .defect-list-empty {
+            padding: 16px;
+            text-align: center;
+            color: var(--text-light);
+            font-style: italic;
+        }
     </style>
 </head>
 <body>
+
+<!-- Defect Report Modal -->
+<div class="defect-modal-overlay" id="defectModal">
+    <div class="defect-modal">
+        <div class="defect-modal-header">
+            <i class="fa-solid fa-wrench"></i>
+            <span>Report Defect</span>
+            <span class="loco-tag" id="defectLocoTag">—</span>
+        </div>
+        <div class="defect-modal-body">
+            <input type="hidden" id="defectLocoNo">
+            <input type="hidden" id="defectTrainNo">
+            <input type="hidden" id="defectWorkingDate">
+
+            <!-- Existing defects for this loco/date -->
+            <div id="defectExistingWrap" style="display:none;">
+                <label>Existing Defects</label>
+                <div class="defect-list" id="defectExistingList"></div>
+            </div>
+
+            <label for="defectCategory">Category</label>
+            <select id="defectCategory">
+                <option value="BRAKE">Brake</option>
+                <option value="TRACTION">Traction</option>
+                <option value="PANTOGRAPH">Pantograph</option>
+                <option value="HOTEL_LOAD">Hotel Load</option>
+                <option value="AC">AC</option>
+                <option value="SPEEDOMETER">Speedometer</option>
+                <option value="HORN">Horn</option>
+                <option value="VIGILANCE">Vigilance Device</option>
+                <option value="AUX_CONVERTOR">Auxiliary Convertor</option>
+                <option value="BATTERY">Battery/Battery Charger</option>
+                <option value="SI_UNIT">SI Unit</option>
+                <option value="OTHER" selected>Other</option>
+            </select>
+
+            <div class="row-2col">
+                <div>
+                    <label for="defectSeverity">Severity</label>
+                    <select id="defectSeverity">
+                        <option value="MINOR" selected>Minor</option>
+                        <option value="MAJOR">Major</option>
+                        <option value="CRITICAL">Critical</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Home Shed</label>
+                    <input type="text" id="defectHomeShed" readonly style="background:var(--bg);color:var(--text-light);">
+                </div>
+            </div>
+
+            <label for="defectDescription">Description <span style="color:var(--danger)">*</span></label>
+            <textarea id="defectDescription" placeholder="Describe the defect..."></textarea>
+        </div>
+        <div class="defect-modal-footer">
+            <button class="btn-cancel" id="defectModalCancel">Cancel</button>
+            <button class="btn-submit" id="defectModalSubmit">
+                <i class="fa-solid fa-paper-plane"></i> Submit Defect
+            </button>
+        </div>
+    </div>
+</div>
 
 <header class="header">
     <div class="header-title">
@@ -635,6 +1068,14 @@
         <div class="tab disabled" title="Coming in next slice">Bypass Trains</div>
     </div>
 
+    <div class="defect-info-tip" id="defectInfoTip">
+        <i class="fa-solid fa-circle-info"></i>
+        <span>
+            <strong>New:</strong> Click the <span class="wrench-demo"><i class="fa-solid fa-wrench"></i></span> button next to loco number to report any defect observed on incoming locos.
+        </span>
+        <button class="dismiss" onclick="dismissDefectTip()" title="Dismiss">&times;</button>
+    </div>
+
     <div class="sheet-wrap">
         <table class="sheet" id="sheet">
             <thead>
@@ -668,6 +1109,25 @@
     <button class="save-all-btn" id="saveAllBtn">
         <i class="fa-solid fa-cloud-arrow-up"></i> Save All
     </button>
+</div>
+
+<!-- Available Locos Panel — shown for DN sheets -->
+<button class="available-panel-toggle" id="availablePanelToggle" title="Show available locos">
+    <i class="fa-solid fa-train"></i> Available
+    <span class="cnt" id="availableToggleCount">0</span>
+</button>
+<div class="available-panel" id="availablePanel">
+    <div class="available-panel-header">
+        <span><i class="fa-solid fa-train"></i> Available Locos</span>
+        <span class="terminal-badge" id="availableTerminal">—</span>
+        <button class="close-btn" id="closeAvailablePanel" title="Close"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="available-panel-count">
+        <span class="num" id="availableCount">0</span> locos available at this terminal
+    </div>
+    <div class="available-panel-list" id="availablePanelList">
+        <div class="available-panel-empty">Loading...</div>
+    </div>
 </div>
 
 <script>
@@ -1099,6 +1559,7 @@ function renderRow(m, editable) {
                        value="${esc(log.actual_loco_no || '')}" ${dis}
                        data-field="actual_loco_no">
                 ${editable && !m.is_push_pull ? `<button class="add-second-btn" data-action="add-second" title="Add assist / coupler loco">+</button>` : ''}
+                ${editable && direction === 'UP' ? `<span class="defect-btn-wrap"><button class="defect-btn" data-action="report-defect" title="Report Loco Defect (click to log any defect observed on this loco)"><i class="fa-solid fa-wrench"></i></button></span>` : ''}
                 ${log.main_loco_dead ? '<span class="dead-pill">DEAD</span>' : ''}
             </div>
             ${editable ? (() => {
@@ -1137,9 +1598,16 @@ function renderRow(m, editable) {
             </label>
         </td>
         <td class="col-other">
-            <input type="text" maxlength="20" placeholder="train no"
-                   value="${esc(log.incoming_train || log.outgoing_train || '')}" ${dis}
-                   data-field="${direction === 'UP' ? 'outgoing_train' : 'incoming_train'}">
+            <div class="outgoing-wrap">
+                <input type="text" maxlength="20" placeholder="train no"
+                       value="${esc(log.incoming_train || log.outgoing_train || '')}" ${dis}
+                       data-field="${direction === 'UP' ? 'outgoing_train' : 'incoming_train'}">
+                ${direction === 'UP' ? `
+                <div class="target-date-indicator" data-for="outgoing_train"></div>
+                <label class="target-date-override" data-for="outgoing_train">
+                    <input type="checkbox" data-field="outgoing_same_day"> Same day
+                </label>` : ''}
+            </div>
         </td>
         <td class="col-remark">
             <input type="text" maxlength="200" placeholder="—"
@@ -1440,6 +1908,18 @@ function attachRowHandlers(tr) {
     if (addSecondBtn) {
         addSecondBtn.addEventListener('click', () => addSecondLocoRow(tr));
     }
+
+    // 🔧 Defect button — open modal to report defect (UP rows only)
+    const defectBtn = tr.querySelector('button[data-action="report-defect"]');
+    if (defectBtn) {
+        defectBtn.addEventListener('click', () => {
+            const locoNo = tr.querySelector('input[data-field="actual_loco_no"]')?.value?.trim();
+            const trainNo = tr.dataset.trainNo || '';
+            const baseShed = tr.querySelector('.base-display')?.textContent?.trim();
+            openDefectModal(locoNo, trainNo, baseShed === '—' ? '' : baseShed);
+        });
+    }
+
     // "×" button on an ad-hoc rear row → remove it
     const removeSecondBtn = tr.querySelector('button[data-action="remove-second"]');
     if (removeSecondBtn) {
@@ -1533,6 +2013,101 @@ function attachRowHandlers(tr) {
                 setStatus(tr, `<span class="err">lookup failed</span>`, true);
             }
         });
+    }
+
+    // Target date indicator for outgoing_train (UP direction only)
+    const outgoingInput = tr.querySelector('input[data-field="outgoing_train"]');
+    const targetDateIndicator = tr.querySelector('.target-date-indicator[data-for="outgoing_train"]');
+    const overrideLabel = tr.querySelector('.target-date-override[data-for="outgoing_train"]');
+    const overrideCheckbox = tr.querySelector('input[data-field="outgoing_same_day"]');
+
+    if (outgoingInput && targetDateIndicator) {
+        // Get source train's event_time from the row data
+        const getSourceTime = () => {
+            const masterId = tr.dataset.masterId;
+            const m = (currentSheet?.rows || []).find(r => String(r.id) === String(masterId));
+            return m ? m.event_time : null;
+        };
+
+        outgoingInput.addEventListener('blur', async () => {
+            const trainNo = outgoingInput.value.trim();
+            if (!trainNo) {
+                targetDateIndicator.textContent = '';
+                targetDateIndicator.classList.remove('visible', 'next-day', 'no-run');
+                overrideLabel.classList.remove('visible');
+                return;
+            }
+
+            const sourceTime = getSourceTime();
+            if (!sourceTime) {
+                targetDateIndicator.textContent = '';
+                targetDateIndicator.classList.remove('visible');
+                return;
+            }
+
+            try {
+                const params = new URLSearchParams({
+                    source_date: currentDate,
+                    source_time: sourceTime,
+                    target_direction: 'DN'
+                });
+                const r = await fetch(`/api/division/loco-link/train/${encodeURIComponent(trainNo)}/target-date?${params}`);
+                if (!r.ok) {
+                    if (r.status === 404) {
+                        targetDateIndicator.textContent = '⚠ Train not in master';
+                        targetDateIndicator.classList.add('visible', 'no-run');
+                        targetDateIndicator.classList.remove('next-day');
+                    } else {
+                        targetDateIndicator.textContent = '';
+                        targetDateIndicator.classList.remove('visible');
+                    }
+                    overrideLabel.classList.remove('visible');
+                    return;
+                }
+
+                const data = await r.json();
+                // Store the computed target date on the row for use during save
+                tr.dataset.outgoingTargetDate = data.target_date;
+                tr.dataset.outgoingIsNextDay = data.is_next_day ? '1' : '0';
+
+                if (!data.runs_on_target) {
+                    targetDateIndicator.textContent = `⚠ ${trainNo} doesn't run on ${data.display_date}`;
+                    targetDateIndicator.classList.add('visible', 'no-run');
+                    targetDateIndicator.classList.remove('next-day');
+                    overrideLabel.classList.remove('visible');
+                } else if (data.is_next_day) {
+                    targetDateIndicator.textContent = `→ ${data.display_date}`;
+                    targetDateIndicator.classList.add('visible', 'next-day');
+                    targetDateIndicator.classList.remove('no-run');
+                    overrideLabel.classList.add('visible');
+                } else {
+                    targetDateIndicator.textContent = `→ ${data.display_date}`;
+                    targetDateIndicator.classList.add('visible');
+                    targetDateIndicator.classList.remove('next-day', 'no-run');
+                    overrideLabel.classList.remove('visible');
+                }
+            } catch (e) {
+                console.error('Target date lookup failed:', e);
+                targetDateIndicator.textContent = '';
+                targetDateIndicator.classList.remove('visible');
+            }
+        });
+
+        // Override checkbox changes the stored target date
+        if (overrideCheckbox) {
+            overrideCheckbox.addEventListener('change', () => {
+                if (overrideCheckbox.checked) {
+                    // Override to same day
+                    tr.dataset.outgoingTargetDate = currentDate;
+                    tr.dataset.outgoingIsNextDay = '0';
+                    targetDateIndicator.classList.remove('next-day');
+                } else {
+                    // Restore auto-detected date - trigger blur again
+                    outgoingInput.dispatchEvent(new Event('blur'));
+                }
+                if (saveBtn) { saveBtn.classList.add('dirty'); updateDirtyBar(); }
+            });
+        }
     }
 
     // save
@@ -1733,6 +2308,10 @@ async function saveRow(tr) {
         if (radioIn) failed_in_division = Number(radioIn.value);
     }
 
+    // Get override date from dataset if the "Same day" checkbox was used
+    const outgoingDateOverride = frontRow?.dataset.outgoingIsNextDay === '0' && frontRow?.dataset.outgoingTargetDate
+        ? frontRow.dataset.outgoingTargetDate : null;
+
     const body = {
         working_date: currentDate,
         direction,
@@ -1748,6 +2327,7 @@ async function saveRow(tr) {
         hog: get(frontRow, 'hog') ? 1 : 0,
         incoming_train: get(frontRow, 'incoming_train'),
         outgoing_train: get(frontRow, 'outgoing_train'),
+        outgoing_date_override: outgoingDateOverride,
         remark: get(frontRow, 'remark'),
     };
     // Special rows need sheet_source + section since they have no master to snapshot from
@@ -1918,8 +2498,272 @@ window.addEventListener('keydown', e => {
     }
 });
 
+// ── Available Locos Panel (DN sheets only) ────────────────────────────
+let availableLocos = [];
+let focusedLocoInput = null;
+
+function getTerminalFromSheet() {
+    // Derive terminal from sheet_source (e.g., "CSMT-DN" → "CSMT", "LTT-UP" → "LTT")
+    if (!sheetSource) return null;
+    const parts = sheetSource.split('-');
+    if (parts.length >= 2) return parts[0];
+    return null;
+}
+
+async function loadAvailableLocos() {
+    const terminal = getTerminalFromSheet();
+    if (!terminal || direction !== 'DN') {
+        $('#availablePanelToggle').classList.remove('visible');
+        return;
+    }
+
+    $('#availableTerminal').textContent = terminal;
+    $('#availablePanelToggle').classList.add('visible');
+
+    try {
+        const r = await fetch(`/api/division/loco-link/available?terminal=${encodeURIComponent(terminal)}`);
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const data = await r.json();
+        availableLocos = data.locos || [];
+
+        $('#availableCount').textContent = availableLocos.length;
+        $('#availableToggleCount').textContent = availableLocos.length;
+
+        renderAvailableList();
+    } catch (e) {
+        console.warn('[available locos]', e.message);
+        availableLocos = [];
+        $('#availablePanelList').innerHTML = `<div class="available-panel-empty">Failed to load</div>`;
+    }
+}
+
+function renderAvailableList() {
+    const list = $('#availablePanelList');
+    if (!availableLocos.length) {
+        list.innerHTML = `<div class="available-panel-empty">No locos available at this terminal</div>`;
+        return;
+    }
+
+    list.innerHTML = availableLocos.map(loco => {
+        const arrivedAt = loco.arrived_at ? new Date(loco.arrived_at).toLocaleString('en-IN', {
+            day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false
+        }) : '—';
+        const hogIcon = loco.hotel_load_oem ? '<i class="fa-solid fa-plug" title="HOG capable"></i>' : '';
+        return `
+            <div class="available-loco-item" data-loco="${esc(loco.loco_number)}">
+                <div class="loco-no">${esc(loco.loco_number)} ${hogIcon}</div>
+                <div class="loco-meta">
+                    <span class="shed">${esc(loco.home_shed || '—')}</span>
+                    · ${esc(loco.loco_type || '—')}
+                </div>
+                <div class="arrived-info">
+                    via ${esc(loco.arrived_via_train || '—')} · ${arrivedAt}
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    // Click to fill loco number into focused input
+    list.querySelectorAll('.available-loco-item').forEach(item => {
+        item.addEventListener('click', () => {
+            const locoNo = item.dataset.loco;
+            if (focusedLocoInput) {
+                focusedLocoInput.value = locoNo;
+                focusedLocoInput.dispatchEvent(new Event('input', { bubbles: true }));
+                focusedLocoInput.dispatchEvent(new Event('change', { bubbles: true }));
+                focusedLocoInput.focus();
+                // Mark row dirty
+                const tr = focusedLocoInput.closest('tr');
+                if (tr) {
+                    const saveBtn = tr.querySelector('button[data-action="save"]');
+                    if (saveBtn) saveBtn.classList.add('dirty');
+                    updateDirtyBar();
+                }
+            }
+        });
+    });
+}
+
+function openAvailablePanel() {
+    $('#availablePanel').classList.add('visible');
+    $('#availablePanelToggle').classList.remove('visible');
+    document.body.classList.add('panel-open');
+}
+
+function closeAvailablePanel() {
+    $('#availablePanel').classList.remove('visible');
+    $('#availablePanelToggle').classList.add('visible');
+    document.body.classList.remove('panel-open');
+}
+
+// Track which loco input has focus
+document.addEventListener('focusin', e => {
+    if (e.target.classList.contains('loco-input')) {
+        focusedLocoInput = e.target;
+    }
+});
+
+// ══════════════════════════════════════════════════════════════════════════
+// DEFECT REPORTING
+// ══════════════════════════════════════════════════════════════════════════
+
+async function openDefectModal(locoNo, trainNo, homeShed) {
+    const modal = $('#defectModal');
+    $('#defectLocoNo').value = locoNo || '';
+    $('#defectTrainNo').value = trainNo || '';
+    $('#defectWorkingDate').value = currentDate;
+    $('#defectLocoTag').textContent = locoNo || '—';
+    $('#defectHomeShed').value = homeShed || '—';
+    $('#defectCategory').value = 'OTHER';
+    $('#defectSeverity').value = 'MINOR';
+    $('#defectDescription').value = '';
+
+    // Load existing defects for this loco/date
+    const existingWrap = $('#defectExistingWrap');
+    const existingList = $('#defectExistingList');
+    existingList.innerHTML = '';
+    existingWrap.style.display = 'none';
+
+    if (locoNo) {
+        try {
+            const r = await fetch(`/api/division/loco-link/defects/for-log?loco=${encodeURIComponent(locoNo)}&date=${currentDate}`);
+            if (r.ok) {
+                const data = await r.json();
+                if (data.defects && data.defects.length) {
+                    existingWrap.style.display = 'block';
+                    for (const d of data.defects) {
+                        const item = document.createElement('div');
+                        item.className = 'defect-list-item';
+                        item.innerHTML = `
+                            <span class="cat">${esc(d.defect_category)}</span>
+                            <span class="sev ${d.severity}">${d.severity}</span>
+                            <div class="desc">${esc(d.description)}</div>
+                        `;
+                        existingList.appendChild(item);
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn('Failed to load existing defects', e);
+        }
+    }
+
+    modal.classList.add('active');
+    $('#defectDescription').focus();
+}
+
+function closeDefectModal() {
+    $('#defectModal').classList.remove('active');
+}
+
+async function submitDefect() {
+    const locoNo = $('#defectLocoNo').value.trim();
+    const trainNo = $('#defectTrainNo').value.trim();
+    const description = $('#defectDescription').value.trim();
+    const category = $('#defectCategory').value;
+    const severity = $('#defectSeverity').value;
+
+    if (!locoNo) {
+        alert('Loco number is required. Please enter a loco number first.');
+        closeDefectModal();
+        return;
+    }
+    if (!description) {
+        alert('Please enter a description of the defect.');
+        $('#defectDescription').focus();
+        return;
+    }
+
+    const submitBtn = $('#defectModalSubmit');
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
+
+    // Derive terminal from sheetSource (e.g., "CSMT-UP" → "CSMT", "LTT-UP" → "LTT")
+    const terminal = sheetSource ? sheetSource.replace(/-UP$|-DN$/, '') : '';
+
+    try {
+        const r = await fetch('/api/division/loco-link/defects', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                loco_number: locoNo,
+                train_no: trainNo,
+                working_date: currentDate,
+                defect_category: category,
+                description,
+                severity,
+                reported_at_terminal: terminal,
+            }),
+        });
+        const data = await r.json();
+        if (!r.ok) {
+            alert(data.error || 'Failed to save defect');
+            return;
+        }
+
+        // Update defect button to show indicator
+        const row = document.querySelector(`tr[data-train-no="${trainNo}"][data-position="front"]`);
+        if (row) {
+            const defectBtnWrap = row.querySelector('.defect-btn-wrap');
+            if (defectBtnWrap) {
+                defectBtnWrap.querySelector('.defect-btn').classList.add('has-defect');
+                // Add or update badge
+                let badge = defectBtnWrap.querySelector('.defect-badge');
+                if (!badge) {
+                    badge = document.createElement('span');
+                    badge.className = 'defect-badge';
+                    badge.textContent = '1';
+                    defectBtnWrap.appendChild(badge);
+                } else {
+                    badge.textContent = parseInt(badge.textContent, 10) + 1;
+                }
+            }
+        }
+
+        closeDefectModal();
+    } catch (e) {
+        alert('Network error: ' + e.message);
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Submit Defect';
+    }
+}
+
+// Defect modal event handlers
+$('#defectModalCancel').addEventListener('click', closeDefectModal);
+$('#defectModalSubmit').addEventListener('click', submitDefect);
+$('#defectModal').addEventListener('click', e => {
+    if (e.target === $('#defectModal')) closeDefectModal();
+});
+
+// Panel toggle handlers
+$('#availablePanelToggle').addEventListener('click', openAvailablePanel);
+$('#closeAvailablePanel').addEventListener('click', closeAvailablePanel);
+
+// Show defect info tip for UP sheets (if not dismissed)
+function showDefectTipIfNeeded() {
+    if (direction === 'UP' && !localStorage.getItem('defectTipDismissed')) {
+        $('#defectInfoTip').classList.add('visible');
+    }
+}
+function dismissDefectTip() {
+    $('#defectInfoTip').classList.remove('visible');
+    localStorage.setItem('defectTipDismissed', '1');
+}
+
 loadMe();
 loadSheet();
+showDefectTipIfNeeded();
+
+// Load available locos after sheet loads (for DN sheets, except KR)
+setTimeout(() => {
+    const terminal = getTerminalFromSheet();
+    // KR trains don't have a separate shed - locos end up at CSMT or VVH/DR
+    const isKR = sheetSource && sheetSource.startsWith('KR');
+    if (direction === 'DN' && !isBypass && !isKR && terminal) {
+        loadAvailableLocos();
+    }
+}, 500);
 </script>
 
 </body>
