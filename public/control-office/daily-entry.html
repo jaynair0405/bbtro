@@ -1305,60 +1305,95 @@ function renderSheet(data) {
     // can be highlighted as separate sub-blocks
     const mainFrom = mostCommonFromStation(data.rows);
 
-    // Specials grouped by section (data.specials is an array of log rows with master_id=NULL)
-    const specialsBySection = new Map();
-    for (const sp of (data.specials || [])) {
-        const k = sp.section || '_OTHER_';
-        if (!specialsBySection.has(k)) specialsBySection.set(k, []);
-        specialsBySection.get(k).push(sp);
-    }
+    // Parse "HH:MM" into minutes since midnight. Pure ascending order — 00:30
+    // before 01:45 before 04:15 … before 23:59.
+    const parseMin = (t) => {
+        if (!t) return 99999;
+        const m = String(t).trim().match(/^(\d{1,2}):(\d{2})/);
+        if (!m) return 99999;
+        return parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+    };
 
-    let prevSection = null, prevFrom = null;
-    const flushSectionTail = (section, fromStation) => {
-        // After a section's master rows: render any saved specials, then 1 blank + Add button
-        const k = section || '_OTHER_';
-        const sps = specialsBySection.get(k) || [];
-        for (const sp of sps) {
-            body.appendChild(renderSpecialRow(sp, data.editable));
+    // Group rows by (section, from_station) so section headers still appear,
+    // but within each group order is pure event_time. Specials merge into the
+    // section they belong to (or _OTHER_ if no matching group).
+    const groupKey = (section, fromStation) => `${section || ''}|${fromStation || ''}`;
+    const groups = new Map();        // key → { section, fromStation, rows: [], order }
+    let groupOrder = 0;
+    const getGroup = (section, fromStation) => {
+        const k = groupKey(section, fromStation);
+        if (!groups.has(k)) {
+            groups.set(k, { section, fromStation, rows: [], order: groupOrder++ });
         }
-        specialsBySection.delete(k);
-        if (data.editable) {
-            body.appendChild(renderBlankRow(section, fromStation));
-            body.appendChild(renderAddButton(section, fromStation));
-        }
+        return groups.get(k);
     };
 
     for (const row of data.rows) {
-        const sectionKey = row.section || '';
-        const fromKey = row.from_station || '';
-        if (sectionKey !== prevSection || fromKey !== prevFrom) {
-            // Close the previous section: render its specials + blank + add
-            if (prevSection !== null) flushSectionTail(prevSection, prevFrom);
-            body.appendChild(renderSectionHeader(sectionKey, fromKey, mainFrom));
-            prevSection = sectionKey;
-            prevFrom = fromKey;
-        }
-        body.appendChild(renderRow(row, data.editable));
-        // Render a rear row whenever:
-        //   - master is push-pull (always show the rear slot, even if empty), OR
-        //   - log has a saved rear loco / secondary_role (preserve ad-hoc assist/coupler/dead-in-tow)
-        const hasAdHocRear = row.log && (row.log.actual_loco_no_rear || row.log.secondary_role);
-        if (row.is_push_pull || hasAdHocRear) {
-            body.appendChild(renderRearRow(row, data.editable, {
-                removable: !row.is_push_pull,  // ad-hoc rears get the "×" delete button
-            }));
+        getGroup(row.section || '', row.from_station || '')
+            .rows.push({ kind: 'master', sortKey: parseMin(row.event_time), data: row });
+    }
+
+    // Map of section → from_station for placing specials. If a special's section
+    // doesn't match any existing master group, put it under "_OTHER_".
+    const sectionFromMap = new Map();
+    for (const row of data.rows) {
+        if (row.section && !sectionFromMap.has(row.section)) {
+            sectionFromMap.set(row.section, row.from_station || '');
         }
     }
-    // Final section's tail
-    if (prevSection !== null) flushSectionTail(prevSection, prevFrom);
+    for (const sp of (data.specials || [])) {
+        const sec = sp.section || '_OTHER_';
+        const fromStn = sectionFromMap.get(sec) || '';
+        getGroup(sec === '_OTHER_' ? '_OTHER_' : sec, fromStn)
+            .rows.push({ kind: 'special', sortKey: parseMin(sp.event_time), data: sp });
+    }
 
-    // Any specials whose section didn't match a master section — render under "OTHER" header
-    for (const [sec, sps] of specialsBySection.entries()) {
-        body.appendChild(renderSectionHeader(sec === '_OTHER_' ? 'OTHER' : sec, '', mainFrom));
-        for (const sp of sps) body.appendChild(renderSpecialRow(sp, data.editable));
+    // Section display order: main-from groups first (NE then SE), then sub-from
+    // groups (NE ex PNVL, SE ex PNVL etc.), then any other section, finally
+    // _OTHER_ (unmatched specials) at the very end.
+    const groupRank = (section, fromStation) => {
+        if (section === '_OTHER_') return 999;
+        const isMain = !fromStation || fromStation === mainFrom;
+        if (section === 'NE' && isMain) return 0;
+        if (section === 'SE' && isMain) return 1;
+        if (section === 'NE') return 2;
+        if (section === 'SE') return 3;
+        return 4;       // any other named section between sub-NE/SE and _OTHER_
+    };
+    const sortedGroups = Array.from(groups.values()).sort((a, b) => {
+        const ra = groupRank(a.section, a.fromStation);
+        const rb = groupRank(b.section, b.fromStation);
+        if (ra !== rb) return ra - rb;
+        return a.order - b.order;       // tie-break: original first-seen order
+    });
+
+    for (const group of sortedGroups) {
+        const label = group.section === '_OTHER_' ? 'OTHER' : group.section;
+        body.appendChild(renderSectionHeader(label, group.fromStation, mainFrom));
+
+        // Time-sort within the group
+        group.rows.sort((a, b) => a.sortKey - b.sortKey);
+
+        for (const item of group.rows) {
+            if (item.kind === 'master') {
+                const row = item.data;
+                body.appendChild(renderRow(row, data.editable));
+                const hasAdHocRear = row.log && (row.log.actual_loco_no_rear || row.log.secondary_role);
+                if (row.is_push_pull || hasAdHocRear) {
+                    body.appendChild(renderRearRow(row, data.editable, {
+                        removable: !row.is_push_pull,
+                    }));
+                }
+            } else {
+                body.appendChild(renderSpecialRow(item.data, data.editable));
+            }
+        }
+
+        // After each section: a blank row + Add button for inline specials in this section
         if (data.editable) {
-            body.appendChild(renderBlankRow(sec === '_OTHER_' ? '' : sec, ''));
-            body.appendChild(renderAddButton(sec === '_OTHER_' ? '' : sec, ''));
+            const blankSec = group.section === '_OTHER_' ? '' : group.section;
+            body.appendChild(renderBlankRow(blankSec, group.fromStation));
+            body.appendChild(renderAddButton(blankSec, group.fromStation));
         }
     }
 }
@@ -1373,6 +1408,17 @@ function mostCommonFromStation(rows) {
 let blankRowSeq = 0;
 
 // Saved special — train_no locked, other fields editable, has trash icon
+// Normalize event_time for display: "4:20" → "04:20"; compound times like
+// "02:25 03:00" are padded token-by-token. Anything not matching H:MM is
+// returned unchanged.
+function fmtEventTime(t) {
+    if (!t) return '';
+    return String(t).split(/\s+/).map(tok => {
+        const m = tok.match(/^(\d{1,2}):(\d{2})$/);
+        return m ? `${String(parseInt(m[1], 10)).padStart(2, '0')}:${m[2]}` : tok;
+    }).join(' ');
+}
+
 function renderSpecialRow(log, editable) {
     const tr = document.createElement('tr');
     tr.classList.add('row-special');
@@ -1388,9 +1434,9 @@ function renderSpecialRow(log, editable) {
 
     tr.innerHTML = `
         <td class="col-sr"><span class="pill spl">★ SPL</span></td>
-        <td class="col-time">—</td>
+        <td class="col-time">${esc(fmtEventTime(log.event_time))}</td>
         <td class="col-train">${esc(log.train_no || '—')}</td>
-        <td class="col-link"><small style="color:var(--muted)">special train</small></td>
+        <td class="col-link"><small style="color:var(--muted)">special train${log.section ? ' · ' + esc(log.section) : ''}</small></td>
         <td class="col-actual">
             <input type="text" class="loco-input" maxlength="10" placeholder="loco no"
                    value="${esc(log.actual_loco_no || '')}" ${dis}
@@ -1439,7 +1485,11 @@ function renderBlankRow(section, fromStation) {
 
     tr.innerHTML = `
         <td class="col-sr"><span class="pill spl">★ NEW</span></td>
-        <td class="col-time">—</td>
+        <td class="col-time">
+            <input type="text" maxlength="5" placeholder="HH:MM" autocomplete="off"
+                   data-field="event_time"
+                   style="width:62px;font-family:'Courier New',monospace;font-weight:600;text-align:center">
+        </td>
         <td class="col-train">
             <input type="text" maxlength="10" placeholder="train no" autocomplete="off"
                    data-field="train_no"
@@ -1541,7 +1591,7 @@ function renderRow(m, editable) {
 
     tr.innerHTML = `
         <td class="col-sr">${esc(m.sr_no || '')}</td>
-        <td class="col-time">${esc(m.event_time || '')}</td>
+        <td class="col-time">${esc(fmtEventTime(m.event_time))}</td>
         <td class="col-train">${esc(m.train_no)}${ppPill}</td>
         <td class="col-link">
             <div class="link-summary">
@@ -1766,7 +1816,7 @@ function renderBypassRow(m, editable) {
 
     tr.innerHTML = `
         <td class="col-sr">${esc(m.sr_no || '')}</td>
-        <td class="col-time">${esc(m.event_time || '')}</td>
+        <td class="col-time">${esc(fmtEventTime(m.event_time))}</td>
         <td class="col-train">${esc(m.train_no)}</td>
         <td class="col-link">
             <div class="link-summary">
@@ -2180,6 +2230,19 @@ async function saveBlankRow(tr) {
         return false;
     }
 
+    const eventTimeInput = tr.querySelector('input[data-field="event_time"]');
+    const eventTime = (eventTimeInput.value || '').trim();
+    if (!eventTime) {
+        setStatus(tr, '<span class="err">enter event time (HH:MM)</span>', true);
+        eventTimeInput.focus();
+        return false;
+    }
+    if (!/^\d{1,2}:\d{2}$/.test(eventTime)) {
+        setStatus(tr, '<span class="err">time must be HH:MM</span>', true);
+        eventTimeInput.focus();
+        return false;
+    }
+
     const get = (field) => {
         const el = tr.querySelector(`[data-field="${field}"]`);
         if (!el) return null;
@@ -2194,6 +2257,7 @@ async function saveBlankRow(tr) {
         master_id: null,
         sheet_source: sheetSource || (currentSheet && currentSheet.sheet_source),
         section: tr.dataset.section || null,
+        event_time: eventTime,
         actual_loco_no: get('actual_loco_no'),
         hog: get('hog') ? 1 : 0,
         incoming_train: get('incoming_train'),

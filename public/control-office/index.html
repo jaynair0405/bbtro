@@ -487,6 +487,13 @@
                     <div class="desc">Defects by shed, category</div>
                 </div>
             </a>
+            <a class="link-card" id="settingsLink" href="/control-office/settings.html" style="display:none">
+                <i class="fa-solid fa-sliders icn" style="color:var(--brand)"></i>
+                <div>
+                    <div class="ttl">Settings</div>
+                    <div class="desc">Scheduled specials, trains, sheds</div>
+                </div>
+            </a>
             <a class="link-card disabled" href="#">
                 <i class="fa-solid fa-gear icn"></i>
                 <div>
@@ -517,6 +524,11 @@ async function loadMe() {
         const u = await r.json();
         const role = u.div_role === 'lpc' ? 'LPC' : (u.div_role || u.role);
         $('#userInfo').innerHTML = `<i class="fa-solid fa-user"></i> ${u.full_name || u.username} <small>(${role})</small>`;
+        // Show Settings tile only for division_admin / ctlc
+        if (['division_admin', 'ctlc'].includes(u.div_role)) {
+            const link = $('#settingsLink');
+            if (link) link.style.display = '';
+        }
     } catch (e) {
         $('#userInfo').textContent = '—';
     }

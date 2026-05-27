@@ -142,11 +142,18 @@ CREATE TABLE `div_loco_link_master` (
   `rake_type` varchar(20) DEFAULT NULL,                   -- LHB / ICF / GS+VPH / LVPH
   `train_no` varchar(20) NOT NULL,
   `train_name` varchar(120) DEFAULT NULL,                 -- bypass only currently
-  `event_time` varchar(30) DEFAULT NULL,                  -- raw HH:MM[:SS] string from xlsx
+  `event_time` varchar(30) DEFAULT NULL,                  -- HH:MM, normalized to 2-digit hours (see "event_time conventions")
   `via_stations` json DEFAULT NULL,                       -- bypass intermediate timings
   `run_days` varchar(30) DEFAULT NULL,                    -- DAILY / 1,3,5
   `remark` varchar(255) DEFAULT NULL,
   `active` tinyint(1) DEFAULT '1',
+  -- Scheduled-specials columns (added 2026-05-26 via Settings page) ─────────
+  `effective_from` date DEFAULT NULL,                     -- schedule starts on this date (NULL = always active)
+  `effective_until` date DEFAULT NULL,                    -- schedule ends on this date (NULL = open-ended)
+  `skip_dates` json DEFAULT NULL,                         -- individual dates to exclude, e.g. ["2026-05-15"]
+  `is_scheduled_special` tinyint(1) DEFAULT '0',          -- 1 = registered via Settings page
+  -- BYPASS halt-vs-thru classifier (added 2026-05-27) ──────────────────────
+  `bypass_halts` tinyint DEFAULT NULL,                    -- 1=halts at event/bypass point, 0=passes through, NULL=N/A
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
@@ -155,7 +162,9 @@ CREATE TABLE `div_loco_link_master` (
   KEY `idx_dir_section` (`direction`,`section`,`is_bypass`),
   KEY `idx_active_direction` (`active`,`direction`),
   KEY `idx_push_pull` (`is_push_pull`),
-  KEY `idx_expected_type` (`expected_loco_type`)
+  KEY `idx_expected_type` (`expected_loco_type`),
+  KEY `idx_effective_range` (`effective_from`,`effective_until`),
+  KEY `idx_bypass_halts` (`bypass_halts`)
 );
 ```
 
@@ -170,6 +179,7 @@ CREATE TABLE `div_loco_link_log` (
   `master_id` int DEFAULT NULL,                           -- NULL for LPC-added special trains
   `sheet_source` varchar(30) DEFAULT NULL,                -- snapshot from master (or LPC-provided for specials)
   `section` varchar(20) DEFAULT NULL,                     -- snapshot from master
+  `event_time` varchar(30) DEFAULT NULL,                  -- HH:MM, required for inline specials (NULL for master-linked rows — inherits from master.event_time)
   `actual_loco_no` varchar(20) DEFAULT NULL,              -- the MAIN/assigned loco (LPC's primary focus)
   `main_loco_dead` tinyint(1) DEFAULT '0',                -- 1 = main loco hauled dead (failed)
   `failed_in_division` tinyint(1) DEFAULT NULL,           -- 1 = failed in our div, 0 = before/after our div, NULL = not dead
@@ -423,12 +433,71 @@ CREATE TABLE `div_loco_defects` (
 | 2026-05-22 | `sql/2026-05-22_loco_change_station.sql` | ALTER `div_trains` add loco_change_station for bypass trains with intermediate loco changes (e.g., 22149/22150 at PNVL) |
 | 2026-05-22 | `sql/2026-05-22_loco_defects.sql` | CREATE `div_loco_defects` for tracking defects reported by LPC on incoming locos |
 | 2026-05-24 | `sql/fresh_import_div_trains.sql` | Fresh import of div_trains from `div_trains_stations.csv` (419 trains with correct from/to/direction) |
+| 2026-05-26 | `sql/2026-05-26_settings_phase1.sql` | Add `'ctlc'` to `users.div_role` ENUM; ALTER `div_loco_link_master` add `effective_from`, `effective_until`, `skip_dates` JSON, `is_scheduled_special` (for Settings → Scheduled Specials feature) |
+| 2026-05-26 | `sql/2026-05-26_log_event_time.sql` | ALTER `div_loco_link_log` add `event_time` (required for inline specials so they sort into the time-ordered list alongside master-linked rows) |
+| 2026-05-27 | `sql/2026-05-27_event_time_arrdep_to_arr.sql` | Collapse compound arr/dep `event_time` values in `div_loco_link_master` to arrival only (104 BYPASS rows: `"02:25 03:00"` → `"02:25"`) |
+| 2026-05-27 | `sql/2026-05-27_bypass_halts_flag.sql` | ALTER `div_loco_link_master` add `bypass_halts` flag; strip `"TH"` suffix from event_time and set `bypass_halts=0` on those rows; set `bypass_halts=1` on remaining BYPASS rows with plain HH:MM |
+| 2026-05-27 | `sql/2026-05-27_fix_09323_kk.sql` | Correct id 295 (train 09323 KK-INDB H/SPL): `from_station='KK'`, `event_time='05:42'`, `bypass_halts=1` (was the lone `"KK 04:40"` outlier) |
+| 2026-05-27 | `sql/2026-05-27_pad_event_time.sql` | LPAD single-digit hours in `event_time` → `HH:MM` format (57 rows: `"4:20"` → `"04:20"`) |
 
 Run them in this order for a fresh production deploy. After each ALTER file, run the corresponding loader script (see PENDING-DB-CHANGES.md §11 for the exact sequence).
 
 ---
 
 ## Conventions & business rules
+
+### event_time conventions
+
+`div_loco_link_master.event_time` is **always a single canonical moment** (`HH:MM`) representing the loco-link event for that row:
+
+| Sheet type | What event_time means |
+|---|---|
+| CSMT-UP / LTT-UP / etc. | takeover time at the division entry (e.g. IGP, MMR, PUNE) |
+| CSMT-DN / LTT-DN / etc. | departure time from origin terminal |
+| BYPASS-X-Y | time train interacts with the bypass point (arrival, or moment of pass-through) |
+| Inline special (`div_loco_link_log`, `master_id IS NULL`) | LPC-supplied HH:MM; required so the row sorts into the time-ordered sheet alongside master-linked rows |
+
+**Format:** Always 2-digit hours, `HH:MM`. Compound formats (`"02:25 03:00"`, `"05:00 TH"`, `"KK 04:40"`) were normalized in the 2026-05-27 migrations.
+
+### `from_station` semantics — TWO concerns, TWO tables
+
+The `from_station` column appears on both `div_trains` and `div_loco_link_master`, and they answer **two different operational questions**.
+
+| Concern | Where stored | What it means |
+|---|---|---|
+| **Loco / Control Office** | `div_loco_link_master.from_station` | The boundary station where Mumbai division **takes over the loco** for this loco-link event. `event_time` is the time at this station. |
+| **Staff beat** | `div_trains.from_station` | The first station where **Mumbai division running staff actually start working** this train. |
+
+These are not always the same station. The loco may be taken over at a fixed boundary, but staff may step on/off further inside.
+
+**Standard values:**
+
+| Direction | Loco link (`div_loco_link_master.from_station`) | Staff beat (`div_trains.from_station`) |
+|---|---|---|
+| SE | `LNL` (Lonavla — fixed boundary) | `PUNE` (Mumbai staff start at Pune for most SE trains) |
+| NE | `IGP` (Igatpuri — fixed boundary) | `IGP` / `MMR` / `JL` — varies per train (some Mumbai staff work right up to Manmad or Jalgaon) |
+| KR | `ROHA` (Roha — fixed boundary) | `ROHA` / `RN` — varies per train (some Mumbai staff work up to Ratnagiri) |
+| DN (terminal departures) | The terminal itself (`CSMT`, `LTT`) | Same — the terminal |
+| BYPASS | The bypass entry station (e.g. `LNL` for `BYPASS-LNL-BSR`) | n/a (no Mumbai-division staff workings on bypass loco-only entries) |
+
+**Worked example — train 16553 (Bengaluru ↔ LTT, SE):**
+- `div_loco_link_master.from_station = LNL` (loco taken over at Lonavla for Control Office purposes)
+- `div_trains.from_station = PUNE` (Mumbai division staff work from Pune to LTT)
+- The two are different — that's expected, not a bug.
+
+**Sub-blocks** like `CSMT-DN NE · ex PNVL` on the daily-entry sheet are legitimate: they represent DN trains that genuinely originate from PNVL rather than the usual CSMT, so the sub-grouping helps LPC scan.
+
+**Historical note (2026-05-27):** Originally `CSMT-UP / LTT-UP SE` rows had `from_station = PUNE` (a section-marker that pre-dated the LNL boundary shift). These 39 rows were standardized to `LNL` so the loco-link `from_station` consistently means "where the loco is taken over". Some legacy reports may still reference `PUNE` as a section marker — update them if found.
+
+### `bypass_halts` flag (BYPASS rows only)
+
+| Value | Meaning |
+|---|---|
+| `1` | Train **halts** at the bypass/event point — loco swap or operational pause |
+| `0` | Train **passes through** without halting (was the old `"TH"` suffix) |
+| `NULL` | Not applicable (non-BYPASS rows, or unknown) |
+
+The Settings UI exposes this as a "Halts at bypass?" checkbox when the sheet is BYPASS. For analytics, query `WHERE bypass_halts = 1` to count halting-bypass interactions.
 
 ### Mis-link tiers (computed at report-time, not stored)
 

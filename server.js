@@ -177,12 +177,12 @@ app.get('/div/training-centre.html', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'div', 'training-centre.html'));
 });
 
-// ✅ Control Office Portal — accessible by lpc and division_admin
+// ✅ Control Office Portal — accessible by lpc, division_admin and ctlc
 function requireControlOffice(req, res, next) {
   if (!req.session.user) return res.redirect('/');
   if (req.session.user.realm !== 'division') return res.redirect('/');
   const role = req.session.user.div_role;
-  if (role !== 'lpc' && role !== 'division_admin') return res.redirect('/div');
+  if (!['lpc', 'division_admin', 'ctlc'].includes(role)) return res.redirect('/div');
   next();
 }
 app.get('/control-office/', requireControlOffice, (req, res) => {

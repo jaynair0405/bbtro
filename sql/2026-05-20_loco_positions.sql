@@ -32,7 +32,7 @@ CREATE TABLE div_loco_positions (
     INDEX idx_location (current_location),
     INDEX idx_arrived_at (arrived_at),
     INDEX idx_updated_at (updated_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 COMMENT='Current position of locos at Mumbai division terminals';
 
 -- Note: No FK to div_locos — diesel locos entered by LPC may not be in master yet
@@ -59,7 +59,7 @@ CREATE TABLE div_loco_position_history (
     INDEX idx_train (train_no),
     INDEX idx_working_date (working_date),
     INDEX idx_movement_type (movement_type)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 COMMENT='Audit trail of loco position changes';
 
 -- ═══════════════════════════════════════════════════════════════════════════

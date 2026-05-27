@@ -68,6 +68,24 @@ function isTableNotExistError(err) {
     return err && (err.code === 'ER_NO_SUCH_TABLE' || err.errno === 1146);
 }
 
+// Roles permitted to manage Settings (scheduled specials, trains, sheds, etc.)
+const SETTINGS_ROLES = ['division_admin', 'ctlc'];
+
+/**
+ * Middleware: only allow division-realm users with division_admin or ctlc div_role
+ * to perform Settings mutations. Sends 401/403 directly.
+ */
+function requireSettingsRole(req, res, next) {
+    const u = req.session && req.session.user;
+    if (!u) return res.status(401).json({ error: 'not logged in' });
+    if (u.realm !== 'division' || !SETTINGS_ROLES.includes(u.div_role)) {
+        return res.status(403).json({
+            error: 'insufficient privileges; requires division_admin or ctlc',
+        });
+    }
+    next();
+}
+
 /**
  * Get current datetime in IST (UTC+5:30).
  * Railway operations use IST, not UTC.
@@ -121,6 +139,60 @@ function runsToday(runDays, dowIR) {
     const s = String(runDays).trim().toUpperCase();
     if (s === 'DAILY') return true;
     return s.replace(/\s+/g, '').split(',').includes(String(dowIR));
+}
+
+/**
+ * SQL fragment + params to filter div_loco_link_master rows that are active
+ * on the given date. A row is active if:
+ *   - effective_from is NULL or <= date
+ *   - effective_until is NULL or >= date
+ *   - date is not present in skip_dates JSON array
+ * (NULLs in date columns mean "always active" — backward-compatible.)
+ */
+function effectiveOnDateClause(dateStr) {
+    return {
+        sql: '(effective_from IS NULL OR effective_from <= ?) '
+           + 'AND (effective_until IS NULL OR effective_until >= ?) '
+           + 'AND (skip_dates IS NULL OR NOT JSON_CONTAINS(skip_dates, JSON_QUOTE(?)))',
+        params: [dateStr, dateStr, dateStr],
+    };
+}
+
+/**
+ * Normalize a DB date value (JS Date or string) to "YYYY-MM-DD".
+ * mysql2 returns DATE columns as JS Date objects unless dateStrings is set;
+ * local accessors are safe for date-only values regardless of server timezone.
+ */
+function toDateISO(d) {
+    if (!d) return null;
+    if (typeof d === 'string') return d.slice(0, 10);
+    if (d instanceof Date) {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+    }
+    return String(d).slice(0, 10);
+}
+
+/**
+ * JS-side equivalent of effectiveOnDateClause — given a master row object
+ * (with effective_from / effective_until / skip_dates columns) and a date,
+ * returns true if the schedule is active on that date.
+ */
+function effectiveOnDate(master, dateStr) {
+    if (!master) return false;
+    const from = toDateISO(master.effective_from);
+    const until = toDateISO(master.effective_until);
+    if (from && dateStr < from) return false;
+    if (until && dateStr > until) return false;
+    if (master.skip_dates) {
+        const skips = Array.isArray(master.skip_dates)
+            ? master.skip_dates
+            : JSON.parse(master.skip_dates);
+        if (skips && skips.includes(dateStr)) return false;
+    }
+    return true;
 }
 
 /**
@@ -483,8 +555,13 @@ router.get('/dashboard-stats', async (req, res) => {
         );
 
         // Segment-wise: master rows running today + filled rows today
+        // Filter by date-validity (effective_from/until + skip_dates) so scheduled
+        // specials only count on dates within their schedule.
+        const effClause = effectiveOnDateClause(date);
         const [masters] = await pool.query(
-            'SELECT id, sheet_source, run_days FROM div_loco_link_master WHERE active = 1'
+            `SELECT id, sheet_source, run_days FROM div_loco_link_master
+             WHERE active = 1 AND ${effClause.sql}`,
+            effClause.params
         );
         const segmentTotals = {};
         for (const m of masters) {
@@ -600,13 +677,16 @@ router.get('/train/:train_no/target-date', async (req, res) => {
     try {
         const pool = req.app.locals.pool;
 
-        // Find target train in master
+        // Find target train in master — restricted to schedules active on sourceDate
+        // (so a renumbered or season-bound special doesn't get matched out-of-window).
+        const effClause = effectiveOnDateClause(sourceDate);
         const [masters] = await pool.query(
             `SELECT id, event_time, run_days, train_name
              FROM div_loco_link_master
              WHERE train_no = ? AND direction = ? AND active = 1
+               AND ${effClause.sql}
              LIMIT 1`,
-            [trainNo, targetDirection]
+            [trainNo, targetDirection, ...effClause.params]
         );
         if (!masters.length) {
             return res.status(404).json({
@@ -718,11 +798,16 @@ router.get('/today', async (req, res) => {
             params.push(direction, fromStation);
         }
 
+        // Date-validity filter: hides scheduled specials outside their window
+        // and skip-dates. Always-active rows (NULL columns) pass through.
+        const effClause = effectiveOnDateClause(date);
+        where += ' AND ' + effClause.sql;
+        params.push(...effClause.params);
+
         const [masterRows] = await pool.query(
-            // ORDER BY id preserves the xlsx row order exactly:
-            // NE block first (time-asc within), then SE block, then PNVL/etc trailing block.
-            // Pure event_time sort would mix the blocks (e.g. PNVL train 11032 at 0:30
-            // would appear before NE/IGP train 12810 at 01:45 — wrong for the LPC's view).
+            // ORDER BY event_time so the daily-entry sheet renders trains in
+            // chronological order (LPC works the sheet top-to-bottom as the day
+            // progresses). Falls back to id to keep ties deterministic.
             `SELECT id, sheet_source, sr_no, section, direction, is_bypass,
                     from_station, to_station, route_label,
                     shed_code, link_attr, expected_hog, is_push_pull, traction_type,
@@ -730,7 +815,7 @@ router.get('/today', async (req, res) => {
                     run_days, remark
              FROM div_loco_link_master
              WHERE ${where}
-             ORDER BY id`,
+             ORDER BY event_time, id`,
             params
         );
 
@@ -764,18 +849,21 @@ router.get('/today', async (req, res) => {
 
         const filledCount = merged.filter(r => r.log && r.log.actual_loco_no).length;
 
-        // Special trains — log rows for this sheet+date with no master_id
+        // Special trains — log rows for this sheet+date with no master_id.
+        // Returns event_time so the frontend can merge specials into the
+        // master rows' time-ordered list.
         let specials = [];
         if (sheetSource) {
             const [rows] = await pool.query(
                 `SELECT id, master_id, sheet_source, section, working_date, direction, train_no,
+                        event_time,
                         actual_loco_no, base_shed, loco_type, traction_type,
                         hog, incoming_train, outgoing_train,
                         expected_shed, is_mislink,
                         remark, entered_by, updated_at
                  FROM div_loco_link_log
                  WHERE working_date = ? AND master_id IS NULL AND sheet_source = ?
-                 ORDER BY id`,
+                 ORDER BY event_time, id`,
                 [date, sheetSource]
             );
             specials = rows;
@@ -852,6 +940,9 @@ router.post('/log', async (req, res) => {
     // Special-train fields — only used when master_id is null
     const reqSheetSource = b.sheet_source ? String(b.sheet_source).trim() : null;
     const reqSection = b.section ? String(b.section).trim() : null;
+    // event_time on the log row — only meaningful for inline specials (no master_id).
+    // Master-linked rows inherit event_time from div_loco_link_master, so we store NULL.
+    const reqEventTime = b.event_time ? String(b.event_time).trim() : null;
 
     if (!/^\d{4}-\d{2}-\d{2}$/.test(working_date)) {
         return res.status(400).json({ error: 'working_date must be YYYY-MM-DD' });
@@ -862,6 +953,15 @@ router.post('/log', async (req, res) => {
     if (!train_no) return res.status(400).json({ error: 'train_no required' });
     if (!master_id && !reqSheetSource) {
         return res.status(400).json({ error: 'sheet_source required for special trains (no master_id)' });
+    }
+    // Inline specials need an event_time so rows can sort into the time-ordered list.
+    if (!master_id) {
+        if (!reqEventTime) {
+            return res.status(400).json({ error: 'event_time (HH:MM) required for inline special trains' });
+        }
+        if (!/^\d{1,2}:\d{2}$/.test(reqEventTime)) {
+            return res.status(400).json({ error: 'event_time must be HH:MM' });
+        }
     }
     if (!isEditable(working_date)) {
         return res.status(403).json({
@@ -1040,10 +1140,13 @@ router.post('/log', async (req, res) => {
             && expected_shed !== base_shed_rear
             ? 1 : 0;
 
+        // event_time only stored for inline specials; master-linked rows leave it NULL
+        const log_event_time = master_id ? null : reqEventTime;
+
         // UPSERT
         const [result] = await pool.query(
             `INSERT INTO div_loco_link_log
-                (working_date, direction, train_no, master_id, sheet_source, section,
+                (working_date, direction, train_no, master_id, sheet_source, section, event_time,
                  actual_loco_no, main_loco_dead, failed_in_division,
                  actual_loco_no_rear, secondary_role,
                  base_shed, base_shed_rear,
@@ -1051,11 +1154,12 @@ router.post('/log', async (req, res) => {
                  hog, incoming_train, outgoing_train, outgoing_train_rear,
                  expected_shed, is_mislink, is_mislink_rear,
                  remark, remarks_rear, entered_by)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
              ON DUPLICATE KEY UPDATE
                 master_id            = VALUES(master_id),
                 sheet_source         = VALUES(sheet_source),
                 section              = VALUES(section),
+                event_time           = VALUES(event_time),
                 actual_loco_no       = VALUES(actual_loco_no),
                 main_loco_dead       = VALUES(main_loco_dead),
                 failed_in_division   = VALUES(failed_in_division),
@@ -1076,7 +1180,7 @@ router.post('/log', async (req, res) => {
                 remark               = VALUES(remark),
                 remarks_rear         = VALUES(remarks_rear),
                 entered_by           = VALUES(entered_by)`,
-            [working_date, direction, train_no, master_id, sheet_source, section,
+            [working_date, direction, train_no, master_id, sheet_source, section, log_event_time,
              actual_loco_no, main_loco_dead, failed_in_division,
              actual_loco_no_rear, secondary_role,
              base_shed, base_shed_rear,
@@ -1107,8 +1211,10 @@ router.post('/log', async (req, res) => {
             if (tn === train_no && targetDirection === direction) return;
 
             // Find target master row (must be active) — includes event_time for day-change calc
+            // and effective-date columns for JS-side schedule filtering below.
             const [masters] = await pool.query(
-                `SELECT id, sheet_source, section, shed_code, expected_hog, run_days, event_time
+                `SELECT id, sheet_source, section, shed_code, expected_hog, run_days, event_time,
+                        effective_from, effective_until, skip_dates
                  FROM div_loco_link_master
                  WHERE train_no = ? AND direction = ? AND active = 1`,
                 [tn, targetDirection]
@@ -1130,9 +1236,12 @@ router.post('/log', async (req, res) => {
                 isNextDay = result.isNextDay;
             }
 
-            // Check if target train runs on the computed target date
+            // Check if target train runs on the computed target date AND
+            // the schedule is active on that date (effective range + skip_dates)
             const dow2 = dayOfWeekIR(targetDate);
-            const tgtMaster = masters.find(m => runsToday(m.run_days, dow2));
+            const tgtMaster = masters.find(m =>
+                runsToday(m.run_days, dow2) && effectiveOnDate(m, targetDate)
+            );
             if (!tgtMaster) {
                 propagated.push({
                     train_no: tn, direction: targetDirection,
@@ -2563,6 +2672,829 @@ router.patch('/defects/:id', async (req, res) => {
     } catch (err) {
         console.error('[loco-link PATCH /defects/:id]', err);
         res.status(500).json({ error: 'Failed to update defect' });
+    }
+});
+
+// ── GET /sheds — distinct sheds from div_locos (dropdown source + Settings) ──
+router.get('/sheds', async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'not logged in' });
+    try {
+        const pool = req.app.locals.pool;
+        const [rows] = await pool.query(
+            `SELECT home_shed AS shed_code, railway_zone, COUNT(*) AS loco_count
+             FROM div_locos
+             WHERE home_shed IS NOT NULL AND home_shed <> ''
+             GROUP BY home_shed, railway_zone
+             ORDER BY home_shed`
+        );
+        res.json({ total: rows.length, rows });
+    } catch (err) {
+        console.error('[loco-link GET /sheds]', err);
+        res.status(500).json({ error: 'Failed to load sheds' });
+    }
+});
+
+// ── PUT /sheds/:shed_code — bulk-update railway_zone across all locos of a
+//    shed. Use sparingly; intended for fixing data quality issues, not for
+//    routine ops. Returns the number of loco rows affected.
+router.put('/sheds/:shed_code', requireSettingsRole, async (req, res) => {
+    const shed = String(req.params.shed_code || '').trim();
+    const zone = String((req.body || {}).railway_zone || '').trim().toUpperCase();
+    if (!shed) return res.status(400).json({ error: 'shed_code required' });
+    if (!zone) return res.status(400).json({ error: 'railway_zone required' });
+    if (!/^[A-Z]{1,10}$/.test(zone)) {
+        return res.status(400).json({ error: 'railway_zone must be 1-10 uppercase letters (e.g. CR, NCR, WCR)' });
+    }
+    try {
+        const pool = req.app.locals.pool;
+        const [r] = await pool.query(
+            'UPDATE div_locos SET railway_zone = ? WHERE home_shed = ?',
+            [zone, shed]
+        );
+        if (!r.affectedRows) return res.status(404).json({ error: `no locos found for shed ${shed}` });
+        res.json({ ok: true, shed_code: shed, railway_zone: zone, locos_updated: r.affectedRows });
+    } catch (err) {
+        console.error('[loco-link PUT /sheds/:code]', err);
+        res.status(500).json({ error: 'Failed to update shed' });
+    }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Loco Links (Settings → edit per-train link details: shed, link_attr, etc.)
+// Backed by div_loco_link_master. Scheduled-specials editing lives in its own
+// dedicated endpoints below; this section is for the regular timetable rows.
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Fields admin/ctlc may edit on a master link entry
+const MASTER_EDITABLE_FIELDS = [
+    'from_station', 'to_station',
+    'shed_code', 'link_attr', 'expected_loco_type',
+    'accepted_loco_types', 'rake_type', 'expected_hog',
+    'is_push_pull', 'traction_type', 'remark',
+];
+
+// ── GET /master — list link master rows with filters ───────────────────────
+//   ?sheet=CSMT-UP        filter by sheet
+//   ?shed=KYNE            filter by shed_code
+//   ?search=12810         matches train_no OR train_name
+//   ?active=1|0|all       default active=1
+router.get('/master', async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'not logged in' });
+    const sheet = String(req.query.sheet || '').trim();
+    const shed = String(req.query.shed || '').trim();
+    const search = String(req.query.search || '').trim();
+    const activeArg = String(req.query.active || '1').trim();
+
+    try {
+        const pool = req.app.locals.pool;
+        let sql = `SELECT m.id, m.sheet_source, m.sr_no, m.section, m.direction,
+                          m.shed_code, m.link_attr, m.expected_loco_type, m.accepted_loco_types,
+                          m.rake_type, m.expected_hog, m.is_push_pull, m.traction_type,
+                          m.train_no, m.train_name, m.event_time, m.run_days, m.remark,
+                          m.bypass_halts, m.is_scheduled_special, m.active,
+                          m.effective_from, m.effective_until,
+                          dl.railway_zone
+                   FROM div_loco_link_master m
+                   LEFT JOIN (
+                       SELECT home_shed, MAX(railway_zone) AS railway_zone
+                       FROM div_locos
+                       WHERE home_shed IS NOT NULL
+                       GROUP BY home_shed
+                   ) dl ON dl.home_shed = m.shed_code
+                   WHERE 1=1`;
+        const params = [];
+        if (sheet)  { sql += ' AND m.sheet_source = ?'; params.push(sheet); }
+        if (shed)   { sql += ' AND m.shed_code    = ?'; params.push(shed); }
+        if (search) { sql += ' AND (m.train_no LIKE ? OR m.train_name LIKE ?)'; const p = `%${search}%`; params.push(p, p); }
+        if (activeArg === '1')      sql += ' AND m.active = 1';
+        else if (activeArg === '0') sql += ' AND m.active = 0';
+        sql += ' ORDER BY m.sheet_source, m.event_time, m.id';
+        const [rows] = await pool.query(sql, params);
+        res.json({ total: rows.length, rows });
+    } catch (err) {
+        console.error('[loco-link GET /master]', err);
+        res.status(500).json({ error: 'Failed to list link master rows' });
+    }
+});
+
+// ── POST /master — create a regular (non-scheduled-special) link master row
+//   Body whitelisted from MASTER_CREATE_FIELDS. is_scheduled_special is forced
+//   to 0; for scheduled specials use POST /scheduled-specials instead.
+const MASTER_CREATE_FIELDS = [
+    'sheet_source', 'sr_no', 'section', 'direction', 'is_bypass',
+    'from_station', 'to_station', 'route_label',
+    'shed_code', 'link_attr', 'expected_hog', 'is_push_pull',
+    'traction_type', 'expected_loco_type', 'accepted_loco_types',
+    'rake_type', 'train_no', 'train_name', 'event_time', 'via_stations',
+    'run_days', 'remark', 'bypass_halts',
+];
+router.post('/master', requireSettingsRole, async (req, res) => {
+    const b = req.body || {};
+    const fields = {};
+    for (const f of MASTER_CREATE_FIELDS) if (b[f] !== undefined) fields[f] = b[f];
+
+    if (!fields.train_no) return res.status(400).json({ error: 'train_no required' });
+    if (!fields.sheet_source) return res.status(400).json({ error: 'sheet_source required' });
+    if (!fields.direction || !['UP', 'DN', 'BYPASS'].includes(fields.direction)) {
+        return res.status(400).json({ error: 'direction must be UP, DN, or BYPASS' });
+    }
+    if (!fields.event_time || !/^\d{1,2}:\d{2}$/.test(String(fields.event_time).trim())) {
+        return res.status(400).json({ error: 'event_time required (HH:MM)' });
+    }
+    if ('expected_hog' in fields) fields.expected_hog = fields.expected_hog ? 1 : 0;
+    if ('is_push_pull' in fields) fields.is_push_pull = fields.is_push_pull ? 1 : 0;
+    fields.is_scheduled_special = 0;
+    fields.active = 1;
+
+    try {
+        const pool = req.app.locals.pool;
+        const cols = Object.keys(fields);
+        const placeholders = cols.map(() => '?').join(', ');
+        const [r] = await pool.query(
+            `INSERT INTO div_loco_link_master (${cols.join(', ')}) VALUES (${placeholders})`,
+            Object.values(fields)
+        );
+        const [created] = await pool.query('SELECT * FROM div_loco_link_master WHERE id = ?', [r.insertId]);
+        res.status(201).json({ ok: true, master: created[0] });
+    } catch (err) {
+        if (err && err.code === 'ER_DUP_ENTRY') {
+            return res.status(409).json({
+                error: `A link already exists for ${fields.train_no} (${fields.direction}, from ${fields.from_station || '?'})`,
+                hint: 'Edit the existing one in the Loco Links tab',
+            });
+        }
+        console.error('[loco-link POST /master]', err);
+        res.status(500).json({ error: 'Failed to create link master row' });
+    }
+});
+
+// ── PUT /master/:id — edit a link master row (shed, link_attr etc.) ────────
+router.put('/master/:id', requireSettingsRole, async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (!id) return res.status(400).json({ error: 'invalid id' });
+    const b = req.body || {};
+    const fields = {};
+    for (const f of MASTER_EDITABLE_FIELDS) if (b[f] !== undefined) fields[f] = b[f];
+    if (!Object.keys(fields).length) {
+        return res.status(400).json({ error: 'no editable fields supplied' });
+    }
+    // Normalize booleans for tinyint cols
+    if ('expected_hog' in fields) fields.expected_hog = fields.expected_hog ? 1 : 0;
+    if ('is_push_pull' in fields) fields.is_push_pull = fields.is_push_pull ? 1 : 0;
+
+    try {
+        const pool = req.app.locals.pool;
+        const sets = Object.keys(fields).map(k => `${k} = ?`).join(', ');
+        const [r] = await pool.query(
+            `UPDATE div_loco_link_master SET ${sets} WHERE id = ?`,
+            [...Object.values(fields), id]
+        );
+        if (!r.affectedRows) return res.status(404).json({ error: 'link master row not found' });
+        const [updated] = await pool.query('SELECT * FROM div_loco_link_master WHERE id = ?', [id]);
+        res.json({ ok: true, master: updated[0] });
+    } catch (err) {
+        console.error('[loco-link PUT /master/:id]', err);
+        res.status(500).json({ error: 'Failed to update link master row' });
+    }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Scheduled Specials (Settings → manage train schedules with date ranges)
+// All mutations require division_admin or ctlc role; reads require login only.
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Whitelist of columns the Settings UI may set on create/update
+const SCHED_FIELDS = [
+    'sheet_source', 'sr_no', 'section', 'direction', 'is_bypass',
+    'from_station', 'to_station', 'route_label',
+    'shed_code', 'link_attr', 'expected_hog', 'is_push_pull',
+    'traction_type', 'expected_loco_type', 'accepted_loco_types',
+    'rake_type', 'train_no', 'train_name', 'event_time', 'via_stations',
+    'run_days', 'remark',
+    'effective_from', 'effective_until', 'skip_dates',
+];
+
+function pickFields(body, fields) {
+    const out = {};
+    for (const f of fields) {
+        if (body[f] !== undefined) out[f] = body[f];
+    }
+    return out;
+}
+
+// Check whether a new/updated schedule overlaps any active row for the same
+// (train_no, direction). NULL effective_from = -∞, NULL effective_until = +∞.
+// Returns the conflicting row(s), or [] if no overlap.
+async function findOverlappingSchedules(pool, { train_no, direction, effective_from, effective_until, excludeId }) {
+    if (!train_no || !direction) return [];
+    const params = [train_no, direction];
+    let sql = `SELECT id, sheet_source, sr_no, effective_from, effective_until
+               FROM div_loco_link_master
+               WHERE train_no = ? AND direction = ? AND active = 1`;
+    if (excludeId) {
+        sql += ' AND id <> ?';
+        params.push(excludeId);
+    }
+    const [rows] = await pool.query(sql, params);
+    const nf = effective_from || null;
+    const nu = effective_until || null;
+    return rows.filter(r => {
+        const rf = r.effective_from ? toDateISO(r.effective_from) : null;
+        const ru = r.effective_until ? toDateISO(r.effective_until) : null;
+        // Two ranges overlap unless one ends before the other begins
+        if (rf && nu && nu < rf) return false;
+        if (nf && ru && ru < nf) return false;
+        return true;
+    });
+}
+
+// ── GET /scheduled-specials — list (filterable) ─────────────────────────────
+//   ?active_on=YYYY-MM-DD  filter to schedules active on a date
+//   ?status=active|expired|upcoming
+//   ?sheet=CSMT-UP         filter by sheet
+router.get('/scheduled-specials', async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'not logged in' });
+    const activeOn = String(req.query.active_on || '').trim();
+    const status = String(req.query.status || '').trim().toLowerCase();
+    const sheet = String(req.query.sheet || '').trim();
+
+    try {
+        const pool = req.app.locals.pool;
+        let sql = `SELECT id, sheet_source, sr_no, section, direction, train_no, train_name,
+                          shed_code, link_attr, expected_loco_type, event_time, run_days,
+                          effective_from, effective_until, skip_dates, is_scheduled_special,
+                          active, remark, created_at, updated_at
+                   FROM div_loco_link_master
+                   WHERE is_scheduled_special = 1`;
+        const params = [];
+        if (sheet) { sql += ' AND sheet_source = ?'; params.push(sheet); }
+        if (activeOn && /^\d{4}-\d{2}-\d{2}$/.test(activeOn)) {
+            const eff = effectiveOnDateClause(activeOn);
+            sql += ' AND ' + eff.sql;
+            params.push(...eff.params);
+        }
+        if (status === 'active') {
+            sql += ' AND active = 1';
+        } else if (status === 'expired') {
+            sql += ' AND (active = 0 OR (effective_until IS NOT NULL AND effective_until < CURDATE()))';
+        } else if (status === 'upcoming') {
+            sql += ' AND active = 1 AND effective_from IS NOT NULL AND effective_from > CURDATE()';
+        }
+        sql += ' ORDER BY effective_from DESC, sheet_source, sr_no';
+        const [rows] = await pool.query(sql, params);
+        res.json({ total: rows.length, rows });
+    } catch (err) {
+        console.error('[loco-link GET /scheduled-specials]', err);
+        res.status(500).json({ error: 'Failed to list scheduled specials' });
+    }
+});
+
+// ── POST /scheduled-specials — create new schedule ──────────────────────────
+router.post('/scheduled-specials', requireSettingsRole, async (req, res) => {
+    const b = req.body || {};
+    const fields = pickFields(b, SCHED_FIELDS);
+
+    if (!fields.train_no) return res.status(400).json({ error: 'train_no required' });
+    if (!fields.sheet_source) return res.status(400).json({ error: 'sheet_source required' });
+    if (!fields.direction || !['UP', 'DN', 'BYPASS'].includes(fields.direction)) {
+        return res.status(400).json({ error: 'direction must be UP, DN, or BYPASS' });
+    }
+    if (!fields.run_days) return res.status(400).json({ error: 'run_days required' });
+    if (!fields.effective_from || !/^\d{4}-\d{2}-\d{2}$/.test(fields.effective_from)) {
+        return res.status(400).json({ error: 'effective_from required (YYYY-MM-DD)' });
+    }
+    if (fields.effective_until && !/^\d{4}-\d{2}-\d{2}$/.test(fields.effective_until)) {
+        return res.status(400).json({ error: 'effective_until must be YYYY-MM-DD' });
+    }
+    if (fields.effective_until && fields.effective_until < fields.effective_from) {
+        return res.status(400).json({ error: 'effective_until cannot be before effective_from' });
+    }
+
+    // skip_dates may arrive as array; store as JSON
+    if (fields.skip_dates && Array.isArray(fields.skip_dates)) {
+        fields.skip_dates = JSON.stringify(fields.skip_dates);
+    }
+
+    try {
+        const pool = req.app.locals.pool;
+
+        // Overlap check
+        const overlaps = await findOverlappingSchedules(pool, {
+            train_no: fields.train_no,
+            direction: fields.direction,
+            effective_from: fields.effective_from,
+            effective_until: fields.effective_until || null,
+        });
+        if (overlaps.length) {
+            return res.status(409).json({
+                error: 'Date range overlaps existing active schedule(s) for this train+direction',
+                conflicts: overlaps,
+                hint: 'Close (set effective_until) on the existing schedule first, then add the new one',
+            });
+        }
+
+        fields.is_scheduled_special = 1;
+        fields.active = 1;
+
+        const cols = Object.keys(fields);
+        const placeholders = cols.map(() => '?').join(', ');
+        const [r] = await pool.query(
+            `INSERT INTO div_loco_link_master (${cols.join(', ')}) VALUES (${placeholders})`,
+            Object.values(fields)
+        );
+        const [created] = await pool.query(
+            'SELECT * FROM div_loco_link_master WHERE id = ?', [r.insertId]
+        );
+        res.status(201).json({ ok: true, schedule: created[0] });
+    } catch (err) {
+        console.error('[loco-link POST /scheduled-specials]', err);
+        res.status(500).json({ error: 'Failed to create schedule' });
+    }
+});
+
+// ── PUT /scheduled-specials/:id — edit ──────────────────────────────────────
+router.put('/scheduled-specials/:id', requireSettingsRole, async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (!id) return res.status(400).json({ error: 'invalid id' });
+    const b = req.body || {};
+    const fields = pickFields(b, SCHED_FIELDS);
+    if (!Object.keys(fields).length) {
+        return res.status(400).json({ error: 'no editable fields supplied' });
+    }
+    if (fields.skip_dates && Array.isArray(fields.skip_dates)) {
+        fields.skip_dates = JSON.stringify(fields.skip_dates);
+    }
+    if (fields.effective_from && !/^\d{4}-\d{2}-\d{2}$/.test(fields.effective_from)) {
+        return res.status(400).json({ error: 'effective_from must be YYYY-MM-DD' });
+    }
+    if (fields.effective_until && !/^\d{4}-\d{2}-\d{2}$/.test(fields.effective_until)) {
+        return res.status(400).json({ error: 'effective_until must be YYYY-MM-DD' });
+    }
+
+    try {
+        const pool = req.app.locals.pool;
+        // Load current row to get train_no/direction for overlap check
+        const [cur] = await pool.query(
+            'SELECT * FROM div_loco_link_master WHERE id = ? AND is_scheduled_special = 1',
+            [id]
+        );
+        if (!cur.length) return res.status(404).json({ error: 'schedule not found' });
+        const existing = cur[0];
+
+        const newFrom = fields.effective_from || toDateISO(existing.effective_from);
+        const newUntil = ('effective_until' in fields)
+            ? fields.effective_until
+            : (existing.effective_until ? toDateISO(existing.effective_until) : null);
+        if (newUntil && newFrom && newUntil < newFrom) {
+            return res.status(400).json({ error: 'effective_until cannot be before effective_from' });
+        }
+
+        const overlaps = await findOverlappingSchedules(pool, {
+            train_no: fields.train_no || existing.train_no,
+            direction: fields.direction || existing.direction,
+            effective_from: newFrom,
+            effective_until: newUntil,
+            excludeId: id,
+        });
+        if (overlaps.length) {
+            return res.status(409).json({
+                error: 'Date range overlaps another active schedule for this train+direction',
+                conflicts: overlaps,
+            });
+        }
+
+        const sets = Object.keys(fields).map(k => `${k} = ?`).join(', ');
+        await pool.query(
+            `UPDATE div_loco_link_master SET ${sets} WHERE id = ?`,
+            [...Object.values(fields), id]
+        );
+        const [updated] = await pool.query('SELECT * FROM div_loco_link_master WHERE id = ?', [id]);
+        res.json({ ok: true, schedule: updated[0] });
+    } catch (err) {
+        console.error('[loco-link PUT /scheduled-specials/:id]', err);
+        res.status(500).json({ error: 'Failed to update schedule' });
+    }
+});
+
+// ── POST /scheduled-specials/:id/extend — extend effective_until ────────────
+router.post('/scheduled-specials/:id/extend', requireSettingsRole, async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const newEnd = String((req.body || {}).new_end_date || '').trim();
+    if (!id) return res.status(400).json({ error: 'invalid id' });
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(newEnd)) {
+        return res.status(400).json({ error: 'new_end_date must be YYYY-MM-DD' });
+    }
+    try {
+        const pool = req.app.locals.pool;
+        const [cur] = await pool.query(
+            'SELECT train_no, direction, effective_from, effective_until FROM div_loco_link_master WHERE id = ? AND is_scheduled_special = 1',
+            [id]
+        );
+        if (!cur.length) return res.status(404).json({ error: 'schedule not found' });
+        const existing = cur[0];
+        const curUntil = existing.effective_until ? toDateISO(existing.effective_until) : null;
+        if (curUntil && newEnd < curUntil) {
+            return res.status(400).json({ error: 'extend requires a later date than current effective_until' });
+        }
+
+        const overlaps = await findOverlappingSchedules(pool, {
+            train_no: existing.train_no,
+            direction: existing.direction,
+            effective_from: toDateISO(existing.effective_from),
+            effective_until: newEnd,
+            excludeId: id,
+        });
+        if (overlaps.length) {
+            return res.status(409).json({
+                error: 'Extending would overlap another active schedule for this train+direction',
+                conflicts: overlaps,
+            });
+        }
+
+        await pool.query(
+            'UPDATE div_loco_link_master SET effective_until = ? WHERE id = ?',
+            [newEnd, id]
+        );
+        res.json({ ok: true, id, effective_until: newEnd });
+    } catch (err) {
+        console.error('[loco-link POST /scheduled-specials/:id/extend]', err);
+        res.status(500).json({ error: 'Failed to extend schedule' });
+    }
+});
+
+// ── POST /scheduled-specials/:id/skip — add a date to skip_dates JSON ───────
+router.post('/scheduled-specials/:id/skip', requireSettingsRole, async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const skipDate = String((req.body || {}).skip_date || '').trim();
+    if (!id) return res.status(400).json({ error: 'invalid id' });
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(skipDate)) {
+        return res.status(400).json({ error: 'skip_date must be YYYY-MM-DD' });
+    }
+    try {
+        const pool = req.app.locals.pool;
+        // JSON_ARRAY_APPEND won't init from NULL; use COALESCE + JSON_ARRAY for first insert
+        // and prevent duplicates with JSON_CONTAINS.
+        const [cur] = await pool.query(
+            'SELECT skip_dates FROM div_loco_link_master WHERE id = ? AND is_scheduled_special = 1',
+            [id]
+        );
+        if (!cur.length) return res.status(404).json({ error: 'schedule not found' });
+        const existing = cur[0].skip_dates;
+        const skips = existing
+            ? (Array.isArray(existing) ? existing : JSON.parse(existing))
+            : [];
+        if (skips.includes(skipDate)) {
+            return res.status(200).json({ ok: true, id, skip_dates: skips, note: 'already in skip list' });
+        }
+        skips.push(skipDate);
+        await pool.query(
+            'UPDATE div_loco_link_master SET skip_dates = ? WHERE id = ?',
+            [JSON.stringify(skips), id]
+        );
+        res.json({ ok: true, id, skip_dates: skips });
+    } catch (err) {
+        console.error('[loco-link POST /scheduled-specials/:id/skip]', err);
+        res.status(500).json({ error: 'Failed to add skip date' });
+    }
+});
+
+// ── POST /scheduled-specials/:id/close — set effective_until ────────────────
+router.post('/scheduled-specials/:id/close', requireSettingsRole, async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const closeDate = String((req.body || {}).close_date || '').trim();
+    if (!id) return res.status(400).json({ error: 'invalid id' });
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(closeDate)) {
+        return res.status(400).json({ error: 'close_date must be YYYY-MM-DD' });
+    }
+    try {
+        const pool = req.app.locals.pool;
+        const [cur] = await pool.query(
+            'SELECT effective_from FROM div_loco_link_master WHERE id = ? AND is_scheduled_special = 1',
+            [id]
+        );
+        if (!cur.length) return res.status(404).json({ error: 'schedule not found' });
+        const fromISO = cur[0].effective_from ? toDateISO(cur[0].effective_from) : null;
+        if (fromISO && closeDate < fromISO) {
+            return res.status(400).json({ error: 'close_date cannot be before effective_from' });
+        }
+        await pool.query(
+            'UPDATE div_loco_link_master SET effective_until = ? WHERE id = ?',
+            [closeDate, id]
+        );
+        res.json({ ok: true, id, effective_until: closeDate });
+    } catch (err) {
+        console.error('[loco-link POST /scheduled-specials/:id/close]', err);
+        res.status(500).json({ error: 'Failed to close schedule' });
+    }
+});
+
+// ── DELETE /scheduled-specials/:id — soft delete (active = 0) ───────────────
+router.delete('/scheduled-specials/:id', requireSettingsRole, async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (!id) return res.status(400).json({ error: 'invalid id' });
+    try {
+        const pool = req.app.locals.pool;
+        const [r] = await pool.query(
+            'UPDATE div_loco_link_master SET active = 0 WHERE id = ? AND is_scheduled_special = 1',
+            [id]
+        );
+        if (!r.affectedRows) return res.status(404).json({ error: 'schedule not found' });
+        res.json({ ok: true, id, deactivated: true });
+    } catch (err) {
+        console.error('[loco-link DELETE /scheduled-specials/:id]', err);
+        res.status(500).json({ error: 'Failed to delete schedule' });
+    }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Trains management (Settings → manage div_trains + div_train_aliases)
+// Reads require login; mutations require division_admin or ctlc.
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Whitelist of columns the Settings UI may set on create/update
+const TRAIN_FIELDS = [
+    'train_no', 'train_name', 'train_type', 'direction',
+    'from_station', 'to_station', 'loco_change_station',
+    'run_days', 'traction_type', 'is_regular', 'is_active',
+];
+// Same minus train_no for the PUT path (train_no is the immutable key here;
+// changing it goes through the renumber endpoint)
+const TRAIN_EDITABLE_FIELDS = TRAIN_FIELDS.filter(f => f !== 'train_no');
+
+// ── GET /trains — list with filters ──────────────────────────────────────
+//   ?status=active|inactive|all   (default: active)
+//   ?search=...                   (matches train_no OR train_name)
+//   ?include_aliases=1            (joins alias info so old↔new is visible)
+router.get('/trains', async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'not logged in' });
+    const status = String(req.query.status || 'active').trim().toLowerCase();
+    const search = String(req.query.search || '').trim();
+
+    try {
+        const pool = req.app.locals.pool;
+        let sql = `SELECT t.train_no, t.train_name, t.train_type, t.direction,
+                          t.from_station, t.to_station, t.loco_change_station,
+                          t.run_days, t.traction_type, t.is_regular, t.is_active,
+                          a_renamed.new_train_no AS renamed_to,
+                          a_renamed.renamed_date AS renamed_to_date,
+                          a_was.old_train_no    AS renamed_from,
+                          a_was.renamed_date    AS renamed_from_date
+                   FROM div_trains t
+                   LEFT JOIN div_train_aliases a_renamed ON a_renamed.old_train_no = t.train_no
+                   LEFT JOIN div_train_aliases a_was     ON a_was.new_train_no     = t.train_no
+                   WHERE 1=1`;
+        const params = [];
+        if (status === 'active')        sql += ' AND t.is_active = 1';
+        else if (status === 'inactive') sql += ' AND t.is_active = 0';
+        // 'all' = no filter
+        if (search) {
+            sql += ' AND (t.train_no LIKE ? OR t.train_name LIKE ?)';
+            const pat = `%${search}%`;
+            params.push(pat, pat);
+        }
+        sql += ' ORDER BY t.train_no';
+        const [rows] = await pool.query(sql, params);
+        res.json({ total: rows.length, rows });
+    } catch (err) {
+        console.error('[loco-link GET /trains]', err);
+        res.status(500).json({ error: 'Failed to list trains' });
+    }
+});
+
+// ── POST /trains — create new train, optionally with a loco link entry ────
+// Body: { ...train fields, loco_link?: { sheet_source, event_time, section,
+//         shed_code, link_attr, expected_loco_type, rake_type, expected_hog,
+//         is_push_pull, traction_type } }
+// If loco_link.sheet_source AND loco_link.event_time are both supplied, a
+// div_loco_link_master row is inserted alongside the train. Otherwise only
+// the train is created.
+router.post('/trains', requireSettingsRole, async (req, res) => {
+    const b = req.body || {};
+    const fields = {};
+    for (const f of TRAIN_FIELDS) if (b[f] !== undefined) fields[f] = b[f];
+
+    const trainNo = String(fields.train_no || '').trim();
+    if (!trainNo) return res.status(400).json({ error: 'train_no required' });
+    if (!/^[0-9A-Za-z]{1,10}$/.test(trainNo)) {
+        return res.status(400).json({ error: 'train_no must be 1-10 alphanumeric chars' });
+    }
+    if (fields.direction && !['UP', 'DN'].includes(fields.direction)) {
+        return res.status(400).json({ error: 'direction must be UP or DN' });
+    }
+    // Normalize booleans
+    if ('is_regular' in fields) fields.is_regular = fields.is_regular ? 1 : 0;
+    if ('is_active'  in fields) fields.is_active  = fields.is_active  ? 1 : 0;
+
+    // Optional loco_link block — only created if sheet+event_time both supplied
+    const link = b.loco_link && typeof b.loco_link === 'object' ? b.loco_link : null;
+    let linkRow = null;
+    if (link && link.sheet_source && link.event_time) {
+        // Validate the link bits
+        if (!/^\d{1,2}:\d{2}$/.test(String(link.event_time).trim())) {
+            return res.status(400).json({ error: 'loco_link.event_time must be HH:MM' });
+        }
+        linkRow = {
+            sheet_source: String(link.sheet_source).trim(),
+            section: link.section ? String(link.section).trim() : null,
+            direction: fields.direction,           // inherit from train
+            train_no: trainNo,
+            train_name: fields.train_name || null,
+            event_time: String(link.event_time).trim(),
+            // For from/to_station: link's value wins if explicitly provided
+            // (e.g. takeover LNL on the link even though train segment starts at PUNE)
+            from_station: (link.from_station ? String(link.from_station).trim() : null) || fields.from_station || null,
+            to_station:   (link.to_station   ? String(link.to_station).trim()   : null) || fields.to_station   || null,
+            shed_code: link.shed_code ? String(link.shed_code).trim() : null,
+            link_attr: link.link_attr ? String(link.link_attr).trim() : null,
+            expected_loco_type: link.expected_loco_type ? String(link.expected_loco_type).trim() : null,
+            rake_type: link.rake_type ? String(link.rake_type).trim() : null,
+            expected_hog: link.expected_hog ? 1 : 0,
+            is_push_pull: link.is_push_pull ? 1 : 0,
+            traction_type: link.traction_type || fields.traction_type || 'Electric',
+            run_days: fields.run_days || null,
+            active: 1,
+        };
+    }
+
+    try {
+        const pool = req.app.locals.pool;
+        // Check duplicate train
+        const [existing] = await pool.query(
+            'SELECT train_no FROM div_trains WHERE train_no = ? LIMIT 1',
+            [trainNo]
+        );
+        if (existing.length) {
+            return res.status(409).json({
+                error: `train_no ${trainNo} already exists`,
+                hint: 'Use the Edit action to modify it, or Renumber if you meant to rename a different train',
+            });
+        }
+        // Insert train
+        const cols = Object.keys(fields);
+        const placeholders = cols.map(() => '?').join(', ');
+        await pool.query(
+            `INSERT INTO div_trains (${cols.join(', ')}) VALUES (${placeholders})`,
+            Object.values(fields)
+        );
+        // Insert link master row if provided
+        let createdLink = null;
+        if (linkRow) {
+            const lcols = Object.keys(linkRow);
+            const lph = lcols.map(() => '?').join(', ');
+            const [lr] = await pool.query(
+                `INSERT INTO div_loco_link_master (${lcols.join(', ')}) VALUES (${lph})`,
+                Object.values(linkRow)
+            );
+            const [lrows] = await pool.query('SELECT * FROM div_loco_link_master WHERE id = ?', [lr.insertId]);
+            createdLink = lrows[0];
+        }
+        const [created] = await pool.query('SELECT * FROM div_trains WHERE train_no = ?', [trainNo]);
+        res.status(201).json({ ok: true, train: created[0], loco_link: createdLink });
+    } catch (err) {
+        console.error('[loco-link POST /trains]', err);
+        res.status(500).json({ error: 'Failed to create train' });
+    }
+});
+
+// ── PUT /trains/:train_no — update (any field except train_no) ──────────
+router.put('/trains/:train_no', requireSettingsRole, async (req, res) => {
+    const trainNo = String(req.params.train_no || '').trim();
+    if (!trainNo) return res.status(400).json({ error: 'train_no required' });
+    const b = req.body || {};
+    const fields = {};
+    for (const f of TRAIN_EDITABLE_FIELDS) if (b[f] !== undefined) fields[f] = b[f];
+    if (!Object.keys(fields).length) {
+        return res.status(400).json({ error: 'no editable fields supplied' });
+    }
+    if (fields.direction && !['UP', 'DN'].includes(fields.direction)) {
+        return res.status(400).json({ error: 'direction must be UP or DN' });
+    }
+    if ('is_regular' in fields) fields.is_regular = fields.is_regular ? 1 : 0;
+    if ('is_active'  in fields) fields.is_active  = fields.is_active  ? 1 : 0;
+
+    try {
+        const pool = req.app.locals.pool;
+        const sets = Object.keys(fields).map(k => `${k} = ?`).join(', ');
+        const [r] = await pool.query(
+            `UPDATE div_trains SET ${sets} WHERE train_no = ?`,
+            [...Object.values(fields), trainNo]
+        );
+        if (!r.affectedRows) return res.status(404).json({ error: 'train not found' });
+        const [updated] = await pool.query('SELECT * FROM div_trains WHERE train_no = ?', [trainNo]);
+        res.json({ ok: true, train: updated[0] });
+    } catch (err) {
+        console.error('[loco-link PUT /trains/:no]', err);
+        res.status(500).json({ error: 'Failed to update train' });
+    }
+});
+
+// ── DELETE /trains/:train_no — soft delete (is_active = 0) ──────────────
+router.delete('/trains/:train_no', requireSettingsRole, async (req, res) => {
+    const trainNo = String(req.params.train_no || '').trim();
+    if (!trainNo) return res.status(400).json({ error: 'train_no required' });
+    try {
+        const pool = req.app.locals.pool;
+        const [r] = await pool.query(
+            'UPDATE div_trains SET is_active = 0 WHERE train_no = ?',
+            [trainNo]
+        );
+        if (!r.affectedRows) return res.status(404).json({ error: 'train not found' });
+        res.json({ ok: true, train_no: trainNo, deactivated: true });
+    } catch (err) {
+        console.error('[loco-link DELETE /trains/:no]', err);
+        res.status(500).json({ error: 'Failed to delete train' });
+    }
+});
+
+// ── POST /trains/:old/renumber — rename a train; record alias mapping ────
+//   Body: { new_train_no, renamed_date }
+router.post('/trains/:train_no/renumber', requireSettingsRole, async (req, res) => {
+    const oldNo = String(req.params.train_no || '').trim();
+    const b = req.body || {};
+    const newNo = String(b.new_train_no || '').trim();
+    const renamedDate = String(b.renamed_date || '').trim();
+
+    if (!oldNo) return res.status(400).json({ error: 'old train_no required' });
+    if (!newNo) return res.status(400).json({ error: 'new_train_no required' });
+    if (oldNo === newNo) return res.status(400).json({ error: 'new_train_no must differ from old' });
+    if (!/^[0-9A-Za-z]{1,10}$/.test(newNo)) {
+        return res.status(400).json({ error: 'new_train_no must be 1-10 alphanumeric chars' });
+    }
+    if (renamedDate && !/^\d{4}-\d{2}-\d{2}$/.test(renamedDate)) {
+        return res.status(400).json({ error: 'renamed_date must be YYYY-MM-DD' });
+    }
+
+    try {
+        const pool = req.app.locals.pool;
+        // Verify old exists
+        const [oldRow] = await pool.query(
+            'SELECT train_no FROM div_trains WHERE train_no = ? LIMIT 1',
+            [oldNo]
+        );
+        if (!oldRow.length) return res.status(404).json({ error: `train ${oldNo} not found` });
+
+        // Reject if new number already exists
+        const [collision] = await pool.query(
+            'SELECT train_no FROM div_trains WHERE train_no = ? LIMIT 1',
+            [newNo]
+        );
+        if (collision.length) {
+            return res.status(409).json({
+                error: `train ${newNo} already exists`,
+                hint: 'Merge them manually first if this is the right target',
+            });
+        }
+
+        // Apply: insert alias + rename in div_trains atomically-ish.
+        // (No explicit transaction since both are independent; if alias INSERT
+        // fails on duplicate old_train_no, surface that error to the user.)
+        await pool.query(
+            `INSERT INTO div_train_aliases (old_train_no, new_train_no, renamed_date)
+             VALUES (?, ?, ?)`,
+            [oldNo, newNo, renamedDate || null]
+        );
+        await pool.query(
+            'UPDATE div_trains SET train_no = ? WHERE train_no = ?',
+            [newNo, oldNo]
+        );
+
+        const [updated] = await pool.query(
+            'SELECT * FROM div_trains WHERE train_no = ?', [newNo]
+        );
+        res.json({
+            ok: true,
+            old_train_no: oldNo,
+            new_train_no: newNo,
+            renamed_date: renamedDate || null,
+            train: updated[0],
+        });
+    } catch (err) {
+        // ER_DUP_ENTRY on aliases means old_train_no was already renumbered
+        if (err && err.code === 'ER_DUP_ENTRY') {
+            return res.status(409).json({
+                error: `train ${oldNo} has already been renamed previously`,
+                hint: 'Check /train-aliases for the existing mapping',
+            });
+        }
+        console.error('[loco-link POST /trains/:no/renumber]', err);
+        res.status(500).json({ error: 'Failed to renumber train' });
+    }
+});
+
+// ── GET /train-aliases — list past renamings ─────────────────────────────
+router.get('/train-aliases', async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'not logged in' });
+    try {
+        const pool = req.app.locals.pool;
+        const [rows] = await pool.query(
+            `SELECT old_train_no, new_train_no, renamed_date
+             FROM div_train_aliases
+             ORDER BY renamed_date DESC, old_train_no`
+        );
+        res.json({ total: rows.length, rows });
+    } catch (err) {
+        console.error('[loco-link GET /train-aliases]', err);
+        res.status(500).json({ error: 'Failed to load aliases' });
     }
 });
 
