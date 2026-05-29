@@ -489,6 +489,16 @@ These are not always the same station. The loco may be taken over at a fixed bou
 
 **Historical note (2026-05-27):** Originally `CSMT-UP / LTT-UP SE` rows had `from_station = PUNE` (a section-marker that pre-dated the LNL boundary shift). These 39 rows were standardized to `LNL` so the loco-link `from_station` consistently means "where the loco is taken over". Some legacy reports may still reference `PUNE` as a section marker — update them if found.
 
+### KR-UP destination grouping
+
+KR-UP is the only terminal sheet where Mumbai-division trains fan out to **multiple destinations** (LTT / CSMT / DIVA / PUNE) from a single takeover boundary (ROHA). The daily-entry renderer special-cases KR-UP:
+
+- Grouping uses `to_station` (instead of `from_station` used by other sheets)
+- Section headers display as `KR · → CSMT`, `KR · → LTT`, `KR · → DIVA`, `KR · → PUNE`
+- Fixed display order: **CSMT → LTT → DIVA → PUNE → others** (see `KR_DEST_ORDER` in renderRoutesView)
+
+Backfill required when a KR-UP train master row is created — `to_station` should be set from the train's actual destination (joined to `div_trains.to_station`).
+
 ### `bypass_halts` flag (BYPASS rows only)
 
 | Value | Meaning |
@@ -661,6 +671,34 @@ For grouping currently-sick locos into COG / GOODS / COG-DSL / GOODS-DSL section
 | GET | `/defects/for-log?loco=&date=` | defects for a specific loco/date (for daily-entry UI) |
 | PATCH | `/defects/:id` | update defect status/resolution |
 
+### Settings endpoints (mounted at `/api/division/loco-link`)
+
+Mutations require `division_admin` or `ctlc` role (the `requireSettingsRole` middleware). Reads need login only.
+
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/sheds` | distinct sheds from `div_locos` with railway_zone + loco_count (dropdown source for shed pickers) |
+| PUT | `/sheds/:shed_code` | bulk-update railway_zone for all locos at a shed (rare data-quality fix) |
+| GET | `/trains?status=&search=` | list `div_trains` rows with renamed_to / renamed_from aliases joined |
+| POST | `/trains` | create a new train, optionally with a nested `loco_link` block to also INSERT a `div_loco_link_master` row in the same request |
+| PUT | `/trains/:train_no` | edit train fields except `train_no` itself (use renumber) |
+| DELETE | `/trains/:train_no` | soft-delete (`is_active=0`) |
+| POST | `/trains/:old/renumber` | create alias row + UPDATE `div_trains.train_no`. Body: `{ new_train_no, renamed_date }` |
+| GET | `/train-aliases` | list of past renamings |
+| GET | `/master?sheet=&shed=&search=&active=` | list link master rows with railway_zone joined from `div_locos`; used by Loco Links tab |
+| POST | `/master` | create a regular (non-scheduled) link master row. `is_scheduled_special` is forced to 0 |
+| PUT | `/master/:id` | edit link master row (whitelist: from_station, to_station, shed_code, link_attr, expected_loco_type, accepted_loco_types, rake_type, expected_hog, is_push_pull, traction_type, remark) |
+| GET | `/scheduled-specials?active_on=&status=&sheet=` | list scheduled-special rows |
+| POST | `/scheduled-specials` | create new scheduled special (with date-range overlap check on `(train_no, direction)`) |
+| PUT | `/scheduled-specials/:id` | edit (re-checks overlap) |
+| POST | `/scheduled-specials/:id/extend` | extend `effective_until` |
+| POST | `/scheduled-specials/:id/skip` | append a single date to `skip_dates` JSON |
+| POST | `/scheduled-specials/:id/close` | set `effective_until = close_date` |
+| DELETE | `/scheduled-specials/:id` | soft-delete (`active=0`) |
+
+Also: `GET /train/:n/target-date` now returns `run_days` so the frontend can validate any custom date LPC picks in the outgoing-train date picker.
+And: `POST /log` requires and persists `event_time` (HH:MM) for inline specials (rows where `master_id IS NULL`).
+
 ---
 
 ## File map
@@ -679,14 +717,16 @@ For grouping currently-sick locos into COG / GOODS / COG-DSL / GOODS-DSL section
 | `scripts/import-wtt.js` | Loads `Train_Timings_Summary.xlsx` → `div_trains` + `div_train_stops` (sorts stops by time for correct geographic sequence; syncs run_days from div_loco_link_master) |
 | `scripts/load_loco_link_master.js` | Loads `CO_Loco_link_final.xlsx` → `div_loco_link_master` (handles HOG→P/7, push-pull detection, type derivation, bypass unpivot) |
 | `routes/division/locoLinkRoutes.js` | All backend endpoints (mounted at `/api/division/loco-link`) |
-| `routes/authRoutes.js` | LPC redirect to `/control-office/` on login |
-| `server.js` | LPC role page protection + route mount |
-| `public/control-office/index.html` | LPC portal dashboard + always-visible Loco Lookup widget |
-| `public/control-office/daily-entry.html` | Sheet view — terminal + bypass + special trains + auto-propagation |
-| `public/control-office/reports.html` | 4-tab reports (mis-link list with tier filter, by-shed, train history, loco history) |
-| `public/control-office/sick-locos.html` | Sheet-style sick loco position with categorized sub-tables + LPC category override + print |
+| `routes/authRoutes.js` | LPC + CTLC redirect to `/control-office/` on login |
+| `server.js` | LPC/CTLC role page protection; CTLC blocked from `/div/*` (redirected to `/control-office/`) |
+| `public/control-office/index.html` | LPC portal dashboard + always-visible Loco Lookup widget; **Settings tile shown only for div_admin / ctlc** |
+| `public/control-office/daily-entry.html` | Sheet view — terminal + bypass + special trains + auto-propagation + section nav chips + train names + outgoing date picker + rear-loco defect button + per-sheet Print/PDF |
+| `public/control-office/reports.html` | 4-tab reports (mis-link list with tier filter, by-shed, train history, loco history) + Print/PDF of active panel |
+| `public/control-office/sick-locos.html` | Sheet-style sick loco position with categorized sub-tables + LPC category override + print (IST-safe dates) |
 | `public/control-office/loco-availability.html` | Loco availability by terminal with add/move/sick actions + print |
-| `public/control-office/defect-reports.html` | Two-tab defect reports (by terminal / by shed) with filters + print |
+| `public/control-office/defect-reports.html` | Two-tab defect reports (by terminal / by shed) with filters + print + **direct + Add Defect entry modal** |
+| `public/control-office/settings.html` | **Settings hub (ctlc + div_admin only)**: tabs for Scheduled Specials, Trains, Loco Link & Coach Types. Adds chained "Add Link" modal after creating a new train |
+| `public/control-office/print-all.html` | **Combined PDF of all daily sheets** for a chosen date. Optional "Group UP+DN per terminal" mode (4 pages instead of 7) |
 | `LOCO_LINK_FEATURE.md` | This doc |
 | `LOCO_MASTER_MIGRATION.md` | The `div_locos` migration story (separate concern) |
 | `sql/PENDING-DB-CHANGES.md` | §11 has the full deploy sequence for production |
@@ -702,7 +742,21 @@ realm:    division
 div_role: lpc
 ```
 
-For production, create equivalent users with real LPC names — the bcrypt password upgrade in `routes/authRoutes.js` handles legacy plaintext on first login if needed.
+For Settings testing, use a div_admin account (UI shows the Settings tile + Trains/Schedules/Loco-Link tabs require `division_admin` or `ctlc`).
+
+### CTLC role (production)
+
+`ctlc` (Chief Traction Loco Controller) is a Control-Office-scoped role:
+- Lands on `/control-office/` after login (same as `lpc`)
+- Can read all sheets/reports AND can mutate via the Settings hub
+- **Cannot access `/div/*`** — any such URL redirects to `/control-office/`
+
+Server seed user: `bbctlc` (office=HQ, div_office_code=CO-BB). Provision via:
+```sql
+INSERT INTO users (username, password, role, full_name, office, realm, div_role, div_office_code)
+VALUES ('bbctlc', '<bcrypt-hash>', 'user', 'BB Chief TLC', 'HQ', 'division', 'ctlc', 'CO-BB');
+```
+Generate the hash with `bcrypt.hashSync(plain, 10)` from node REPL.
 
 ---
 
