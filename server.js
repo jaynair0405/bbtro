@@ -128,6 +128,15 @@ app.get('/index.html', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+// ✅ CTLC users are scoped to the Control Office portal only.
+//    Any /div/* request from a ctlc account is redirected to /control-office/.
+app.use('/div', (req, res, next) => {
+  if (req.session?.user?.div_role === 'ctlc') {
+    return res.redirect('/control-office/');
+  }
+  next();
+});
+
 // ✅ Only logged-in Division users may open the Division UI file
 app.get('/div/index.html', (req, res) => {
   if (!req.session.user) return res.redirect('/');                 // not logged in

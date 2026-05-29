@@ -95,8 +95,8 @@ router.post('/login', async (req, res) => {
       // Training centre users go directly to centre portal
       if (user.div_role === 'trgcentre_admin') {
         redirectUrl = '/div/training-centre.html';
-      } else if (user.div_role === 'lpc') {
-        // Loco Power Controllers go directly to Control Office portal
+      } else if (user.div_role === 'lpc' || user.div_role === 'ctlc') {
+        // LPC + CTLC (Chief Traction Loco Controller) → Control Office portal
         redirectUrl = '/control-office/';
       } else {
         redirectUrl = '/div';
