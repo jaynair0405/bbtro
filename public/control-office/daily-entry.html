@@ -326,38 +326,227 @@
         .hog-toggle input { width: auto !important; }
 
         /* Push-pull sub-row (rear) */
-        /* Terminal: section header (NE / SE / KR / etc.) */
+        /* Terminal: section header (NE / SE / KR / etc.) — coloured by section */
         .sheet tr.section-header td {
-            background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
-            color: var(--text-light);
-            font-size: .72rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            padding: 6px 12px;
+            background: #e2e8f0;
+            color: #1e293b;
+            font-size: 1rem;
+            font-weight: 800;
+            letter-spacing: .5px;
+            padding: 10px 14px 10px 18px;
             border-top: 2px solid var(--border-strong);
             border-bottom: 1px solid var(--border);
+            border-left: 6px solid #94a3b8;
+            scroll-margin-top: 60px;
+            position: relative;
         }
-        .sheet tr.section-header:hover td { background: #e2e8f0; }
         .sheet tr.section-header td small {
-            font-size: .68rem;
-            font-weight: 500;
-            color: var(--muted);
+            font-size: .85rem;
+            font-weight: 600;
+            color: rgba(0,0,0,.55);
             text-transform: none;
             letter-spacing: 0;
-            margin-left: 4px;
+            margin-left: 6px;
+        }
+        .sheet tr.section-header.sec-NE td   { background:#dbeafe; color:#1e3a8a; border-left-color:#2563eb; }
+        .sheet tr.section-header.sec-SE td   { background:#dcfce7; color:#14532d; border-left-color:#16a34a; }
+        .sheet tr.section-header.sec-KR td   { background:#fed7aa; color:#7c2d12; border-left-color:#ea580c; }
+        .sheet tr.section-header.sec-other td{ background:#e5e7eb; color:#334155; border-left-color:#94a3b8; }
+
+        /* "↑ Top" button on every section header */
+        .go-top-btn {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(255,255,255,.55);
+            border: 1px solid rgba(0,0,0,.1);
+            border-radius: 5px;
+            padding: 3px 8px;
+            font-size: .72rem;
+            font-weight: 600;
+            color: inherit;
+            cursor: pointer;
+        }
+        .go-top-btn:hover { background: rgba(255,255,255,.85); }
+
+        /* Sticky section-nav chip bar */
+        .section-nav {
+            position: sticky;
+            top: 0;
+            z-index: 20;
+            background: var(--surface);
+            padding: 8px 12px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            box-shadow: 0 1px 2px rgba(0,0,0,.04);
+        }
+        .section-nav:empty { display: none; }
+        .section-nav .chip {
+            padding: 4px 11px;
+            border-radius: 14px;
+            font-size: .78rem;
+            font-weight: 700;
+            cursor: pointer;
+            border: 1px solid transparent;
+            background: #f1f5f9;
+            color: #334155;
+            white-space: nowrap;
+            user-select: none;
+        }
+        .section-nav .chip:hover { filter: brightness(.95); }
+        .section-nav .chip.sec-NE    { background:#dbeafe; color:#1e3a8a; border-color:#bfdbfe; }
+        .section-nav .chip.sec-SE    { background:#dcfce7; color:#14532d; border-color:#bbf7d0; }
+        .section-nav .chip.sec-KR    { background:#fed7aa; color:#7c2d12; border-color:#fdba74; }
+        .section-nav .chip.sec-other { background:#e5e7eb; color:#334155; border-color:#cbd5e1; }
+        .section-nav .chip.sec-bypass { background:#e9d5ff; color:#581c87; border-color:#d8b4fe; }
+
+        /* Print-only header is hidden in screen view */
+        .print-header { display: none; }
+        .print-btn-bar {
+            background: var(--brand);
+            color: white;
+            border: 1px solid var(--brand);
+            padding: 6px 12px;
+            border-radius: 5px;
+            font-size: .82rem;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            margin-left: auto;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .print-btn-bar:hover { filter: brightness(.92); }
+        .print-btn-bar i { font-size: .8rem; }
+
+        /* ─── PRINT / PDF media query ─── */
+        @media print {
+            /* Force colours to render in PDF */
+            * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+
+            /* Hide all interactive chrome */
+            .header,
+            .filter-bar,
+            .read-only-banner,
+            .tabs,
+            .defect-info-tip,
+            .section-nav,
+            .defect-modal-overlay,
+            #saveAllBar,
+            .row-blank-special,
+            .row-add-special,
+            .go-top-btn,
+            .save-btn,
+            .add-second-btn,
+            .add-special-btn,
+            .defect-btn-wrap,
+            .target-date-indicator,
+            .target-date-override,
+            .del-btn,
+            .panel-tab,
+            .panel-tab-handle,
+            .lpc-side-panel { display: none !important; }
+
+            body { background: white !important; }
+            .main { padding: 0 !important; max-width: 100% !important; }
+            .sheet-wrap {
+                overflow: visible !important;
+                border: none !important;
+                box-shadow: none !important;
+                border-radius: 0 !important;
+            }
+
+            /* Print-only header */
+            .print-header {
+                display: block !important;
+                text-align: center;
+                margin-bottom: 12px;
+                padding-bottom: 8px;
+                border-bottom: 2px solid #333;
+            }
+            .print-title { font-size: 1.2rem; font-weight: 800; }
+            .print-meta  { font-size: .85rem; color: #444; margin-top: 4px; }
+
+            /* Compact table for print — target a single page per sheet */
+            table.sheet { font-size: .6rem; width: 100% !important; line-height: 1.1; }
+            table.sheet thead th {
+                background: #f1f5f9 !important;
+                color: #1e293b !important;
+                font-weight: 700;
+                border-bottom: 2px solid #475569;
+                padding: 2px 4px;
+                font-size: .6rem;
+                text-transform: uppercase;
+                letter-spacing: .3px;
+            }
+            table.sheet tbody td {
+                padding: 1px 4px !important;
+                border-bottom: 1px solid #cbd5e1;
+                vertical-align: middle;
+                line-height: 1.1;
+            }
+            /* Strip input borders so the values look like plain text */
+            table.sheet input[type="text"],
+            table.sheet input[type="number"] {
+                border: none !important;
+                background: transparent !important;
+                padding: 0 !important;
+                font-size: inherit !important;
+                color: #000 !important;
+                width: auto !important;
+            }
+            /* Hide columns LPC doesn't keep in the manual book */
+            .col-sr,
+            .col-base,
+            .col-hog,
+            .col-remark,
+            .col-status { display: none !important; }
+            /* Drop the train name below the number in print — keep only train_no */
+            .col-train > div + div { display: none !important; }
+            /* Drop the small "(rear loco)" / shed sub-line in the Link cell */
+            .col-link .rake-tag { display: none !important; }
+
+            /* Tighter section header bands in print */
+            .sheet tr.section-header td {
+                font-size: .65rem !important;
+                padding: 1px 6px !important;
+                border-left-width: 3px !important;
+            }
+            .sheet tr.route-header td {
+                font-size: .7rem !important;
+                padding: 2px 6px !important;
+                border-left-width: 3px !important;
+            }
+
+            /* Don't break a row across pages */
+            table.sheet tr { page-break-inside: avoid; }
+
+            /* Print header smaller too */
+            .print-header { margin-bottom: 6px !important; padding-bottom: 4px !important; }
+            .print-title { font-size: 1rem !important; }
+            .print-meta  { font-size: .7rem !important; margin-top: 2px !important; }
+
+            /* A4 portrait gives more vertical room — fits more rows per page */
+            @page { size: A4 portrait; margin: 6mm 8mm; }
         }
 
         /* Bypass: route group header */
         .sheet tr.route-header td {
-            background: linear-gradient(180deg, #eff6ff 0%, #dbeafe 100%);
-            color: var(--brand);
-            font-weight: 700;
-            font-size: .82rem;
-            padding: 8px 12px;
-            border-top: 2px solid var(--brand);
+            background: linear-gradient(180deg, #f3e8ff 0%, #e9d5ff 100%);
+            color: #581c87;
+            font-weight: 800;
+            font-size: 1rem;
+            padding: 10px 14px 10px 18px;
+            border-top: 2px solid #a855f7;
             border-bottom: 2px solid var(--border-strong);
+            border-left: 6px solid #a855f7;
             letter-spacing: .5px;
+            position: relative;
+            scroll-margin-top: 60px;
         }
         .sheet tr.route-header:hover td { background: linear-gradient(180deg, #dbeafe 0%, #bfdbfe 100%); }
         .sheet tr.route-header td .route-name { display: inline-block; }
@@ -999,6 +1188,11 @@
 
             <label for="defectDescription">Description <span style="color:var(--danger)">*</span></label>
             <textarea id="defectDescription" placeholder="Describe the defect..."></textarea>
+
+            <label style="display:flex;align-items:center;gap:8px;margin-top:8px;padding:8px 10px;background:var(--danger-bg);border-radius:5px;cursor:pointer">
+                <input type="checkbox" id="defectMarkSick" style="width:auto;margin:0">
+                <span><strong>Mark this loco as sick</strong> — creates a sick record using the defect description as the reason.</span>
+            </label>
         </div>
         <div class="defect-modal-footer">
             <button class="btn-cancel" id="defectModalCancel">Cancel</button>
@@ -1055,7 +1249,20 @@
         <span><span class="stat-num" id="statFilled">—</span> entered</span>
         <span><span class="stat-num bad" id="statMislink">—</span> mis-links</span>
     </span>
+
+    <button class="print-btn-bar" onclick="printSheet()" title="Print / Save this sheet as PDF">
+        <i class="fa-solid fa-print"></i> Print
+    </button>
+    <button class="print-btn-bar" onclick="openPrintAll()" title="Open all sheets in one PDF" style="background:#0e7490;border-color:#0e7490;margin-left:6px">
+        <i class="fa-solid fa-layer-group"></i> All sheets
+    </button>
 </section>
+
+<!-- Print-only header (shown only when window.print() is invoked) -->
+<div class="print-header" id="printHeader">
+    <div class="print-title" id="printTitle">Daily Loco Link</div>
+    <div class="print-meta" id="printMeta"></div>
+</div>
 
 <div class="read-only-banner" id="readOnlyBanner" style="display:none">
     <i class="fa-solid fa-lock"></i>
@@ -1075,6 +1282,8 @@
         </span>
         <button class="dismiss" onclick="dismissDefectTip()" title="Dismiss">&times;</button>
     </div>
+
+    <nav class="section-nav" id="sectionNav"></nav>
 
     <div class="sheet-wrap">
         <table class="sheet" id="sheet">
@@ -1276,6 +1485,7 @@ async function loadSheet() {
 function renderSheet(data) {
     const body = $('#sheetBody');
     body.innerHTML = '';
+    renderSectionNav([]);   // start clean; renderRoutesView fills it
 
     // Stats — total + section breakdown + entered + mis-links
     $('#statTotal').textContent = data.total;
@@ -1301,9 +1511,11 @@ function renderSheet(data) {
         return;
     }
 
-    // Identify the "main" from_station for this segment (most-frequent) so PNVL/BIRD/etc.
-    // can be highlighted as separate sub-blocks
-    const mainFrom = mostCommonFromStation(data.rows);
+    // Identify the "main" secondary station for this segment (most-frequent)
+    // so deviations (e.g. PNVL/BIRD on CSMT-DN, or → CSMT vs → LTT on KR-UP)
+    // can be highlighted as separate sub-blocks.
+    const _mainStnField = data.sheet_source === 'KR-UP' ? 'to_station' : 'from_station';
+    const mainFrom = mostCommonStation(data.rows, _mainStnField);
 
     // Parse "HH:MM" into minutes since midnight. Pure ascending order — 00:30
     // before 01:45 before 04:15 … before 23:59.
@@ -1328,17 +1540,23 @@ function renderSheet(data) {
         return groups.get(k);
     };
 
+    // For KR-UP, all rows originate at ROHA (from_station uniform) and fan out
+    // to multiple terminals (LTT, CSMT, DIVA, PUNE). Group by destination
+    // instead so the sheet renders "KR · → CSMT", "KR · → LTT" etc.
+    const isKrUp = data.sheet_source === 'KR-UP';
+    const secondaryStation = (row) => isKrUp ? (row.to_station || '') : (row.from_station || '');
+
     for (const row of data.rows) {
-        getGroup(row.section || '', row.from_station || '')
+        getGroup(row.section || '', secondaryStation(row))
             .rows.push({ kind: 'master', sortKey: parseMin(row.event_time), data: row });
     }
 
-    // Map of section → from_station for placing specials. If a special's section
-    // doesn't match any existing master group, put it under "_OTHER_".
+    // Map of section → secondary station for placing specials. If a special's
+    // section doesn't match any existing master group, put it under "_OTHER_".
     const sectionFromMap = new Map();
     for (const row of data.rows) {
         if (row.section && !sectionFromMap.has(row.section)) {
-            sectionFromMap.set(row.section, row.from_station || '');
+            sectionFromMap.set(row.section, secondaryStation(row));
         }
     }
     for (const sp of (data.specials || [])) {
@@ -1351,8 +1569,14 @@ function renderSheet(data) {
     // Section display order: main-from groups first (NE then SE), then sub-from
     // groups (NE ex PNVL, SE ex PNVL etc.), then any other section, finally
     // _OTHER_ (unmatched specials) at the very end.
+    // For KR-UP, explicit destination order: CSMT → LTT → DIVA → PUNE → others.
+    const KR_DEST_ORDER = { CSMT: 0, LTT: 1, DIVA: 2, PUNE: 3 };
     const groupRank = (section, fromStation) => {
         if (section === '_OTHER_') return 999;
+        if (isKrUp && section === 'KR') {
+            const r = KR_DEST_ORDER[fromStation];
+            return r !== undefined ? r : 50;       // unknown destinations after the named four
+        }
         const isMain = !fromStation || fromStation === mainFrom;
         if (section === 'NE' && isMain) return 0;
         if (section === 'SE' && isMain) return 1;
@@ -1367,9 +1591,25 @@ function renderSheet(data) {
         return a.order - b.order;       // tie-break: original first-seen order
     });
 
+    // Build the sticky chip nav from groups (rendered before sections so the
+    // ids match what the headers will use).
+    const navItems = sortedGroups.map(g => {
+        const section = g.section === '_OTHER_' ? 'OTHER' : g.section;
+        const secondary = g.fromStation || '';
+        const prefix = isKrUp ? '→' : 'ex';
+        const showSecondary = secondary && (secondary !== mainFrom || isKrUp);
+        const label = showSecondary ? `${section} ${prefix} ${secondary}` : section;
+        return {
+            id: sectionSlug(section, secondary),
+            label,
+            section,
+        };
+    });
+    renderSectionNav(navItems);
+
     for (const group of sortedGroups) {
         const label = group.section === '_OTHER_' ? 'OTHER' : group.section;
-        body.appendChild(renderSectionHeader(label, group.fromStation, mainFrom));
+        body.appendChild(renderSectionHeader(label, group.fromStation, mainFrom, isKrUp ? 'to' : 'from'));
 
         // Time-sort within the group
         group.rows.sort((a, b) => a.sortKey - b.sortKey);
@@ -1398,11 +1638,13 @@ function renderSheet(data) {
     }
 }
 
-function mostCommonFromStation(rows) {
+function mostCommonStation(rows, field) {
     const counts = {};
-    for (const r of rows) counts[r.from_station] = (counts[r.from_station] || 0) + 1;
+    for (const r of rows) counts[r[field]] = (counts[r[field]] || 0) + 1;
     return Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || '';
 }
+// Back-compat alias
+function mostCommonFromStation(rows) { return mostCommonStation(rows, 'from_station'); }
 
 // ── Special trains (master-less) — saved row, blank row, add button ──
 let blankRowSeq = 0;
@@ -1417,6 +1659,39 @@ function fmtEventTime(t) {
         const m = tok.match(/^(\d{1,2}):(\d{2})$/);
         return m ? `${String(parseInt(m[1], 10)).padStart(2, '0')}:${m[2]}` : tok;
     }).join(' ');
+}
+
+// Attach a forgiving HH:MM formatter to a time-entry input.
+//   • on 'input': replaces '.' with ':'; strips non-digit/colon chars
+//   • on 'blur':  pads "2:10" → "02:10" so saves always send HH:MM
+// Idempotent — attaches a flag so repeat calls don't double-bind.
+function attachTimeFormatter(input) {
+    if (!input || input.dataset.timeFmt === '1') return;
+    input.dataset.timeFmt = '1';
+    input.addEventListener('input', () => {
+        // Replace '.' with ':' as user types; allow only digits and a single ':'
+        let v = input.value.replace(/\./g, ':');
+        v = v.replace(/[^\d:]/g, '');
+        // Collapse multiple colons to one
+        const firstColon = v.indexOf(':');
+        if (firstColon !== -1) {
+            v = v.slice(0, firstColon + 1) + v.slice(firstColon + 1).replace(/:/g, '');
+        }
+        // Auto-insert ':' after 2 digits if not already present (e.g. "1225" → "12:25")
+        if (firstColon === -1 && v.length >= 3 && /^\d{3,}$/.test(v)) {
+            v = v.slice(0, 2) + ':' + v.slice(2, 4);
+        }
+        if (input.value !== v) input.value = v;
+    });
+    input.addEventListener('blur', () => {
+        const v = input.value.trim();
+        if (!v) return;
+        const m = v.match(/^(\d{1,2}):(\d{2})$/);
+        if (m) {
+            const padded = `${String(parseInt(m[1], 10)).padStart(2, '0')}:${m[2]}`;
+            if (input.value !== padded) input.value = padded;
+        }
+    });
 }
 
 function renderSpecialRow(log, editable) {
@@ -1435,7 +1710,10 @@ function renderSpecialRow(log, editable) {
     tr.innerHTML = `
         <td class="col-sr"><span class="pill spl">★ SPL</span></td>
         <td class="col-time">${esc(fmtEventTime(log.event_time))}</td>
-        <td class="col-train">${esc(log.train_no || '—')}</td>
+        <td class="col-train">
+            <div>${esc(log.train_no || '—')}</div>
+            ${log.train_name ? `<div style="font-size:.72rem;color:var(--text-light);line-height:1.2;margin-top:1px">${esc(log.train_name)}</div>` : ''}
+        </td>
         <td class="col-link"><small style="color:var(--muted)">special train${log.section ? ' · ' + esc(log.section) : ''}</small></td>
         <td class="col-actual">
             <input type="text" class="loco-input" maxlength="10" placeholder="loco no"
@@ -1545,15 +1823,86 @@ function renderAddButton(section, fromStation) {
     return tr;
 }
 
-function renderSectionHeader(section, fromStation, mainFrom) {
+function sectionSlug(section, secondaryStn) {
+    return `sec-${(section || 'X').replace(/[^A-Za-z0-9]/g, '')}-${(secondaryStn || '').replace(/[^A-Za-z0-9]/g, '')}`;
+}
+function sectionColourClass(section) {
+    if (section === 'NE') return 'sec-NE';
+    if (section === 'SE') return 'sec-SE';
+    if (section === 'KR') return 'sec-KR';
+    return 'sec-other';
+}
+function renderSectionHeader(section, secondaryStn, mainStn, dirMode) {
+    // dirMode: 'from' (default) → "ex X"; 'to' → "→ X" (KR-UP destination split)
     const tr = document.createElement('tr');
-    tr.classList.add('section-header');
+    tr.classList.add('section-header', sectionColourClass(section));
+    tr.id = sectionSlug(section, secondaryStn);
     let label = section || '—';
-    if (fromStation && fromStation !== mainFrom) {
-        label += ` &middot; <small>ex ${esc(fromStation)}</small>`;
+    if (secondaryStn && secondaryStn !== mainStn) {
+        const prefix = dirMode === 'to' ? '→' : 'ex';
+        label += ` &middot; <small>${prefix} ${esc(secondaryStn)}</small>`;
+    } else if (dirMode === 'to' && secondaryStn) {
+        // For KR-UP main destination, still show "→ CSMT" so LPC always sees the target
+        label += ` &middot; <small>→ ${esc(secondaryStn)}</small>`;
     }
-    tr.innerHTML = `<td colspan="10">${label}</td>`;
+    tr.innerHTML = `<td colspan="10">${label}
+        <button type="button" class="go-top-btn" onclick="scrollToSheetTop()" title="Back to top">
+            <i class="fa-solid fa-arrow-up"></i> Top
+        </button>
+    </td>`;
     return tr;
+}
+
+function scrollToSheetTop() {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function openPrintAll() {
+    const date = document.getElementById('dateInput')?.value || '';
+    const url = `/control-office/print-all.html${date ? '?date=' + encodeURIComponent(date) : ''}`;
+    window.open(url, '_blank');
+}
+
+function printSheet() {
+    const title = document.getElementById('pageTitle')?.textContent || 'Daily Loco Link';
+    const dayLabel = document.getElementById('dayLabel')?.textContent || '';
+    const dateStr = (function() {
+        const di = document.getElementById('dateInput');
+        if (!di || !di.value) return '';
+        const [y, m, d] = di.value.split('-');
+        return `${d}-${m}-${y}`;
+    })();
+    const stats = `${document.getElementById('statTotal')?.textContent || '—'} trains · ${document.getElementById('statFilled')?.textContent || '—'} entered · ${document.getElementById('statMislink')?.textContent || '—'} mis-links`;
+    const printedAt = new Date().toLocaleString('en-IN', {
+        day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false,
+    });
+    document.getElementById('printTitle').textContent = title;
+    document.getElementById('printMeta').innerHTML =
+        `${dateStr ? `<strong>${dateStr}</strong>` : ''}${dayLabel ? ` (${dayLabel.trim()})` : ''}
+         &nbsp;·&nbsp; ${stats}
+         &nbsp;·&nbsp; <em>printed ${printedAt}</em>`;
+    window.print();
+}
+function scrollToSection(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    // Compute true offset (table cell inside scroll wrap) so we don't get
+    // hidden behind the sticky nav.
+    let y = 0;
+    let node = el;
+    while (node) { y += node.offsetTop; node = node.offsetParent; }
+    const navHeight = document.getElementById('sectionNav')?.offsetHeight || 0;
+    window.scrollTo({ top: Math.max(0, y - navHeight - 8), behavior: 'smooth' });
+}
+function renderSectionNav(items) {
+    // items: [{ id, label, section }, ...] — section drives chip colour
+    const nav = document.getElementById('sectionNav');
+    if (!nav) return;
+    if (!items.length) { nav.innerHTML = ''; return; }
+    nav.innerHTML = items.map(it => {
+        const cls = it.colourClass || sectionColourClass(it.section);
+        return `<span class="chip ${cls}" onclick="scrollToSection('${esc(it.id)}')">${esc(it.label)}</span>`;
+    }).join('');
 }
 
 // "NE 27 · SE 18 · NE/PNVL 2 · NE/BIRD 2 · SE/PNVL 2"
@@ -1592,7 +1941,10 @@ function renderRow(m, editable) {
     tr.innerHTML = `
         <td class="col-sr">${esc(m.sr_no || '')}</td>
         <td class="col-time">${esc(fmtEventTime(m.event_time))}</td>
-        <td class="col-train">${esc(m.train_no)}${ppPill}</td>
+        <td class="col-train">
+            <div>${esc(m.train_no)}${ppPill}</div>
+            ${m.train_name ? `<div style="font-size:.72rem;color:var(--text-light);line-height:1.2;margin-top:1px">${esc(m.train_name)}</div>` : ''}
+        </td>
         <td class="col-link">
             <div class="link-summary">
                 <span class="shed">${esc(m.shed_code || '—')} ${m.expected_hog ? '<small style="color:var(--success)">HOG</small>' : ''}</span>
@@ -1654,8 +2006,9 @@ function renderRow(m, editable) {
                        data-field="${direction === 'UP' ? 'outgoing_train' : 'incoming_train'}">
                 ${direction === 'UP' ? `
                 <div class="target-date-indicator" data-for="outgoing_train"></div>
-                <label class="target-date-override" data-for="outgoing_train">
-                    <input type="checkbox" data-field="outgoing_same_day"> Same day
+                <label class="target-date-override" data-for="outgoing_train" style="gap:6px;align-items:center">
+                    <span style="font-size:.72rem;color:var(--text-light)">Date:</span>
+                    <input type="date" data-field="outgoing_target_date" style="font-size:.78rem;padding:2px 4px;border:1px solid var(--border-strong);border-radius:4px">
                 </label>` : ''}
             </div>
         </td>
@@ -1714,6 +2067,7 @@ function renderRearRow(m, editable, options) {
                        placeholder="${isPushPull ? 'rear loco' : '2nd loco'}"
                        value="${esc(log.actual_loco_no_rear || '')}" ${dis}
                        data-field="actual_loco_no_rear">
+                ${editable && direction === 'UP' ? `<span class="defect-btn-wrap"><button class="defect-btn" data-action="report-defect" title="Report Loco Defect (click to log any defect observed on this rear loco)"><i class="fa-solid fa-wrench"></i></button></span>` : ''}
                 ${removeBtn}
             </div>
         </td>
@@ -1753,6 +2107,7 @@ function renderRearRow(m, editable, options) {
 function renderBypass(data) {
     const body = $('#sheetBody');
     body.innerHTML = '';
+    renderSectionNav([]);
 
     $('#statTotal').textContent = data.total;
     $('#statFilled').textContent = data.filled;
@@ -1783,18 +2138,64 @@ function renderBypass(data) {
         groups.get(k).push(row);
     }
 
+    // Specials by route_label (sp.section holds the route_label for bypass specials)
+    const specialsByRoute = new Map();
+    for (const sp of (data.specials || [])) {
+        const k = sp.section || sp.route_label || '(no route)';
+        if (!specialsByRoute.has(k)) specialsByRoute.set(k, []);
+        specialsByRoute.get(k).push(sp);
+    }
+
+    // Build bypass nav chips up front using the groups we'll render
+    const navItems = [];
+    for (const [route, rows] of groups) {
+        navItems.push({ id: `route-${route.replace(/[^A-Za-z0-9]/g, '-')}`, label: route, colourClass: 'sec-bypass', section: 'BYPASS' });
+    }
+    renderSectionNav(navItems);
+
     for (const [route, rows] of groups) {
         const filled = rows.filter(r => r.log && r.log.actual_loco_no).length;
         const header = document.createElement('tr');
         header.classList.add('route-header');
+        header.id = `route-${route.replace(/[^A-Za-z0-9]/g, '-')}`;
         header.innerHTML = `<td colspan="10">
             <span class="route-name"><i class="fa-solid fa-route"></i> ${esc(route)}</span>
             <span class="route-count">${filled}/${rows.length}</span>
+            <button type="button" class="go-top-btn" onclick="scrollToSheetTop()" title="Back to top">
+                <i class="fa-solid fa-arrow-up"></i> Top
+            </button>
         </td>`;
         body.appendChild(header);
 
         for (const row of rows) {
             body.appendChild(renderBypassRow(row, data.editable));
+        }
+        // Inline specials saved against this route
+        for (const sp of (specialsByRoute.get(route) || [])) {
+            body.appendChild(renderSpecialRow(sp, data.editable));
+        }
+        specialsByRoute.delete(route);
+        // One blank + Add Special button per route (use the route_label as 'section'
+        // marker; from_station inherits the route's bypass entry station)
+        if (data.editable) {
+            const entryStation = rows[0] ? rows[0].from_station : '';
+            body.appendChild(renderBlankRow(route, entryStation));
+            body.appendChild(renderAddButton(route, entryStation));
+        }
+    }
+
+    // Any specials whose section didn't match a known route → "OTHER" group
+    for (const [sec, sps] of specialsByRoute.entries()) {
+        const header = document.createElement('tr');
+        header.classList.add('route-header');
+        header.innerHTML = `<td colspan="10">
+            <span class="route-name"><i class="fa-solid fa-route"></i> ${esc(sec === '(no route)' ? 'OTHER' : sec)}</span>
+        </td>`;
+        body.appendChild(header);
+        for (const sp of sps) body.appendChild(renderSpecialRow(sp, data.editable));
+        if (data.editable) {
+            body.appendChild(renderBlankRow(sec === '(no route)' ? '' : sec, ''));
+            body.appendChild(renderAddButton(sec === '(no route)' ? '' : sec, ''));
         }
     }
 }
@@ -1959,14 +2360,49 @@ function attachRowHandlers(tr) {
         addSecondBtn.addEventListener('click', () => addSecondLocoRow(tr));
     }
 
-    // 🔧 Defect button — open modal to report defect (UP rows only)
+    // 🔧 Defect button — open modal to report defect (UP rows only).
+    // Works for both front and rear rows; reads loco/base from the appropriate
+    // input/display based on row position. Auto-saves the daily-entry row
+    // first if it has unsaved changes — otherwise a Mark-as-Sick would
+    // create a sick record for a loco that isn't actually logged for this
+    // train+date (orphan sick state).
     const defectBtn = tr.querySelector('button[data-action="report-defect"]');
     if (defectBtn) {
-        defectBtn.addEventListener('click', () => {
-            const locoNo = tr.querySelector('input[data-field="actual_loco_no"]')?.value?.trim();
+        defectBtn.addEventListener('click', async () => {
+            const isRear = tr.dataset.position === 'rear';
+            const locoField = isRear ? 'actual_loco_no_rear' : 'actual_loco_no';
+            const baseField = isRear ? 'base_shed_rear'      : 'base_shed';
+            const locoNo  = tr.querySelector(`input[data-field="${locoField}"]`)?.value?.trim();
             const trainNo = tr.dataset.trainNo || '';
-            const baseShed = tr.querySelector('.base-display')?.textContent?.trim();
-            openDefectModal(locoNo, trainNo, baseShed === '—' ? '' : baseShed);
+
+            if (!locoNo) {
+                alert('Enter the loco number first, then click the defect button.');
+                return;
+            }
+
+            // Auto-save the row (front + rear share a log row) if dirty
+            const masterIdRaw = parseInt(tr.dataset.masterId, 10);
+            const masterId = Number.isFinite(masterIdRaw) ? masterIdRaw : null;
+            const frontRow = tr.dataset.special === '1'
+                ? tr
+                : (masterId != null ? document.querySelector(`tr[data-master-id="${masterId}"][data-position="front"]`) : tr);
+            const frontSaveBtn = frontRow?.querySelector('button.save-btn');
+            const isDirty = frontSaveBtn?.classList.contains('dirty');
+            if (isDirty) {
+                defectBtn.disabled = true;
+                try {
+                    const ok = await saveRow(frontRow);
+                    if (!ok) {
+                        alert('Could not save the row first. Fix any errors above the row, then try the defect button again.');
+                        return;
+                    }
+                } finally {
+                    defectBtn.disabled = false;
+                }
+            }
+
+            const baseShed = tr.querySelector(`.base-display[data-field="${baseField}"]`)?.textContent?.trim();
+            openDefectModal(locoNo, trainNo, baseShed === '—' ? '' : baseShed, isRear ? 'rear' : 'front');
         });
     }
 
@@ -2065,11 +2501,11 @@ function attachRowHandlers(tr) {
         });
     }
 
-    // Target date indicator for outgoing_train (UP direction only)
+    // Target date indicator + date picker for outgoing_train (UP direction only)
     const outgoingInput = tr.querySelector('input[data-field="outgoing_train"]');
     const targetDateIndicator = tr.querySelector('.target-date-indicator[data-for="outgoing_train"]');
     const overrideLabel = tr.querySelector('.target-date-override[data-for="outgoing_train"]');
-    const overrideCheckbox = tr.querySelector('input[data-field="outgoing_same_day"]');
+    const dateInput = tr.querySelector('input[data-field="outgoing_target_date"]');
 
     if (outgoingInput && targetDateIndicator) {
         // Get source train's event_time from the row data
@@ -2079,12 +2515,51 @@ function attachRowHandlers(tr) {
             return m ? m.event_time : null;
         };
 
+        // Track the target train's run_days so we can validate any custom date
+        // LPC picks (e.g., Mon arrival → Wed return).
+        let targetRunDays = null;
+
+        const updateIndicatorForDate = (date) => {
+            if (!date) {
+                targetDateIndicator.textContent = '';
+                targetDateIndicator.classList.remove('visible', 'next-day', 'no-run');
+                return;
+            }
+            // Reuse the same dow logic that the backend uses (1=MON … 7=SUN)
+            const js = new Date(date + 'T00:00:00Z').getUTCDay();
+            const dow = js === 0 ? 7 : js;
+            const dayShort = ['', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][dow];
+            const d = new Date(date + 'T00:00:00Z');
+            const monthShort = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getUTCMonth()];
+            const display = `${d.getUTCDate()}-${monthShort} (${dayShort})`;
+            const runsOnPicked = targetRunDays
+                ? String(targetRunDays).toUpperCase() === 'DAILY' ||
+                  String(targetRunDays).replace(/\s+/g, '').split(',').includes(String(dow))
+                : true;
+            const isNextDay = date !== currentDate;
+            if (!runsOnPicked) {
+                targetDateIndicator.textContent = `⚠ ${outgoingInput.value.trim()} doesn't run on ${display}`;
+                targetDateIndicator.classList.add('visible', 'no-run');
+                targetDateIndicator.classList.remove('next-day');
+            } else if (isNextDay) {
+                targetDateIndicator.textContent = `→ ${display}`;
+                targetDateIndicator.classList.add('visible', 'next-day');
+                targetDateIndicator.classList.remove('no-run');
+            } else {
+                targetDateIndicator.textContent = `→ ${display}`;
+                targetDateIndicator.classList.add('visible');
+                targetDateIndicator.classList.remove('next-day', 'no-run');
+            }
+        };
+
         outgoingInput.addEventListener('blur', async () => {
             const trainNo = outgoingInput.value.trim();
             if (!trainNo) {
                 targetDateIndicator.textContent = '';
                 targetDateIndicator.classList.remove('visible', 'next-day', 'no-run');
                 overrideLabel.classList.remove('visible');
+                if (dateInput) dateInput.value = '';
+                targetRunDays = null;
                 return;
             }
 
@@ -2116,26 +2591,14 @@ function attachRowHandlers(tr) {
                 }
 
                 const data = await r.json();
-                // Store the computed target date on the row for use during save
+                targetRunDays = data.run_days || null;
                 tr.dataset.outgoingTargetDate = data.target_date;
                 tr.dataset.outgoingIsNextDay = data.is_next_day ? '1' : '0';
 
-                if (!data.runs_on_target) {
-                    targetDateIndicator.textContent = `⚠ ${trainNo} doesn't run on ${data.display_date}`;
-                    targetDateIndicator.classList.add('visible', 'no-run');
-                    targetDateIndicator.classList.remove('next-day');
-                    overrideLabel.classList.remove('visible');
-                } else if (data.is_next_day) {
-                    targetDateIndicator.textContent = `→ ${data.display_date}`;
-                    targetDateIndicator.classList.add('visible', 'next-day');
-                    targetDateIndicator.classList.remove('no-run');
-                    overrideLabel.classList.add('visible');
-                } else {
-                    targetDateIndicator.textContent = `→ ${data.display_date}`;
-                    targetDateIndicator.classList.add('visible');
-                    targetDateIndicator.classList.remove('next-day', 'no-run');
-                    overrideLabel.classList.remove('visible');
-                }
+                // Show the date input pre-filled, and the indicator
+                if (dateInput && !dateInput.value) dateInput.value = data.target_date;
+                overrideLabel.classList.add('visible');
+                updateIndicatorForDate(dateInput ? dateInput.value : data.target_date);
             } catch (e) {
                 console.error('Target date lookup failed:', e);
                 targetDateIndicator.textContent = '';
@@ -2143,18 +2606,14 @@ function attachRowHandlers(tr) {
             }
         });
 
-        // Override checkbox changes the stored target date
-        if (overrideCheckbox) {
-            overrideCheckbox.addEventListener('change', () => {
-                if (overrideCheckbox.checked) {
-                    // Override to same day
-                    tr.dataset.outgoingTargetDate = currentDate;
-                    tr.dataset.outgoingIsNextDay = '0';
-                    targetDateIndicator.classList.remove('next-day');
-                } else {
-                    // Restore auto-detected date - trigger blur again
-                    outgoingInput.dispatchEvent(new Event('blur'));
-                }
+        // LPC overrides the date directly via the picker
+        if (dateInput) {
+            dateInput.addEventListener('change', () => {
+                const picked = dateInput.value;
+                if (!picked) return;
+                tr.dataset.outgoingTargetDate = picked;
+                tr.dataset.outgoingIsNextDay = picked === currentDate ? '0' : '1';
+                updateIndicatorForDate(picked);
                 if (saveBtn) { saveBtn.classList.add('dirty'); updateDirtyBar(); }
             });
         }
@@ -2172,6 +2631,10 @@ function attachBlankRowHandlers(tr) {
     const baseDisplay = tr.querySelector('.base-display');
     const saveBtn = tr.querySelector('button[data-action="save-blank"]');
     const cancelBtn = tr.querySelector('button[data-action="cancel-blank"]');
+
+    // Forgiving HH:MM formatting on the inline-special time input
+    const timeInput = tr.querySelector('input[data-field="event_time"]');
+    if (timeInput) attachTimeFormatter(timeInput);
 
     // Mark dirty + autofill same way as regular rows
     tr.querySelectorAll('input').forEach(el => {
@@ -2372,9 +2835,11 @@ async function saveRow(tr) {
         if (radioIn) failed_in_division = Number(radioIn.value);
     }
 
-    // Get override date from dataset if the "Same day" checkbox was used
-    const outgoingDateOverride = frontRow?.dataset.outgoingIsNextDay === '0' && frontRow?.dataset.outgoingTargetDate
-        ? frontRow.dataset.outgoingTargetDate : null;
+    // Send outgoing_date_override whenever the row has a chosen target date
+    // (set either by auto-compute on /target-date or by LPC editing the
+    // date picker explicitly). Backend uses this to place the propagated
+    // log entry on the exact date LPC intends.
+    const outgoingDateOverride = frontRow?.dataset.outgoingTargetDate || null;
 
     const body = {
         working_date: currentDate,
@@ -2519,6 +2984,7 @@ function updateQuickBtns() {
     const todayD = todayISO();
     $$('.quick-btn').forEach(b => {
         const rel = parseInt(b.dataset.rel, 10);
+        if (!Number.isFinite(rel)) return;   // skip non-relative buttons
         const target = isoPlusDays(todayD, rel);
         b.classList.toggle('active', target === currentDate);
     });
@@ -2671,8 +3137,11 @@ document.addEventListener('focusin', e => {
 // DEFECT REPORTING
 // ══════════════════════════════════════════════════════════════════════════
 
-async function openDefectModal(locoNo, trainNo, homeShed) {
+async function openDefectModal(locoNo, trainNo, homeShed, position) {
     const modal = $('#defectModal');
+    // Remember which row position raised this (front vs rear) so the
+    // post-save badge update can target the right row.
+    modal.dataset.position = position === 'rear' ? 'rear' : 'front';
     $('#defectLocoNo').value = locoNo || '';
     $('#defectTrainNo').value = trainNo || '';
     $('#defectWorkingDate').value = currentDate;
@@ -2681,6 +3150,7 @@ async function openDefectModal(locoNo, trainNo, homeShed) {
     $('#defectCategory').value = 'OTHER';
     $('#defectSeverity').value = 'MINOR';
     $('#defectDescription').value = '';
+    $('#defectMarkSick').checked = false;
 
     // Load existing defects for this loco/date
     const existingWrap = $('#defectExistingWrap');
@@ -2765,8 +3235,34 @@ async function submitDefect() {
             return;
         }
 
-        // Update defect button to show indicator
-        const row = document.querySelector(`tr[data-train-no="${trainNo}"][data-position="front"]`);
+        // If "Mark as Sick" was checked, also create a sick record. Failure
+        // here is reported but doesn't undo the defect save.
+        if ($('#defectMarkSick').checked) {
+            try {
+                const sr = await fetch('/api/division/loco-link/sick', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        loco_number: locoNo,
+                        sick_from: currentDate,
+                        sick_at_shed: terminal || null,
+                        sick_train_no: trainNo || null,
+                        sick_reason: `${category}${severity ? ' (' + severity + ')' : ''}: ${description}`,
+                        status: 'U/R',
+                    }),
+                });
+                const sd = await sr.json().catch(() => ({}));
+                if (!sr.ok) {
+                    alert(`Defect saved, but mark-sick failed: ${sd.error || 'unknown error'}${sd.sick_since ? '\n(Already sick since ' + sd.sick_since + ')' : ''}`);
+                }
+            } catch (e) {
+                alert(`Defect saved, but mark-sick network error: ${e.message}`);
+            }
+        }
+
+        // Update defect button to show indicator on the row that raised it
+        const position = $('#defectModal').dataset.position || 'front';
+        const row = document.querySelector(`tr[data-train-no="${trainNo}"][data-position="${position}"]`);
         if (row) {
             const defectBtnWrap = row.querySelector('.defect-btn-wrap');
             if (defectBtnWrap) {

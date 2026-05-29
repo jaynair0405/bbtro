@@ -720,6 +720,7 @@ router.get('/train/:train_no/target-date', async (req, res) => {
             reason,  // 'already_departed_today' | 'time_comparison' | 'same_day' | ...
             runs_on_target: runsOnTarget,
             event_time: target.event_time,
+            run_days: target.run_days,   // exposed so the frontend can validate custom-picked dates
             day_of_week: dow,
         });
     } catch (err) {
@@ -808,14 +809,18 @@ router.get('/today', async (req, res) => {
             // ORDER BY event_time so the daily-entry sheet renders trains in
             // chronological order (LPC works the sheet top-to-bottom as the day
             // progresses). Falls back to id to keep ties deterministic.
-            `SELECT id, sheet_source, sr_no, section, direction, is_bypass,
-                    from_station, to_station, route_label,
-                    shed_code, link_attr, expected_hog, is_push_pull, traction_type,
-                    rake_type, train_no, train_name, event_time, via_stations,
-                    run_days, remark
-             FROM div_loco_link_master
-             WHERE ${where}
-             ORDER BY event_time, id`,
+            // train_name comes from div_trains (100% populated) when available,
+            // else falls back to div_loco_link_master.train_name.
+            `SELECT m.id, m.sheet_source, m.sr_no, m.section, m.direction, m.is_bypass,
+                    m.from_station, m.to_station, m.route_label,
+                    m.shed_code, m.link_attr, m.expected_hog, m.is_push_pull, m.traction_type,
+                    m.rake_type, m.train_no,
+                    COALESCE(t.train_name, m.train_name) AS train_name,
+                    m.event_time, m.via_stations, m.run_days, m.remark
+             FROM div_loco_link_master m
+             LEFT JOIN div_trains t ON t.train_no = m.train_no
+             WHERE ${where.replace(/\b(active|sheet_source|direction|from_station|route_label|effective_from|effective_until|skip_dates)\b/g, 'm.$1')}
+             ORDER BY m.event_time, m.id`,
             params
         );
 
@@ -851,19 +856,22 @@ router.get('/today', async (req, res) => {
 
         // Special trains — log rows for this sheet+date with no master_id.
         // Returns event_time so the frontend can merge specials into the
-        // master rows' time-ordered list.
+        // master rows' time-ordered list. JOIN div_trains for train_name when
+        // the inline special's train_no happens to be in the trains master.
         let specials = [];
         if (sheetSource) {
             const [rows] = await pool.query(
-                `SELECT id, master_id, sheet_source, section, working_date, direction, train_no,
-                        event_time,
-                        actual_loco_no, base_shed, loco_type, traction_type,
-                        hog, incoming_train, outgoing_train,
-                        expected_shed, is_mislink,
-                        remark, entered_by, updated_at
-                 FROM div_loco_link_log
-                 WHERE working_date = ? AND master_id IS NULL AND sheet_source = ?
-                 ORDER BY event_time, id`,
+                `SELECT l.id, l.master_id, l.sheet_source, l.section, l.working_date, l.direction, l.train_no,
+                        l.event_time,
+                        t.train_name,
+                        l.actual_loco_no, l.base_shed, l.loco_type, l.traction_type,
+                        l.hog, l.incoming_train, l.outgoing_train,
+                        l.expected_shed, l.is_mislink,
+                        l.remark, l.entered_by, l.updated_at
+                 FROM div_loco_link_log l
+                 LEFT JOIN div_trains t ON t.train_no = l.train_no
+                 WHERE l.working_date = ? AND l.master_id IS NULL AND l.sheet_source = ?
+                 ORDER BY l.event_time, l.id`,
                 [date, sheetSource]
             );
             specials = rows;

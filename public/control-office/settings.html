@@ -526,9 +526,9 @@
                 <label>Search:</label>
                 <input type="text" id="filterLinkSearch" placeholder="train no or name" style="width:160px">
             </div>
-            <div style="font-size:.8rem;color:var(--text-light)">
-                Edit the shed / link allocated to a train. Changes apply going forward.
-            </div>
+            <button class="primary-btn" id="btnAddLink">
+                <i class="fa-solid fa-plus"></i> Add Link
+            </button>
         </div>
         <div class="data-table-wrap">
             <table class="data-table">
@@ -826,6 +826,16 @@
                         </select>
                     </div>
                 </div>
+                <div class="row2">
+                    <div>
+                        <label>Push-Pull?</label>
+                        <select id="ft_link_is_push_pull">
+                            <option value="0">No</option>
+                            <option value="1">Yes (two locos — front + rear)</option>
+                        </select>
+                    </div>
+                    <div></div>
+                </div>
             </fieldset>
         </div>
         <div class="modal-footer">
@@ -852,6 +862,123 @@
         <div class="modal-footer">
             <button class="btn-cancel" id="btnRenumberCancel">Cancel</button>
             <button class="btn-confirm" id="btnRenumberConfirm">Renumber</button>
+        </div>
+    </div>
+</div>
+
+<!-- ─── Add Loco Link modal ─── -->
+<div class="modal-overlay" id="addLinkModal">
+    <div class="modal-box">
+        <div class="modal-header">Add Loco Link</div>
+        <div class="modal-body">
+            <div class="form-error" id="addLinkFormError"></div>
+            <p id="addLinkContext" style="margin:0 0 12px;font-size:.85rem;color:var(--text-light);display:none"></p>
+            <div class="row2">
+                <div>
+                    <label>Train No *</label>
+                    <input type="text" id="al_train_no" maxlength="10" placeholder="e.g. 20154">
+                </div>
+                <div>
+                    <label>Direction *</label>
+                    <select id="al_direction">
+                        <option value="UP">UP</option>
+                        <option value="DN">DN</option>
+                        <option value="BYPASS">BYPASS</option>
+                    </select>
+                </div>
+            </div>
+            <div class="row3">
+                <div>
+                    <label>Sheet *</label>
+                    <select id="al_sheet_source">
+                        <option value="CSMT-UP">CSMT-UP</option>
+                        <option value="CSMT-DN">CSMT-DN</option>
+                        <option value="LTT-UP">LTT-UP</option>
+                        <option value="LTT-DN">LTT-DN</option>
+                        <option value="PNVL-UP">PNVL-UP</option>
+                        <option value="PNVL-DN">PNVL-DN</option>
+                        <option value="KR-UP">KR-UP</option>
+                        <option value="KR-DN">KR-DN</option>
+                        <option value="BYPASS">BYPASS</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Takeover / Origin Stn</label>
+                    <input type="text" id="al_from_station" maxlength="10" placeholder="LNL / IGP / ROHA…">
+                </div>
+                <div>
+                    <label>Event Time *</label>
+                    <input type="text" id="al_event_time" maxlength="5" placeholder="HH:MM">
+                </div>
+            </div>
+            <div class="row3">
+                <div>
+                    <label>Section</label>
+                    <select id="al_section">
+                        <option value="">—</option>
+                        <option value="NE">NE</option>
+                        <option value="SE">SE</option>
+                        <option value="KR">KR</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Shed</label>
+                    <select id="al_shed_code">
+                        <option value="">—</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Link Attr</label>
+                    <input type="text" id="al_link_attr" maxlength="30" placeholder="P/7">
+                </div>
+            </div>
+            <div class="row3">
+                <div>
+                    <label>Loco Type</label>
+                    <input type="text" id="al_expected_loco_type" maxlength="20" placeholder="WAP7">
+                </div>
+                <div>
+                    <label>Coach Type</label>
+                    <select id="al_rake_type">
+                        <option value="">—</option>
+                        <option value="LHB">LHB</option>
+                        <option value="ICF">ICF</option>
+                        <option value="Vande">Vande</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                <div>
+                    <label>HOG?</label>
+                    <select id="al_expected_hog">
+                        <option value="0">No</option>
+                        <option value="1">Yes</option>
+                    </select>
+                </div>
+            </div>
+            <div class="row2">
+                <div>
+                    <label>Push-Pull?</label>
+                    <select id="al_is_push_pull">
+                        <option value="0">No</option>
+                        <option value="1">Yes (two locos — front + rear)</option>
+                    </select>
+                </div>
+                <div></div>
+            </div>
+            <label>Run Days</label>
+            <div class="days-row">
+                <label><input type="checkbox" class="al-day-chk" value="1"> Mon</label>
+                <label><input type="checkbox" class="al-day-chk" value="2"> Tue</label>
+                <label><input type="checkbox" class="al-day-chk" value="3"> Wed</label>
+                <label><input type="checkbox" class="al-day-chk" value="4"> Thu</label>
+                <label><input type="checkbox" class="al-day-chk" value="5"> Fri</label>
+                <label><input type="checkbox" class="al-day-chk" value="6"> Sat</label>
+                <label><input type="checkbox" class="al-day-chk" value="7"> Sun</label>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-cancel" id="btnAddLinkCancel">Cancel</button>
+            <button class="btn-confirm" id="btnAddLinkSave">Save Link</button>
         </div>
     </div>
 </div>
@@ -981,6 +1108,33 @@ function esc(s) {
     return String(s == null ? '' : s)
         .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
         .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// Attach a forgiving HH:MM formatter to a time input.
+//   '12.25' → '12:25' as user types; '2:10' → '02:10' on blur.
+function attachTimeFormatter(input) {
+    if (!input || input.dataset.timeFmt === '1') return;
+    input.dataset.timeFmt = '1';
+    input.addEventListener('input', () => {
+        let v = input.value.replace(/\./g, ':').replace(/[^\d:]/g, '');
+        const firstColon = v.indexOf(':');
+        if (firstColon !== -1) {
+            v = v.slice(0, firstColon + 1) + v.slice(firstColon + 1).replace(/:/g, '');
+        }
+        if (firstColon === -1 && v.length >= 3 && /^\d{3,}$/.test(v)) {
+            v = v.slice(0, 2) + ':' + v.slice(2, 4);
+        }
+        if (input.value !== v) input.value = v;
+    });
+    input.addEventListener('blur', () => {
+        const v = input.value.trim();
+        if (!v) return;
+        const m = v.match(/^(\d{1,2}):(\d{2})$/);
+        if (m) {
+            const padded = `${String(parseInt(m[1], 10)).padStart(2, '0')}:${m[2]}`;
+            if (input.value !== padded) input.value = padded;
+        }
+    });
 }
 
 // ── Toast notification ────────────────────────────────────────────────────
@@ -1427,6 +1581,7 @@ async function openTrainModal(train) {
     $('#ft_link_expected_loco_type').value = '';
     $('#ft_link_rake_type').value = '';
     $('#ft_link_expected_hog').value = '0';
+    $('#ft_link_is_push_pull').value = '0';
     linkInputs.forEach(el => el.disabled = false);
     linkLegend.innerHTML = train
         ? `Loco Link Details <span style="font-weight:400;color:var(--muted)">(loading…)</span>`
@@ -1485,6 +1640,7 @@ async function openTrainModal(train) {
                 $('#ft_link_expected_loco_type').value   = lk.expected_loco_type || '';
                 $('#ft_link_rake_type').value            = lk.rake_type || '';
                 $('#ft_link_expected_hog').value         = String(lk.expected_hog ?? 0);
+                $('#ft_link_is_push_pull').value         = String(lk.is_push_pull ?? 0);
                 linkLegend.innerHTML = `Loco Link Details <span style="font-weight:400;color:var(--success)">(editing existing link #${lk.id} on ${esc(lk.sheet_source)})</span>`;
             } else {
                 linkLegend.innerHTML = `Loco Link Details <span style="font-weight:400;color:var(--warning)">(${matches.length} existing links — edit them on the Loco Links tab)</span>`;
@@ -1535,7 +1691,8 @@ async function saveTrain() {
             $('#ft_link_attr').value.trim() ||
             $('#ft_link_expected_loco_type').value.trim() ||
             $('#ft_link_rake_type').value ||
-            parseInt($('#ft_link_expected_hog').value, 10)
+            parseInt($('#ft_link_expected_hog').value, 10) ||
+            parseInt($('#ft_link_is_push_pull').value, 10)
         );
         if (linkSheet || linkTime || editingTrainLinkId || otherLinkFilled) {
             if (!linkSheet || !linkTime) {
@@ -1564,6 +1721,7 @@ async function saveTrain() {
                 expected_loco_type: $('#ft_link_expected_loco_type').value.trim() || null,
                 rake_type: $('#ft_link_rake_type').value || null,
                 expected_hog: parseInt($('#ft_link_expected_hog').value, 10) ? 1 : 0,
+                is_push_pull: parseInt($('#ft_link_is_push_pull').value, 10) ? 1 : 0,
             };
         }
     }
@@ -1643,6 +1801,22 @@ async function saveTrain() {
         closeTrainModal();
         await loadTrains();
         showToast(wasEdit ? 'Train updated' : 'Train added');
+
+        // If a brand-new train was created and no loco link was attached,
+        // chain straight into the Add Link modal so LPC doesn't have to
+        // navigate to the Loco Links tab manually.
+        if (!wasEdit && !linkPayload && data && data.train) {
+            const t = data.train;
+            // small delay so the success toast is visible
+            setTimeout(() => openAddLinkModal({
+                train_no: t.train_no,
+                train_name: t.train_name,
+                direction: t.direction,
+                from_station: t.from_station,
+                to_station: t.to_station,
+                run_days: t.run_days,
+            }), 300);
+        }
     } catch (e) {
         showToast('Network error — please retry', 'error');
     } finally {
@@ -1861,6 +2035,124 @@ function onLinkSearchChange() {
     linkSearchTimer = setTimeout(loadLinks, 250);
 }
 
+// ── Add Loco Link modal (also reusable for the post-train-save auto-flow) ──
+async function openAddLinkModal(preset) {
+    // Lazy-load sheds for the Add Link modal's dropdown
+    if (!shedOptions.length) {
+        try {
+            const r = await fetch(`${API}/sheds`);
+            const d = await r.json();
+            shedOptions = d.rows || [];
+        } catch (e) { /* non-blocking */ }
+    }
+    const sel = $('#al_shed_code');
+    sel.innerHTML = '<option value="">—</option>'
+        + shedOptions.map(s => `<option value="${esc(s.shed_code)}">${esc(s.shed_code)} (${esc(s.railway_zone || '—')})</option>`).join('');
+
+    // Reset all fields
+    $('#al_train_no').value           = '';
+    $('#al_direction').value          = 'UP';
+    $('#al_sheet_source').value       = 'CSMT-UP';
+    $('#al_from_station').value       = '';
+    $('#al_event_time').value         = '';
+    $('#al_section').value            = '';
+    $('#al_shed_code').value          = '';
+    $('#al_link_attr').value          = '';
+    $('#al_expected_loco_type').value = '';
+    $('#al_rake_type').value          = '';
+    $('#al_expected_hog').value       = '0';
+    $('#al_is_push_pull').value       = '0';
+    $$('.al-day-chk').forEach(c => { c.checked = false; });
+
+    $('#addLinkFormError').classList.remove('active');
+    $('#addLinkFormError').innerHTML = '';
+
+    // Apply presets (used after a fresh train is added)
+    if (preset && typeof preset === 'object') {
+        if (preset.train_no)        $('#al_train_no').value     = preset.train_no;
+        if (preset.train_name) {
+            $('#addLinkContext').style.display = 'block';
+            $('#addLinkContext').innerHTML = `Creating link for newly-added train <strong>${esc(preset.train_no)}${preset.train_name ? ' — ' + esc(preset.train_name) : ''}</strong>`;
+        } else {
+            $('#addLinkContext').style.display = 'none';
+        }
+        if (preset.direction)       $('#al_direction').value    = preset.direction;
+        if (preset.from_station)    $('#al_from_station').value = preset.from_station;
+        if (preset.event_time)      $('#al_event_time').value   = preset.event_time;
+        if (preset.section)         $('#al_section').value      = preset.section;
+        if (preset.run_days) {
+            const days = String(preset.run_days).split(',');
+            $$('.al-day-chk').forEach(c => { c.checked = days.includes(c.value); });
+        }
+        // Suggest a sheet from direction + station if not provided
+        if (!preset.sheet_source && preset.direction) {
+            const TERMINALS = ['CSMT', 'LTT', 'PNVL', 'KR'];
+            const term = preset.direction === 'UP' ? preset.to_station : preset.from_station;
+            if (term && TERMINALS.includes(term)) {
+                const suggestedSheet = `${term}-${preset.direction}`;
+                if (Array.from($('#al_sheet_source').options).some(o => o.value === suggestedSheet)) {
+                    $('#al_sheet_source').value = suggestedSheet;
+                }
+            }
+        } else if (preset.sheet_source) {
+            $('#al_sheet_source').value = preset.sheet_source;
+        }
+    } else {
+        $('#addLinkContext').style.display = 'none';
+    }
+
+    $('#addLinkModal').classList.add('active');
+}
+function closeAddLinkModal() {
+    $('#addLinkModal').classList.remove('active');
+}
+async function saveAddLink() {
+    const days = $$('.al-day-chk').filter(c => c.checked).map(c => c.value).join(',');
+    const body = {
+        train_no: $('#al_train_no').value.trim(),
+        direction: $('#al_direction').value,
+        sheet_source: $('#al_sheet_source').value,
+        event_time: $('#al_event_time').value.trim(),
+        from_station: $('#al_from_station').value.trim().toUpperCase() || null,
+        section: $('#al_section').value || null,
+        shed_code: $('#al_shed_code').value || null,
+        link_attr: $('#al_link_attr').value.trim() || null,
+        expected_loco_type: $('#al_expected_loco_type').value.trim() || null,
+        rake_type: $('#al_rake_type').value || null,
+        expected_hog: parseInt($('#al_expected_hog').value, 10) ? 1 : 0,
+        is_push_pull: parseInt($('#al_is_push_pull').value, 10) ? 1 : 0,
+        run_days: days || null,
+        traction_type: 'Electric',
+    };
+    const errs = [];
+    if (!body.train_no)     errs.push('Train No is required');
+    if (!body.sheet_source) errs.push('Sheet is required');
+    if (!body.direction)    errs.push('Direction is required');
+    if (!body.event_time)   errs.push('Event Time is required');
+    if (body.event_time && !/^\d{1,2}:\d{2}$/.test(body.event_time)) errs.push('Event Time must be HH:MM');
+    if (errs.length) {
+        $('#addLinkFormError').innerHTML = '<strong>Please fix:</strong><ul>' + errs.map(e => `<li>${esc(e)}</li>`).join('') + '</ul>';
+        $('#addLinkFormError').classList.add('active');
+        return;
+    }
+    const r = await fetch(`${API}/master`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+    });
+    const data = await r.json();
+    if (!r.ok) {
+        let msg = data.error || 'Save failed';
+        if (data.hint) msg += `<br><i>${esc(data.hint)}</i>`;
+        $('#addLinkFormError').innerHTML = msg;
+        $('#addLinkFormError').classList.add('active');
+        return;
+    }
+    closeAddLinkModal();
+    await loadLinks();
+    showToast('Loco link added');
+}
+
 // ── Bootstrap ────────────────────────────────────────────────────────────
 (async () => {
     const ok = await checkAuth();
@@ -1898,6 +2190,9 @@ function onLinkSearchChange() {
     $('#filterLinkSearch').addEventListener('input', onLinkSearchChange);
     $('#btnLinkCancel').addEventListener('click', closeLinkModal);
     $('#btnLinkSave').addEventListener('click', saveLink);
+    $('#btnAddLink').addEventListener('click', () => openAddLinkModal(null));
+    $('#btnAddLinkCancel').addEventListener('click', closeAddLinkModal);
+    $('#btnAddLinkSave').addEventListener('click', saveAddLink);
 
     // Lazy-load Trains and Loco Links when their tabs are first clicked
     let trainsLoaded = false;
@@ -1913,6 +2208,12 @@ function onLinkSearchChange() {
                 if (!linksLoaded) { loadLinks(); linksLoaded = true; }
             });
         }
+    });
+
+    // Forgiving HH:MM formatter on every event_time input across modals
+    ['#f_event_time', '#ft_link_event_time', '#al_event_time'].forEach(sel => {
+        const el = document.querySelector(sel);
+        if (el) attachTimeFormatter(el);
     });
 
     await loadSchedules();

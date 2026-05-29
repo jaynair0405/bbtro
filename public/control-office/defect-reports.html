@@ -304,6 +304,93 @@
         @media screen {
             .print-header { display: none; }
         }
+
+        /* Modal for direct add-defect */
+        .modal-overlay {
+            display: none;
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,.5);
+            z-index: 1000;
+            align-items: center; justify-content: center;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal-box {
+            background: var(--surface);
+            border-radius: 10px;
+            width: 520px;
+            max-width: 95vw;
+            max-height: 92vh;
+            display: flex; flex-direction: column;
+            box-shadow: 0 8px 32px rgba(0,0,0,.2);
+        }
+        .modal-header {
+            padding: 14px 18px;
+            background: var(--brand);
+            color: white;
+            border-radius: 10px 10px 0 0;
+            font-weight: 600;
+            font-size: .95rem;
+        }
+        .modal-body { padding: 18px; overflow-y: auto; }
+        .modal-body label {
+            display: block;
+            font-size: .8rem;
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: var(--text-light);
+        }
+        .modal-body input[type="text"],
+        .modal-body input[type="date"],
+        .modal-body select,
+        .modal-body textarea {
+            width: 100%;
+            padding: 8px 11px;
+            border: 1px solid var(--border-strong);
+            border-radius: 6px;
+            font-size: .88rem;
+            font-family: inherit;
+            margin-bottom: 12px;
+        }
+        .modal-body .row2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        .modal-footer {
+            padding: 12px 18px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+        .modal-footer button {
+            padding: 8px 16px;
+            border-radius: 5px;
+            font-size: .85rem;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+        }
+        .btn-cancel {
+            background: var(--surface);
+            color: var(--text-light);
+            border: 1px solid var(--border-strong);
+        }
+        .btn-confirm {
+            background: var(--brand);
+            color: white;
+            border: none;
+        }
+        .form-error {
+            background: var(--danger-bg);
+            color: var(--danger);
+            padding: 9px 12px;
+            border-radius: 5px;
+            font-size: .82rem;
+            margin-bottom: 12px;
+            display: none;
+        }
+        .form-error.active { display: block; }
     </style>
 </head>
 <body>
@@ -369,6 +456,9 @@
         <button class="filter-btn" id="applyFilters">
             <i class="fa-solid fa-filter"></i> Apply
         </button>
+        <button class="filter-btn" id="btnAddDefect" style="background:var(--brand);color:white;border-color:var(--brand)">
+            <i class="fa-solid fa-plus"></i> Add Defect
+        </button>
         <button class="print-btn" onclick="printReport()">
             <i class="fa-solid fa-print"></i> Print
         </button>
@@ -404,6 +494,75 @@
         <div class="loading"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</div>
     </div>
 </main>
+
+<!-- Add Defect modal -->
+<div class="modal-overlay" id="addDefectModal">
+    <div class="modal-box">
+        <div class="modal-header">Add Defect</div>
+        <div class="modal-body">
+            <div class="form-error" id="addDefectError"></div>
+            <div class="row2">
+                <div>
+                    <label>Loco No *</label>
+                    <input type="text" id="ad_loco_number" maxlength="20" placeholder="e.g. 22177" style="text-transform:uppercase">
+                </div>
+                <div>
+                    <label>Train No</label>
+                    <input type="text" id="ad_train_no" maxlength="20" placeholder="optional">
+                </div>
+            </div>
+            <div class="row2">
+                <div>
+                    <label>Working Date *</label>
+                    <input type="date" id="ad_working_date">
+                </div>
+                <div>
+                    <label>Terminal</label>
+                    <select id="ad_terminal">
+                        <option value="">—</option>
+                        <option value="CSMT">CSMT</option>
+                        <option value="LTT">LTT</option>
+                        <option value="PNVL">PNVL</option>
+                        <option value="DR">DR</option>
+                    </select>
+                </div>
+            </div>
+            <div class="row2">
+                <div>
+                    <label>Category</label>
+                    <select id="ad_category">
+                        <option value="BRAKE">Brake</option>
+                        <option value="TRACTION">Traction</option>
+                        <option value="PANTOGRAPH">Pantograph</option>
+                        <option value="HOTEL_LOAD">Hotel Load</option>
+                        <option value="AC">AC</option>
+                        <option value="SPEEDOMETER">Speedometer</option>
+                        <option value="HORN">Horn</option>
+                        <option value="VIGILANCE">Vigilance Device</option>
+                        <option value="AUX_CONVERTOR">Auxiliary Convertor</option>
+                        <option value="BATTERY">Battery/Battery Charger</option>
+                        <option value="SI_UNIT">SI Unit</option>
+                        <option value="OTHER" selected>Other</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Severity</label>
+                    <select id="ad_severity">
+                        <option value="MINOR" selected>Minor</option>
+                        <option value="MAJOR">Major</option>
+                        <option value="CRITICAL">Critical</option>
+                    </select>
+                </div>
+            </div>
+            <label>Description *</label>
+            <textarea id="ad_description" rows="3" placeholder="Describe the defect..."></textarea>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-cancel" id="btnAddDefectCancel">Cancel</button>
+            <button class="btn-confirm" id="btnAddDefectSave">Save Defect</button>
+        </div>
+    </div>
+</div>
 
 <script>
 const $ = sel => document.querySelector(sel);
@@ -601,6 +760,70 @@ function printReport() {
 
     window.print();
 }
+
+// ── Add Defect modal ───────────────────────────────────────────────────
+function openAddDefectModal() {
+    $('#ad_loco_number').value = '';
+    $('#ad_train_no').value    = '';
+    $('#ad_working_date').value = todayISO();
+    $('#ad_terminal').value    = '';
+    $('#ad_category').value    = 'OTHER';
+    $('#ad_severity').value    = 'MINOR';
+    $('#ad_description').value = '';
+    $('#addDefectError').classList.remove('active');
+    $('#addDefectError').textContent = '';
+    $('#addDefectModal').classList.add('active');
+    $('#ad_loco_number').focus();
+}
+function closeAddDefectModal() {
+    $('#addDefectModal').classList.remove('active');
+}
+async function saveDefect() {
+    const body = {
+        loco_number: $('#ad_loco_number').value.trim().toUpperCase(),
+        train_no:    $('#ad_train_no').value.trim() || null,
+        working_date: $('#ad_working_date').value,
+        defect_category: $('#ad_category').value,
+        severity:    $('#ad_severity').value,
+        description: $('#ad_description').value.trim(),
+        reported_at_terminal: $('#ad_terminal').value || null,
+    };
+    const errs = [];
+    if (!body.loco_number)  errs.push('Loco No is required');
+    if (!body.description)  errs.push('Description is required');
+    if (!body.working_date) errs.push('Working Date is required');
+    if (errs.length) {
+        $('#addDefectError').innerHTML = '<strong>Please fix:</strong><ul>' + errs.map(e => `<li>${esc(e)}</li>`).join('') + '</ul>';
+        $('#addDefectError').classList.add('active');
+        return;
+    }
+    const saveBtn = $('#btnAddDefectSave');
+    saveBtn.disabled = true;
+    try {
+        const r = await fetch('/api/division/loco-link/defects', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
+        const data = await r.json();
+        if (!r.ok) {
+            $('#addDefectError').textContent = data.error || 'Save failed';
+            $('#addDefectError').classList.add('active');
+            return;
+        }
+        closeAddDefectModal();
+        await loadReport();
+    } catch (e) {
+        $('#addDefectError').textContent = 'Network error: ' + e.message;
+        $('#addDefectError').classList.add('active');
+    } finally {
+        saveBtn.disabled = false;
+    }
+}
+
+$('#btnAddDefect').addEventListener('click', openAddDefectModal);
+$('#btnAddDefectCancel').addEventListener('click', closeAddDefectModal);
+$('#btnAddDefectSave').addEventListener('click', saveDefect);
 
 // Init
 loadMe();

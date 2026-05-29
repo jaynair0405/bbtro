@@ -542,12 +542,28 @@ let pendingFitData = null;   // stores fit data when shed modal is shown
 function todayISO() { return new Date().toISOString().slice(0, 10); }
 function fmtDate(v, fb = '') {
     if (!v) return fb;
-    const m = String(v).match(/^(\d{4})-(\d{2})-(\d{2})/);
+    // Reuse isoDate to first convert to local YYYY-MM-DD, then reformat
+    // as DD-MM-YYYY for display. Avoids the IST/UTC off-by-one.
+    const iso = isoDate(v);
+    const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/);
     return m ? `${m[3]}-${m[2]}-${m[1]}` : fb;
 }
 function isoDate(v) {
     if (!v) return '';
-    return String(v).slice(0, 10);
+    // Server returns DATE columns as ISO strings like "2026-05-26T18:30:00.000Z"
+    // (IST midnight in UTC). Naive slice(0,10) gives the UTC date — one day
+    // behind in IST. Parse and read local components instead.
+    const s = String(v);
+    if (s.includes('T') || s.includes('GMT') || s.includes(' ')) {
+        const d = new Date(s);
+        if (!isNaN(d.getTime())) {
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${y}-${m}-${day}`;
+        }
+    }
+    return s.slice(0, 10);
 }
 function fmtTime(v, fb = '') {
     if (!v) return fb;

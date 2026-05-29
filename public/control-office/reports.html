@@ -224,6 +224,60 @@
 
         .panel { display: none; }
         .panel.active { display: block; }
+
+        /* Print button + print-only header */
+        .print-btn-bar {
+            background: rgba(255, 255, 255, .15);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, .25);
+            padding: 5px 12px;
+            border-radius: 4px;
+            font-size: .82rem;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .print-btn-bar:hover { background: rgba(255, 255, 255, .28); }
+        .print-btn-bar i { font-size: .78rem; }
+        .print-header {
+            display: none;
+            text-align: center;
+            margin-bottom: 10px;
+            padding-bottom: 6px;
+            border-bottom: 2px solid #333;
+        }
+        .print-title { font-size: 1.1rem; font-weight: 800; }
+        .print-meta { font-size: .8rem; color: #444; margin-top: 3px; }
+
+        @media print {
+            * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            body { background: white !important; }
+            .header, .tabs, .filter-row, .panel:not(.active), .apply-btn,
+            .quick-btn, .panel:not(.active) *, .panel .card-head + div:empty,
+            .print-btn-bar { display: none !important; }
+            main.main { padding: 0 !important; max-width: 100% !important; }
+            .panel.active { padding: 0 !important; }
+            .card { box-shadow: none !important; border: 1px solid #ccc !important; border-radius: 0 !important; }
+            .card-head { font-size: .82rem !important; padding: 4px 8px !important; background: #f1f5f9 !important; }
+            .print-header { display: block !important; }
+            .report-table { font-size: .68rem !important; }
+            .report-table thead th {
+                background: #f1f5f9 !important;
+                color: #1e293b !important;
+                padding: 3px 6px !important;
+                font-size: .65rem !important;
+            }
+            .report-table tbody td {
+                padding: 2px 6px !important;
+                border-bottom: 1px solid #e2e8f0;
+            }
+            .report-table tr.is-mislink { background: #fef2f2 !important; }
+            .report-table tr { page-break-inside: avoid; }
+            @page { size: A4 portrait; margin: 8mm 10mm; }
+        }
     </style>
 </head>
 <body>
@@ -235,10 +289,19 @@
         <span>Mis-link &amp; History Reports</span>
     </div>
     <div class="header-user">
+        <button class="print-btn-bar" onclick="printReport()" title="Print / Save as PDF">
+            <i class="fa-solid fa-print"></i> Print
+        </button>
         <span id="userInfo">…</span>
         <a href="/api/logout" title="Logout"><i class="fa-solid fa-right-from-bracket"></i></a>
     </div>
 </header>
+
+<!-- Print-only header (filled at print time) -->
+<div class="print-header" id="printHeader">
+    <div class="print-title" id="printTitle">Mis-link Report</div>
+    <div class="print-meta" id="printMeta"></div>
+</div>
 
 <nav class="tabs">
     <button class="tab active" data-tab="mislinks"><i class="fa-solid fa-triangle-exclamation"></i> Mis-link List</button>
@@ -714,6 +777,49 @@ $('#train-form').addEventListener('submit', () => loadTrainHistory($('#train-inp
 $('#train-input').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); loadTrainHistory(e.target.value.trim()); } });
 $('#loco-form').addEventListener('submit', () => loadLocoHistory($('#loco-input').value.trim()));
 $('#loco-input').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); loadLocoHistory(e.target.value.trim()); } });
+
+function printReport() {
+    // Figure out which tab is active, fill the print header with title + filters,
+    // then trigger the browser's print dialog.
+    const activeTab = document.querySelector('.tabs .tab.active')?.dataset.tab || 'mislinks';
+    const titles = {
+        mislinks: 'Mis-link List',
+        byShed:   'Mis-link Report by Shed',
+        train:    'Train Loco History',
+        loco:     'Loco Working History',
+    };
+    const dateRange = () => {
+        const prefix = activeTab === 'mislinks' ? 'ml' : activeTab === 'byShed' ? 'bs' : activeTab;
+        const f = document.getElementById(`${prefix}-from`)?.value || '';
+        const t = document.getElementById(`${prefix}-to`)?.value || '';
+        if (!f && !t) return '';
+        const fmt = (iso) => {
+            if (!iso) return '?';
+            const [y, m, d] = iso.split('-');
+            return `${d}-${m}-${y}`;
+        };
+        return `${fmt(f)} → ${fmt(t)}`;
+    };
+    const tier = document.querySelector('.tier-btn.active')?.dataset.tier || '';
+    const tierLabel = tier === 'real' ? 'Real mis-links only'
+                    : tier === 'zone-ok' ? 'Zone-acceptable only'
+                    : tier === 'all' ? 'All strict mis-links' : '';
+    const sheet = document.getElementById('ml-sheet')?.value || '';
+    const shed  = document.getElementById('ml-shed')?.value || '';
+    const filterBits = [];
+    if (activeTab === 'mislinks' && tierLabel) filterBits.push(tierLabel);
+    if (sheet) filterBits.push('Sheet: ' + sheet);
+    if (shed)  filterBits.push('Shed: ' + shed);
+    const printedAt = new Date().toLocaleString('en-IN', {
+        day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false,
+    });
+    document.getElementById('printTitle').textContent = titles[activeTab] || 'Report';
+    document.getElementById('printMeta').innerHTML =
+        `${dateRange() ? `<strong>${dateRange()}</strong>` : ''}` +
+        `${filterBits.length ? ' · ' + filterBits.join(' · ') : ''}` +
+        ` &nbsp;·&nbsp; <em>printed ${printedAt}</em>`;
+    window.print();
+}
 
 // Init — load shed→zone map first, then render the default panel
 (async () => {
