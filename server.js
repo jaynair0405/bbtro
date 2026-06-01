@@ -116,6 +116,18 @@ app.use(session({
     });                                                                                      
   });               
 
+// 🔒 Confine the single-purpose 'clicms' (HQ-CLI) account to /clicms only.
+//    Its realm is 'division', so without this it could reach /div and /api/division
+//    (those gate on realm, not div_role). Allowlist: /clicms/* + auth endpoints.
+app.use((req, res, next) => {
+  if (req.session.user?.div_role !== 'clicms') return next();
+  const p = req.path;
+  const authOk = new Set(['/api/current-user', '/api/logout', '/api/login', '/api/status']);
+  if (p.startsWith('/clicms') || p === '/favicon.ico' || authOk.has(p)) return next();
+  if (p.startsWith('/api/')) return res.status(403).json({ error: 'Access restricted to CMS Due List' });
+  return res.redirect('/clicms/');
+});
+
 // ✅ Protect /index.html so only logged-in suburban users can open it
 app.get('/index.html', (req, res) => {
   // Not logged in → go to portal
