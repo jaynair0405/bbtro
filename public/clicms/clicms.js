@@ -455,6 +455,25 @@ function drillList(cliKey, desig, cat) {
   return head + items;
 }
 
+// ---------- Topbar nav: Dashboard (admins) vs Logout (clicms user) ----------
+(async function setupTopbarNav() {
+  const btn = $('navBtn');
+  try {
+    const res = await fetch('/api/current-user', { credentials: 'same-origin' });
+    if (!res.ok) return; // leave hidden if we can't tell
+    const user = await res.json();
+    if (user.div_role === 'division_admin' || user.role === 'admin') {
+      btn.textContent = '← Dashboard';
+      btn.href = '/div';
+    } else {
+      // clicms (or any other) has no portal to return to → offer logout
+      btn.textContent = 'Logout';
+      btn.href = '/api/logout';
+    }
+    btn.hidden = false;
+  } catch (e) { /* leave hidden */ }
+})();
+
 // Delegated: #byCli persists across re-renders (only its innerHTML is rebuilt).
 $('byCli').addEventListener('click', (e) => {
   const cellEl = e.target.closest('.drill');

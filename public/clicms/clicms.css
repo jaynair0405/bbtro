@@ -53,6 +53,16 @@ body {
 .topbar .sub { font-size: 12.5px; color: #b9c6d8; font-weight: 500; }
 .asof { font-size: 13px; color: #cdd9e8; }
 .asof strong { color: var(--signal-amber); font-family: var(--mono); }
+.topbar-right { display: flex; align-items: center; gap: 16px; }
+.topbar-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: "Barlow", sans-serif; font-weight: 600; font-size: 13.5px;
+  background: rgba(255, 255, 255, .12); color: #fff;
+  border: 1px solid rgba(255, 255, 255, .35);
+  padding: 7px 14px; border-radius: 6px; text-decoration: none; cursor: pointer;
+  white-space: nowrap;
+}
+.topbar-btn:hover { background: rgba(255, 255, 255, .22); }
 
 main { max-width: 1280px; margin: 0 auto; padding: 24px; }
 
