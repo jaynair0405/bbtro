@@ -98,6 +98,9 @@ router.post('/login', async (req, res) => {
       } else if (user.div_role === 'lpc' || user.div_role === 'ctlc') {
         // LPC + CTLC (Chief Traction Loco Controller) → Control Office portal
         redirectUrl = '/control-office/';
+      } else if (user.div_role === 'clicms') {
+        // HQ-CLI (CMS Due List) user → straight to the tool (PWA landing)
+        redirectUrl = '/clicms/';
       } else {
         redirectUrl = '/div';
       }
