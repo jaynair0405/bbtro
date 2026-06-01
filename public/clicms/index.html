@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CMS Due List · CRTMS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="clicms.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">CR</span>
+      <div>
+        <h1>CMS Report — Due List</h1>
+        <p class="sub">Central Railway · Mumbai Division · HQ-CLI tool</p>
+      </div>
+    </div>
+    <div class="asof" id="asof" hidden>As on <strong id="asofDate">—</strong> (IST)</div>
+  </header>
+
+  <main>
+    <!-- Upload stage -->
+    <section id="uploadStage" class="upload-stage">
+      <div class="dropzone" id="dropzone">
+        <div class="dz-icon">⇪</div>
+        <p class="dz-title">Drop the CMS Report CSV here</p>
+        <p class="dz-or">or</p>
+        <label class="btn btn-primary">
+          Choose CSV file
+          <input type="file" id="fileInput" accept=".csv,text/csv" hidden />
+        </label>
+        <p class="dz-note">Nothing is stored on the server — the file is processed in memory and discarded.</p>
+      </div>
+      <div class="err" id="uploadErr" hidden></div>
+    </section>
+
+    <!-- Work stage -->
+    <section id="workStage" hidden>
+      <div class="warnings" id="warnings" hidden></div>
+
+      <!-- Dashboard counters -->
+      <div class="counters" id="counters"></div>
+
+      <!-- Summary (active parameter) -->
+      <section class="summary" id="summary" hidden>
+        <div class="summary-head">
+          <h2 id="summaryTitle">Summary</h2>
+          <button class="btn btn-export" id="summaryPdfBtn">⬇ Summary PDF</button>
+        </div>
+        <div class="summary-grid">
+          <div class="summary-block">
+            <h3>By designation × category</h3>
+            <div id="byDesig" class="matrix-wrap"></div>
+          </div>
+          <div class="summary-block">
+            <h3 class="bycli-head">
+              <span>By CLI <span class="hint">— click a CLI; click a count for names</span></span>
+              <span class="cli-sort">
+                <button type="button" id="cliSortCount" class="mini-toggle active">Count</button>
+                <button type="button" id="cliSortName" class="mini-toggle">Name</button>
+              </span>
+            </h3>
+            <div id="byCli" class="accordion"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Controls -->
+      <div class="controls">
+        <div class="control-group">
+          <span class="control-label">Parameter</span>
+          <div class="segmented" id="paramTabs"></div>
+        </div>
+        <div class="control-group">
+          <label class="control-label" for="sortSel">Sort by</label>
+          <select id="sortSel">
+            <option value="cli" selected>CLI name</option>
+            <option value="due">Due date (oldest first)</option>
+            <option value="desig">Designation</option>
+            <option value="grade">Category (A/B/C)</option>
+          </select>
+        </div>
+        <div class="control-spacer"></div>
+        <div class="control-group">
+          <button class="btn btn-ghost" id="resetBtn">Restore removed</button>
+          <button class="btn btn-export" id="xlsxBtn">⬇ Excel</button>
+          <button class="btn btn-export" id="pdfBtn">⬇ PDF</button>
+          <button class="btn btn-ghost" id="newBtn">New file</button>
+        </div>
+      </div>
+
+      <div class="table-meta">
+        <span id="tableTitle">—</span>
+        <span class="count-pill" id="visibleCount">0</span>
+      </div>
+
+      <div class="table-wrap">
+        <table id="dueTable">
+          <thead>
+            <tr>
+              <th class="num">#</th>
+              <th>CLI ID</th>
+              <th>CLI Name</th>
+              <th>Crew ID</th>
+              <th>Name</th>
+              <th>Desig.</th>
+              <th class="ctr">Cat.</th>
+              <th>Done Date</th>
+              <th>Due Date</th>
+              <th>Remarks</th>
+              <th class="ctr">Remove</th>
+            </tr>
+          </thead>
+          <tbody id="dueBody"></tbody>
+        </table>
+        <p class="empty" id="emptyMsg" hidden>No overdue staff for this parameter.</p>
+      </div>
+    </section>
+  </main>
+
+  <script src="clicms.js"></script>
+</body>
+</html>

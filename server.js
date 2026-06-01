@@ -517,6 +517,20 @@ app.get('/kiosk/assets/slate-common.js', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'div', 'js', 'slate-common.js'));
 });
 
+// ---- CLI-CMS due-list tool (HQ-CLI) ----
+// Mounted BEFORE the open public/ static below so the gate intercepts the page assets.
+// Division-realm only; div_role must be 'clicms' (HQ-CLI user, created later) or 'division_admin'.
+const requireClicms = (req, res, next) => {
+  if (!req.session.user) return res.redirect('/');
+  if (req.session.user.realm !== 'division') return res.redirect('/');
+  const role = req.session.user.div_role;
+  if (role !== 'clicms' && role !== 'division_admin') return res.redirect('/div');
+  next();
+};
+const clicmsRouter = require('./routes/clicms');
+app.use('/clicms', requireClicms, express.static(path.join(__dirname, 'public', 'clicms')));
+app.use('/clicms', requireClicms, express.json({ limit: '15mb' }), clicmsRouter);
+
 app.use(express.static(path.join(__dirname, "public"), { index: false }));
 
 // Add realm-based authentication middleware
