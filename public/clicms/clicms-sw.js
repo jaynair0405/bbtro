@@ -11,7 +11,7 @@
  * (or this file) changes, so installed devices pick up the new shell.
  */
 
-const CACHE_VERSION = 'v1';
+const CACHE_VERSION = 'v2';
 const CACHE_NAME = `clicms-shell-${CACHE_VERSION}`;
 
 // Paths are relative to the SW scope (/clicms/).

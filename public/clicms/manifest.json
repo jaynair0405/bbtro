@@ -11,5 +11,20 @@
     { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
     { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "screenshots": [
+    {
+      "src": "screenshots/wide.png",
+      "sizes": "2864x1546",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Summary — overdue counts, designation × category, and per-CLI breakdown"
+    },
+    {
+      "src": "screenshots/narrow.jpeg",
+      "sizes": "1006x1600",
+      "type": "image/jpeg",
+      "label": "Summary view on mobile — overdue counts and breakdowns"
+    }
   ]
 }
