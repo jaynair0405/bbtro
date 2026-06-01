@@ -246,11 +246,12 @@ After the `clicms` PWA is proven:
 ## 11. Build checklist (clicms PWA)
 
 - [x] Decide §7 — **Option A chosen** (shell public, data gated)
-- [ ] Generate icons (192, 512, maskable, apple-touch) from `bb Dig workplace.png`
-- [ ] Add `public/clicms/manifest.json`
-- [ ] Add `public/clicms/clicms-sw.js` (versioned; shell cache-first, nav network-first, data never)
-- [ ] Add manifest/theme/iOS tags + SW registration to `index.html`
-- [ ] (If Option A) adjust `server.js` static vs router gating
-- [ ] Local test (manifest, SW, offline shell, Lighthouse, live upload)
+- [x] Generate icons (192, 512, maskable, apple-touch) from `bb Dig workplace.png`
+- [x] Add `public/clicms/manifest.json`
+- [x] Add `public/clicms/clicms-sw.js` (versioned; shell cache-first, nav network-first, data never)
+- [x] Add manifest/theme/iOS tags + SW registration to `index.html`
+- [x] Adjust `server.js` — static shell public, `/upload` + `/export/*` still gated (verified)
+- [~] Local test — endpoint test passed (shell 200 public, upload 302 gated). Browser checks
+      (install prompt, offline reload, Lighthouse) to be done by user in Chrome.
 - [ ] Commit + push
 - [ ] Deploy (git pull + pm2 restart) and test install on phone at `https://crtms.in/clicms/`

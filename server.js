@@ -540,7 +540,10 @@ const requireClicms = (req, res, next) => {
   next();
 };
 const clicmsRouter = require('./routes/clicms');
-app.use('/clicms', requireClicms, express.static(path.join(__dirname, 'public', 'clicms')));
+// PWA (Option A): serve the static app shell publicly — it holds NO data, so the
+// manifest/icons/service-worker are fetchable for install without a session.
+app.use('/clicms', express.static(path.join(__dirname, 'public', 'clicms')));
+// Data endpoints (/upload, /export/*) stay gated to division-realm clicms/division_admin.
 app.use('/clicms', requireClicms, express.json({ limit: '15mb' }), clicmsRouter);
 
 app.use(express.static(path.join(__dirname, "public"), { index: false }));
