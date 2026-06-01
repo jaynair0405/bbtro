@@ -1,8 +1,9 @@
 # CLI-CMS PWA — Plan & Architecture Notes
 
-Status: **Planning (not yet implemented)**
+Status: **DONE — live & installable at `https://crtms.in/clicms/`** (installed/verified on phones).
 Target app: CMS Due List tool at `https://crtms.in/clicms/`
 Logo source: `bb Dig workplace.png` (1024×1024, square) in repo root
+Shipped in commits: `363d994` (PWA), `63d2914` (install screenshots).
 
 ---
 
@@ -251,7 +252,22 @@ After the `clicms` PWA is proven:
 - [x] Add `public/clicms/clicms-sw.js` (versioned; shell cache-first, nav network-first, data never)
 - [x] Add manifest/theme/iOS tags + SW registration to `index.html`
 - [x] Adjust `server.js` — static shell public, `/upload` + `/export/*` still gated (verified)
-- [~] Local test — endpoint test passed (shell 200 public, upload 302 gated). Browser checks
-      (install prompt, offline reload, Lighthouse) to be done by user in Chrome.
-- [ ] Commit + push
-- [ ] Deploy (git pull + pm2 restart) and test install on phone at `https://crtms.in/clicms/`
+- [x] Local test — endpoint test + desktop install + offline shell verified
+- [x] Add PWA install screenshots (anonymized, PII-safe) — manifest `screenshots`
+- [x] Commit + push
+- [x] Deploy (git pull + pm2 restart) and test install on phone — working on phones
+
+## 12. Notes / known items
+
+- **Updating the app:** bump `CACHE_VERSION` in `clicms-sw.js` (e.g. `v2`→`v3`) whenever
+  `index.html` / `clicms.css` / `clicms.js` changes, then deploy. Phones pick up the new shell on
+  next launch — no reinstall. Server-only changes (`routes/clicms.js`) need no bump.
+- **Installability varies by browser/context:** install requires a supported browser and a
+  secure, non-private context. Android → Chrome / Edge / Samsung Internet (NOT Firefox, NOT an
+  in-app/webview browser, NOT Incognito — service workers are disabled in private mode). iOS →
+  Safari only, via Share → "Add to Home Screen" (no install button). Also requires the page to have
+  loaded once over a live network so the service worker registers. A device showing
+  "this app is not installable" almost always = wrong browser, private mode, or SW not yet
+  registered (open once online and retry).
+- **Admin `/div/` PWA: DEFERRED** — pending completion of additional dashboard stats. Revisit per
+  §10 when the dashboard is ready.
