@@ -862,7 +862,7 @@ router.get('/today', async (req, res) => {
         if (sheetSource) {
             const [rows] = await pool.query(
                 `SELECT l.id, l.master_id, l.sheet_source, l.section, l.working_date, l.direction, l.train_no,
-                        l.event_time,
+                        l.event_time, l.from_station, l.to_station,
                         t.train_name,
                         l.actual_loco_no, l.base_shed, l.loco_type, l.traction_type,
                         l.hog, l.incoming_train, l.outgoing_train,
@@ -951,6 +951,10 @@ router.post('/log', async (req, res) => {
     // event_time on the log row — only meaningful for inline specials (no master_id).
     // Master-linked rows inherit event_time from div_loco_link_master, so we store NULL.
     const reqEventTime = b.event_time ? String(b.event_time).trim() : null;
+    // from_station + to_station for inline specials so they regroup under
+    // the right origin (KR-DN) / destination (KR-UP) on reload.
+    const reqFromStation = b.from_station ? String(b.from_station).trim().toUpperCase() : null;
+    const reqToStation   = b.to_station   ? String(b.to_station).trim().toUpperCase()   : null;
 
     if (!/^\d{4}-\d{2}-\d{2}$/.test(working_date)) {
         return res.status(400).json({ error: 'working_date must be YYYY-MM-DD' });
@@ -1148,13 +1152,16 @@ router.post('/log', async (req, res) => {
             && expected_shed !== base_shed_rear
             ? 1 : 0;
 
-        // event_time only stored for inline specials; master-linked rows leave it NULL
-        const log_event_time = master_id ? null : reqEventTime;
+        // event_time + from/to_station only stored for inline specials;
+        // master-linked rows leave them NULL (master is source of truth)
+        const log_event_time   = master_id ? null : reqEventTime;
+        const log_from_station = master_id ? null : reqFromStation;
+        const log_to_station   = master_id ? null : reqToStation;
 
         // UPSERT
         const [result] = await pool.query(
             `INSERT INTO div_loco_link_log
-                (working_date, direction, train_no, master_id, sheet_source, section, event_time,
+                (working_date, direction, train_no, master_id, sheet_source, section, event_time, from_station, to_station,
                  actual_loco_no, main_loco_dead, failed_in_division,
                  actual_loco_no_rear, secondary_role,
                  base_shed, base_shed_rear,
@@ -1162,12 +1169,14 @@ router.post('/log', async (req, res) => {
                  hog, incoming_train, outgoing_train, outgoing_train_rear,
                  expected_shed, is_mislink, is_mislink_rear,
                  remark, remarks_rear, entered_by)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
              ON DUPLICATE KEY UPDATE
                 master_id            = VALUES(master_id),
                 sheet_source         = VALUES(sheet_source),
                 section              = VALUES(section),
                 event_time           = VALUES(event_time),
+                from_station         = VALUES(from_station),
+                to_station           = VALUES(to_station),
                 actual_loco_no       = VALUES(actual_loco_no),
                 main_loco_dead       = VALUES(main_loco_dead),
                 failed_in_division   = VALUES(failed_in_division),
@@ -1188,7 +1197,7 @@ router.post('/log', async (req, res) => {
                 remark               = VALUES(remark),
                 remarks_rear         = VALUES(remarks_rear),
                 entered_by           = VALUES(entered_by)`,
-            [working_date, direction, train_no, master_id, sheet_source, section, log_event_time,
+            [working_date, direction, train_no, master_id, sheet_source, section, log_event_time, log_from_station, log_to_station,
              actual_loco_no, main_loco_dead, failed_in_division,
              actual_loco_no_rear, secondary_role,
              base_shed, base_shed_rear,

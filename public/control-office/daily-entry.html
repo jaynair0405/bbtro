@@ -1541,9 +1541,11 @@ function renderSheet(data) {
     };
 
     // For KR-UP, all rows originate at ROHA (from_station uniform) and fan out
-    // to multiple terminals (LTT, CSMT, DIVA, PUNE). Group by destination
-    // instead so the sheet renders "KR · → CSMT", "KR · → LTT" etc.
+    // to multiple terminals (LTT, CSMT, DR, DIVA, PUNE, PNVL). Group by
+    // destination instead so the sheet renders "KR · → CSMT" etc.
+    // KR-DN groups by from_station as usual (LTT, CSMT, DR, DW, PNVL).
     const isKrUp = data.sheet_source === 'KR-UP';
+    const isKrDn = data.sheet_source === 'KR-DN';
     const secondaryStation = (row) => isKrUp ? (row.to_station || '') : (row.from_station || '');
 
     for (const row of data.rows) {
@@ -1561,21 +1563,47 @@ function renderSheet(data) {
     }
     for (const sp of (data.specials || [])) {
         const sec = sp.section || '_OTHER_';
-        const fromStn = sectionFromMap.get(sec) || '';
+        // For KR sheets, a special's own from_station (DN) or to_station (UP)
+        // drives its sub-group, so specials persist their origin/destination
+        // across reload even if no master rows ran there.
+        let fromStn;
+        if (isKrUp) fromStn = sp.to_station || sectionFromMap.get(sec) || '';
+        else if (isKrDn) fromStn = sp.from_station || sectionFromMap.get(sec) || '';
+        else fromStn = sectionFromMap.get(sec) || '';
         getGroup(sec === '_OTHER_' ? '_OTHER_' : sec, fromStn)
             .rows.push({ kind: 'special', sortKey: parseMin(sp.event_time), data: sp });
+    }
+
+    // For KR sheets, pre-render groups for the expected stations even if
+    // they have no master rows / no specials today — so LPC can hit "+ Add
+    // another special train" under any known origin / destination.
+    if (isKrUp) {
+        for (const dest of ['CSMT', 'LTT', 'DR', 'DIVA', 'PUNE', 'PNVL']) {
+            getGroup('KR', dest);
+        }
+    } else if (isKrDn) {
+        for (const origin of ['LTT', 'CSMT', 'DR', 'DW', 'PNVL']) {
+            getGroup('KR', origin);
+        }
     }
 
     // Section display order: main-from groups first (NE then SE), then sub-from
     // groups (NE ex PNVL, SE ex PNVL etc.), then any other section, finally
     // _OTHER_ (unmatched specials) at the very end.
-    // For KR-UP, explicit destination order: CSMT → LTT → DIVA → PUNE → others.
-    const KR_DEST_ORDER = { CSMT: 0, LTT: 1, DIVA: 2, PUNE: 3 };
+    // Explicit station orders for KR sheets.
+    //   KR-UP destinations: CSMT → LTT → DR → DIVA → PUNE → PNVL → others
+    //   KR-DN origins:      LTT  → CSMT → DR → DW   → PNVL → others
+    const KR_DEST_ORDER   = { CSMT: 0, LTT: 1, DR: 2, DIVA: 3, PUNE: 4, PNVL: 5 };
+    const KR_ORIGIN_ORDER = { LTT: 0, CSMT: 1, DR: 2, DW: 3, PNVL: 4 };
     const groupRank = (section, fromStation) => {
         if (section === '_OTHER_') return 999;
         if (isKrUp && section === 'KR') {
             const r = KR_DEST_ORDER[fromStation];
-            return r !== undefined ? r : 50;       // unknown destinations after the named four
+            return r !== undefined ? r : 50;
+        }
+        if (isKrDn && section === 'KR') {
+            const r = KR_ORIGIN_ORDER[fromStation];
+            return r !== undefined ? r : 50;
         }
         const isMain = !fromStation || fromStation === mainFrom;
         if (section === 'NE' && isMain) return 0;
@@ -1632,8 +1660,15 @@ function renderSheet(data) {
         // After each section: a blank row + Add button for inline specials in this section
         if (data.editable) {
             const blankSec = group.section === '_OTHER_' ? '' : group.section;
-            body.appendChild(renderBlankRow(blankSec, group.fromStation));
-            body.appendChild(renderAddButton(blankSec, group.fromStation));
+            // KR-UP: group.fromStation actually holds to_station (we grouped by
+            //        destination). Pass it as toStation arg so save sends to_station.
+            // KR-DN: group.fromStation is the origin. Pass as fromStation so save
+            //        sends from_station and the row regroups correctly on reload.
+            // Other sheets: pass fromStation as-is for legacy behavior.
+            const blankFromStn = isKrUp ? '' : group.fromStation;
+            const blankToStn   = isKrUp ? group.fromStation : '';
+            body.appendChild(renderBlankRow(blankSec, blankFromStn, blankToStn));
+            body.appendChild(renderAddButton(blankSec, blankFromStn, blankToStn));
         }
     }
 }
@@ -1751,11 +1786,12 @@ function renderSpecialRow(log, editable) {
 }
 
 // Blank row — all fields editable including train_no
-function renderBlankRow(section, fromStation) {
+function renderBlankRow(section, fromStation, toStation) {
     const tr = document.createElement('tr');
     tr.classList.add('row-blank-special');
     tr.dataset.section = section || '';
     tr.dataset.fromStation = fromStation || '';
+    tr.dataset.toStation = toStation || '';
     tr.dataset.blankSeq = ++blankRowSeq;
     tr.dataset.position = 'front';
     tr.dataset.special = '1';
@@ -1802,20 +1838,24 @@ function renderBlankRow(section, fromStation) {
     return tr;
 }
 
-function renderAddButton(section, fromStation) {
+function renderAddButton(section, fromStation, toStation) {
     const tr = document.createElement('tr');
     tr.classList.add('row-add-special');
     tr.dataset.section = section || '';
     tr.dataset.fromStation = fromStation || '';
+    tr.dataset.toStation = toStation || '';
+    const labelTail = toStation ? ` to ${esc(toStation)}`
+                    : fromStation ? ` from ${esc(fromStation)}`
+                    : '';
     tr.innerHTML = `
         <td colspan="10">
             <button class="add-special-btn" data-action="add-blank">
-                <i class="fa-solid fa-plus"></i> Add another special train
+                <i class="fa-solid fa-plus"></i> Add another special train${labelTail}
             </button>
         </td>
     `;
     tr.querySelector('button').addEventListener('click', () => {
-        const blank = renderBlankRow(section, fromStation);
+        const blank = renderBlankRow(section, fromStation, toStation);
         tr.parentNode.insertBefore(blank, tr);
         const tnInput = blank.querySelector('input[data-field="train_no"]');
         if (tnInput) tnInput.focus();
@@ -2720,6 +2760,8 @@ async function saveBlankRow(tr) {
         master_id: null,
         sheet_source: sheetSource || (currentSheet && currentSheet.sheet_source),
         section: tr.dataset.section || null,
+        from_station: tr.dataset.fromStation || null,
+        to_station:   tr.dataset.toStation   || null,
         event_time: eventTime,
         actual_loco_no: get('actual_loco_no'),
         hog: get('hog') ? 1 : 0,
