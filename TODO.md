@@ -22,6 +22,22 @@
 - [x] Allow staff without nomination to be assigned CLI from user side
 - [x] CLI Nomination Letters feature - Create official letters for CLI changes with PDF export
 - [x] CLI Load Overview page - View all CLIs with staff count by designation (Completed 2026-02-14)
+- [x] Searchable CLI dropdown (substring match + alphabetical) on nomination letter (2026-06-04)
+- [x] Combobox keyboard nav (↑/↓/Enter/Esc) + blur-reset on staff/CLI/lobby fields (2026-06-04)
+- [x] Bulk-assign: tick multiple staff in search → "Add N to <CLI>" in one go (2026-06-04)
+  - Staging tray below the add-form; checkboxes accumulate across searches; category auto-fills
+    from each staff's safety_category (no per-staff lobby/remarks in bulk mode — use single Add for that).
+- [x] "Proposed Lobby" field on nomination letter (2026-06-04)
+  - **Why:** When a CLI nomination changes, the staff is often being moved to another lobby (office),
+    but the transfer may not yet be accepted by the receiving lobby (or released by the current one).
+    The letter records the proposed/target lobby manually in the interim.
+  - **Where:** `public/div/cli-nomination.html` (searchable offices dropdown after Category, by `office_code`),
+    column "Prop. Lobby" in preview + printed letter.
+  - **Storage:** `div_cli_nominations.proposed_lobby` (offices.office_code, nullable).
+    Migration: `sql/2026-06-04_cli_nomination_proposed_lobby.sql`. Does NOT touch `div_staff_master`.
+  - **TODO (future wiring):** Once the **Transfer Letter preparation** feature is built, auto-populate /
+    reconcile `proposed_lobby` from the transfer record (and clear/confirm it when the transfer is
+    accepted), instead of requiring manual entry on the nomination letter.
 
 ### CLI Load Overview Page (Completed)
 **Page:** `/div/cli-load.html`

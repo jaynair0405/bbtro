@@ -254,6 +254,35 @@
     }
     .inline-form .btn { height: 44px; justify-content: center; }
 
+    /* Multi-select staging tray (bulk-assign many staff to one CLI) */
+    .staging-tray {
+      margin: 0 18px 16px;
+      padding: 12px 14px;
+      background: #eef5ff;
+      border: 1px solid #cfe0f7;
+      border-radius: 12px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+    .staging-tray .tray-label { font-size: 0.8rem; color: var(--muted); font-weight: 600; margin-right: 2px; }
+    .staged-chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: #fff; border: 1px solid #cbd5e1; border-radius: 999px;
+      padding: 4px 6px 4px 10px; font-size: 0.82rem; color: var(--text);
+    }
+    .staged-chip button {
+      border: none; background: #e2e8f0; color: #475569; cursor: pointer;
+      width: 18px; height: 18px; border-radius: 50%; line-height: 1;
+      font-size: 0.7rem; display: inline-flex; align-items: center; justify-content: center;
+    }
+    .staged-chip button:hover { background: #fecaca; color: #b91c1c; }
+    .staging-tray .tray-add { margin-left: auto; height: 38px; }
+    .staging-tray .tray-add:disabled { opacity: 0.5; cursor: not-allowed; }
+    .staging-tray .tray-hint { margin-left: auto; font-size: 0.78rem; color: var(--muted); font-style: italic; }
+    .search-result-item .stage-cb { width: 17px; height: 17px; margin-right: 10px; flex: none; cursor: pointer; }
+
     /* Staff search autocomplete */
     .search-wrapper { position: relative; z-index: 200; }
     .search-results {
@@ -281,7 +310,8 @@
       align-items: center;
     }
     .search-result-item:last-child { border-bottom: none; }
-    .search-result-item:hover { background: #f1f5f9; }
+    .search-result-item:hover,
+    .search-result-item.active { background: #dbe9fb; }
     .search-result-item .staff-info { flex: 1; }
     .search-result-item .staff-name { font-weight: 600; color: var(--text); font-size: 0.95rem; }
     .search-result-item .staff-detail { font-size: 0.72rem; color: var(--muted); }
@@ -624,6 +654,7 @@
                   <th>CMS ID</th>
                   <th>Desg.</th>
                   <th>Depot</th>
+                  <th>Prop. Lobby</th>
                   <th>CAT</th>
                   <th>From CLI</th>
                   <th>To CLI</th>
@@ -658,6 +689,7 @@
               <th>CMS ID</th>
               <th>Desg.</th>
               <th>Depot</th>
+              <th>Prop. Lobby</th>
               <th>CAT</th>
               <th>From CLI</th>
               <th>To CLI</th>
@@ -667,7 +699,7 @@
           </thead>
           <tbody id="changeRows">
             <tr class="empty-state-row">
-              <td colspan="10">
+              <td colspan="11">
                 <div class="empty-state">
                   <i class="fa-solid fa-users-slash"></i>
                   <p>No staff added yet. Use the search below to add staff.</p>
@@ -685,9 +717,10 @@
             </div>
           </label>
           <label class="field">To CLI
-            <select id="newCliSelect">
-              <option value="">Select CLI...</option>
-            </select>
+            <div class="search-wrapper">
+              <input type="text" id="cliSearchInput" placeholder="Type CLI name to search..." autocomplete="off" />
+              <div class="search-results" id="cliResults"></div>
+            </div>
           </label>
           <label class="field">Category
             <select id="catSelect">
@@ -697,6 +730,12 @@
               <option value="C">C</option>
             </select>
           </label>
+          <label class="field">Proposed Lobby
+            <div class="search-wrapper">
+              <input type="text" id="lobbySearchInput" placeholder="Optional — search lobby..." autocomplete="off" />
+              <div class="search-results" id="lobbyResults"></div>
+            </div>
+          </label>
           <label class="field">Remarks
             <input type="text" id="remarksInput" placeholder="Optional" />
           </label>
@@ -704,6 +743,7 @@
             <button class="btn btn-primary" id="btnAdd" disabled><i class="fa-solid fa-plus"></i>Add</button>
           </div>
         </form>
+        <div class="staging-tray" id="stagingTray" style="display:none;"></div>
       </section>
     </div>
   </div>
@@ -714,9 +754,13 @@
       letterId: null,
       staffType: 'NON_SUBURBAN',
       changes: [],              // Local changes (not saved to DB yet)
+      staged: [],               // Staff ticked in search for bulk-assign to one CLI
       deletedNominationIds: [], // Track nominations to delete on save
       cliOptions: [],
       selectedStaff: null,
+      selectedCli: null,
+      officeOptions: [],
+      selectedLobby: null,
       prevLetter: null,
       existingLetterForDate: null, // Existing letter for selected date (if any)
       isSaved: false,           // Track if current letter is saved
@@ -746,7 +790,11 @@
     const signPlaceInput = document.getElementById('signPlace');
     const searchInput = document.getElementById('searchInput');
     const searchResults = document.getElementById('searchResults');
-    const newCliSelect = document.getElementById('newCliSelect');
+    const cliSearchInput = document.getElementById('cliSearchInput');
+    const cliResults = document.getElementById('cliResults');
+    const lobbySearchInput = document.getElementById('lobbySearchInput');
+    const lobbyResults = document.getElementById('lobbyResults');
+    const stagingTray = document.getElementById('stagingTray');
     const catSelect = document.getElementById('catSelect');
     const remarksInput = document.getElementById('remarksInput');
     const btnAdd = document.getElementById('btnAdd');
@@ -826,19 +874,206 @@
     async function loadCLIs() {
       try {
         const data = await fetchAPI('/api/division/cli/load-view');
-        state.cliOptions = data.data.clis || [];
-        renderCliOptions();
+        // Keep CLIs sorted alphabetically by name for predictable browsing
+        state.cliOptions = (data.data.clis || []).sort((a, b) =>
+          (a.cli_name || '').localeCompare(b.cli_name || '', undefined, { sensitivity: 'base' })
+        );
+        renderCliResults();
       } catch (error) {
         showToast('Failed to load CLIs', 'error');
       }
     }
 
-    function renderCliOptions() {
-      newCliSelect.innerHTML = '<option value="">Select CLI...</option>' +
-        state.cliOptions.map(cli =>
-          `<option value="${cli.cli_id}">${cli.cli_name} (${cli.staff_count} staff)</option>`
-        ).join('');
+    // Render the searchable CLI dropdown, filtered by substring (anywhere in name)
+    function renderCliResults(filter = '') {
+      const q = filter.trim().toLowerCase();
+      const list = q
+        ? state.cliOptions.filter(cli => (cli.cli_name || '').toLowerCase().includes(q))
+        : state.cliOptions;
+
+      if (list.length === 0) {
+        cliResults.innerHTML = '<div class="search-result-item"><span class="staff-detail">No CLI found</span></div>';
+        return;
+      }
+
+      cliResults.innerHTML = list.map(cli => `
+        <div class="search-result-item" data-cli-id="${cli.cli_id}" data-cli-name="${(cli.cli_name || '').replace(/"/g, '&quot;')}">
+          <div class="staff-info">
+            <div class="staff-name">${cli.cli_name}</div>
+          </div>
+          <span class="current-cli">${cli.staff_count} staff</span>
+        </div>
+      `).join('');
     }
+
+    // Show all CLIs on focus; filter as the user types
+    cliSearchInput.addEventListener('focus', () => {
+      renderCliResults(state.selectedCli ? '' : cliSearchInput.value);
+      cliResults.classList.add('show');
+    });
+
+    cliSearchInput.addEventListener('input', () => {
+      state.selectedCli = null;        // typing invalidates any previous pick
+      renderCliResults(cliSearchInput.value);
+      cliResults.classList.add('show');
+      renderStagingTray();             // bulk-add button depends on a chosen CLI
+    });
+
+    // Keep focus on the input while clicking an option, so the blur-reset
+    // doesn't fire and wipe the pick before the click registers it.
+    cliResults.addEventListener('mousedown', (e) => e.preventDefault());
+
+    cliResults.addEventListener('click', (e) => {
+      const item = e.target.closest('.search-result-item');
+      if (item && item.dataset.cliId) {
+        state.selectedCli = { id: parseInt(item.dataset.cliId), name: item.dataset.cliName };
+        cliSearchInput.value = state.selectedCli.name;
+        cliResults.classList.remove('show');
+        renderStagingTray();           // refresh "Add N to <CLI>" button
+      }
+    });
+
+    // ---- Proposed Lobby (offices) searchable dropdown ----
+    // Optional field: the lobby a staff is being moved to when the transfer
+    // isn't yet reflected in div_staff_master. Stores offices.office_code.
+    async function loadOffices() {
+      try {
+        const data = await fetchAPI('/api/division/offices');
+        // Alphabetical by office_code for predictable browsing
+        state.officeOptions = (data.data || []).sort((a, b) =>
+          (a.office_code || '').localeCompare(b.office_code || '', undefined, { sensitivity: 'base' })
+        );
+        renderLobbyResults();
+      } catch (error) {
+        console.error('Failed to load offices:', error);
+      }
+    }
+
+    function renderLobbyResults(filter = '') {
+      const q = filter.trim().toLowerCase();
+      const list = q
+        ? state.officeOptions.filter(o =>
+            (o.office_code || '').toLowerCase().includes(q) ||
+            (o.office_name || '').toLowerCase().includes(q))
+        : state.officeOptions;
+
+      if (list.length === 0) {
+        lobbyResults.innerHTML = '<div class="search-result-item"><span class="staff-detail">No lobby found</span></div>';
+        return;
+      }
+
+      lobbyResults.innerHTML = list.map(o => `
+        <div class="search-result-item" data-office-code="${(o.office_code || '').replace(/"/g, '&quot;')}" data-office-name="${(o.office_name || '').replace(/"/g, '&quot;')}">
+          <div class="staff-info">
+            <div class="staff-name">${o.office_code}</div>
+            <div class="staff-detail">${o.office_name || ''}</div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    lobbySearchInput.addEventListener('focus', () => {
+      renderLobbyResults(state.selectedLobby ? '' : lobbySearchInput.value);
+      lobbyResults.classList.add('show');
+    });
+
+    lobbySearchInput.addEventListener('input', () => {
+      state.selectedLobby = null;      // typing invalidates any previous pick
+      renderLobbyResults(lobbySearchInput.value);
+      lobbyResults.classList.add('show');
+    });
+
+    // Keep focus on the input while clicking an option (see CLI note above).
+    lobbyResults.addEventListener('mousedown', (e) => e.preventDefault());
+
+    lobbyResults.addEventListener('click', (e) => {
+      const item = e.target.closest('.search-result-item');
+      if (item && item.dataset.officeCode) {
+        state.selectedLobby = { code: item.dataset.officeCode, name: item.dataset.officeName };
+        lobbySearchInput.value = state.selectedLobby.code;
+        lobbyResults.classList.remove('show');
+      }
+    });
+
+    // Resolve whatever is typed in the lobby box to an office, so typing a code
+    // (e.g. "KYN") counts even if the user didn't click the dropdown option.
+    function resolveLobby() {
+      if (state.selectedLobby) return state.selectedLobby;
+      const v = lobbySearchInput.value.trim().toLowerCase();
+      if (!v) return null;
+      let o = state.officeOptions.find(x => (x.office_code || '').toLowerCase() === v);
+      if (!o) {
+        const matches = state.officeOptions.filter(x =>
+          (x.office_code || '').toLowerCase().includes(v) ||
+          (x.office_name || '').toLowerCase().includes(v));
+        if (matches.length === 1) o = matches[0];
+      }
+      return o ? { code: o.office_code, name: o.office_name } : null;
+    }
+
+    // ---- Shared keyboard nav + blur reset for the searchable dropdowns ----
+    // Selectable options carry a data-* id; "no results" placeholders don't.
+    function comboItems(results) {
+      return Array.from(results.querySelectorAll('.search-result-item'))
+        .filter(i => i.dataset.staff || i.dataset.cliId || i.dataset.officeCode);
+    }
+
+    // Up/Down to move the highlight, Enter to apply (or auto-apply a lone match),
+    // Escape to close. getNextFocus() returns the element to focus after applying.
+    function attachComboKeys(input, results, getNextFocus) {
+      input.addEventListener('keydown', (e) => {
+        if (!results.classList.contains('show')) return;
+        const items = comboItems(results);
+
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+          if (!items.length) return;
+          e.preventDefault();
+          let idx = items.findIndex(i => i.classList.contains('active'));
+          items.forEach(i => i.classList.remove('active'));
+          idx = e.key === 'ArrowDown'
+            ? (idx + 1) % items.length
+            : (idx <= 0 ? items.length - 1 : idx - 1);
+          items[idx].classList.add('active');
+          items[idx].scrollIntoView({ block: 'nearest' });
+        } else if (e.key === 'Enter') {
+          e.preventDefault();
+          const target = items.find(i => i.classList.contains('active'))
+            || (items.length === 1 ? items[0] : null);
+          if (target) {
+            target.click();
+            const next = getNextFocus && getNextFocus();
+            if (next) next.focus();
+          }
+        } else if (e.key === 'Escape') {
+          results.classList.remove('show');
+        }
+      });
+    }
+
+    // On blur, drop unconfirmed typed text: restore the input to the current
+    // selection (or clear it). Deferred so a click on an option lands first.
+    function attachComboBlur(input, results, restore) {
+      input.addEventListener('blur', () => {
+        setTimeout(() => {
+          // Keep open if focus moved into the dropdown (e.g. ticking checkboxes)
+          if (results.contains(document.activeElement)) return;
+          results.classList.remove('show');
+          restore();
+        }, 150);
+      });
+    }
+
+    attachComboKeys(cliSearchInput, cliResults, () => catSelect);
+    attachComboBlur(cliSearchInput, cliResults, () => {
+      cliSearchInput.value = state.selectedCli ? state.selectedCli.name : '';
+    });
+
+    attachComboKeys(lobbySearchInput, lobbyResults, () => remarksInput);
+    attachComboBlur(lobbySearchInput, lobbyResults, () => {
+      // Auto-confirm a typed code/name before clearing unmatched text
+      if (!state.selectedLobby) state.selectedLobby = resolveLobby();
+      lobbySearchInput.value = state.selectedLobby ? state.selectedLobby.code : '';
+    });
 
     // Load previous letter info (don't auto-load - user can use History)
     async function loadPreviousLetter() {
@@ -887,6 +1122,7 @@
         } else {
           searchResults.innerHTML = staff.map(s => `
             <div class="search-result-item" data-staff='${JSON.stringify(s).replace(/'/g, "&#39;")}'>
+              <input type="checkbox" class="stage-cb" title="Tick to bulk-assign to selected CLI" ${isStaged(s.hrms_id) ? 'checked' : ''} />
               <div class="staff-info">
                 <div class="staff-name">${s.name}</div>
                 <div class="staff-detail">${s.current_cms_id || s.hrms_id} • ${s.designation_name || '—'} • ${s.current_office_code || '—'}</div>
@@ -903,14 +1139,39 @@
     }
 
     searchInput.addEventListener('input', (e) => {
+      state.selectedStaff = null;   // typing invalidates any previous pick
+      btnAdd.disabled = true;
       clearTimeout(searchTimeout);
       searchTimeout = setTimeout(() => searchStaff(e.target.value), 300);
     });
 
+    // Keep the search box focused while clicking results (tick checkboxes or
+    // pick a name) so the blur-reset doesn't close/clear before the click lands.
+    searchResults.addEventListener('mousedown', (e) => e.preventDefault());
+
     searchResults.addEventListener('click', (e) => {
       const item = e.target.closest('.search-result-item');
       if (item && item.dataset.staff) {
-        state.selectedStaff = JSON.parse(item.dataset.staff);
+        const staff = JSON.parse(item.dataset.staff);
+
+        // Checkbox = stage for bulk-assign; don't single-select.
+        // Let the native toggle stand and read its post-toggle state.
+        if (e.target.classList.contains('stage-cb')) {
+          toggleStaged(staff, e.target.checked);
+          return;
+        }
+
+        // Already building a batch? A name-click also toggles staging — so an
+        // accidental click on a name doesn't wipe the staged set and single-select.
+        if (state.staged.length > 0) {
+          const willStage = !isStaged(staff.hrms_id);
+          const cb = item.querySelector('.stage-cb');
+          if (cb) cb.checked = willStage;
+          toggleStaged(staff, willStage);
+          return;
+        }
+
+        state.selectedStaff = staff;
         searchInput.value = `${state.selectedStaff.name} (${state.selectedStaff.current_cms_id || state.selectedStaff.hrms_id})`;
         searchResults.classList.remove('show');
         btnAdd.disabled = false;
@@ -926,6 +1187,15 @@
         // Fetch and show CLI history
         showCliHistory(state.selectedStaff.hrms_id, state.selectedStaff.name);
       }
+    });
+
+    // After picking staff, move to the CLI field (or straight to Add if a CLI
+    // is already chosen for bulk adding).
+    attachComboKeys(searchInput, searchResults, () => state.selectedCli ? btnAdd : cliSearchInput);
+    attachComboBlur(searchInput, searchResults, () => {
+      searchInput.value = state.selectedStaff
+        ? `${state.selectedStaff.name} (${state.selectedStaff.current_cms_id || state.selectedStaff.hrms_id})`
+        : '';
     });
 
     // Fetch and display CLI history for selected staff
@@ -966,12 +1236,41 @@
     document.addEventListener('click', (e) => {
       if (!e.target.closest('.search-wrapper')) {
         searchResults.classList.remove('show');
+        cliResults.classList.remove('show');
+        lobbyResults.classList.remove('show');
       }
     });
 
+    // Build a change row for a staff against the currently-selected CLI.
+    // opts carries the per-staff details from the single-add form (category /
+    // proposed lobby / remarks); bulk-add leaves them empty and auto-fills
+    // category from the staff's own safety_category.
+    function makeChange(staff, opts = {}) {
+      const skipCategory = [1, 2, 3, 4].includes(staff.designation_id);
+      return {
+        staff_hrms_id: staff.hrms_id,
+        staff_name: staff.name,
+        mobile: staff.mobile || null,
+        pf_no: staff.current_cms_id,
+        pf_number: staff.pf_number || null,
+        designation_id: staff.designation_id,
+        designation_name: staff.designation_name,
+        depot: staff.current_office_code,
+        category: skipCategory ? '--' : (opts.category || staff.safety_category),
+        old_cli_name: staff.current_cli_name,
+        old_cli_id: staff.current_cli_id,
+        new_cli_id: state.selectedCli.id,
+        new_cli_name: state.selectedCli.name,
+        new_category: skipCategory ? null : (opts.category || null),
+        proposed_lobby: opts.proposed_lobby || null,
+        proposed_lobby_name: opts.proposed_lobby_name || null,
+        remarks: opts.remarks || null
+      };
+    }
+
     // Add staff change (local only - not saved to DB until Save Letter)
     function addChange() {
-      if (!state.selectedStaff || !newCliSelect.value) {
+      if (!state.selectedStaff || !state.selectedCli) {
         showToast('Select staff and new CLI', 'error');
         return;
       }
@@ -983,42 +1282,23 @@
         return;
       }
 
-      // Get selected CLI details
-      const selectedCliOption = newCliSelect.options[newCliSelect.selectedIndex];
-      const newCliName = selectedCliOption.text.split(' (')[0]; // Extract CLI name
-
-      // Add to local state
-      // For designation IDs 1,2,3,4, don't store/show category
-      const skipCategoryDesignations = [1, 2, 3, 4];
-      const shouldSkipCategory = skipCategoryDesignations.includes(state.selectedStaff.designation_id);
-
-      const change = {
-        staff_hrms_id: state.selectedStaff.hrms_id,
-        staff_name: state.selectedStaff.name,
-        mobile: state.selectedStaff.mobile || null,
-        pf_no: state.selectedStaff.current_cms_id,
-        pf_number: state.selectedStaff.pf_number || null,
-        designation_id: state.selectedStaff.designation_id,
-        designation_name: state.selectedStaff.designation_name,
-        depot: state.selectedStaff.current_office_code,
-        category: shouldSkipCategory ? '--' : (catSelect.value || state.selectedStaff.safety_category),
-        old_cli_name: state.selectedStaff.current_cli_name,
-        old_cli_id: state.selectedStaff.current_cli_id,
-        new_cli_id: parseInt(newCliSelect.value),
-        new_cli_name: newCliName,
-        new_category: shouldSkipCategory ? null : (catSelect.value || null),
-        remarks: remarksInput.value || null
-      };
-
-      state.changes.push(change);
+      const lobby = resolveLobby();
+      state.changes.push(makeChange(state.selectedStaff, {
+        category: catSelect.value,
+        proposed_lobby: lobby ? lobby.code : null,
+        proposed_lobby_name: lobby ? lobby.name : null,
+        remarks: remarksInput.value
+      }));
       state.isSaved = false;
 
-      showToast('Staff added to list', 'success');
+      showToast(`Staff added${lobby ? ` (lobby ${lobby.code})` : ''}`, 'success');
 
       // Reset form (keep CLI selected for bulk adding)
       searchInput.value = '';
       catSelect.value = '';
       remarksInput.value = '';
+      lobbySearchInput.value = '';
+      state.selectedLobby = null;
       state.selectedStaff = null;
       btnAdd.disabled = true;
 
@@ -1031,6 +1311,93 @@
     }
 
     btnAdd.addEventListener('click', addChange);
+
+    // ---- Multi-select staging: tick several staff, assign all to one CLI ----
+    function isStaged(hrmsId) {
+      return state.staged.some(s => s.hrms_id === hrmsId);
+    }
+
+    function toggleStaged(staff, on) {
+      if (on) {
+        if (!isStaged(staff.hrms_id)) state.staged.push(staff);
+      } else {
+        state.staged = state.staged.filter(s => s.hrms_id !== staff.hrms_id);
+      }
+      renderStagingTray();
+    }
+
+    function renderStagingTray() {
+      if (state.staged.length === 0) {
+        stagingTray.style.display = 'none';
+        stagingTray.innerHTML = '';
+        return;
+      }
+
+      stagingTray.style.display = 'flex';
+      const chips = state.staged.map(s => `
+        <span class="staged-chip">
+          ${s.name}
+          <button type="button" data-unstage="${s.hrms_id}" title="Remove">&times;</button>
+        </span>
+      `).join('');
+
+      const cliReady = !!state.selectedCli;
+      const action = cliReady
+        ? `<button type="button" class="btn btn-primary tray-add" id="btnAddStaged">
+             <i class="fa-solid fa-user-plus"></i>Add ${state.staged.length} to ${state.selectedCli.name}
+           </button>`
+        : `<span class="tray-hint">Select a "To CLI" to add these ${state.staged.length} staff</span>`;
+
+      stagingTray.innerHTML =
+        `<span class="tray-label">Staged (${state.staged.length}):</span>` + chips + action;
+    }
+
+    // Remove a chip / fire the bulk add (delegated)
+    stagingTray.addEventListener('click', (e) => {
+      const unstage = e.target.closest('[data-unstage]');
+      if (unstage) {
+        toggleStaged({ hrms_id: unstage.dataset.unstage }, false);
+        return;
+      }
+      if (e.target.closest('#btnAddStaged')) addStagedToList();
+    });
+
+    function addStagedToList() {
+      if (!state.selectedCli || state.staged.length === 0) return;
+
+      // Category auto-fills per-staff; the form's Proposed Lobby + Remarks
+      // apply to the whole batch (a group moved together usually shares them).
+      const lobby = resolveLobby();
+      const remarks = remarksInput.value || null;
+
+      let added = 0, skipped = 0;
+      state.staged.forEach(staff => {
+        if (state.changes.some(c => c.staff_hrms_id === staff.hrms_id)) { skipped++; return; }
+        state.changes.push(makeChange(staff, {
+          proposed_lobby: lobby ? lobby.code : null,
+          proposed_lobby_name: lobby ? lobby.name : null,
+          remarks
+        }));
+        added++;
+      });
+
+      state.staged = [];
+      state.isSaved = false;
+      state.selectedLobby = null;
+      lobbySearchInput.value = '';
+      remarksInput.value = '';
+      renderStagingTray();
+      renderChanges();
+      updateSaveButtonState();
+
+      searchInput.value = '';
+      searchResults.classList.remove('show');
+      searchInput.focus();
+
+      const lobbyNote = lobby ? `, lobby ${lobby.code}` : '';
+      const msg = `${added} staff added to ${state.selectedCli.name}${lobbyNote}` + (skipped ? `, ${skipped} already in list` : '');
+      showToast(msg, added ? 'success' : 'error');
+    }
 
     // Remove change (local only - will be deleted from DB on save)
     function removeChange(idx) {
@@ -1161,6 +1528,7 @@
               staff_hrms_id: change.staff_hrms_id,
               new_cli_id: change.new_cli_id,
               new_category: change.new_category,
+              proposed_lobby: change.proposed_lobby,
               remarks: change.remarks
             };
 
@@ -1209,6 +1577,8 @@
 
         state.letterId = letter.id;
         state.changes = changes;
+        state.staged = [];
+        renderStagingTray();
         state.isEditing = true;   // Mark as editing existing letter
         state.isSaved = true;     // Data is already in DB
 
@@ -1242,7 +1612,7 @@
       if (state.changes.length === 0) {
         changeRowsEl.innerHTML = `
           <tr class="empty-state-row">
-            <td colspan="10">
+            <td colspan="11">
               <div class="empty-state">
                 <i class="fa-solid fa-users-slash"></i>
                 <p>No staff added yet. Use the search below to add staff.</p>
@@ -1258,6 +1628,7 @@
             <td><code>${row.pf_no || '—'}</code>${row.staff_hrms_id ? `<br><span style="font-size:0.75em;color:#64748b;">${row.staff_hrms_id}</span>` : ''}</td>
             <td>${shortDesignation(row.designation_name)}</td>
             <td>${row.depot || '—'}</td>
+            <td>${row.proposed_lobby || '—'}</td>
             <td>${displayCategory(row)}</td>
             <td>${row.old_cli_name || '—'}</td>
             <td><strong>${row.new_cli_name}</strong></td>
@@ -1285,6 +1656,7 @@
           <td>${row.pf_no || '—'}${row.staff_hrms_id ? `<br><span style="font-size:0.75em;color:#64748b;">${row.staff_hrms_id}</span>` : ''}</td>
           <td>${shortDesignation(row.designation_name)}</td>
           <td>${row.depot || '—'}</td>
+          <td>${row.proposed_lobby || '—'}</td>
           <td>${displayCategory(row)}</td>
           <td>${row.old_cli_name || '—'}</td>
           <td>${row.new_cli_name}</td>
@@ -1321,9 +1693,11 @@
         state.staffType = btn.dataset.type;
         state.letterId = null;
         state.changes = [];
+        state.staged = [];
         state.deletedNominationIds = [];
         state.isSaved = false;
         state.isEditing = false;
+        renderStagingTray();
 
         // Update content text and letter number prefix based on staff type
         if (state.staffType === 'SUBURBAN') {
@@ -1363,10 +1737,12 @@
       // Reset state for new date (fresh start)
       state.letterId = null;
       state.changes = [];
+      state.staged = [];
       state.deletedNominationIds = [];
       state.isSaved = false;
       state.isEditing = false;
       state.existingLetterForDate = null;
+      renderStagingTray();
 
       // Check if letter exists for this date (for warning on save)
       await loadPreviousLetter();
@@ -1392,6 +1768,7 @@
           <td>${row.pf_no || '—'}${row.staff_hrms_id ? `<br><span style="font-size:0.8em;color:#666;">${row.staff_hrms_id}</span>` : ''}</td>
           <td>${shortDesignation(row.designation_name)}</td>
           <td>${row.depot || '—'}</td>
+          <td>${row.proposed_lobby || '—'}</td>
           <td style="text-align:center;">${displayCategory(row)}</td>
           <td>${row.old_cli_name || '—'}</td>
           <td>${row.new_cli_name}</td>
@@ -1617,6 +1994,7 @@
         <th>CMS ID</th>
         <th>Desg.</th>
         <th>Depot</th>
+        <th>Prop. Lobby</th>
         <th style="width:35px;">CAT</th>
         <th>From CLI</th>
         <th>To CLI</th>
@@ -1805,6 +2183,7 @@
       previewLetterDate.textContent = formatDate(today);
 
       await loadCLIs();
+      await loadOffices();
       await loadPreviousLetter();
       renderChanges();
       updatePreviewText();

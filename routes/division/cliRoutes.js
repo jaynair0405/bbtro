@@ -440,10 +440,13 @@ router.get('/letters/:id', requireDivisionAdmin, async (req, res) => {
                 new_cli.cli_name as new_cli_name,
                 new_cli.cli_id as new_cli_id,
                 n.remarks,
-                n.nominated_from_date
+                n.nominated_from_date,
+                n.proposed_lobby,
+                plo.office_name as proposed_lobby_name
              FROM div_cli_nominations n
              JOIN div_staff_master s ON n.staff_hrms_id = s.hrms_id
              JOIN div_cli_master new_cli ON n.cli_id = new_cli.cli_id
+             LEFT JOIN offices plo ON n.proposed_lobby = plo.office_code
              LEFT JOIN designations d ON s.designation_id = d.id
              LEFT JOIN (
                  SELECT n2.staff_hrms_id, n2.cli_id, n2.nominated_to_date
@@ -543,7 +546,7 @@ router.post('/letters/:id/add-change', requireDivisionAdmin, async (req, res) =>
     const conn = await getConnection(req);
     try {
         const { id: letterId } = req.params;
-        const { staff_hrms_id, new_cli_id, new_category, remarks } = req.body;
+        const { staff_hrms_id, new_cli_id, new_category, remarks, proposed_lobby } = req.body;
 
         if (!staff_hrms_id || !new_cli_id) {
             return res.status(400).json({ error: 'staff_hrms_id and new_cli_id are required' });
@@ -591,14 +594,15 @@ router.post('/letters/:id/add-change', requireDivisionAdmin, async (req, res) =>
         // 2. Create new nomination with letter_id (or update if already exists)
         const [result] = await conn.query(
             `INSERT INTO div_cli_nominations
-             (staff_hrms_id, cli_id, nominated_from_date, status, remarks, letter_id)
-             VALUES (?, ?, ?, 'Active', ?, ?)
+             (staff_hrms_id, cli_id, nominated_from_date, status, remarks, letter_id, proposed_lobby)
+             VALUES (?, ?, ?, 'Active', ?, ?, ?)
              ON DUPLICATE KEY UPDATE
                nomination_id = LAST_INSERT_ID(nomination_id),
                status = 'Active',
                remarks = COALESCE(VALUES(remarks), remarks),
-               letter_id = VALUES(letter_id)`,
-            [staff_hrms_id, new_cli_id, effectiveDate, remarks || null, letterId]
+               letter_id = VALUES(letter_id),
+               proposed_lobby = VALUES(proposed_lobby)`,
+            [staff_hrms_id, new_cli_id, effectiveDate, remarks || null, letterId, proposed_lobby || null]
         );
 
         // 3. Update staff_master current_cli_id
