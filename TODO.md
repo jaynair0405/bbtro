@@ -38,6 +38,17 @@
   - **TODO (future wiring):** Once the **Transfer Letter preparation** feature is built, auto-populate /
     reconcile `proposed_lobby` from the transfer record (and clear/confirm it when the transfer is
     accepted), instead of requiring manual entry on the nomination letter.
+- [x] Auto-shorten long names on the letter (preview + PDF only; DB untouched) (2026-06-04)
+  - Names >18 chars: middle names → initials (no periods), then first name → initial if still long.
+    e.g. `SUNIL KASHINATH BAGADE` → `SUNIL K BAGADE`, `ANIL SUBHASH DUSANE` → `ANIL S DUSANE`.
+    Applied to Name / From CLI / To CLI columns. `shortenName()` in `cli-nomination.html`.
+  - Manual print-name override: blue "🖨 <name> ✎" chip in the changes list → prompt to edit the
+    name shown on the letter only (`row.print_name`). Real name in `div_staff_master` never changes.
+- [ ] **TODO (deferred): persist the print-name override.** Currently the manual print-name edit is
+  **in-memory only** — saving the letter, reloading, and reopening from History reverts to the
+  auto-shortened name. If needed later, add a nullable `print_name` column to `div_cli_nominations`
+  (stores only the override; real names stay solely in `div_staff_master`) and round-trip it through
+  the save (`add-change` payload) and load (`GET /letters/:id`) paths — same pattern as `proposed_lobby`.
 
 ### CLI Load Overview Page (Completed)
 **Page:** `/div/cli-load.html`
