@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Signal Book — BB Division</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body {
+      margin: 0;
+      font-family: -apple-system, "Helvetica Neue", Arial, sans-serif;
+      background: #f3f4f6;
+      color: #111;
+    }
+    header {
+      background: #1e3a8a;
+      color: #fff;
+      padding: 16px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    header h1 { margin: 0; font-size: 18px; font-weight: 600; }
+    header .sub { font-size: 12px; opacity: 0.8; }
+    main { padding: 24px; max-width: 960px; margin: 0 auto; }
+    .info {
+      background: #fff;
+      border-left: 4px solid #1e3a8a;
+      padding: 12px 16px;
+      margin-bottom: 20px;
+      font-size: 13px;
+      color: #374151;
+    }
+    .info code { background: #f3f4f6; padding: 1px 5px; border-radius: 3px; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    }
+    th, td {
+      padding: 10px 12px;
+      text-align: left;
+      border-bottom: 1px solid #e5e7eb;
+      font-size: 14px;
+    }
+    th {
+      background: #f9fafb;
+      font-weight: 600;
+      color: #374151;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    tbody tr:hover { background: #f9fafb; }
+    .beat-code { font-family: "Courier New", monospace; font-weight: 600; }
+    .count {
+      display: inline-block;
+      min-width: 30px;
+      padding: 2px 8px;
+      border-radius: 10px;
+      background: #eff6ff;
+      color: #1e40af;
+      font-size: 12px;
+      font-weight: 600;
+      text-align: center;
+    }
+    .count.zero { background: #f3f4f6; color: #9ca3af; }
+    .actions a {
+      display: inline-block;
+      padding: 6px 14px;
+      background: #f59e0b;
+      color: #111;
+      text-decoration: none;
+      border-radius: 4px;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .actions a.disabled {
+      background: #e5e7eb;
+      color: #9ca3af;
+      pointer-events: none;
+    }
+    .actions a:hover { background: #d97706; }
+    .empty {
+      padding: 40px;
+      text-align: center;
+      color: #6b7280;
+      background: #fff;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Signal Location Guide</h1>
+      <div class="sub">BB Division — beat-wise signal book preview</div>
+    </div>
+    <a href="/div/" style="color:#fff;text-decoration:none;font-size:13px;">← Division portal</a>
+  </header>
+
+  <main>
+    <div class="info">
+      Pick a beat below to open its full signal book in a new tab. From the preview tab, press
+      <strong>Cmd+P</strong> (or Ctrl+P on Windows) and choose <strong>Save as PDF</strong> to export.
+      Section content is shared across beats — editing one signal updates every beat that includes that section.
+    </div>
+
+    <table id="beats-table">
+      <thead>
+        <tr>
+          <th>Beat</th>
+          <th>Lobby</th>
+          <th>Category</th>
+          <th>Sections</th>
+          <th>Rows</th>
+          <th class="actions">Action</th>
+        </tr>
+      </thead>
+      <tbody id="beats-body">
+        <tr><td colspan="6" class="empty">Loading beats…</td></tr>
+      </tbody>
+    </table>
+  </main>
+
+  <script>
+    async function loadBeats() {
+      try {
+        const res = await fetch('/api/division/signal-book/beats', { credentials: 'include' });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        renderBeats(data.beats || []);
+      } catch (err) {
+        document.getElementById('beats-body').innerHTML =
+          '<tr><td colspan="6" class="empty">Failed to load beats: ' + err.message + '</td></tr>';
+      }
+    }
+
+    function renderBeats(beats) {
+      if (beats.length === 0) {
+        document.getElementById('beats-body').innerHTML =
+          '<tr><td colspan="6" class="empty">No beats configured.</td></tr>';
+        return;
+      }
+      document.getElementById('beats-body').innerHTML = beats.map(function(b) {
+        var hasData = (b.section_count || 0) > 0;
+        var rowsCls = b.row_count > 0 ? 'count' : 'count zero';
+        var sectionsCls = b.section_count > 0 ? 'count' : 'count zero';
+        var btnCls = hasData ? '' : 'disabled';
+        var btnTxt = hasData ? 'Open preview' : 'No data';
+        var href = '/api/division/signal-book/beat/' + encodeURIComponent(b.beat_code) + '/preview';
+        return (
+          '<tr>' +
+          '  <td><span class="beat-code">' + b.beat_code + '</span><br><span style="color:#6b7280;font-size:12px;">' + b.beat_name + '</span></td>' +
+          '  <td>' + (b.office_code || '—') + '</td>' +
+          '  <td>' + (b.beat_category || '—') + '</td>' +
+          '  <td><span class="' + sectionsCls + '">' + (b.section_count || 0) + '</span></td>' +
+          '  <td><span class="' + rowsCls + '">' + (b.row_count || 0) + '</span></td>' +
+          '  <td class="actions"><a class="' + btnCls + '" href="' + href + '" target="_blank">' + btnTxt + '</a></td>' +
+          '</tr>'
+        );
+      }).join('');
+    }
+
+    loadBeats();
+  </script>
+</body>
+</html>

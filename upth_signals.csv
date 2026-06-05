@@ -1,0 +1,120 @@
+signal_number,station_code,station_name,section,line,direction,location_text,km_text,km_from_csmt,latitude,longitude,signal_type,signal_function,placement,on_curve,curve_remarks,is_rhs,is_ext_rhs,is_lhs,is_ext_lhs,has_legend_board,has_calling_on,has_shunt_signal,ri_left_arms,ri_right_arms,book_description,route_indicator_notes,technical_remarks,visibility_distance_m,sighting_remarks,is_active
+KYN S-47,KYN,Kalyan,CSMT-KYN,UP TH,UP,MID PF-4,52/447,53.225,19.23445,73.1286,Semi-Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,200,,1
+KYN S-38,KYN,Kalyan,CSMT-KYN,UP TH,UP,PF-4 STR,52/439,52.744,19.23394,73.12712,Semi-Automatic,,Left,,,0,0,1,0,0,1,1,2,0,RI: L1= S-8; L2= S-21,Book shows two left arms on top of vertical stem,,200,,1
+KYN S-48,KYN,Kalyan,CSMT-KYN,UP TH,UP,MID PF-5,52/445,53.239,19.23436,73.12843,Semi-Automatic,,Right,,,0,0,1,0,0,0,0,0,0,,,,200,,1
+KYN S-39,KYN,Kalyan,CSMT-KYN,UP TH,UP,PF-5 STR,52/437,52.744,19.23377,73.12676,Semi-Automatic,,Left,,,0,0,1,0,0,0,1,0,0,,,,200,,1
+KYN S-41,KYN,Kalyan,CSMT-KYN,UP TH,UP,PF-6 STR,52/441,52.744,19.23397,73.12755,Semi-Automatic,,Left,,,0,0,1,0,0,0,0,1,1,RI: L1= S-21; R1= S-19,Book shows one left and one right arms on top of vertical stem,,200,,1
+KYN S-42,KYN,Kalyan,CSMT-KYN,UP TH,UP,PF-7 STR,52/441,52.744,19.2339,73.12755,Semi-Automatic,,Left,,,0,0,1,0,0,0,0,0,1,RI:R1= S-19,Book shows one right arm on top of vertical stem,,200,,1
+KYN S-19,KYN,Kalyan,CSMT-KYN,UP TH,UP,52/13,52/13,52.374,19.23304,73.12459,Semi-Automatic,,Left,,,0,0,1,0,0,1,1,1,0,RI:L1= S-21,Book shows one left arm on top of vertical stem,,200,,1
+KYN S-8,KYN,Kalyan,CSMT-KYN,UP TH,UP,51/431,51/431,52.039,19.2321,73.11799,Semi-Automatic,,Left,,,0,0,1,0,0,1,0,0,1,RI:R1= UP/LL,Book shows one right arm on top of vertical stem,,600,,1
+K-5102,,,CSMT-KYN,UP TH,UP,51/403,51/403,51.681,19.23057,73.11178,Automatic,,Left,Left,,0,0,1,0,0,0,0,0,0,,,,300,,1
+K-5008,,,CSMT-KYN,UP TH,UP,50/421,50/421,51.141,19.22916,73.10745,Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,300,,1
+K-5002,,,CSMT-KYN,UP TH,UP,50/405,50/405,50.641,19.22792,73.10359,Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,300,,1
+K-4910,,,CSMT-KYN,UP TH,UP,49/435,49/435,50.227,19.2266,73.09961,Automatic,,Left,Left,,0,0,1,0,0,0,0,0,0,,,,300,,1
+K-4902,,,CSMT-KYN,UP TH,UP,49/409,49/409,49.867,19.22428,73.09509,Automatic,,Left,Left,,0,0,1,0,0,0,0,0,0,,,,300,,1
+K-4814,,,CSMT-KYN,UP TH,UP,48/435,48/435,49.098,19.22205,73.09221,Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,300,,1
+DI S-41,DI,Dombivli,CSMT-KYN,UP TH,UP,48/413,48/413,48.568,19.21938,73.08876,Semi-Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,200,,1
+DI S-33,DI,Dombivli,CSMT-KYN,UP TH,UP,PF-5 STR,,48.223,19.21649,73.08484,Semi-Automatic,,Left,,,0,0,1,0,0,1,0,1,0,RI:L1= S-18,Book shows one left arm on top of vertical stem,,300,,1
+K-4708,,,CSMT-KYN,UP TH,UP,47/415,47/415,47.883,19.21478,73.08255,Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,200,,1
+K-4702,,,CSMT-KYN,UP TH,UP,47/403,47/403,47.383,19.21261,73.07968,Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,200,,1
+K-4610,,,CSMT-KYN,UP TH,UP,46/417,46/417,46.71,19.20887,73.07471,Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,500,,1
+K-4512,,,CSMT-KYN,UP TH,UP,45/427,45/427,46.01,19.20517,73.06983,Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,300,,1
+K-4508,,,CSMT-KYN,UP TH,UP,45/415,45/415,45.31,19.20317,73.06715,Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,300,,1
+K-4502,,,CSMT-KYN,UP TH,UP,45/403,45/403,44.922,19.20099,73.06426,Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,200,,1
+K-4410,,,CSMT-KYN,UP TH,UP,44/427,44/427,44.65,19.1988,73.06134,Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,200,,1
+K-4404,,,CSMT-KYN,UP TH,UP,44/413,44/413,44.415,19.1966,73.05842,Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,250,,1
+K-4314,,,CSMT-KYN,UP TH,UP,43/435,43/435,44.148,19.19456,73.05543,Automatic,,Left,Right,,0,0,1,0,0,0,0,0,0,,,,200,,1
+K-4308,,,CSMT-KYN,UP TH,UP,43/423,43/423,43.689,19.19319,73.05255,Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,200,,1
+DW S-67,DIVA,DIVA,CSMT-KYN,UP TH,UP,43/405,43/405,43.321,19.19136,73.04845,Semi-Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,200,,1
+DW S-65,DIVA,DIVA,CSMT-KYN,UP TH,UP,42/435,42/435,42.803,19.18984,73.04505,Semi-Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,200,,1
+DW S-54,DIVA,DIVA,CSMT-KYN,UP TH,UP,PF-4 STR,42/37,42.212,19.18814,73.04104,Semi-Automatic,,Right,,,0,0,1,0,0,0,1,0,0,,,,200,,1
+DW S-49,DIVA,DIVA,CSMT-KYN,UP TH,UP,41/431,41/431,41.766,19.18685,73.03816,Semi-Automatic,,Left,,,0,0,1,0,0,1,1,1,1,RI:L1= S-47; R1= S-45,Book shows one left and one right arms on top of vertical stem,,200,,1
+DW S-46,DIVA,DIVA,CSMT-KYN,UP TH,UP,41/415,41/415,41.416,19.18521,73.03436,Semi-Automatic,,Extreme Right,,,0,1,0,0,0,0,0,0,0,,,,200,,1
+K-4020,,,CSMT-KYN,UP TH,UP,40/439,40/439,41.026,19.18436,73.03009,Automatic,,Extreme Right,Right,,0,1,0,0,0,0,0,0,0,,,,200,,1
+K-4014,,,CSMT-KYN,UP TH,UP,40/423 A,40/423 A,40.636,19.18525,73.02687,Automatic,,Left,Right,,0,0,1,0,0,0,0,0,0,,,,200,,1
+K-3912,,,CSMT-KYN,UP TH,UP,39/425,39/425,40.23,19.19157,73.02307,Automatic,,Left,Right,,0,0,1,0,0,0,0,0,0,,,,200,,1
+K-3904,,,CSMT-KYN,UP TH,UP,39/407,39/407,39.564,19.19581,73.02323,Automatic,,Extreme Right,,,0,1,0,0,0,0,0,0,0,,,,200,,1
+K-3810,,,CSMT-KYN,UP TH,UP,38/427,38/427,38.917,19.20096,73.02163,Automatic,,Extreme Right,Left,,0,1,0,0,0,0,0,0,0,,,,200,,1
+K-3804,,,CSMT-KYN,UP TH,UP,38/409,38/409,38.446,19.20408,73.01888,Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,200,,1
+K-3712,,,CSMT-KYN,UP TH,UP,37/437 A,37/437 A,37.751,19.2058,73.01551,Automatic,,Left,Left,,0,0,1,0,0,0,0,0,0,,,,200,,1
+K-3704,,,CSMT-KYN,UP TH,UP,37/411,37/411,37.164,19.20521,73.00945,Automatic,,Left,Left,,0,0,1,0,0,0,0,0,0,,,,200,,1
+K-3604,,,CSMT-KYN,UP TH,UP,36/429,36/429,36.551,19.20203,73.00513,Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,200,,1
+K-3514,,,CSMT-KYN,UP TH,UP,35/435 A,35/435 A,36.101,19.19809,73.00041,Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,200,,1
+K-3506,,,CSMT-KYN,UP TH,UP,35/419A,35/419A,35.671,19.19518,72.99696,Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,200,,1
+K-3414,,,CSMT-KYN,UP TH,UP,34/447,34/447,35.271,19.19236,72.99334,Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,200,,1
+K-3408,,,CSMT-KYN,UP TH,UP,34/429,34/429,34.691,19.19057,72.99061,Automatic,,Left,Right,,0,0,1,0,1,0,0,0,0,,,,200,,1
+TNA S-90,TNA,Thane,CSMT-KYN,UP TH,UP,34/405A,34/405A,34.291,19.18906,72.98609,Semi-Automatic,,Left,Right,,0,0,1,0,0,1,0,2,0,RI:L1= PF-7; L2= S-83,Book shows two left arms on top of vertical stem,,250,,1
+TNA S-82,TNA,Thane,CSMT-KYN,UP TH,UP,33/341,33/341,33.931,19.18798,72.98168,Semi-Automatic,,Extreme Right,Left,,0,1,0,0,0,0,0,0,0,,,,300,,1
+TNA S-65,TNA,Thane,KYN-CSMT,UP TH,UP,PF-6  KYN END,,33.318,19.18688,72.97865,Semi-Automatic,,Right,,,1,0,0,0,1,0,0,0,0,,,,200,,1
+TNA S-46,TNA,Thane,CSMT-KYN,UP TH,UP,PF-6 STR,,32.709,19.18529,72.97334,Semi-Automatic,,Right,,,1,0,0,0,0,0,1,0,0,,,,200,,1
+TNA S-45,TNA,Thane,CSMT-KYN,UP TH,UP,PF-5 UP STR,,,19.18532,72.97333,Semi-Automatic,,Left,,,0,0,1,0,0,1,0,0,0,,,,200,,1
+TNA S-11,TNA,Thane,CSMT-KYN,UP TH,UP,32/411,32/411,32.19,19.18327,72.96869,Semi-Automatic,,Left,Left,,0,0,1,0,0,0,1,0,0,,,,200,,1
+MLND S-16,MLND,Mulund,CSMT-KYN,UP TH,UP,31/409,31/409,31.757,19.17724,72.96211,Semi-Automatic,,Left,,,0,0,1,0,0,1,0,0,1,RI:R1= UP LL,Book shows one right arm on top of vertical stem,,300,,1
+K-056,MLND,Mulund,CSMT-KYN,UP TH,UP,30/429,30/429,31.354,19.17393,72.95873,Automatic,,Left,,,0,0,1,0,1,0,0,0,0,,,,250,,1
+MLND S-11,MLND,Mulund,CSMT-KYN,UP TH,UP,PF-4 STR,PF STR,30.957,19.17063,72.95545,Semi-Automatic,,Left,,,0,0,1,0,0,1,0,2,0,RI:L1= 6TH LINE; L2= NGSM,Book shows two left arms on top of vertical stem,,200,,1
+K-054,,,CSMT-KYN,UP TH,UP,29/427,29/427,30.557,19.16685,72.9525,Automatic,,Left,Left,,0,0,1,0,0,0,0,0,0,,,,200,,1
+K-052,,,CSMT-KYN,UP TH,UP,29/407,29/407,30.159,19.16323,72.95052,Automatic,,Left,Left,,0,0,1,0,1,0,0,0,0,,,,200,,1
+K-2808,,,CSMT-KYN,UP TH,UP,28/423,28/423,29.377,19.15742,72.94828,Automatic,,Left,Right,,0,0,1,0,0,0,0,0,0,,,,300,,1
+K-050,,,CSMT-KYN,UP TH,UP,27/439,27/439,28.831,19.15225,72.94534,Automatic,,Left,Right,,0,0,1,0,0,0,0,0,0,,,,200,,1
+K-048,,,CSMT-KYN,UP TH,UP,27/419,27/419,28.168,19.14914,72.94296,Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,200,,1
+BND S-24,BND,Bhandup,CSMT-KYN,UP TH,UP,27/401,27/401,27.562,19.14638,72.94082,Semi-Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,200,,1
+K-046,,,CSMT-KYN,UP TH,UP,PF-4 STR,26/417,27.146,19.1412,72.93681,Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,300,,1
+K-2514,,,CSMT-KYN,UP TH,UP,25/441,25/441,26.756,19.13812,72.93444,Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,200,,1
+K-044 A,,,CSMT-KYN,UP TH,UP,25/421,25/421,26.396,19.13534,72.93227,Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,200,,1
+K-044,,,CSMT-KYN,UP TH,UP,25/405,25/405,25.71,19.13222,72.92997,Automatic,,Left,Left,,0,0,1,0,0,0,0,0,0,,,,200,,1
+K-042,,,CSMT-KYN,UP TH,UP,24/425,24/425,25.344,19.12711,72.92805,Automatic,,Left,Left,,0,0,1,0,0,0,0,0,0,,,,200,,1
+VK S-30,VK,Vikhroli,CSMT-KYN,UP TH,UP,23/435,23/435,24.932,19.12108,72.92803,Semi-Automatic,,Left,Left,,0,0,1,0,0,0,0,0,0,,,,200,,1
+VK S-25,VK,Vikhroli,CSMT-KYN,UP TH,UP,23/417,23/417,24.278,19.11759,72.9282,Semi-Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,250,,1
+VK S-22,VK,Vikhroli,CSMT-KYN,UP TH,UP,22/431,22/431,23.816,19.11063,72.92827,Semi-Automatic,,Left,Right,,0,0,1,0,0,0,0,0,0,,,,200,,1
+K-038,,,CSMT-KYN,UP TH,UP,22/413,22/413,23.289,19.1072,72.9275,Automatic,,Left,Right,,0,0,1,0,0,0,0,0,0,,,,200,,1
+K-036,,,CSMT-KYN,UP TH,UP,21/437,21/437,22.776,19.10368,72.92612,Automatic,,Left,Right,,0,0,1,0,0,0,0,0,0,,,,200,,1
+K-036A,,,CSMT-KYN,UP TH,UP,21/421,21/421,22.284,19.10055,72.92413,Automatic,,Left,Right,,0,0,1,0,0,0,0,0,0,,,,250,,1
+K-034,,,CSMT-KYN,UP TH,UP,21/413,21/413,21.773,19.09903,72.92278,Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,200,,1
+K-032,,,CSMT-KYN,UP TH,UP,20/429,20/429,20.864,19.09494,72.91881,Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,500,,1
+K-030,,,CSMT-KYN,UP TH,UP,20/407,20/407,20.344,19.09134,72.91535,Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,400,,1
+K-028,,,CSMT-KYN,UP TH,UP,19/429,19/429,19.808,19.08758,72.91121,Automatic,,Left,Right,,0,0,1,0,0,0,0,0,0,,,,400,,1
+K-026,,,CSMT-KYN,UP TH,UP,18/457,18/457,19.458,19.08466,72.90674,Automatic,,Left,,,0,0,1,0,1,0,0,0,0,,,,300,,1
+VVH S-42,VVH,Vidya Vihar,CSMT-KYN,UP TH,UP,18/437,18/437,18.983,19.08305,72.90338,Semi-Automatic,,Left,Right,,0,0,1,0,1,1,0,3,0,RI:L1= LOOP; L2= S-103; L3= S-36,Book shows three left arms on top of vertical stem,,200,,1
+VVH S-34,VVH,Vidya Vihar,CSMT-KYN,UP TH,UP,18/413,18/413,18.478,19.08143,72.90041,Semi-Automatic,,Left,Left,,0,0,1,0,0,0,0,0,0,,,,200,,1
+VVH S-9,VVH,Vidya Vihar,CSMT-KYN,UP TH,UP,17/427,17/427,18.127,19.0783,72.89609,Semi-Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,200,,1
+VVH S-3,VVH,Vidya Vihar,CSMT-KYN,UP TH,UP,17/409,17/409,17.63,19.0759,72.89298,Semi-Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,250,,1
+K-024,,,CSMT-KYN,UP TH,UP,16/429,16/429,17.144,19.0733,72.88967,Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,200,,1
+K-024A,,,CSMT-KYN,UP TH,UP,16/415,16/415,16.485,19.0711,72.88684,Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,200,,1
+K-024B,,,CSMT-KYN,UP TH,UP,15/437,15/437,15.907,19.06726,72.8822,Automatic,,Left,Left,,0,0,1,0,0,0,0,0,0,,,,200,,1
+CLA S-43 REP,CLA,Kurla,CSMT-KYN,UP TH,UP,ON CLA PF-6,ON CLA PF-6,,,,Repeater,,Left,,,0,0,1,0,0,0,0,0,0,,,,150,,1
+CLA S-43,CLA,Kurla,CSMT-KYN,UP TH,UP,15/409,15/409,15.241,19.06401,72.87786,Semi-Automatic,,Right,,,1,0,0,0,1,0,0,0,0,,,,200,,1
+CLA S-47,CLA,Kurla,CSMT-KYN,UP TH,UP,14/421,14/421,14.836,19.05979,72.87276,Semi-Automatic,,Gantry,Left,,0,0,1,0,0,0,0,0,0,,,,400,,1
+K-022,,,CSMT-KYN,UP TH,UP,14/401,14/401,14.258,19.05637,72.87031,Automatic,,Left,Left,,0,0,1,0,0,0,0,0,0,,,,200,,1
+K-020,,,CSMT-KYN,UP TH,UP,13/413,13/413,13.732,19.05141,72.86689,Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,300,,1
+K-018,,,CSMT-KYN,UP TH,UP,12/425,12/425,13.302,19.04644,72.86348,Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,300,,1
+K-016,,,CSMT-KYN,UP TH,UP,12/411,12/411,12.463,19.04333,72.86132,Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,200,,1
+K-016A,,,CSMT-KYN,UP TH,UP,11/439,11/439,12.096,19.0404,72.85931,Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,200,,1
+K-014,,,CSMT-KYN,UP TH,UP,11/423,11/423,11.654,19.03755,72.85725,Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,200,,1
+DR S-28,DR,Dadar,CSMT-KYN,UP TH,UP,11/407,11/407,11.183,19.03484,72.85537,Semi-Automatic,,Right,,,1,0,0,0,0,1,0,0,2,RI:R1= L-036; R2= DR YD,Book shows two right arms on top of vertical stem,,200,,1
+DR S-29,DR,Dadar,CSMT-KYN,UP TH,UP,10/431,10/431,10.849,19.0315,72.85315,Semi-Automatic,,Left,,,0,0,1,0,1,0,0,0,0,,,,200,,1
+DR S-32,DR,Dadar,CSMT-KYN,UP TH,UP,PF-4 STR,,10.389,19.02701,72.85019,Semi-Automatic,,Left,,,0,0,1,0,0,1,1,2,0,RI:L1= UP LOOP; L2= DR(T),Book shows two left arms on top of vertical stem,,200,,1
+DR S-35,DR,Dadar,CSMT-KYN,UP TH,UP,9/433,9/433,9.993,19.02349,72.84763,Semi-Automatic,,Left,Left,,0,0,1,0,0,0,0,0,0,,,,200,,1
+DR S-37,DR,Dadar,CSMT-KYN,UP TH,UP,9/417,9/417,9.516,19.02075,72.84566,Semi-Automatic,,Right,,,1,0,0,0,0,1,0,0,1,RI:R1= PF-11,Book shows one right arm on top of vertical stem,,200,,1
+DR S-42,DR,Dadar,CSMT-KYN,UP TH,UP,8/433,8/433,9.126,19.01686,72.84296,Semi-Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,200,,1
+DR S-45,DR,Dadar,CSMT-KYN,UP TH,UP,8/423,8/423,8.736,19.01474,72.84156,Semi-Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,200,,1
+DR S-44,DR,Dadar,CSMT-KYN,UP TH,UP,PF-11 STR,,,19.01492,72.84156,Semi-Automatic,,Right,,,1,0,0,0,0,1,0,0,0,,,,200,,1
+K-012,,,CSMT-KYN,UP TH,UP,8/413,8/413,8.346,19.0131,72.84034,Automatic,,Right,,,1,0,0,0,0,0,0,0,0,,,,200,,1
+PR S-29,PR,Parel,CSMT-KYN,UP TH,UP,8/401,8/401,7.964,19.011,72.83896,Semi-Automatic,,Right,,,1,0,0,0,1,0,0,0,0,,,,200,,1
+PR S-11,PR,Parel,CSMT-KYN,UP TH,UP,7/429,7/429,7.564,19.00793,72.83697,Semi-Automatic,,Left,,,0,0,1,0,0,0,1,0,0,,,,250,,1
+PR S-14,PR,Parel,CSMT-KYN,UP TH,UP,6/439,6/439,7.174,19.00237,72.83417,Semi-Automatic,,Left,Left,,0,0,1,0,0,0,0,0,0,,,,200,,1
+PR S-13,PR,Parel,CSMT-KYN,UP TH,UP,6/411,6/411,6.573,18.99617,72.83305,Semi-Automatic,,Extreme Right,Left,,0,1,0,0,0,0,1,0,0,,,,200,,1
+BY S-49,BY,Byculla,CSMT-KYN,UP TH,UP,5/429,5/429,5.912,18.98994,72.833,Semi-Automatic,,Right,,,1,0,0,0,0,1,0,1,0,RI:L1= BY YD,Book shows one left arm on top of vertical stem,,250,,1
+BY S-41,BY,Byculla,CSMT-KYN,UP TH,UP,5/401,5/401,5.522,18.98543,72.83298,Semi-Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,200,,1
+BY S-34,BY,Byculla,CSMT-KYN,UP TH,UP,4/449,4/449,5.18,18.98231,72.83295,Semi-Automatic,,Left,,,0,0,1,0,0,1,0,0,1,RI:R1= UP L/L,Book shows one right arm on top of vertical stem,,200,,1
+BY S-28,BY,Byculla,CSMT-KYN,UP TH,UP,4/423,4/423,4.67,18.97903,72.83293,Semi-Automatic,,Left,,,0,0,1,0,1,0,1,0,0,,,,200,,1
+BY S-15,BY,Byculla,CSMT-KYN,UP TH,UP,PF-4 STR,3/451,4.189,18.97479,72.83292,Semi-Automatic,,Left,,,0,0,1,0,0,1,1,1,0,RI:L1= MZN YD,Book shows one left arm on top of vertical stem,,300,,1
+K-008,,,CSMT-KYN,UP TH,UP,3/405,3/405,3.79,18.96836,72.83455,Automatic,,Right,Left,,1,0,0,0,1,0,0,0,0,,,,200,,1
+MZN S-12,,,CSMT-KYN,UP TH,UP,2/435,2/435,3.319,18.96596,72.83695,Automatic,,Right,Left,,1,0,0,0,1,0,0,0,0,,,,200,,1
+MZN S-15,,,CSMT-KYN,UP TH,UP,2/413,2/413,2.865,18.96301,72.83931,Semi-Automatic,,Left,Right,,0,0,1,0,0,0,0,0,0,,,,200,,1
+K-004,,,CSMT-KYN,UP TH,UP,1/475,1/475,2.446,18.95827,72.83901,Automatic,,Left,Right,,0,0,1,0,0,0,0,0,0,,,,200,,1
+CSMT S-61,CSMT,CSMT,CSMT-KYN,UP TH,UP,1/419,1/419,1.965,18.95352,72.8384,Semi-Automatic,,Left,Left,,0,0,1,0,0,1,0,3,0,RI:L1= PF-10/11/12; L2= S-63; L3= S-55,Book shows three left arms on top of vertical stem,,200,,1
+CSMT S-81,CSMT,CSMT,CSMT-KYN,UP TH,UP,697,00/05,1.167,,,Semi-Automatic,,Left,Right,,0,0,1,0,0,0,0,3,0,RI:L1= PF-10; L2= PF-11; L3= PF-12,Book shows three left arms on top of vertical stem,,200,,1
+CSMT S-48,CSMT,CSMT,CSMT-KYN,UP TH,UP,675,WB 26+20,0.583,,,Semi-Automatic,,Left,Right,,0,0,1,0,0,0,0,3,2,RI:L1= PF-7; L2= PF-8; L3= PF-9; R1= S-27; R2= S-26,Book shows three left and two right arms on top of vertical stem,,200,,1
+CSMT S-28,CSMT,CSMT,CSMT-KYN,UP TH,UP,,,0.341,,,Semi-Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,200,,1
+CSMT S-27,CSMT,CSMT,CSMT-KYN,UP TH,UP,535,,,,,Semi-Automatic,,Left,Left,,0,0,1,0,0,0,0,1,0,RI:L1= PF-6,Book shows one left arm on top of vertical stem,,200,,1
+CSMT S-26,CSMT,CSMT,CSMT-KYN,UP TH,UP,,,,,,Semi-Automatic,,Left,Left,,0,0,1,0,0,0,0,0,1,RI:R1= PF-3,Book shows one right arm on top of vertical stem,,200,,1
