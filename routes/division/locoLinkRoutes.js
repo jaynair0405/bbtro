@@ -2150,6 +2150,23 @@ router.patch('/sick/:id', async (req, res) => {
         if (!exists.length) return res.status(404).json({ error: 'record not found' });
         if (exists[0].fit_from) return res.status(400).json({ error: 'cannot update a closed (fit) record' });
 
+        // If LPC is finalizing a H/O (handed over to another division):
+        // when both status='H/O' AND hoc_date are present, close the record
+        // by setting fit_from = hoc_date. This removes it from the "still sick"
+        // list (GET /sick filters by fit_from IS NULL).
+        // We check whether hoc_date will be set after this PATCH — either it's
+        // in the current update payload, or it's already on the record.
+        const willHaveHocDate =
+            ('hoc_date' in updates && updates.hoc_date) ||
+            (!('hoc_date' in updates) && exists[0].hoc_date);
+        const willBeHO =
+            (updates.status === 'H/O') ||
+            (!('status' in updates) && exists[0].status === 'H/O');
+
+        if (willBeHO && willHaveHocDate && !exists[0].fit_from) {
+            updates.fit_from = ('hoc_date' in updates ? updates.hoc_date : exists[0].hoc_date);
+        }
+
         const sets = Object.keys(updates).map(k => `${k} = ?`).join(', ');
         const params = [...Object.values(updates), id];
         await pool.query(`UPDATE div_loco_sick_records SET ${sets} WHERE id = ?`, params);
@@ -2338,22 +2355,52 @@ router.get('/sick', async (req, res) => {
 router.get('/sick/history', async (req, res) => {
     if (!req.session.user) return res.status(401).json({ error: 'not logged in' });
     const loco = String(req.query.loco || '').trim();
-    const limit = Math.min(parseInt(req.query.limit, 10) || 100, 500);
+    const fromDate = String(req.query.from_date || '').trim();
+    const toDate = String(req.query.to_date || '').trim();
+    const shed = String(req.query.shed || '').trim();
+    const status = String(req.query.status || '').trim();   // 'open' / 'closed' / ''
+    const limit = Math.min(parseInt(req.query.limit, 10) || 500, 2000);
+
     try {
         const pool = req.app.locals.pool;
-        let sql = `SELECT s.*, l.loco_type, l.home_shed, l.railway_zone,
+        let sql = `SELECT s.*,
+                          l.loco_type, l.traction_type, l.home_shed, l.railway_zone,
+                          paired.loco_number AS paired_loco_number,
+                          EXISTS(SELECT 1 FROM div_loco_link_master m
+                                 WHERE m.train_no = s.sick_train_no AND m.active = 1) AS train_is_passenger,
                           IFNULL(DATEDIFF(s.fit_from, s.sick_from),
                                  DATEDIFF(CURDATE(), s.sick_from)) AS days_duration
                    FROM div_loco_sick_records s
-                   LEFT JOIN div_locos l ON l.loco_number = s.loco_number`;
+                   LEFT JOIN div_locos l ON l.loco_number = s.loco_number
+                   LEFT JOIN div_loco_sick_records paired ON paired.id = s.paired_with_id
+                   WHERE 1=1`;
         const params = [];
-        if (loco) {
-            sql += ' WHERE s.loco_number = ?';
-            params.push(loco);
+        if (loco) { sql += ' AND s.loco_number = ?'; params.push(loco); }
+        // Overlap semantics: include any episode that intersects the [from,to] window.
+        // An episode runs from sick_from until fit_from (or "now" if still open).
+        if (fromDate && /^\d{4}-\d{2}-\d{2}$/.test(fromDate)) {
+            sql += ' AND (s.fit_from IS NULL OR s.fit_from >= ?)';
+            params.push(fromDate);
         }
+        if (toDate && /^\d{4}-\d{2}-\d{2}$/.test(toDate)) {
+            sql += ' AND s.sick_from <= ?';
+            params.push(toDate);
+        }
+        if (shed) { sql += ' AND (s.sick_at_shed = ? OR l.home_shed = ?)'; params.push(shed, shed); }
+        if (status === 'open')   sql += ' AND s.fit_from IS NULL';
+        if (status === 'closed') sql += ' AND s.fit_from IS NOT NULL';
         sql += ' ORDER BY s.sick_from DESC, s.id DESC LIMIT ?';
         params.push(limit);
         const [rows] = await pool.query(sql, params);
+        // Derive category (COG/GOODS) for the report
+        for (const r of rows) {
+            r.derived_category = deriveCategory({
+                locoType: r.loco_type,
+                tractionType: r.traction_type,
+                trainIsPassenger: !!r.train_is_passenger,
+            });
+            r.category_final = r.category || r.derived_category;
+        }
         res.json({ total: rows.length, rows });
     } catch (err) {
         console.error('[loco-link GET /sick/history]', err);

@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sick Loco Report | Control Office</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --brand: #0b3d91;
+            --bg: #f1f5f9;
+            --surface: #ffffff;
+            --border: #e2e8f0;
+            --border-strong: #cbd5e1;
+            --text-main: #1e293b;
+            --text-light: #64748b;
+            --danger: #dc2626;
+            --danger-bg: #fee2e2;
+            --warning: #d97706;
+            --warning-bg: #fef3c7;
+            --success: #059669;
+            --success-bg: #d1fae5;
+            --muted: #94a3b8;
+        }
+        * { box-sizing: border-box; }
+        body { font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif; background: var(--bg); color: var(--text-main); margin: 0; }
+        .header { background: var(--brand); color: white; padding: 12px 24px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 2px 6px rgba(0,0,0,.08); }
+        .header-title { font-size: 1.1rem; font-weight: 600; }
+        .header-title a { color: white; text-decoration: none; opacity: .85; }
+        .header-title .sep { margin: 0 10px; opacity: .6; }
+        .header-user { display: flex; align-items: center; gap: 12px; font-size: .9rem; }
+        .header-user a { color: white; background: rgba(255,255,255,.15); padding: 5px 11px; border-radius: 4px; text-decoration: none; font-size: .82rem; }
+        .header-user a:hover { background: rgba(255,255,255,.25); }
+        .print-btn-bar {
+            background: rgba(255,255,255,.15); color: white;
+            border: 1px solid rgba(255,255,255,.25);
+            padding: 5px 12px; border-radius: 4px;
+            font-size: .82rem; font-weight: 600; cursor: pointer;
+            display: inline-flex; align-items: center; gap: 6px;
+        }
+        .print-btn-bar:hover { background: rgba(255,255,255,.28); }
+
+        .main { padding: 16px 24px; max-width: 1400px; margin: 0 auto; }
+
+        .filters {
+            background: var(--surface); border: 1px solid var(--border);
+            border-radius: 8px; padding: 12px 14px; margin-bottom: 14px;
+            display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+        }
+        .filters label { font-size: .82rem; color: var(--text-light); display: flex; align-items: center; gap: 5px; }
+        .filters input[type="date"], .filters input[type="text"], .filters select {
+            padding: 5px 9px; border: 1px solid var(--border-strong); border-radius: 4px;
+            font-size: .85rem; font-family: inherit;
+        }
+        .quick-btn {
+            padding: 5px 10px; background: var(--bg); border: 1px solid var(--border-strong);
+            color: var(--text-main); border-radius: 4px; font-size: .8rem; font-weight: 600;
+            font-family: inherit; cursor: pointer;
+        }
+        .quick-btn.active { background: var(--brand); color: white; border-color: var(--brand); }
+        .filter-btn {
+            padding: 6px 14px; background: var(--brand); color: white;
+            border: 1px solid var(--brand); border-radius: 4px; font-size: .85rem;
+            font-weight: 600; font-family: inherit; cursor: pointer;
+        }
+        .filter-btn:hover { filter: brightness(.92); }
+
+        .summary { display: flex; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+        .stat {
+            background: var(--surface); border: 1px solid var(--border);
+            border-radius: 6px; padding: 10px 14px; flex: 1; min-width: 120px;
+            text-align: center;
+        }
+        .stat .num { font-size: 1.5rem; font-weight: 700; color: var(--brand); }
+        .stat .lbl { font-size: .72rem; color: var(--text-light); margin-top: 2px; }
+        .stat.danger .num { color: var(--danger); }
+        .stat.success .num { color: var(--success); }
+
+        .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: auto; }
+        table.report-table { width: 100%; border-collapse: collapse; font-size: .76rem; }
+        table.report-table thead th {
+            background: #f8fafc; color: var(--text-light); font-size: .66rem;
+            text-transform: uppercase; letter-spacing: .3px; padding: 6px 6px;
+            text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap;
+        }
+        table.report-table tbody td {
+            padding: 4px 6px; border-bottom: 1px solid var(--border);
+            vertical-align: top; line-height: 1.3;
+        }
+        table.report-table tbody td small { font-size: .68rem; }
+        table.report-table tbody tr:hover td { background: #f8fafc; }
+        .pill {
+            display: inline-block; padding: 2px 8px; border-radius: 10px;
+            font-size: .7rem; font-weight: 700;
+        }
+        .pill.open { background: var(--danger-bg); color: var(--danger); }
+        .pill.closed { background: var(--success-bg); color: var(--success); }
+        .pill.ho { background: var(--warning-bg); color: var(--warning); }
+        .empty-msg { padding: 40px 20px; text-align: center; color: var(--text-light); }
+
+        /* Print-only header */
+        .print-header { display: none; text-align: center; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 2px solid #333; }
+        .print-title { font-size: 1.1rem; font-weight: 800; }
+        .print-meta { font-size: .8rem; color: #444; margin-top: 3px; }
+
+        @media print {
+            * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            body { background: white !important; }
+            .header, .filters, .print-btn-bar { display: none !important; }
+            .main { padding: 0 !important; max-width: 100% !important; }
+            .card { border: none !important; box-shadow: none !important; }
+            table.report-table { font-size: .68rem !important; }
+            table.report-table thead th { padding: 4px 8px !important; }
+            table.report-table tbody td { padding: 3px 8px !important; }
+            table.report-table tr { page-break-inside: avoid; }
+            .print-header { display: block !important; }
+            @page { size: A4 portrait; margin: 8mm 10mm; }
+        }
+    </style>
+</head>
+<body>
+
+<header class="header">
+    <div class="header-title">
+        <a href="/control-office/" title="Back"><i class="fa-solid fa-arrow-left"></i> Control Office</a>
+        <span class="sep">›</span>
+        <span>Sick Loco Report</span>
+    </div>
+    <div class="header-user">
+        <button class="print-btn-bar" onclick="printReport()" title="Print / Save as PDF">
+            <i class="fa-solid fa-print"></i> Print
+        </button>
+        <span id="userInfo">…</span>
+        <a href="/api/logout" title="Logout"><i class="fa-solid fa-right-from-bracket"></i></a>
+    </div>
+</header>
+
+<div class="print-header" id="printHeader">
+    <div class="print-title">Sick Loco Report</div>
+    <div class="print-meta" id="printMeta"></div>
+</div>
+
+<main class="main">
+    <div class="filters">
+        <label>From <input type="date" id="fromDate"></label>
+        <label>To <input type="date" id="toDate"></label>
+        <button class="quick-btn" data-range="7">Last 7d</button>
+        <button class="quick-btn active" data-range="30">Last 30d</button>
+        <button class="quick-btn" data-range="90">Last 90d</button>
+        <label>Shed <input type="text" id="shedFilter" placeholder="e.g. KYNE" style="width:90px"></label>
+        <label>Status
+            <select id="statusFilter">
+                <option value="">All</option>
+                <option value="open">Open (still sick)</option>
+                <option value="closed">Closed (fit / handed over)</option>
+            </select>
+        </label>
+        <button class="filter-btn" id="applyBtn"><i class="fa-solid fa-filter"></i> Apply</button>
+        <button class="quick-btn" id="clearBtn" title="Reset filters to default"><i class="fa-solid fa-rotate-left"></i> Clear</button>
+        <span style="flex:1"></span>
+        <button class="filter-btn" id="excelBtn" style="background:#16a34a;border-color:#16a34a"><i class="fa-solid fa-file-excel"></i> Excel</button>
+        <button class="filter-btn" id="pdfBtn" style="background:#dc2626;border-color:#dc2626"><i class="fa-solid fa-file-pdf"></i> PDF</button>
+    </div>
+
+    <div class="summary" id="summary"></div>
+
+    <div class="card">
+        <table class="report-table">
+            <thead>
+                <tr>
+                    <th>Loco</th>
+                    <th>Class</th>
+                    <th>Cat.</th>
+                    <th>Shed</th>
+                    <th>Subject</th>
+                    <th>Ineffective</th>
+                    <th>Sick From</th>
+                    <th>Shed Arr</th>
+                    <th>Sick At</th>
+                    <th>SCH Due</th>
+                    <th>Paired</th>
+                    <th>Status</th>
+                    <th>Fit/H.O.</th>
+                    <th>Days</th>
+                    <th>Remarks</th>
+                </tr>
+            </thead>
+            <tbody id="body">
+                <tr><td colspan="15" class="empty-msg"><i class="fa-solid fa-spinner fa-spin"></i> Loading…</td></tr>
+            </tbody>
+        </table>
+    </div>
+</main>
+
+<script>
+const $ = sel => document.querySelector(sel);
+const $$ = sel => document.querySelectorAll(sel);
+
+function esc(s){
+    if (s == null) return '';
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'})[c]);
+}
+function todayISO(){
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function isoPlusDays(iso, n){
+    const d = new Date(iso + 'T00:00:00Z');
+    d.setUTCDate(d.getUTCDate() + n);
+    return d.toISOString().slice(0,10);
+}
+function fmtDate(v){
+    // DB returns DATE as ISO string at IST midnight (UTC). Use local accessors.
+    if (!v) return '—';
+    const d = new Date(v);
+    if (isNaN(d.getTime())) return String(v).slice(0,10);
+    return `${String(d.getDate()).padStart(2,'0')}-${String(d.getMonth()+1).padStart(2,'0')}-${d.getFullYear()}`;
+}
+function fmtTime(v){
+    if (!v) return '';
+    // MySQL TIME returns "HH:MM:SS" — trim to HH:MM
+    return String(v).slice(0,5);
+}
+function fmtDateTime(date, time){
+    if (!date && !time) return '—';
+    const d = fmtDate(date);
+    const t = fmtTime(time);
+    return t ? `${d}<br><small style="color:var(--text-light)">${t}</small>` : d;
+}
+
+function applyRange(days){
+    $('#toDate').value = todayISO();
+    $('#fromDate').value = isoPlusDays(todayISO(), -days);
+    $$('.quick-btn').forEach(b => b.classList.toggle('active', b.dataset.range === String(days)));
+}
+
+$$('.quick-btn').forEach(b => {
+    b.addEventListener('click', () => {
+        applyRange(parseInt(b.dataset.range, 10));
+        loadReport();
+    });
+});
+
+async function loadMe(){
+    try {
+        const r = await fetch('/api/division/loco-link/me');
+        if (!r.ok) return;
+        const u = await r.json();
+        const role = u.div_role === 'lpc' ? 'LPC' : (u.div_role || u.role);
+        $('#userInfo').innerHTML = `<i class="fa-solid fa-user"></i> ${esc(u.full_name || u.username)} <small>(${esc(role)})</small>`;
+    } catch(e){}
+}
+
+let lastReportRows = [];
+async function loadReport(){
+    const from = $('#fromDate').value;
+    const to   = $('#toDate').value;
+    const shed = $('#shedFilter').value.trim();
+    const status = $('#statusFilter').value;
+    const qs = new URLSearchParams();
+    if (from)   qs.set('from_date', from);
+    if (to)     qs.set('to_date',   to);
+    if (shed)   qs.set('shed',      shed.toUpperCase());
+    if (status) qs.set('status',    status);
+    qs.set('limit', '2000');
+
+    $('#body').innerHTML = `<tr><td colspan="15" class="empty-msg"><i class="fa-solid fa-spinner fa-spin"></i> Loading…</td></tr>`;
+
+    try {
+        const r = await fetch(`/api/division/loco-link/sick/history?${qs}`);
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const data = await r.json();
+        lastReportRows = data.rows || [];
+        renderSummary(lastReportRows);
+        renderRows(lastReportRows);
+    } catch(e) {
+        $('#body').innerHTML = `<tr><td colspan="15" class="empty-msg" style="color:var(--danger)">Load failed: ${esc(e.message)}</td></tr>`;
+    }
+}
+
+function renderSummary(rows){
+    const total = rows.length;
+    const open = rows.filter(r => !r.fit_from).length;
+    const closed = total - open;
+    const ho = rows.filter(r => r.status === 'H/O').length;
+    const avgDays = total ? Math.round(rows.reduce((s, r) => s + (r.days_duration || 0), 0) / total) : 0;
+    $('#summary').innerHTML = `
+        <div class="stat"><div class="num">${total}</div><div class="lbl">Total episodes</div></div>
+        <div class="stat danger"><div class="num">${open}</div><div class="lbl">Still open</div></div>
+        <div class="stat success"><div class="num">${closed}</div><div class="lbl">Closed</div></div>
+        <div class="stat"><div class="num">${ho}</div><div class="lbl">Handed over</div></div>
+        <div class="stat"><div class="num">${avgDays}</div><div class="lbl">Avg days</div></div>
+    `;
+}
+
+function statusPill(r){
+    if (r.status === 'H/O') return `<span class="pill ho">H/O</span>`;
+    if (!r.fit_from)        return `<span class="pill open">${esc(r.status || 'OPEN')}</span>`;
+    return `<span class="pill closed">${esc(r.status || 'RDY')}</span>`;
+}
+
+function renderRows(rows){
+    const body = $('#body');
+    if (!rows.length){
+        body.innerHTML = `<tr><td colspan="15" class="empty-msg">No sick records match the filter.</td></tr>`;
+        return;
+    }
+    body.innerHTML = rows.map(r => {
+        const finalDate = r.status === 'H/O' && r.hoc_date ? r.hoc_date : r.fit_from;
+        const finalLabel = r.status === 'H/O' && r.hoc_date ? 'H/O' : (r.fit_from ? 'RDY' : '');
+        return `
+        <tr>
+            <td><strong>${esc(r.loco_number)}</strong></td>
+            <td>${esc(r.loco_type || '—')}</td>
+            <td>${esc(r.category_final || '—')}</td>
+            <td>${esc(r.home_shed || '—')}</td>
+            <td title="${esc(r.sick_reason || '')}">${esc((r.sick_reason || '').slice(0,40))}${(r.sick_reason || '').length > 40 ? '…' : ''}</td>
+            <td>${fmtDateTime(r.sick_from, r.ineffective_time)}</td>
+            <td>${fmtDate(r.sick_from)}</td>
+            <td>${fmtDateTime(r.shed_arr_date, r.shed_arr_time)}</td>
+            <td>${esc(r.sick_at_shed || '—')}</td>
+            <td>${esc(r.sch_done || '—')}</td>
+            <td>${esc(r.paired_loco_number || '—')}</td>
+            <td>${statusPill(r)}</td>
+            <td>${finalDate ? `${fmtDate(finalDate)}${finalLabel ? `<br><small style="color:var(--text-light)">${finalLabel}</small>` : ''}` : '—'}</td>
+            <td>${r.days_duration ?? '—'}</td>
+            <td title="${esc(r.remarks || '')}">${esc((r.remarks || '').slice(0,50))}${(r.remarks || '').length > 50 ? '…' : ''}</td>
+        </tr>
+    `;}).join('');
+}
+
+function printReport(){
+    const from = $('#fromDate').value;
+    const to   = $('#toDate').value;
+    const shed = $('#shedFilter').value.trim();
+    const status = $('#statusFilter').value;
+    const bits = [];
+    if (from || to) bits.push(`${fmtDate(from)} → ${fmtDate(to)}`);
+    if (shed)   bits.push(`Shed: ${shed.toUpperCase()}`);
+    if (status) bits.push(`Status: ${status}`);
+    const printedAt = new Date().toLocaleString('en-IN', {
+        day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false
+    });
+    $('#printMeta').innerHTML = (bits.length ? `<strong>${bits.join(' · ')}</strong>` : '') +
+        ` &nbsp;·&nbsp; <em>printed ${printedAt}</em>`;
+    window.print();
+}
+
+// ─── Excel (CSV) download ────────────────────────────────────────────────
+// CSV opens natively in Excel and preserves the table structure. No external
+// library needed.
+function downloadExcel(){
+    const headers = ['Loco','Class','Category','Shed','Subject','Ineffective Date','Ineffective Time',
+                     'Sick From','Shed Arr Date','Shed Arr Time','Sick At','SCH Due','Paired Loco',
+                     'Status','Fit From','Days','Remarks'];
+    const rows = (lastReportRows || []).map(r => [
+        r.loco_number || '',
+        r.loco_type || '',
+        r.category_final || '',
+        r.home_shed || '',
+        r.sick_reason || '',
+        fmtDate(r.sick_from),
+        fmtTime(r.ineffective_time),
+        fmtDate(r.sick_from),
+        fmtDate(r.shed_arr_date),
+        fmtTime(r.shed_arr_time),
+        r.sick_at_shed || '',
+        r.sch_done || '',
+        r.paired_loco_number || '',
+        r.status || (r.fit_from ? 'CLOSED' : 'OPEN'),
+        r.status === 'H/O' && r.hoc_date ? fmtDate(r.hoc_date) : fmtDate(r.fit_from),
+        r.days_duration != null ? String(r.days_duration) : '',
+        r.remarks || '',
+    ]);
+    // CSV escape: wrap in quotes if contains comma/quote/newline; double-up internal quotes
+    const csvEscape = v => {
+        const s = String(v == null ? '' : v);
+        return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+    };
+    const csv = [headers, ...rows].map(row => row.map(csvEscape).join(',')).join('\r\n');
+    // BOM for Excel to detect UTF-8 correctly
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const from = $('#fromDate').value, to = $('#toDate').value;
+    a.href = url;
+    a.download = `sick-loco-report_${from}_to_${to}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+// ─── Clear filters ───────────────────────────────────────────────────────
+function clearFilters(){
+    $('#shedFilter').value = '';
+    $('#statusFilter').value = '';
+    applyRange(30);
+    loadReport();
+}
+
+$('#applyBtn').addEventListener('click', loadReport);
+$('#clearBtn').addEventListener('click', clearFilters);
+$('#excelBtn').addEventListener('click', downloadExcel);
+$('#pdfBtn').addEventListener('click', printReport);
+$('#shedFilter').addEventListener('keydown', e => { if (e.key === 'Enter') loadReport(); });
+
+applyRange(30);
+loadMe();
+loadReport();
+</script>
+</body>
+</html>
