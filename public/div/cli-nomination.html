@@ -1880,6 +1880,11 @@
       font-size: 14pt;
       font-weight: bold;
     }
+    .division-name {
+      font-size: 12pt;
+      font-weight: bold;
+      margin-top: 2px;
+    }
     .railway-name-en {
       font-size: 12pt;
       font-weight: bold;
@@ -1954,8 +1959,10 @@
       display: flex;
       justify-content: space-between;
       align-items: flex-end;
-      margin-top: 12px;
-      page-break-inside: avoid;   /* keep CC + signature together */
+      margin-top: 24px;
+      page-break-inside: avoid;   /* keep CC + signature together (never split) */
+      page-break-before: avoid;   /* try to keep the block with the table above */
+      break-before: avoid;
     }
     .cc-section {
       font-size: 10pt;
@@ -1967,7 +1974,7 @@
     .signature::before {
       content: '';
       display: block;
-      height: 22px; /* Space for handwritten signature */
+      height: 48px; /* Space for handwritten signature */
     }
     .signature .designation-hindi {
       font-weight: bold;
@@ -2022,12 +2029,14 @@
   <div class="letter-header">
     <div class="header-left">
       <div class="railway-name">मध्य रेल</div>
+      <div class="division-name">मुंबई मंडल</div>
     </div>
     <div class="header-center">
       <img src="/img/railway-logo.png" alt="Indian Railways" class="logo" onerror="this.style.display='none'">
     </div>
     <div class="header-right">
       <div class="railway-name-en">Central Railway</div>
+      <div class="division-name">Mumbai Division</div>
       <div class="railway-address">Mumbai 400001.</div>
     </div>
   </div>
