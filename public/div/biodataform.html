@@ -1292,7 +1292,8 @@ function isAutoDueTraining(trainingName) {
   const n = (trainingName || '').toLowerCase();
   return n.includes('pme') || n.includes('periodic medical')
       || n.includes('refresher') || n.includes('ref_')
-      || n.includes('mmprc') || n.includes('motorman promotion');
+      || n.includes('mmprc') || n.includes('motorman promotion')
+      || n.includes('automatic');   // Automatic (id 5): auto due = done + 6 months
 }
 
 // Configure the Due Date field for the given training type.
