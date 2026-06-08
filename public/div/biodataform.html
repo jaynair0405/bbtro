@@ -504,8 +504,9 @@
                   </div>
 
                   <div class="mb-3" id="due_date_group">
-                    <label class="form-label req">Due Date</label>
+                    <label class="form-label req" id="due_date_label">Due Date</label>
                     <input type="date" class="form-control" id="training_due_date">
+                    <small class="text-muted" id="due_date_hint" style="display:none;">Optional · no future date</small>
                   </div>
 
                   <!-- Decategorization fields (only shown when Declared Unfit) -->
@@ -1269,6 +1270,49 @@ const trainingValidityPeriods = {
   'WAG 12': 0
 };
 
+// Today as local YYYY-MM-DD (no timezone shift)
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+// Snap a future value in a date input back to today (and warn)
+function rejectFutureDate(input, label) {
+  if (input && input.value && input.value > todayStr()) {
+    input.value = todayStr();
+    showToast(`${label || 'Date'} cannot be in the future — set to today`, 'warning');
+    return true;
+  }
+  return false;
+}
+
+// Due date is auto-calculated only for PME and Refresher / MMRC.
+// Every other training type gets a MANUAL, no-future due date.
+function isAutoDueTraining(trainingName) {
+  const n = (trainingName || '').toLowerCase();
+  return n.includes('pme') || n.includes('periodic medical')
+      || n.includes('refresher') || n.includes('ref_')
+      || n.includes('mmprc') || n.includes('motorman promotion');
+}
+
+// Configure the Due Date field for the given training type.
+// Auto (PME/Refresher/MMRC): keep auto-calc, future allowed, required.
+// Manual (everything else): no future date (max=today), optional, user-entered.
+function configureDueDateField(trainingName) {
+  const dueInput = document.getElementById('training_due_date');
+  const label = document.getElementById('due_date_label');
+  const hint = document.getElementById('due_date_hint');
+  if (isAutoDueTraining(trainingName)) {
+    dueInput.removeAttribute('max');     // auto-calculated dates are in the future
+    if (label) label.classList.add('req');
+    if (hint) hint.style.display = 'none';
+  } else {
+    dueInput.setAttribute('max', todayStr());   // no future date in the picker
+    if (label) label.classList.remove('req');   // manual due date is optional
+    if (hint) hint.style.display = 'block';
+  }
+}
+
 // Handle training type change - show medical fitness options for PME
 function handleTrainingTypeChange() {
   const trainingType = document.getElementById('training_type').value;
@@ -1289,15 +1333,15 @@ function handleTrainingTypeChange() {
     document.getElementById('decategorization_fields').style.display = 'none';
   }
 
-  // Check if this is a lifetime training (no due date needed)
-  const isLifetimeTraining = isTrainingLifetime(trainingName);
-  if (isLifetimeTraining) {
-    dueDateGroup.style.display = 'none';
-    document.getElementById('training_due_date').value = '';
-  } else {
-    dueDateGroup.style.display = 'block';
-    // Auto-calculate due date if done date is already filled
+  // Due date: auto-calculated for PME/Refresher/MMRC, otherwise manual (no future)
+  dueDateGroup.style.display = 'block';
+  configureDueDateField(trainingName);
+  if (isAutoDueTraining(trainingName)) {
+    // Auto-calculate due date if done date is already filled (PME/Refresher/MMRC)
     autoCalculateDueDate();
+  } else {
+    // Manual entry for every other training type — start blank
+    document.getElementById('training_due_date').value = '';
   }
 }
 
@@ -1411,13 +1455,11 @@ function autoCalculateDueDate() {
   const trainingName = selectedOption.textContent.trim();
   const doneDate = doneDateInput.value;
 
-  if (!doneDate) return;
+  // Only PME/Refresher/MMRC are auto-calculated. For every other training the
+  // due date is entered manually, so never overwrite it here.
+  if (!isAutoDueTraining(trainingName)) return;
 
-  // Check if lifetime training
-  if (isTrainingLifetime(trainingName)) {
-    dueDateInput.value = '';
-    return;
-  }
+  if (!doneDate) return;
 
   // Get validity period
   const validityMonths = getTrainingValidityMonths(trainingName);
@@ -1452,11 +1494,26 @@ function autoCalculateDueDate() {
   dueDateInput.value = `${year}-${month}-${day}`;
 }
 
-// Add event listener for done date change
+// Add event listeners for date restrictions on the training form
 document.addEventListener('DOMContentLoaded', function() {
   const doneDateInput = document.getElementById('training_done_date');
   if (doneDateInput) {
-    doneDateInput.addEventListener('change', autoCalculateDueDate);
+    // Done date can never be in the future
+    doneDateInput.setAttribute('max', todayStr());
+    doneDateInput.addEventListener('change', function() {
+      rejectFutureDate(doneDateInput, 'Done date');
+      autoCalculateDueDate();
+    });
+  }
+
+  const dueDateInput = document.getElementById('training_due_date');
+  if (dueDateInput) {
+    // For manual (non-PME/Refresher) trainings, reject a typed future due date
+    dueDateInput.addEventListener('change', function() {
+      const sel = document.querySelector('#training_type option:checked');
+      const name = sel ? sel.textContent.trim() : '';
+      if (!isAutoDueTraining(name)) rejectFutureDate(dueDateInput, 'Due date');
+    });
   }
 });
 
@@ -2255,7 +2312,9 @@ async function loadTrainings(hrmsId) {
 // Add or update training
 async function addTraining() {
   const trainingId = document.getElementById('training_type').value;
-  const doneDate = document.getElementById('training_done_date').value;
+  const doneDateInput = document.getElementById('training_done_date');
+  rejectFutureDate(doneDateInput, 'Done date');   // done date can't be in the future
+  const doneDate = doneDateInput.value;
   const centerId = document.getElementById('training_center').value;
   const remarks = document.getElementById('training_remarks').value.trim();
 
@@ -2292,18 +2351,21 @@ async function addTraining() {
       return;
     }
   } else {
-    // Check if this is a lifetime training (no due date needed)
     const selectedOption = document.querySelector(`#training_type option[value="${trainingId}"]`);
     const trainingName = selectedOption ? selectedOption.textContent.trim() : '';
-    const isLifetime = isTrainingLifetime(trainingName);
+    const dueDateInput = document.getElementById('training_due_date');
 
-    if (!isLifetime) {
-      // Normal flow - require due date for non-lifetime trainings
-      dueDate = document.getElementById('training_due_date').value;
+    if (isAutoDueTraining(trainingName)) {
+      // PME / Refresher / MMRC — due date is auto-calculated and required
+      dueDate = dueDateInput.value;
       if (!dueDate) {
         alert('Please enter due date');
         return;
       }
+    } else {
+      // Every other training — manual due date, optional, never in the future
+      rejectFutureDate(dueDateInput, 'Due date');
+      dueDate = dueDateInput.value || null;
     }
   }
 
@@ -2466,11 +2528,11 @@ function editTraining(index) {
   document.getElementById('training_center').value = training.training_center_id || '';
   document.getElementById('training_remarks').value = training.remarks || '';
 
-  // Check if lifetime training and hide/show due date group accordingly
+  // Show the due date field and set auto/manual mode (keeps the loaded value)
   const selectedOption = document.querySelector(`#training_type option[value="${training.training_id}"]`);
   const trainingName = selectedOption ? selectedOption.textContent.trim() : '';
-  const isLifetimeTraining = isTrainingLifetime(trainingName);
-  document.getElementById('due_date_group').style.display = isLifetimeTraining ? 'none' : 'block';
+  document.getElementById('due_date_group').style.display = 'block';
+  configureDueDateField(trainingName);
 
   const addButton = document.querySelector('#tab-training button[onclick="addTraining()"]');
   addButton.textContent = '✏️ Update Training';
