@@ -1735,6 +1735,11 @@ function renderSpecialRow(log, editable) {
     tr.dataset.logId = log.id;
     tr.dataset.trainNo = log.train_no;
     tr.dataset.section = log.section || '';
+    // Stash special-only fields so later re-saves via saveRow() can send them
+    // (backend requires event_time on every master-less upsert)
+    tr.dataset.eventTime = log.event_time || '';
+    tr.dataset.fromStation = log.from_station || '';
+    tr.dataset.toStation = log.to_station || '';
     tr.dataset.position = 'front';
     tr.dataset.special = '1';
     if (log.actual_loco_no) tr.classList.add('row-saved');
@@ -2905,6 +2910,9 @@ async function saveRow(tr) {
     if (isSpecial) {
         body.sheet_source = sheetSource || (currentSheet && currentSheet.sheet_source);
         body.section = tr.dataset.section || null;
+        body.event_time = tr.dataset.eventTime || null;
+        body.from_station = tr.dataset.fromStation || null;
+        body.to_station = tr.dataset.toStation || null;
     }
 
     const saveBtn = tr.querySelector('button[data-action="save"]') || frontRow?.querySelector('button[data-action="save"]');
@@ -2978,7 +2986,11 @@ async function saveAll() {
     status.textContent = `· saving ${dirtyBtns.length}...`;
 
     const trs = dirtyBtns.map(b => b.closest('tr'));
-    const results = await Promise.allSettled(trs.map(tr => saveRow(tr)));
+    // Blank special rows have their own saver (reads event_time/train_no from
+    // inputs); routing them through saveRow() drops those fields and the
+    // backend rejects with "event_time required"
+    const results = await Promise.allSettled(trs.map(tr =>
+        tr.classList.contains('row-blank-special') ? saveBlankRow(tr) : saveRow(tr)));
     const ok = results.filter(r => r.status === 'fulfilled' && r.value === true).length;
     const fail = results.length - ok;
 
