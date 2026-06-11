@@ -192,7 +192,8 @@ router.get('/staff-sheet', async (req, res) => {
                    tr_pme.done_date AS pme_done_date, tr_pme.due_date AS pme_due_date,
                    CASE WHEN s.designation_id = 8 THEN tr_mmprc.done_date ELSE tr_refic.done_date END AS refresher_done_date,
                    CASE WHEN s.designation_id = 8 THEN tr_mmprc.due_date  ELSE tr_refic.due_date  END AS refresher_due_date,
-                   tr_auto.done_date AS auto_done_date, tr_auto.due_date AS auto_due_date
+                   tr_auto.done_date AS auto_done_date, tr_auto.due_date AS auto_due_date,
+                   cm.cli_name AS cli_name
             FROM div_staff_master s
             JOIN offices o ON s.current_office_code = o.office_code
             JOIN designations d ON s.designation_id = d.id
@@ -220,6 +221,8 @@ router.get('/staff-sheet', async (req, res) => {
                 WHERE training_id = 5
                   AND record_id IN (SELECT MAX(record_id) FROM div_training_records WHERE training_id = 5 GROUP BY staff_hrms_id)
             ) tr_auto ON s.hrms_id = tr_auto.staff_hrms_id
+            LEFT JOIN div_cli_nominations cn ON s.hrms_id = cn.staff_hrms_id AND cn.status = 'Active'
+            LEFT JOIN div_cli_master cm ON cn.cli_id = cm.cli_id
             WHERE s.status IN ('Active', 'Drafted/Ex-Cadre', 'Suspended', 'Deputation')
         `;
 

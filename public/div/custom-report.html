@@ -22,10 +22,17 @@
   .result-table { font-size: 12px; }
   .result-table thead { position: sticky; top: 0; background: #f1f3f5; z-index: 5; }
   .result-table th { font-size: 11px; color: #495057; font-weight: 600; white-space: nowrap; }
+  .result-table th.sortable { cursor: pointer; user-select: none; }
+  .result-table th.sortable:hover { background: #e2e6ea; }
+  .result-table th .sort-caret { color: #0d6efd; font-size: 10px; }
   .result-table td { white-space: nowrap; }
   .trg-overdue { background-color: #f8d7da !important; }
   .trg-due-soon { background-color: #fff3cd !important; }
   .placeholder-msg { text-align: center; padding: 60px 20px; color: #6c757d; font-size: 15px; }
+  .report-header { margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px solid #0d6efd; }
+  .report-header h4 { margin: 0 0 4px; font-size: 18px; font-weight: 700; color: #0d2a52; }
+  .report-header .meta { font-size: 12px; color: #495057; display: flex; flex-wrap: wrap; gap: 4px 18px; }
+  .report-header .meta b { color: #212529; }
   .designation-filter { max-height: 180px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 4px; padding: 6px; font-size: 12px; }
   /* Toast */
   .toast-container { position: fixed; top: 20px; right: 20px; z-index: 9999; }
@@ -95,7 +102,6 @@
         <select class="form-select form-select-sm" id="statusFilter">
           <option value="active">Active only (default)</option>
           <option value="all">All statuses</option>
-          <option value="Active">Only Active</option>
           <option value="Suspended">Only Suspended</option>
           <option value="Deputation">Only Deputation</option>
           <option value="Drafted/Ex-Cadre">Only Drafted/Ex-Cadre</option>
@@ -126,6 +132,8 @@
 // ---- State ----
 let allData = [];
 let reportData = [];
+let currentFields = [];
+let sortState = { key: null, dir: 1 };
 let designations = [];
 let selectedDesignationIds = new Set();
 let userOffice = '';
@@ -141,10 +149,12 @@ const FIELDS = [
   { key: 'pf_number',       label: 'PF Number',      group: 'Identity', type: 'text' },
   { key: 'designation_name',label: 'Designation',    group: 'Identity', type: 'text', default: true },
   { key: 'office_name',     label: 'Office',         group: 'Identity', type: 'text' },
+  { key: 'cli_name',        label: 'CLI',            group: 'Identity', type: 'text' },
   { key: 'id_card_no',      label: 'ID Card No',     group: 'Identity', type: 'text' },
 
   // Personal
   { key: 'date_of_birth',   label: 'DOB',            group: 'Personal', type: 'date' },
+  { key: 'age',             label: 'Age',            group: 'Personal', type: 'computed' },
   { key: 'fathers_name',    label: "Father's Name",  group: 'Personal', type: 'text' },
   { key: 'gender',          label: 'Gender',         group: 'Personal', type: 'text' },
   { key: 'caste',           label: 'Caste',          group: 'Personal', type: 'text' },
@@ -368,6 +378,7 @@ async function generateReport() {
       reportData = allData.filter(r => r.status === statusFilter);
     }
 
+    sortState = { key: null, dir: 1 };
     renderResultTable(selectedFields);
     document.getElementById('resultCount').textContent = `${reportData.length} staff`;
     document.getElementById('btnExcel').disabled = reportData.length === 0;
@@ -377,6 +388,63 @@ async function generateReport() {
     console.error(e);
     showToast('Error loading data: ' + e.message, 'error');
   }
+}
+
+// ---- Build report header (shown on screen + print) ----
+function buildReportHeader() {
+  const officeSel = document.getElementById('officeSelect');
+  const officeName = officeSel.value === '__ALL__' ? 'All Offices' : (officeSel.selectedOptions[0]?.text || '-');
+
+  const statusSel = document.getElementById('statusFilter');
+  const statusLabel = statusSel.selectedOptions[0]?.text || '-';
+
+  let desigLabel = 'All designations';
+  if (selectedDesignationIds.size > 0) {
+    desigLabel = designations
+      .filter(d => selectedDesignationIds.has(d.id))
+      .map(d => d.designation_name)
+      .join(', ');
+  }
+
+  return `<div class="report-header">
+    <h4>Staff Custom Report</h4>
+    <div class="meta">
+      <span><b>Office:</b> ${escapeHtml(officeName)}</span>
+      <span><b>Designation:</b> ${escapeHtml(desigLabel)}</span>
+      <span><b>Status:</b> ${escapeHtml(statusLabel)}</span>
+      <span><b>Total:</b> ${reportData.length} staff</span>
+      <span><b>Generated:</b> ${formatDate(new Date())}</span>
+    </div>
+  </div>`;
+}
+
+// ---- Sorting ----
+function getSortValue(row, f) {
+  if (f.type === 'computed' && f.key === 'age') {
+    const a = computeAge(row.date_of_birth);
+    return a === '' ? -Infinity : a;
+  }
+  if (f.type === 'date') {
+    const t = row[f.key] ? new Date(row[f.key]).getTime() : NaN;
+    return isNaN(t) ? -Infinity : t;
+  }
+  const v = row[f.key];
+  return v == null ? '' : String(v).toLowerCase();
+}
+
+function sortReport(key) {
+  const f = currentFields.find(x => x.key === key);
+  if (!f) return;
+  if (sortState.key === key) sortState.dir *= -1;
+  else { sortState.key = key; sortState.dir = 1; }
+
+  reportData.sort((a, b) => {
+    const av = getSortValue(a, f), bv = getSortValue(b, f);
+    if (av < bv) return -sortState.dir;
+    if (av > bv) return sortState.dir;
+    return 0;
+  });
+  renderResultTable(currentFields);
 }
 
 // ---- Render result table ----
@@ -391,21 +459,31 @@ function renderResultTable(selectedFields) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  let html = '<table class="table table-sm table-striped table-bordered result-table"><thead><tr>';
+  currentFields = selectedFields;
+
+  let html = buildReportHeader();
+  html += '<table class="table table-sm table-striped table-bordered result-table"><thead><tr>';
   html += '<th>#</th>';
-  selectedFields.forEach(f => { html += `<th>${escapeHtml(f.label)}</th>`; });
+  selectedFields.forEach(f => {
+    const caret = sortState.key === f.key
+      ? `<span class="sort-caret"> ${sortState.dir === 1 ? '▲' : '▼'}</span>`
+      : '';
+    html += `<th class="sortable" onclick="sortReport('${f.key}')">${escapeHtml(f.label)}${caret}</th>`;
+  });
   html += '</tr></thead><tbody>';
 
   reportData.forEach((row, idx) => {
     html += `<tr><td>${idx + 1}</td>`;
     selectedFields.forEach(f => {
-      let val = row[f.key];
+      let val;
       let cellClass = '';
 
-      if (f.type === 'date') {
-        val = formatDate(val);
+      if (f.type === 'computed' && f.key === 'age') {
+        val = computeAge(row.date_of_birth);
+      } else if (f.type === 'date') {
+        val = formatDate(row[f.key]);
       } else {
-        val = val == null ? '' : String(val);
+        val = row[f.key] == null ? '' : String(row[f.key]);
       }
 
       // Color coding for due date columns
@@ -436,8 +514,10 @@ function exportExcel() {
   reportData.forEach((row, idx) => {
     const r = [idx + 1];
     selectedFields.forEach(f => {
-      let val = row[f.key];
-      if (f.type === 'date') val = formatDate(val);
+      let val;
+      if (f.type === 'computed' && f.key === 'age') val = computeAge(row.date_of_birth);
+      else if (f.type === 'date') val = formatDate(row[f.key]);
+      else val = row[f.key];
       r.push(val == null ? '' : val);
     });
     aoa.push(r);
@@ -465,6 +545,17 @@ function formatDate(val) {
   const mm = String(d.getMonth() + 1).padStart(2, '0');
   const yyyy = d.getFullYear();
   return `${dd}/${mm}/${yyyy}`;
+}
+
+function computeAge(dob) {
+  if (!dob) return '';
+  const d = new Date(dob);
+  if (isNaN(d.getTime())) return '';
+  const today = new Date();
+  let age = today.getFullYear() - d.getFullYear();
+  const m = today.getMonth() - d.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < d.getDate())) age--;
+  return age >= 0 && age < 120 ? age : '';
 }
 
 function escapeHtml(s) {
