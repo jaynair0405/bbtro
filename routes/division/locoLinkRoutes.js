@@ -870,9 +870,20 @@ router.get('/today', async (req, res) => {
                     m.shed_code, m.link_attr, m.expected_hog, m.is_push_pull, m.traction_type,
                     m.rake_type, m.train_no,
                     COALESCE(t.train_name, m.train_name) AS train_name,
+                    prev.train_no AS renamed_from,
                     m.event_time, m.via_stations, m.run_days, m.remark
              FROM div_loco_link_master m
              LEFT JOIN div_trains t ON t.train_no = m.train_no
+             LEFT JOIN (
+                 SELECT a1.train_id, a1.train_no
+                 FROM div_train_aliases a1
+                 JOIN (
+                     SELECT train_id, MAX(valid_until) AS mx
+                     FROM div_train_aliases
+                     WHERE valid_until IS NOT NULL
+                     GROUP BY train_id
+                 ) latest ON latest.train_id = a1.train_id AND latest.mx = a1.valid_until
+             ) prev ON prev.train_id = t.train_id
              WHERE ${where.replace(/\b(active|sheet_source|direction|from_station|route_label|effective_from|effective_until|skip_dates)\b/g, 'm.$1')}
              ORDER BY m.event_time, m.id`,
             params
@@ -918,12 +929,23 @@ router.get('/today', async (req, res) => {
                 `SELECT l.id, l.master_id, l.sheet_source, l.section, l.working_date, l.direction, l.train_no,
                         l.event_time, l.from_station, l.to_station,
                         t.train_name,
+                        prev.train_no AS renamed_from,
                         l.actual_loco_no, l.base_shed, l.loco_type, l.traction_type,
                         l.hog, l.incoming_train, l.outgoing_train,
                         l.expected_shed, l.is_mislink,
                         l.remark, l.entered_by, l.updated_at
                  FROM div_loco_link_log l
                  LEFT JOIN div_trains t ON t.train_no = l.train_no
+                 LEFT JOIN (
+                     SELECT a1.train_id, a1.train_no
+                     FROM div_train_aliases a1
+                     JOIN (
+                         SELECT train_id, MAX(valid_until) AS mx
+                         FROM div_train_aliases
+                         WHERE valid_until IS NOT NULL
+                         GROUP BY train_id
+                     ) latest ON latest.train_id = a1.train_id AND latest.mx = a1.valid_until
+                 ) prev ON prev.train_id = t.train_id
                  WHERE l.working_date = ? AND l.master_id IS NULL AND l.sheet_source = ?
                  ORDER BY l.event_time, l.id`,
                 [date, sheetSource]

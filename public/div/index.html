@@ -160,6 +160,13 @@
                                 <span class="badge green">New</span>
                             </a>
                         </li>
+                        <li class="sidebar-nav-item" id="control-office-link" style="display:none;">
+                            <a href="/control-office/" class="sidebar-nav-link">
+                                <span class="icon">🚆</span>
+                                Control Office (Loco Link)
+                                <span class="badge green">New</span>
+                            </a>
+                        </li>
                         <li class="sidebar-nav-item" id="clicms-link" style="display:none;">
                             <a href="/clicms/" class="sidebar-nav-link">
                                 <span class="icon">📋</span>
@@ -901,6 +908,10 @@
                         if (el) el.style.display = '';
                         const cl = document.getElementById('clicms-link');
                         if (cl) cl.style.display = '';
+                        // Control Office (Loco Link) — division_admin already has
+                        // full ctlc authorisation server-side; just surface the link.
+                        const co = document.getElementById('control-office-link');
+                        if (co) co.style.display = '';
                     }
                 }
             } catch (e) {}
