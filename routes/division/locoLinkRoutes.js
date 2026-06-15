@@ -1981,19 +1981,31 @@ router.get('/reports/train/:train_no/history', async (req, res) => {
     const limit = Math.min(parseInt(req.query.limit, 10) || 60, 200);
     try {
         const pool = req.app.locals.pool;
+        // Alias-aware: resolve the typed number → train_id so the report shows
+        // the train's full history across every number it ever ran under
+        // (log rows carry train_id, backfilled in the architecture rebuild).
+        // Falls back to literal train_no for uncatalogued specials (train_id NULL).
+        const resolved = await resolveTrainByNo(pool, trainNo);
+        const trainId = resolved ? resolved.train_id : null;
         const [rows] = await pool.query(
-            `SELECT working_date, direction, sheet_source, section,
+            `SELECT working_date, train_no, train_no_snapshot, direction, sheet_source, section,
                     actual_loco_no, base_shed, loco_type,
                     actual_loco_no_rear, base_shed_rear,
                     expected_shed, is_mislink, is_mislink_rear,
                     hog, incoming_train, outgoing_train, remark, entered_by
              FROM div_loco_link_log
-             WHERE train_no = ?
+             WHERE ${trainId ? '(train_id = ? OR train_no = ?)' : 'train_no = ?'}
              ORDER BY working_date DESC, direction
              LIMIT ?`,
-            [trainNo, limit]
+            trainId ? [trainId, trainNo, limit] : [trainNo, limit]
         );
-        res.json({ train_no: trainNo, total: rows.length, rows });
+        res.json({
+            train_no: trainNo,
+            train_id: trainId,
+            current_train_no: resolved ? resolved.current_train_no : trainNo,
+            total: rows.length,
+            rows,
+        });
     } catch (err) {
         console.error('[loco-link /reports/train/:n/history]', err);
         res.status(500).json({ error: 'Report failed' });
@@ -2549,12 +2561,20 @@ router.post('/defects', async (req, res) => {
             loco_type = locoRows[0].loco_type;
         }
 
+        // Resolve stable train identity so the defect stays attached to the
+        // train across future renumbers. No as-of date: LPC may type an old
+        // number they still know the train by, and we want it found regardless
+        // (resolveTrainByNo prefers the current alias, else most recent).
+        // NULL when no train_no given or it isn't catalogued.
+        const resolved = train_no ? await resolveTrainByNo(pool, train_no) : null;
+        const train_id = resolved ? resolved.train_id : null;
+
         const [result] = await pool.query(
             `INSERT INTO div_loco_defects
-             (loco_number, train_no, working_date, defect_category, description, severity,
+             (loco_number, train_no, train_id, working_date, defect_category, description, severity,
               home_shed, loco_type, reported_by, reported_at, reported_at_terminal)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?)`,
-            [loco_number, train_no || null, working_date, defect_category, description, severity,
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?)`,
+            [loco_number, train_no || null, train_id, working_date, defect_category, description, severity,
              home_shed, loco_type, u.username, reported_at_terminal]
         );
 
@@ -3367,25 +3387,42 @@ router.get('/trains', async (req, res) => {
 
     try {
         const pool = req.app.locals.pool;
+        // New alias model: div_trains row always holds the CURRENT number;
+        // historical numbers live in div_train_aliases (valid_until NOT NULL).
+        // `renamed_from` = the train's most recent prior number, so the UI can
+        // show "was 09057". There is no `renamed_to` anymore — the row itself
+        // carries the current number (the frontend handles its absence).
         let sql = `SELECT t.train_no, t.train_name, t.train_type, t.direction,
                           t.from_station, t.to_station, t.loco_change_station,
                           t.run_days, t.traction_type, t.is_regular, t.is_active,
-                          a_renamed.new_train_no AS renamed_to,
-                          a_renamed.renamed_date AS renamed_to_date,
-                          a_was.old_train_no    AS renamed_from,
-                          a_was.renamed_date    AS renamed_from_date
+                          prev.train_no    AS renamed_from,
+                          prev.valid_until AS renamed_from_date
                    FROM div_trains t
-                   LEFT JOIN div_train_aliases a_renamed ON a_renamed.old_train_no = t.train_no
-                   LEFT JOIN div_train_aliases a_was     ON a_was.new_train_no     = t.train_no
+                   LEFT JOIN (
+                       SELECT a1.train_id, a1.train_no, a1.valid_until
+                       FROM div_train_aliases a1
+                       JOIN (
+                           SELECT train_id, MAX(valid_until) AS mx
+                           FROM div_train_aliases
+                           WHERE valid_until IS NOT NULL
+                           GROUP BY train_id
+                       ) latest ON latest.train_id = a1.train_id
+                                AND latest.mx = a1.valid_until
+                   ) prev ON prev.train_id = t.train_id
                    WHERE 1=1`;
         const params = [];
         if (status === 'active')        sql += ' AND t.is_active = 1';
         else if (status === 'inactive') sql += ' AND t.is_active = 0';
         // 'all' = no filter
         if (search) {
-            sql += ' AND (t.train_no LIKE ? OR t.train_name LIKE ?)';
+            // Alias-aware: typing an old number (e.g. 09057) finds the train
+            // now running as 19057, via any alias on the same train_id.
+            sql += ` AND (t.train_no LIKE ? OR t.train_name LIKE ?
+                          OR t.train_id IN (
+                              SELECT train_id FROM div_train_aliases WHERE train_no LIKE ?
+                          ))`;
             const pat = `%${search}%`;
-            params.push(pat, pat);
+            params.push(pat, pat, pat);
         }
         sql += ' ORDER BY t.train_no';
         const [rows] = await pool.query(sql, params);
