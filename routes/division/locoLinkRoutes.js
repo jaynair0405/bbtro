@@ -196,6 +196,60 @@ function effectiveOnDate(master, dateStr) {
 }
 
 /**
+ * Resolve any train_no (current or historical) to a train_id via div_train_aliases.
+ *
+ * The aliases table holds one row per (train_id, train_no) ever used. Currently
+ * valid aliases have valid_until = NULL; historical ones have a date there.
+ *
+ * If `asOfDate` (YYYY-MM-DD) is supplied, returns the alias that was active on
+ * that date — useful for historical reports that should display the train_no
+ * LPC actually saw on that day.
+ *
+ * Otherwise prefers the currently-valid alias (most useful for lookups by an
+ * old number → resolves to the current train).
+ *
+ * @param {Object} pool - MySQL connection pool
+ * @param {string} trainNo - The number LPC typed (could be old or new)
+ * @param {string} [asOfDate] - Optional YYYY-MM-DD for time-bound resolution
+ * @returns {Promise<{train_id, current_train_no, train_name, ran_as, was_aliased} | null>}
+ */
+async function resolveTrainByNo(pool, trainNo, asOfDate) {
+    const tn = String(trainNo || '').trim();
+    if (!tn) return null;
+    let sql, params;
+    if (asOfDate && /^\d{4}-\d{2}-\d{2}$/.test(asOfDate)) {
+        // Find the alias that was valid on that specific date
+        sql = `SELECT a.train_id,
+                      a.train_no AS ran_as,
+                      a.valid_from, a.valid_until,
+                      t.train_no AS current_train_no, t.train_name,
+                      (a.train_no <> t.train_no) AS was_aliased
+               FROM div_train_aliases a
+               JOIN div_trains t ON t.train_id = a.train_id
+               WHERE a.train_no = ?
+                 AND (a.valid_from IS NULL OR a.valid_from <= ?)
+                 AND (a.valid_until IS NULL OR a.valid_until >= ?)
+               LIMIT 1`;
+        params = [tn, asOfDate, asOfDate];
+    } else {
+        // Prefer currently-valid (valid_until IS NULL); otherwise most recent
+        sql = `SELECT a.train_id,
+                      a.train_no AS ran_as,
+                      a.valid_from, a.valid_until,
+                      t.train_no AS current_train_no, t.train_name,
+                      (a.train_no <> t.train_no) AS was_aliased
+               FROM div_train_aliases a
+               JOIN div_trains t ON t.train_id = a.train_id
+               WHERE a.train_no = ?
+               ORDER BY (a.valid_until IS NULL) DESC, a.valid_until DESC
+               LIMIT 1`;
+        params = [tn];
+    }
+    const [rows] = await pool.query(sql, params);
+    return rows.length ? rows[0] : null;
+}
+
+/**
  * Parse event_time string (e.g., "22:05", "0:30", "02:25 03:00") to minutes since midnight.
  * For compound times like "02:25 03:00", uses the first time.
  * Returns null if unparseable.
@@ -1158,10 +1212,18 @@ router.post('/log', async (req, res) => {
         const log_from_station = master_id ? null : reqFromStation;
         const log_to_station   = master_id ? null : reqToStation;
 
+        // Resolve the stable train identity (architecture rebuild). working_date
+        // is the as-of date so a historical number resolves to the train that
+        // ran that day. train_id is NULL for an uncatalogued inline special —
+        // the column is nullable; the snapshot still preserves what ran.
+        const resolvedTrain = await resolveTrainByNo(pool, train_no, working_date);
+        const train_id = resolvedTrain ? resolvedTrain.train_id : null;
+        const train_no_snapshot = train_no;
+
         // UPSERT
         const [result] = await pool.query(
             `INSERT INTO div_loco_link_log
-                (working_date, direction, train_no, master_id, sheet_source, section, event_time, from_station, to_station,
+                (working_date, direction, train_no, train_id, train_no_snapshot, master_id, sheet_source, section, event_time, from_station, to_station,
                  actual_loco_no, main_loco_dead, failed_in_division,
                  actual_loco_no_rear, secondary_role,
                  base_shed, base_shed_rear,
@@ -1169,8 +1231,10 @@ router.post('/log', async (req, res) => {
                  hog, incoming_train, outgoing_train, outgoing_train_rear,
                  expected_shed, is_mislink, is_mislink_rear,
                  remark, remarks_rear, entered_by)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
              ON DUPLICATE KEY UPDATE
+                train_id             = VALUES(train_id),
+                train_no_snapshot    = VALUES(train_no_snapshot),
                 master_id            = VALUES(master_id),
                 sheet_source         = VALUES(sheet_source),
                 section              = VALUES(section),
@@ -1197,7 +1261,7 @@ router.post('/log', async (req, res) => {
                 remark               = VALUES(remark),
                 remarks_rear         = VALUES(remarks_rear),
                 entered_by           = VALUES(entered_by)`,
-            [working_date, direction, train_no, master_id, sheet_source, section, log_event_time, log_from_station, log_to_station,
+            [working_date, direction, train_no, train_id, train_no_snapshot, master_id, sheet_source, section, log_event_time, log_from_station, log_to_station,
              actual_loco_no, main_loco_dead, failed_in_division,
              actual_loco_no_rear, secondary_role,
              base_shed, base_shed_rear,
@@ -1300,6 +1364,10 @@ router.post('/log', async (req, res) => {
             const tgtExpected = tgtMaster.shed_code;
             const tgtMislink = tgtExpected && tgtBase && tgtExpected !== tgtBase ? 1 : 0;
 
+            // Resolve the propagated train's stable identity (as of its own date)
+            const tgtResolved = await resolveTrainByNo(pool, tn, targetDate);
+            const tgtTrainId = tgtResolved ? tgtResolved.train_id : null;
+
             // The reverse pointer: target is DN → set its incoming_train to the source UP train;
             //                      target is UP → set its outgoing_train to the source DN train.
             // Only set if currently empty on the target (don't overwrite existing).
@@ -1313,9 +1381,12 @@ router.post('/log', async (req, res) => {
                     `UPDATE div_loco_link_log
                      SET actual_loco_no = ?, base_shed = ?, loco_type = ?, traction_type = ?,
                          expected_shed = ?, is_mislink = ?,
+                         train_id = COALESCE(train_id, ?),
+                         train_no_snapshot = COALESCE(train_no_snapshot, ?),
                          ${reverseField} = ?
                      WHERE id = ?`,
                     [locoNo, tgtBase, tgtType, tgtTraction, tgtExpected, tgtMislink,
+                     tgtTrainId, tn,
                      newReverse, existing[0].id]
                 );
                 propagated.push({
@@ -1328,11 +1399,11 @@ router.post('/log', async (req, res) => {
                 // Insert new log row with propagated snapshot + reverse pointer
                 const [ins] = await pool.query(
                     `INSERT INTO div_loco_link_log
-                        (working_date, direction, train_no, master_id, sheet_source, section,
+                        (working_date, direction, train_no, train_id, train_no_snapshot, master_id, sheet_source, section,
                          actual_loco_no, base_shed, loco_type, traction_type,
                          expected_shed, is_mislink, ${reverseField}, entered_by)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                    [targetDate, targetDirection, tn, tgtMaster.id,
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                    [targetDate, targetDirection, tn, tgtTrainId, tn, tgtMaster.id,
                      tgtMaster.sheet_source, tgtMaster.section,
                      locoNo, tgtBase, tgtType, tgtTraction,
                      tgtExpected, tgtMislink, newReverse, u.username]
@@ -3472,11 +3543,23 @@ router.delete('/trains/:train_no', requireSettingsRole, async (req, res) => {
 
 // ── POST /trains/:old/renumber — rename a train; record alias mapping ────
 //   Body: { new_train_no, renamed_date }
+//
+// New alias model (post architecture rebuild):
+//   - Resolve old number → train_id via div_train_aliases (any alias works:
+//     current or historical)
+//   - Verify new number is not already in use by any active alias
+//   - Transaction:
+//       1. close old alias: UPDATE valid_until = renamed_date
+//       2. open new alias:  INSERT (train_id, new_no, renamed_date, NULL)
+//       3. update display:  UPDATE div_trains.train_no = new_no for that
+//          train_id
+//   - No cascade to downstream tables (master/log/sick/defects/positions all
+//     reference train_id, which doesn't change). History stays intact.
 router.post('/trains/:train_no/renumber', requireSettingsRole, async (req, res) => {
     const oldNo = String(req.params.train_no || '').trim();
     const b = req.body || {};
     const newNo = String(b.new_train_no || '').trim();
-    const renamedDate = String(b.renamed_date || '').trim();
+    const renamedDate = String(b.renamed_date || '').trim() || todayISO();
 
     if (!oldNo) return res.status(400).json({ error: 'old train_no required' });
     if (!newNo) return res.status(400).json({ error: 'new_train_no required' });
@@ -3484,60 +3567,91 @@ router.post('/trains/:train_no/renumber', requireSettingsRole, async (req, res) 
     if (!/^[0-9A-Za-z]{1,10}$/.test(newNo)) {
         return res.status(400).json({ error: 'new_train_no must be 1-10 alphanumeric chars' });
     }
-    if (renamedDate && !/^\d{4}-\d{2}-\d{2}$/.test(renamedDate)) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(renamedDate)) {
         return res.status(400).json({ error: 'renamed_date must be YYYY-MM-DD' });
     }
 
+    const pool = req.app.locals.pool;
+    let conn;
     try {
-        const pool = req.app.locals.pool;
-        // Verify old exists
-        const [oldRow] = await pool.query(
-            'SELECT train_no FROM div_trains WHERE train_no = ? LIMIT 1',
-            [oldNo]
-        );
-        if (!oldRow.length) return res.status(404).json({ error: `train ${oldNo} not found` });
+        // Resolve old number → train_id (alias-aware: accepts old or current number)
+        const resolved = await resolveTrainByNo(pool, oldNo);
+        if (!resolved) {
+            return res.status(404).json({ error: `train ${oldNo} not found in trains or aliases` });
+        }
+        const trainId = resolved.train_id;
 
-        // Reject if new number already exists
+        // Reject if new number is already an active alias for ANY train (incl. this one)
         const [collision] = await pool.query(
-            'SELECT train_no FROM div_trains WHERE train_no = ? LIMIT 1',
+            `SELECT train_id FROM div_train_aliases
+             WHERE train_no = ? AND valid_until IS NULL
+             LIMIT 1`,
             [newNo]
         );
         if (collision.length) {
             return res.status(409).json({
-                error: `train ${newNo} already exists`,
-                hint: 'Merge them manually first if this is the right target',
+                error: `train number ${newNo} is already in active use`,
+                hint: collision[0].train_id === trainId
+                    ? 'This train is already running under that number.'
+                    : 'Merge or deactivate the conflicting train before renumbering.',
             });
         }
 
-        // Apply: insert alias + rename in div_trains atomically-ish.
-        // (No explicit transaction since both are independent; if alias INSERT
-        // fails on duplicate old_train_no, surface that error to the user.)
-        await pool.query(
-            `INSERT INTO div_train_aliases (old_train_no, new_train_no, renamed_date)
-             VALUES (?, ?, ?)`,
-            [oldNo, newNo, renamedDate || null]
+        // Transactional apply
+        conn = await pool.getConnection();
+        await conn.beginTransaction();
+
+        // 1. Close the currently-valid alias for the old number on this train_id
+        const [closeRes] = await conn.query(
+            `UPDATE div_train_aliases
+             SET valid_until = ?
+             WHERE train_id = ? AND train_no = ? AND valid_until IS NULL`,
+            [renamedDate, trainId, resolved.ran_as]
         );
-        await pool.query(
-            'UPDATE div_trains SET train_no = ? WHERE train_no = ?',
-            [newNo, oldNo]
+        if (!closeRes.affectedRows) {
+            // No currently-valid alias to close — happens if the old number
+            // was already historical. We still record the new number.
+        }
+
+        // 2. Open the new alias as currently-valid
+        await conn.query(
+            `INSERT INTO div_train_aliases (train_id, train_no, valid_from, valid_until)
+             VALUES (?, ?, ?, NULL)`,
+            [trainId, newNo, renamedDate]
         );
 
+        // 3. Update div_trains.train_no (display layer) to the new number
+        await conn.query(
+            `UPDATE div_trains SET train_no = ? WHERE train_id = ?`,
+            [newNo, trainId]
+        );
+
+        await conn.commit();
+        conn.release();
+
         const [updated] = await pool.query(
-            'SELECT * FROM div_trains WHERE train_no = ?', [newNo]
+            `SELECT * FROM div_trains WHERE train_id = ?`, [trainId]
+        );
+        const [aliases] = await pool.query(
+            `SELECT train_no, valid_from, valid_until FROM div_train_aliases
+             WHERE train_id = ? ORDER BY valid_until DESC`,
+            [trainId]
         );
         res.json({
             ok: true,
-            old_train_no: oldNo,
+            train_id: trainId,
+            old_train_no: resolved.ran_as,
             new_train_no: newNo,
-            renamed_date: renamedDate || null,
+            renamed_date: renamedDate,
             train: updated[0],
+            aliases,
         });
     } catch (err) {
-        // ER_DUP_ENTRY on aliases means old_train_no was already renumbered
+        if (conn) { try { await conn.rollback(); } catch {} conn.release(); }
         if (err && err.code === 'ER_DUP_ENTRY') {
             return res.status(409).json({
-                error: `train ${oldNo} has already been renamed previously`,
-                hint: 'Check /train-aliases for the existing mapping',
+                error: 'Duplicate alias',
+                hint: 'A row for this (train_id, train_no) already exists.',
             });
         }
         console.error('[loco-link POST /trains/:no/renumber]', err);
@@ -3546,14 +3660,37 @@ router.post('/trains/:train_no/renumber', requireSettingsRole, async (req, res) 
 });
 
 // ── GET /train-aliases — list past renamings ─────────────────────────────
+// New shape: groups by train_id and shows the old → new history with the
+// renamed_date (= old alias's valid_until = new alias's valid_from).
+// ?train_no=X to filter — accepts either the current or any historical
+// number; via resolveTrainByNo() it finds the train_id and lists all its
+// aliases.
 router.get('/train-aliases', async (req, res) => {
     if (!req.session.user) return res.status(401).json({ error: 'not logged in' });
     try {
         const pool = req.app.locals.pool;
+        const trainNo = String(req.query.train_no || '').trim();
+        let where = '';
+        let params = [];
+        if (trainNo) {
+            const resolved = await resolveTrainByNo(pool, trainNo);
+            if (!resolved) return res.json({ total: 0, rows: [] });
+            where = 'WHERE a.train_id = ?';
+            params = [resolved.train_id];
+        }
         const [rows] = await pool.query(
-            `SELECT old_train_no, new_train_no, renamed_date
-             FROM div_train_aliases
-             ORDER BY renamed_date DESC, old_train_no`
+            `SELECT a.train_id,
+                    a.train_no,
+                    a.valid_from,
+                    a.valid_until,
+                    t.train_no AS current_train_no,
+                    t.train_name,
+                    (a.valid_until IS NOT NULL) AS is_historical
+             FROM div_train_aliases a
+             JOIN div_trains t ON t.train_id = a.train_id
+             ${where}
+             ORDER BY a.train_id, a.valid_until DESC`,
+            params
         );
         res.json({ total: rows.length, rows });
     } catch (err) {
