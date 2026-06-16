@@ -931,6 +931,10 @@ router.get('/today', async (req, res) => {
                         t.train_name,
                         prev.train_no AS renamed_from,
                         l.actual_loco_no, l.base_shed, l.loco_type, l.traction_type,
+                        l.main_loco_dead, l.failed_in_division,
+                        l.actual_loco_no_rear, l.secondary_role,
+                        l.base_shed_rear, l.loco_type_rear,
+                        l.outgoing_train_rear, l.remarks_rear, l.is_mislink_rear,
                         l.hog, l.incoming_train, l.outgoing_train,
                         l.expected_shed, l.is_mislink,
                         l.remark, l.entered_by, l.updated_at

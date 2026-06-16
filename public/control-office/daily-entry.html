@@ -1654,7 +1654,7 @@ function renderSheet(data) {
                     }));
                 }
             } else {
-                body.appendChild(renderSpecialRow(item.data, data.editable));
+                appendSpecialWithRear(body, item.data, data.editable);
             }
         }
 
@@ -1704,6 +1704,156 @@ function renamedBadge(renamedFrom) {
     return ` <span class="pill renamed" title="Previously numbered ${esc(renamedFrom)}">was ${esc(renamedFrom)}</span>`;
 }
 
+// ── Special-train extra-loco / dead-loco support ─────────────────────────
+// Special (master-less) rows now get the same "+ second loco" and "Dead"
+// controls regular rows have. The backend already accepts these fields for
+// master-less rows; this is purely the missing UI.
+
+// Dead-loco controls markup (Dead checkbox + failure-origin radios).
+// keyName makes the radio group unique per row. Shared by special rows.
+function deadControlsHtml(log, keyName) {
+    log = log || {};
+    const isDn = direction === 'DN';
+    const isBypassRow = direction === 'BYPASS';
+    const labelOut = isBypassRow ? 'outside' : (isDn ? 'after' : 'before');
+    const tipOut = isBypassRow
+        ? 'Failed outside our division / not attributable to BB'
+        : isDn
+        ? 'Failed after leaving our division (next division\'s responsibility)'
+        : 'Failed before entering our division (handover division\'s responsibility)';
+    const radIn  = `<label title="Failed within our division"><input type="radio" name="fail-${keyName}" value="1" data-field="failed_in_division" ${log.failed_in_division === 1 ? 'checked' : ''}> in-div</label>`;
+    const radOut = `<label title="${tipOut}"><input type="radio" name="fail-${keyName}" value="0" data-field="failed_in_division" ${log.failed_in_division === 0 ? 'checked' : ''}> ${labelOut}</label>`;
+    return `
+        <div class="dead-controls ${log.main_loco_dead ? 'dead-on' : ''}">
+            <label><input type="checkbox" data-field="main_loco_dead" ${log.main_loco_dead ? 'checked' : ''}> Dead</label>
+            <span class="failed-where">${isDn ? radIn + radOut : radOut + radIn}</span>
+        </div>`;
+}
+
+// Wire the Dead checkbox: toggle failure-origin radios + DEAD pill.
+function wireDeadToggle(tr) {
+    const deadCheckbox = tr.querySelector('input[data-field="main_loco_dead"]');
+    const deadControls = tr.querySelector('.dead-controls');
+    if (!deadCheckbox || !deadControls) return;
+    deadCheckbox.addEventListener('change', () => {
+        deadControls.classList.toggle('dead-on', deadCheckbox.checked);
+        let pill = tr.querySelector('.loco-cell-wrap .dead-pill');
+        if (deadCheckbox.checked && !pill) {
+            pill = document.createElement('span');
+            pill.className = 'dead-pill';
+            pill.textContent = 'DEAD';
+            tr.querySelector('.loco-cell-wrap').appendChild(pill);
+        } else if (!deadCheckbox.checked && pill) {
+            pill.remove();
+            tr.querySelectorAll('input[data-field="failed_in_division"]').forEach(r => r.checked = false);
+        }
+    });
+}
+
+// Rear (second-loco) row for a special. Paired to its front via data-special-key.
+function renderSpecialRearRow(specialKey, log, editable) {
+    log = log || {};
+    const tr = document.createElement('tr');
+    tr.classList.add('row-rear');
+    tr.dataset.specialKey = specialKey;
+    tr.dataset.position = 'rear';
+    tr.dataset.special = '1';
+    const dis = editable ? '' : 'disabled';
+    const role = log.secondary_role || 'assist';
+    const roleSelect = `<select class="role-select" data-field="secondary_role" ${dis}>
+            <option value="assist"${role==='assist'?' selected':''}>Assist</option>
+            <option value="coupler"${role==='coupler'?' selected':''}>Coupler</option>
+            <option value="dead_in_tow"${role==='dead_in_tow'?' selected':''}>Dead-in-tow</option>
+        </select>`;
+    tr.innerHTML = `
+        <td class="col-sr">${roleSelect}</td>
+        <td class="col-time"></td>
+        <td class="col-train"></td>
+        <td class="col-link"></td>
+        <td class="col-actual">
+            <div class="loco-cell-wrap">
+                <input type="text" class="loco-input" maxlength="20" placeholder="2nd loco"
+                       value="${esc(log.actual_loco_no_rear || '')}" ${dis}
+                       data-field="actual_loco_no_rear">
+                <button class="add-second-btn" data-action="remove-second-special" title="Remove second loco" style="margin-left:4px">×</button>
+            </div>
+        </td>
+        <td class="col-base">
+            <div class="base-display ${log.base_shed_rear ? '' : 'empty'}" data-field="base_shed_rear">${esc(log.base_shed_rear || '—')}</div>
+        </td>
+        <td class="col-hog"></td>
+        <td class="col-other">
+            <input type="text" maxlength="20" placeholder="next train (if reassigned)"
+                   value="${esc(log.outgoing_train_rear || '')}" ${dis}
+                   data-field="outgoing_train_rear"
+                   title="If this assist/coupler loco is attached to a DN train later, type it here">
+        </td>
+        <td class="col-remark">
+            <input type="text" maxlength="500" placeholder="remarks for this loco" ${dis}
+                   value="${esc(log.remarks_rear || '')}" data-field="remarks_rear">
+        </td>
+        <td class="col-status"><span class="status-msg"></span></td>
+    `;
+    if (editable) attachSpecialRearHandlers(tr);
+    return tr;
+}
+
+// Handlers for a special rear row: mark the paired front's Save button dirty,
+// autofill the rear loco's base shed, and remove the row on ×.
+function attachSpecialRearHandlers(tr) {
+    const key = tr.dataset.specialKey;
+    const frontOf = () => document.querySelector(`tr[data-special-key="${key}"][data-position="front"]`);
+    const markDirty = () => {
+        const sb = frontOf()?.querySelector('button.save-btn');
+        if (sb) { sb.classList.add('dirty'); updateDirtyBar(); }
+    };
+    tr.querySelectorAll('input, select').forEach(el => {
+        el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', markDirty);
+    });
+    const rm = tr.querySelector('button[data-action="remove-second-special"]');
+    if (rm) rm.addEventListener('click', () => { tr.remove(); markDirty(); });
+
+    const locoInput = tr.querySelector('input[data-field="actual_loco_no_rear"]');
+    const baseDisplay = tr.querySelector('.base-display');
+    if (locoInput) {
+        locoInput.addEventListener('blur', async () => {
+            const raw = locoInput.value.trim();
+            if (!raw) { baseDisplay.textContent = '—'; baseDisplay.classList.add('empty'); return; }
+            const lookupNo = raw.includes('+') ? raw.split('+')[0].trim() : raw;
+            try {
+                const r = await fetch(`/api/division/loco-link/loco/${encodeURIComponent(lookupNo)}/autofill`);
+                if (r.status === 404) { baseDisplay.textContent = '—'; baseDisplay.classList.add('empty'); return; }
+                if (!r.ok) throw new Error();
+                const { loco } = await r.json();
+                baseDisplay.textContent = loco.home_shed || '—';
+                baseDisplay.classList.toggle('empty', !loco.home_shed);
+            } catch (e) { /* leave as-is on network error */ }
+        });
+    }
+}
+
+// "+" on a special front row → add (or focus) its rear row.
+function addSecondLocoRowSpecial(frontTr) {
+    const key = frontTr.dataset.specialKey;
+    let rear = document.querySelector(`tr[data-special-key="${key}"][data-position="rear"]`);
+    if (rear) { rear.querySelector('input[data-field="actual_loco_no_rear"]')?.focus(); return; }
+    rear = renderSpecialRearRow(key, {}, true);
+    frontTr.parentNode.insertBefore(rear, frontTr.nextSibling);
+    const sb = frontTr.querySelector('button.save-btn');
+    if (sb) { sb.classList.add('dirty'); updateDirtyBar(); }
+    setTimeout(() => rear.querySelector('input[data-field="actual_loco_no_rear"]')?.focus(), 0);
+}
+
+// Append a special front row (+ its rear row when one was saved) to a parent.
+function appendSpecialWithRear(parent, sp, editable) {
+    const front = renderSpecialRow(sp, editable);
+    parent.appendChild(front);
+    if (sp.actual_loco_no_rear) {
+        parent.appendChild(renderSpecialRearRow(front.dataset.specialKey, sp, editable));
+    }
+    return front;
+}
+
 // Attach a forgiving HH:MM formatter to a time-entry input.
 //   • on 'input': replaces '.' with ':'; strips non-digit/colon chars
 //   • on 'blur':  pads "2:10" → "02:10" so saves always send HH:MM
@@ -1750,6 +1900,8 @@ function renderSpecialRow(log, editable) {
     tr.dataset.toStation = log.to_station || '';
     tr.dataset.position = 'front';
     tr.dataset.special = '1';
+    const specialKey = 'sp' + log.id;
+    tr.dataset.specialKey = specialKey;
     if (log.actual_loco_no) tr.classList.add('row-saved');
     const dis = editable ? '' : 'disabled';
     const inOutField = direction === 'UP' ? 'outgoing_train' : 'incoming_train';
@@ -1764,9 +1916,14 @@ function renderSpecialRow(log, editable) {
         </td>
         <td class="col-link"><small style="color:var(--muted)">special train${log.section ? ' · ' + esc(log.section) : ''}</small></td>
         <td class="col-actual">
-            <input type="text" class="loco-input" maxlength="10" placeholder="loco no"
-                   value="${esc(log.actual_loco_no || '')}" ${dis}
-                   data-field="actual_loco_no">
+            <div class="loco-cell-wrap">
+                <input type="text" class="loco-input" maxlength="20" placeholder="loco no"
+                       value="${esc(log.actual_loco_no || '')}" ${dis}
+                       data-field="actual_loco_no">
+                ${editable ? `<button class="add-second-btn" data-action="add-second-special" title="Add assist / coupler / dead-in-tow loco">+</button>` : ''}
+                ${log.main_loco_dead ? '<span class="dead-pill">DEAD</span>' : ''}
+            </div>
+            ${editable ? deadControlsHtml(log, specialKey) : ''}
         </td>
         <td class="col-base">
             <div class="base-display ${log.base_shed ? '' : 'empty'}" data-field="base_shed">
@@ -1805,9 +1962,12 @@ function renderBlankRow(section, fromStation, toStation) {
     tr.dataset.section = section || '';
     tr.dataset.fromStation = fromStation || '';
     tr.dataset.toStation = toStation || '';
-    tr.dataset.blankSeq = ++blankRowSeq;
+    const blankSeq = ++blankRowSeq;
+    tr.dataset.blankSeq = blankSeq;
     tr.dataset.position = 'front';
     tr.dataset.special = '1';
+    const specialKey = 'spb' + blankSeq;
+    tr.dataset.specialKey = specialKey;
     const inOutField = direction === 'UP' ? 'outgoing_train' : 'incoming_train';
 
     tr.innerHTML = `
@@ -1824,8 +1984,12 @@ function renderBlankRow(section, fromStation, toStation) {
         </td>
         <td class="col-link"><small style="color:var(--muted)">special train</small></td>
         <td class="col-actual">
-            <input type="text" class="loco-input" maxlength="10" placeholder="loco no" autocomplete="off"
-                   data-field="actual_loco_no">
+            <div class="loco-cell-wrap">
+                <input type="text" class="loco-input" maxlength="20" placeholder="loco no" autocomplete="off"
+                       data-field="actual_loco_no">
+                <button class="add-second-btn" data-action="add-second-special" title="Add assist / coupler / dead-in-tow loco">+</button>
+            </div>
+            ${deadControlsHtml({}, specialKey)}
         </td>
         <td class="col-base">
             <div class="base-display empty" data-field="base_shed">—</div>
@@ -2225,7 +2389,7 @@ function renderBypass(data) {
         }
         // Inline specials saved against this route
         for (const sp of (specialsByRoute.get(route) || [])) {
-            body.appendChild(renderSpecialRow(sp, data.editable));
+            appendSpecialWithRear(body, sp, data.editable);
         }
         specialsByRoute.delete(route);
         // One blank + Add Special button per route (use the route_label as 'section'
@@ -2245,7 +2409,7 @@ function renderBypass(data) {
             <span class="route-name"><i class="fa-solid fa-route"></i> ${esc(sec === '(no route)' ? 'OTHER' : sec)}</span>
         </td>`;
         body.appendChild(header);
-        for (const sp of sps) body.appendChild(renderSpecialRow(sp, data.editable));
+        for (const sp of sps) appendSpecialWithRear(body, sp, data.editable);
         if (data.editable) {
             body.appendChild(renderBlankRow(sec === '(no route)' ? '' : sec, ''));
             body.appendChild(renderAddButton(sec === '(no route)' ? '' : sec, ''));
@@ -2413,6 +2577,12 @@ function attachRowHandlers(tr) {
         addSecondBtn.addEventListener('click', () => addSecondLocoRow(tr));
     }
 
+    // "+" on a saved special row → add its (master-less) rear row
+    const addSecondSpecialBtn = tr.querySelector('button[data-action="add-second-special"]');
+    if (addSecondSpecialBtn) {
+        addSecondSpecialBtn.addEventListener('click', () => addSecondLocoRowSpecial(tr));
+    }
+
     // 🔧 Defect button — open modal to report defect (UP rows only).
     // Works for both front and rear rows; reads loco/base from the appropriate
     // input/display based on row position. Auto-saves the daily-entry row
@@ -2477,8 +2647,20 @@ function attachRowHandlers(tr) {
             const parts = v.split('+').map(s => s.trim()).filter(Boolean);
             if (parts.length !== 2) return;
             frontInput.value = parts[0];
-            // Insert (or update) a rear coupler row
-            ensureRearRow(tr, parts[1], 'coupler');
+            if (tr.dataset.special === '1') {
+                // Special row: create/update its master-less rear coupler row
+                addSecondLocoRowSpecial(tr);
+                const rear = document.querySelector(`tr[data-special-key="${tr.dataset.specialKey}"][data-position="rear"]`);
+                if (rear) {
+                    const ri = rear.querySelector('input[data-field="actual_loco_no_rear"]');
+                    if (ri) { ri.value = parts[1]; ri.dispatchEvent(new Event('blur')); }
+                    const rs = rear.querySelector('select[data-field="secondary_role"]');
+                    if (rs) rs.value = 'coupler';
+                }
+            } else {
+                // Insert (or update) a rear coupler row (master-linked)
+                ensureRearRow(tr, parts[1], 'coupler');
+            }
             // Re-fire autofill on the front input now that value changed
             frontInput.dispatchEvent(new Event('blur'));
         });
@@ -2730,8 +2912,18 @@ function attachBlankRowHandlers(tr) {
         });
     }
 
+    // Dead-loco toggle + "add second loco" on the blank special row
+    wireDeadToggle(tr);
+    const addSecondSpecialBtn = tr.querySelector('button[data-action="add-second-special"]');
+    if (addSecondSpecialBtn) {
+        addSecondSpecialBtn.addEventListener('click', () => addSecondLocoRowSpecial(tr));
+    }
+
     saveBtn.addEventListener('click', () => saveBlankRow(tr));
     cancelBtn.addEventListener('click', () => {
+        // Drop the paired rear row too, if one was added
+        const rear = document.querySelector(`tr[data-special-key="${tr.dataset.specialKey}"][data-position="rear"]`);
+        if (rear) rear.remove();
         tr.remove();
         updateDirtyBar();
     });
@@ -2766,6 +2958,23 @@ async function saveBlankRow(tr) {
         return (el.value || '').trim() || null;
     };
 
+    // Dead-loco state (front loco)
+    const deadEl = tr.querySelector('input[data-field="main_loco_dead"]');
+    const main_loco_dead = deadEl && deadEl.checked ? 1 : 0;
+    let failed_in_division = null;
+    if (main_loco_dead) {
+        const rad = tr.querySelector('input[data-field="failed_in_division"]:checked');
+        if (rad) failed_in_division = Number(rad.value);
+    }
+
+    // Optional second (assist / coupler / dead-in-tow) loco from the paired rear row
+    const rearRow = document.querySelector(`tr[data-special-key="${tr.dataset.specialKey}"][data-position="rear"]`);
+    const rg = (f) => rearRow ? ((rearRow.querySelector(`[data-field="${f}"]`)?.value || '').trim() || null) : null;
+    const rearLoco = rg('actual_loco_no_rear');
+    const secondaryRole = rearLoco
+        ? (rearRow.querySelector('select[data-field="secondary_role"]')?.value || 'assist')
+        : null;
+
     const body = {
         working_date: currentDate,
         direction,
@@ -2777,6 +2986,12 @@ async function saveBlankRow(tr) {
         to_station:   tr.dataset.toStation   || null,
         event_time: eventTime,
         actual_loco_no: get('actual_loco_no'),
+        main_loco_dead,
+        failed_in_division,
+        actual_loco_no_rear: rearLoco,
+        secondary_role: secondaryRole,
+        outgoing_train_rear: rg('outgoing_train_rear'),
+        remarks_rear: rg('remarks_rear'),
         hog: get('hog') ? 1 : 0,
         incoming_train: get('incoming_train'),
         outgoing_train: get('outgoing_train'),
@@ -2798,9 +3013,16 @@ async function saveBlankRow(tr) {
         if (!r.ok) {
             setStatus(tr, `<span class="err">${esc(data.error || 'Save failed')}</span>`, true);
         } else if (data.log) {
-            // Replace this blank row with a saved special row
+            // Replace this blank row with a saved special row (+ its rear row)
             const newRow = renderSpecialRow(data.log, true);
             tr.parentNode.replaceChild(newRow, tr);
+            if (rearRow) rearRow.remove();  // discard the blank's rear row
+            if (data.log.actual_loco_no_rear) {
+                newRow.parentNode.insertBefore(
+                    renderSpecialRearRow(newRow.dataset.specialKey, data.log, true),
+                    newRow.nextSibling
+                );
+            }
             success = true;
         }
     } catch (e) {
@@ -2826,6 +3048,9 @@ async function deleteSpecialRow(tr) {
             setStatus(tr, `<span class="err">${esc(data.error || 'Delete failed')}</span>`, true);
             return;
         }
+        // Remove the paired rear row too, if any
+        const rear = document.querySelector(`tr[data-special-key="${tr.dataset.specialKey}"][data-position="rear"]`);
+        if (rear) rear.remove();
         tr.remove();
         updateDirtyBar();
     } catch (e) {
@@ -2859,11 +3084,12 @@ async function saveRow(tr) {
     const masterId = Number.isFinite(masterIdRaw) ? masterIdRaw : null;
     const trainNo = tr.dataset.trainNo;
 
-    // Front + rear share a log row only on master-linked push-pull rows.
-    // Special rows are always single-row.
+    // Front + rear share a log row. Master rows pair by data-master-id;
+    // special (master-less) rows pair their optional rear by data-special-key.
     const frontRow = isSpecial ? tr
         : document.querySelector(`tr[data-master-id="${masterId}"][data-position="front"]`);
-    const rearRow = isSpecial ? null
+    const rearRow = isSpecial
+        ? document.querySelector(`tr[data-special-key="${tr.dataset.specialKey}"][data-position="rear"]`)
         : document.querySelector(`tr[data-master-id="${masterId}"][data-position="rear"]`);
 
     const get = (row, field) => {
