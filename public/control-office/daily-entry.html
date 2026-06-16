@@ -1854,6 +1854,21 @@ function appendSpecialWithRear(parent, sp, editable) {
     return front;
 }
 
+// Is this train number already on the current sheet (as a master row or an
+// already-saved special)? The log's unique key is (date, train_no, direction),
+// so a duplicate special would silently overwrite — we block it instead.
+// Excludes the row being edited (exceptTr).
+function trainAlreadyOnSheet(trainNo, exceptTr) {
+    const tn = (trainNo || '').trim();
+    if (!tn) return false;
+    const rows = document.querySelectorAll('#sheetBody tr[data-position="front"]');
+    for (const r of rows) {
+        if (r === exceptTr) continue;
+        if ((r.dataset.trainNo || '').trim() === tn) return true;
+    }
+    return false;
+}
+
 // Attach a forgiving HH:MM formatter to a time-entry input.
 //   • on 'input': replaces '.' with ':'; strips non-digit/colon chars
 //   • on 'blur':  pads "2:10" → "02:10" so saves always send HH:MM
@@ -1982,7 +1997,15 @@ function renderBlankRow(section, fromStation, toStation) {
                    data-field="train_no"
                    style="font-family:'Courier New',monospace;font-weight:600">
         </td>
-        <td class="col-link"><small style="color:var(--muted)">special train</small></td>
+        <td class="col-link">
+            <small class="special-link-note" style="color:var(--muted)">special train</small>
+            <div class="new-train-prompt" style="display:none;margin-top:3px">
+                <input type="text" class="new-train-name" maxlength="120"
+                       placeholder="New train name (required)" autocomplete="off"
+                       data-field="new_train_name"
+                       style="font-size:.78rem;padding:2px 5px;border:1px solid var(--warning);border-radius:4px;width:150px">
+            </div>
+        </td>
         <td class="col-actual">
             <div class="loco-cell-wrap">
                 <input type="text" class="loco-input" maxlength="20" placeholder="loco no" autocomplete="off"
@@ -2919,6 +2942,44 @@ function attachBlankRowHandlers(tr) {
         addSecondSpecialBtn.addEventListener('click', () => addSecondLocoRowSpecial(tr));
     }
 
+    // On train-no blur: resolve the number. If catalogued, show its name; if
+    // not, reveal the "new train name" field (required to register it on save).
+    const trainNoInput = tr.querySelector('input[data-field="train_no"]');
+    const linkNote = tr.querySelector('.special-link-note');
+    const newTrainPrompt = tr.querySelector('.new-train-prompt');
+    const newTrainNameInput = tr.querySelector('input[data-field="new_train_name"]');
+    if (trainNoInput) {
+        trainNoInput.addEventListener('blur', async () => {
+            const tn = (trainNoInput.value || '').trim();
+            if (!tn) {
+                if (newTrainPrompt) newTrainPrompt.style.display = 'none';
+                if (linkNote) linkNote.textContent = 'special train';
+                return;
+            }
+            // Already on this sheet? Block the duplicate (it'd overwrite on save).
+            if (trainAlreadyOnSheet(tn, tr)) {
+                if (newTrainPrompt) newTrainPrompt.style.display = 'none';
+                setStatus(tr, `<span class="err">${esc(tn)} is already on this sheet</span>`, true);
+                return;
+            }
+            try {
+                const r = await fetch(`/api/division/loco-link/train/${encodeURIComponent(tn)}/resolve`);
+                const d = await r.json();
+                if (d.found) {
+                    if (newTrainPrompt) newTrainPrompt.style.display = 'none';
+                    if (newTrainNameInput) newTrainNameInput.value = '';
+                    if (linkNote) linkNote.innerHTML =
+                        `special train · <span style="color:var(--success)">${esc(d.train_name || d.current_train_no)}</span>`;
+                } else {
+                    if (linkNote) linkNote.innerHTML =
+                        '<span style="color:var(--warning)">new train — name it</span>';
+                    if (newTrainPrompt) newTrainPrompt.style.display = '';
+                    if (saveBtn) { saveBtn.classList.add('dirty'); updateDirtyBar(); }
+                }
+            } catch (e) { /* leave as-is; backend enforces on save */ }
+        });
+    }
+
     saveBtn.addEventListener('click', () => saveBlankRow(tr));
     cancelBtn.addEventListener('click', () => {
         // Drop the paired rear row too, if one was added
@@ -2951,6 +3012,13 @@ async function saveBlankRow(tr) {
         return false;
     }
 
+    // Guard against adding a train that's already on this sheet (would overwrite
+    // the existing row via the (date, train_no, direction) unique key).
+    if (trainAlreadyOnSheet(trainNo, tr)) {
+        setStatus(tr, `<span class="err">${esc(trainNo)} is already on this sheet</span>`, true);
+        return false;
+    }
+
     const get = (field) => {
         const el = tr.querySelector(`[data-field="${field}"]`);
         if (!el) return null;
@@ -2975,6 +3043,18 @@ async function saveBlankRow(tr) {
         ? (rearRow.querySelector('select[data-field="secondary_role"]')?.value || 'assist')
         : null;
 
+    // New-train registration: if the "name it" prompt is showing (uncatalogued
+    // number), a name is required before we can save.
+    const newTrainPrompt = tr.querySelector('.new-train-prompt');
+    const newTrainNameInput = tr.querySelector('input[data-field="new_train_name"]');
+    const newTrainName = newTrainNameInput ? (newTrainNameInput.value || '').trim() : '';
+    const promptVisible = newTrainPrompt && newTrainPrompt.style.display !== 'none';
+    if (promptVisible && !newTrainName) {
+        setStatus(tr, '<span class="err">enter a name for the new train</span>', true);
+        newTrainNameInput.focus();
+        return false;
+    }
+
     const body = {
         working_date: currentDate,
         direction,
@@ -2997,6 +3077,7 @@ async function saveBlankRow(tr) {
         outgoing_train: get('outgoing_train'),
         remark: get('remark'),
     };
+    if (newTrainName) body.new_train = { train_name: newTrainName };
 
     const saveBtn = tr.querySelector('button[data-action="save-blank"]');
     saveBtn.disabled = true;
@@ -3011,7 +3092,16 @@ async function saveBlankRow(tr) {
         });
         const data = await r.json();
         if (!r.ok) {
-            setStatus(tr, `<span class="err">${esc(data.error || 'Save failed')}</span>`, true);
+            if (data.error === 'unregistered_train') {
+                // Backend says this number isn't catalogued — reveal the name field
+                if (newTrainPrompt) newTrainPrompt.style.display = '';
+                const ln = tr.querySelector('.special-link-note');
+                if (ln) ln.innerHTML = '<span style="color:var(--warning)">new train — name it</span>';
+                setStatus(tr, `<span class="err">${esc(data.message || 'enter a name for the new train')}</span>`, true);
+                if (newTrainNameInput) newTrainNameInput.focus();
+            } else {
+                setStatus(tr, `<span class="err">${esc(data.error || 'Save failed')}</span>`, true);
+            }
         } else if (data.log) {
             // Replace this blank row with a saved special row (+ its rear row)
             const newRow = renderSpecialRow(data.log, true);

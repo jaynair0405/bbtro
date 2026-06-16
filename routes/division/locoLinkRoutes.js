@@ -714,6 +714,29 @@ router.get('/loco/:loco_number/autofill', async (req, res) => {
 //
 // Returns:
 //   { train_no, target_direction, target_date, is_next_day, runs_on_target, event_time }
+// GET /train/:train_no/resolve — does this number map to a catalogued train?
+// Alias-aware. The daily-entry inline-special row calls this on train_no blur
+// to decide whether to prompt the LPC for a new train name.
+router.get('/train/:train_no/resolve', async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'not logged in' });
+    try {
+        const pool = req.app.locals.pool;
+        const resolved = await resolveTrainByNo(pool, req.params.train_no);
+        if (!resolved) return res.json({ found: false });
+        res.json({
+            found: true,
+            train_id: resolved.train_id,
+            current_train_no: resolved.current_train_no,
+            train_name: resolved.train_name,
+            ran_as: resolved.ran_as,
+            was_aliased: !!resolved.was_aliased,
+        });
+    } catch (err) {
+        console.error('[loco-link GET /train/:no/resolve]', err);
+        res.status(500).json({ error: 'resolve failed' });
+    }
+});
+
 router.get('/train/:train_no/target-date', async (req, res) => {
     const trainNo = String(req.params.train_no || '').trim();
     const sourceDate = String(req.query.source_date || '').trim();
@@ -1035,6 +1058,10 @@ router.post('/log', async (req, res) => {
     // the right origin (KR-DN) / destination (KR-UP) on reload.
     const reqFromStation = b.from_station ? String(b.from_station).trim().toUpperCase() : null;
     const reqToStation   = b.to_station   ? String(b.to_station).trim().toUpperCase()   : null;
+    // Inline-special new-train registration: { new_train: { train_name } }.
+    // Used to catalogue an uncatalogued number typed on a master-less row.
+    const newTrainName = (b.new_train && typeof b.new_train.train_name === 'string')
+        ? b.new_train.train_name.trim().slice(0, 120) : null;
 
     if (!/^\d{4}-\d{2}-\d{2}$/.test(working_date)) {
         return res.status(400).json({ error: 'working_date must be YYYY-MM-DD' });
@@ -1240,11 +1267,56 @@ router.post('/log', async (req, res) => {
 
         // Resolve the stable train identity (architecture rebuild). working_date
         // is the as-of date so a historical number resolves to the train that
-        // ran that day. train_id is NULL for an uncatalogued inline special —
-        // the column is nullable; the snapshot still preserves what ran.
+        // ran that day.
         const resolvedTrain = await resolveTrainByNo(pool, train_no, working_date);
-        const train_id = resolvedTrain ? resolvedTrain.train_id : null;
+        let train_id = resolvedTrain ? resolvedTrain.train_id : null;
         const train_no_snapshot = train_no;
+
+        // Inline-special train registration: an uncatalogued number on a
+        // master-less row must be named & registered — no more naked train_no.
+        // If the frontend supplied new_train.train_name, create the identity now
+        // (div_trains + alias, atomic); otherwise tell it to prompt for a name.
+        if (!master_id && !train_id) {
+            if (!newTrainName) {
+                return res.status(400).json({
+                    error: 'unregistered_train',
+                    message: `Train ${train_no} isn't registered — enter a name to add it.`,
+                    train_no,
+                });
+            }
+            // div_trains.direction is enum('UP','DN') — BYPASS has no slot there,
+            // so store NULL for bypass-sheet specials (it's informational only).
+            const dirForTrain = (direction === 'UP' || direction === 'DN') ? direction : null;
+            let conn;
+            try {
+                conn = await pool.getConnection();
+                await conn.beginTransaction();
+                const [ins] = await conn.query(
+                    `INSERT INTO div_trains (train_no, train_name, direction, is_regular, is_active)
+                     VALUES (?, ?, ?, 0, 1)`,
+                    [train_no, newTrainName, dirForTrain]
+                );
+                train_id = ins.insertId;
+                await conn.query(
+                    `INSERT INTO div_train_aliases (train_id, train_no, valid_from, valid_until)
+                     VALUES (?, ?, ?, NULL)`,
+                    [train_id, train_no, working_date]
+                );
+                await conn.commit();
+            } catch (e) {
+                if (conn) { try { await conn.rollback(); } catch {} }
+                // Race: another save may have just created it → re-resolve.
+                const r2 = await resolveTrainByNo(pool, train_no, working_date);
+                if (r2) {
+                    train_id = r2.train_id;
+                } else {
+                    console.error('[loco-link POST /log] train register failed:', e);
+                    return res.status(500).json({ error: 'Failed to register new train' });
+                }
+            } finally {
+                if (conn) conn.release();
+            }
+        }
 
         // UPSERT
         const [result] = await pool.query(
