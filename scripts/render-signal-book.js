@@ -18,6 +18,7 @@ require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
 const mysql = require('mysql2/promise');
+const { parseRiSpec } = require('./ri-spec');
 
 async function getConnection() {
   return mysql.createConnection({
@@ -59,14 +60,18 @@ async function loadBook(beatCode, providedConn) {
 
     for (const section of sections) {
       const [rows] = await conn.execute(
-        `SELECT row_order, row_type, signal_id, psr_id, neutral_section_id,
-                display_signal_no, display_location, display_description,
-                speed_kmph, km_range_text,
-                station_code, station_name, station_km_text,
-                highlight_color, text_color, icon_type, remarks
-           FROM div_signal_book_rows
-          WHERE book_section_id = ? AND is_active = 1
-          ORDER BY row_order`,
+        `SELECT r.row_order, r.row_type, r.signal_id, r.psr_id, r.neutral_section_id,
+                r.display_signal_no, r.display_location, r.display_description,
+                r.speed_kmph, r.km_range_text,
+                r.station_code, r.station_name, r.station_km_text,
+                r.highlight_color, r.text_color, r.icon_type, r.remarks,
+                sg.ri_left_arms, sg.ri_right_arms, sg.route_indicator_notes,
+                sg.is_rhs, sg.is_ext_rhs, sg.on_curve,
+                sg.signal_type, sg.signal_function
+           FROM div_signal_book_rows r
+           LEFT JOIN div_signals sg ON sg.id = r.signal_id
+          WHERE r.book_section_id = ? AND r.is_active = 1
+          ORDER BY r.row_order`,
         [section.id]
       );
       section.rows = rows;
@@ -93,9 +98,108 @@ function descToHtml(text) {
   return esc(text).replace(/\n/g, '<br>');
 }
 
+// ---------------------------------------------------------------------------
+// Route-indicator (diversion hand) glyphs
+// ---------------------------------------------------------------------------
+// "RI:" strings come in two dialects (explicit L1=/R1=/MAIN= and positional);
+// parseRiSpec (shared with the editor) lives in scripts/ri-spec.js.
+
+// Vertical stem capped by a circle head, with arms slanting outward-up like
+// the book's diversion-hand diagrams. The stem starts at the circle and ends
+// just below the lowest arm — no bare overshoot above the topmost hand.
+function riGlyphSvg(spec) {
+  const ARM_STEP = 7;   // vertical gap between stacked arms
+  const ARM_DX = 9;     // arm horizontal reach
+  const ARM_DY = 6;     // arm vertical rise (tip sits above its attach point)
+  const HEAD_R = 2.4;   // circle head radius
+  const TAIL = 3;       // short stem tail below the lowest arm
+  const CHAR_W = 3.6;   // crude label width estimate at 5.5px font
+
+  const nMax = Math.max(spec.left.length, spec.right.length, 1);
+
+  // Vertical layout (y grows downward).
+  const mainTop = spec.main ? 8 : 1;        // space reserved for the main label
+  const headCy = mainTop + HEAD_R + 0.5;    // circle centre
+  const stemTop = headCy + HEAD_R;          // stem begins at bottom of circle
+  const firstAttach = stemTop + 3;          // first arm attaches just below head
+  const lastAttach = firstAttach + (nMax - 1) * ARM_STEP;
+  const stemBottom = lastAttach + TAIL;
+  const H = Math.max(stemBottom + 2, headCy + HEAD_R + 4);
+
+  const wL = Math.max(0, ...spec.left.map((s) => s.length)) * CHAR_W;
+  const wR = Math.max(0, ...spec.right.map((s) => s.length)) * CHAR_W;
+  const wM = (spec.main || '').length * CHAR_W;
+  const cx = 4 + wL + ARM_DX + 2;
+  const W = Math.max(cx + ARM_DX + 2 + wR + 4, cx + wM / 2 + 4, 30);
+
+  let svg = `<svg class="ri-glyph" width="${Math.round(W)}" height="${Math.round(H)}" viewBox="0 0 ${Math.round(W)} ${Math.round(H)}">`;
+  svg += `<line x1="${cx}" y1="${stemTop.toFixed(1)}" x2="${cx}" y2="${stemBottom.toFixed(1)}"/>`;
+  svg += `<circle class="ri-head" cx="${cx}" cy="${headCy.toFixed(1)}" r="${HEAD_R}"/>`;
+  if (spec.main) svg += `<text x="${cx}" y="${(mainTop + 2).toFixed(1)}" text-anchor="middle">${esc(spec.main)}</text>`;
+  spec.left.forEach((label, i) => {
+    const attach = firstAttach + i * ARM_STEP;
+    const tipY = attach - ARM_DY;
+    svg += `<line x1="${cx}" y1="${attach.toFixed(1)}" x2="${cx - ARM_DX}" y2="${tipY.toFixed(1)}"/>`;
+    svg += `<text x="${cx - ARM_DX - 1}" y="${(tipY + 1.5).toFixed(1)}" text-anchor="end">${esc(label)}</text>`;
+  });
+  spec.right.forEach((label, i) => {
+    const attach = firstAttach + i * ARM_STEP;
+    const tipY = attach - ARM_DY;
+    svg += `<line x1="${cx}" y1="${attach.toFixed(1)}" x2="${cx + ARM_DX}" y2="${tipY.toFixed(1)}"/>`;
+    svg += `<text x="${cx + ARM_DX + 1}" y="${(tipY + 1.5).toFixed(1)}">${esc(label)}</text>`;
+  });
+  svg += '</svg>';
+  return svg;
+}
+
+// Signal-class badge shown next to the number, matching the printed book:
+//   Ⓟ = distant signal, ⒾⒷ = IBS, Ⓖ = gate signal.
+// Distant takes priority (an "IBS Distant" prints the distant circle).
+function classBadge(row) {
+  const fn = String(row.signal_function || '').toLowerCase();
+  const ty = String(row.signal_type || '').toLowerCase();
+  if (fn.includes('distant')) return `<span class="sig-badge">P</span>`;
+  if (ty === 'ibs' || fn === 'ibs') return `<span class="sig-badge ibs">IB</span>`;
+  if (ty === 'gate') return `<span class="sig-badge">G</span>`;
+  return '';
+}
+
+// Small semaphore-style flag for cross-references (e.g. "DN TH K-009").
+function flagGlyphSvg(label) {
+  const CHAR_W = 3.6;
+  const W = 14 + label.length * CHAR_W + 4;
+  return `<svg class="ri-glyph" width="${Math.round(W)}" height="16" viewBox="0 0 ${Math.round(W)} 16">` +
+    `<line x1="5" y1="3" x2="5" y2="14"/>` +
+    `<line x1="5" y1="6" x2="11" y2="3"/>` +
+    `<text x="13" y="10">${esc(label)}</text></svg>`;
+}
+
+// DESCRIPTION cell for SIGNAL rows: curve arrow + glyph/text + RHS tag,
+// mirroring what the printed book packs into that column.
+function descCellHtml(row) {
+  const parts = [];
+  if (row.on_curve === 'Left') parts.push('<span class="curve-mark">↶</span>');
+  if (row.on_curve === 'Right') parts.push('<span class="curve-mark">↷</span>');
+
+  const text = (row.display_description || '').trim();
+  const isFlag = /flag/i.test(row.route_indicator_notes || '');
+  if (/^RI:/i.test(text)) {
+    parts.push(riGlyphSvg(parseRiSpec(text, row.ri_left_arms, row.ri_right_arms)));
+  } else if (text && isFlag) {
+    parts.push(flagGlyphSvg(text));
+  } else if (text) {
+    parts.push(descToHtml(text));
+  }
+
+  const rhs = row.is_ext_rhs ? 'Ext RHS' : (row.is_rhs ? 'RHS' : null);
+  if (rhs && !/RHS/i.test(text)) parts.push(`<span class="rhs-tag">${rhs}</span>`);
+  return parts.join(' ');
+}
+
 function renderRow(row) {
   const textCls = row.text_color === 'RED'  ? 'red'
                 : row.text_color === 'BLUE' ? 'blue' : '';
+  const clsBadge = classBadge(row);
   const iconBadge = row.icon_type && row.icon_type !== 'NONE'
     ? `<span class="badge badge-${row.icon_type.toLowerCase()}">${labelForIcon(row.icon_type)}</span>`
     : '';
@@ -134,9 +238,9 @@ function renderRow(row) {
     case 'SIGNAL':
     default:
       return `<div class="row signal ${textCls}">
-        <div class="cell signal-no">${esc(row.display_signal_no || '')}${iconBadge}</div>
+        <div class="cell signal-no">${esc(row.display_signal_no || '')}${clsBadge}${iconBadge}</div>
         <div class="cell signal-loc">${esc(row.display_location || '')}</div>
-        <div class="cell signal-desc">${descToHtml(row.display_description)}</div>
+        <div class="cell signal-desc">${descCellHtml(row)}</div>
       </div>`;
   }
 }
@@ -264,6 +368,12 @@ ${rowsHtml}
     align-items: start;
   }
   .row.signal .signal-no  { font-weight: 700; font-family: "Courier New", monospace; }
+  .sig-badge { display: inline-block; border: 1.2px solid #111; border-radius: 50%;
+    width: 13px; height: 13px; line-height: 11px; text-align: center;
+    font-size: 8px; font-weight: 700; font-family: Arial, sans-serif;
+    margin-left: 3px; vertical-align: middle; }
+  .sig-badge.ibs { border-radius: 7px; width: auto; min-width: 13px; padding: 0 3px; }
+  .row.signal.red .sig-badge { border-color: #c2410c; color: #c2410c; }
   .row.signal .signal-loc { font-family: "Courier New", monospace; }
   .row.signal .signal-desc{ font-size: 8.5pt; color: #444; }
   .row.signal.red   .signal-no, .row.signal.red .signal-loc { color: #c2410c; }
@@ -337,6 +447,22 @@ ${rowsHtml}
     font-weight: 600;
   }
   .badge-legend_board { background: #fde68a; }
+
+  /* Route-indicator glyphs (diversion hands) */
+  .ri-glyph { vertical-align: middle; }
+  .ri-glyph line { stroke: #111; stroke-width: 1.3; stroke-linecap: round; }
+  .ri-glyph .ri-head { fill: #111; stroke: #111; stroke-width: 1; }
+  .ri-glyph text { font-size: 5.5px; font-family: Arial, sans-serif; fill: #111; }
+  .row.signal.red .ri-glyph line { stroke: #c2410c; }
+  .row.signal.red .ri-glyph .ri-head { fill: #c2410c; stroke: #c2410c; }
+  .row.signal.red .ri-glyph text { fill: #c2410c; }
+  .rhs-tag {
+    color: #c2410c;
+    font-weight: 700;
+    font-size: 7.5pt;
+    white-space: nowrap;
+  }
+  .curve-mark { font-size: 11pt; line-height: 1; vertical-align: middle; }
 
   .cover {
     text-align: center;

@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Signal Book Editor — BB Division</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: "Segoe UI", Roboto, Arial, sans-serif; font-size: 13px; color: #1f2937; background: #f3f4f6; }
+  header { background: #1e3a8a; color: #fff; padding: 10px 16px; display: flex; align-items: center; gap: 14px; }
+  header h1 { font-size: 15px; margin: 0; font-weight: 600; }
+  header .sp { flex: 1; }
+  header a { color: #cbd5e1; font-size: 12px; text-decoration: none; }
+  .layout { display: flex; height: calc(100vh - 41px); }
+  .sidebar { width: 300px; background: #fff; border-right: 1px solid #e5e7eb; overflow-y: auto; flex-shrink: 0; }
+  .sidebar h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: #6b7280; padding: 10px 12px 4px; margin: 0; }
+  .sec-item { padding: 8px 12px; border-bottom: 1px solid #f1f5f9; cursor: pointer; }
+  .sec-item:hover { background: #f8fafc; }
+  .sec-item.active { background: #eff6ff; border-left: 3px solid #1e3a8a; padding-left: 9px; }
+  .sec-item .code { font-weight: 600; font-size: 12.5px; }
+  .sec-item .meta { color: #6b7280; font-size: 11px; margin-top: 2px; }
+  .badge { display: inline-block; font-size: 9.5px; font-weight: 700; padding: 1px 5px; border-radius: 3px; margin-left: 4px; vertical-align: middle; }
+  .badge.ui { background: #dcfce7; color: #166534; }
+  .badge.import { background: #e0e7ff; color: #3730a3; }
+  .badge.draft { background: #fef3c7; color: #92400e; }
+  .main { flex: 1; overflow-y: auto; padding: 0; position: relative; }
+  .toolbar { position: sticky; top: 0; background: #fff; border-bottom: 1px solid #e5e7eb; padding: 10px 16px; display: flex; gap: 8px; align-items: center; z-index: 5; }
+  .toolbar .title { font-weight: 600; font-size: 14px; }
+  .toolbar .sp { flex: 1; }
+  button { font-family: inherit; font-size: 12.5px; border: 1px solid #d1d5db; background: #fff; color: #1f2937; padding: 6px 12px; border-radius: 5px; cursor: pointer; }
+  button:hover { background: #f9fafb; }
+  button.primary { background: #1e3a8a; color: #fff; border-color: #1e3a8a; }
+  button.primary:hover { background: #1d4ed8; }
+  button.warn { background: #b91c1c; color: #fff; border-color: #b91c1c; }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  .status { font-size: 12px; color: #6b7280; }
+  .status.dirty { color: #b45309; font-weight: 600; }
+  .rows { padding: 12px 16px 80px; }
+  .placeholder { padding: 40px; text-align: center; color: #9ca3af; }
+  .erow { background: #fff; border: 1px solid #e5e7eb; border-radius: 6px; margin-bottom: 6px; padding: 8px 10px; }
+  .erow.signal { border-left: 3px solid #93c5fd; }
+  .erow.station_header { border-left: 3px solid #6d28d9; background: #faf5ff; }
+  .erow.psr { border-left: 3px solid #f59e0b; background: #fffbeb; }
+  .erow.neutral_section, .erow.board { border-left: 3px solid #6b7280; background: #f9fafb; }
+  .erow .rowhead { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .erow .rtype { font-size: 10px; font-weight: 700; text-transform: uppercase; color: #6b7280; letter-spacing: .4px; }
+  .erow .ord { color: #9ca3af; font-size: 11px; width: 28px; }
+  .erow .rowhead .sp { flex: 1; }
+  .iconbtn { padding: 2px 7px; font-size: 12px; line-height: 1.2; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px 10px; }
+  .fld { display: flex; flex-direction: column; gap: 2px; }
+  .fld label { font-size: 10px; color: #6b7280; text-transform: uppercase; letter-spacing: .3px; }
+  .fld input, .fld select { font-family: inherit; font-size: 12.5px; padding: 4px 6px; border: 1px solid #d1d5db; border-radius: 4px; }
+  .flags { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .flags label { font-size: 11.5px; display: flex; align-items: center; gap: 3px; }
+  .arms { margin-top: 8px; border-top: 1px dashed #e5e7eb; padding-top: 8px; display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
+  .arms .armlist { flex: 1; min-width: 260px; }
+  .arms .armrow { display: flex; gap: 6px; align-items: center; margin-bottom: 4px; }
+  .arms .armrow select, .arms .armrow input { font-size: 12px; padding: 3px 5px; border: 1px solid #d1d5db; border-radius: 4px; }
+  .arms .armrow input { flex: 1; }
+  .arms .glyphbox { width: 130px; text-align: center; padding: 6px; background: #fff; border: 1px solid #e5e7eb; border-radius: 5px; }
+  .arms .glyphbox svg { max-width: 120px; }
+  .arms .glyphbox .lbl { font-size: 10px; color: #9ca3af; margin-top: 4px; }
+  .ri-glyph line { stroke: #111; stroke-width: 1.3; stroke-linecap: round; }
+  .ri-glyph .ri-head { fill: #111; stroke: #111; }
+  .ri-glyph text { font-size: 5.5px; font-family: Arial, sans-serif; fill: #111; }
+  .addbar { display: flex; gap: 6px; margin: 10px 0; flex-wrap: wrap; }
+  .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #111827; color: #fff; padding: 10px 18px; border-radius: 6px; font-size: 13px; opacity: 0; transition: opacity .2s; z-index: 50; }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Signal Book Editor</h1>
+  <span class="sp"></span>
+  <a href="/div/index.html">← Division Home</a>
+</header>
+<div class="layout">
+  <div class="sidebar" id="sidebar"><h2>Sections</h2><div id="secList"></div></div>
+  <div class="main">
+    <div class="toolbar" id="toolbar" style="display:none">
+      <span class="title" id="secTitle"></span>
+      <span id="secBadges"></span>
+      <span class="sp"></span>
+      <span class="status" id="status"></span>
+      <button id="btnPreview">Open published ↗</button>
+      <button id="btnDiscard" class="warn">Discard draft</button>
+      <button id="btnSave">Save draft</button>
+      <button id="btnPublish" class="primary">Publish</button>
+    </div>
+    <div class="rows" id="rows"><div class="placeholder">Select a section on the left to edit.</div></div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const PLACEMENTS = ['Left','Right','Extreme Right','Extreme Left','Gantry','Unknown'];
+const CURVES = ['Unknown','Left','Right','None'];
+const SIGTYPES = ['Automatic','Semi-Automatic','Manual','Gate','IBS','Repeater','Board','Other'];
+const SIGFUNCS = ['','Double Distant','Distant','Inner Distant','Home','Inner Home','Starter','Starter (Loop)','Advanced Starter','IBS','IBS Distant','Gate Distant','Repeater','Other'];
+const ROWTYPES = ['SIGNAL','STATION_HEADER','PSR','NEUTRAL_SECTION','BOARD','TEXT_NOTE','BLANK'];
+
+let state = { code: null, section: null, rows: [], dirty: false, hasDraft: false };
+
+function toast(msg) { const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'), 2200); }
+function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function markDirty(){ state.dirty = true; renderStatus(); }
+
+async function loadSections() {
+  const r = await fetch('/api/division/signal-book/sections');
+  const j = await r.json();
+  const el = document.getElementById('secList');
+  el.innerHTML = (j.sections||[]).map(s => `
+    <div class="sec-item" data-code="${esc(s.section_code)}">
+      <div class="code">${esc(s.section_code)}
+        <span class="badge ${s.edit_source}">${s.edit_source.toUpperCase()}</span>
+        ${s.draft_updated_at ? '<span class="badge draft">DRAFT</span>' : ''}
+      </div>
+      <div class="meta">${esc(s.section_title)} · ${s.row_count} rows<br>${esc(s.beats||'— no beats —')}</div>
+    </div>`).join('');
+  el.querySelectorAll('.sec-item').forEach(it => it.addEventListener('click', () => selectSection(it.dataset.code)));
+}
+
+async function selectSection(code) {
+  if (state.dirty && !confirm('Discard unsaved changes in the current section?')) return;
+  document.querySelectorAll('.sec-item').forEach(it => it.classList.toggle('active', it.dataset.code === code));
+  const r = await fetch(`/api/division/signal-book/section/${encodeURIComponent(code)}/editable`);
+  const j = await r.json();
+  if (j.error) { toast(j.error); return; }
+  state = { code, section: j.section, rows: j.rows, dirty: false, hasDraft: j.hasDraft };
+  document.getElementById('toolbar').style.display = 'flex';
+  document.getElementById('secTitle').textContent = j.section.section_title;
+  document.getElementById('secBadges').innerHTML =
+    `<span class="badge ${j.section.edit_source}">${j.section.edit_source.toUpperCase()}</span>` +
+    (j.hasDraft ? '<span class="badge draft">DRAFT LOADED</span>' : '');
+  document.getElementById('btnPreview').onclick = () => window.open(`/api/division/signal-book/section/${encodeURIComponent(code)}/preview`, '_blank');
+  renderRows(); renderStatus();
+}
+
+function renderStatus(){
+  const s = document.getElementById('status');
+  s.textContent = state.dirty ? 'Unsaved changes' : (state.hasDraft ? 'Draft saved (not published)' : 'Published — no pending edits');
+  s.className = 'status' + (state.dirty ? ' dirty' : '');
+}
+
+function renderRows() {
+  const host = document.getElementById('rows');
+  host.innerHTML = '';
+  state.rows.forEach((row, i) => host.appendChild(renderRow(row, i)));
+  const bar = document.createElement('div');
+  bar.className = 'addbar';
+  bar.innerHTML = `<button data-add="SIGNAL">+ Signal</button><button data-add="STATION_HEADER">+ Station header</button><button data-add="PSR">+ PSR</button><button data-add="BOARD">+ Board</button><button data-add="NEUTRAL_SECTION">+ Neutral section</button><button data-add="TEXT_NOTE">+ Note</button>`;
+  bar.querySelectorAll('button').forEach(b => b.onclick = () => addRow(b.dataset.add));
+  host.appendChild(bar);
+}
+
+function field(label, value, oninput, type='text') {
+  const f = document.createElement('div'); f.className = 'fld';
+  f.innerHTML = `<label>${label}</label>`;
+  const inp = document.createElement('input'); inp.type = type; inp.value = value==null?'':value;
+  inp.addEventListener('input', () => { oninput(inp.value); markDirty(); });
+  f.appendChild(inp); return f;
+}
+function selectField(label, value, options, oninput) {
+  const f = document.createElement('div'); f.className = 'fld';
+  f.innerHTML = `<label>${label}</label>`;
+  const sel = document.createElement('select');
+  options.forEach(o => { const op = document.createElement('option'); op.value=o; op.textContent=o; if(o===value) op.selected=true; sel.appendChild(op); });
+  sel.addEventListener('change', () => { oninput(sel.value); markDirty(); });
+  f.appendChild(sel); return f;
+}
+
+function renderRow(row, i) {
+  const d = document.createElement('div');
+  d.className = 'erow ' + row.row_type.toLowerCase();
+  const head = document.createElement('div'); head.className = 'rowhead';
+  head.innerHTML = `<span class="ord">${i+1}</span><span class="rtype">${row.row_type.replace('_',' ')}</span><span class="sp"></span>`;
+  const up = document.createElement('button'); up.className='iconbtn'; up.textContent='↑'; up.title='Move up'; up.onclick=()=>moveRow(i,-1);
+  const dn = document.createElement('button'); dn.className='iconbtn'; dn.textContent='↓'; dn.title='Move down'; dn.onclick=()=>moveRow(i,1);
+  const del = document.createElement('button'); del.className='iconbtn'; del.textContent='✕'; del.title='Delete row'; del.onclick=()=>{ if(confirm('Delete this row?')){ state.rows.splice(i,1); markDirty(); renderRows(); } };
+  head.append(up, dn, del);
+  d.appendChild(head);
+
+  if (row.row_type === 'SIGNAL') {
+    const sig = row.signal = row.signal || {};
+    const grid = document.createElement('div'); grid.className = 'grid';
+    grid.appendChild(field('Signal number (unique ID)', sig.signal_number, v => sig.signal_number = v));
+    grid.appendChild(field('Book label (shown)', row.display_signal_no, v => row.display_signal_no = v));
+    grid.appendChild(field('Location', sig.location_text, v => sig.location_text = v));
+    grid.appendChild(field('KM', sig.km_text, v => sig.km_text = v));
+    grid.appendChild(selectField('Placement', sig.placement || 'Unknown', PLACEMENTS, v => sig.placement = v));
+    grid.appendChild(selectField('On curve', sig.on_curve || 'Unknown', CURVES, v => sig.on_curve = v));
+    grid.appendChild(selectField('Signal type', sig.signal_type || 'Automatic', SIGTYPES, v => sig.signal_type = v));
+    grid.appendChild(selectField('Function (badge)', sig.signal_function || '', SIGFUNCS, v => sig.signal_function = v));
+    grid.appendChild(field('Visibility (m)', sig.visibility_distance_m, v => sig.visibility_distance_m = v, 'number'));
+    d.appendChild(grid);
+    const flags = document.createElement('div'); flags.className = 'flags'; flags.style.marginTop='6px';
+    [['is_rhs','RHS'],['is_ext_rhs','Ext RHS'],['is_lhs','LHS'],['is_ext_lhs','Ext LHS'],['has_legend_board','Legend board']].forEach(([k,lab])=>{
+      const l = document.createElement('label'); const cb = document.createElement('input'); cb.type='checkbox'; cb.checked=!!sig[k];
+      cb.addEventListener('change',()=>{ sig[k]=cb.checked; markDirty(); }); l.append(cb, document.createTextNode(lab)); flags.appendChild(l);
+    });
+    d.appendChild(flags);
+    d.appendChild(renderArmsEditor(sig));
+  } else {
+    const grid = document.createElement('div'); grid.className = 'grid';
+    if (row.row_type === 'STATION_HEADER') {
+      grid.appendChild(field('Header text', row.display_signal_no || row.display_description || row.station_name, v => { row.display_signal_no = v; row.display_description = v; }));
+      grid.appendChild(field('Station code', row.station_code, v => row.station_code = v));
+      grid.appendChild(field('KM', row.station_km_text, v => row.station_km_text = v));
+    } else if (row.row_type === 'PSR') {
+      grid.appendChild(field('Speed (kmph)', row.speed_kmph, v => row.speed_kmph = v, 'number'));
+      grid.appendChild(field('KM range', row.km_range_text, v => row.km_range_text = v));
+      grid.appendChild(field('Reason / note', row.display_description, v => row.display_description = v));
+    } else if (row.row_type === 'BOARD' || row.row_type === 'NEUTRAL_SECTION') {
+      grid.appendChild(field('Label', row.display_signal_no, v => row.display_signal_no = v));
+      grid.appendChild(field('Location', row.display_location, v => row.display_location = v));
+    } else {
+      grid.appendChild(field('Text', row.display_description, v => row.display_description = v));
+    }
+    d.appendChild(grid);
+  }
+  return d;
+}
+
+// ---- Structured arms editor + live glyph ----
+function renderArmsEditor(sig) {
+  sig.arms = sig.arms || { main: null, left: [], right: [] };
+  const wrap = document.createElement('div'); wrap.className = 'arms';
+  const list = document.createElement('div'); list.className = 'armlist';
+  const glyph = document.createElement('div'); glyph.className = 'glyphbox';
+
+  function redraw() { glyph.innerHTML = glyphSvg(sig.arms) + '<div class="lbl">live preview</div>'; }
+  function rebuild() { renderList(); redraw(); markDirty(); }
+
+  // flatten arms into ordered [{side,label}] for editing
+  function renderList() {
+    list.innerHTML = '<label style="font-size:10px;color:#6b7280;text-transform:uppercase;">Diversion arms (route indicator)</label>';
+    const mkArm = (side, label, idx) => {
+      const r = document.createElement('div'); r.className = 'armrow';
+      const sel = document.createElement('select');
+      ['left','right'].forEach(s => { const o=document.createElement('option'); o.value=s; o.textContent = s==='left'?'◤ Left':'Right ◥'; if(s===side) o.selected=true; sel.appendChild(o); });
+      const inp = document.createElement('input'); inp.value = label; inp.placeholder = 'route (e.g. PF-3, S-45)';
+      const rm = document.createElement('button'); rm.className='iconbtn'; rm.textContent='✕';
+      sel.onchange = () => { sig.arms[side].splice(idx,1); sig.arms[sel.value].push(inp.value); rebuild(); };
+      inp.oninput = () => { sig.arms[side][idx] = inp.value; redraw(); markDirty(); };
+      rm.onclick = () => { sig.arms[side].splice(idx,1); rebuild(); };
+      r.append(sel, inp, rm); return r;
+    };
+    sig.arms.left.forEach((lab,idx)=> list.appendChild(mkArm('left',lab,idx)));
+    sig.arms.right.forEach((lab,idx)=> list.appendChild(mkArm('right',lab,idx)));
+    const mainRow = document.createElement('div'); mainRow.className='armrow';
+    const ml = document.createElement('span'); ml.textContent='Main / Y route:'; ml.style.fontSize='11px';
+    const minp = document.createElement('input'); minp.value = sig.arms.main || ''; minp.placeholder='e.g. Y=S-45';
+    minp.oninput = () => { sig.arms.main = minp.value || null; redraw(); markDirty(); };
+    mainRow.append(ml, minp); list.appendChild(mainRow);
+    const add = document.createElement('div'); add.className='armrow';
+    const aL = document.createElement('button'); aL.className='iconbtn'; aL.textContent='+ left arm'; aL.onclick=()=>{ sig.arms.left.push(''); rebuild(); };
+    const aR = document.createElement('button'); aR.className='iconbtn'; aR.textContent='+ right arm'; aR.onclick=()=>{ sig.arms.right.push(''); rebuild(); };
+    add.append(aL, aR); list.appendChild(add);
+  }
+  renderList(); redraw();
+  wrap.append(list, glyph);
+  return wrap;
+}
+
+// Client mirror of scripts/render-signal-book.js riGlyphSvg
+function glyphSvg(spec) {
+  spec = spec || {left:[],right:[],main:null};
+  const L = (spec.left||[]).filter(x=>x!=null), R = (spec.right||[]).filter(x=>x!=null);
+  const ARM_STEP=7, ARM_DX=9, ARM_DY=6, HEAD_R=2.4, TAIL=3, CHAR_W=3.6;
+  const nMax = Math.max(L.length, R.length, 1);
+  const mainTop = spec.main ? 8 : 1;
+  const headCy = mainTop + HEAD_R + 0.5, stemTop = headCy + HEAD_R;
+  const firstAttach = stemTop + 3, lastAttach = firstAttach + (nMax-1)*ARM_STEP;
+  const stemBottom = lastAttach + TAIL, H = Math.max(stemBottom+2, headCy+HEAD_R+4);
+  const wL = Math.max(0, ...L.map(s=>String(s).length))*CHAR_W, wR = Math.max(0, ...R.map(s=>String(s).length))*CHAR_W, wM = (spec.main||'').length*CHAR_W;
+  const cx = 4 + wL + ARM_DX + 2, W = Math.max(cx+ARM_DX+2+wR+4, cx+wM/2+4, 30);
+  let s = `<svg class="ri-glyph" width="${Math.round(W)}" height="${Math.round(H)}" viewBox="0 0 ${Math.round(W)} ${Math.round(H)}">`;
+  s += `<line x1="${cx}" y1="${stemTop.toFixed(1)}" x2="${cx}" y2="${stemBottom.toFixed(1)}"/>`;
+  s += `<circle class="ri-head" cx="${cx}" cy="${headCy.toFixed(1)}" r="${HEAD_R}"/>`;
+  if (spec.main) s += `<text x="${cx}" y="${(mainTop+2).toFixed(1)}" text-anchor="middle">${esc(spec.main)}</text>`;
+  L.forEach((lab,i)=>{ const a=firstAttach+i*ARM_STEP, t=a-ARM_DY; s+=`<line x1="${cx}" y1="${a.toFixed(1)}" x2="${cx-ARM_DX}" y2="${t.toFixed(1)}"/><text x="${cx-ARM_DX-1}" y="${(t+1.5).toFixed(1)}" text-anchor="end">${esc(lab)}</text>`; });
+  R.forEach((lab,i)=>{ const a=firstAttach+i*ARM_STEP, t=a-ARM_DY; s+=`<line x1="${cx}" y1="${a.toFixed(1)}" x2="${cx+ARM_DX}" y2="${t.toFixed(1)}"/><text x="${cx+ARM_DX+1}" y="${(t+1.5).toFixed(1)}">${esc(lab)}</text>`; });
+  return s + '</svg>';
+}
+
+function moveRow(i, dir) {
+  const j = i + dir; if (j < 0 || j >= state.rows.length) return;
+  const t = state.rows[i]; state.rows[i] = state.rows[j]; state.rows[j] = t;
+  markDirty(); renderRows();
+}
+function addRow(type) {
+  const row = { row_id: null, row_type: type, row_order: 0 };
+  if (type === 'SIGNAL') row.signal = { signal_number: '', placement: 'Unknown', on_curve: 'Unknown', signal_type: 'Automatic', is_rhs:false,is_ext_rhs:false,is_lhs:false,is_ext_lhs:false, arms:{main:null,left:[],right:[]} };
+  state.rows.push(row); markDirty(); renderRows();
+  document.querySelector('.main').scrollTop = document.querySelector('.main').scrollHeight;
+}
+
+async function saveDraft() {
+  const r = await fetch(`/api/division/signal-book/section/${encodeURIComponent(state.code)}/draft`, {
+    method: 'PUT', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ rows: state.rows, section: state.section })
+  });
+  const j = await r.json();
+  if (j.ok) { state.dirty = false; state.hasDraft = true; renderStatus(); toast('Draft saved'); loadSections(); }
+  else toast(j.error || 'Save failed');
+}
+async function publish() {
+  if (state.dirty) await saveDraft();
+  if (!confirm('Publish this section to the live signal book? This becomes what drivers see.')) return;
+  const r = await fetch(`/api/division/signal-book/section/${encodeURIComponent(state.code)}/publish`, { method: 'POST' });
+  const j = await r.json();
+  if (j.ok) { toast(`Published — ${j.signalsChanged} signal change(s), ${j.rowCount} rows`); selectSection(state.code); loadSections(); }
+  else toast(j.error || 'Publish failed');
+}
+async function discard() {
+  if (!confirm('Discard the draft and revert to the published version?')) return;
+  const r = await fetch(`/api/division/signal-book/section/${encodeURIComponent(state.code)}/discard`, { method: 'POST' });
+  const j = await r.json();
+  if (j.ok) { toast('Draft discarded'); selectSection(state.code); loadSections(); }
+  else toast(j.error || 'Discard failed');
+}
+
+document.getElementById('btnSave').onclick = saveDraft;
+document.getElementById('btnPublish').onclick = publish;
+document.getElementById('btnDiscard').onclick = discard;
+window.addEventListener('beforeunload', e => { if (state.dirty) { e.preventDefault(); e.returnValue = ''; } });
+loadSections();
+</script>
+</body>
+</html>

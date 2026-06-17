@@ -300,6 +300,12 @@ app.get('/div/signal-book.html', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'div', 'signal-book.html'));
 });
 
+app.get('/div/signal-book-editor.html', (req, res) => {
+  if (!req.session.user) return res.redirect('/');
+  if (req.session.user.realm !== 'division') return res.redirect('/');
+  res.sendFile(path.join(__dirname, 'public', 'div', 'signal-book-editor.html'));
+});
+
 app.get('/div/training-due-report.html', (req, res) => {
   if (!req.session.user) return res.redirect('/');
   if (req.session.user.realm !== 'division') return res.redirect('/');

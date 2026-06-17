@@ -1,0 +1,65 @@
+signal_number,station_code,station_name,section,line,direction,location_text,km_text,km_from_csmt,latitude,longitude,signal_type,signal_function,placement,on_curve,curve_remarks,is_rhs,is_ext_rhs,is_lhs,is_ext_lhs,has_legend_board,has_calling_on,has_shunt_signal,ri_left_arms,ri_right_arms,book_description,route_indicator_notes,technical_remarks,visibility_distance_m,sighting_remarks,is_active
+VVH S-11,VVH,Vidyavihar,CLA-KYN,5TH,DN,,17/09 YD,,,,Semi-Automatic,,Right,,,1,0,0,0,0,0,0,0,0,,,,,,1
+VVH S-107,VVH,Vidyavihar,CLA-KYN,5TH,DN,LTT PF-1 STR,,,,,Semi-Automatic,,Left,,,0,0,1,0,0,0,0,1,1,RI: S-21 ; Y=S-22,Book shows route indicator with S-21 and Y=S-22,,,,1
+VVH S-108,VVH,Vidyavihar,CLA-KYN,5TH,DN,LTT PF-2 STR,,,,,Semi-Automatic,,Left,,,0,0,1,0,0,0,0,1,1,RI: S-21 ; Y=S-22,Book shows route indicator with S-21 and Y=S-22,,,,1
+VVH S-109,VVH,Vidyavihar,CLA-KYN,5TH,DN,LTT PF-3 STR,,,,,Semi-Automatic,,Right,,,1,0,0,0,0,0,0,1,1,RI: Y=S-21 ; S-22,Book shows route indicator with Y=S-21 and S-22 (RHS),,,,1
+VVH S-111,VVH,Vidyavihar,CLA-KYN,5TH,DN,LTT PF-4 STR,,,,,Semi-Automatic,,Left,,,0,0,1,0,0,0,0,1,1,RI: Y=S-21 ; S-22,Book shows route indicator with Y=S-21 and S-22,,,,1
+VVH S-112,VVH,Vidyavihar,CLA-KYN,5TH,DN,LTT PF-5 STR,,,,,Semi-Automatic,,Right,,,1,0,0,0,0,0,0,1,1,RI: Y=S-21 ; S-22,Book shows route indicator with Y=S-21 and S-22 (RHS),,,,1
+VVH S-113,VVH,Vidyavihar,CLA-KYN,5TH,DN,LTT PF-6 STR,,,,,Semi-Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,,,1
+VVH S-114,VVH,Vidyavihar,CLA-KYN,5TH,DN,LTT PF-7 STR,,,,,Semi-Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,,,1
+VVH S-21,VVH,Vidyavihar,CLA-KYN,5TH,DN,DN LTT EXIT,,,,,Semi-Automatic,,Left,,,0,0,1,0,0,0,0,0,0,DN TH S-37 ; Y=VVH S-45,Book shows flag marker DN TH S-37 with Y=VVH S-45,,,,1
+VVH S-22,VVH,Vidyavihar,CLA-KYN,5TH,DN,UP LTT EXIT,,,,,Semi-Automatic,,Left,,,0,0,1,0,0,0,0,0,0,Y= VVH S-45,,,,,1
+VVH S-31,VVH,Vidyavihar,CLA-KYN,5TH,DN,,18/602,,,,Semi-Automatic,,Right,,,1,0,0,0,0,0,0,0,0,DN TH S-37,Book shows flag marker DN TH S-37 (RHS),,,,1
+VVH S-45,VVH,Vidyavihar,CLA-KYN,5TH,DN,,18/515,,,,Semi-Automatic,,Extreme Right,,,0,1,0,0,1,0,0,0,0,GC UDL,Book shows flag marker GC UDL (Ext RHS),,,,1
+VVH S-59,VVH,Vidyavihar,CLA-KYN,5TH,DN,,19/512,,,,Semi-Automatic,,Extreme Right,,,0,1,0,0,0,0,0,0,0,,,,,,1
+VVH S-61,VVH,Vidyavihar,CLA-KYN,5TH,DN,DN LOOP STR,,,,,Semi-Automatic,,Extreme Right,,,0,1,0,0,0,0,0,0,0,,,,,,1
+ME 2005,,,CLA-KYN,5TH,DN,,20/505A,,,,Automatic,,Extreme Right,,,0,1,0,0,0,0,0,0,0,,,,,,1
+ME 2101,,,CLA-KYN,5TH,DN,,21/504,,,,Automatic,,Extreme Right,,,0,1,0,0,0,0,0,0,0,,,,,,1
+ME 2113,,,CLA-KYN,5TH,DN,,21/532,,,,Automatic,,Extreme Right,,,0,1,0,0,0,0,0,0,0,,,,,,1
+ME 2207,,,CLA-KYN,5TH,DN,,22/516,,,,Automatic,,Extreme Right,,,0,1,0,0,0,0,0,0,0,,,,,,1
+ME 2301,,,CLA-KYN,5TH,DN,,22/542,,,,Automatic,,Extreme Right,,,0,1,0,0,1,0,0,0,0,,,,,,1
+VK S-9,VK,Vikhroli,CLA-KYN,5TH,DN,,23/522,,,,Semi-Automatic,,Extreme Right,,,0,1,0,0,0,0,0,0,0,,,,,,1
+ME 2407,,,CLA-KYN,5TH,DN,,24/516,,,,Automatic,,Extreme Right,,,0,1,0,0,0,0,0,0,0,,,,,,1
+ME 2501,,,CLA-KYN,5TH,DN,,25/504,,,,Automatic,,Extreme Right,,,0,1,0,0,0,0,0,0,0,,,,,,1
+BND S-7,BND,Bhandup,CLA-KYN,5TH,DN,,25/532,,,,Semi-Automatic,,Extreme Right,,,0,1,0,0,0,0,0,0,0,BND UDL,Book shows flag marker BND UDL (Ext RHS),,,,1
+BND S-18,BND,Bhandup,CLA-KYN,5TH,DN,,26/516,,,,Semi-Automatic,,Right,,,1,0,0,0,0,0,0,0,0,,,,,,1
+BND S-19,BND,Bhandup,CLA-KYN,5TH,DN,DN LOOP STR,,,,,Semi-Automatic,,Extreme Right,,,0,1,0,0,0,0,0,0,0,,,,,,1
+ME 2707,,,CLA-KYN,5TH,DN,,27/504,,,,Automatic,,Extreme Right,,,0,1,0,0,0,0,0,0,0,,,,,,1
+NHR S-1,NHR,Nahur,CLA-KYN,5TH,DN,,27/514,,,,Semi-Automatic,,Extreme Right,,,0,1,0,0,0,0,0,0,0,NGSM YD,Book shows flag marker NGSM YD (Ext RHS),,,,1
+ME 2813,,,CLA-KYN,5TH,DN,,28/511,,,,Automatic,,Left,,,0,0,1,0,1,0,0,0,0,,,,,,1
+MLND S-2,MLND,Mulund,CLA-KYN,5TH,DN,From NGSM YD,,,,,Semi-Automatic,,Right,,,1,0,0,0,0,0,0,0,0,DNTH ; Y=5TH LINE,Book shows route indicator DNTH with Y=5TH LINE (RHS),,,,1
+MLND S-1,MLND,Mulund,CLA-KYN,5TH,DN,,29/508A,,,,Semi-Automatic,,Right,,,1,0,0,0,0,0,0,0,0,DN TH (MLND S-6),Book shows flag marker referencing DN TH (MLND S-6) (RHS),,,,1
+ME 3003,,,CLA-KYN,5TH,DN,,30/502,,,,Automatic,,Extreme Right,,,0,1,0,0,0,0,0,0,0,,,,,,1
+ME 3013,,,CLA-KYN,5TH,DN,,30/512,,,,Automatic,,Extreme Right,,,0,1,0,0,0,0,0,0,0,,,,,,1
+ME 3105,,,CLA-KYN,5TH,DN,,31/504,,,,Automatic,,Extreme Right,,,0,1,0,0,1,0,0,0,0,,,,,,1
+TNA S-5,TNA,Thane,CLA-KYN,5TH,DN,,31/513,,,,Semi-Automatic,,Extreme Right,,,0,1,0,0,0,0,0,1,2,RI: PF-8 ; TR HB S-47 ; Y=PF-7,Book shows route indicator PF-8 / TR HB S-47 / Y=PF-7 (Ext RHS),,,,1
+TNA S-47,TNA,Thane,CLA-KYN,5TH,DN,FOR TR/HB 32/15,,,,,Semi-Automatic,,Left,,,0,0,1,0,0,0,0,0,2,RI: PF-10 ; Y=PF-9,Book shows route indicator PF-10 / Y=PF-9,,,,1
+TNA S-64,TNA,Thane,CLA-KYN,5TH,DN,TNA PF-7 STR,,,,,Semi-Automatic,,Right,,,1,0,0,0,1,0,0,0,0,,,,,,1
+TNA S-63,TNA,Thane,CLA-KYN,5TH,DN,TNA PF-8 STR,,,,,Semi-Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,,,1
+TNA S-74,TNA,Thane,CLA-KYN,5TH,DN,,33/532,,,,Semi-Automatic,,Extreme Right,,,0,1,0,0,0,0,0,0,0,DN TH (K-3403),Book shows flag marker referencing DN TH (K-3403) (Ext RHS),,,,1
+ME 3401,,,CLA-KYN,5TH,DN,,34/508,,,,Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,,,1
+PSK S-1,PSK,Parsik,CLA-KYN,5TH,DN,,34/524,,,,Semi-Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,,,1
+ME 3501,,,CLA-KYN,5TH,DN,,34/546,,,,Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,,,1
+PSK S-11,PSK,Parsik,CLA-KYN,5TH,DN,,35/510,,,,Semi-Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,,,1
+ME 3511,,,CLA-KYN,5TH,DN,,35/532,,,,Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,,,1
+ME 3605,,,CLA-KYN,5TH,DN,,36/512,,,,Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,,,1
+ME 3701,,,CLA-KYN,5TH,DN,,37/502,,,,Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,,,1
+ME 3707,,,CLA-KYN,5TH,DN,,38/506,,,,Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,,,1
+ME 4019,,,CLA-KYN,5TH,DN,,40/536,,,,Automatic,,Extreme Right,,,0,1,0,0,1,0,0,0,0,,,,,,1
+DW S-4,DW,Diva,CLA-KYN,5TH,DN,,41/514,,,,Semi-Automatic,,Extreme Right,,,0,1,0,0,0,0,0,1,2,RI: UPTH (DW S-7) ; DW S-9 ; Y=DW S-8,Book shows route indicator UPTH (DW S-7) / DW S-9 / Y=DW S-8 (Ext RHS),,,,1
+DW S-9,DW,Diva,CLA-KYN,5TH,DN,,42/506,,,,Semi-Automatic,,Right,,,1,0,0,0,0,0,0,1,2,RI: PF-6 ; GL-1 ; GL-2 ; Y=PF-7,Book shows route indicator PF-6 / GL-1 / GL-2 / Y=PF-7 (RHS),,,,1
+DW S-8,DW,Diva,CLA-KYN,5TH,DN,,42/502,,,,Semi-Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,,,1
+DW S-18,DW,Diva,CLA-KYN,5TH,DN,,42/534,,,,Semi-Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,,,1
+DCC S-8,DCC,DCC,CLA-KYN,5TH,DN,,43/524,,,,Semi-Automatic,,Right,,,1,0,0,0,0,0,0,1,1,RI: DCC LOOP ; DCC M/L ; Y=ME-4403,Book shows route indicator DCC LOOP / DCC M/L / Y=ME-4403 (RHS),,,,1
+ME 4403,,,CLA-KYN,5TH,DN,,44/506,,,,Automatic,,Right,,,1,0,0,0,1,0,0,0,0,,,,,,1
+DCC S-32,DCC,DCC,CLA-KYN,5TH,DN,,45/504,,,,Semi-Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,,,1
+ME 4515,,,CLA-KYN,5TH,DN,,45/540,,,,Automatic,,Extreme Right,,,0,1,0,0,0,0,0,0,0,,,,,,1
+DI S-13,DI,Dombivali,CLA-KYN,5TH,DN,,46/518,,,,Semi-Automatic,,Extreme Right,,,0,1,0,0,0,0,0,0,0,,,,,,1
+DI S-26,DI,Dombivali,CLA-KYN,5TH,DN,,47/516,,,,Semi-Automatic,,Left,,,0,0,1,0,0,0,0,0,0,DN TH (DI S-39),Book shows flag marker referencing DN TH (DI S-39),,,,1
+ME 4809,,,CLA-KYN,5TH,DN,,48/653,,,,Automatic,,Extreme Right,,,0,1,0,0,0,0,0,0,0,,,,,,1
+ME 4903,,,CLA-KYN,5TH,DN,,49/512,,,,Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,,,1
+ME 4913,,,CLA-KYN,5TH,DN,,49/522,,,,Automatic,,Extreme Right,,,0,1,0,0,0,0,0,0,0,,,,,,1
+ME 5007,,,CLA-KYN,5TH,DN,,50/508,,,,Automatic,,Extreme Right,,,0,1,0,0,0,0,0,0,0,,,,,,1
+KYN S-4,KYN,Kalyan,CLA-KYN,5TH,DN,,51/505,,,,Semi-Automatic,,Extreme Right,,,0,1,0,0,0,0,0,0,2,RI: Y=KYN S-9 ; KYN YD,Book shows route indicator Y=KYN S-9 / KYN YD (Ext RHS),,,,1
+KYN S-9,KYN,Kalyan,CLA-KYN,5TH,DN,,51/544,,,,Semi-Automatic,,Right,,,1,0,0,0,0,0,0,3,1,RI: DN TH (S-13) ; DN LL (S-32) ; S-28 ; Y=S-25,Book shows route indicator DN TH (S-13) / DN LL (S-32) / S-28 with Y=S-25 (RHS),,,,1
+KYN S-25,KYN,Kalyan,CLA-KYN,5TH,DN,,52/433,,,,Semi-Automatic,,Right,,,1,0,0,0,0,0,0,0,2,RI: Y=PF-6 ; PF-7,Book shows route indicator Y=PF-6 / PF-7 (RHS),,,,1

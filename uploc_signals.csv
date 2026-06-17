@@ -1,0 +1,129 @@
+signal_number,station_code,station_name,section,line,direction,location_text,km_text,km_from_csmt,latitude,longitude,signal_type,signal_function,placement,on_curve,curve_remarks,is_rhs,is_ext_rhs,is_lhs,is_ext_lhs,has_legend_board,has_calling_on,has_shunt_signal,ri_left_arms,ri_right_arms,book_description,route_indicator_notes,technical_remarks,visibility_distance_m,sighting_remarks,is_active
+KYN S-35,KYN,Kalyan,CSMT-KYN,UP LOC,UP,PF-1 MID STR,,,,,Semi-Automatic,,Right,,,1,0,0,0,0,0,0,0,0,,,,,,1
+KYN S-14,KYN,Kalyan,CSMT-KYN,UP LOC,UP,PF-1 STR,,,,,Semi-Automatic,,Left,,,0,0,1,0,0,0,0,0,3,RI: LL S-20 ; TH S-8 ; 6TH S-21,Book shows three-route indicator (LL S-20 / TH S-8 / 6TH S-21),,,,1
+KYN S-16,KYN,Kalyan,CSMT-KYN,UP LOC,UP,PF-1A STR,,,,,Semi-Automatic,,Left,,,0,0,1,0,0,0,0,0,3,RI: LL S-20 ; TH S-8 ; 6TH S-21,Book shows three-route indicator (LL S-20 / TH S-8 / 6TH S-21),,,,1
+KYN S-36,KYN,Kalyan,CSMT-KYN,UP LOC,UP,PF-2 STR,,,,,Semi-Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,,,1
+KYN S-37,KYN,Kalyan,CSMT-KYN,UP LOC,UP,PF-3 STR,,,,,Semi-Automatic,,Right,,,1,0,0,0,0,0,0,0,0,,,,,,1
+KYN S-17,KYN,Kalyan,CSMT-KYN,UP LOC,UP,,,,,,Semi-Automatic,,Left,,,0,0,1,0,0,0,0,0,2,RI: TH S-8 ; 6TH S-21,Book shows two-route indicator (TH S-8 / 6TH S-21),,,,1
+KYN S-20,KYN,Kalyan,CSMT-KYN,UP LOC,UP,,52/211,,,,Semi-Automatic,,Extreme Right,Right,,0,1,0,0,0,0,0,0,0,,,,,,1
+KYN S-7,KYN,Kalyan,CSMT-KYN,UP LOC,UP,,52/223,,,,Semi-Automatic,,Extreme Right,,,0,1,0,0,0,0,0,0,0,,,,,,1
+L-5014,,,CSMT-KYN,UP LOC,UP,,51/201,,,,Automatic,,Extreme Right,,,0,1,0,0,0,0,0,0,0,,,,,,1
+TCY S-21,TCY,Thakurli,CSMT-KYN,UP LOC,UP,,50/228,,,,Semi-Automatic,,Extreme Right,,,0,1,0,0,0,0,0,0,0,CHOLA SDG,Book shows flag marker CHOLA SDG,,,,1
+L-4912,,,CSMT-KYN,UP LOC,UP,,49/245,,,,Automatic,,Extreme Right,,,0,1,0,0,0,0,0,0,0,,,,,,1
+L-4906,,,CSMT-KYN,UP LOC,UP,PF-2 STR,,,,,Automatic,,Right,Left,,1,0,0,0,0,0,0,0,0,,,,,,1
+L-4818,,,CSMT-KYN,UP LOC,UP,,48/243,,,,Automatic,,Left,Left,,0,0,1,0,0,0,0,0,0,UP GRADIENT,Book shows up-gradient arrow with left curve,,,,1
+L-4810,,,CSMT-KYN,UP LOC,UP,,48/219,,,,Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,,,1
+DI S-36,DI,Dombivali,CSMT-KYN,UP LOC,UP,PF-3 STR,,,,,Semi-Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,,,1
+DI S-35,DI,Dombivali,CSMT-KYN,UP LOC,UP,PF-2 STR,,,,,Semi-Automatic,,Right,,,1,0,0,0,0,0,0,0,0,,,,,,1
+L-4710,,,CSMT-KYN,UP LOC,UP,,47/220,,,,Automatic,,Extreme Right,,,0,1,0,0,0,0,0,0,0,,,,,,1
+L-4702,,,CSMT-KYN,UP LOC,UP,,47/206,,,,Automatic,,Extreme Right,,,0,1,0,0,0,0,0,0,0,,,,,,1
+DI S-16,DI,Dombivali,CSMT-KYN,UP LOC,UP,PF-2 STR,,,,,Semi-Automatic,,Right,,,1,0,0,0,0,0,0,0,0,,,,,,1
+L-4602,,,CSMT-KYN,UP LOC,UP,,46/205,,,,Automatic,,Extreme Right,,,0,1,0,0,0,0,0,0,0,,,,,,1
+L-4506,,,CSMT-KYN,UP LOC,UP,,45/213,,,,Automatic,,Extreme Right,,,0,1,0,0,0,0,0,0,0,,,,,,1
+L-4410,,,CSMT-KYN,UP LOC,UP,,44/227,,,,Automatic,,Extreme Right,,,0,1,0,0,0,0,0,0,0,,,,,,1
+L-4314,,,CSMT-KYN,UP LOC,UP,,43/241,,,,Automatic,,Extreme Right,Right,,0,1,0,0,0,0,0,0,0,,,,,,1
+L-4308,,,CSMT-KYN,UP LOC,UP,,43/227,,,,Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,,,1
+DW S-66,DW,Diva,CSMT-KYN,UP LOC,UP,,43/215,,,,Semi-Automatic,,Left,,,0,0,1,0,0,0,0,0,0,TH S-65,Book shows flag marker referencing TH S-65,,,,1
+DW S-64,DW,Diva,CSMT-KYN,UP LOC,UP,,42/229,,,,Semi-Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,,,1
+DW S-53,DW,Diva,CSMT-KYN,UP LOC,UP,PF-2 STR,,,,,Semi-Automatic,,Right,,,1,0,0,0,1,0,0,0,0,,,,,,1
+DW S-48,DW,Diva,CSMT-KYN,UP LOC,UP,,41/229,,,,Semi-Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,,,1
+DW S-45,DW,Diva,CSMT-KYN,UP LOC,UP,,41/213,,,,Semi-Automatic,,Right,,,1,0,0,0,0,0,0,0,0,,,,,,1
+L-4020,,,CSMT-KYN,UP LOC,UP,,40/237,,,,Automatic,,Right,Right,,1,0,0,0,0,0,0,0,0,,,,,,1
+L-4014,,,CSMT-KYN,UP LOC,UP,,40/225,,,,Automatic,,Left,Right,,0,0,1,0,0,0,0,0,0,,,,,,1
+L-3912,,,CSMT-KYN,UP LOC,UP,PF-2 STR,39/225,,,,Automatic,,Left,Right,,0,0,1,0,0,0,0,0,0,,,,,,1
+L-3906,,,CSMT-KYN,UP LOC,UP,,39/211,,,,Automatic,,Left,Right,,0,0,1,0,0,0,0,0,0,,,,,,1
+L-3816,,,CSMT-KYN,UP LOC,UP,,38/233,,,,Automatic,,Left,Left,,0,0,1,0,0,0,0,0,0,,,,,,1
+L-3808,,,CSMT-KYN,UP LOC,UP,,38/219A,,,,Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,,,1
+L-3718,,,CSMT-KYN,UP LOC,UP,,38/201,,,,Automatic,,Left,Right,,0,0,1,0,0,0,0,0,0,,,,,,1
+L-3708,,,CSMT-KYN,UP LOC,UP,,37/223,,,,Automatic,,Left,Left,,0,0,1,0,0,0,0,0,0,,,,,,1
+L-3702,,,CSMT-KYN,UP LOC,UP,,37/209,,,,Automatic,,Left,Left,,0,0,1,0,0,0,0,0,0,,,,,,1
+KLV S-29,KLVA,Kalva,CSMT-KYN,UP LOC,UP,SH TO KCS,,,,,Semi-Automatic,,Right,,,1,0,0,0,0,0,0,0,0,,,,,,1
+L-3602,,,CSMT-KYN,UP LOC,UP,,36/207,,,,Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,,,1
+L-3512,,,CSMT-KYN,UP LOC,UP,,35/231,,,,Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,,,1
+L-3506,,,CSMT-KYN,UP LOC,UP,PF-2 STR,,,,,Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,,,1
+KLV S-25,KLVA,Kalva,CSMT-KYN,UP LOC,UP,,35/247,,,,Semi-Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,,,1
+KLV S-22,KLVA,Kalva,CSMT-KYN,UP LOC,UP,,,,,,Semi-Automatic,,Left,,,0,0,1,0,0,0,0,0,0,KCS EXIT,,,,,1
+L-3408,,,CSMT-KYN,UP LOC,UP,,34/225,,,,Automatic,,Left,Right,,0,0,1,0,1,0,0,0,0,,,,,,1
+TNA S-88,TNA,Thane,CSMT-KYN,UP LOC,UP,,34/205,,,,Semi-Automatic,,Left,Right,,0,0,1,0,0,0,0,0,0,TH S-82,Book shows flag marker referencing TH S-82; curve arrow shown before km in book,,,,1
+TNA S-86,TNA,Thane,CSMT-KYN,UP LOC,UP,,33/241,,,,Semi-Automatic,,Right,,,1,0,0,0,0,0,0,0,0,PF-3,Book shows flag marker PF-3 (RHS),,,,1
+TNA S-72,TNA,Thane,CSMT-KYN,UP LOC,UP,,33/217,,,,Semi-Automatic,,Left,Left,,0,0,1,0,0,0,0,0,0,,,,,,1
+TNA S-59,TNA,Thane,CSMT-KYN,UP LOC,UP,PF 4 STR,,,,,Semi-Automatic,,Left,,,0,0,1,0,0,0,0,0,0,TH S-11,Book shows flag marker referencing TH S-11,,,,1
+TNA S-32,TNA,Thane,CSMT-KYN,UP LOC,UP,,32/227,,,,Semi-Automatic,,Right,,,1,0,0,0,1,0,0,0,0,,,,,,1
+TNA S-58,TNA,Thane,CSMT-KYN,UP LOC,UP,PF-3 STR,,,,,Semi-Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,,,1
+TNA S-31,TNA,Thane,CSMT-KYN,UP LOC,UP,EX PF-3,,,,,Semi-Automatic,,Right,,,1,0,0,0,0,0,0,0,0,,,,,,1
+TNA S-9,TNA,Thane,CSMT-KYN,UP LOC,UP,,32/205,,,,Semi-Automatic,,Left,Left,,0,0,1,0,0,0,0,0,0,,,,,,1
+TNA S-44,TNA,Thane,CSMT-KYN,UP LOC,UP,PF-1 STR,,,,,Semi-Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,,,1
+TNA S-8,TNA,Thane,CSMT-KYN,UP LOC,UP,EX PF-1,,,,,Semi-Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,,,1
+L-092,,,CSMT-KYN,UP LOC,UP,,31/225,,,,Automatic,,Extreme Right,,,0,1,0,0,0,0,0,0,0,,,,,,1
+MLND S-17,MLND,Mulund,CSMT-KYN,UP LOC,UP,,31/209,,,,Semi-Automatic,,Extreme Right,,,0,1,0,0,0,0,0,0,0,UP TH K-056,Book shows flag marker referencing UP TH K-056,,,,1
+MLND S-15,MLND,Mulund,CSMT-KYN,UP LOC,UP,,30/235,,,,Semi-Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,,,1
+L-090,,,CSMT-KYN,UP LOC,UP,PF-2 STR,,,,,Automatic,,Left,Left,,0,0,1,0,0,0,0,0,0,,,,,,1
+L-088,,,CSMT-KYN,UP LOC,UP,,29/227,,,,Automatic,,Extreme Right,Left,,0,1,0,0,0,0,0,0,0,,,,,,1
+L-086,,,CSMT-KYN,UP LOC,UP,,29/203,,,,Automatic,,Extreme Right,Left,,0,1,0,0,0,0,0,0,0,,,,,,1
+L-084,,,CSMT-KYN,UP LOC,UP,,28/221,,,,Automatic,,Right,,,1,0,0,0,0,0,0,0,0,,,,,,1
+L-082,,,CSMT-KYN,UP LOC,UP,,27/235,,,,Automatic,,Extreme Right,Right,,0,1,0,0,0,0,0,0,0,,,,,,1
+L-080,,,CSMT-KYN,UP LOC,UP,,27/217,,,,Automatic,,Left,,,0,0,1,0,1,0,0,0,0,,,,,,1
+BND S-23,BND,Bhandup,CSMT-KYN,UP LOC,UP,,27/201,,,,Semi-Automatic,,Extreme Right,,,0,1,0,0,0,0,0,0,0,,,,,,1
+L-078,,,CSMT-KYN,UP LOC,UP,PF-2 STR,26/213,,,,Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,,,1
+L-076,,,CSMT-KYN,UP LOC,UP,,25/237,,,,Automatic,,Extreme Right,,,0,1,0,0,0,0,0,0,0,,,,,,1
+L-074,,,CSMT-KYN,UP LOC,UP,,25/217,,,,Automatic,,Extreme Right,,,0,1,0,0,0,0,0,0,0,,,,,,1
+L-072,,,CSMT-KYN,UP LOC,UP,,25/201,,,,Automatic,,Extreme Right,,,0,1,0,0,0,0,0,0,0,,,,,,1
+L-070,,,CSMT-KYN,UP LOC,UP,,23/233,,,,Automatic,,Right,Left,,1,0,0,0,0,0,0,0,0,,,,,,1
+L-066,,,CSMT-KYN,UP LOC,UP,,23/233,,,,Automatic,,Extreme Right,,,0,1,0,0,0,0,0,0,0,,,,,,1
+VK S-23,VK,Vikhroli,CSMT-KYN,UP LOC,UP,,23/205,,,,Semi-Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,,,1
+VK S-21,VK,Vikhroli,CSMT-KYN,UP LOC,UP,PF-2 STR,,,,,Semi-Automatic,,Left,Right,,0,0,1,0,0,0,0,0,0,,,,,,1
+L-064,,,CSMT-KYN,UP LOC,UP,,22/211,,,,Automatic,,Extreme Right,Right,,0,1,0,0,0,0,0,0,0,,,,,,1
+L-062,,,CSMT-KYN,UP LOC,UP,,21/229,,,,Automatic,,Extreme Right,Right,,0,1,0,0,0,0,0,0,0,,,,,,1
+L-060,,,CSMT-KYN,UP LOC,UP,,21/213,,,,Automatic,,Extreme Right,Right,,0,1,0,0,0,0,0,0,0,,,,,,1
+L-058,,,CSMT-KYN,UP LOC,UP,,20/235,,,,Automatic,,Extreme Right,,,0,1,0,0,0,0,0,0,0,,,,,,1
+L-056,,,CSMT-KYN,UP LOC,UP,,20/217,,,,Automatic,,Extreme Right,,,0,1,0,0,0,0,0,0,0,,,,,,1
+L-056A,,,CSMT-KYN,UP LOC,UP,,19/239,,,,Automatic,,Extreme Right,Right,,0,1,0,0,0,0,0,0,0,,,,,,1
+VVH S-57,VVH,Vidyavihar,CSMT-KYN,UP LOC,UP,,19/219,,,,Semi-Automatic,,Left,Right,,0,0,1,0,0,0,0,0,0,,,,,,1
+VVH S-54,VVH,Vidyavihar,CSMT-KYN,UP LOC,UP,PF-2 STR,,,,,Semi-Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,,,1
+VVH S-55,VVH,Vidyavihar,CSMT-KYN,UP LOC,UP,GC PF-1 UP STR,,,,,Semi-Automatic,,Right,,,1,0,0,0,0,0,0,0,0,,,,,,1
+VVH S-41,VVH,Vidyavihar,CSMT-KYN,UP LOC,UP,,18/235,,,,Semi-Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,,,1
+VVH S-33,VVH,Vidyavihar,CSMT-KYN,UP LOC,UP,,18/211,,,,Semi-Automatic,,Extreme Right,Left,,0,1,0,0,0,0,0,0,0,TH S9,Book shows flag marker referencing TH S9,,,,1
+VVH S-14,VVH,Vidyavihar,CSMT-KYN,UP LOC,UP,SH FOR NCS,,,,,Semi-Automatic,,Right,,,1,0,0,0,0,0,0,0,0,,,,,,1
+L-054,,,CSMT-KYN,UP LOC,UP,,17/207,,,,Automatic,,Extreme Right,,,0,1,0,0,0,0,0,0,0,,,,,,1
+L-052,,,CSMT-KYN,UP LOC,UP,,16/239,,,,Automatic,,Extreme Right,,,0,1,0,0,1,0,0,0,0,,,,,,1
+CLA S-26,CLA,Kurla,CSMT-KYN,UP LOC,UP,,16/223,,,,Semi-Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,,,1
+CLA S-27,CLA,Kurla,CSMT-KYN,UP LOC,UP,,,,,,Semi-Automatic,,Left,,,0,0,1,0,0,0,0,0,0,NCS EXIT,,,,,1
+CLA S-34,CLA,Kurla,CSMT-KYN,UP LOC,UP,,15/245,,,,Semi-Automatic,,Left,Left,,0,0,1,0,0,0,0,0,0,PF-3,Book shows flag marker PF-3,,,,1
+CLA S-42,CLA,Kurla,CSMT-KYN,UP LOC,UP,PF-4 STR,,,,,Semi-Automatic,,Right,,,1,0,0,0,0,0,0,0,0,,,,,,1
+CLA S-41,CLA,Kurla,CSMT-KYN,UP LOC,UP,PF-3 STR,,,,,Semi-Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,,,1
+L-050,,,CSMT-KYN,UP LOC,UP,,14/235,,,,Automatic,,Extreme Right,Left,,0,1,0,0,0,0,0,0,0,,,,,,1
+L-048,,,CSMT-KYN,UP LOC,UP,,14/221,,,,Automatic,,Gantry,,,0,0,0,0,0,0,0,0,0,ON GANTRY,,,,,1
+L-046,,,CSMT-KYN,UP LOC,UP,,13/227,,,,Automatic,,Right,,,1,0,0,0,0,0,0,0,0,,,,,,1
+L-044,,,CSMT-KYN,UP LOC,UP,,13/205,,,,Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,,,1
+L-042,,,CSMT-KYN,UP LOC,UP,PF STR,,,,,Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,,,1
+L-040,,,CSMT-KYN,UP LOC,UP,,12/211,,,,Automatic,,Extreme Right,,,0,1,0,0,0,0,0,0,0,,,,,,1
+L-038,,,CSMT-KYN,UP LOC,UP,,11/223,,,,Automatic,,Right,,,1,0,0,0,0,0,0,0,0,,,,,,1
+DR S-27,DR,Dadar,CSMT-KYN,UP LOC,UP,,11/205,,,,Semi-Automatic,,Right,,,1,0,0,0,0,0,0,1,1,RI: UP TH S-32 ; YD,Book shows route indicator with UP TH S-32 and YD (RHS),,,,1
+L-036,,,CSMT-KYN,UP LOC,UP,,10/221,,,,Automatic,,Right,,,1,0,0,0,0,0,0,0,0,,,,,,1
+DR S-33,DR,Dadar,CSMT-KYN,UP LOC,UP,PF-2 STR,,,,,Semi-Automatic,,Right,,,1,0,0,0,0,0,0,0,0,,,,,,1
+L-032,,,CSMT-KYN,UP LOC,UP,,,,,,Automatic,,Extreme Right,,,0,1,0,0,0,0,0,0,0,,,,,,1
+DR S-36,DR,Dadar,CSMT-KYN,UP LOC,UP,,,,,,Semi-Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,,,1
+DR S-41,DR,Dadar,CSMT-KYN,UP LOC,UP,PF-2 STR,,,,,Semi-Automatic,,Right,,,1,0,0,0,0,0,0,0,0,,,,,,1
+PR S-28,PR,Parel,CSMT-KYN,UP LOC,UP,,8/221,,,,Semi-Automatic,,Left,,,0,0,1,0,1,0,0,0,0,PF-2A,Book shows flag marker PF-2A,,,,1
+PR S-26,PR,Parel,CSMT-KYN,UP LOC,UP,,8/201,,,,Semi-Automatic,,Right,Left,,1,0,0,0,1,0,0,0,0,,,,,,1
+PR S-12,PR,Parel,CSMT-KYN,UP LOC,UP,,7/231,,,,Semi-Automatic,,Right,,,1,0,0,0,0,0,0,0,0,UP TH S-14,Book shows flag marker referencing UP TH S-14 (RHS),,,,1
+L-028,,,CSMT-KYN,UP LOC,UP,,7/203,,,,Automatic,,Extreme Right,Left,,0,1,0,0,0,0,0,0,0,,,,,,1
+L-026,,,CSMT-KYN,UP LOC,UP,,6/229,,,,Automatic,,Extreme Right,Left,,0,1,0,0,0,0,0,0,0,,,,,,1
+L-024,,,CSMT-KYN,UP LOC,UP,,6/213,,,,Automatic,,Right,,,1,0,0,0,0,0,0,0,0,,,,,,1
+L-022,,,CSMT-KYN,UP LOC,UP,PF-2 STR,,,,,Automatic,,Left,,,0,0,1,0,0,0,0,0,0,PF-2,,,,,1
+L-020,,,CSMT-KYN,UP LOC,UP,,5/221,,,,Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,,,1
+L-018,,,CSMT-KYN,UP LOC,UP,PF-2 STR,,,,,Automatic,,Right,,,1,0,0,0,1,0,0,0,0,,,,,,1
+BY S-39,BY,Byculla,CSMT-KYN,UP LOC,UP,,4/256,,,,Semi-Automatic,,Extreme Right,,,0,1,0,0,0,0,0,0,0,UP TH S-15,Book shows flag marker referencing UP TH S-15,,,,1
+BY S-16,BY,Byculla,CSMT-KYN,UP LOC,UP,PF-2 STR,,,,,Semi-Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,,,1
+L-014,,,CSMT-KYN,UP LOC,UP,,3/231,,,,Automatic,,Left,Left,,0,0,1,0,0,0,0,0,0,,,,,,1
+L-012,,,CSMT-KYN,UP LOC,UP,,2/247,,,,Automatic,,Extreme Right,Left,,0,1,0,0,0,0,0,0,0,,,,,,1
+L-010,,,CSMT-KYN,UP LOC,UP,,2/231,,,,Automatic,,Left,Right,,0,0,1,0,0,0,0,0,0,,,,,,1
+L-008 REP,,,CSMT-KYN,UP LOC,UP,ON PF,,,,,Repeater,,Right,Right,,1,0,0,0,0,0,0,0,0,,,,,,1
+L-008,,,CSMT-KYN,UP LOC,UP,PF-2 STR,2/203,,,,Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,,,1
+L-006,,,CSMT-KYN,UP LOC,UP,,1/244,,,,Automatic,,Left,,,0,0,1,0,0,0,0,0,0,,,,,,1
+L-004,,,CSMT-KYN,UP LOC,UP,,1/214,,,,Automatic,,Right,Left,,1,0,0,0,0,0,0,0,0,,,,,,1
+L-002,,,CSMT-KYN,UP LOC,UP,PF 4 STR,,,,,Automatic,,Right,,,1,0,0,0,0,0,0,0,0,,,,,,1
+CSMT S-54,CSMT,CSMT,CSMT-KYN,UP LOC,UP,,,,,,Semi-Automatic,,Left,Right,,0,0,1,0,0,0,0,1,2,RI: S-27 ; S-24 ; S-23,Book shows route indicator with S-27 left and S-24 / S-23 right,,,,1
+CSMT S-26,CSMT,CSMT,CSMT-KYN,UP LOC,UP,,,,,,Semi-Automatic,,Right,Left,,1,0,0,0,0,0,0,0,0,PF-3,Book shows flag marker PF-3 (RHS),,,,1
+CSMT S-27,CSMT,CSMT,CSMT-KYN,UP LOC,UP,,,,,,Semi-Automatic,,Left,Left,,0,0,1,0,0,0,0,0,0,PF-6,Book shows flag marker PF-6,,,,1
+CSMT S-24,CSMT,CSMT,CSMT-KYN,UP LOC,UP,,,,,,Semi-Automatic,,Left,Right,,0,0,1,0,0,0,0,0,0,FOR PF-3,,,,,1

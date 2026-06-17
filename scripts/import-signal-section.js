@@ -145,6 +145,9 @@ function parseSignalRow(raw, rowNo, errors) {
   return {
     signal_number: signalNumber,
     normalized_signal_number: normalizeSignalNumber(signalNumber),
+    // Optional book label, distinct from the (unique) identity — e.g. a distant
+    // stored as "ASO DIST" but printed in the book as just "DIST".
+    display_signal_no: nullableString(raw.display_signal_no),
     station_code: nullableString(raw.station_code),
     station_name: nullableString(raw.station_name),
     section, line, direction,
@@ -424,7 +427,7 @@ function buildBookRows(parsedSignals, signalIdByNumber, inserts, parsedPsrs, psr
       row_order: ro,
       row_type: 'SIGNAL',
       signal_id: signalIdByNumber[s.signal_number] || null,
-      display_signal_no: s.signal_number,
+      display_signal_no: s.display_signal_no || s.signal_number,
       display_location: s.location_text || s.km_text || null,
       display_description: s.book_description || null,
       station_code: s.station_code, station_name: s.station_name,
@@ -603,6 +606,21 @@ async function main() {
   // --- commit ---
   const conn = await getConnection();
   try {
+    // Import guard: refuse to overwrite a section that has been edited in the
+    // signal-book UI (edit_source = 'ui') unless --force is passed. Prevents a
+    // re-import from silently wiping curated UI edits.
+    const [guardRows] = await conn.execute(
+      `SELECT edit_source FROM div_signal_book_sections WHERE section_code = ?`,
+      [clean(info.section_code)]
+    );
+    if (guardRows.length && guardRows[0].edit_source === 'ui' && !args.includes('--force')) {
+      console.error(`\nREFUSED: section ${clean(info.section_code)} is UI-owned (edited in the signal book editor).`);
+      console.error('Re-importing would overwrite those edits. Re-run with --force to override,');
+      console.error('or discard the UI edits first.');
+      await conn.end();
+      process.exit(2);
+    }
+
     await conn.beginTransaction();
 
     // 1. Upsert signal master + aliases
