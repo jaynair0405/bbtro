@@ -608,6 +608,7 @@
         .pill.ok { background: var(--success-bg); color: var(--success); }
         .pill.pp  { background: var(--info-bg); color: var(--info); }
         .pill.renamed { background: var(--warning-bg); color: var(--warning); text-transform: none; }
+        .term-arr { font-size: .72rem; color: var(--success); font-weight: 600; line-height: 1.2; margin-top: 1px; }
 
         /* Save button */
         .save-btn {
@@ -1704,6 +1705,13 @@ function renamedBadge(renamedFrom) {
     return ` <span class="pill renamed" title="Previously numbered ${esc(renamedFrom)}">was ${esc(renamedFrom)}</span>`;
 }
 
+// Green terminal-arrival line under the train name (from WTT div_train_stops).
+// UP: arrival at the Mumbai terminal; DN: arrival at the handover boundary.
+function terminalArrLine(ta) {
+    if (!ta || !ta.time) return '';
+    return `<div class="term-arr" title="WTT arrival at ${esc(ta.station)}">arr ${esc(ta.station)} ${esc(ta.time)}</div>`;
+}
+
 // ── Special-train extra-loco / dead-loco support ─────────────────────────
 // Special (master-less) rows now get the same "+ second loco" and "Dead"
 // controls regular rows have. The backend already accepts these fields for
@@ -1928,6 +1936,7 @@ function renderSpecialRow(log, editable) {
         <td class="col-train">
             <div>${esc(log.train_no || '—')}${renamedBadge(log.renamed_from)}</div>
             ${log.train_name ? `<div style="font-size:.72rem;color:var(--text-light);line-height:1.2;margin-top:1px">${esc(log.train_name)}</div>` : ''}
+            ${terminalArrLine(log.terminal_arr)}
         </td>
         <td class="col-link"><small style="color:var(--muted)">special train${log.section ? ' · ' + esc(log.section) : ''}</small></td>
         <td class="col-actual">
@@ -2184,6 +2193,7 @@ function renderRow(m, editable) {
         <td class="col-train">
             <div>${esc(m.train_no)}${ppPill}${renamedBadge(m.renamed_from)}</div>
             ${m.train_name ? `<div style="font-size:.72rem;color:var(--text-light);line-height:1.2;margin-top:1px">${esc(m.train_name)}</div>` : ''}
+            ${terminalArrLine(m.terminal_arr)}
         </td>
         <td class="col-link">
             <div class="link-summary">

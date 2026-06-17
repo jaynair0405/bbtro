@@ -891,7 +891,7 @@ router.get('/today', async (req, res) => {
             `SELECT m.id, m.sheet_source, m.sr_no, m.section, m.direction, m.is_bypass,
                     m.from_station, m.to_station, m.route_label,
                     m.shed_code, m.link_attr, m.expected_hog, m.is_push_pull, m.traction_type,
-                    m.rake_type, m.train_no,
+                    m.rake_type, m.train_no, t.train_id,
                     COALESCE(t.train_name, m.train_name) AS train_name,
                     prev.train_no AS renamed_from,
                     m.event_time, m.via_stations, m.run_days, m.remark
@@ -951,7 +951,7 @@ router.get('/today', async (req, res) => {
             const [rows] = await pool.query(
                 `SELECT l.id, l.master_id, l.sheet_source, l.section, l.working_date, l.direction, l.train_no,
                         l.event_time, l.from_station, l.to_station,
-                        t.train_name,
+                        t.train_name, t.train_id,
                         prev.train_no AS renamed_from,
                         l.actual_loco_no, l.base_shed, l.loco_type, l.traction_type,
                         l.main_loco_dead, l.failed_in_division,
@@ -978,6 +978,50 @@ router.get('/today', async (req, res) => {
                 [date, sheetSource]
             );
             specials = rows;
+        }
+
+        // ── Terminal-arrival enrichment (from WTT div_train_stops) ─────────
+        // UP trains: arrival at the destination Mumbai terminal (final stop).
+        // DN trains: arrival at the loco-handover boundary by section
+        //   (NE→IGP, SE→LNL, KR→ROHA) — when the loco leaves the division.
+        // Adds r.terminal_arr = { time:'HH:MM', station } for the frontend's
+        // green line under the train name. Silent no-op for trains without WTT.
+        {
+            const allRows = [...merged, ...specials];
+            const tidSet = [...new Set(allRows.map(r => r.train_id).filter(Boolean))];
+            if (tidSet.length) {
+                const [stopRows] = await pool.query(
+                    `SELECT train_id, station_code, seq_order, arrival_time, departure_time
+                     FROM div_train_stops WHERE train_id IN (?)`, [tidSet]);
+                const byTrain = new Map();
+                for (const s of stopRows) {
+                    if (!byTrain.has(s.train_id)) byTrain.set(s.train_id, []);
+                    byTrain.get(s.train_id).push(s);
+                }
+                const BOUNDARY = { NE: 'IGP', SE: 'LNL', KR: 'ROHA' };
+                const hhmm = (t) => (t ? String(t).slice(0, 5) : null);
+                for (const r of allRows) {
+                    const stops = byTrain.get(r.train_id);
+                    if (!stops || !stops.length) continue;
+                    const dir = String(r.direction || derivedDirection || '').toUpperCase();
+                    let pick = null;
+                    // Use arrival when the train halts; fall back to the pass
+                    // time (departure) when it passes the point without stopping.
+                    if (dir === 'DN') {
+                        const bcode = BOUNDARY[String(r.section || '').toUpperCase()];
+                        if (bcode) {
+                            const s = stops.find(x => x.station_code === bcode && (x.arrival_time || x.departure_time));
+                            if (s) pick = { time: hhmm(s.arrival_time || s.departure_time), station: bcode };
+                        }
+                    } else {
+                        // UP / default: arrival at the final stop (destination terminal)
+                        const s = stops.filter(x => x.arrival_time || x.departure_time)
+                            .sort((a, b) => b.seq_order - a.seq_order)[0];
+                        if (s) pick = { time: hhmm(s.arrival_time || s.departure_time), station: s.station_code };
+                    }
+                    if (pick) r.terminal_arr = pick;
+                }
+            }
         }
 
         res.json({
