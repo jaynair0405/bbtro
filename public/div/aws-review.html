@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AWS Review | BBTRO Division</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" />
+  <style>
+    :root {
+      --bg: #0b1220;
+      --card: rgba(255,255,255,.06);
+      --card2: rgba(255,255,255,.08);
+      --stroke: rgba(255,255,255,.12);
+      --text: rgba(255,255,255,.92);
+      --muted: rgba(255,255,255,.68);
+      --accent: #6ee7ff;
+      --accent2: #a78bfa;
+      --danger: #ff6b6b;
+      --ok: #52ffa8;
+      --warn: #ffc857;
+      --shadow: 0 12px 30px rgba(0,0,0,.35);
+      --radius: 18px;
+    }
+
+    body {
+      background:
+        radial-gradient(900px 500px at 15% -10%, rgba(110,231,255,.16), transparent 60%),
+        radial-gradient(900px 500px at 90% 0%, rgba(167,139,250,.14), transparent 55%),
+        var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      font-family: system-ui, -apple-system, sans-serif;
+    }
+
+    .page-wrap { max-width: 1200px; margin: 0 auto; padding: 22px 14px 56px; }
+
+    .topbar {
+      position: sticky; top: 0; z-index: 50;
+      backdrop-filter: blur(10px);
+      background: linear-gradient(to bottom, rgba(11,18,32,.82), rgba(11,18,32,.55));
+      border: 1px solid var(--stroke);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 14px 18px;
+      margin-bottom: 18px;
+    }
+
+    .brand { display: flex; gap: 10px; align-items: center; }
+    .badge-dot {
+      width: 10px; height: 10px; border-radius: 999px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      box-shadow: 0 0 0 4px rgba(110,231,255,.12);
+    }
+    .title { font-weight: 750; letter-spacing: .2px; margin: 0; font-size: 1.05rem; }
+    .subtitle { margin: 0; color: var(--muted); font-size: .86rem; }
+
+    .glass-card {
+      background: linear-gradient(180deg, var(--card), rgba(255,255,255,.04));
+      border: 1px solid var(--stroke);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 20px;
+      margin-bottom: 18px;
+    }
+
+    .section-title { font-weight: 800; letter-spacing: .2px; margin: 0 0 14px; font-size: 1rem; }
+    .muted { color: var(--muted); }
+
+    .chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--stroke);
+      background: rgba(255,255,255,.05);
+      color: var(--muted);
+      font-size: .82rem;
+      white-space: nowrap;
+    }
+    .chip.ok { border-color: rgba(82,255,168,.4); color: var(--ok); }
+    .chip.warn { border-color: rgba(255,200,87,.4); color: var(--warn); }
+    .chip.danger { border-color: rgba(255,107,107,.4); color: var(--danger); }
+    .chip.accent { border-color: rgba(110,231,255,.4); color: var(--accent); }
+
+    .btn-neo {
+      border-radius: 12px;
+      border: 1px solid var(--stroke);
+      background: rgba(255,255,255,.06);
+      color: var(--text);
+      padding: 8px 16px;
+    }
+    .btn-neo:hover { background: rgba(255,255,255,.10); color: var(--text); }
+
+    .btn-accent {
+      border-radius: 12px;
+      border: none;
+      color: #08101f;
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      padding: 10px 20px;
+    }
+    .btn-accent:hover { opacity: .9; color: #08101f; }
+
+    .btn-ok {
+      border-radius: 12px;
+      border: 1px solid rgba(82,255,168,.4);
+      background: rgba(82,255,168,.1);
+      color: var(--ok);
+      padding: 8px 16px;
+    }
+    .btn-ok:hover { background: rgba(82,255,168,.2); color: var(--ok); }
+
+    /* Stats cards */
+    .stat-card {
+      background: rgba(255,255,255,.04);
+      border: 1px solid var(--stroke);
+      border-radius: 14px;
+      padding: 16px 20px;
+      text-align: center;
+    }
+    .stat-num { font-size: 2rem; font-weight: 800; color: var(--accent); }
+    .stat-label { font-size: .78rem; color: var(--muted); margin-top: 2px; }
+
+    /* Event card */
+    .event-card {
+      background: rgba(255,255,255,.03);
+      border: 1px solid var(--stroke);
+      border-radius: 14px;
+      padding: 16px 18px;
+      margin-bottom: 14px;
+      transition: all .15s ease;
+    }
+    .event-card:hover { background: rgba(255,255,255,.05); }
+    .event-card.reviewed { opacity: .6; border-color: rgba(82,255,168,.3); }
+
+    .event-header {
+      display: flex; justify-content: space-between; align-items: flex-start;
+      gap: 12px; margin-bottom: 10px;
+    }
+    .event-id { font-weight: 700; font-size: .9rem; }
+    .event-date { font-size: .82rem; color: var(--muted); }
+    .event-meta { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+
+    .detail-text {
+      background: rgba(0,0,0,.2);
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: 10px;
+      padding: 12px 14px;
+      font-size: .86rem;
+      margin-bottom: 12px;
+      max-height: 120px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .event-actions {
+      display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+    }
+
+    /* Code dropdown */
+    .code-select {
+      background: rgba(255,255,255,.08);
+      border: 1px solid var(--stroke);
+      border-radius: 10px;
+      color: var(--text);
+      padding: 8px 12px;
+      font-size: .86rem;
+      min-width: 120px;
+    }
+    .code-select:focus { outline: 2px solid var(--accent); border-color: var(--accent); }
+    .code-select option { background: #1a2538; }
+
+    .location-input {
+      background: rgba(255,255,255,.08);
+      border: 1px solid var(--stroke);
+      border-radius: 10px;
+      color: var(--text);
+      padding: 8px 12px;
+      font-size: .86rem;
+      width: 140px;
+    }
+    .location-input:focus { outline: 2px solid var(--accent); border-color: var(--accent); }
+    .location-input::placeholder { color: var(--muted); }
+
+    /* Code legend */
+    .code-legend {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 8px;
+    }
+    .legend-item {
+      display: flex; gap: 8px; align-items: center;
+      font-size: .82rem;
+    }
+    .legend-code {
+      background: rgba(110,231,255,.15);
+      color: var(--accent);
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-weight: 700;
+      min-width: 40px;
+      text-align: center;
+    }
+
+    /* Loading spinner */
+    .spinner {
+      display: inline-block;
+      width: 20px; height: 20px;
+      border: 2px solid var(--stroke);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin .8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Empty state */
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--muted);
+    }
+    .empty-icon { font-size: 3rem; margin-bottom: 16px; opacity: .5; }
+
+    /* Table styling for dark theme */
+    .table {
+      --bs-table-bg: transparent;
+      --bs-table-color: var(--text);
+    }
+    .table thead th {
+      color: var(--muted);
+      border-bottom: 1px solid var(--stroke);
+      font-weight: 600;
+    }
+    .table td { border-color: var(--stroke); vertical-align: middle; }
+
+    /* Form controls in dark theme */
+    .signal-search {
+      background: rgba(255,255,255,.05) !important;
+      border-color: var(--stroke) !important;
+      color: var(--text) !important;
+    }
+    .signal-search::placeholder { color: var(--muted); }
+    .dropdown-menu {
+      background: #1a2332;
+      border-color: var(--stroke);
+    }
+    .dropdown-item {
+      color: var(--text);
+    }
+    .dropdown-item:hover {
+      background: rgba(110,231,255,.15);
+      color: var(--accent);
+    }
+  </style>
+</head>
+<body>
+  <div class="page-wrap">
+    <!-- Top bar -->
+    <div class="topbar d-flex justify-content-between align-items-center">
+      <div class="brand">
+        <span class="badge-dot"></span>
+        <div>
+          <p class="title">AWS Manual Review</p>
+          <p class="subtitle">Assign codes to pending events</p>
+        </div>
+      </div>
+      <div class="d-flex gap-2">
+        <a href="aws-upload.html" class="btn btn-neo btn-sm"><i class="bi bi-upload me-1"></i> Upload</a>
+        <a href="aws.html" class="btn btn-neo btn-sm"><i class="bi bi-speedometer2 me-1"></i> Dashboard</a>
+      </div>
+    </div>
+
+    <!-- Stats row -->
+    <div class="row g-3 mb-3" id="statsRow">
+      <div class="col-4 col-md-3">
+        <div class="stat-card">
+          <div class="stat-num" id="pendingCount">-</div>
+          <div class="stat-label">Pending Review</div>
+        </div>
+      </div>
+      <div class="col-4 col-md-3">
+        <div class="stat-card">
+          <div class="stat-num" id="noCodeCount">-</div>
+          <div class="stat-label">No Code</div>
+        </div>
+      </div>
+      <div class="col-4 col-md-3">
+        <div class="stat-card">
+          <div class="stat-num" id="noLocationCount">-</div>
+          <div class="stat-label">No Location</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-2">
+        <div class="stat-card" style="padding:10px 16px;">
+          <button class="btn btn-accent w-100" id="parseBtn" onclick="runParser()">
+            <i class="bi bi-lightning-charge me-1"></i> Parse
+          </button>
+        </div>
+      </div>
+      <div class="col-6 col-md-2">
+        <div class="stat-card" style="padding:10px 16px;">
+          <button class="btn btn-neo w-100" id="matchBtn" onclick="runMatchAll()">
+            <i class="bi bi-link-45deg me-1"></i> Match All
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Unmatched Signals Section -->
+    <div class="glass-card" id="unmatchedSection" style="display:none;">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <p class="section-title mb-0"><i class="bi bi-signpost-split me-1"></i> Unmatched Signals</p>
+        <button class="btn btn-neo btn-sm" onclick="loadUnmatchedSignals()">
+          <i class="bi bi-arrow-clockwise"></i> Refresh
+        </button>
+      </div>
+      <div class="muted mb-2">Signals extracted from CMS but not found in database. Link manually or add to signal master.</div>
+      <div id="unmatchedContainer"></div>
+    </div>
+
+    <!-- Unmatched Rakes Section -->
+    <div class="glass-card" id="unmatchedRakesSection" style="display:none;">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <p class="section-title mb-0"><i class="bi bi-train-front me-1"></i> Unmatched D/Cabs</p>
+        <button class="btn btn-neo btn-sm" onclick="loadUnmatchedRakes()">
+          <i class="bi bi-arrow-clockwise"></i> Refresh
+        </button>
+      </div>
+      <div class="muted mb-2">Cab numbers not found in rake_coaches. May need to add to rake master.</div>
+      <div id="unmatchedRakesContainer"></div>
+    </div>
+
+    <!-- Code legend -->
+    <div class="glass-card">
+      <p class="section-title"><i class="bi bi-info-circle me-1"></i> AWS Code Reference</p>
+      <div class="code-legend">
+        <div class="legend-item"><span class="legend-code">A</span> Green signal</div>
+        <div class="legend-item"><span class="legend-code">B</span> Double Yellow</div>
+        <div class="legend-item"><span class="legend-code">C</span> Yellow</div>
+        <div class="legend-item"><span class="legend-code">D</span> Additional magnet</div>
+        <div class="legend-item"><span class="legend-code">E</span> Without magnet/signal</div>
+        <div class="legend-item"><span class="legend-code">P</span> Green to Double Yellow</div>
+        <div class="legend-item"><span class="legend-code">Q</span> Green to Yellow</div>
+        <div class="legend-item"><span class="legend-code">R</span> Double Yellow to Yellow</div>
+        <div class="legend-item"><span class="legend-code">AUX</span> Call-on / Shunt / Authority</div>
+      </div>
+    </div>
+
+    <!-- Events list -->
+    <div class="glass-card">
+      <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <p class="section-title mb-0"><i class="bi bi-list-check me-1"></i> <span id="eventsTitle">Events Needing Review</span></p>
+        <div class="d-flex gap-2">
+          <div class="btn-group btn-group-sm">
+            <button class="btn btn-neo active" id="btnPending" onclick="setFilter('pending')">Pending</button>
+            <button class="btn btn-neo" id="btnAll" onclick="setFilter('all')">All Events</button>
+          </div>
+          <button class="btn btn-neo btn-sm" onclick="loadEvents()">
+            <i class="bi bi-arrow-clockwise"></i>
+          </button>
+        </div>
+      </div>
+      <div id="eventsContainer">
+        <div class="text-center py-4"><span class="spinner"></span></div>
+      </div>
+      <div id="pagination" class="d-flex justify-content-center gap-2 mt-3"></div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = '/api/division/aws';
+    let currentOffset = 0;
+    const PAGE_SIZE = 20;
+    let totalEvents = 0;
+    let currentFilter = 'pending'; // 'pending' or 'all'
+
+    // Set filter and reload
+    function setFilter(filter) {
+      currentFilter = filter;
+      currentOffset = 0;
+
+      // Update button states
+      document.getElementById('btnPending').classList.toggle('active', filter === 'pending');
+      document.getElementById('btnAll').classList.toggle('active', filter === 'all');
+
+      // Update title
+      document.getElementById('eventsTitle').textContent =
+        filter === 'pending' ? 'Events Needing Review' : 'All Events';
+
+      loadEvents();
+    }
+
+    // Load pending stats
+    async function loadStats() {
+      try {
+        const res = await fetch(`${API_BASE}/review/pending`);
+        const data = await res.json();
+        document.getElementById('pendingCount').textContent = data.pending_count || 0;
+        document.getElementById('noCodeCount').textContent = data.no_code || 0;
+        document.getElementById('noLocationCount').textContent = data.no_location || 0;
+      } catch (err) {
+        console.error('Stats error:', err);
+      }
+    }
+
+    // Load events
+    async function loadEvents(offset = 0) {
+      currentOffset = offset;
+      const container = document.getElementById('eventsContainer');
+      container.innerHTML = '<div class="text-center py-4"><span class="spinner"></span></div>';
+
+      try {
+        const needsReview = currentFilter === 'pending' ? 'true' : 'false';
+        const res = await fetch(`${API_BASE}/events?needs_review=${needsReview}&limit=${PAGE_SIZE}&offset=${offset}`);
+        const data = await res.json();
+        totalEvents = data.total;
+
+        if (data.events.length === 0) {
+          const emptyMsg = currentFilter === 'pending'
+            ? '<p>All events have been reviewed!</p><a href="aws-upload.html" class="btn btn-accent mt-2">Upload More</a>'
+            : '<p>No events yet.</p><a href="aws-upload.html" class="btn btn-accent mt-2">Upload Data</a>';
+          container.innerHTML = `
+            <div class="empty-state">
+              <div class="empty-icon"><i class="bi bi-check-circle"></i></div>
+              ${emptyMsg}
+            </div>
+          `;
+          document.getElementById('pagination').innerHTML = '';
+          return;
+        }
+
+        container.innerHTML = data.events.map(ev => renderEventCard(ev, currentFilter === 'all')).join('');
+        renderPagination();
+      } catch (err) {
+        console.error('Events error:', err);
+        container.innerHTML = '<div class="text-center text-danger py-4">Failed to load events</div>';
+      }
+    }
+
+    // Render single event card
+    function renderEventCard(ev, isAllView = false) {
+      const dateStr = ev.abn_date ? new Date(ev.abn_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '-';
+      const timeStr = ev.abn_time ? ev.abn_time.slice(0, 5) : '';
+      const isReviewed = ev.needs_manual_review === 0;
+
+      // For "All Events" view, show reviewed events as read-only
+      const showReadOnly = isAllView && isReviewed;
+
+      return `
+        <div class="event-card ${isReviewed ? 'reviewed' : ''}" id="event-${ev.id}">
+          <div class="event-header">
+            <div>
+              <span class="event-id">${escapeHtml(ev.abn_id || 'No ID')}</span>
+              <span class="event-date ms-2">${dateStr} ${timeStr}</span>
+              ${isReviewed ? '<span class="chip ok ms-2"><i class="bi bi-check"></i> Reviewed</span>' : ''}
+            </div>
+            <div>
+              ${ev.aws_code ? `<span class="chip accent">${escapeHtml(ev.aws_code)}</span>` : '<span class="chip warn">No Code</span>'}
+              ${ev.location_raw ? `<span class="chip">${escapeHtml(ev.location_raw)}</span>` : ''}
+            </div>
+          </div>
+
+          <div class="event-meta">
+            <span class="chip"><i class="bi bi-train-front me-1"></i> ${escapeHtml(ev.train_number || '-')}</span>
+            <span class="chip">${escapeHtml(ev.from_station || '-')} → ${escapeHtml(ev.to_station || '-')}</span>
+            <span class="chip">${escapeHtml(ev.loco_raw || '-')}</span>
+            <span class="chip">${escapeHtml(ev.crew_name || ev.crew_id || '-')}</span>
+          </div>
+
+          <div class="detail-text">${escapeHtml(ev.detail || 'No detail')}</div>
+
+          ${showReadOnly ? '' : `<div class="event-actions">
+            <select class="code-select" id="code-${ev.id}" onchange="codeChanged(${ev.id})">
+              <option value="">Select Code</option>
+              <option value="A" ${ev.aws_code === 'A' ? 'selected' : ''}>A - Green</option>
+              <option value="B" ${ev.aws_code === 'B' ? 'selected' : ''}>B - Double Yellow</option>
+              <option value="C" ${ev.aws_code === 'C' ? 'selected' : ''}>C - Yellow</option>
+              <option value="D" ${ev.aws_code === 'D' ? 'selected' : ''}>D - Additional magnet</option>
+              <option value="E" ${ev.aws_code === 'E' ? 'selected' : ''}>E - No magnet/signal</option>
+              <option value="P" ${ev.aws_code === 'P' ? 'selected' : ''}>P - Green to D/Y</option>
+              <option value="Q" ${ev.aws_code === 'Q' ? 'selected' : ''}>Q - Green to Yellow</option>
+              <option value="R" ${ev.aws_code === 'R' ? 'selected' : ''}>R - D/Y to Yellow</option>
+              <option value="AUX" ${ev.aws_code === 'AUX' ? 'selected' : ''}>AUX - Call-on/Shunt</option>
+              <option value="OTHER" ${ev.aws_code === 'OTHER' ? 'selected' : ''}>OTHER</option>
+            </select>
+
+            <input type="text" class="location-input" id="loc-${ev.id}"
+                   value="${escapeHtml(ev.location_raw || '')}" placeholder="Location (signal/KM)">
+
+            <button class="btn btn-ok btn-sm" onclick="saveEvent(${ev.id})">
+              <i class="bi bi-check2"></i> Save
+            </button>
+          </div>`}
+        </div>
+      `;
+    }
+
+    // Escape HTML
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // Code changed - highlight for save
+    function codeChanged(eventId) {
+      const card = document.getElementById(`event-${eventId}`);
+      card.style.borderColor = 'rgba(110,231,255,.5)';
+    }
+
+    // Save event
+    async function saveEvent(eventId) {
+      const code = document.getElementById(`code-${eventId}`).value;
+      const loc = document.getElementById(`loc-${eventId}`).value.trim();
+
+      if (!code) {
+        alert('Please select an AWS code');
+        return;
+      }
+
+      if (!loc) {
+        alert('Please enter location before marking this event reviewed');
+        return;
+      }
+
+      const card = document.getElementById(`event-${eventId}`);
+      const btn = card.querySelector('.btn-ok');
+      const origText = btn.innerHTML;
+      btn.innerHTML = '<span class="spinner"></span>';
+      btn.disabled = true;
+
+      try {
+        const res = await fetch(`${API_BASE}/events/${eventId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            aws_code: code,
+            location_raw: loc || null
+          })
+        });
+
+        if (!res.ok) throw new Error('Update failed');
+
+        // Mark as reviewed - fade out
+        card.classList.add('reviewed');
+        card.innerHTML = `
+          <div class="d-flex justify-content-between align-items-center">
+            <span><i class="bi bi-check-circle text-success me-2"></i> Saved: Code <strong>${code}</strong></span>
+            <span class="muted">Event #${eventId}</span>
+          </div>
+        `;
+
+        // Refresh stats
+        loadStats();
+      } catch (err) {
+        console.error('Save error:', err);
+        alert('Failed to save. Please try again.');
+        btn.innerHTML = origText;
+        btn.disabled = false;
+      }
+    }
+
+    // Run parser
+    async function runParser() {
+      const btn = document.getElementById('parseBtn');
+      const origText = btn.innerHTML;
+      btn.innerHTML = '<span class="spinner"></span> Parsing...';
+      btn.disabled = true;
+
+      try {
+        const res = await fetch(`${API_BASE}/parse`, { method: 'POST' });
+        const data = await res.json();
+
+        if (data.success) {
+          alert(`Parsed ${data.parsed} events.\n${data.needs_review} need manual review.`);
+          loadStats();
+          loadEvents();
+        } else {
+          alert('Parse failed: ' + (data.error || 'Unknown error'));
+        }
+      } catch (err) {
+        console.error('Parse error:', err);
+        alert('Parse request failed');
+      }
+
+      btn.innerHTML = origText;
+      btn.disabled = false;
+    }
+
+    // Render pagination
+    function renderPagination() {
+      const pag = document.getElementById('pagination');
+      const totalPages = Math.ceil(totalEvents / PAGE_SIZE);
+      const currentPage = Math.floor(currentOffset / PAGE_SIZE) + 1;
+
+      if (totalPages <= 1) {
+        pag.innerHTML = '';
+        return;
+      }
+
+      let html = '';
+
+      // Previous
+      if (currentPage > 1) {
+        html += `<button class="btn btn-neo btn-sm" onclick="loadEvents(${(currentPage - 2) * PAGE_SIZE})">
+                   <i class="bi bi-chevron-left"></i>
+                 </button>`;
+      }
+
+      // Page numbers
+      for (let i = 1; i <= Math.min(5, totalPages); i++) {
+        const active = i === currentPage ? 'style="background:var(--accent);color:#08101f;"' : '';
+        html += `<button class="btn btn-neo btn-sm" ${active} onclick="loadEvents(${(i - 1) * PAGE_SIZE})">${i}</button>`;
+      }
+
+      if (totalPages > 5) {
+        html += '<span class="muted mx-1">...</span>';
+        html += `<button class="btn btn-neo btn-sm" onclick="loadEvents(${(totalPages - 1) * PAGE_SIZE})">${totalPages}</button>`;
+      }
+
+      // Next
+      if (currentPage < totalPages) {
+        html += `<button class="btn btn-neo btn-sm" onclick="loadEvents(${currentPage * PAGE_SIZE})">
+                   <i class="bi bi-chevron-right"></i>
+                 </button>`;
+      }
+
+      pag.innerHTML = html;
+    }
+
+    // ── Signal & Rake Matching ─────────────────────────────────────────────────
+    async function runMatchAll() {
+      const btn = document.getElementById('matchBtn');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Matching...';
+
+      try {
+        const resp = await fetch(`${API_BASE}/match-all`, { method: 'POST' });
+        const data = await resp.json();
+
+        if (data.success) {
+          alert(`Matching Complete!\n\nSignals: ${data.signals.matched}/${data.signals.total} matched\nRakes: ${data.rakes.matched}/${data.rakes.total} matched`);
+          loadUnmatchedSignals();
+          loadUnmatchedRakes();
+        } else {
+          alert('Error: ' + (data.error || 'Unknown error'));
+        }
+      } catch (err) {
+        console.error('Match all error:', err);
+        alert('Failed to run matching');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-link-45deg me-1"></i> Match All';
+      }
+    }
+
+    async function loadUnmatchedSignals() {
+      const section = document.getElementById('unmatchedSection');
+      const container = document.getElementById('unmatchedContainer');
+
+      try {
+        const resp = await fetch(`${API_BASE}/unmatched-signals`);
+        const data = await resp.json();
+
+        if (!data.unmatched || data.unmatched.length === 0) {
+          section.style.display = 'none';
+          return;
+        }
+
+        section.style.display = 'block';
+
+        let html = '<div class="table-responsive"><table class="table table-sm">';
+        html += `<thead><tr>
+          <th>Signal (Raw)</th>
+          <th>Normalized</th>
+          <th style="width:80px">Count</th>
+          <th>Dates</th>
+          <th style="width:200px">Link to Signal</th>
+        </tr></thead><tbody>`;
+
+        for (const s of data.unmatched) {
+          html += `<tr>
+            <td><strong>${escapeHtml(s.location_raw || '')}</strong></td>
+            <td class="muted">${escapeHtml(s.normalized_location || '')}</td>
+            <td><span class="badge bg-warning text-dark">${s.occurrence_count}</span></td>
+            <td class="muted" style="font-size:.85rem">${escapeHtml(s.dates || '')}</td>
+            <td>
+              <div class="input-group input-group-sm">
+                <input type="text" class="form-control signal-search" placeholder="Search signal..."
+                       data-location="${escapeHtml(s.location_raw || '')}" onkeyup="searchSignals(this)">
+                <button class="btn btn-outline-secondary dropdown-toggle" type="button"
+                        data-bs-toggle="dropdown" disabled>Select</button>
+                <ul class="dropdown-menu dropdown-menu-end signal-dropdown"></ul>
+              </div>
+            </td>
+          </tr>`;
+        }
+
+        html += '</tbody></table></div>';
+        container.innerHTML = html;
+
+      } catch (err) {
+        console.error('Load unmatched signals error:', err);
+        section.style.display = 'none';
+      }
+    }
+
+    let searchTimeout;
+    async function searchSignals(input) {
+      clearTimeout(searchTimeout);
+      const query = input.value.trim();
+      if (query.length < 2) return;
+
+      const dropdown = input.closest('.input-group').querySelector('.signal-dropdown');
+      const btn = input.closest('.input-group').querySelector('.dropdown-toggle');
+      const locationRaw = input.dataset.location;
+
+      searchTimeout = setTimeout(async () => {
+        try {
+          const resp = await fetch(`${API_BASE}/signals/search?q=${encodeURIComponent(query)}`);
+          const data = await resp.json();
+
+          if (data.signals && data.signals.length > 0) {
+            dropdown.innerHTML = data.signals.map(s =>
+              `<li><a class="dropdown-item" href="#" data-location="${escapeHtml(locationRaw)}" data-signal-id="${Number(s.id)}" data-signal-number="${escapeHtml(s.signal_number || '')}" onclick="linkSignalFromOption(this); return false;">
+                <strong>${escapeHtml(s.signal_number)}</strong> <small class="text-muted">${escapeHtml(s.station_code || '')} ${escapeHtml(s.section || '')}</small>
+              </a></li>`
+            ).join('');
+            btn.disabled = false;
+          } else {
+            dropdown.innerHTML = '<li><span class="dropdown-item text-muted">No signals found</span></li>';
+            btn.disabled = false;
+          }
+        } catch (err) {
+          console.error('Search signals error:', err);
+        }
+      }, 300);
+    }
+
+    async function linkSignal(locationRaw, signalId, signalNumber) {
+      if (!confirm(`Link "${locationRaw}" to signal "${signalNumber}"?\n\nThis will also create an alias for future auto-matching.`)) {
+        return;
+      }
+
+      try {
+        const resp = await fetch(`${API_BASE}/link-signal`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            location_raw: locationRaw,
+            signal_id: signalId,
+            create_alias: true
+          })
+        });
+        const data = await resp.json();
+
+        if (data.success) {
+          alert(`Linked! ${data.events_updated} event(s) updated.${data.alias_created ? ' Alias created.' : ''}`);
+          loadUnmatchedSignals();
+        } else {
+          alert('Error: ' + (data.error || 'Unknown error'));
+        }
+      } catch (err) {
+        console.error('Link signal error:', err);
+        alert('Failed to link signal');
+      }
+    }
+
+    function linkSignalFromOption(el) {
+      linkSignal(el.dataset.location, Number(el.dataset.signalId), el.dataset.signalNumber);
+    }
+
+    // ── Unmatched Rakes ────────────────────────────────────────────────────────
+    async function loadUnmatchedRakes() {
+      const section = document.getElementById('unmatchedRakesSection');
+      const container = document.getElementById('unmatchedRakesContainer');
+
+      try {
+        const resp = await fetch(`${API_BASE}/unmatched-rakes`);
+        const data = await resp.json();
+
+        if (!data.unmatched || data.unmatched.length === 0) {
+          section.style.display = 'none';
+          return;
+        }
+
+        section.style.display = 'block';
+
+        let html = '<div class="row g-2">';
+        for (const r of data.unmatched) {
+          html += `
+            <div class="col-6 col-md-3 col-lg-2">
+              <div class="p-2 rounded" style="background:rgba(255,255,255,.05);border:1px solid var(--stroke);">
+                <div class="d-flex justify-content-between align-items-center">
+                  <strong>${escapeHtml(r.loco_raw)}</strong>
+                  <span class="badge bg-warning text-dark">${r.occurrence_count}</span>
+                </div>
+                <small class="muted">${escapeHtml(r.dates || '')}</small>
+              </div>
+            </div>`;
+        }
+        html += '</div>';
+        container.innerHTML = html;
+
+      } catch (err) {
+        console.error('Load unmatched rakes error:', err);
+        section.style.display = 'none';
+      }
+    }
+
+    // Init
+    document.addEventListener('DOMContentLoaded', () => {
+      loadStats();
+      loadEvents();
+      loadUnmatchedSignals();
+      loadUnmatchedRakes();
+    });
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

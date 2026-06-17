@@ -1,0 +1,1362 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>AWS Weekly Investigation Report</title>
+
+  <!-- Bootstrap (optional, but helps quickly) -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+
+  <!-- Flatpickr date picker -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.css">
+
+  <!-- PDF/Excel export -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+  <style>
+    :root{
+      --bg: #0b1220;
+      --card: rgba(255,255,255,.06);
+      --card2: rgba(255,255,255,.08);
+      --stroke: rgba(255,255,255,.12);
+      --text: rgba(255,255,255,.92);
+      --muted: rgba(255,255,255,.68);
+      --accent: #6ee7ff;
+      --accent2: #a78bfa;
+      --danger: #ff6b6b;
+      --ok: #52ffa8;
+      --shadow: 0 12px 30px rgba(0,0,0,.35);
+      --radius: 18px;
+    }
+
+    .bg-purple { background-color: #8b5cf6 !important; }
+
+    body{
+      background:
+        radial-gradient(900px 500px at 15% -10%, rgba(110,231,255,.16), transparent 60%),
+        radial-gradient(900px 500px at 90% 0%, rgba(167,139,250,.14), transparent 55%),
+        var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    .page-wrap{ max-width: 1180px; margin: 0 auto; padding: 22px 14px 56px; }
+
+    .topbar{
+      position: sticky; top: 0; z-index: 50;
+      backdrop-filter: blur(10px);
+      background: linear-gradient(to bottom, rgba(11,18,32,.82), rgba(11,18,32,.55));
+      border: 1px solid var(--stroke);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 14px 14px;
+      margin-bottom: 18px;
+    }
+
+    .brand{
+      display:flex; gap:10px; align-items:center;
+    }
+    .badge-dot{
+      width:10px; height:10px; border-radius:999px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      box-shadow: 0 0 0 4px rgba(110,231,255,.12);
+    }
+    .title{
+      font-weight: 750;
+      letter-spacing: .2px;
+      margin: 0;
+      font-size: 1.05rem;
+      line-height: 1.2;
+    }
+    .subtitle{ margin:0; color: var(--muted); font-size: .86rem; }
+
+    .glass-card{
+      background: linear-gradient(180deg, var(--card), rgba(255,255,255,.04));
+      border: 1px solid var(--stroke);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+
+    .section-title{
+      font-weight: 800;
+      letter-spacing: .2px;
+      margin: 0 0 10px;
+      font-size: 1rem;
+    }
+
+    .muted{ color: var(--muted); }
+
+    .chip{
+      display:inline-flex; align-items:center; gap:8px;
+      padding: 7px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--stroke);
+      background: rgba(255,255,255,.05);
+      color: var(--muted);
+      font-size: .82rem;
+      white-space: nowrap;
+    }
+
+    .form-control, .form-select{
+      background: rgba(255,255,255,.04) !important;
+      border: 1px solid var(--stroke) !important;
+      color: var(--text) !important;
+      border-radius: 12px !important;
+    }
+    .form-control::placeholder{ color: rgba(255,255,255,.35); }
+
+    /* Flatpickr custom styling for dark theme */
+    .flatpickr-calendar{
+      background: #1a2332 !important;
+      border: 1px solid var(--stroke) !important;
+      box-shadow: var(--shadow) !important;
+    }
+    .flatpickr-months, .flatpickr-weekdays{
+      background: rgba(255,255,255,.05) !important;
+    }
+    .flatpickr-day{
+      color: var(--text) !important;
+    }
+    .flatpickr-day:hover{
+      background: rgba(110,231,255,.2) !important;
+      border-color: var(--accent) !important;
+    }
+    .flatpickr-day.selected{
+      background: var(--accent) !important;
+      border-color: var(--accent) !important;
+      color: #08101f !important;
+    }
+    .flatpickr-day.today{
+      border-color: var(--accent2) !important;
+    }
+    .flatpickr-current-month input.cur-year,
+    .flatpickr-current-month .flatpickr-monthDropdown-months{
+      color: var(--text) !important;
+    }
+    span.flatpickr-weekday{
+      color: var(--muted) !important;
+    }
+    .flatpickr-input{
+      cursor: pointer;
+    }
+    .form-label{ color: var(--muted); font-size: .85rem; }
+
+    .btn-neo{
+      border-radius: 12px;
+      border: 1px solid var(--stroke);
+      background: rgba(255,255,255,.06);
+      color: var(--text);
+    }
+    .btn-neo:hover{ background: rgba(255,255,255,.10); }
+
+    .btn-accent{
+      border-radius: 12px;
+      border: none;
+      color: #08101f;
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+    }
+
+    .stat{
+      padding: 14px 14px;
+      height: 100%;
+    }
+    .stat .k{ color: var(--muted); font-size: .85rem; }
+    .stat .v{ font-size: 1.55rem; font-weight: 850; letter-spacing: .2px; }
+
+    /* Types of Braking tiles */
+    .types-grid{
+      display:grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 12px;
+    }
+    @media (max-width: 1200px){
+      .types-grid{ grid-template-columns: repeat(6, 1fr); }
+    }
+    @media (max-width: 768px){
+      .types-grid{ grid-template-columns: repeat(2, 1fr); }
+    }
+
+    .type-tile{
+      grid-column: span 3;
+      padding: 14px;
+      border-radius: 16px;
+      border: 1px solid var(--stroke);
+      background: linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.03));
+      box-shadow: 0 10px 22px rgba(0,0,0,.28);
+    }
+    .type-tile h6{
+      margin: 0 0 10px;
+      font-weight: 900;
+      letter-spacing: .6px;
+      display:flex; justify-content: space-between; align-items:center;
+    }
+    .type-total{
+      font-size: .85rem;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: rgba(82,255,168,.12);
+      border: 1px solid rgba(82,255,168,.25);
+      color: rgba(82,255,168,.95);
+    }
+    .mini{
+      display:flex; gap:8px;
+      align-items:center;
+      margin-bottom: 8px;
+    }
+    .mini label{
+      width: 96px;
+      color: var(--muted);
+      font-size: .82rem;
+      margin:0;
+    }
+    .mini input{
+      flex:1;
+      padding: 8px 10px;
+      border-radius: 12px;
+      border: 1px solid var(--stroke);
+      background: rgba(255,255,255,.04);
+      color: var(--text);
+      outline: none;
+    }
+    .mini input:focus{
+      border-color: rgba(110,231,255,.6);
+      box-shadow: 0 0 0 4px rgba(110,231,255,.12);
+    }
+
+    .divider{
+      height: 1px;
+      background: var(--stroke);
+      margin: 14px 0;
+    }
+
+    /* Accordion styling tweak */
+    .accordion-item{
+      background: transparent;
+      border: 1px solid var(--stroke);
+      border-radius: 16px !important;
+      overflow: hidden;
+    }
+    .accordion-button{
+      background: rgba(255,255,255,.05) !important;
+      color: var(--text) !important;
+      box-shadow: none !important;
+    }
+    .accordion-body{
+      background: rgba(255,255,255,.03);
+    }
+
+    table.table{
+      --bs-table-bg: transparent;
+      --bs-table-color: var(--text);
+    }
+    .table thead th{
+      color: var(--muted);
+      border-bottom: 1px solid var(--stroke);
+    }
+    .table td, .table th{
+      border-top: 1px solid rgba(255,255,255,.08);
+      vertical-align: middle;
+    }
+
+    /* Print styles */
+    @media print {
+      body { background: white !important; color: black !important; }
+      .topbar { display: none !important; }
+      .glass-card, .accordion-item { background: white !important; border: 1px solid #ddd !important; }
+      .badge { border: 1px solid #999 !important; }
+      .btn, .dropdown { display: none !important; }
+      .accordion-collapse { display: block !important; height: auto !important; }
+      .form-control, .form-select { border: none !important; background: transparent !important; }
+      input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
+      input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; appearance: none; }
+    }
+
+  </style>
+</head>
+
+<body>
+  <div class="page-wrap">
+
+    <!-- TOP BAR -->
+    <div class="topbar">
+      <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+        <div class="brand">
+          <div class="badge-dot"></div>
+          <div>
+            <p class="title mb-0">Weekly Investigation of AWS Repeated Defects (Dept-wise)</p>
+            <p class="subtitle">Editable report page • Auto-fill from DB • CRTMS</p>
+          </div>
+        </div>
+
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+          <span class="chip">Report ID: <strong id="reportId" class="ms-1">—</strong></span>
+          <a href="/div/aws-upload.html" class="btn btn-neo px-3"><i class="bi bi-cloud-upload" style="margin-right:4px"></i>Upload CMS</a>
+          <a href="/div/aws-review.html" class="btn btn-neo px-3"><i class="bi bi-pencil-square" style="margin-right:4px"></i>Review</a>
+          <button class="btn btn-neo px-3" id="btnLoad"><i class="bi bi-arrow-clockwise" style="margin-right:4px"></i>Load Data</button>
+          <button class="btn btn-neo px-3" id="btnClassify" title="Apply AWS JPO rules (S&T / Cab / Transient) to events in the selected period"><i class="bi bi-tag" style="margin-right:4px"></i>Classify (JPO)</button>
+          <div class="dropdown">
+            <button class="btn btn-neo px-3 dropdown-toggle" type="button" data-bs-toggle="dropdown">
+              <i class="bi bi-download" style="margin-right:4px"></i>Export
+            </button>
+            <ul class="dropdown-menu dropdown-menu-dark">
+              <li><a class="dropdown-item" href="#" id="btnExportPdf"><i class="bi bi-file-pdf me-2"></i>Export PDF</a></li>
+              <li><a class="dropdown-item" href="#" id="btnExportExcel"><i class="bi bi-file-excel me-2"></i>Export Excel</a></li>
+              <li><hr class="dropdown-divider"></li>
+              <li><a class="dropdown-item" href="#" id="btnPrint"><i class="bi bi-printer me-2"></i>Print</a></li>
+            </ul>
+          </div>
+          <button class="btn btn-accent px-3" id="btnSave">Save</button>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- Meta row -->
+      <div class="row g-2">
+        <div class="col-12 col-md-3">
+          <label class="form-label">Period From</label>
+          <input class="form-control datepicker" type="text" id="periodFrom" placeholder="Select date">
+        </div>
+        <div class="col-12 col-md-3">
+          <label class="form-label">Period To</label>
+          <input class="form-control datepicker" type="text" id="periodTo" placeholder="Select date">
+        </div>
+        <div class="col-12 col-md-3">
+          <label class="form-label">Report Date</label>
+          <input class="form-control datepicker" type="text" id="reportDate" placeholder="Select date">
+        </div>
+        <div class="col-12 col-md-3">
+          <label class="form-label">Unit / Office</label>
+          <select class="form-select" id="office">
+            <option value="">Select…</option>
+            <option>NCS</option>
+            <option>KCS</option>
+            <option>SCS</option>
+            <option>PNVL</option>
+            <option>KYN</option>
+            <option>CSMT</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Report Content (for PDF export) -->
+    <div id="reportContent">
+
+    <!-- SUMMARY CARDS -->
+    <div class="row g-3 mb-3">
+      <div class="col-12 col-md-3">
+        <div class="glass-card stat">
+          <div class="k">Repeated Cases of S&amp;T (AWS) defects</div>
+          <div class="v"><input class="form-control form-control-lg mt-2" id="repST" type="number" min="0" value="0"></div>
+        </div>
+      </div>
+
+      <div class="col-12 col-md-3">
+        <div class="glass-card stat">
+          <div class="k">Repeated Cases of AWS defects (Cab)</div>
+          <div class="v"><input class="form-control form-control-lg mt-2" id="repCab" type="number" min="0" value="0"></div>
+        </div>
+      </div>
+
+      <div class="col-12 col-md-3">
+        <div class="glass-card stat">
+          <div class="k">AWS Brakings reported (as per CMS)</div>
+          <div class="v"><input class="form-control form-control-lg mt-2" id="cmsBrakings" type="number" min="0" value="0"></div>
+        </div>
+      </div>
+
+      <div class="col-12 col-md-3">
+        <div class="glass-card stat">
+          <div class="k">Transient Braking (Not verified / Unidentified)</div>
+          <div class="v"><input class="form-control form-control-lg mt-2" id="transientNotVerified" type="number" min="0" value="0"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TYPES OF BRAKING -->
+    <div class="glass-card p-3 p-md-4 mb-3">
+      <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+        <h3 class="section-title mb-0">Types of Braking</h3>
+        <span class="chip">
+          Overall Total:
+          <strong class="ms-1" id="overallTotal">0</strong>
+        </span>
+      </div>
+      <div class="muted mb-3">
+        Enter counts for each type. Totals are auto-calculated. (S&amp;T + On Cab A/c + Transient)
+      </div>
+
+      <div id="typesGrid" class="types-grid"></div>
+
+      <div class="divider"></div>
+
+      <div class="row g-2">
+        <div class="col-12 col-md-4">
+          <label class="form-label">Repeated Brakings on S&amp;T Account</label>
+          <input class="form-control" id="repBrakingSTAcc" type="number" min="0" value="0">
+        </div>
+        <div class="col-12 col-md-4">
+          <label class="form-label">Repeated Brakings on EMU Account</label>
+          <input class="form-control" id="repBrakingEMUAcc" type="number" min="0" value="0">
+        </div>
+        <div class="col-12 col-md-4">
+          <label class="form-label">Others (Including W.Rly)</label>
+          <input class="form-control" id="othersIncludingWR" type="number" min="0" value="0">
+        </div>
+      </div>
+    </div>
+
+    <!-- DETAILS -->
+    <div class="accordion" id="detailsAcc">
+
+      <!-- Repeated defects -->
+      <div class="accordion-item mb-3 glass-card">
+        <h2 class="accordion-header">
+          <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#repDefects">
+            Repeated Defects (EMU + S&amp;T) — details
+          </button>
+        </h2>
+        <div id="repDefects" class="accordion-collapse collapse" data-bs-parent="#detailsAcc">
+          <div class="accordion-body">
+            <div class="muted mb-2">Auto-fill from DB, editable by user.</div>
+            <div class="table-responsive">
+              <table class="table table-sm align-middle">
+                <thead>
+                  <tr>
+                    <th style="width:70px;">S.N</th>
+                    <th>Signal/Location or D/Cab</th>
+                    <th style="width:120px;">Line/Shed</th>
+                    <th style="width:130px;">Repeated Brkg</th>
+                    <th>Attention / Action</th>
+                    <th style="width:140px;">Dt. of attention</th>
+                  </tr>
+                </thead>
+                <tbody id="repDefectsBody">
+                  <!-- rows injected -->
+                </tbody>
+              </table>
+            </div>
+            <button class="btn btn-neo" id="addRepDefectRow">+ Add Row</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Transient cases -->
+      <div class="accordion-item mb-3 glass-card">
+        <h2 class="accordion-header">
+          <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#transientCases">
+            Transient Type AWS Defects — cases
+          </button>
+        </h2>
+        <div id="transientCases" class="accordion-collapse collapse" data-bs-parent="#detailsAcc">
+          <div class="accordion-body">
+            <div class="table-responsive">
+              <table class="table table-sm align-middle">
+                <thead>
+                  <tr>
+                    <th style="width:70px;">SR</th>
+                    <th style="width:140px;">Date</th>
+                    <th style="width:110px;">Tr. No.</th>
+                    <th style="width:110px;">D/Cab</th>
+                    <th style="width:90px;">Type</th>
+                    <th style="width:140px;">Location</th>
+                    <th style="width:110px;">Line</th>
+                    <th>Analysis</th>
+                  </tr>
+                </thead>
+                <tbody id="transientBody"></tbody>
+              </table>
+            </div>
+            <button class="btn btn-neo" id="addTransientRow">+ Add Row</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section-wise Braking -->
+      <div class="accordion-item mb-3 glass-card">
+        <h2 class="accordion-header">
+          <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#sectionWise">
+            Section-wise Braking — breakdown
+          </button>
+        </h2>
+        <div id="sectionWise" class="accordion-collapse collapse" data-bs-parent="#detailsAcc">
+          <div class="accordion-body">
+            <div class="muted mb-2">AWS brakings grouped by section (from-to station pairs)</div>
+            <div class="table-responsive">
+              <table class="table table-sm align-middle">
+                <thead>
+                  <tr>
+                    <th>Section</th>
+                    <th style="width:100px;">Total</th>
+                    <th style="width:100px;">S&T</th>
+                    <th style="width:100px;">Cab</th>
+                    <th>Codes</th>
+                    <th style="width:80px;"></th>
+                  </tr>
+                </thead>
+                <tbody id="sectionWiseBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- UD Cases -->
+      <div class="accordion-item mb-3 glass-card">
+        <h2 class="accordion-header">
+          <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#udCases">
+            UD Cases Logged — cases
+          </button>
+        </h2>
+        <div id="udCases" class="accordion-collapse collapse" data-bs-parent="#detailsAcc">
+          <div class="accordion-body">
+            <div class="table-responsive">
+              <table class="table table-sm align-middle">
+                <thead>
+                  <tr>
+                    <th style="width:70px;">Sr</th>
+                    <th style="width:140px;">Date</th>
+                    <th style="width:110px;">Trip</th>
+                    <th style="width:110px;">Rake</th>
+                    <th style="width:110px;">Cab</th>
+                    <th style="width:110px;">Type</th>
+                    <th style="width:160px;">Location</th>
+                    <th>Analysis</th>
+                    <th style="width:180px;">Reason of acting</th>
+                    <th style="width:160px;">Responsibility</th>
+                    <th style="width:160px;">Remarks</th>
+                  </tr>
+                </thead>
+                <tbody id="udBody"></tbody>
+              </table>
+            </div>
+            <button class="btn btn-neo" id="addUdRow">+ Add Row</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Joint Inspection -->
+      <div class="accordion-item mb-3 glass-card">
+        <h2 class="accordion-header">
+          <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#jointInspection">
+            AWS Joint Inspection Report — narrative
+          </button>
+        </h2>
+        <div id="jointInspection" class="accordion-collapse collapse" data-bs-parent="#detailsAcc">
+          <div class="accordion-body">
+            <div class="row g-2">
+              <div class="col-12 col-md-4">
+                <label class="form-label">Section</label>
+                <input class="form-control" id="jiSection" placeholder="e.g., KYN–KSRA (DN NE)">
+              </div>
+              <div class="col-12 col-md-4">
+                <label class="form-label">Motorman</label>
+                <input class="form-control" id="jiMotorman" placeholder="Name">
+              </div>
+              <div class="col-12 col-md-4">
+                <label class="form-label">Train Manager</label>
+                <input class="form-control" id="jiTrainManager" placeholder="Name">
+              </div>
+              <div class="col-12 col-md-6">
+                <label class="form-label">Unit No.</label>
+                <input class="form-control" id="jiUnitNo" placeholder="e.g., 2230-2231-...">
+              </div>
+              <div class="col-12 col-md-6">
+                <label class="form-label">D/Cab</label>
+                <input class="form-control" id="jiDCab" placeholder="e.g., 2230C">
+              </div>
+              <div class="col-12">
+                <label class="form-label">AAWS Counter Details</label>
+                <textarea class="form-control" id="jiCounter" rows="3" placeholder="SFBC..., EBC..., ISU..."></textarea>
+              </div>
+              <div class="col-12">
+                <label class="form-label">Remark</label>
+                <textarea class="form-control" id="jiRemark" rows="3" placeholder="Write final remarks..."></textarea>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /accordion -->
+
+    </div><!-- /reportContent -->
+
+    <!-- Event Details Modal -->
+    <div class="modal fade" id="eventModal" tabindex="-1">
+      <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content" style="background:var(--bg);border:1px solid var(--stroke);">
+          <div class="modal-header" style="border-color:var(--stroke);">
+            <h5 class="modal-title" id="eventModalTitle">Event Details</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body" id="eventModalBody">
+            <div class="text-center py-4">Loading...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /page-wrap -->
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+
+  <script>
+    // 1) Single source of truth for repeating items:
+    // You can add/remove types without rewriting UI.
+    // Valid AWS codes: A,B,C,D,E (aspects), P,Q,R (changes), AUX (shunt/calling-on), OTHER
+    const BRAKING_TYPES = ["A","B","C","D","E","P","Q","R","AUX","OTHER"];
+
+    // Build tiles for Types of Braking
+    const typesGrid = document.getElementById("typesGrid");
+
+    function makeTile(typeKey){
+      const wrap = document.createElement("div");
+      wrap.className = "type-tile";
+      wrap.dataset.type = typeKey;
+
+      wrap.innerHTML = `
+        <h6>
+          <span>${typeKey}</span>
+          <span class="type-total" id="total_${typeKey}">Total: 0</span>
+        </h6>
+
+        <div class="mini">
+          <label>S&amp;T</label>
+          <input type="number" min="0" value="0" data-field="st" />
+        </div>
+
+        <div class="mini">
+          <label>On Cab A/c</label>
+          <input type="number" min="0" value="0" data-field="cab" />
+        </div>
+
+        <div class="mini">
+          <label>Transient</label>
+          <input type="number" min="0" value="0" data-field="transient" />
+        </div>
+      `;
+
+      // recalc totals on input
+      wrap.querySelectorAll("input").forEach(inp => {
+        inp.addEventListener("input", () => recalcTypeTotal(typeKey));
+      });
+
+      return wrap;
+    }
+
+    function num(v){
+      const n = Number(v);
+      return Number.isFinite(n) && n >= 0 ? n : 0;
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>"']/g, c => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      }[c]));
+    }
+
+    function recalcTypeTotal(typeKey){
+      const tile = [...document.querySelectorAll(".type-tile")].find(x => x.dataset.type === typeKey);
+      if(!tile) return;
+
+      const st = num(tile.querySelector('input[data-field="st"]').value);
+      const cab = num(tile.querySelector('input[data-field="cab"]').value);
+      const tr = num(tile.querySelector('input[data-field="transient"]').value);
+
+      const total = st + cab + tr;
+      document.getElementById(`total_${typeKey}`).textContent = `Total: ${total}`;
+      recalcOverallTotal();
+    }
+
+    function recalcOverallTotal(){
+      let sum = 0;
+      document.querySelectorAll(".type-tile").forEach(tile => {
+        const st = num(tile.querySelector('input[data-field="st"]').value);
+        const cab = num(tile.querySelector('input[data-field="cab"]').value);
+        const tr = num(tile.querySelector('input[data-field="transient"]').value);
+        sum += (st + cab + tr);
+      });
+      document.getElementById("overallTotal").textContent = sum;
+    }
+
+    // Init tiles
+    BRAKING_TYPES.forEach(t => typesGrid.appendChild(makeTile(t)));
+    recalcOverallTotal();
+
+    // 2) Simple editable-row table helpers
+    function addRow(tbodyId, cells){
+      const tb = document.getElementById(tbodyId);
+      const tr = document.createElement("tr");
+      tr.innerHTML = cells.map(c => `<td>${c}</td>`).join("") + `<td class="text-end">
+        <button class="btn btn-sm btn-neo" type="button" onclick="this.closest('tr').remove()">Remove</button>
+      </td>`;
+      tb.appendChild(tr);
+    }
+
+    function inputCell(placeholder="", type="text"){
+      return `<input class="form-control form-control-sm" type="${type}" placeholder="${placeholder}" />`;
+    }
+    function textCell(placeholder=""){
+      return `<textarea class="form-control form-control-sm" rows="1" placeholder="${placeholder}"></textarea>`;
+    }
+
+    function dateCell(placeholder="Select date"){
+      return `<input class="form-control form-control-sm dynamic-date" type="text" placeholder="${placeholder}" />`;
+    }
+
+    // Buttons to add rows
+    document.getElementById("addRepDefectRow").addEventListener("click", () => {
+      addRow("repDefectsBody", [
+        inputCell("S.N","number"),
+        inputCell("Signal/Location or D/Cab"),
+        inputCell("Line/Shed"),
+        inputCell("Repeated Brkg","number"),
+        textCell("Attention / Action"),
+        dateCell(),
+      ]);
+      initDynamicDatepickers();
+    });
+
+    document.getElementById("addTransientRow").addEventListener("click", () => {
+      addRow("transientBody", [
+        inputCell("SR","number"),
+        dateCell(),
+        inputCell("Tr. No."),
+        inputCell("D/Cab"),
+        inputCell("Type"),
+        inputCell("Location"),
+        inputCell("Line"),
+        textCell("Analysis"),
+      ]);
+      initDynamicDatepickers();
+    });
+
+    document.getElementById("addUdRow").addEventListener("click", () => {
+      addRow("udBody", [
+        inputCell("Sr","number"),
+        dateCell(),
+        inputCell("Trip"),
+        inputCell("Rake"),
+        inputCell("Cab"),
+        inputCell("Type"),
+        inputCell("Location"),
+        textCell("Analysis"),
+        textCell("Reason of acting"),
+        inputCell("Responsibility"),
+        inputCell("Remarks"),
+      ]);
+      initDynamicDatepickers();
+    });
+
+    // Convert DD-MM-YYYY to YYYY-MM-DD for API
+    function toApiDate(dateStr) {
+      if (!dateStr) return '';
+      const parts = dateStr.split('-');
+      if (parts.length !== 3) return dateStr;
+      return `${parts[2]}-${parts[1]}-${parts[0]}`;
+    }
+
+    // 3) Load data from API
+    async function loadReportData() {
+      const fromDate = document.getElementById("periodFrom").value;
+      const toDate = document.getElementById("periodTo").value;
+
+      if (!fromDate || !toDate) return;
+
+      try {
+        const params = new URLSearchParams({
+          from: toApiDate(fromDate),
+          to: toApiDate(toDate)
+        });
+        const resp = await fetch(`/api/division/aws/report-data?${params}`);
+        if (!resp.ok) throw new Error('Failed to fetch');
+        const data = await resp.json();
+
+        populateFromData(data);
+        await loadSavedDraft();
+      } catch (err) {
+        console.error('Load report data error:', err);
+      }
+    }
+
+    function populateFromData(data) {
+      // Summary cards
+      document.getElementById("cmsBrakings").value = data.summary?.total_events || 0;
+      document.getElementById("repST").value = data.repeated_signals?.length || 0;
+      document.getElementById("repCab").value = data.repeated_cabs?.length || 0;
+      document.getElementById("transientNotVerified").value = data.summary?.transient_count || 0;
+
+      // Type tiles - populate from type_counts
+      const typeMap = {};
+      (data.type_counts || []).forEach(t => {
+        typeMap[t.aws_code] = t;
+      });
+
+      document.querySelectorAll(".type-tile").forEach(tile => {
+        const typeKey = tile.dataset.type;
+        const tc = typeMap[typeKey] || { st_count: 0, cab_count: 0, transient_count: 0 };
+
+        tile.querySelector('input[data-field="st"]').value = tc.st_count || 0;
+        tile.querySelector('input[data-field="cab"]').value = tc.cab_count || 0;
+        tile.querySelector('input[data-field="transient"]').value = tc.transient_count || 0;
+
+        recalcTypeTotal(typeKey);
+      });
+
+      // Repeated S&T defects (signals) table
+      const repBody = document.getElementById("repDefectsBody");
+      repBody.innerHTML = '';
+
+      // Section header for S&T
+      if ((data.repeated_signals || []).length > 0) {
+        const headerTr = document.createElement("tr");
+        headerTr.innerHTML = `<td colspan="7" class="text-center" style="background:rgba(110,231,255,.1);font-weight:700;">S&T Account - Repeated Signal Defects</td>`;
+        repBody.appendChild(headerTr);
+      }
+
+      // Add repeated signals
+      (data.repeated_signals || []).forEach((r, idx) => {
+        const tr = document.createElement("tr");
+        tr.style.cursor = 'pointer';
+        tr.innerHTML = `
+          <td>${idx + 1}</td>
+          <td><strong>${escapeHtml(r.location_raw)}</strong></td>
+          <td>${escapeHtml(r.codes)}</td>
+          <td><span class="badge bg-danger">${r.braking_count || 0}</span></td>
+          <td><small>${escapeHtml(r.dates)}</small></td>
+          <td>S&T attention</td>
+          <td class="text-end">
+            <button class="btn btn-sm btn-neo view-events-btn" data-ids="${escapeHtml(r.event_ids)}" data-title="Signal: ${escapeHtml(r.location_raw)}">
+              <i class="bi bi-eye"></i> View
+            </button>
+          </td>
+        `;
+        repBody.appendChild(tr);
+      });
+
+      // Section header for EMU/Cab
+      if ((data.repeated_cabs || []).length > 0) {
+        const headerTr = document.createElement("tr");
+        headerTr.innerHTML = `<td colspan="7" class="text-center" style="background:rgba(167,139,250,.1);font-weight:700;">EMU Account - Repeated Cab Defects</td>`;
+        repBody.appendChild(headerTr);
+      }
+
+      // Add repeated cabs with rake info
+      (data.repeated_cabs || []).forEach((r, idx) => {
+        const rakeInfo = r.unit_no ? `Unit: ${escapeHtml(r.unit_no)}` : '';
+        const shedInfo = r.shed_code || '';
+        const tr = document.createElement("tr");
+        tr.style.cursor = 'pointer';
+        tr.innerHTML = `
+          <td>${idx + 1}</td>
+          <td><strong>Cab ${escapeHtml(r.cab_number)}</strong>${rakeInfo ? `<br><small class="muted">${rakeInfo}</small>` : ''}</td>
+          <td>${escapeHtml(shedInfo)}</td>
+          <td><span class="badge bg-warning text-dark">${r.braking_count || 0}</span></td>
+          <td><small>${escapeHtml(r.dates)}</small></td>
+          <td>EMU attention</td>
+          <td class="text-end">
+            <button class="btn btn-sm btn-neo view-events-btn" data-ids="${escapeHtml(r.event_ids)}" data-title="Cab: ${escapeHtml(r.cab_number)}">
+              <i class="bi bi-eye"></i> View
+            </button>
+          </td>
+        `;
+        repBody.appendChild(tr);
+      });
+
+      // Transient cases table
+      const transBody = document.getElementById("transientBody");
+      transBody.innerHTML = '';
+
+      (data.transient_cases || []).forEach((t, idx) => {
+        // Format date as DD-MM-YYYY for flatpickr
+        let dateVal = '';
+        if (t.abn_date) {
+          const d = new Date(t.abn_date);
+          dateVal = `${String(d.getDate()).padStart(2,'0')}-${String(d.getMonth()+1).padStart(2,'0')}-${d.getFullYear()}`;
+        }
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${idx + 1}</td>
+          <td><input class="form-control form-control-sm dynamic-date" type="text" value="${dateVal}" /></td>
+          <td><input class="form-control form-control-sm" value="${escapeHtml(t.train_number)}" /></td>
+          <td><input class="form-control form-control-sm" value="${escapeHtml(t.loco_raw)}" /></td>
+          <td><input class="form-control form-control-sm" value="${escapeHtml(t.aws_code)}" /></td>
+          <td><input class="form-control form-control-sm" value="${escapeHtml(t.location_raw)}" /></td>
+          <td><input class="form-control form-control-sm" value="${escapeHtml(t.from_station)} - ${escapeHtml(t.to_station)}" /></td>
+          <td><textarea class="form-control form-control-sm" rows="1">${escapeHtml(t.analysis_text)}</textarea></td>
+          <td class="text-end"><button class="btn btn-sm btn-neo" onclick="this.closest('tr').remove()">Remove</button></td>
+        `;
+        transBody.appendChild(tr);
+      });
+
+      // Initialize flatpickr on dynamically added date inputs
+      initDynamicDatepickers();
+
+      // Section-wise breakdown table
+      const sectionBody = document.getElementById("sectionWiseBody");
+      sectionBody.innerHTML = '';
+
+      (data.section_wise || []).forEach(s => {
+        const lineColors = {
+          'HARBOUR': 'bg-info',
+          'TRANS_HB': 'bg-warning text-dark',
+          'LOCAL': 'bg-success',
+          'FAST': 'bg-primary',
+          'NE': 'bg-purple',
+          'SE': 'bg-purple',
+          'PORT': 'bg-dark',
+          'OTHER': 'bg-secondary'
+        };
+        const typeBadge = lineColors[s.line_type] || 'bg-secondary';
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>
+            <strong>${escapeHtml(s.section_name || s.section_code)}</strong>
+            <br><span class="badge ${typeBadge}">${escapeHtml(s.line_type)}</span>
+          </td>
+          <td><span class="badge bg-danger">${s.braking_count || 0}</span></td>
+          <td>${s.st_count || 0}</td>
+          <td>${s.cab_count || 0}</td>
+          <td><small class="muted">${escapeHtml(s.codes)}</small></td>
+          <td>
+            ${s.event_ids ? `<button class="btn btn-sm btn-outline-info view-events-btn" data-ids="${escapeHtml(s.event_ids)}" data-title="${escapeHtml(s.section_name || s.section_code)}">View</button>` : ''}
+          </td>
+        `;
+        sectionBody.appendChild(tr);
+      });
+
+      recalcOverallTotal();
+    }
+
+    // Flatpickr config
+    const fpConfig = {
+      dateFormat: 'd-m-Y',
+      altInput: true,
+      altFormat: 'd M Y',
+      allowInput: true,
+      theme: 'dark'
+    };
+
+    // Initialize flatpickr on main date inputs
+    const fpFrom = flatpickr('#periodFrom', {
+      ...fpConfig,
+      onChange: function() { loadReportData(); }
+    });
+    const fpTo = flatpickr('#periodTo', {
+      ...fpConfig,
+      onChange: function() { loadReportData(); }
+    });
+    const fpReport = flatpickr('#reportDate', fpConfig);
+
+    // Set default dates (last 7 days)
+    const today = new Date();
+    const weekAgo = new Date(today);
+    weekAgo.setDate(weekAgo.getDate() - 7);
+
+    fpTo.setDate(today);
+    fpFrom.setDate(weekAgo);
+    fpReport.setDate(today);
+
+    // Helper to init flatpickr on dynamically added inputs
+    function initDynamicDatepickers() {
+      document.querySelectorAll('.dynamic-date:not(.flatpickr-input)').forEach(inp => {
+        flatpickr(inp, fpConfig);
+      });
+    }
+
+    // Load on page ready
+    loadReportData();
+
+    function collectTypesData(){
+      const out = {};
+      document.querySelectorAll(".type-tile").forEach(tile => {
+        const typeKey = tile.dataset.type;
+        out[typeKey] = {
+          st: num(tile.querySelector('input[data-field="st"]').value),
+          cab: num(tile.querySelector('input[data-field="cab"]').value),
+          transient: num(tile.querySelector('input[data-field="transient"]').value),
+        };
+        out[typeKey].total = out[typeKey].st + out[typeKey].cab + out[typeKey].transient;
+      });
+      return out;
+    }
+
+    function buildPayload(){
+      return {
+        meta: {
+          periodFrom: document.getElementById("periodFrom").value,
+          periodTo: document.getElementById("periodTo").value,
+          periodFromApi: toApiDate(document.getElementById("periodFrom").value),
+          periodToApi: toApiDate(document.getElementById("periodTo").value),
+          reportDate: document.getElementById("reportDate").value,
+          office: document.getElementById("office").value,
+        },
+        summary: {
+          repeatedST: num(document.getElementById("repST").value),
+          repeatedCab: num(document.getElementById("repCab").value),
+          cmsBrakings: num(document.getElementById("cmsBrakings").value),
+          transientNotVerified: num(document.getElementById("transientNotVerified").value),
+          repeatedBrakingSTAcc: num(document.getElementById("repBrakingSTAcc").value),
+          repeatedBrakingEMUAcc: num(document.getElementById("repBrakingEMUAcc").value),
+          othersIncludingWR: num(document.getElementById("othersIncludingWR").value),
+        },
+        typesOfBraking: collectTypesData(),
+        jointInspection: {
+          section: document.getElementById("jiSection").value,
+          motorman: document.getElementById("jiMotorman").value,
+          trainManager: document.getElementById("jiTrainManager").value,
+          unitNo: document.getElementById("jiUnitNo").value,
+          dcab: document.getElementById("jiDCab").value,
+          counters: document.getElementById("jiCounter").value,
+          remark: document.getElementById("jiRemark").value,
+        }
+        // TODO: tables (repDefects/transient/ud) serialize if you want them editable+stored
+      };
+    }
+
+    function applySavedDraft(payload) {
+      if (!payload) return;
+
+      const { summary, typesOfBraking, jointInspection } = payload;
+
+      if (summary) {
+        const summaryMap = {
+          repeatedST: "repST",
+          repeatedCab: "repCab",
+          cmsBrakings: "cmsBrakings",
+          transientNotVerified: "transientNotVerified",
+          repeatedBrakingSTAcc: "repBrakingSTAcc",
+          repeatedBrakingEMUAcc: "repBrakingEMUAcc",
+          othersIncludingWR: "othersIncludingWR",
+        };
+        Object.entries(summaryMap).forEach(([key, id]) => {
+          if (summary[key] !== undefined) document.getElementById(id).value = summary[key];
+        });
+      }
+
+      if (typesOfBraking) {
+        document.querySelectorAll(".type-tile").forEach(tile => {
+          const typeKey = tile.dataset.type;
+          const saved = typesOfBraking[typeKey];
+          if (!saved) return;
+          tile.querySelector('input[data-field="st"]').value = saved.st || 0;
+          tile.querySelector('input[data-field="cab"]').value = saved.cab || 0;
+          tile.querySelector('input[data-field="transient"]').value = saved.transient || 0;
+          recalcTypeTotal(typeKey);
+        });
+      }
+
+      if (jointInspection) {
+        const jiMap = {
+          section: "jiSection",
+          motorman: "jiMotorman",
+          trainManager: "jiTrainManager",
+          unitNo: "jiUnitNo",
+          dcab: "jiDCab",
+          counters: "jiCounter",
+          remark: "jiRemark",
+        };
+        Object.entries(jiMap).forEach(([key, id]) => {
+          if (jointInspection[key] !== undefined) document.getElementById(id).value = jointInspection[key] || "";
+        });
+      }
+
+      recalcOverallTotal();
+    }
+
+    async function loadSavedDraft() {
+      const fromDate = document.getElementById("periodFrom").value;
+      const toDate = document.getElementById("periodTo").value;
+      const office = document.getElementById("office").value;
+      if (!fromDate || !toDate) return;
+
+      try {
+        const params = new URLSearchParams({
+          from: toApiDate(fromDate),
+          to: toApiDate(toDate),
+          office
+        });
+        const resp = await fetch(`/api/division/aws/report-draft?${params}`);
+        if (!resp.ok) return;
+        const data = await resp.json();
+        if (data.draft?.payload) {
+          const payload = typeof data.draft.payload === 'string'
+            ? JSON.parse(data.draft.payload)
+            : data.draft.payload;
+          applySavedDraft(payload);
+        }
+      } catch (err) {
+        console.error("Load saved draft error:", err);
+      }
+    }
+
+    document.getElementById("btnSave").addEventListener("click", async () => {
+      const payload = buildPayload();
+      try {
+        const resp = await fetch('/api/division/aws/report-draft', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || 'Save failed');
+        alert("Report draft saved.");
+      } catch (err) {
+        console.error("Save report draft error:", err);
+        alert("Save failed: " + err.message);
+      }
+    });
+
+    document.getElementById("btnPrint").addEventListener("click", () => window.print());
+
+    // PDF Export using jspdf + html2canvas
+    document.getElementById("btnExportPdf").addEventListener("click", async (e) => {
+      e.preventDefault();
+      const btn = e.target.closest('a');
+      const originalText = btn.innerHTML;
+      btn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Generating...';
+
+      try {
+        const { jsPDF } = window.jspdf;
+        const reportArea = document.getElementById('reportContent');
+
+        // Temporarily expand all accordions for PDF
+        const accordions = reportArea.querySelectorAll('.accordion-collapse');
+        const originalStates = [];
+        accordions.forEach((acc, i) => {
+          originalStates[i] = acc.classList.contains('show');
+          acc.classList.add('show');
+        });
+
+        // Wait for DOM update
+        await new Promise(r => setTimeout(r, 300));
+
+        const canvas = await html2canvas(reportArea, {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: '#0b1220',
+          logging: false
+        });
+
+        // Restore accordion states
+        accordions.forEach((acc, i) => {
+          if (!originalStates[i]) acc.classList.remove('show');
+        });
+
+        const imgData = canvas.toDataURL('image/png');
+        const pdf = new jsPDF({
+          orientation: 'portrait',
+          unit: 'mm',
+          format: 'a4'
+        });
+
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
+        const imgWidth = pdfWidth - 20;
+        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+        let heightLeft = imgHeight;
+        let position = 10;
+
+        pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
+        heightLeft -= (pdfHeight - 20);
+
+        while (heightLeft > 0) {
+          position = heightLeft - imgHeight + 10;
+          pdf.addPage();
+          pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
+          heightLeft -= (pdfHeight - 20);
+        }
+
+        const fromDate = document.getElementById('periodFrom').value || 'report';
+        const toDate = document.getElementById('periodTo').value || '';
+        const filename = `AWS_Report_${fromDate}${toDate ? '_to_' + toDate : ''}.pdf`;
+        pdf.save(filename);
+
+      } catch (err) {
+        console.error('PDF export error:', err);
+        alert('Error generating PDF: ' + err.message);
+      } finally {
+        btn.innerHTML = originalText;
+      }
+    });
+
+    // Excel Export
+    document.getElementById("btnExportExcel").addEventListener("click", async (e) => {
+      e.preventDefault();
+      const btn = e.target.closest('a');
+      const originalText = btn.innerHTML;
+      btn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Generating...';
+
+      try {
+        const fromDate = document.getElementById('periodFrom').value;
+        const toDate = document.getElementById('periodTo').value;
+
+        const params = new URLSearchParams();
+        if (fromDate) params.append('from', fromDate);
+        if (toDate) params.append('to', toDate);
+
+        const resp = await fetch(`/api/division/aws/export-excel?${params}`);
+        if (!resp.ok) throw new Error('Export failed');
+
+        const blob = await resp.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `AWS_Report_${fromDate || 'all'}${toDate ? '_to_' + toDate : ''}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+
+      } catch (err) {
+        console.error('Excel export error:', err);
+        alert('Error exporting Excel: ' + err.message);
+      } finally {
+        btn.innerHTML = originalText;
+      }
+    });
+
+    document.getElementById("btnLoad").addEventListener("click", () => {
+      loadReportData();
+    });
+
+    document.getElementById("btnClassify").addEventListener("click", async (e) => {
+      const fromRaw = document.getElementById("periodFrom").value;
+      const toRaw   = document.getElementById("periodTo").value;
+      if (!fromRaw || !toRaw) {
+        alert("Pick Period From and Period To dates before classifying.");
+        return;
+      }
+
+      const btn = e.target.closest('button');
+      const originalHtml = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>Classifying…';
+
+      try {
+        const resp = await fetch('/api/division/aws/classify-period', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ from: toApiDate(fromRaw), to: toApiDate(toRaw) })
+        });
+
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({ error: 'Unknown error' }));
+          throw new Error(err.error || `HTTP ${resp.status}`);
+        }
+
+        const data = await resp.json();
+
+        const summary = [
+          `Classified ${data.total_in_window} events in ${fromRaw} → ${toRaw}:`,
+          ``,
+          `  Rule 1 (per-trip consecutive, cab) : ${data.rule1_consecutive_trip_cab}  [stub]`,
+          `  Rule 2 (per-day per-signal, S&T)   : ${data.rule2_per_day_signal}`,
+          `  Rule 3a (per-week per-cab, CAB)    : ${data.rule3a_per_week_cab}`,
+          `  Rule 3b (per-week per-magnet, S&T) : ${data.rule3b_per_week_magnet}`,
+          `  Rule 4 (transient default)         : ${data.rule4_transient}`,
+          ``,
+          data.notes || ''
+        ].join('\n');
+
+        alert(summary);
+        loadReportData();
+      } catch (err) {
+        console.error('Classify error:', err);
+        alert('Classification failed: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+      }
+    });
+
+    // Event modal for drill-down
+    const eventModal = new bootstrap.Modal(document.getElementById('eventModal'));
+
+    document.addEventListener('click', async (e) => {
+      const btn = e.target.closest('.view-events-btn');
+      if (!btn) return;
+
+      const ids = btn.dataset.ids;
+      const title = btn.dataset.title || 'Event Details';
+
+      if (!ids) {
+        alert('No event IDs available');
+        return;
+      }
+
+      document.getElementById('eventModalTitle').textContent = title;
+      document.getElementById('eventModalBody').innerHTML = '<div class="text-center py-4">Loading...</div>';
+      eventModal.show();
+
+      try {
+        const resp = await fetch(`/api/division/aws/events-by-ids?ids=${ids}`);
+        if (!resp.ok) throw new Error('Failed to fetch');
+        const data = await resp.json();
+
+        if (!data.events || data.events.length === 0) {
+          document.getElementById('eventModalBody').innerHTML = '<div class="text-center py-4 muted">No events found</div>';
+          return;
+        }
+
+        let html = `<table class="table table-sm">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Time</th>
+              <th>Code</th>
+              <th>Location</th>
+              <th>D/Cab</th>
+              <th>Train</th>
+              <th>Crew</th>
+              <th>Detail</th>
+            </tr>
+          </thead>
+          <tbody>`;
+
+        data.events.forEach(ev => {
+          const detailShort = (ev.detail || '').substring(0, 80) + ((ev.detail || '').length > 80 ? '...' : '');
+          // Format date as DD-MM-YYYY
+          let dateStr = '';
+          if (ev.abn_date) {
+            const d = new Date(ev.abn_date);
+            dateStr = `${String(d.getDate()).padStart(2,'0')}-${String(d.getMonth()+1).padStart(2,'0')}-${d.getFullYear()}`;
+          }
+          // Format time as HH:MM
+          let timeStr = '';
+          if (ev.abn_time) {
+            const t = ev.abn_time.toString().substring(0, 5);
+            timeStr = t;
+          }
+          html += `<tr>
+            <td>${dateStr}</td>
+            <td>${timeStr}</td>
+            <td><span class="badge bg-info">${escapeHtml(ev.aws_code || '?')}</span></td>
+            <td>${escapeHtml(ev.location_raw)}</td>
+            <td>${escapeHtml(ev.loco_raw)}${ev.unit_no ? `<br><small class="muted">${escapeHtml(ev.unit_no)}</small>` : ''}</td>
+            <td>${escapeHtml(ev.train_number)}</td>
+            <td>${escapeHtml(ev.crew_name)}<br><small class="muted">${escapeHtml(ev.crew_id)}</small></td>
+            <td><small>${escapeHtml(detailShort)}</small></td>
+          </tr>`;
+        });
+
+        html += '</tbody></table>';
+        document.getElementById('eventModalBody').innerHTML = html;
+
+      } catch (err) {
+        console.error('Load events error:', err);
+        document.getElementById('eventModalBody').innerHTML = '<div class="text-center py-4 text-danger">Error loading events</div>';
+      }
+    });
+  </script>
+</body>
+</html>

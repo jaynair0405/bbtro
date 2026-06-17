@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AWS CMS Upload | BBTRO Division</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" />
+  <style>
+    :root {
+      --bg: #0b1220;
+      --card: rgba(255,255,255,.06);
+      --card2: rgba(255,255,255,.08);
+      --stroke: rgba(255,255,255,.12);
+      --text: rgba(255,255,255,.92);
+      --muted: rgba(255,255,255,.68);
+      --accent: #6ee7ff;
+      --accent2: #a78bfa;
+      --danger: #ff6b6b;
+      --ok: #52ffa8;
+      --warn: #ffc857;
+      --shadow: 0 12px 30px rgba(0,0,0,.35);
+      --radius: 18px;
+    }
+
+    body {
+      background:
+        radial-gradient(900px 500px at 15% -10%, rgba(110,231,255,.16), transparent 60%),
+        radial-gradient(900px 500px at 90% 0%, rgba(167,139,250,.14), transparent 55%),
+        var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      font-family: system-ui, -apple-system, sans-serif;
+    }
+
+    .page-wrap { max-width: 1100px; margin: 0 auto; padding: 22px 14px 56px; }
+
+    .topbar {
+      position: sticky; top: 0; z-index: 50;
+      backdrop-filter: blur(10px);
+      background: linear-gradient(to bottom, rgba(11,18,32,.82), rgba(11,18,32,.55));
+      border: 1px solid var(--stroke);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 14px 18px;
+      margin-bottom: 18px;
+    }
+
+    .brand { display: flex; gap: 10px; align-items: center; }
+    .badge-dot {
+      width: 10px; height: 10px; border-radius: 999px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      box-shadow: 0 0 0 4px rgba(110,231,255,.12);
+    }
+    .title { font-weight: 750; letter-spacing: .2px; margin: 0; font-size: 1.05rem; }
+    .subtitle { margin: 0; color: var(--muted); font-size: .86rem; }
+
+    .glass-card {
+      background: linear-gradient(180deg, var(--card), rgba(255,255,255,.04));
+      border: 1px solid var(--stroke);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 20px;
+      margin-bottom: 18px;
+    }
+
+    .section-title { font-weight: 800; letter-spacing: .2px; margin: 0 0 14px; font-size: 1rem; }
+    .muted { color: var(--muted); }
+
+    .chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--stroke);
+      background: rgba(255,255,255,.05);
+      color: var(--muted);
+      font-size: .82rem;
+      white-space: nowrap;
+    }
+    .chip.ok { border-color: rgba(82,255,168,.4); color: var(--ok); }
+    .chip.warn { border-color: rgba(255,200,87,.4); color: var(--warn); }
+
+    .btn-neo {
+      border-radius: 12px;
+      border: 1px solid var(--stroke);
+      background: rgba(255,255,255,.06);
+      color: var(--text);
+      padding: 8px 16px;
+    }
+    .btn-neo:hover { background: rgba(255,255,255,.10); color: var(--text); }
+
+    .btn-accent {
+      border-radius: 12px;
+      border: none;
+      color: #08101f;
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      padding: 10px 20px;
+    }
+    .btn-accent:hover { opacity: .9; color: #08101f; }
+    .btn-accent:disabled { opacity: .5; cursor: not-allowed; }
+
+    .btn-danger {
+      border-radius: 12px;
+      border: 1px solid rgba(255,107,107,.4);
+      background: rgba(255,107,107,.12);
+      color: var(--danger);
+    }
+    .btn-danger:hover { background: rgba(255,107,107,.2); color: var(--danger); }
+
+    .upload-zone {
+      border: 2px dashed var(--stroke);
+      border-radius: 16px;
+      padding: 40px 20px;
+      text-align: center;
+      transition: all .2s;
+      cursor: pointer;
+    }
+    .upload-zone:hover, .upload-zone.drag-over {
+      border-color: var(--accent);
+      background: rgba(110,231,255,.05);
+    }
+    .upload-zone i { font-size: 3rem; color: var(--muted); margin-bottom: 10px; }
+    .upload-zone input[type="file"] { display: none; }
+
+    .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
+    .stat-card {
+      background: rgba(255,255,255,.04);
+      border: 1px solid var(--stroke);
+      border-radius: 14px;
+      padding: 14px;
+      text-align: center;
+    }
+    .stat-card .value { font-size: 1.6rem; font-weight: 800; }
+    .stat-card .label { font-size: .8rem; color: var(--muted); }
+    .stat-card.ok .value { color: var(--ok); }
+    .stat-card.warn .value { color: var(--warn); }
+    .stat-card.danger .value { color: var(--danger); }
+
+    table.table {
+      --bs-table-bg: transparent;
+      --bs-table-color: var(--text);
+      font-size: .85rem;
+    }
+    .table thead th {
+      color: var(--muted);
+      border-bottom: 1px solid var(--stroke);
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .table td, .table th {
+      border-top: 1px solid rgba(255,255,255,.08);
+      vertical-align: middle;
+      padding: 10px 8px;
+    }
+    .table tbody tr:hover { background: rgba(255,255,255,.03); }
+
+    .badge-aws { background: rgba(110,231,255,.15); color: var(--accent); border: 1px solid rgba(110,231,255,.3); }
+    .badge-other { background: rgba(255,255,255,.08); color: var(--muted); border: 1px solid var(--stroke); }
+
+    .spinner-border { width: 1.2rem; height: 1.2rem; }
+
+    .hidden { display: none !important; }
+
+    @media (max-width: 768px) {
+      .stat-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+  <div class="page-wrap">
+    <!-- Top Bar -->
+    <div class="topbar">
+      <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+        <div class="brand">
+          <div class="badge-dot"></div>
+          <div>
+            <p class="title mb-0">AWS CMS Excel Upload</p>
+            <p class="subtitle">Import CMS abnormality reports for AWS analysis</p>
+          </div>
+        </div>
+        <div class="d-flex gap-2">
+          <a href="/div/aws.html" class="btn btn-neo">
+            <i class="bi bi-bar-chart-line me-1"></i> AWS Reports
+          </a>
+          <a href="/div" class="btn btn-neo">
+            <i class="bi bi-arrow-left me-1"></i> Back
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stats Summary -->
+    <div id="statsSection" class="glass-card">
+      <h3 class="section-title"><i class="bi bi-graph-up me-2"></i>Upload Statistics</h3>
+      <div class="stat-grid" id="statsGrid">
+        <div class="stat-card">
+          <div class="value" id="statUploads">-</div>
+          <div class="label">Total Uploads</div>
+        </div>
+        <div class="stat-card">
+          <div class="value" id="statRawRows">-</div>
+          <div class="label">Raw Rows</div>
+        </div>
+        <div class="stat-card ok">
+          <div class="value" id="statEvents">-</div>
+          <div class="label">Parsed Events</div>
+        </div>
+        <div class="stat-card warn">
+          <div class="value" id="statPending">-</div>
+          <div class="label">Pending Review</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Upload Section -->
+    <div class="glass-card">
+      <h3 class="section-title"><i class="bi bi-cloud-arrow-up me-2"></i>Upload CMS Excel File</h3>
+      <p class="muted mb-3">
+        Upload the CMS Abnormality Excel file. AWS-related entries (ABN.TYPE = ST or EMU with AWS keywords) will be identified automatically.
+      </p>
+
+      <div class="upload-zone" id="uploadZone">
+        <i class="bi bi-file-earmark-excel"></i>
+        <p class="mb-1">Drag and drop Excel file here</p>
+        <p class="muted small mb-3">or click to browse</p>
+        <input type="file" id="fileInput" accept=".xlsx,.xls" />
+        <button class="btn btn-accent" onclick="event.stopPropagation(); document.getElementById('fileInput').click()">
+          <i class="bi bi-folder2-open me-1"></i> Choose File
+        </button>
+      </div>
+
+      <div id="fileInfo" class="mt-3 hidden">
+        <div class="d-flex align-items-center gap-2">
+          <i class="bi bi-file-earmark-excel text-success fs-4"></i>
+          <span id="fileName" class="fw-bold"></span>
+          <button class="btn btn-sm btn-neo ms-2" onclick="clearFile()">
+            <i class="bi bi-x"></i> Clear
+          </button>
+        </div>
+      </div>
+
+      <div class="d-flex gap-2 mt-3">
+        <button class="btn btn-neo" id="btnPreview" disabled onclick="previewUpload()">
+          <i class="bi bi-eye me-1"></i> Preview
+        </button>
+        <button class="btn btn-accent" id="btnUpload" disabled onclick="doUpload()">
+          <i class="bi bi-cloud-upload me-1"></i> Upload & Import
+        </button>
+      </div>
+    </div>
+
+    <!-- Preview Section -->
+    <div id="previewSection" class="glass-card hidden">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3 class="section-title mb-0"><i class="bi bi-search me-2"></i>Preview & Review</h3>
+        <span id="previewLoading" class="hidden">
+          <span class="spinner-border spinner-border-sm me-1"></span> Loading...
+        </span>
+      </div>
+
+      <div class="stat-grid mb-3" id="previewStats"></div>
+
+      <!-- Detected AWS Section -->
+      <div class="preview-section mb-3" id="detectedSection" style="display:none;">
+        <div class="section-header" style="background: rgba(82,255,168,0.15); border: 1px solid rgba(82,255,168,0.3); border-radius: 12px 12px 0 0; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center;">
+          <span><i class="bi bi-check-circle me-2" style="color: var(--ok);"></i><strong>Detected AWS</strong> <span id="detectedCount" class="badge bg-success ms-2">0</span></span>
+          <button class="btn btn-sm btn-neo" onclick="toggleSection('detected')"><i class="bi bi-chevron-down" id="detectedChevron"></i></button>
+        </div>
+        <div id="detectedBody" class="table-responsive" style="max-height: 300px; overflow-y: auto; background: rgba(82,255,168,0.05); border: 1px solid rgba(82,255,168,0.2); border-top: none; border-radius: 0 0 12px 12px;">
+          <table class="table table-sm mb-0">
+            <thead style="position: sticky; top: 0; background: rgba(11,18,32,0.95); z-index: 1;">
+              <tr>
+                <th style="width:40px;"></th>
+                <th>ABN ID</th>
+                <th>Type</th>
+                <th>Date</th>
+                <th>Train</th>
+                <th>From</th>
+                <th>To</th>
+                <th>Loco</th>
+                <th>Detail</th>
+                <th style="width:80px;">Action</th>
+              </tr>
+            </thead>
+            <tbody id="detectedTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Suspected AWS Section -->
+      <div class="preview-section mb-3" id="suspectedSection" style="display:none;">
+        <div class="section-header" style="background: rgba(255,200,87,0.15); border: 1px solid rgba(255,200,87,0.3); border-radius: 12px 12px 0 0; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center;">
+          <span><i class="bi bi-question-circle me-2" style="color: var(--warn);"></i><strong>Suspected AWS</strong> <span id="suspectedCount" class="badge bg-warning text-dark ms-2">0</span></span>
+          <button class="btn btn-sm btn-neo" onclick="toggleSection('suspected')"><i class="bi bi-chevron-down" id="suspectedChevron"></i></button>
+        </div>
+        <div id="suspectedBody" class="table-responsive" style="max-height: 250px; overflow-y: auto; background: rgba(255,200,87,0.05); border: 1px solid rgba(255,200,87,0.2); border-top: none; border-radius: 0 0 12px 12px;">
+          <table class="table table-sm mb-0">
+            <thead style="position: sticky; top: 0; background: rgba(11,18,32,0.95); z-index: 1;">
+              <tr>
+                <th style="width:40px;"></th>
+                <th>ABN ID</th>
+                <th>Type</th>
+                <th>Date</th>
+                <th>Train</th>
+                <th>From</th>
+                <th>To</th>
+                <th>Loco</th>
+                <th>Detail</th>
+                <th style="width:100px;">Action</th>
+              </tr>
+            </thead>
+            <tbody id="suspectedTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Other Rows Section -->
+      <div class="preview-section mb-3" id="otherSection" style="display:none;">
+        <div class="section-header" style="background: rgba(255,255,255,0.05); border: 1px solid var(--stroke); border-radius: 12px 12px 0 0; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center;">
+          <span><i class="bi bi-list me-2" style="color: var(--muted);"></i><strong>Other Rows</strong> <span id="otherCount" class="badge bg-secondary ms-2">0</span></span>
+          <button class="btn btn-sm btn-neo" onclick="toggleSection('other')"><i class="bi bi-chevron-right" id="otherChevron"></i></button>
+        </div>
+        <div id="otherBody" class="table-responsive" style="max-height: 200px; overflow-y: auto; background: rgba(255,255,255,0.02); border: 1px solid var(--stroke); border-top: none; border-radius: 0 0 12px 12px; display: none;">
+          <table class="table table-sm mb-0">
+            <thead style="position: sticky; top: 0; background: rgba(11,18,32,0.95); z-index: 1;">
+              <tr>
+                <th style="width:40px;"></th>
+                <th>ABN ID</th>
+                <th>Type</th>
+                <th>Date</th>
+                <th>Train</th>
+                <th>From</th>
+                <th>To</th>
+                <th>Loco</th>
+                <th>Detail</th>
+                <th style="width:100px;">Action</th>
+              </tr>
+            </thead>
+            <tbody id="otherTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- No mapping warning -->
+      <div id="noMappingSection" class="hidden">
+        <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+          <table class="table table-sm">
+            <thead style="position: sticky; top: 0; background: #0b1220; z-index: 1;">
+              <tr id="noMappingHeader"></tr>
+            </thead>
+            <tbody id="noMappingBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Upload Result -->
+    <div id="resultSection" class="glass-card hidden">
+      <div class="d-flex align-items-center gap-2 mb-3">
+        <i class="bi bi-check-circle-fill text-success fs-4"></i>
+        <h3 class="section-title mb-0">Upload Complete</h3>
+      </div>
+      <div id="resultStats" class="stat-grid mb-3"></div>
+      <p class="muted" id="resultMessage"></p>
+    </div>
+
+    <!-- Recent Uploads -->
+    <div class="glass-card">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3 class="section-title mb-0"><i class="bi bi-clock-history me-2"></i>Recent Uploads</h3>
+        <button class="btn btn-sm btn-neo" onclick="loadRecentUploads()">
+          <i class="bi bi-arrow-clockwise"></i> Refresh
+        </button>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table table-sm">
+          <thead>
+            <tr>
+              <th>Batch ID</th>
+              <th>Filename</th>
+              <th>Date Range</th>
+              <th>Total</th>
+              <th>Imported</th>
+              <th>Skipped</th>
+              <th>Status</th>
+              <th>Uploaded</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="uploadsBody">
+            <tr>
+              <td colspan="10" class="text-center muted py-4">Loading...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    let selectedFile = null;
+
+    // ── Init ──
+    document.addEventListener('DOMContentLoaded', () => {
+      loadStats();
+      loadRecentUploads();
+      setupDragDrop();
+    });
+
+    // ── Drag & Drop ──
+    function setupDragDrop() {
+      const zone = document.getElementById('uploadZone');
+      const input = document.getElementById('fileInput');
+
+      zone.addEventListener('dragover', e => {
+        e.preventDefault();
+        zone.classList.add('drag-over');
+      });
+
+      zone.addEventListener('dragleave', () => {
+        zone.classList.remove('drag-over');
+      });
+
+      zone.addEventListener('drop', e => {
+        e.preventDefault();
+        zone.classList.remove('drag-over');
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+          handleFile(files[0]);
+        }
+      });
+
+      zone.addEventListener('click', () => input.click());
+
+      input.addEventListener('change', e => {
+        if (e.target.files.length > 0) {
+          handleFile(e.target.files[0]);
+        }
+      });
+    }
+
+    // ── Handle File Selection ──
+    function handleFile(file) {
+      const ext = file.name.split('.').pop().toLowerCase();
+      if (!['xlsx', 'xls'].includes(ext)) {
+        alert('Please select an Excel file (.xlsx or .xls)');
+        return;
+      }
+
+      selectedFile = file;
+      document.getElementById('fileName').textContent = file.name;
+      document.getElementById('fileInfo').classList.remove('hidden');
+      document.getElementById('btnPreview').disabled = false;
+      document.getElementById('btnUpload').disabled = false;
+
+      // Hide previous results
+      document.getElementById('previewSection').classList.add('hidden');
+      document.getElementById('resultSection').classList.add('hidden');
+    }
+
+    function clearFile() {
+      selectedFile = null;
+      document.getElementById('fileInput').value = '';
+      document.getElementById('fileInfo').classList.add('hidden');
+      document.getElementById('btnPreview').disabled = true;
+      document.getElementById('btnUpload').disabled = true;
+      document.getElementById('previewSection').classList.add('hidden');
+      document.getElementById('resultSection').classList.add('hidden');
+    }
+
+    // ── Load Stats ──
+    async function loadStats() {
+      try {
+        const res = await fetch('/api/division/aws/stats');
+        const data = await res.json();
+
+        document.getElementById('statUploads').textContent = data.upload_count || 0;
+        document.getElementById('statRawRows').textContent = data.raw_row_count || 0;
+        document.getElementById('statEvents').textContent = data.event_count || 0;
+        document.getElementById('statPending').textContent = data.pending_review || 0;
+      } catch (err) {
+        console.error('Failed to load stats:', err);
+      }
+    }
+
+    // ── Load Recent Uploads ──
+    async function loadRecentUploads() {
+      const tbody = document.getElementById('uploadsBody');
+      tbody.innerHTML = '<tr><td colspan="10" class="text-center muted py-4"><span class="spinner-border spinner-border-sm me-1"></span> Loading...</td></tr>';
+
+      try {
+        const res = await fetch('/api/division/aws/uploads');
+        const data = await res.json();
+
+        if (!data.uploads || data.uploads.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="10" class="text-center muted py-4">No uploads yet</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = data.uploads.map(u => `
+          <tr>
+            <td><code class="text-info">${u.upload_batch_id}</code></td>
+            <td>${escapeHtml(u.source_filename)}</td>
+            <td>${formatDateRange(u.report_from_date, u.report_to_date)}</td>
+            <td>${u.total_rows}</td>
+            <td class="text-success">${u.imported_rows}</td>
+            <td class="text-warning">${u.skipped_duplicate_rows}</td>
+            <td><span class="badge ${u.status === 'COMPLETED' ? 'bg-success' : 'bg-warning'}">${u.status}</span></td>
+            <td>${formatDate(u.created_at)}</td>
+            <td>
+              <button class="btn btn-sm btn-neo" onclick="viewUpload(${u.id})" title="View Details">
+                <i class="bi bi-eye"></i>
+              </button>
+              <button class="btn btn-sm btn-danger" data-upload-id="${u.id}" data-batch-id="${escapeHtml(u.upload_batch_id)}" onclick="deleteUploadFromButton(this)" title="Delete">
+                <i class="bi bi-trash"></i>
+              </button>
+            </td>
+          </tr>
+        `).join('');
+      } catch (err) {
+        console.error('Failed to load uploads:', err);
+        tbody.innerHTML = '<tr><td colspan="10" class="text-center text-danger py-4">Failed to load uploads</td></tr>';
+      }
+    }
+
+    // ── Preview State ──
+    let previewData = null;
+    let awsCandidateIndices = new Set();  // Track which rows are AWS candidates
+
+    // ── Toggle Section ──
+    function toggleSection(section) {
+      const body = document.getElementById(section + 'Body');
+      const chevron = document.getElementById(section + 'Chevron');
+      if (body.style.display === 'none') {
+        body.style.display = 'block';
+        chevron.className = 'bi bi-chevron-down';
+      } else {
+        body.style.display = 'none';
+        chevron.className = 'bi bi-chevron-right';
+      }
+    }
+
+    // ── Remove from AWS ──
+    function removeFromAws(idx) {
+      if (!confirm('Remove this row from AWS candidates?\n\nIt will still be imported but won\'t be processed as AWS.')) {
+        return;
+      }
+      awsCandidateIndices.delete(idx);
+      renderPreviewSections();
+    }
+
+    // ── Mark as AWS ──
+    function markAsAws(idx) {
+      awsCandidateIndices.add(idx);
+      renderPreviewSections();
+    }
+
+    // ── Render Row ──
+    function renderRow(r, isAws, showMarkButton = false) {
+      const dupBadge = r.is_duplicate ? '<span class="badge bg-warning text-dark ms-1" title="Already in database">DUP</span>' : '';
+      const potDupBadge = r.is_potential_duplicate ? '<span class="badge bg-info text-dark ms-1" title="Same crew+date+location in file">DUP?</span>' : '';
+      return `
+        <tr data-idx="${r._idx}" ${r.is_potential_duplicate ? 'style="background:rgba(13,202,240,0.1);"' : ''}>
+          <td>${r._idx + 1}</td>
+          <td><code>${escapeHtml(r.abn_id || '-')}</code>${dupBadge}${potDupBadge}</td>
+          <td>${escapeHtml(r.abn_type || '-')}</td>
+          <td>${escapeHtml(r.abn_date || '-')}</td>
+          <td>${escapeHtml(r.train_number || '-')}</td>
+          <td>${escapeHtml(r.from_station || '-')}</td>
+          <td>${escapeHtml(r.to_station || '-')}</td>
+          <td>${escapeHtml(r.loco_raw || '-')}</td>
+          <td class="small" title="${escapeHtml(r.detail_full || '')}">${escapeHtml(r.detail || '-')}</td>
+          <td>
+            ${isAws
+              ? `<button class="btn btn-sm btn-danger" onclick="removeFromAws(${r._idx})" title="Remove from AWS"><i class="bi bi-x"></i></button>`
+              : (showMarkButton ? `<button class="btn btn-sm btn-success" onclick="markAsAws(${r._idx})" title="Mark as AWS"><i class="bi bi-plus"></i> AWS</button>` : '-')
+            }
+          </td>
+        </tr>
+      `;
+    }
+
+    // ── Render Preview Sections ──
+    function renderPreviewSections() {
+      if (!previewData || !previewData.has_mapping) return;
+
+      // Recategorize based on current awsCandidateIndices
+      const allRows = [
+        ...previewData.detected_aws,
+        ...previewData.suspected_aws,
+        ...previewData.other_rows
+      ];
+
+      const detected = [];
+      const suspected = [];
+      const other = [];
+
+      for (const r of allRows) {
+        if (awsCandidateIndices.has(r._idx)) {
+          detected.push(r);
+        } else if (previewData.suspected_aws.some(s => s._idx === r._idx)) {
+          suspected.push(r);
+        } else {
+          other.push(r);
+        }
+      }
+
+      // Update counts
+      document.getElementById('detectedCount').textContent = detected.length;
+      document.getElementById('suspectedCount').textContent = suspected.length;
+      document.getElementById('otherCount').textContent = other.length;
+
+      // Render detected
+      document.getElementById('detectedTableBody').innerHTML = detected.length
+        ? detected.map(r => renderRow(r, true)).join('')
+        : '<tr><td colspan="10" class="text-center muted py-3">No AWS candidates</td></tr>';
+
+      // Render suspected
+      document.getElementById('suspectedTableBody').innerHTML = suspected.length
+        ? suspected.map(r => renderRow(r, false, true)).join('')
+        : '<tr><td colspan="10" class="text-center muted py-3">No suspected rows</td></tr>';
+
+      // Render other
+      document.getElementById('otherTableBody').innerHTML = other.length
+        ? other.map(r => renderRow(r, false, true)).join('')
+        : '<tr><td colspan="10" class="text-center muted py-3">No other rows</td></tr>';
+
+      // Update stats
+      document.getElementById('previewStats').querySelector('.stat-card.ok .value').textContent = detected.length;
+    }
+
+    // ── Preview Upload ──
+    async function previewUpload() {
+      if (!selectedFile) return;
+
+      const section = document.getElementById('previewSection');
+      const loading = document.getElementById('previewLoading');
+      const stats = document.getElementById('previewStats');
+
+      section.classList.remove('hidden');
+      loading.classList.remove('hidden');
+      stats.innerHTML = '';
+
+      // Hide all preview sections initially
+      document.getElementById('detectedSection').style.display = 'none';
+      document.getElementById('suspectedSection').style.display = 'none';
+      document.getElementById('otherSection').style.display = 'none';
+      document.getElementById('noMappingSection').classList.add('hidden');
+
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+
+      try {
+        const res = await fetch('/api/division/aws/upload?preview=true', {
+          method: 'POST',
+          body: formData,
+        });
+
+        const data = await res.json();
+        loading.classList.add('hidden');
+        previewData = data;
+
+        if (!res.ok) {
+          stats.innerHTML = `<div class="alert alert-danger">${data.error || 'Preview failed'}</div>`;
+          return;
+        }
+
+        // Show warning if no mapping
+        let warningHtml = '';
+        if (!data.has_mapping) {
+          warningHtml = `
+            <div class="alert alert-warning mb-3" style="background: rgba(255,200,87,.15); border-color: rgba(255,200,87,.3); color: var(--warn);">
+              <i class="bi bi-exclamation-triangle me-2"></i>
+              <strong>Column mapping failed!</strong> The Excel columns don't match expected CMS format.<br>
+              <small class="muted">Found columns: ${data.columns_found?.slice(0, 5).join(', ')}${data.columns_found?.length > 5 ? '...' : ''}</small>
+            </div>
+          `;
+          stats.innerHTML = warningHtml;
+
+          // Show raw data in noMappingSection
+          const noMapSection = document.getElementById('noMappingSection');
+          noMapSection.classList.remove('hidden');
+          if (data.sample_rows && data.sample_rows.length > 0) {
+            const keys = Object.keys(data.sample_rows[0]);
+            document.getElementById('noMappingHeader').innerHTML = keys.map(k => `<th>${escapeHtml(k)}</th>`).join('');
+            document.getElementById('noMappingBody').innerHTML = data.sample_rows.map(r =>
+              `<tr>${keys.map(k => `<td>${escapeHtml(String(r[k] || '-'))}</td>`).join('')}</tr>`
+            ).join('');
+          }
+          return;
+        }
+
+        if (data.unmapped_columns?.length > 0) {
+          warningHtml = `
+            <div class="alert alert-info mb-3" style="background: rgba(110,231,255,.1); border-color: rgba(110,231,255,.3); color: var(--accent);">
+              <i class="bi bi-info-circle me-2"></i>
+              <strong>Mapped ${data.columns_mapped?.length || 0} columns.</strong>
+              Unmapped: ${data.unmapped_columns.slice(0, 3).join(', ')}${data.unmapped_columns.length > 3 ? '...' : ''}
+            </div>
+          `;
+        }
+
+        // Initialize AWS candidate indices from detected rows
+        awsCandidateIndices = new Set(data.detected_aws.map(r => r._idx));
+
+        // Show stats
+        stats.innerHTML = warningHtml + `
+          <div class="stat-card">
+            <div class="value">${data.total_rows}</div>
+            <div class="label">Total Rows</div>
+          </div>
+          <div class="stat-card ok">
+            <div class="value">${data.aws_candidate_rows}</div>
+            <div class="label">AWS Candidates</div>
+          </div>
+          <div class="stat-card">
+            <div class="value">${data.suspected_aws_rows || 0}</div>
+            <div class="label">Suspected</div>
+          </div>
+          <div class="stat-card warn">
+            <div class="value">${data.duplicate_rows}</div>
+            <div class="label">Duplicates</div>
+          </div>
+          <div class="stat-card">
+            <div class="value">${formatDateRange(data.date_range?.from, data.date_range?.to)}</div>
+            <div class="label">Date Range</div>
+          </div>
+        `;
+
+        // Show sections
+        document.getElementById('detectedSection').style.display = 'block';
+        document.getElementById('suspectedSection').style.display = 'block';
+        document.getElementById('otherSection').style.display = 'block';
+
+        // Render rows
+        renderPreviewSections();
+
+      } catch (err) {
+        loading.classList.add('hidden');
+        stats.innerHTML = `<div class="alert alert-danger">Preview failed: ${err.message}</div>`;
+      }
+    }
+
+    // ── Do Upload ──
+    async function doUpload() {
+      if (!selectedFile) return;
+
+      const btn = document.getElementById('btnUpload');
+      const originalText = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Uploading...';
+
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+
+      // We need to send the file again AND the AWS candidate indices
+      // Since FormData can't easily send JSON, we'll use a different approach:
+      // Send indices as a comma-separated string
+      formData.append('aws_candidate_indices', JSON.stringify([...awsCandidateIndices]));
+
+      try {
+        const res = await fetch('/api/division/aws/upload', {
+          method: 'POST',
+          body: formData,
+        });
+
+        const data = await res.json();
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+
+        if (!res.ok) {
+          alert('Upload failed: ' + (data.error || 'Unknown error'));
+          return;
+        }
+
+        // Show result
+        const section = document.getElementById('resultSection');
+        const stats = document.getElementById('resultStats');
+        const msg = document.getElementById('resultMessage');
+
+        section.classList.remove('hidden');
+        document.getElementById('previewSection').classList.add('hidden');
+
+        stats.innerHTML = `
+          <div class="stat-card">
+            <div class="value">${data.total_rows}</div>
+            <div class="label">Total Rows</div>
+          </div>
+          <div class="stat-card ok">
+            <div class="value">${data.imported_rows}</div>
+            <div class="label">Imported</div>
+          </div>
+          <div class="stat-card warn">
+            <div class="value">${data.skipped_duplicate_rows}</div>
+            <div class="label">Duplicates Skipped</div>
+          </div>
+          <div class="stat-card">
+            <div class="value">${data.aws_candidate_rows}</div>
+            <div class="label">AWS Candidates</div>
+          </div>
+          <div class="stat-card ok">
+            <div class="value">${data.events_auto_approved || 0}</div>
+            <div class="label">Auto-Detected</div>
+          </div>
+          <div class="stat-card warn">
+            <div class="value">${data.events_need_review || 0}</div>
+            <div class="label">Need Review</div>
+          </div>
+        `;
+
+        msg.innerHTML = `
+          Batch ID: <code class="text-info">${data.batch_id}</code><br>
+          Date range: ${formatDateRange(data.date_range?.from, data.date_range?.to)}
+          ${data.events_need_review > 0 ? `<br><a href="aws-review.html" class="text-warning">Review ${data.events_need_review} events →</a>` : ''}
+        `;
+
+        // Refresh lists
+        loadStats();
+        loadRecentUploads();
+        clearFile();
+      } catch (err) {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+        alert('Upload failed: ' + err.message);
+      }
+    }
+
+    // ── View Upload Details ──
+    async function viewUpload(id) {
+      try {
+        const res = await fetch(`/api/division/aws/uploads/${id}`);
+        const data = await res.json();
+
+        if (!res.ok) {
+          alert(data.error || 'Failed to load upload');
+          return;
+        }
+
+        // For now, show a simple alert with details
+        // In Phase 6, this will open a detailed review modal
+        const u = data.upload;
+        let msg = `Batch: ${u.upload_batch_id}\n`;
+        msg += `File: ${u.source_filename}\n`;
+        msg += `Date Range: ${formatDateRange(u.report_from_date, u.report_to_date)}\n`;
+        msg += `Total Rows: ${u.total_rows}\n`;
+        msg += `Imported: ${u.imported_rows}\n`;
+        msg += `Duplicates: ${u.skipped_duplicate_rows}\n`;
+        msg += `AWS Candidates: ${u.aws_candidate_rows}\n\n`;
+
+        if (data.summary?.by_type) {
+          msg += 'By Type:\n';
+          data.summary.by_type.forEach(t => {
+            msg += `  ${t.abn_type}: ${t.count}\n`;
+          });
+        }
+
+        alert(msg);
+      } catch (err) {
+        alert('Failed to load upload: ' + err.message);
+      }
+    }
+
+    // ── Delete Upload ──
+    async function deleteUpload(id, batchId) {
+      if (!confirm(`Delete upload batch ${batchId}?\n\nThis will remove all raw rows from this upload.`)) {
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/division/aws/uploads/${id}`, {
+          method: 'DELETE',
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          alert(data.error || 'Delete failed');
+          return;
+        }
+
+        loadStats();
+        loadRecentUploads();
+      } catch (err) {
+        alert('Delete failed: ' + err.message);
+      }
+    }
+
+    function deleteUploadFromButton(btn) {
+      deleteUpload(Number(btn.dataset.uploadId), btn.dataset.batchId);
+    }
+
+    // ── Helpers ──
+    function escapeHtml(str) {
+      if (str === null || str === undefined) return '';
+      return String(str).replace(/[&<>"']/g, c => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      }[c]));
+    }
+
+    function formatDate(dateStr) {
+      if (!dateStr) return '-';
+      const d = new Date(dateStr);
+      return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    }
+
+    function formatDateRange(from, to) {
+      if (!from && !to) return '-';
+      const f = from ? formatDate(from) : '?';
+      const t = to ? formatDate(to) : '?';
+      if (f === t) return f;
+      return `${f} to ${t}`;
+    }
+  </script>
+</body>
+</html>

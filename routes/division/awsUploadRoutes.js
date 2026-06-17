@@ -2144,55 +2144,78 @@ router.get('/export-excel', async (req, res) => {
 // ══════════════════════════════════════════════════════════════════════════
 
 // ── Helper: Normalize text for signal matching ─────────────────────────────
-// Removes spaces, hyphens, slashes, dots and converts to uppercase
+// Removes spaces, hyphens, slashes, dots, commas and uppercases.
+// Handles all signal-number forms in use on BB Div:
+//   "KYN S-46"  → "KYNS46"   (station signal)
+//   "K-056"     → "K056"     (TH-line automatic, km-derived)
+//   "L-3403"    → "L3403"    (LL-line automatic)
+//   "ME-2904"   → "ME2904"   (5th/6th-line automatic)
+//   "K-044 A"   → "K044A"    (sub-numbered automatic)
+// L/K/ME numbers are not globally unique — same number can exist in different
+// (section,line,direction) partitions. matchSignalFromDb downgrades confidence
+// to MEDIUM when the lookup is ambiguous so reviewers can disambiguate.
 function normalizeForSignalMatch(text) {
     if (!text) return '';
     return String(text)
         .toUpperCase()
-        .replace(/[\s\-\/\.\,]+/g, '')  // Remove spaces, hyphens, slashes, dots, commas
+        .replace(/[\s\-\/\.\,]+/g, '')
         .trim();
 }
 
 // ── Helper: Match signal against database ──────────────────────────────────
-// Returns { signal_id, signal_number, confidence } or { signal_id: null }
-async function matchSignalFromDb(pool, locationRaw) {
+// Returns { signal_id, signal_number, confidence } or { signal_id: null }.
+// Partition-aware: pass { section, line, direction } in `context` to filter
+// candidates to one partition. Without context, ambiguous matches downgrade
+// to MEDIUM confidence so they surface for manual review.
+async function matchSignalFromDb(pool, locationRaw, context = {}) {
     if (!locationRaw) return { signal_id: null, signal_number: null, confidence: null };
 
     const normalized = normalizeForSignalMatch(locationRaw);
     if (!normalized) return { signal_id: null, signal_number: null, confidence: null };
 
-    // 1. Exact match on normalized_alias (HIGH confidence)
-    const [exactMatch] = await pool.query(
-        `SELECT a.signal_id, s.signal_number
+    const partitionClauses = [];
+    const partitionParams  = [];
+    if (context.section)   { partitionClauses.push('s.section = ?');   partitionParams.push(context.section); }
+    if (context.line)      { partitionClauses.push('s.`line` = ?');    partitionParams.push(context.line); }
+    if (context.direction) { partitionClauses.push('s.direction = ?'); partitionParams.push(context.direction); }
+    const partitionSql = partitionClauses.length ? ` AND ${partitionClauses.join(' AND ')}` : '';
+
+    // 1. Exact match on normalized_alias — HIGH if unique, MEDIUM if ambiguous
+    const [aliasHits] = await pool.query(
+        `SELECT a.signal_id, s.signal_number, s.section, s.\`line\`, s.direction
          FROM div_signal_aliases a
          JOIN div_signals s ON s.id = a.signal_id
-         WHERE a.normalized_alias = ? AND a.is_active = 1 AND s.is_active = 1
-         LIMIT 1`,
-        [normalized]
+         WHERE a.normalized_alias = ?
+           AND a.is_active = 1 AND s.is_active = 1
+           ${partitionSql}
+         LIMIT 5`,
+        [normalized, ...partitionParams]
     );
 
-    if (exactMatch.length > 0) {
+    if (aliasHits.length > 0) {
         return {
-            signal_id: exactMatch[0].signal_id,
-            signal_number: exactMatch[0].signal_number,
-            confidence: 'HIGH'
+            signal_id: aliasHits[0].signal_id,
+            signal_number: aliasHits[0].signal_number,
+            confidence: aliasHits.length > 1 ? 'MEDIUM' : 'HIGH'
         };
     }
 
-    // 2. Exact match on normalized_signal_number (HIGH confidence)
-    const [directMatch] = await pool.query(
-        `SELECT id, signal_number
-         FROM div_signals
-         WHERE normalized_signal_number = ? AND is_active = 1
-         LIMIT 1`,
-        [normalized]
+    // 2. Exact match on normalized_signal_number — HIGH if unique, MEDIUM if ambiguous
+    const [directHits] = await pool.query(
+        `SELECT s.id, s.signal_number
+         FROM div_signals s
+         WHERE s.normalized_signal_number = ?
+           AND s.is_active = 1
+           ${partitionSql}
+         LIMIT 5`,
+        [normalized, ...partitionParams]
     );
 
-    if (directMatch.length > 0) {
+    if (directHits.length > 0) {
         return {
-            signal_id: directMatch[0].id,
-            signal_number: directMatch[0].signal_number,
-            confidence: 'HIGH'
+            signal_id: directHits[0].id,
+            signal_number: directHits[0].signal_number,
+            confidence: directHits.length > 1 ? 'MEDIUM' : 'HIGH'
         };
     }
 
@@ -2220,26 +2243,37 @@ async function matchSignalFromDb(pool, locationRaw) {
     }
 
     // 4. Try matching with leading zero padding (MEDIUM confidence)
-    // E.g., "KYNS8" -> "KYNS08" or "H34" -> "H034"
-    const paddedMatch = normalized.replace(/([A-Z]+)(\d{1,2})$/, (m, letters, num) => {
-        return letters + num.padStart(2, '0');
-    });
-    if (paddedMatch !== normalized) {
-        const [padMatch] = await pool.query(
-            `SELECT a.signal_id, s.signal_number
-             FROM div_signal_aliases a
-             JOIN div_signals s ON s.id = a.signal_id
-             WHERE a.normalized_alias = ? AND a.is_active = 1 AND s.is_active = 1
-             LIMIT 1`,
-            [paddedMatch]
-        );
+    // Station signals use 2-digit padding ("KYNS8" → "KYNS08"); inter-station
+    // automatics (K-/L-/ME-) use 3- or 4-digit numbers ("K48" → "K048").
+    // Try each width that produces a different string.
+    const padBase = normalized.match(/^([A-Z]+)(\d+)$/);
+    if (padBase) {
+        const [, letters, num] = padBase;
+        const variants = [...new Set(
+            [2, 3, 4]
+                .map((w) => letters + num.padStart(w, '0'))
+                .filter((v) => v !== normalized)
+        )];
 
-        if (padMatch.length > 0) {
-            return {
-                signal_id: padMatch[0].signal_id,
-                signal_number: padMatch[0].signal_number,
-                confidence: 'MEDIUM'
-            };
+        for (const variant of variants) {
+            const [padMatch] = await pool.query(
+                `SELECT a.signal_id, s.signal_number
+                 FROM div_signal_aliases a
+                 JOIN div_signals s ON s.id = a.signal_id
+                 WHERE a.normalized_alias = ?
+                   AND a.is_active = 1 AND s.is_active = 1
+                   ${partitionSql}
+                 LIMIT 1`,
+                [variant, ...partitionParams]
+            );
+
+            if (padMatch.length > 0) {
+                return {
+                    signal_id: padMatch[0].signal_id,
+                    signal_number: padMatch[0].signal_number,
+                    confidence: 'MEDIUM'
+                };
+            }
         }
     }
 
@@ -2639,6 +2673,292 @@ router.post('/match-all', async (req, res) => {
     } catch (err) {
         console.error('[AWS /match-all] Error:', err);
         res.status(500).json({ error: 'Matching failed' });
+    }
+});
+
+// ══════════════════════════════════════════════════════════════════════════
+// PHASE 7: JPO Classification (responsibility = S&T / CAB / TRANSIENT)
+// ══════════════════════════════════════════════════════════════════════════
+//
+// Rules from AWS JPO (No.BB.TRSO.EMU.16, dated 07-03-2007), applied in
+// priority order. Each event's `responsibility` column is set to the first
+// rule that matches; rule 3 explicitly excludes events already classified
+// by rules 1 or 2 (per JPO text "excluding 1 & 2 above").
+//
+//   Rule 1 (per trip)  — >2 events on consecutive signals AND ≥3 in trip
+//                        on same cab → CAB defect.
+//                        Adjacency comes from: seq_order ±1 within a
+//                        (section,line,direction) partition, an explicit
+//                        edge in div_signal_successors (either direction),
+//                        or a shared parallel_group_id. A trip is one
+//                        (cab, abn_date); events ordered by abn_time then
+//                        seq_order. A run of ≥3 events on adjacent signals
+//                        flags the whole trip CAB_SIDE.
+//   Rule 2 (per day)   — >2 events on same signal in same day → S&T defect.
+//   Rule 3a (per week) — >3 events on same cab in same ISO week,
+//                        excluding rule-1 hits → CAB defect.
+//   Rule 3b (per week) — ≥3 events on same magnet (signal) in same ISO week,
+//                        excluding rule-2 hits → S&T defect.
+//   Rule 4             — everything else → TRANSIENT.
+//
+// ── Helper: are two signals consecutive in running order? ───────────────────
+// meta: Map signalId -> { section, line, direction, seq, group }
+// succSet: Set of "fromId-toId" successor edges (undirected lookup — both
+//          orientations are inserted when the set is built).
+function signalsAreConsecutive(aId, bId, meta, succSet) {
+    if (!aId || !bId || aId === bId) return false;
+
+    // Explicit successor edge (either direction)
+    if (succSet.has(`${aId}-${bId}`) || succSet.has(`${bId}-${aId}`)) return true;
+
+    const a = meta.get(aId);
+    const b = meta.get(bId);
+    if (!a || !b) return false;
+
+    // Same parallel group = alternates at one position (treat as adjacent)
+    if (a.group != null && a.group === b.group) return true;
+
+    // Adjacent in the same partition's running sequence
+    if (a.section === b.section && a.line === b.line && a.direction === b.direction
+        && a.seq != null && b.seq != null
+        && Math.abs(a.seq - b.seq) === 1) return true;
+
+    return false;
+}
+
+// ── Helper: longest run of events on consecutive signals within a trip ──────
+// Events are sorted by (abn_time, seq_order). Walks adjacent pairs; a pair on
+// genuinely adjacent DISTINCT signals extends the run, anything else resets it.
+// Returns { length, signals } for the best run found.
+function longestConsecutiveRun(tripEvents, meta, succSet) {
+    const sorted = [...tripEvents].sort((x, y) => {
+        const tx = x.abn_time || '';
+        const ty = y.abn_time || '';
+        if (tx !== ty) return tx < ty ? -1 : 1;
+        const sx = meta.get(x.signal_id)?.seq ?? Number.MAX_SAFE_INTEGER;
+        const sy = meta.get(y.signal_id)?.seq ?? Number.MAX_SAFE_INTEGER;
+        return sx - sy;
+    });
+
+    let best = { length: sorted.length ? 1 : 0, signals: sorted.length ? [sorted[0].signal_id] : [] };
+    let curLen = 1;
+    let curSignals = sorted.length ? [sorted[0].signal_id] : [];
+
+    for (let i = 1; i < sorted.length; i++) {
+        const prev = sorted[i - 1].signal_id;
+        const cur  = sorted[i].signal_id;
+        if (signalsAreConsecutive(prev, cur, meta, succSet)) {
+            curLen++;
+            curSignals.push(cur);
+        } else {
+            curLen = 1;
+            curSignals = [cur];
+        }
+        if (curLen > best.length) best = { length: curLen, signals: [...curSignals] };
+    }
+    return best;
+}
+
+// ── POST /classify-period ──────────────────────────────────────────────────
+router.post('/classify-period', async (req, res) => {
+    const pool = req.app.locals.pool;
+    const from = req.body?.from;
+    const to   = req.body?.to;
+
+    if (!from || !to) {
+        return res.status(400).json({ error: 'from and to dates required (YYYY-MM-DD)' });
+    }
+
+    const conn = await pool.getConnection();
+    try {
+        await conn.beginTransaction();
+
+        // Step 0: reset all events in window to NOT_DETERMINED. This makes
+        // the endpoint idempotent — re-running re-applies rules from scratch.
+        const [resetRes] = await conn.execute(
+            `UPDATE div_aws_events
+             SET responsibility = 'NOT_DETERMINED', root_cause = NULL
+             WHERE abn_date BETWEEN ? AND ?`,
+            [from, to]
+        );
+
+        // Rule 1 — per trip, ≥3 events on consecutive signals on the same cab.
+        // Build adjacency inputs, group window events into trips (cab + date),
+        // and flag any trip with a consecutive-signal run of ≥3 events.
+        let rule1Count = 0;
+        const rule1Trips = [];
+        {
+            // Signal metadata for adjacency
+            const [sigRows] = await conn.query(
+                `SELECT id, section, \`line\` AS line, direction, seq_order AS seq, parallel_group_id AS grp
+                 FROM div_signals`
+            );
+            const meta = new Map();
+            for (const s of sigRows) {
+                meta.set(s.id, { section: s.section, line: s.line, direction: s.direction, seq: s.seq, group: s.grp });
+            }
+
+            // Successor edges (only fully-resolved ones are usable)
+            const [edgeRows] = await conn.query(
+                `SELECT from_signal_id AS f, to_signal_id AS t
+                 FROM div_signal_successors
+                 WHERE from_signal_id IS NOT NULL AND to_signal_id IS NOT NULL`
+            );
+            const succSet = new Set();
+            for (const e of edgeRows) {
+                succSet.add(`${e.f}-${e.t}`);
+                succSet.add(`${e.t}-${e.f}`);
+            }
+
+            // Window events that have both a matched signal and a cab identity
+            const [evRows] = await conn.query(
+                `SELECT id, signal_id, abn_date, abn_time,
+                        COALESCE(matched_coach_id, matched_rake_id) AS cab_key
+                 FROM div_aws_events
+                 WHERE abn_date BETWEEN ? AND ?
+                   AND signal_id IS NOT NULL
+                   AND COALESCE(matched_coach_id, matched_rake_id) IS NOT NULL`,
+                [from, to]
+            );
+
+            // Group into trips: one (cab, date). abn_date may carry time when
+            // the column is DATETIME, so key on the date portion only.
+            const trips = new Map();
+            for (const ev of evRows) {
+                const d = ev.abn_date instanceof Date
+                    ? ev.abn_date.toISOString().slice(0, 10)
+                    : String(ev.abn_date).slice(0, 10);
+                const key = `${ev.cab_key}|${d}`;
+                if (!trips.has(key)) trips.set(key, []);
+                trips.get(key).push(ev);
+            }
+
+            const rule1EventIds = [];
+            for (const [key, events] of trips) {
+                if (events.length < 3) continue;             // need ≥3 in trip
+                const run = longestConsecutiveRun(events, meta, succSet);
+                if (run.length >= 3) {                       // ≥3 on consecutive signals
+                    events.forEach((e) => rule1EventIds.push(e.id));
+                    rule1Trips.push({ trip: key, events: events.length, run: run.length });
+                }
+            }
+
+            if (rule1EventIds.length > 0) {
+                const placeholders = rule1EventIds.map(() => '?').join(',');
+                const [r1] = await conn.execute(
+                    `UPDATE div_aws_events
+                     SET responsibility = 'CAB_SIDE',
+                         root_cause     = 'JPO Rule 1: >=3 on consecutive signals in one trip'
+                     WHERE id IN (${placeholders})
+                       AND responsibility = 'NOT_DETERMINED'`,
+                    rule1EventIds
+                );
+                rule1Count = r1.affectedRows;
+            }
+        }
+
+        // Rule 2 — per day, per signal, count > 2 → S&T
+        const [rule2Res] = await conn.execute(
+            `UPDATE div_aws_events e
+             JOIN (
+                 SELECT signal_id, abn_date
+                 FROM div_aws_events
+                 WHERE abn_date BETWEEN ? AND ?
+                   AND signal_id IS NOT NULL
+                 GROUP BY signal_id, abn_date
+                 HAVING COUNT(*) > 2
+             ) flagged
+               ON flagged.signal_id = e.signal_id
+              AND flagged.abn_date  = e.abn_date
+             SET e.responsibility = 'S&T',
+                 e.root_cause     = 'JPO Rule 2: >2/day on same signal'
+             WHERE e.abn_date BETWEEN ? AND ?
+               AND e.signal_id IS NOT NULL
+               AND e.responsibility = 'NOT_DETERMINED'`,
+            [from, to, from, to]
+        );
+
+        // Rule 3b — per ISO week, per signal (magnet), count ≥ 3 → S&T
+        // (excludes already-classified rule-2 events via responsibility filter)
+        const [rule3bRes] = await conn.execute(
+            `UPDATE div_aws_events e
+             JOIN (
+                 SELECT signal_id, YEARWEEK(abn_date, 1) AS wk
+                 FROM div_aws_events
+                 WHERE abn_date BETWEEN ? AND ?
+                   AND signal_id IS NOT NULL
+                   AND responsibility = 'NOT_DETERMINED'
+                 GROUP BY signal_id, YEARWEEK(abn_date, 1)
+                 HAVING COUNT(*) >= 3
+             ) flagged
+               ON flagged.signal_id = e.signal_id
+              AND YEARWEEK(e.abn_date, 1) = flagged.wk
+             SET e.responsibility = 'S&T',
+                 e.root_cause     = 'JPO Rule 3b: >=3/week on same magnet'
+             WHERE e.abn_date BETWEEN ? AND ?
+               AND e.signal_id IS NOT NULL
+               AND e.responsibility = 'NOT_DETERMINED'`,
+            [from, to, from, to]
+        );
+
+        // Rule 3a — per ISO week, per cab, count > 3 → CAB_SIDE
+        // Cab identity = matched_coach_id when present, else matched_rake_id.
+        // (excludes already-classified rule-1 events via responsibility filter,
+        //  once rule 1 is implemented; rule 2 events are signal-side and don't
+        //  collide with the per-cab key here.)
+        const [rule3aRes] = await conn.execute(
+            `UPDATE div_aws_events e
+             JOIN (
+                 SELECT COALESCE(matched_coach_id, matched_rake_id) AS cab_key,
+                        YEARWEEK(abn_date, 1) AS wk
+                 FROM div_aws_events
+                 WHERE abn_date BETWEEN ? AND ?
+                   AND COALESCE(matched_coach_id, matched_rake_id) IS NOT NULL
+                   AND responsibility = 'NOT_DETERMINED'
+                 GROUP BY COALESCE(matched_coach_id, matched_rake_id), YEARWEEK(abn_date, 1)
+                 HAVING COUNT(*) > 3
+             ) flagged
+               ON COALESCE(e.matched_coach_id, e.matched_rake_id) = flagged.cab_key
+              AND YEARWEEK(e.abn_date, 1) = flagged.wk
+             SET e.responsibility = 'CAB_SIDE',
+                 e.root_cause     = 'JPO Rule 3a: >3/week on same cab'
+             WHERE e.abn_date BETWEEN ? AND ?
+               AND COALESCE(e.matched_coach_id, e.matched_rake_id) IS NOT NULL
+               AND e.responsibility = 'NOT_DETERMINED'`,
+            [from, to, from, to]
+        );
+
+        // Rule 4 — everything still NOT_DETERMINED → TRANSIENT
+        const [rule4Res] = await conn.execute(
+            `UPDATE div_aws_events
+             SET responsibility = 'TRANSIENT',
+                 root_cause     = 'JPO Rule 4: transient (no rule matched)'
+             WHERE abn_date BETWEEN ? AND ?
+               AND responsibility = 'NOT_DETERMINED'`,
+            [from, to]
+        );
+
+        await conn.commit();
+
+        res.json({
+            success: true,
+            from,
+            to,
+            total_in_window: resetRes.affectedRows,
+            rule1_consecutive_trip_cab: rule1Count,
+            rule2_per_day_signal:       rule2Res.affectedRows,
+            rule3a_per_week_cab:        rule3aRes.affectedRows,
+            rule3b_per_week_magnet:     rule3bRes.affectedRows,
+            rule4_transient:            rule4Res.affectedRows,
+            rule1_trips:                rule1Trips,
+            notes: null
+        });
+    } catch (err) {
+        await conn.rollback();
+        console.error('[AWS /classify-period] Error:', err);
+        res.status(500).json({ error: 'Classification failed', detail: err.message });
+    } finally {
+        conn.release();
     }
 });
 

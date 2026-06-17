@@ -91,7 +91,7 @@ CREATE TABLE IF NOT EXISTS div_signal_successors (
 
     succession_type     ENUM('LINE_CROSSOVER','PLATFORM_ROUTING','LOOP_ROUTING','SECTION_BOUNDARY')
                         NOT NULL,
-    route_condition     VARCHAR(50)     NULL COMMENT 'e.g. PF-10, MAIN, LOOP',
+    route_condition     VARCHAR(50)     NOT NULL DEFAULT '' COMMENT 'e.g. PF-10, MAIN, LOOP; "" when not a platform/named route (NULL would bypass uq_succession)',
 
     section             VARCHAR(40)     NULL COMMENT 'Canonical section both signals belong to (CSMT-KYN, etc.)',
     direction           ENUM('UP','DN') NULL,
@@ -111,9 +111,11 @@ CREATE TABLE IF NOT EXISTS div_signal_successors (
 
 -- ── 3. Populate seq_order for currently-loaded div_signals rows ─────────────
 -- Re-runnable: blanks all existing seq_order then re-assigns.
--- Ordering: km_from_csmt ASC, NULL km goes after non-null (via IS NULL,km),
--- then normalized_signal_number as final tiebreaker. Partitioned by
--- (section, line, direction) so each running track has its own 1..N sequence.
+-- seq_order = RUNNING ORDER in the direction of travel:
+--   DN trains travel CSMT(km 0) → KYN(km 53)  → order by km ASC
+--   UP trains travel KYN(km 53) → CSMT(km 0)  → order by km DESC
+-- so seq 1 is always the first signal a train meets. NULL km goes last in
+-- either case; normalized_signal_number is the final tiebreaker.
 UPDATE div_signals SET seq_order = NULL;
 
 WITH ordered AS (
@@ -123,7 +125,7 @@ WITH ordered AS (
             PARTITION BY section, `line`, direction
             ORDER BY
                 CASE WHEN km_from_csmt IS NULL THEN 1 ELSE 0 END,
-                km_from_csmt,
+                CASE WHEN direction = 'DN' THEN km_from_csmt ELSE -km_from_csmt END,
                 normalized_signal_number
         ) AS rn
     FROM div_signals
@@ -140,6 +142,19 @@ SET s.seq_order = o.rn;
 DELETE FROM div_signals
 WHERE section = 'KYN-CSMT'
   AND signal_number = 'TNA S-65';
+
+-- ── 4b. Normalize successor line names to canonical div_signals values ──────
+-- The corridor_changing_signals.csv used colloquial line names; div_signals
+-- imports settled on: DN LOC / UP LOC / 5TH / 6TH. Map old → canonical so the
+-- resolve step below can join. Idempotent (no-op once normalized).
+UPDATE div_signal_successors SET from_line = 'DN LOC'  WHERE from_line = 'DN LL';
+UPDATE div_signal_successors SET to_line   = 'DN LOC'  WHERE to_line   = 'DN LL';
+UPDATE div_signal_successors SET from_line = 'UP LOC'  WHERE from_line = 'UP LL';
+UPDATE div_signal_successors SET to_line   = 'UP LOC'  WHERE to_line   = 'UP LL';
+UPDATE div_signal_successors SET from_line = '5TH'     WHERE from_line IN ('5th Line','5TH LINE');
+UPDATE div_signal_successors SET to_line   = '5TH'     WHERE to_line   IN ('5th Line','5TH LINE');
+UPDATE div_signal_successors SET from_line = '6TH'     WHERE from_line IN ('6th Line','6TH LINE');
+UPDATE div_signal_successors SET to_line   = '6TH'     WHERE to_line   IN ('6th Line','6TH LINE');
 
 -- ── 5. Resolve any unresolved successor rows (re-runnable) ──────────────────
 -- After new signals are imported, this UPDATE links text → IDs for rows
