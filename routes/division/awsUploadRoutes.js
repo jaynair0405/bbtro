@@ -1311,13 +1311,20 @@ function extractLocation(detail) {
         return { raw: `S ${standaloneSignalMatch[1]}`, type: 'SIGNAL' };
     }
 
-    // Pattern 1b: Station + Signal Type like "ASO STR SIG", "CLA HOME SIG", "BY DIST SIG"
-    // STR=Starter, HOME=Home, DIST=Distant, ADV=Advanced
-    const stationSigTypeMatch = text.match(/\b([A-Z]{2,5})\s+(STR|STRTR|STARTER|HOME|DIST|DISTANT|ADV|ADVANCED)\s*SIG/);
+    // Pattern 1b: Station + Signal Type like "ASO STR SIG", "CLA HOME SIG",
+    // "BY DIST SIG", "KE UP DISTANT SIGNAL". An optional UP/DN direction word may
+    // sit between the station and the type — it must NOT be captured as the
+    // station (that bug turned "KE UP DISTANT" into a station-less "UP DISTANT").
+    const stationSigTypeMatch = text.match(/\b([A-Z]{2,5})\s+(?:(?:UP|DN|DOWN)\s+)?(STR|STRTR|STARTER|HOME|DIST|DISTANT|ADV|ADVANCED)\s*SIG/);
     if (stationSigTypeMatch) {
         const station = stationSigTypeMatch[1];
         const sigType = stationSigTypeMatch[2];
-        return { raw: `${station} ${sigType} SIG`, type: 'SIGNAL' };
+        if (!['UP', 'DN', 'DOWN'].includes(station)) {
+            return { raw: `${station} ${sigType} SIG`, type: 'SIGNAL' };
+        }
+        // Station-less (e.g. "UP DISTANT SIG" with no station anywhere) — keep
+        // generic; the CLI must identify the station.
+        return { raw: `${sigType} SIG`, type: 'SIGNAL' };
     }
 
     // Pattern 1c: Station + Shunt signal like "KJT SH 22", "CLA SH-5"
@@ -2217,12 +2224,30 @@ router.get('/export-excel', async (req, res) => {
 // L/K/ME numbers are not globally unique — same number can exist in different
 // (section,line,direction) partitions. matchSignalFromDb downgrades confidence
 // to MEDIUM when the lookup is ambiguous so reviewers can disambiguate.
+// Station-abbreviation synonyms: how motormen write a station in the CMS vs the
+// canonical station_code in div_signals. Applied only to the leading token of an
+// extracted location, so "KALVA S 10" lines up with the loaded "KLVA …" signals
+// and "AT S 24" with "ATG …". (KE needs no synonym — it is already the code for
+// Khardi, whose signals are all NE.)
+const STATION_SYNONYMS = { KALVA: 'KLVA', AT: 'ATG' };
+
 function normalizeForSignalMatch(text) {
     if (!text) return '';
-    return String(text)
-        .toUpperCase()
-        .replace(/[\s\-\/\.\,]+/g, '')
-        .trim();
+    let t = String(text).toUpperCase().trim();
+    // Canonicalise distant-signal wording before stripping separators so CMS
+    // free-text ("VSD DISTANT SIG", "KE UP DISTANT SIGNAL") lines up with the
+    // div_signals naming ("VSD DIST", "KE DIST").
+    t = t
+        .replace(/\bDISTANT\b/g, 'DIST')
+        .replace(/\bSIGNAL\b/g, '')
+        .replace(/\bSIG\b/g, '')
+        .replace(/\b(UP|DN|DOWN)\b/g, '');   // direction word isn't part of the signal id
+    // Station synonym on the leading alpha token.
+    const lead = t.match(/^\s*([A-Z]+)\b/);
+    if (lead && STATION_SYNONYMS[lead[1]]) {
+        t = STATION_SYNONYMS[lead[1]] + t.slice(lead.index + lead[0].length);
+    }
+    return t.replace(/[\s\-\/\.\,]+/g, '').trim();
 }
 
 // ── Helper: Match signal against database ──────────────────────────────────
@@ -3094,3 +3119,5 @@ module.exports = router;
 // parser instead of duplicating the regexes.
 module.exports.extractAwsCode = extractAwsCode;
 module.exports.extractLocation = extractLocation;
+module.exports.matchSignalFromDb = matchSignalFromDb;
+module.exports.normalizeForSignalMatch = normalizeForSignalMatch;
