@@ -1011,8 +1011,11 @@ router.get('/today', async (req, res) => {
         const params = [];
         let derivedDirection = direction;
         if (sheetSource) {
-            where += ' AND sheet_source = ?';
-            params.push(sheetSource);
+            // A row appears on its own sheet OR on a sheet it mirrors to
+            // (Phase 2: KR loco-change legs of 22149/22150 shown on PNVL-UP/DN).
+            // Same master_id/log, so it stays a single record.
+            where += ' AND (sheet_source = ? OR mirror_sheet = ?)';
+            params.push(sheetSource, sheetSource);
             // Derive direction from the sheet name if not explicitly given
             if (!derivedDirection) {
                 if (sheetSource.endsWith('-DN')) derivedDirection = 'DN';
@@ -1064,7 +1067,7 @@ router.get('/today', async (req, res) => {
                      GROUP BY train_id
                  ) latest ON latest.train_id = a1.train_id AND latest.mx = a1.valid_until
              ) prev ON prev.train_id = t.train_id
-             WHERE ${where.replace(/\b(active|sheet_source|direction|from_station|route_label|effective_from|effective_until|skip_dates)\b/g, 'm.$1')}
+             WHERE ${where.replace(/\b(active|sheet_source|mirror_sheet|direction|from_station|route_label|effective_from|effective_until|skip_dates)\b/g, 'm.$1')}
              ORDER BY m.event_time, m.id`,
             params
         );
@@ -1156,6 +1159,12 @@ router.get('/today', async (req, res) => {
                     byTrain.get(s.train_id).push(s);
                 }
                 const BOUNDARY = { NE: 'IGP', SE: 'LNL', KR: 'ROHA' };
+                // Fixed terminal for *-UP sheets: show arrival at THE SHEET's
+                // terminal (so a mirrored through-train like 22150 on PNVL-UP
+                // reads "arr PNVL", not its ultimate destination RN). KR-UP has
+                // no fixed terminal → fall back to the final stop.
+                const SHEET_TERMINAL = { 'CSMT-UP': 'CSMT', 'LTT-UP': 'LTT', 'PNVL-UP': 'PNVL', 'DR-UP': 'DR' };
+                const sheetTerminal = SHEET_TERMINAL[sheetSource] || null;
                 const hhmm = (t) => (t ? String(t).slice(0, 5) : null);
                 for (const r of allRows) {
                     const stops = byTrain.get(r.train_id);
@@ -1171,9 +1180,16 @@ router.get('/today', async (req, res) => {
                             if (s) pick = { time: hhmm(s.arrival_time || s.departure_time), station: bcode };
                         }
                     } else {
-                        // UP / default: arrival at the final stop (destination terminal)
-                        const s = stops.filter(x => x.arrival_time || x.departure_time)
-                            .sort((a, b) => b.seq_order - a.seq_order)[0];
+                        // UP: arrival at the sheet's fixed terminal if known, else
+                        // the final stop (destination terminal).
+                        let s = null;
+                        if (sheetTerminal) {
+                            s = stops.find(x => x.station_code === sheetTerminal && (x.arrival_time || x.departure_time));
+                        }
+                        if (!s) {
+                            s = stops.filter(x => x.arrival_time || x.departure_time)
+                                .sort((a, b) => b.seq_order - a.seq_order)[0];
+                        }
                         if (s) pick = { time: hhmm(s.arrival_time || s.departure_time), station: s.station_code };
                     }
                     if (pick) r.terminal_arr = pick;
