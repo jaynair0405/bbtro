@@ -391,4 +391,45 @@ mysql ... < sql/2026-05-08_loco_link_round_2.sql    # all post-baseline ALTERs +
 
 ---
 
-*Last Updated: 2026-05-08*
+## 12. WTT halts loader (Step 5b) — `div_train_stops`
+**Status:** ✅ DEPLOYED to prod (2026-06-17).
+`sql/2026-06-17_wtt_stops_loader.sql` (event_type enum +`arrive_or_pass`, +`direction` col, +TGR 2/3 stations) then `node scripts/load_wtt_stops.js` (CSV scp'd to `~/bbtro/data/wtt_db_data.csv`). See [WTT_LOADER_PLAN.md](../WTT_LOADER_PLAN.md). **JL/BSL station timings still pending** — append to CSV + re-run loader later (idempotent).
+
+## 13. PNVL-UP / PNVL-DN sheets (Phase 1) — data move
+**Status:** ✅ DEPLOYED to prod (2026-06-18). Code (tiles/switcher) via `git pull`. Data:
+```sql
+UPDATE div_loco_link_master SET sheet_source='PNVL-UP'
+ WHERE train_no IN ('17614','11032','15065') AND sheet_source='CSMT-UP';
+UPDATE div_loco_link_master SET sheet_source='PNVL-DN'
+ WHERE train_no IN ('17613','11031','15066') AND sheet_source='CSMT-DN';
+```
+
+## 14. ⏳ Loco-link `mirror_sheet` (Phase 2) — show a row on a 2nd sheet — **PENDING on prod**
+A row appears on its own sheet AND on `mirror_sheet` (same `master_id`/log → single
+record, edits sync, counted once). Used for the 22149/22150 PNVL loco change.
+**Code:** commit `a7bf2e5` (`/today` mirror query + sheet-terminal-aware arrival) — `git pull` + restart.
+**DB — run once on prod** (`sql/2026-06-18_loco_link_mirror_sheet.sql`):
+```sql
+ALTER TABLE div_loco_link_master ADD COLUMN mirror_sheet VARCHAR(30) NULL AFTER sheet_source;
+
+UPDATE div_loco_link_master SET mirror_sheet='PNVL-UP'
+  WHERE train_no='22150' AND sheet_source='KR-UP' AND to_station='PNVL';
+UPDATE div_loco_link_master SET mirror_sheet='PNVL-DN'
+  WHERE train_no='22150' AND sheet_source='KR-DN' AND from_station='PNVL';
+UPDATE div_loco_link_master SET to_station='PNVL', mirror_sheet='PNVL-UP'
+  WHERE train_no='22149' AND sheet_source='KR-UP';
+UPDATE div_loco_link_master SET section='SE', event_time='03:00', mirror_sheet='PNVL-DN'
+  WHERE train_no='22149' AND sheet_source='KR-DN';
+```
+**Add more mirrors later** (e.g. holiday PNVL loco-change specials) = one line:
+`UPDATE div_loco_link_master SET mirror_sheet='PNVL-UP' WHERE train_no='<no>' AND sheet_source='<KR sheet>';`
+
+**TODO (deferred) — Settings build:** add an "Also show on (mirror sheet)" dropdown
+in **Settings → Loco Links** edit form + wire `mirror_sheet` into `POST/PUT /master`,
+so admin/ctlc can set mirrors from the UI instead of SQL. Small build, NOT yet done.
+
+**Also parked:** WTT edit feature (admin/ctlc inline edit of halt timings) — see auto-memory `wtt-edit-feature-pending`.
+
+---
+
+*Last Updated: 2026-06-18*
