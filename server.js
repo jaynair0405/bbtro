@@ -221,6 +221,12 @@ app.get('/control-office/reports.html', requireControlOffice, (req, res) => {
 app.get('/control-office/sick-locos.html', requireControlOffice, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'control-office', 'sick-locos.html'));
 });
+// WTT lookup page — viewable by any logged-in user (edits are gated in the API
+// to division_admin/ctlc). Explicit route so it is login-gated, not open static.
+app.get('/control-office/wtt.html', (req, res) => {
+  if (!req.session.user) return res.redirect('/');
+  res.sendFile(path.join(__dirname, 'public', 'control-office', 'wtt.html'));
+});
 
 app.get('/div/bulk-upload-staff.html', (req, res) => {
   if (!req.session.user) return res.redirect('/');

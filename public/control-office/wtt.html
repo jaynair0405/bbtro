@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0c0f15">
+<title>Working Time Table — BB Division</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,900&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0c0f15; --ink-2:#11151d; --panel:#161b25; --panel-2:#1c2230;
+    --line:#283042; --line-soft:#1f2633;
+    --cream:#ece6d6; --text:#e7e3d6; --muted:#8b94a6; --faint:#5c6678;
+    --amber:#ffb43d; --amber-deep:#e0890f; --amber-glow:rgba(255,180,61,.16);
+    --up:#43d59a; --up-deep:#1f9c6c;        /* signal green: arriving Mumbai */
+    --dn:#ff8a5b; --dn-deep:#d95a2c;        /* signal amber-red: departing */
+    --bypass:#7aa2ff;
+    --halt:#ffb43d; --pass:#5c6678;
+    --shadow:0 24px 60px -28px rgba(0,0,0,.85);
+    --radius:18px;
+    --maxw:880px;
+    --serif:'Fraunces',Georgia,serif;
+    --sans:'IBM Plex Sans',system-ui,sans-serif;
+    --mono:'IBM Plex Mono',ui-monospace,monospace;
+  }
+  [data-theme="light"]{
+    --ink:#efe9da; --ink-2:#f5f0e4; --panel:#fffdf6; --panel-2:#f6f1e4;
+    --line:#ddd4bf; --line-soft:#e7dfcc;
+    --cream:#24262b; --text:#2a2d34; --muted:#6b7080; --faint:#9aa0ad;
+    --amber:#c0780a; --amber-deep:#a4660a; --amber-glow:rgba(192,120,10,.12);
+    --up:#1f9c6c; --up-deep:#157a52; --dn:#cf5a23; --dn-deep:#b04a1a;
+    --bypass:#3a63c9; --halt:#c0780a; --pass:#9aa0ad;
+    --shadow:0 22px 50px -30px rgba(60,40,10,.4);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    font-family:var(--sans); background:var(--ink); color:var(--text);
+    -webkit-font-smoothing:antialiased; line-height:1.5;
+    min-height:100dvh;
+    background-image:
+      radial-gradient(900px 500px at 88% -8%, var(--amber-glow), transparent 60%),
+      radial-gradient(700px 600px at -10% 110%, rgba(67,213,154,.06), transparent 55%);
+    background-attachment:fixed;
+  }
+  .wrap{max-width:var(--maxw); margin:0 auto; padding:0 20px}
+
+  /* ── masthead ───────────────────────────────────────────── */
+  header.mast{position:sticky; top:0; z-index:40; backdrop-filter:blur(14px);
+    background:color-mix(in srgb, var(--ink) 78%, transparent);
+    border-bottom:1px solid var(--line-soft)}
+  .mast-in{max-width:var(--maxw); margin:0 auto; padding:14px 20px;
+    display:flex; align-items:center; gap:16px}
+  .back{display:inline-flex; align-items:center; gap:7px; color:var(--muted);
+    text-decoration:none; font-size:.82rem; font-weight:500; padding:7px 11px;
+    border:1px solid var(--line); border-radius:10px; transition:.18s; white-space:nowrap}
+  .back:hover{color:var(--text); border-color:var(--amber); transform:translateX(-2px)}
+  .title{flex:1; min-width:0}
+  .title h1{font-family:var(--serif); font-weight:600; font-size:1.18rem; margin:0;
+    letter-spacing:.01em; line-height:1.1}
+  .title h1 em{font-style:italic; color:var(--amber)}
+  .title .sub{font-size:.7rem; color:var(--faint); letter-spacing:.22em;
+    text-transform:uppercase; margin-top:2px; font-weight:600}
+  .icon-btn{background:var(--panel); border:1px solid var(--line); color:var(--muted);
+    width:38px; height:38px; border-radius:11px; cursor:pointer; font-size:1rem;
+    display:grid; place-items:center; transition:.18s}
+  .icon-btn:hover{color:var(--amber); border-color:var(--amber)}
+
+  /* ── tabs ───────────────────────────────────────────────── */
+  .tabs{display:flex; gap:6px; max-width:var(--maxw); margin:26px auto 0; padding:0 20px}
+  .tab{flex:1; appearance:none; background:transparent; border:1px solid var(--line);
+    color:var(--muted); font-family:var(--sans); font-weight:600; font-size:.86rem;
+    padding:13px 14px; border-radius:13px; cursor:pointer; transition:.2s;
+    display:flex; align-items:center; justify-content:center; gap:9px}
+  .tab .t-ico{font-size:1.05rem; opacity:.8}
+  .tab[aria-selected="true"]{color:var(--ink); background:
+    linear-gradient(180deg, var(--amber), var(--amber-deep));
+    border-color:transparent; box-shadow:0 10px 26px -12px var(--amber-deep)}
+  .tab:not([aria-selected="true"]):hover{color:var(--text); border-color:var(--faint)}
+
+  main{padding:26px 0 80px}
+  section[hidden]{display:none}
+
+  /* ── search (train) ─────────────────────────────────────── */
+  .search{display:flex; gap:10px; align-items:stretch}
+  .search .field{position:relative; flex:1}
+  .search .field .glyph{position:absolute; left:16px; top:50%; transform:translateY(-50%);
+    color:var(--faint); font-size:1.05rem; pointer-events:none}
+  .search input{width:100%; background:var(--panel); border:1px solid var(--line);
+    color:var(--text); font-family:var(--mono); font-size:1.5rem; font-weight:500;
+    letter-spacing:.06em; padding:18px 18px 18px 46px; border-radius:14px; outline:none;
+    transition:.2s}
+  .search input::placeholder{color:var(--faint); letter-spacing:.04em; font-weight:400}
+  .search input:focus{border-color:var(--amber); box-shadow:0 0 0 4px var(--amber-glow)}
+  .btn{appearance:none; cursor:pointer; font-family:var(--sans); font-weight:600;
+    border-radius:13px; border:1px solid transparent; transition:.18s; font-size:.9rem}
+  .btn-go{background:linear-gradient(180deg,var(--amber),var(--amber-deep)); color:var(--ink);
+    padding:0 26px; font-size:1rem; box-shadow:0 10px 24px -12px var(--amber-deep)}
+  .btn-go:hover{filter:brightness(1.06); transform:translateY(-1px)}
+  .btn-go:active{transform:translateY(0)}
+
+  .hint{margin-top:12px; color:var(--faint); font-size:.78rem; display:flex;
+    gap:8px; flex-wrap:wrap; align-items:center}
+  .hint .chip{font-family:var(--mono); font-size:.72rem; color:var(--muted);
+    border:1px solid var(--line-soft); padding:3px 8px; border-radius:7px; cursor:pointer; transition:.15s}
+  .hint .chip:hover{color:var(--amber); border-color:var(--amber)}
+
+  /* ── train result ───────────────────────────────────────── */
+  #train-result{margin-top:26px}
+  .reveal{animation:rise .5s cubic-bezier(.2,.7,.2,1) both}
+  @keyframes rise{from{opacity:0; transform:translateY(14px)}to{opacity:1; transform:none}}
+
+  .ticket{background:linear-gradient(160deg,var(--panel),var(--panel-2));
+    border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow);
+    overflow:hidden; position:relative}
+  .ticket::before{content:""; position:absolute; inset:0 0 auto 0; height:3px;
+    background:linear-gradient(90deg,var(--amber),transparent 70%)}
+  .thead{padding:22px 24px 20px; display:flex; align-items:flex-start;
+    gap:18px; flex-wrap:wrap; border-bottom:1px dashed var(--line)}
+  .tno-block{flex:1; min-width:0}
+  .tno{font-family:var(--mono); font-size:2.5rem; font-weight:600; line-height:1;
+    color:var(--cream); letter-spacing:.02em; display:flex; align-items:baseline; gap:12px; flex-wrap:wrap}
+  .tno .was{font-family:var(--sans); font-size:.72rem; font-weight:600; color:var(--amber);
+    background:var(--amber-glow); border:1px solid var(--amber-deep); padding:3px 9px;
+    border-radius:20px; letter-spacing:.02em; align-self:center}
+  .tname{font-family:var(--serif); font-style:italic; font-size:1.32rem; font-weight:500;
+    color:var(--text); margin-top:8px}
+  .chips{display:flex; gap:8px; flex-wrap:wrap; align-self:flex-start}
+  .ch{font-size:.72rem; font-weight:600; padding:7px 12px; border-radius:10px;
+    border:1px solid var(--line); color:var(--muted); background:var(--ink-2);
+    display:flex; align-items:center; gap:7px; white-space:nowrap}
+  .ch b{color:var(--text); font-family:var(--mono); font-weight:600}
+  .ch .dot{width:7px; height:7px; border-radius:50%; background:var(--up)}
+
+  .ttools{display:flex; gap:9px; padding:14px 24px; flex-wrap:wrap;
+    border-bottom:1px solid var(--line-soft); background:var(--ink-2)}
+  .tool{display:inline-flex; align-items:center; gap:8px; font-size:.8rem; font-weight:600;
+    color:var(--muted); background:var(--panel); border:1px solid var(--line);
+    padding:9px 14px; border-radius:10px; cursor:pointer; transition:.16s}
+  .tool:hover{color:var(--text); border-color:var(--amber)}
+  .tool.edit-only{display:none}
+  body.can-edit .tool.edit-only{display:inline-flex}
+
+  /* timeline */
+  .timeline{list-style:none; margin:0; padding:10px 0 14px}
+  .stop{display:grid; grid-template-columns:30px 1fr auto; align-items:center;
+    gap:14px; padding:11px 24px; position:relative}
+  .stop .rail{position:relative; height:100%; display:flex; justify-content:center}
+  .stop .rail::before{content:""; position:absolute; top:-22px; bottom:-22px; width:2px;
+    background:var(--line); left:50%; transform:translateX(-50%)}
+  .stop:first-child .rail::before{top:50%}
+  .stop:last-child .rail::before{bottom:50%}
+  .node{width:13px; height:13px; border-radius:50%; background:var(--ink);
+    border:2px solid var(--faint); z-index:1; position:relative}
+  .stop.halt .node{border-color:var(--amber); background:var(--amber)}
+  .stop.boundary .node{border-color:var(--amber); background:var(--ink);
+    box-shadow:0 0 0 4px var(--amber-glow)}
+  .stop.boundary.halt .node{background:var(--amber)}
+  .s-main{min-width:0}
+  .s-code{font-family:var(--mono); font-weight:600; font-size:1.02rem; color:var(--text);
+    letter-spacing:.04em; display:flex; align-items:center; gap:9px}
+  .stop.boundary .s-code{color:var(--amber)}
+  .s-tags{display:flex; gap:6px; margin-top:3px; align-items:center}
+  .pill{font-size:.62rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
+    padding:2px 7px; border-radius:6px}
+  .pill.bd{color:var(--amber); background:var(--amber-glow); border:1px solid var(--amber-deep)}
+  .pill.ev{color:var(--faint); border:1px solid var(--line-soft)}
+  .pill.ev.is-halt{color:var(--amber)}
+  .nextday{font-size:.62rem; font-weight:700; color:var(--bypass);
+    border:1px solid color-mix(in srgb,var(--bypass) 50%,transparent); padding:2px 6px; border-radius:6px}
+  .s-times{display:flex; gap:18px; font-family:var(--mono); text-align:right}
+  .tcell{min-width:54px}
+  .tcell .lab{display:block; font-size:.58rem; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--faint); font-family:var(--sans); font-weight:700; margin-bottom:1px}
+  .tcell .val{font-size:1.05rem; font-weight:500; color:var(--text)}
+  .tcell .val.none{color:var(--faint)}
+  .tcell.dep .val{color:var(--cream)}
+  .edit-dot{display:none; background:transparent; border:1px solid var(--line); color:var(--faint);
+    width:30px; height:30px; border-radius:8px; cursor:pointer; transition:.15s; align-self:center}
+  body.can-edit .edit-dot{display:grid; place-items:center}
+  .edit-dot:hover{color:var(--amber); border-color:var(--amber)}
+
+  /* ── station board ──────────────────────────────────────── */
+  .filters{display:grid; grid-template-columns:1.3fr 1fr 1fr; gap:12px}
+  .fgroup{display:flex; flex-direction:column; gap:6px}
+  .fgroup label{font-size:.66rem; letter-spacing:.16em; text-transform:uppercase;
+    color:var(--faint); font-weight:700; padding-left:2px}
+  .ctl{background:var(--panel); border:1px solid var(--line); color:var(--text);
+    font-family:var(--sans); font-size:.92rem; padding:12px 13px; border-radius:11px;
+    outline:none; transition:.18s; width:100%}
+  .ctl:focus{border-color:var(--amber); box-shadow:0 0 0 3px var(--amber-glow)}
+  select.ctl{appearance:none; cursor:pointer;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M3 4.5L6 8l3-3.5' stroke='%238b94a6' stroke-width='1.4' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat:no-repeat; background-position:right 12px center; padding-right:32px}
+  .window{display:flex; gap:8px; align-items:center}
+  .window .ctl{font-family:var(--mono); text-align:center}
+  .window .sep{color:var(--faint)}
+  .filters .apply-row{grid-column:1/-1; display:flex; gap:10px; align-items:center}
+  .btn-apply{background:linear-gradient(180deg,var(--amber),var(--amber-deep)); color:var(--ink);
+    padding:12px 26px}
+  .btn-apply:hover{filter:brightness(1.06)}
+  .btn-ghost{background:var(--panel); border:1px solid var(--line); color:var(--muted); padding:12px 18px}
+  .btn-ghost:hover{color:var(--text); border-color:var(--amber)}
+
+  #station-result{margin-top:24px}
+  .board-meta{display:flex; align-items:center; gap:12px; margin-bottom:14px; flex-wrap:wrap}
+  .board-meta .count{font-family:var(--mono); font-size:1.7rem; font-weight:600; color:var(--cream)}
+  .board-meta .desc{color:var(--muted); font-size:.86rem}
+  .board-meta .desc b{color:var(--amber); font-family:var(--mono)}
+  .board-meta .spacer{flex:1}
+
+  .board{background:var(--panel); border:1px solid var(--line); border-radius:var(--radius);
+    overflow:hidden; box-shadow:var(--shadow)}
+  .brow{display:grid; grid-template-columns:84px 1fr 64px 64px; gap:12px; align-items:center;
+    padding:13px 18px; border-bottom:1px solid var(--line-soft)}
+  .brow.head{background:var(--ink-2); border-bottom:1px solid var(--line)}
+  .brow.head span{font-size:.62rem; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--faint); font-weight:700}
+  .brow:last-child{border-bottom:none}
+  .brow:not(.head){transition:background .15s}
+  .brow:not(.head):hover{background:var(--panel-2); cursor:pointer}
+  .b-no{font-family:var(--mono); font-weight:600; font-size:1rem; color:var(--text); display:flex; align-items:center; gap:8px}
+  .dir-tag{font-size:.6rem; font-weight:800; letter-spacing:.04em; padding:2px 6px; border-radius:5px}
+  .dir-UP{color:var(--up); background:color-mix(in srgb,var(--up) 14%,transparent)}
+  .dir-DN{color:var(--dn); background:color-mix(in srgb,var(--dn) 16%,transparent)}
+  .dir-BYPASS{color:var(--bypass); background:color-mix(in srgb,var(--bypass) 14%,transparent)}
+  .b-name{color:var(--muted); font-size:.86rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .b-time{font-family:var(--mono); text-align:right; font-size:.98rem; color:var(--text)}
+  .b-time.none{color:var(--faint)}
+  .b-time.dep{color:var(--cream)}
+  .b-time .nd{font-size:.55rem; color:var(--bypass); vertical-align:super; margin-left:2px}
+
+  /* ── compare carousel ───────────────────────────────────── */
+  .cmp-toggle{display:inline-flex; align-items:center; gap:8px; margin-left:auto;
+    color:var(--muted); font-size:.82rem; font-weight:600; cursor:pointer; user-select:none}
+  .cmp-toggle input{width:16px; height:16px; accent-color:var(--amber); cursor:pointer}
+  .cmp-toggle:hover{color:var(--text)}
+  .carousel-wrap{position:relative}
+  .carousel{display:flex; gap:14px; overflow-x:auto; scroll-snap-type:x mandatory;
+    padding:4px 2px 14px; scroll-behavior:smooth; scrollbar-width:thin}
+  .carousel::-webkit-scrollbar{height:8px}
+  .carousel::-webkit-scrollbar-thumb{background:var(--line); border-radius:8px}
+  .tcard{flex:0 0 clamp(248px, 27vw, 300px); scroll-snap-align:start;
+    background:linear-gradient(160deg,var(--panel),var(--panel-2));
+    border:1px solid var(--line); border-radius:14px; overflow:hidden; box-shadow:var(--shadow)}
+  .tc-head{padding:13px 15px; border-bottom:1px dashed var(--line); background:var(--ink-2)}
+  .tc-no{font-family:var(--mono); font-weight:600; font-size:1.15rem; color:var(--cream);
+    display:flex; align-items:center; gap:8px}
+  .tc-name{font-family:var(--serif); font-style:italic; font-size:.9rem; color:var(--muted);
+    margin-top:3px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .tc-stops{list-style:none; margin:0; padding:6px 0; max-height:50vh; overflow-y:auto}
+  .tc-stop{display:grid; grid-template-columns:1fr auto auto; gap:8px; align-items:center;
+    padding:7px 15px; font-size:.84rem; border-left:3px solid transparent}
+  .tc-stop .c{font-family:var(--mono); font-weight:600; color:var(--text); letter-spacing:.03em}
+  .tc-stop.bd .c{color:var(--amber)}
+  .tc-stop .a,.tc-stop .d{font-family:var(--mono); font-size:.82rem; min-width:46px; text-align:right}
+  .tc-stop .a{color:var(--muted)} .tc-stop .d{color:var(--cream)}
+  .tc-stop .a.none,.tc-stop .d.none{color:var(--faint)}
+  .tc-stop .nd{font-size:.55rem; color:var(--bypass); vertical-align:super}
+  .tc-stop.sel{background:var(--amber-glow); border-left-color:var(--amber)}
+  .tc-stop.sel .c{color:var(--amber)}
+  .cz-arrow{position:absolute; top:50%; transform:translateY(-50%); z-index:5;
+    width:40px; height:40px; border-radius:50%; border:1px solid var(--line);
+    background:color-mix(in srgb,var(--panel) 92%,transparent); color:var(--text);
+    font-size:1rem; cursor:pointer; display:grid; place-items:center; backdrop-filter:blur(6px);
+    box-shadow:0 8px 20px -10px rgba(0,0,0,.6); transition:.16s}
+  .cz-arrow:hover{border-color:var(--amber); color:var(--amber)}
+  .cz-arrow.left{left:-8px} .cz-arrow.right{right:-8px}
+  .cz-arrow[disabled]{opacity:.25; cursor:default}
+  @media(max-width:620px){ .tcard{flex-basis:80vw} .cz-arrow{display:none} }
+
+  /* ── states ─────────────────────────────────────────────── */
+  .state{text-align:center; padding:60px 24px; color:var(--muted)}
+  .state .em{font-size:2.6rem; opacity:.5; margin-bottom:14px}
+  .state h3{font-family:var(--serif); font-weight:500; color:var(--text); margin:0 0 6px; font-size:1.3rem}
+  .state p{margin:0; font-size:.88rem; color:var(--faint)}
+  .spinner{width:30px; height:30px; border:3px solid var(--line); border-top-color:var(--amber);
+    border-radius:50%; animation:spin .7s linear infinite; margin:0 auto 16px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  footer{max-width:var(--maxw); margin:0 auto; padding:24px 20px 40px; color:var(--faint);
+    font-size:.74rem; text-align:center; border-top:1px solid var(--line-soft)}
+  footer .rail-deco{display:flex; align-items:center; gap:6px; justify-content:center; margin-bottom:10px; opacity:.6}
+  footer .rail-deco i{width:5px;height:5px;border-radius:50%;background:var(--faint)}
+  footer .rail-deco .ln{flex:0 0 40px;height:1px;background:var(--line)}
+
+  @media(max-width:620px){
+    .filters{grid-template-columns:1fr 1fr}
+    .filters .fg-station{grid-column:1/-1}
+    .tno{font-size:2rem}
+    .search input{font-size:1.25rem}
+    .stop{grid-template-columns:24px 1fr auto; gap:10px; padding:10px 16px}
+    .s-times{gap:12px}
+    .brow{grid-template-columns:72px 1fr 56px 56px; gap:8px; padding:12px 14px}
+    .b-name{font-size:.8rem}
+  }
+
+  /* ── print ──────────────────────────────────────────────── */
+  @media print{
+    @page{margin:14mm}
+    body{background:#fff; color:#000}
+    header.mast,.tabs,.search,.hint,.filters,.ttools,.icon-btn,.edit-dot,.board-meta .spacer{display:none !important}
+    .ticket,.board{box-shadow:none; border:1px solid #bbb; background:#fff}
+    .tno,.s-code,.tcell .val,.b-no,.b-time{color:#000 !important}
+    .tname,.b-name,.muted{color:#333 !important}
+    section[hidden]{display:none}
+    .print-head{display:block !important}
+  }
+  .print-head{display:none; text-align:center; margin-bottom:14px}
+  .print-head h2{font-family:var(--serif); margin:0; font-size:1.2rem}
+  .print-head p{margin:3px 0 0; font-size:.8rem; color:#555}
+</style>
+</head>
+<body class="dark">
+  <header class="mast">
+    <div class="mast-in">
+      <a class="back" href="/control-office/" aria-label="Back to Control Office">← Control&nbsp;Office</a>
+      <div class="title">
+        <h1>Working&nbsp;Time&nbsp;Table <em>· BB</em></h1>
+        <div class="sub">Central Railway — Mumbai Division</div>
+      </div>
+      <button class="icon-btn" id="themeBtn" title="Toggle theme" aria-label="Toggle theme">◐</button>
+    </div>
+  </header>
+
+  <nav class="tabs" role="tablist" aria-label="WTT views">
+    <button class="tab" role="tab" id="tab-train" aria-selected="true" aria-controls="view-train">
+      <span class="t-ico">🚆</span> Train Lookup</button>
+    <button class="tab" role="tab" id="tab-station" aria-selected="false" aria-controls="view-station">
+      <span class="t-ico">🛤️</span> Station Board</button>
+  </nav>
+
+  <main>
+    <!-- ══ VIEW 1 — TRAIN ══ -->
+    <section id="view-train" class="wrap" role="tabpanel" aria-labelledby="tab-train">
+      <form class="search" id="trainForm" autocomplete="off">
+        <div class="field">
+          <span class="glyph">🔍</span>
+          <input id="trainInput" inputmode="numeric" placeholder="Train number — e.g. 12167"
+                 aria-label="Train number" maxlength="12">
+        </div>
+        <button class="btn btn-go" type="submit">Find</button>
+      </form>
+      <div class="hint">Try:
+        <span class="chip" data-q="12167">12167</span>
+        <span class="chip" data-q="10103">10103</span>
+        <span class="chip" data-q="22119">22119</span>
+        <span class="chip" data-q="12519">12519 (renumbered)</span>
+      </div>
+      <div id="train-result"></div>
+    </section>
+
+    <!-- ══ VIEW 2 — STATION ══ -->
+    <section id="view-station" class="wrap" role="tabpanel" aria-labelledby="tab-station" hidden>
+      <form class="filters" id="stationForm">
+        <div class="fgroup fg-station">
+          <label for="stnSel">Station</label>
+          <select class="ctl" id="stnSel">
+            <option value="CSMT">CSMT — Mumbai CSMT</option>
+            <option value="LTT">LTT — Lokmanya Tilak</option>
+            <option value="DR">DR — Dadar</option>
+            <option value="TNA">TNA — Thane</option>
+            <option value="DIVA">DIVA — Diva Jn</option>
+            <option value="KYN">KYN — Kalyan Jn</option>
+            <option value="KJT">KJT — Karjat Jn</option>
+            <option value="LNL">LNL — Lonavla</option>
+            <option value="PUNE">PUNE — Pune Jn</option>
+            <option value="IGP">IGP — Igatpuri</option>
+            <option value="NK">NK — Nasik Road</option>
+            <option value="MMR">MMR — Manmad Jn</option>
+            <option value="PNVL">PNVL — Panvel</option>
+            <option value="ROHA">ROHA — Roha</option>
+            <option value="RN">RN — Ratnagiri</option>
+            <option value="BSR">BSR — Vasai Road</option>
+          </select>
+        </div>
+        <div class="fgroup">
+          <label for="dirSel">Direction</label>
+          <select class="ctl" id="dirSel">
+            <option value="">All</option><option value="UP">UP</option>
+            <option value="DN">DN</option><option value="BYPASS">Bypass</option>
+          </select>
+        </div>
+        <div class="fgroup">
+          <label for="modeSel">Mode</label>
+          <select class="ctl" id="modeSel">
+            <option value="passing">Passing / any</option>
+            <option value="departing">Departing</option>
+            <option value="arriving">Arriving</option>
+            <option value="halting">Halting</option>
+          </select>
+        </div>
+        <div class="fgroup">
+          <label>Time window (optional)</label>
+          <div class="window">
+            <input class="ctl" id="fromT" placeholder="00:00" maxlength="5" inputmode="numeric">
+            <span class="sep">→</span>
+            <input class="ctl" id="toT" placeholder="23:59" maxlength="5" inputmode="numeric">
+          </div>
+        </div>
+        <div class="apply-row">
+          <button class="btn btn-apply" type="submit">Show trains</button>
+          <button class="btn btn-ghost" type="button" id="clearF">Clear</button>
+          <label class="cmp-toggle"><input type="checkbox" id="cmpChk"> <span>Compare full halts</span></label>
+        </div>
+      </form>
+      <div id="station-result"></div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="rail-deco"><i></i><span class="ln"></span><i></i><span class="ln"></span><i></i></div>
+    Working Time Table · halt timings are scheduled (WTT) values, not live running.
+  </footer>
+
+<script>
+(() => {
+  "use strict";
+  const $ = s => document.querySelector(s);
+  const API = '/api/division/loco-link/wtt';
+  const BOUNDARY = new Set(['LNL','IGP','ROHA','PUNE','CSMT','LTT','DR','PNVL']);
+  const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const hhmm = t => t ? String(t).slice(0,5) : '';
+  // window.__canEdit toggled later for admin/ctlc
+  if (window.__canEdit) document.body.classList.add('can-edit');
+
+  /* theme */
+  const root = document.documentElement;
+  const savedT = localStorage.getItem('wtt-theme');
+  if (savedT) root.setAttribute('data-theme', savedT);
+  $('#themeBtn').onclick = () => {
+    const next = root.getAttribute('data-theme')==='dark' ? 'light':'dark';
+    root.setAttribute('data-theme', next); localStorage.setItem('wtt-theme', next);
+  };
+
+  /* tabs */
+  const tabs = [['#tab-train','#view-train'],['#tab-station','#view-station']];
+  function selectTab(i){
+    tabs.forEach(([t,v],k)=>{
+      $(t).setAttribute('aria-selected', k===i);
+      $(v).hidden = k!==i;
+    });
+  }
+  $('#tab-train').onclick = ()=>selectTab(0);
+  $('#tab-station').onclick = ()=>selectTab(1);
+
+  /* ── Train lookup ── */
+  let lastTrain = null;
+  async function lookupTrain(no){
+    no = String(no||'').trim();
+    if(!no) return;
+    const box = $('#train-result');
+    box.innerHTML = `<div class="state"><div class="spinner"></div><p>Looking up ${esc(no)}…</p></div>`;
+    try{
+      const r = await fetch(`${API}/train/${encodeURIComponent(no)}`, {credentials:'same-origin'});
+      if(r.status===401){ box.innerHTML = state('🔒','Please sign in','Log in to view the working timetable.'); return; }
+      const d = await r.json();
+      if(!d.found){ box.innerHTML = state('🔍','No train '+esc(no),'It isn’t in the working timetable. Check the number.'); return; }
+      lastTrain = d;
+      box.innerHTML = renderTrain(d);
+      box.querySelector('.ticket').classList.add('reveal');
+    }catch(e){ box.innerHTML = state('⚠️','Lookup failed','Network error — try again.'); }
+  }
+  function state(em,h,p){ return `<div class="state"><div class="em">${em}</div><h3>${esc(h)}</h3><p>${esc(p)}</p></div>`; }
+
+  function renderTrain(d){
+    const chips = [];
+    if(d.run_days) chips.push(`<span class="ch"><span class="dot"></span>Runs <b>${esc(d.run_days)}</b></span>`);
+    if(d.train_type) chips.push(`<span class="ch">${esc(d.train_type)}</span>`);
+    chips.push(`<span class="ch"><b>${d.stops.length}</b>&nbsp;halts</span>`);
+    const rows = d.stops.map(s=>{
+      const bd = BOUNDARY.has(s.station_code);
+      const isHalt = s.event_type==='halt';
+      const tags=[];
+      if(bd) tags.push('<span class="pill bd">Boundary</span>');
+      tags.push(`<span class="pill ev ${isHalt?'is-halt':''}">${isHalt?'Halt':'Pass'}</span>`);
+      if(s.day_offset>0) tags.push(`<span class="nextday">+${s.day_offset}d</span>`);
+      return `<li class="stop ${isHalt?'halt':''} ${bd?'boundary':''}" data-id="${s.id}">
+        <div class="rail"><span class="node"></span></div>
+        <div class="s-main">
+          <div class="s-code">${esc(s.station_code)}</div>
+          <div class="s-tags">${tags.join('')}</div>
+        </div>
+        <div class="s-times">
+          <div class="tcell arr"><span class="lab">Arr</span><span class="val ${s.arrival_time?'':'none'}">${hhmm(s.arrival_time)||'—'}</span></div>
+          <div class="tcell dep"><span class="lab">Dep</span><span class="val ${s.departure_time?'':'none'}">${hhmm(s.departure_time)||'—'}</span></div>
+          <button class="edit-dot" title="Edit halt" data-edit="${s.id}">✎</button>
+        </div>
+      </li>`;
+    }).join('');
+    return `
+    <div class="print-head"><h2>${esc(d.current_train_no)} — ${esc(d.train_name||'')}</h2>
+      <p>Working Time Table · BB Division${d.run_days?' · '+esc(d.run_days):''}</p></div>
+    <div class="ticket">
+      <div class="thead">
+        <div class="tno-block">
+          <div class="tno">${esc(d.current_train_no)}${d.was_aliased?`<span class="was">was ${esc(d.ran_as)}</span>`:''}</div>
+          <div class="tname">${esc(d.train_name||'—')}</div>
+        </div>
+        <div class="chips">${chips.join('')}</div>
+      </div>
+      <div class="ttools">
+        <button class="tool" data-act="pdf">⎙ Export PDF</button>
+        <button class="tool" data-act="csv">⬇ Excel (CSV)</button>
+        <button class="tool edit-only" data-act="addhalt">＋ Add halt</button>
+      </div>
+      <ol class="timeline">${rows}</ol>
+    </div>`;
+  }
+
+  $('#trainForm').addEventListener('submit', e=>{ e.preventDefault(); lookupTrain($('#trainInput').value); });
+  document.querySelectorAll('.hint .chip').forEach(c=>c.onclick=()=>{ $('#trainInput').value=c.dataset.q; lookupTrain(c.dataset.q); });
+  $('#train-result').addEventListener('click', e=>{
+    const t = e.target.closest('[data-act]'); if(!t) return;
+    if(t.dataset.act==='pdf') window.print();
+    if(t.dataset.act==='csv') exportTrainCSV();
+  });
+
+  function exportTrainCSV(){
+    if(!lastTrain) return;
+    const head = ['seq','station','arrival','departure','event','day_offset','direction'];
+    const lines = [head.join(',')].concat(lastTrain.stops.map(s=>
+      [s.seq_order,s.station_code,hhmm(s.arrival_time),hhmm(s.departure_time),s.event_type,s.day_offset,s.direction].join(',')));
+    download(`WTT_${lastTrain.current_train_no}.csv`, lines.join('\r\n'));
+  }
+
+  /* ── Station board ── */
+  let lastStation = null;
+  async function loadStation(){
+    const code = $('#stnSel').value;
+    const dir = $('#dirSel').value, mode = $('#modeSel').value;
+    const from = $('#fromT').value.trim(), to = $('#toT').value.trim();
+    const qs = new URLSearchParams({mode});
+    if(dir) qs.set('dir',dir);
+    if(/^\d{1,2}:\d{2}$/.test(from)) qs.set('from',from);
+    if(/^\d{1,2}:\d{2}$/.test(to)) qs.set('to',to);
+    const box = $('#station-result');
+    box.innerHTML = `<div class="state"><div class="spinner"></div><p>Loading ${esc(code)}…</p></div>`;
+    try{
+      const r = await fetch(`${API}/station/${encodeURIComponent(code)}?${qs}`, {credentials:'same-origin'});
+      if(r.status===401){ box.innerHTML = state('🔒','Please sign in',''); return; }
+      const d = await r.json(); lastStation = {...d, dir, mode, from, to};
+      box.innerHTML = renderStation(lastStation);
+      box.querySelector('.board')?.classList.add('reveal');
+    }catch(e){ box.innerHTML = state('⚠️','Failed to load',''); }
+  }
+  function renderStation(d){
+    if(!d.total) return state('🛤️','No trains','Nothing matches these filters at '+esc(d.station_code)+'.');
+    const modeWord = {departing:'departing',arriving:'arriving',halting:'halting at',passing:'through'}[d.mode]||'at';
+    const rows = d.rows.map(r=>{
+      const nd = r.day_offset>0?`<span class="nd">+${r.day_offset}</span>`:'';
+      return `<div class="brow">
+        <div class="b-no">${esc(r.train_no)} <span class="dir-tag dir-${esc(r.direction||'')}">${esc(r.direction||'—')}</span></div>
+        <div class="b-name">${esc(r.train_name||'')}</div>
+        <div class="b-time ${r.arrival_time?'':'none'}">${hhmm(r.arrival_time)||'·'}</div>
+        <div class="b-time dep ${r.departure_time?'':'none'}">${hhmm(r.departure_time)||'·'}${nd}</div>
+      </div>`;
+    }).join('');
+    return `
+    <div class="print-head"><h2>${esc(d.station_code)} — ${esc(modeWord)} trains</h2>
+      <p>Working Time Table · BB Division${d.dir?' · '+esc(d.dir):''}${d.from?` · ${esc(d.from)}–${esc(d.to||'')}`:''}</p></div>
+    <div class="board-meta">
+      <span class="count">${d.total}</span>
+      <span class="desc">trains <b>${esc(modeWord)}</b> ${esc(d.station_code)}${d.dir?` · ${esc(d.dir)}`:''}${d.from?` · ${esc(d.from)}–${esc(d.to||'')}`:''}</span>
+      <span class="spacer"></span>
+      <button class="tool" data-sact="pdf">⎙ PDF</button>
+      <button class="tool" data-sact="csv">⬇ CSV</button>
+    </div>
+    <div class="board">
+      <div class="brow head"><span>Train</span><span>Name</span><span style="text-align:right">Arr</span><span style="text-align:right">Dep</span></div>
+      ${rows}
+    </div>`;
+  }
+  /* ── Compare (full-halts carousel) ── */
+  let lastCompare = null;
+  async function loadCompare(){
+    const code=$('#stnSel').value, dir=$('#dirSel').value, mode=$('#modeSel').value;
+    const from=$('#fromT').value.trim(), to=$('#toT').value.trim();
+    const qs=new URLSearchParams({mode});
+    if(dir) qs.set('dir',dir);
+    if(/^\d{1,2}:\d{2}$/.test(from)) qs.set('from',from);
+    if(/^\d{1,2}:\d{2}$/.test(to)) qs.set('to',to);
+    const box=$('#station-result');
+    box.innerHTML=`<div class="state"><div class="spinner"></div><p>Loading full halts for ${esc(code)}…</p></div>`;
+    try{
+      const r=await fetch(`${API}/station/${encodeURIComponent(code)}/full?${qs}`,{credentials:'same-origin'});
+      if(r.status===401){ box.innerHTML=state('🔒','Please sign in',''); return; }
+      const d=await r.json(); lastCompare={...d,dir,mode,from,to};
+      box.innerHTML=renderCompare(lastCompare); setupCarousel();
+    }catch(e){ box.innerHTML=state('⚠️','Failed to load',''); }
+  }
+  function renderCompare(d){
+    if(!d.total) return state('🛤️','No trains','Nothing matches at '+esc(d.station_code)+'.');
+    const cards=d.trains.map(t=>{
+      const stops=t.stops.map(s=>{
+        const bd=BOUNDARY.has(s.station_code), sel=s.station_code===d.station_code;
+        const nd=s.day_offset>0?`<span class="nd">+${s.day_offset}</span>`:'';
+        return `<li class="tc-stop ${bd?'bd':''} ${sel?'sel':''}">
+          <span class="c">${esc(s.station_code)}</span>
+          <span class="a ${s.arrival_time?'':'none'}">${hhmm(s.arrival_time)||'·'}</span>
+          <span class="d ${s.departure_time?'':'none'}">${hhmm(s.departure_time)||'·'}${nd}</span></li>`;
+      }).join('');
+      return `<div class="tcard" data-no="${esc(t.train_no)}">
+        <div class="tc-head">
+          <div class="tc-no">${esc(t.train_no)} <span class="dir-tag dir-${esc(t.station_dir||'')}">${esc(t.station_dir||'—')}</span></div>
+          <div class="tc-name">${esc(t.train_name||'')}</div>
+        </div><ol class="tc-stops">${stops}</ol></div>`;
+    }).join('');
+    const cap=d.capped?` · showing first ${d.shown}`:'';
+    return `
+    <div class="print-head"><h2>${esc(d.station_code)} — compare full halts</h2><p>${d.total} trains${cap}</p></div>
+    <div class="board-meta">
+      <span class="count">${d.total}</span>
+      <span class="desc">trains · full halts via <b>${esc(d.station_code)}</b>${d.dir?` · ${esc(d.dir)}`:''}${cap}</span>
+      <span class="spacer"></span>
+      <button class="tool" data-cact="pdf">⎙ PDF</button>
+      <button class="tool" data-cact="csv">⬇ CSV</button>
+    </div>
+    <div class="carousel-wrap">
+      <button class="cz-arrow left" aria-label="Scroll left">◀</button>
+      <div class="carousel" id="carousel">${cards}</div>
+      <button class="cz-arrow right" aria-label="Scroll right">▶</button>
+    </div>`;
+  }
+  function setupCarousel(){
+    const cz=$('#carousel'); if(!cz) return;
+    const L=document.querySelector('.cz-arrow.left'), R=document.querySelector('.cz-arrow.right');
+    const step=()=>{ const c=cz.querySelector('.tcard'); return c?c.offsetWidth+14:300; };
+    const upd=()=>{ if(!L||!R)return; L.disabled=cz.scrollLeft<=2; R.disabled=cz.scrollLeft+cz.clientWidth>=cz.scrollWidth-2; };
+    if(L) L.onclick=()=>cz.scrollBy({left:-step(),behavior:'smooth'});
+    if(R) R.onclick=()=>cz.scrollBy({left:step(),behavior:'smooth'});
+    cz.addEventListener('scroll',upd); upd();
+  }
+  function exportCompareCSV(){
+    if(!lastCompare) return;
+    const head=['train_no','train_name','station','arrival','departure','day_offset','filter_station'];
+    const lines=[head.join(',')];
+    lastCompare.trains.forEach(t=>t.stops.forEach(s=>lines.push(
+      [t.train_no,`"${(t.train_name||'').replace(/"/g,'""')}"`,s.station_code,hhmm(s.arrival_time),hhmm(s.departure_time),s.day_offset,s.station_code===lastCompare.station_code?'YES':''].join(','))));
+    download(`WTT_compare_${lastCompare.station_code}_${lastCompare.mode}.csv`, lines.join('\r\n'));
+  }
+
+  const runStation = () => $('#cmpChk').checked ? loadCompare() : loadStation();
+  $('#stationForm').addEventListener('submit', e=>{ e.preventDefault(); runStation(); });
+  $('#cmpChk').addEventListener('change', ()=>{ if(lastStation||lastCompare) runStation(); });
+  $('#clearF').onclick = ()=>{ $('#dirSel').value=''; $('#modeSel').value='passing'; $('#fromT').value=''; $('#toT').value=''; runStation(); };
+  // compare export buttons
+  $('#station-result').addEventListener('click', e=>{
+    const t=e.target.closest('[data-cact]'); if(!t) return;
+    if(t.dataset.cact==='pdf') window.print();
+    if(t.dataset.cact==='csv') exportCompareCSV();
+  });
+  $('#station-result').addEventListener('click', e=>{
+    const t=e.target.closest('[data-sact]'); if(!t) return;
+    if(t.dataset.sact==='pdf') window.print();
+    if(t.dataset.sact==='csv') exportStationCSV();
+    const row=e.target.closest('.brow:not(.head)');
+    if(row && !t){ }
+  });
+  // click a board row → open that train in Train Lookup
+  $('#station-result').addEventListener('click', e=>{
+    const row = e.target.closest('.brow:not(.head)'); if(!row) return;
+    const no = row.querySelector('.b-no')?.textContent.trim().split(/\s/)[0];
+    if(no){ $('#trainInput').value=no; selectTab(0); lookupTrain(no); }
+  });
+  function exportStationCSV(){
+    if(!lastStation) return;
+    const head=['train_no','train_name','direction','arrival','departure','day_offset'];
+    const lines=[head.join(',')].concat(lastStation.rows.map(r=>
+      [r.train_no,`"${(r.train_name||'').replace(/"/g,'""')}"`,r.direction,hhmm(r.arrival_time),hhmm(r.departure_time),r.day_offset].join(',')));
+    download(`WTT_${lastStation.station_code}_${lastStation.mode}.csv`, lines.join('\r\n'));
+  }
+
+  function download(name, text){
+    const blob = new Blob(['﻿'+text], {type:'text/csv;charset=utf-8'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = name; a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 1500);
+  }
+
+  // time input auto-colon
+  ['#fromT','#toT'].forEach(sel=>{
+    const el=$(sel);
+    el.addEventListener('input', ()=>{ let v=el.value.replace(/[^\d:]/g,''); if(/^\d{3,4}$/.test(v)) v=v.slice(0,2)+':'+v.slice(2); el.value=v; });
+  });
+
+  // deep-link ?train=12167 or ?station=CSMT
+  const p = new URLSearchParams(location.search);
+  if(p.get('station')){ $('#stnSel').value=p.get('station').toUpperCase(); selectTab(1); loadStation(); }
+  else if(p.get('train')){ $('#trainInput').value=p.get('train'); lookupTrain(p.get('train')); }
+  $('#trainInput').focus();
+})();
+</script>
+</body>
+</html>

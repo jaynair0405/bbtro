@@ -737,6 +737,163 @@ router.get('/train/:train_no/resolve', async (req, res) => {
     }
 });
 
+// ════════════════════════════════════════════════════════════════════════
+// WTT (working timetable) — read endpoints for the WTT lookup page.
+// View: any logged-in user. Edits live in separate admin/ctlc endpoints.
+// ════════════════════════════════════════════════════════════════════════
+
+// GET /wtt/train/:train_no — full halt list for a train (alias-aware).
+router.get('/wtt/train/:train_no', async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'not logged in' });
+    try {
+        const pool = req.app.locals.pool;
+        const resolved = await resolveTrainByNo(pool, req.params.train_no);
+        if (!resolved) return res.json({ found: false });
+        const trainId = resolved.train_id;
+        const [stops] = await pool.query(
+            `SELECT id, seq_order, station_code, arrival_time, departure_time,
+                    event_type, day_offset, direction
+             FROM div_train_stops WHERE train_id = ? ORDER BY seq_order`, [trainId]);
+        // run-days: prefer the loco-link plan (master), fall back to div_trains
+        const [mrun] = await pool.query(
+            `SELECT GROUP_CONCAT(DISTINCT run_days ORDER BY run_days SEPARATOR ' / ') AS run_days
+             FROM div_loco_link_master WHERE train_id = ? AND active = 1 AND run_days IS NOT NULL`,
+            [trainId]);
+        const [tinfo] = await pool.query(
+            `SELECT train_name, run_days, train_type FROM div_trains WHERE train_id = ? LIMIT 1`,
+            [trainId]);
+        const info = tinfo[0] || {};
+        res.json({
+            found: true,
+            train_id: trainId,
+            current_train_no: resolved.current_train_no,
+            train_name: resolved.train_name || info.train_name || null,
+            train_type: info.train_type || null,
+            ran_as: resolved.ran_as,
+            was_aliased: !!resolved.was_aliased,
+            run_days: (mrun[0] && mrun[0].run_days) || info.run_days || null,
+            stops,
+        });
+    } catch (err) {
+        console.error('[wtt/train]', err);
+        res.status(500).json({ error: 'WTT lookup failed' });
+    }
+});
+
+// GET /wtt/station/:station_code — station board.
+//   ?dir=UP|DN|BYPASS  ?mode=departing|arriving|halting|passing  ?from=HH:MM ?to=HH:MM
+router.get('/wtt/station/:station_code', async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'not logged in' });
+    try {
+        const pool = req.app.locals.pool;
+        const code = String(req.params.station_code || '').trim();
+        if (!code) return res.status(400).json({ error: 'station_code required' });
+        const dir = String(req.query.dir || '').trim().toUpperCase();
+        const mode = String(req.query.mode || 'passing').trim().toLowerCase();
+        const from = String(req.query.from || '').trim();   // HH:MM
+        const to   = String(req.query.to || '').trim();
+
+        // which time column the mode + window applies to
+        const timeCol = mode === 'departing' ? 's.departure_time'
+            : mode === 'arriving' ? 's.arrival_time'
+            : 'COALESCE(s.arrival_time, s.departure_time)';
+
+        let sql = `SELECT s.id, s.train_id, s.seq_order, s.station_code, s.direction,
+                          s.arrival_time, s.departure_time, s.event_type, s.day_offset,
+                          t.train_no, t.train_name
+                   FROM div_train_stops s
+                   JOIN div_trains t ON t.train_id = s.train_id
+                   WHERE s.station_code = ?`;
+        const params = [code];
+        if (mode === 'departing')      sql += ' AND s.departure_time IS NOT NULL';
+        else if (mode === 'arriving')  sql += ' AND s.arrival_time IS NOT NULL';
+        else if (mode === 'halting')   sql += " AND s.event_type = 'halt'";
+        if (['UP', 'DN', 'BYPASS'].includes(dir)) { sql += ' AND s.direction = ?'; params.push(dir); }
+        const hhmm = /^\d{1,2}:\d{2}$/;
+        if (hhmm.test(from)) { sql += ` AND ${timeCol} >= ?`; params.push(from + ':00'); }
+        if (hhmm.test(to))   { sql += ` AND ${timeCol} <= ?`; params.push(to + ':00'); }
+        sql += ` ORDER BY COALESCE(${timeCol}, s.arrival_time, s.departure_time), t.train_no`;
+
+        const [rows] = await pool.query(sql, params);
+        res.json({ station_code: code, dir: dir || null, mode, from: from || null, to: to || null, total: rows.length, rows });
+    } catch (err) {
+        console.error('[wtt/station]', err);
+        res.status(500).json({ error: 'WTT station board failed' });
+    }
+});
+
+// GET /wtt/station/:station_code/full — compare view: the trains that match the
+// station filter, each with its FULL halt list. Same filters as the board.
+router.get('/wtt/station/:station_code/full', async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'not logged in' });
+    try {
+        const pool = req.app.locals.pool;
+        const code = String(req.params.station_code || '').trim();
+        if (!code) return res.status(400).json({ error: 'station_code required' });
+        const dir = String(req.query.dir || '').trim().toUpperCase();
+        const mode = String(req.query.mode || 'passing').trim().toLowerCase();
+        const from = String(req.query.from || '').trim();
+        const to   = String(req.query.to || '').trim();
+        const CAP = 60;
+
+        const timeCol = mode === 'departing' ? 's.departure_time'
+            : mode === 'arriving' ? 's.arrival_time'
+            : 'COALESCE(s.arrival_time, s.departure_time)';
+
+        // 1) matching trains at this station, in time order
+        let sql = `SELECT s.train_id, s.direction
+                   FROM div_train_stops s WHERE s.station_code = ?`;
+        const params = [code];
+        if (mode === 'departing')      sql += ' AND s.departure_time IS NOT NULL';
+        else if (mode === 'arriving')  sql += ' AND s.arrival_time IS NOT NULL';
+        else if (mode === 'halting')   sql += " AND s.event_type = 'halt'";
+        if (['UP', 'DN', 'BYPASS'].includes(dir)) { sql += ' AND s.direction = ?'; params.push(dir); }
+        const hhmm = /^\d{1,2}:\d{2}$/;
+        if (hhmm.test(from)) { sql += ` AND ${timeCol} >= ?`; params.push(from + ':00'); }
+        if (hhmm.test(to))   { sql += ` AND ${timeCol} <= ?`; params.push(to + ':00'); }
+        sql += ` ORDER BY COALESCE(${timeCol}, s.arrival_time, s.departure_time), s.train_id`;
+        const [matched] = await pool.query(sql, params);
+
+        const orderedIds = [];
+        const dirAt = new Map();
+        for (const m of matched) {
+            if (!dirAt.has(m.train_id)) { orderedIds.push(m.train_id); dirAt.set(m.train_id, m.direction); }
+        }
+        const total = orderedIds.length;
+        const ids = orderedIds.slice(0, CAP);
+        if (!ids.length) return res.json({ station_code: code, total: 0, capped: false, trains: [] });
+
+        // 2) full stops for those trains, + headers
+        const [stopRows] = await pool.query(
+            `SELECT train_id, seq_order, station_code, arrival_time, departure_time,
+                    event_type, day_offset, direction
+             FROM div_train_stops WHERE train_id IN (?) ORDER BY train_id, seq_order`, [ids]);
+        const [hdrs] = await pool.query(
+            `SELECT train_id, train_no, train_name FROM div_trains WHERE train_id IN (?)`, [ids]);
+        const stopsBy = new Map(); for (const s of stopRows) {
+            if (!stopsBy.has(s.train_id)) stopsBy.set(s.train_id, []);
+            stopsBy.get(s.train_id).push(s);
+        }
+        const hdrBy = new Map(hdrs.map(h => [h.train_id, h]));
+
+        const trains = ids.map(id => {
+            const h = hdrBy.get(id) || {};
+            return {
+                train_id: id,
+                train_no: h.train_no || String(id),
+                train_name: h.train_name || null,
+                station_code: code,
+                station_dir: dirAt.get(id) || null,
+                stops: stopsBy.get(id) || [],
+            };
+        });
+        res.json({ station_code: code, dir: dir || null, mode, total, capped: total > CAP, shown: ids.length, trains });
+    } catch (err) {
+        console.error('[wtt/station/full]', err);
+        res.status(500).json({ error: 'WTT compare view failed' });
+    }
+});
+
 router.get('/train/:train_no/target-date', async (req, res) => {
     const trainNo = String(req.params.train_no || '').trim();
     const sourceDate = String(req.query.source_date || '').trim();
