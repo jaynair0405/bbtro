@@ -1113,9 +1113,9 @@ function extractAwsCode(detail) {
         return { code: onCodeMatch[1], confidence: 'HIGH' };
     }
 
-    // Priority 0e: Code in quotes like "A" or 'A'
-    // Examples: AWS ACT ON ASO STR SIG "A"ON GREEN
-    const quotedCodeMatch = text.match(/["']([ABCDEPQR])["']/);
+    // Priority 0e: Code in quotes or slashes, tolerating spaces:
+    // "A", ' A ', "B" (as in 'S-12" B"'), /A/
+    const quotedCodeMatch = text.match(/["'\/]\s*([ABCDEPQR])\s*["'\/]/);
     if (quotedCodeMatch) {
         return { code: quotedCodeMatch[1], confidence: 'HIGH' };
     }
@@ -1158,6 +1158,25 @@ function extractAwsCode(detail) {
     const codeAtMatch = text.match(/\b([ABCDEPQR])\s+AT\s+([A-Z][\-\s]?\d+|\w{2,5}\s+S[\s\-\/]?\d+|KM)/);
     if (codeAtMatch) {
         return { code: codeAtMatch[1], confidence: 'HIGH' };
+    }
+
+    // Priority 2c: code directly before "AT" anywhere ("B At SE6205", "D at 9/340",
+    // "at C at KYN 84", "S 22 at C").
+    const codeAtAnywhere = text.match(/\b([ABCDEPQR])\s+AT\b/);
+    if (codeAtAnywhere) {
+        return { code: codeAtAnywhere[1], confidence: 'HIGH' };
+    }
+
+    // Priority 2d: code right after AWS + separators ("AWS -A", "AWS. B", "AWS:-B").
+    const awsSepCode = text.match(/\bAWS[\s.:@\-]+([ABCDEPQR])\b/);
+    if (awsSepCode) {
+        return { code: awsSepCode[1], confidence: 'HIGH' };
+    }
+
+    // Priority 2e: "<code> TYPE" ("A TYPE AT AMB S6").
+    const codeTypeMatch = text.match(/\b([ABCDEPQR])\s+TYPE\b/);
+    if (codeTypeMatch) {
+        return { code: codeTypeMatch[1], confidence: 'HIGH' };
     }
 
     // Priority 3: AUX patterns
@@ -1222,6 +1241,20 @@ function extractAwsCode(detail) {
     // Priority 6: Red aspect (usually shouldn't happen with AWS, but include for completeness)
     if (/RED[\s\-]*(ASPECT|SIGNAL|SIG)|DANGER/i.test(text)) {
         return { code: 'OTHER', confidence: 'LOW' };
+    }
+
+    // Last resort: a lone code letter ANCHORED to an AWS/ACT/AT/ON keyword, so a
+    // stray letter inside a train/cab/unit number ("ER B 59", "D/CAB") is not
+    // mistaken for a code. MEDIUM confidence — still surfaces for review.
+    // keyword → code: "ACT @ E", "Act -A", "AWS ACT A ON", "at C"
+    const kwThenCode = text.match(/(?:\bAWS\b|\bACT(?:ED|ING)?\b|\bAT\b|\bON\b)[\s.:@\/\-",]{0,4}([ABCDEPQR])(?=$|[\s.,:@"'()\/\-])/);
+    if (kwThenCode) {
+        return { code: kwThenCode[1], confidence: 'MEDIUM' };
+    }
+    // code → keyword: "E - AWS Act", "C ,At KYN"
+    const codeThenKw = text.match(/(?:^|[\s.,:@"'()\/\-])([ABCDEPQR])[\s.:@\/\-",]{0,4}(?:\bAT\b|\bON\b|\bAWS\b|\bACT)/);
+    if (codeThenKw) {
+        return { code: codeThenKw[1], confidence: 'MEDIUM' };
     }
 
     return { code: null, confidence: null };
@@ -3057,3 +3090,7 @@ router.post('/classify-period', async (req, res) => {
 });
 
 module.exports = router;
+// Exposed for the recode CLI (scripts/aws-recode.js) so it reuses the exact
+// parser instead of duplicating the regexes.
+module.exports.extractAwsCode = extractAwsCode;
+module.exports.extractLocation = extractLocation;
