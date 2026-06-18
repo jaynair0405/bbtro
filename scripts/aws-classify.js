@@ -182,7 +182,8 @@ async function main() {
        WHERE e.abn_date BETWEEN ? AND ? AND e.signal_id IS NOT NULL AND e.responsibility='NOT_DETERMINED'`,
       [from, to, from, to]);
 
-    // Rule 3a
+    // Rule 3a — per (Fri–Thu) week, per cab, count > 3 (≥4). Confirmed >3, not
+    // ≥3 (the magnet rule); JPO cab wording is garbled. Do not change to >=3.
     const [rule3aRes] = await conn.execute(
       `UPDATE div_aws_events e JOIN (
           SELECT COALESCE(matched_coach_id, matched_rake_id) AS cab_key, ${fridayWeek('abn_date')} AS wk

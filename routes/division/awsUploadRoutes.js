@@ -2780,12 +2780,12 @@ router.post('/match-all', async (req, res) => {
 //                        edge in div_signal_successors (either direction),
 //                        or a shared parallel_group_id. A trip is one
 //                        (cab, abn_date); events ordered by abn_time then
-//                        seq_order. A run of ≥3 events on adjacent signals
-//                        flags the whole trip CAB_SIDE.
+//                        seq_order. A trip with ≥3 events AND ≥2 of them on
+//                        consecutive signals flags the whole trip CAB_SIDE.
 //   Rule 2 (per day)   — >2 events on same signal in same day → S&T defect.
-//   Rule 3a (per week) — >3 events on same cab in same ISO week,
+//   Rule 3a (per week) — >3 events on same cab in same Fri–Thu week,
 //                        excluding rule-1 hits → CAB defect.
-//   Rule 3b (per week) — ≥3 events on same magnet (signal) in same ISO week,
+//   Rule 3b (per week) — ≥3 events on same magnet (signal) in same Fri–Thu week,
 //                        excluding rule-2 hits → S&T defect.
 //   Rule 4             — everything else → TRANSIENT.
 //
@@ -3053,7 +3053,10 @@ router.post('/classify-period', async (req, res) => {
             [from, to, from, to]
         );
 
-        // Rule 3a — per ISO week, per cab, count > 3 → CAB_SIDE
+        // Rule 3a — per (Fri–Thu) week, per cab, count > 3 → CAB_SIDE.
+        // Threshold is strictly > 3 (i.e. ≥4): the JPO text "more than three
+        // times or more on any cab" is garbled; confirmed with the division as
+        // > 3, deliberately NOT ≥3 (which is the magnet rule). Do not change to >=3.
         // Cab identity = matched_coach_id when present, else matched_rake_id.
         // (excludes already-classified rule-1 events via responsibility filter,
         //  once rule 1 is implemented; rule 2 events are signal-side and don't
