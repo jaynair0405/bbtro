@@ -740,7 +740,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
         );
 
         // ── Auto-parse AWS candidates into events ──
-        let parsedCount = 0, needsReviewCount = 0;
+        let parsedCount = 0, needsReviewCount = 0, skippedDupCount = 0;
         if (awsCount > 0) {
             const [awsRows] = await conn.query(
                 `SELECT * FROM div_aws_cms_raw WHERE upload_id = ? AND is_aws_candidate = 1`,
@@ -751,6 +751,16 @@ router.post('/upload', upload.single('file'), async (req, res) => {
                 try {
                     const { code: awsCode, confidence } = extractAwsCode(raw.detail);
                     const { raw: locationRaw, type: locationType } = extractLocation(raw.detail);
+
+                    // Skip CMS re-logs (same crew+date+time+loco+code already an event).
+                    if (await isDuplicateAwsEvent(conn, {
+                        crew_id: raw.crew_id, abn_date: raw.abn_date, abn_time: raw.abn_time,
+                        loco_raw: raw.loco_raw, aws_code: awsCode
+                    })) {
+                        skippedDupCount++;
+                        continue;
+                    }
+
                     const needsManualReview = !awsCode || confidence === 'LOW' || !locationRaw ? 1 : 0;
                     if (needsManualReview) needsReviewCount++;
 
@@ -773,7 +783,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
                     }
                 }
             }
-            console.log(`[AWS Auto-Parse] ${parsedCount} events created, ${needsReviewCount} need review`);
+            console.log(`[AWS Auto-Parse] ${parsedCount} events created, ${needsReviewCount} need review, ${skippedDupCount} re-log duplicates skipped`);
         }
 
         // Cleanup
@@ -1052,6 +1062,23 @@ router.get('/stats', async (req, res) => {
 // ══════════════════════════════════════════════════════════════════════════
 
 // ── Helper: Extract AWS code from detail text ─────────────────────────────
+// A CMS re-log is one physical event submitted twice: same motorman, vehicle,
+// exact minute AND AWS code (the abn_id differs each submission, so the abn_id
+// dedup misses it). Distinct codes are NOT treated as duplicates — e.g. "C"
+// (signal aspect) and "D" (additional magnet) can both genuinely occur, so
+// those are left for the reviewing CLI's discretion. Only applied when crew,
+// time and loco are all present (the fields that make the match meaningful).
+async function isDuplicateAwsEvent(db, ev) {
+    if (!ev.crew_id || !ev.abn_time || !ev.loco_raw) return false;
+    const [rows] = await db.query(
+        `SELECT id FROM div_aws_events
+         WHERE crew_id = ? AND abn_date <=> ? AND abn_time = ? AND loco_raw = ? AND aws_code <=> ?
+         LIMIT 1`,
+        [ev.crew_id, ev.abn_date, ev.abn_time, ev.loco_raw, ev.aws_code ?? null]
+    );
+    return rows.length > 0;
+}
+
 function extractAwsCode(detail) {
     if (!detail) return { code: null, confidence: null };
 
@@ -1372,6 +1399,14 @@ router.post('/parse', async (req, res) => {
                 // Extract location
                 const { raw: locationRaw, type: locationType } = extractLocation(raw.detail);
 
+                // Skip CMS re-logs (same crew+date+time+loco+code already an event).
+                if (await isDuplicateAwsEvent(pool, {
+                    crew_id: raw.crew_id, abn_date: raw.abn_date, abn_time: raw.abn_time,
+                    loco_raw: raw.loco_raw, aws_code: awsCode
+                })) {
+                    continue;
+                }
+
                 // Determine if manual review needed
                 const needsManualReview = !awsCode || confidence === 'LOW' || !locationRaw ? 1 : 0;
                 if (needsManualReview) needsReview++;
@@ -1646,14 +1681,15 @@ router.get('/report-data', async (req, res) => {
         // CAB = no location identified but has loco_raw (cab-side defect)
         // Transient = location_type is UNKNOWN or neither condition met
         const [typeCounts] = await pool.query(
+            // Classification follows the JPO rules stored in `responsibility`
+            // (S&T = track magnet, CAB_SIDE = cab defect, TRANSIENT/unclassified
+            // = transient). Run /classify-period to populate it.
             `SELECT
                 aws_code,
                 COUNT(*) AS total,
-                SUM(CASE WHEN location_type IN ('SIGNAL', 'KM', 'PLATFORM', 'SECTION') THEN 1 ELSE 0 END) AS st_count,
-                SUM(CASE WHEN (location_type IS NULL OR location_type = 'UNKNOWN' OR location_raw IS NULL OR location_raw = '')
-                              AND loco_raw IS NOT NULL AND loco_raw != '' THEN 1 ELSE 0 END) AS cab_count,
-                SUM(CASE WHEN (location_type IS NULL OR location_type = 'UNKNOWN' OR location_raw IS NULL OR location_raw = '')
-                              AND (loco_raw IS NULL OR loco_raw = '') THEN 1 ELSE 0 END) AS transient_count
+                SUM(responsibility = 'S&T') AS st_count,
+                SUM(responsibility = 'CAB_SIDE') AS cab_count,
+                SUM(responsibility = 'TRANSIENT' OR responsibility = 'NOT_DETERMINED' OR responsibility IS NULL) AS transient_count
              FROM div_aws_events e
              WHERE aws_code IS NOT NULL ${dateFilter}
              GROUP BY aws_code
@@ -1665,11 +1701,9 @@ router.get('/report-data', async (req, res) => {
         const [[summary]] = await pool.query(
             `SELECT
                 COUNT(*) AS total_events,
-                SUM(CASE WHEN location_type IN ('SIGNAL', 'KM', 'PLATFORM', 'SECTION') THEN 1 ELSE 0 END) AS st_count,
-                SUM(CASE WHEN (location_type IS NULL OR location_type = 'UNKNOWN' OR location_raw IS NULL OR location_raw = '')
-                              AND loco_raw IS NOT NULL AND loco_raw != '' THEN 1 ELSE 0 END) AS cab_count,
-                SUM(CASE WHEN (location_type IS NULL OR location_type = 'UNKNOWN' OR location_raw IS NULL OR location_raw = '')
-                              AND (loco_raw IS NULL OR loco_raw = '') THEN 1 ELSE 0 END) AS transient_count
+                SUM(responsibility = 'S&T') AS st_count,
+                SUM(responsibility = 'CAB_SIDE') AS cab_count,
+                SUM(responsibility = 'TRANSIENT' OR responsibility = 'NOT_DETERMINED' OR responsibility IS NULL) AS transient_count
              FROM div_aws_events e
              WHERE 1=1 ${dateFilter}`,
             dateParams
@@ -1686,7 +1720,7 @@ router.get('/report-data', async (req, res) => {
                 GROUP_CONCAT(e.id ORDER BY e.abn_date) AS event_ids,
                 MAX(e.abn_date) AS last_date
              FROM div_aws_events e
-             WHERE location_raw IS NOT NULL AND location_raw != '' ${dateFilter}
+             WHERE e.responsibility = 'S&T' AND location_raw IS NOT NULL AND location_raw != '' ${dateFilter}
              GROUP BY location_raw, location_type
              HAVING COUNT(*) > 1
              ORDER BY braking_count DESC
@@ -1708,7 +1742,7 @@ router.get('/report-data', async (req, res) => {
              FROM div_aws_events e
              LEFT JOIN rake_coaches c ON c.coach_number = CONCAT(e.loco_raw, 'C')
              LEFT JOIN rake_formations f ON f.id = c.rake_id
-             WHERE e.loco_raw IS NOT NULL AND e.loco_raw != '' ${dateFilter}
+             WHERE e.responsibility = 'CAB_SIDE' AND e.loco_raw IS NOT NULL AND e.loco_raw != '' ${dateFilter}
              GROUP BY e.loco_raw
              HAVING COUNT(*) > 1
              ORDER BY braking_count DESC
@@ -1733,14 +1767,9 @@ router.get('/report-data', async (req, res) => {
                 r.detail
              FROM div_aws_events e
              LEFT JOIN div_aws_cms_raw r ON r.id = e.raw_id
-             WHERE (
-                e.responsibility = 'TRANSIENT'
-                OR (
-                    (e.responsibility IS NULL OR e.responsibility = 'NOT_DETERMINED')
-                    AND (e.location_type IS NULL OR e.location_type = 'UNKNOWN' OR e.location_raw IS NULL OR e.location_raw = '')
-                    AND (e.loco_raw IS NULL OR e.loco_raw = '')
-                )
-             )
+             WHERE (e.responsibility = 'TRANSIENT'
+                 OR e.responsibility = 'NOT_DETERMINED'
+                 OR e.responsibility IS NULL)
                ${dateFilter}
              ORDER BY e.abn_date DESC, e.id DESC
              LIMIT 100`,
@@ -1758,6 +1787,7 @@ router.get('/report-data', async (req, res) => {
                     e.location_type,
                     e.loco_raw,
                     e.aws_code,
+                    e.responsibility,
                     ROW_NUMBER() OVER (
                         PARTITION BY e.id
                         ORDER BY FIELD(s.line_type, 'HARBOUR', 'TRANS_HB', 'LOCAL', 'FAST', 'NE', 'SE', 'WESTERN', 'PORT', 'OTHER')
@@ -1776,8 +1806,8 @@ router.get('/report-data', async (req, res) => {
                 section_name,
                 line_type,
                 COUNT(*) as braking_count,
-                SUM(CASE WHEN location_type IN ('SIGNAL', 'KM', 'PLATFORM', 'SECTION') THEN 1 ELSE 0 END) AS st_count,
-                SUM(CASE WHEN (location_type IS NULL OR location_type = 'UNKNOWN') AND loco_raw IS NOT NULL THEN 1 ELSE 0 END) AS cab_count,
+                SUM(responsibility = 'S&T') AS st_count,
+                SUM(responsibility = 'CAB_SIDE') AS cab_count,
                 GROUP_CONCAT(DISTINCT aws_code ORDER BY aws_code) AS codes,
                 GROUP_CONCAT(event_id ORDER BY event_id) AS event_ids
             FROM event_section
@@ -1800,8 +1830,8 @@ router.get('/report-data', async (req, res) => {
             available_range: dateRange,
             summary: {
                 total_events: summary?.total_events || 0,
-                repeated_st_locations: summary?.repeated_st_locations || 0,
-                repeated_cab_count: summary?.repeated_cab_count || 0,
+                st_count: summary?.st_count || 0,
+                cab_count: summary?.cab_count || 0,
                 transient_count: summary?.transient_count || 0,
             },
             type_counts: typeCounts,
@@ -2705,6 +2735,36 @@ router.post('/match-all', async (req, res) => {
 // meta: Map signalId -> { section, line, direction, seq, group }
 // succSet: Set of "fromId-toId" successor edges (undirected lookup — both
 //          orientations are inserted when the set is built).
+// Normalize a train number for matching against the `trains` timetable:
+// strip spaces and / . - punctuation, upper-case. Mirrors the SQL
+// REGEXP_REPLACE used when the schedule map is built so "BL/34", "KP7" and
+// "AN.23" line up with their timetable rows.
+function normalizeTrainNumber(text) {
+    if (!text) return '';
+    return String(text).toUpperCase().replace(/[\s/.\-]+/g, '');
+}
+
+// Resolve the SERVICE DATE (operating day) of an AWS event. A "trip" is one
+// run of a service; its events are grouped by (train_number, service_date).
+// Overnight services (a leg whose scheduled arrival is before its departure)
+// carry a post-midnight tail: an event timed at/below that train's early
+// morning arrival cutoff belongs to the PREVIOUS calendar date's run. Daytime
+// services always map to their own date. Derived from the timetable, so it is
+// immune to the fixed-cutoff (splits a trip crossing the cutoff) and gap
+// threshold (breaks under en-route delays) pitfalls.
+function serviceDateOf(abnDate, abnTime, trainInfo) {
+    const ymd = abnDate instanceof Date
+        ? abnDate.toISOString().slice(0, 10)
+        : String(abnDate).slice(0, 10);
+    const t = abnTime ? String(abnTime) : null;
+    if (trainInfo && trainInfo.hasWrap && trainInfo.morningCutoff && t && t <= trainInfo.morningCutoff) {
+        const d = new Date(ymd + 'T00:00:00Z');
+        d.setUTCDate(d.getUTCDate() - 1);
+        return d.toISOString().slice(0, 10);
+    }
+    return ymd;
+}
+
 function signalsAreConsecutive(aId, bId, meta, succSet) {
     if (!aId || !bId || aId === bId) return false;
 
@@ -2810,34 +2870,62 @@ router.post('/classify-period', async (req, res) => {
                 succSet.add(`${e.t}-${e.f}`);
             }
 
-            // Window events that have both a matched signal and a cab identity
+            // Timetable digest for trip grouping. Each `trains` row is one leg;
+            // legs sharing a (normalized) train_number make one trip. has_wrap
+            // flags overnight services; morning_cutoff is the latest scheduled
+            // arrival before 06:00 (the post-midnight tail) used to roll early
+            // events back to the departure date.
+            const [trainRows] = await conn.query(
+                `SELECT UPPER(REGEXP_REPLACE(train_number,'[[:space:]/.-]','')) AS ntn,
+                        MAX(end_time < start_time)                         AS has_wrap,
+                        MAX(CASE WHEN end_time < '06:00:00' THEN end_time END) AS morning_cutoff
+                 FROM trains
+                 WHERE train_number IS NOT NULL AND train_number <> ''
+                 GROUP BY ntn`
+            );
+            const schedule = new Map();
+            for (const r of trainRows) {
+                schedule.set(r.ntn, {
+                    hasWrap: Number(r.has_wrap) === 1,
+                    morningCutoff: r.morning_cutoff != null ? String(r.morning_cutoff) : null
+                });
+            }
+
+            // Window events with a matched signal. cab_key is a fallback
+            // identity for events whose train_number is missing/non-service.
             const [evRows] = await conn.query(
-                `SELECT id, signal_id, abn_date, abn_time,
+                `SELECT id, signal_id, abn_date, abn_time, train_number,
                         COALESCE(matched_coach_id, matched_rake_id) AS cab_key
                  FROM div_aws_events
                  WHERE abn_date BETWEEN ? AND ?
-                   AND signal_id IS NOT NULL
-                   AND COALESCE(matched_coach_id, matched_rake_id) IS NOT NULL`,
+                   AND signal_id IS NOT NULL`,
                 [from, to]
             );
 
-            // Group into trips: one (cab, date). abn_date may carry time when
-            // the column is DATETIME, so key on the date portion only.
+            // Group into trips: (train_number, service_date). service_date comes
+            // from the timetable so overnight runs (dep 22:47 → arr 01:27 next
+            // date) stay one trip. Fall back to (cab, service_date) when there
+            // is no usable train number.
             const trips = new Map();
             for (const ev of evRows) {
-                const d = ev.abn_date instanceof Date
-                    ? ev.abn_date.toISOString().slice(0, 10)
-                    : String(ev.abn_date).slice(0, 10);
-                const key = `${ev.cab_key}|${d}`;
-                if (!trips.has(key)) trips.set(key, []);
-                trips.get(key).push(ev);
+                const ntn = normalizeTrainNumber(ev.train_number);
+                const svcDate = serviceDateOf(ev.abn_date, ev.abn_time, ntn ? schedule.get(ntn) : null);
+                const tripKey = ntn
+                    ? `T:${ntn}|${svcDate}`
+                    : (ev.cab_key != null ? `C:${ev.cab_key}|${svcDate}` : null);
+                if (!tripKey) continue;                       // no identity → cannot form a trip
+                if (!trips.has(tripKey)) trips.set(tripKey, []);
+                trips.get(tripKey).push(ev);
             }
 
+            // JPO Rule 1: cab defect when, in one trip, AWS acted ≥3 times (C2)
+            // AND ≥2 of them fell on consecutive signals (C1). The 3 need not
+            // themselves be consecutive.
             const rule1EventIds = [];
             for (const [key, events] of trips) {
-                if (events.length < 3) continue;             // need ≥3 in trip
+                if (events.length < 3) continue;             // C2: ≥3 acts in the trip
                 const run = longestConsecutiveRun(events, meta, succSet);
-                if (run.length >= 3) {                       // ≥3 on consecutive signals
+                if (run.length >= 2) {                       // C1: ≥2 on consecutive signals
                     events.forEach((e) => rule1EventIds.push(e.id));
                     rule1Trips.push({ trip: key, events: events.length, run: run.length });
                 }
@@ -2878,21 +2966,27 @@ router.post('/classify-period', async (req, res) => {
             [from, to, from, to]
         );
 
-        // Rule 3b — per ISO week, per signal (magnet), count ≥ 3 → S&T
+        // The AWS review "week" runs Friday → Thursday (review meetings are on
+        // Fridays), NOT the ISO Mon–Sun week. This expression maps a date to the
+        // Friday that starts its week, so weekly grouping matches the meeting
+        // cycle. (DAYOFWEEK: Sun=1..Sat=7; Friday=6 → offset 0.)
+        const fridayWeek = (col) => `DATE_SUB(${col}, INTERVAL ((DAYOFWEEK(${col}) + 1) % 7) DAY)`;
+
+        // Rule 3b — per (Fri–Thu) week, per signal (magnet), count ≥ 3 → S&T
         // (excludes already-classified rule-2 events via responsibility filter)
         const [rule3bRes] = await conn.execute(
             `UPDATE div_aws_events e
              JOIN (
-                 SELECT signal_id, YEARWEEK(abn_date, 1) AS wk
+                 SELECT signal_id, ${fridayWeek('abn_date')} AS wk
                  FROM div_aws_events
                  WHERE abn_date BETWEEN ? AND ?
                    AND signal_id IS NOT NULL
                    AND responsibility = 'NOT_DETERMINED'
-                 GROUP BY signal_id, YEARWEEK(abn_date, 1)
+                 GROUP BY signal_id, ${fridayWeek('abn_date')}
                  HAVING COUNT(*) >= 3
              ) flagged
                ON flagged.signal_id = e.signal_id
-              AND YEARWEEK(e.abn_date, 1) = flagged.wk
+              AND ${fridayWeek('e.abn_date')} = flagged.wk
              SET e.responsibility = 'S&T',
                  e.root_cause     = 'JPO Rule 3b: >=3/week on same magnet'
              WHERE e.abn_date BETWEEN ? AND ?
@@ -2910,16 +3004,16 @@ router.post('/classify-period', async (req, res) => {
             `UPDATE div_aws_events e
              JOIN (
                  SELECT COALESCE(matched_coach_id, matched_rake_id) AS cab_key,
-                        YEARWEEK(abn_date, 1) AS wk
+                        ${fridayWeek('abn_date')} AS wk
                  FROM div_aws_events
                  WHERE abn_date BETWEEN ? AND ?
                    AND COALESCE(matched_coach_id, matched_rake_id) IS NOT NULL
                    AND responsibility = 'NOT_DETERMINED'
-                 GROUP BY COALESCE(matched_coach_id, matched_rake_id), YEARWEEK(abn_date, 1)
+                 GROUP BY COALESCE(matched_coach_id, matched_rake_id), ${fridayWeek('abn_date')}
                  HAVING COUNT(*) > 3
              ) flagged
                ON COALESCE(e.matched_coach_id, e.matched_rake_id) = flagged.cab_key
-              AND YEARWEEK(e.abn_date, 1) = flagged.wk
+              AND ${fridayWeek('e.abn_date')} = flagged.wk
              SET e.responsibility = 'CAB_SIDE',
                  e.root_cause     = 'JPO Rule 3a: >3/week on same cab'
              WHERE e.abn_date BETWEEN ? AND ?
