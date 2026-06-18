@@ -815,6 +815,27 @@
       const repBody = document.getElementById("repDefectsBody");
       repBody.innerHTML = '';
 
+      // Persistent / chronic magnets — flagged S&T in 2+ Fri–Thu weeks. Shown on
+      // top as the most urgent "send S&T to inspect" candidates.
+      if ((data.persistent_magnets || []).length > 0) {
+        const hTr = document.createElement("tr");
+        hTr.innerHTML = `<td colspan="7" class="text-center" style="background:rgba(255,90,90,.18);font-weight:700;">⚠ Persistent (Chronic) Magnets — S&amp;T defect across multiple weeks</td>`;
+        repBody.appendChild(hTr);
+        (data.persistent_magnets || []).forEach((m, idx) => {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td>${idx + 1}</td>
+            <td><strong>${escapeHtml(m.signal_number)}</strong> <small class="muted">${escapeHtml(m.line || '')}</small></td>
+            <td>${m.weeks_count} weeks</td>
+            <td><span class="badge bg-danger">${m.total_acts || 0}</span></td>
+            <td><small>${escapeHtml(m.weeks || '')}</small></td>
+            <td>Chronic — S&amp;T inspect</td>
+            <td class="text-end"></td>
+          `;
+          repBody.appendChild(tr);
+        });
+      }
+
       // Section header for S&T
       if ((data.repeated_signals || []).length > 0) {
         const headerTr = document.createElement("tr");
@@ -870,6 +891,29 @@
         `;
         repBody.appendChild(tr);
       });
+
+      // Possible duplicate log entries (soft) — same crew/loco/code minutes
+      // apart. Surfaced for the CLI to confirm; NOT auto-removed.
+      if ((data.potential_duplicates || []).length > 0) {
+        const hTr = document.createElement("tr");
+        hTr.innerHTML = `<td colspan="7" class="text-center" style="background:rgba(255,200,80,.15);font-weight:700;">Possible Duplicate Log Entries — verify (same crew/loco/code, minutes apart)</td>`;
+        repBody.appendChild(hTr);
+        (data.potential_duplicates || []).forEach((d, idx) => {
+          let dv = '';
+          if (d.abn_date) { const x = new Date(d.abn_date); dv = `${String(x.getDate()).padStart(2,'0')}-${String(x.getMonth()+1).padStart(2,'0')}`; }
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td>${idx + 1}</td>
+            <td>Cab ${escapeHtml(d.loco_raw || '')} <small class="muted">${escapeHtml(d.crew_id || '')}</small></td>
+            <td>${escapeHtml(d.aws_code || '—')}</td>
+            <td><small>${dv} ${escapeHtml(d.time1 || '')} vs ${escapeHtml(d.time2 || '')}</small></td>
+            <td><small>${escapeHtml(d.loc1 || '')} / ${escapeHtml(d.loc2 || '')}</small></td>
+            <td>Verify duplicate</td>
+            <td class="text-end"><button class="btn btn-sm btn-neo view-events-btn" data-ids="${d.id1},${d.id2}" data-title="Possible duplicate"><i class="bi bi-eye"></i> View</button></td>
+          `;
+          repBody.appendChild(tr);
+        });
+      }
 
       // Transient cases table
       const transBody = document.getElementById("transientBody");

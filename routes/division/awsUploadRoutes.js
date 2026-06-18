@@ -1859,7 +1859,49 @@ router.get('/report-data', async (req, res) => {
             dateParams
         );
 
-        // 7. Date range info
+        // 7. Persistent / chronic magnets — signals flagged S&T in >=2 distinct
+        // Fri–Thu review weeks within the range. A magnet failing week after week
+        // is more urgent than a one-week spike, so it gets its own highlight.
+        const friWk = `DATE_SUB(e.abn_date, INTERVAL ((DAYOFWEEK(e.abn_date) + 1) % 7) DAY)`;
+        const [persistentMagnets] = await pool.query(
+            `SELECT s.signal_number, s.line, s.section,
+                    COUNT(*) AS total_acts,
+                    COUNT(DISTINCT ${friWk}) AS weeks_count,
+                    GROUP_CONCAT(DISTINCT DATE_FORMAT(${friWk}, '%d-%m') ORDER BY ${friWk}) AS weeks,
+                    MAX(e.abn_date) AS last_date
+             FROM div_aws_events e
+             JOIN div_signals s ON s.id = e.signal_id
+             WHERE e.responsibility = 'S&T' ${dateFilter}
+             GROUP BY s.signal_number, s.line, s.section
+             HAVING COUNT(DISTINCT ${friWk}) >= 2
+             ORDER BY weeks_count DESC, total_acts DESC`,
+            dateParams
+        );
+
+        // 8. Potential duplicates (soft) — same crew + date + loco + AWS code but
+        // a DIFFERENT time within 15 min. The exact-minute case is auto-deduped on
+        // import; these near-misses are surfaced for the CLI to judge, NOT removed
+        // (could be a re-log, or two genuine acts minutes apart on a run).
+        const dupFilterA = dateFilter.replace(/\be\./g, 'a.');
+        const [potentialDuplicates] = await pool.query(
+            `SELECT a.id AS id1, b.id AS id2, a.crew_id, a.crew_name, a.abn_date,
+                    a.loco_raw, a.aws_code,
+                    TIME_FORMAT(a.abn_time, '%H:%i') AS time1,
+                    TIME_FORMAT(b.abn_time, '%H:%i') AS time2,
+                    a.location_raw AS loc1, b.location_raw AS loc2
+             FROM div_aws_events a
+             JOIN div_aws_events b
+               ON a.crew_id = b.crew_id AND a.abn_date = b.abn_date
+              AND a.loco_raw = b.loco_raw AND a.aws_code <=> b.aws_code
+              AND a.id < b.id AND a.abn_time <> b.abn_time
+              AND ABS(TIME_TO_SEC(a.abn_time) - TIME_TO_SEC(b.abn_time)) BETWEEN 1 AND 900
+             WHERE a.crew_id IS NOT NULL AND a.crew_id <> ''
+               AND a.loco_raw IS NOT NULL AND a.loco_raw <> '' ${dupFilterA}
+             ORDER BY a.abn_date DESC, a.abn_time`,
+            dateParams
+        );
+
+        // 9. Date range info
         const [[dateRange]] = await pool.query(
             `SELECT MIN(abn_date) AS min_date, MAX(abn_date) AS max_date
              FROM div_aws_events`
@@ -1879,6 +1921,8 @@ router.get('/report-data', async (req, res) => {
             repeated_cabs: repeatedCabs,
             transient_cases: transientCases,
             section_wise: sectionWise,
+            persistent_magnets: persistentMagnets,
+            potential_duplicates: potentialDuplicates,
         });
     } catch (err) {
         console.error('[AWS /report-data] Error:', err);
