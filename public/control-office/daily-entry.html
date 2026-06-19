@@ -2072,12 +2072,13 @@ function renderSpecialRow(log, editable) {
 }
 
 // Blank row — all fields editable including train_no
-function renderBlankRow(section, fromStation, toStation) {
+function renderBlankRow(section, fromStation, toStation, sheetSrc) {
     const tr = document.createElement('tr');
     tr.classList.add('row-blank-special');
     tr.dataset.section = section || '';
     tr.dataset.fromStation = fromStation || '';
     tr.dataset.toStation = toStation || '';
+    if (sheetSrc) tr.dataset.sheetSource = sheetSrc;
     const blankSeq = ++blankRowSeq;
     tr.dataset.blankSeq = blankSeq;
     tr.dataset.position = 'front';
@@ -2139,12 +2140,13 @@ function renderBlankRow(section, fromStation, toStation) {
     return tr;
 }
 
-function renderAddButton(section, fromStation, toStation) {
+function renderAddButton(section, fromStation, toStation, sheetSrc) {
     const tr = document.createElement('tr');
     tr.classList.add('row-add-special');
     tr.dataset.section = section || '';
     tr.dataset.fromStation = fromStation || '';
     tr.dataset.toStation = toStation || '';
+    if (sheetSrc) tr.dataset.sheetSource = sheetSrc;
     const labelTail = toStation ? ` to ${esc(toStation)}`
                     : fromStation ? ` from ${esc(fromStation)}`
                     : '';
@@ -2156,7 +2158,7 @@ function renderAddButton(section, fromStation, toStation) {
         </td>
     `;
     tr.querySelector('button').addEventListener('click', () => {
-        const blank = renderBlankRow(section, fromStation, toStation);
+        const blank = renderBlankRow(section, fromStation, toStation, sheetSrc);
         tr.parentNode.insertBefore(blank, tr);
         const tnInput = blank.querySelector('input[data-field="train_no"]');
         if (tnInput) tnInput.focus();
@@ -2446,6 +2448,20 @@ function renderRearRow(m, editable, options) {
 }
 
 // ── bypass rendering ─────────────────────────────────────────────────
+// Bypass routes that are ALWAYS offered (even with no scheduled train) so LPC can
+// register seasonal/festival specials. Pune↔Roha added per LPC request (2026-06):
+// holiday/summer specials run Pune line ↔ Konkan via Karjat-Panvel-Roha, bypassing
+// Mumbai. 22149/22150 belong to this route family but stay tracked on KR/PNVL.
+const DEFAULT_BYPASS_ROUTES = ['PUNE-ROHA', 'ROHA-PUNE'];
+const BYPASS_ROUTE_ENDPOINTS = {
+    'PUNE-ROHA': { from: 'PUNE', to: 'ROHA' },
+    'ROHA-PUNE': { from: 'ROHA', to: 'PUNE' },
+};
+function bypassRouteEndpoints(route, rows) {
+    if (BYPASS_ROUTE_ENDPOINTS[route]) return BYPASS_ROUTE_ENDPOINTS[route];
+    return { from: rows[0] ? rows[0].from_station : '', to: '' };   // preserve prior behaviour
+}
+
 function renderBypass(data) {
     const body = $('#sheetBody');
     body.innerHTML = '';
@@ -2466,12 +2482,6 @@ function renderBypass(data) {
         $('#readOnlyBanner').style.display = 'none';
     }
 
-    if (!data.rows.length) {
-        body.innerHTML = `<tr><td colspan="10" class="empty">
-            No bypass trains scheduled for ${dayLabelIR(data.date)}.</td></tr>`;
-        return;
-    }
-
     // Group by route_label, preserve master id ordering within each group
     const groups = new Map();
     for (const row of data.rows) {
@@ -2488,14 +2498,36 @@ function renderBypass(data) {
         specialsByRoute.get(k).push(sp);
     }
 
-    // Build bypass nav chips up front using the groups we'll render
+    // Always-offer the default bypass routes (e.g. Pune↔Roha specials) as groups so
+    // the Add-Special button is available even when no regular train runs them.
+    // On the all-bypass view show all defaults; when filtered to one route, only that.
+    const routeList = [...groups.keys()];
+    const wantDefaults = !routeLabel
+        ? DEFAULT_BYPASS_ROUTES
+        : (DEFAULT_BYPASS_ROUTES.includes(routeLabel) ? [routeLabel] : []);
+    for (const dr of wantDefaults) {
+        if (!groups.has(dr)) { groups.set(dr, []); routeList.push(dr); }
+    }
+
+    if (!routeList.length && !specialsByRoute.size) {
+        body.innerHTML = `<tr><td colspan="10" class="empty">
+            No bypass trains scheduled for ${dayLabelIR(data.date)}.</td></tr>`;
+        return;
+    }
+
+    // Build bypass nav chips up front using the routes we'll render
     const navItems = [];
-    for (const [route, rows] of groups) {
+    for (const route of routeList) {
         navItems.push({ id: `route-${route.replace(/[^A-Za-z0-9]/g, '-')}`, label: route, colourClass: 'sec-bypass', section: 'BYPASS' });
     }
     renderSectionNav(navItems);
 
-    for (const [route, rows] of groups) {
+    for (const route of routeList) {
+        const rows = groups.get(route) || [];
+        const ep = bypassRouteEndpoints(route, rows);
+        // sheet_source for specials saved against this route: from a real row, else
+        // construct it from the route_label (BYPASS-<route>) for default empty routes.
+        const routeSheet = (rows[0] && rows[0].sheet_source) || ('BYPASS-' + route);
         const filled = rows.filter(r => r.log && r.log.actual_loco_no).length;
         const header = document.createElement('tr');
         header.classList.add('route-header');
@@ -2517,12 +2549,11 @@ function renderBypass(data) {
             appendSpecialWithRear(body, sp, data.editable);
         }
         specialsByRoute.delete(route);
-        // One blank + Add Special button per route (use the route_label as 'section'
-        // marker; from_station inherits the route's bypass entry station)
+        // One blank + Add Special button per route (route_label as 'section' marker;
+        // from/to inherit the route's bypass entry/exit stations)
         if (data.editable) {
-            const entryStation = rows[0] ? rows[0].from_station : '';
-            body.appendChild(renderBlankRow(route, entryStation));
-            body.appendChild(renderAddButton(route, entryStation));
+            body.appendChild(renderBlankRow(route, ep.from, ep.to, routeSheet));
+            body.appendChild(renderAddButton(route, ep.from, ep.to, routeSheet));
         }
     }
 
@@ -2536,8 +2567,10 @@ function renderBypass(data) {
         body.appendChild(header);
         for (const sp of sps) appendSpecialWithRear(body, sp, data.editable);
         if (data.editable) {
-            body.appendChild(renderBlankRow(sec === '(no route)' ? '' : sec, ''));
-            body.appendChild(renderAddButton(sec === '(no route)' ? '' : sec, ''));
+            const secLabel = sec === '(no route)' ? '' : sec;
+            const secSheet = (sps[0] && sps[0].sheet_source) || (secLabel ? 'BYPASS-' + secLabel : '');
+            body.appendChild(renderBlankRow(secLabel, '', '', secSheet));
+            body.appendChild(renderAddButton(secLabel, '', '', secSheet));
         }
     }
 }
@@ -3162,7 +3195,7 @@ async function saveBlankRow(tr) {
         direction,
         train_no: trainNo,
         master_id: null,
-        sheet_source: sheetSource || (currentSheet && currentSheet.sheet_source),
+        sheet_source: tr.dataset.sheetSource || sheetSource || (currentSheet && currentSheet.sheet_source),
         section: tr.dataset.section || null,
         from_station: tr.dataset.fromStation || null,
         to_station:   tr.dataset.toStation   || null,

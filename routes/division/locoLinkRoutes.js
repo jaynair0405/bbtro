@@ -1184,7 +1184,14 @@ router.get('/today', async (req, res) => {
         // master rows' time-ordered list. JOIN div_trains for train_name when
         // the inline special's train_no happens to be in the trains master.
         let specials = [];
-        if (sheetSource) {
+        // Specials scope: a specific sheet by sheet_source, OR — on the all-bypass
+        // view (direction=BYPASS, no sheet_source) — every bypass special for the
+        // date (the frontend groups them by section = route_label). Without this,
+        // bypass specials (incl. the Pune↔Roha seasonal ones) wouldn't reload.
+        let specWhere = null, specParams = null;
+        if (sheetSource) { specWhere = 'l.sheet_source = ?'; specParams = [date, sheetSource]; }
+        else if (direction === 'BYPASS') { specWhere = "l.direction = 'BYPASS'"; specParams = [date]; }
+        if (specWhere) {
             const [rows] = await pool.query(
                 `SELECT l.id, l.master_id, l.sheet_source, l.section, l.working_date, l.direction, l.train_no,
                         l.event_time, l.from_station, l.to_station,
@@ -1210,9 +1217,9 @@ router.get('/today', async (req, res) => {
                          GROUP BY train_id
                      ) latest ON latest.train_id = a1.train_id AND latest.mx = a1.valid_until
                  ) prev ON prev.train_id = t.train_id
-                 WHERE l.working_date = ? AND l.master_id IS NULL AND l.sheet_source = ?
+                 WHERE l.working_date = ? AND l.master_id IS NULL AND ${specWhere}
                  ORDER BY l.event_time, l.id`,
-                [date, sheetSource]
+                specParams
             );
             specials = rows;
         }
