@@ -290,8 +290,12 @@
         }
         .sheet input.loco-input {
             font-family: 'Courier New', monospace;
-            font-weight: 600;
+            font-weight: 700;
             text-transform: uppercase;
+        }
+        /* Filled loco cell → soft green so entered locos stand out (empty stays plain) */
+        .sheet input.loco-input:not(:placeholder-shown) {
+            background: var(--success-bg);
         }
         .sheet input:focus {
             outline: none;
@@ -609,6 +613,27 @@
         .pill.pp  { background: var(--info-bg); color: var(--info); }
         .pill.renamed { background: var(--warning-bg); color: var(--warning); text-transform: none; }
         .term-arr { font-size: .72rem; color: var(--success); font-weight: 600; line-height: 1.2; margin-top: 1px; }
+
+        /* ── In-sheet search (eye-catching amber pill) ── */
+        .sheet-search {
+            display: inline-flex; align-items: center; gap: 8px;
+            background: #fffbeb; border: 2px solid var(--warning); border-radius: 24px;
+            padding: 7px 16px; margin-left: 10px;
+            box-shadow: 0 0 0 4px rgba(217,119,6,.14);
+            animation: searchPulse 1.6s ease-out 3;
+        }
+        @keyframes searchPulse {
+            0%,100% { box-shadow: 0 0 0 4px rgba(217,119,6,.14); }
+            50%     { box-shadow: 0 0 0 7px rgba(217,119,6,.28); }
+        }
+        .sheet-search i { color: var(--warning); font-size: 1rem; }
+        .sheet-search input {
+            border: none; background: transparent; outline: none;
+            font-size: .95rem; font-weight: 600; color: var(--text-main); width: 220px;
+        }
+        .sheet-search input::placeholder { color: var(--warning); opacity: .8; font-weight: 600; }
+        .sheet-search .search-count { font-size: .72rem; font-weight: 800; color: var(--warning); white-space: nowrap; }
+        @media print { .sheet-search { display: none !important; } }
 
         /* Save button */
         .save-btn {
@@ -1254,6 +1279,12 @@
         <span><span class="stat-num bad" id="statMislink">—</span> mis-links</span>
     </span>
 
+    <span class="sheet-search" id="sheetSearchWrap">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input id="sheetSearch" type="search" placeholder="Search train no / loco / name…" autocomplete="off" aria-label="Search this sheet">
+        <span id="searchCount" class="search-count"></span>
+    </span>
+
     <button class="print-btn-bar" onclick="printSheet()" title="Print / Save this sheet as PDF">
         <i class="fa-solid fa-print"></i> Print
     </button>
@@ -1427,6 +1458,65 @@ if (!isBypass && sheetSource) {
         window.location = `/control-office/daily-entry.html${v}` +
                           (date ? `${sep}date=${encodeURIComponent(date)}` : '');
     });
+})();
+
+// ── In-sheet search — filter rows by train no / loco / name (no Ctrl+F needed) ──
+(function setupSheetSearch() {
+    const input = document.getElementById('sheetSearch');
+    const countEl = document.getElementById('searchCount');
+    const body = document.getElementById('sheetBody');
+    if (!input || !body) return;
+
+    function findRear(front) {
+        if (front.dataset.special === '1') {
+            const k = front.dataset.specialKey;
+            return k ? body.querySelector(`tr[data-special-key="${k}"][data-position="rear"]`) : null;
+        }
+        const mid = front.dataset.masterId;
+        return mid ? body.querySelector(`tr[data-master-id="${mid}"][data-position="rear"]`) : null;
+    }
+    function rowText(front, rear) {
+        let s = (front.dataset.trainNo || '') + ' ' + front.textContent;
+        front.querySelectorAll('input').forEach(i => s += ' ' + i.value);
+        if (rear) { s += ' ' + rear.textContent; rear.querySelectorAll('input').forEach(i => s += ' ' + i.value); }
+        return s.toLowerCase();
+    }
+    function apply() {
+        const q = (input.value || '').trim().toLowerCase();
+        const rows = Array.from(body.children);
+        if (!q) { rows.forEach(tr => tr.style.display = ''); countEl.textContent = ''; return; }
+        let matches = 0;
+        rows.forEach(tr => {
+            const isHeader = tr.classList.contains('section-header') || tr.classList.contains('route-header');
+            const isBlank  = tr.classList.contains('row-blank-special') || tr.classList.contains('row-add-special');
+            if (isHeader || tr.dataset.position === 'rear') return;   // headers later; rears with their front
+            if (isBlank) { tr.style.display = 'none'; return; }       // hide add/blank rows while searching
+            const rear = findRear(tr);
+            const show = rowText(tr, rear).includes(q);
+            tr.style.display = show ? '' : 'none';
+            if (rear) rear.style.display = show ? '' : 'none';
+            if (show) matches++;
+        });
+        // a section/route header is shown only if a data row under it is visible
+        let header = null, anyVis = false;
+        rows.forEach(tr => {
+            const isHeader = tr.classList.contains('section-header') || tr.classList.contains('route-header');
+            if (isHeader) {
+                if (header) header.style.display = anyVis ? '' : 'none';
+                header = tr; anyVis = false;
+            } else if (tr.style.display !== 'none' && tr.dataset.position !== 'rear'
+                && !tr.classList.contains('row-blank-special') && !tr.classList.contains('row-add-special')) {
+                anyVis = true;
+            }
+        });
+        if (header) header.style.display = anyVis ? '' : 'none';
+        countEl.textContent = `${matches} match${matches === 1 ? '' : 'es'}`;
+    }
+    let t;
+    input.addEventListener('input', () => { clearTimeout(t); t = setTimeout(apply, 120); });
+    input.addEventListener('keydown', e => { if (e.key === 'Escape') { input.value = ''; apply(); } });
+    // re-apply when the sheet re-renders (rows added/removed) — childList only, no loop
+    new MutationObserver(() => { if ((input.value || '').trim()) apply(); }).observe(body, { childList: true });
 })();
 
 // Date helpers
