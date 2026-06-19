@@ -894,6 +894,83 @@ router.get('/wtt/station/:station_code/full', async (req, res) => {
     }
 });
 
+// GET /wtt/all — every WTT train as a single full-journey entry, for the Full
+// WTT export. Built purely from div_train_stops (+ div_trains name/direction,
+// + div_loco_link_master.section). Frontend groups by direction → section and
+// sorts within a section by departure time.
+router.get('/wtt/all', async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'not logged in' });
+    try {
+        const pool = req.app.locals.pool;
+        const [idRows] = await pool.query('SELECT DISTINCT train_id FROM div_train_stops');
+        const ids = idRows.map(r => r.train_id);
+        if (!ids.length) return res.json({ total: 0, trains: [] });
+
+        const [stopRows] = await pool.query(
+            `SELECT train_id, seq_order, station_code, arrival_time, departure_time, event_type, day_offset
+             FROM div_train_stops WHERE train_id IN (?) ORDER BY train_id, seq_order`, [ids]);
+        const [hdrs] = await pool.query(
+            `SELECT train_id, train_no, train_name, direction, train_type, run_days FROM div_trains WHERE train_id IN (?)`, [ids]);
+        const [secs] = await pool.query(
+            `SELECT train_id, section FROM div_loco_link_master
+             WHERE train_id IN (?) AND active=1 AND section IS NOT NULL AND section <> ''`, [ids]);
+
+        const stopsBy = new Map();
+        for (const s of stopRows) {
+            if (!stopsBy.has(s.train_id)) stopsBy.set(s.train_id, []);
+            stopsBy.get(s.train_id).push(s);
+        }
+        const hdrBy = new Map(hdrs.map(h => [h.train_id, h]));
+        const secBy = new Map();
+        for (const s of secs) { if (!secBy.has(s.train_id)) secBy.set(s.train_id, String(s.section).toUpperCase()); }
+
+        const BOUNDARY = { IGP: 'NE', LNL: 'SE', ROHA: 'KR' };   // boundary stop → section
+        const MUM = new Set(['CSMT', 'LTT', 'PNVL', 'DR', 'BSR']);
+        const toMin = (t) => {
+            if (!t) return null;
+            const m = String(t).match(/^(\d{1,2}):(\d{2})/);
+            return m ? (parseInt(m[1], 10) % 24) * 60 + parseInt(m[2], 10) : null;
+        };
+
+        const trains = ids.map(id => {
+            const stops = stopsBy.get(id) || [];
+            const h = hdrBy.get(id) || {};
+            // section: master, else infer from a boundary stop, else BYPASS
+            let section = secBy.get(id) || '';
+            if (!section) {
+                for (const s of stops) { if (BOUNDARY[s.station_code]) { section = BOUNDARY[s.station_code]; break; } }
+                if (!section) section = 'BYPASS';
+            }
+            // direction: div_trains, else infer from a Mumbai terminal end
+            let direction = (h.direction || '').toUpperCase();
+            const first = stops[0] || {};
+            const last = stops[stops.length - 1] || {};
+            if (!direction) {
+                if (MUM.has(first.station_code)) direction = 'DN';
+                else if (MUM.has(last.station_code)) direction = 'UP';
+                else direction = 'DN';
+            }
+            return {
+                train_id: id,
+                train_no: h.train_no || String(id),
+                train_name: h.train_name || null,
+                train_type: h.train_type || null,
+                run_days: h.run_days || null,
+                direction,
+                section,
+                dep_min: toMin(first.departure_time) ?? toMin(first.arrival_time),
+                origin: first.station_code || null,
+                destination: last.station_code || null,
+                stops,
+            };
+        });
+        res.json({ total: trains.length, trains });
+    } catch (err) {
+        console.error('[wtt/all]', err);
+        res.status(500).json({ error: 'Full WTT failed' });
+    }
+});
+
 router.get('/train/:train_no/target-date', async (req, res) => {
     const trainNo = String(req.params.train_no || '').trim();
     const sourceDate = String(req.query.source_date || '').trim();

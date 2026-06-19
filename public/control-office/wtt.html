@@ -67,6 +67,10 @@
     width:38px; height:38px; border-radius:11px; cursor:pointer; font-size:1rem;
     display:grid; place-items:center; transition:.18s}
   .icon-btn:hover{color:var(--amber); border-color:var(--amber)}
+  .mast-logo{height:34px; width:auto; border-radius:6px; flex:0 0 auto; background:#fff; padding:2px}
+
+  /* print-only brand bar (IR + CR logos on the PDF) */
+  .print-mast{display:none}
 
   /* ── tabs ───────────────────────────────────────────────── */
   .tabs{display:flex; gap:6px; max-width:var(--maxw); margin:26px auto 0; padding:0 20px}
@@ -271,6 +275,62 @@
   .cz-arrow[disabled]{opacity:.25; cursor:default}
   @media(max-width:620px){ .tcard{flex-basis:80vw} .cz-arrow{display:none} }
 
+  /* ── Full WTT (columnar grid — trains as columns, stations as rows) ── */
+  .full-bar{display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:18px}
+  .full-bar .full-note{flex:1; min-width:180px; color:var(--muted); font-size:.84rem}
+  .full-bar .full-note b{color:var(--amber)}
+  .full-bar .seg{display:inline-flex; border:1px solid var(--line); border-radius:9px; overflow:hidden}
+  .full-bar .seg button{background:var(--panel); color:var(--muted); border:0; padding:7px 13px;
+    font-family:var(--sans); font-size:.8rem; font-weight:600; cursor:pointer}
+  .full-bar .seg button[aria-pressed="true"]{background:var(--amber); color:var(--ink)}
+  .full-bar .cps{display:inline-flex; align-items:center; gap:6px; color:var(--muted); font-size:.8rem}
+  .full-bar .cps select{background:var(--panel); color:var(--text); border:1px solid var(--line);
+    border-radius:8px; padding:6px 8px; font-family:var(--mono); font-size:.8rem}
+
+  .dir-band{font-family:var(--serif); font-size:1.15rem; font-weight:600; color:var(--cream);
+    margin:26px 0 10px; padding-bottom:6px; border-bottom:2px solid var(--line);
+    display:flex; align-items:center; gap:10px}
+  .dir-band .dchip{font-family:var(--sans); font-size:.7rem; font-weight:800; letter-spacing:.06em;
+    padding:3px 10px; border-radius:20px}
+  .dir-band.dn .dchip{color:var(--dn); background:color-mix(in srgb,var(--dn) 16%,transparent)}
+  .dir-band.up .dchip{color:var(--up); background:color-mix(in srgb,var(--up) 16%,transparent)}
+  .dir-band.byp .dchip{color:#2dd4bf; background:color-mix(in srgb,#2dd4bf 16%,transparent)}
+  .dir-band.memu .dchip{color:#a78bfa; background:color-mix(in srgb,#a78bfa 16%,transparent)}
+
+  .wtt-page{margin:0 0 18px}
+  .wtt-cap{font-family:var(--sans); font-size:.82rem; color:var(--amber); font-weight:700;
+    letter-spacing:.02em; margin:0 0 6px; display:flex; align-items:baseline; gap:8px}
+  .wtt-cap .sub{color:var(--faint); font-weight:500; font-family:var(--mono); font-size:.74rem}
+  .wtt-scroll{overflow-x:auto; border:1px solid var(--line); border-radius:12px;
+    background:var(--panel); box-shadow:var(--shadow)}
+  table.wtt-grid{border-collapse:collapse; font-family:var(--mono); font-size:.73rem; width:auto}
+  table.wtt-grid th, table.wtt-grid td{border:1px solid var(--line-soft); padding:3px 7px;
+    text-align:center; white-space:nowrap}
+  /* left frozen label columns */
+  table.wtt-grid .lbl{position:sticky; left:0; z-index:3; background:var(--ink-2);
+    text-align:left; font-family:var(--sans); font-size:.7rem; font-weight:600;
+    color:var(--muted); letter-spacing:.02em; min-width:108px}
+  table.wtt-grid .stn{position:sticky; left:0; z-index:3; background:var(--ink-2);
+    text-align:left; font-weight:700; color:var(--cream); min-width:64px; font-size:.76rem}
+  table.wtt-grid .stn.bd{color:var(--amber)}
+  table.wtt-grid .ad{position:sticky; left:64px; z-index:2; background:var(--ink-2);
+    color:var(--faint); font-style:italic; min-width:20px; font-size:.66rem}
+  /* header rows */
+  table.wtt-grid thead th{position:sticky; top:0; z-index:1; background:var(--panel-2)}
+  table.wtt-grid thead .lbl{z-index:4}
+  table.wtt-grid .h-no{font-weight:700; color:var(--cream); font-size:.82rem}
+  table.wtt-grid .h-name{font-family:var(--serif); font-style:italic; color:var(--muted);
+    font-size:.66rem; max-width:88px; overflow:hidden; text-overflow:ellipsis}
+  table.wtt-grid .h-days{color:var(--amber); font-size:.66rem; font-weight:600}
+  table.wtt-grid .h-type{color:var(--faint); font-size:.62rem; letter-spacing:.04em}
+  /* body cells */
+  table.wtt-grid tbody tr.r-a td{color:var(--up); font-size:.72rem}      /* arrival */
+  table.wtt-grid tbody tr.r-d td{color:var(--text); font-weight:600}     /* departure */
+  table.wtt-grid tbody tr.r-d{border-bottom:2px solid var(--line)}
+  table.wtt-grid td.empty{color:transparent}
+  table.wtt-grid td .nd{color:var(--bypass); font-size:.58rem; vertical-align:super; margin-left:1px}
+  table.wtt-grid tbody tr.stn-bd .stn{background:color-mix(in srgb,var(--amber) 12%,var(--ink-2))}
+
   /* ── states ─────────────────────────────────────────────── */
   .state{text-align:center; padding:60px 24px; color:var(--muted)}
   .state .em{font-size:2.6rem; opacity:.5; margin-bottom:14px}
@@ -285,6 +345,10 @@
   footer .rail-deco{display:flex; align-items:center; gap:6px; justify-content:center; margin-bottom:10px; opacity:.6}
   footer .rail-deco i{width:5px;height:5px;border-radius:50%;background:var(--faint)}
   footer .rail-deco .ln{flex:0 0 40px;height:1px;background:var(--line)}
+  footer .gen{margin-top:8px; font-size:.76rem; color:var(--muted); letter-spacing:.02em}
+  footer .gen b{color:var(--amber); font-weight:600}
+  footer .foot-banner{display:block; max-height:140px; width:auto; max-width:100%; height:auto;
+    margin:14px auto 0; border-radius:8px}
 
   @media(max-width:620px){
     .filters{grid-template-columns:1fr 1fr}
@@ -299,24 +363,74 @@
 
   /* ── print ──────────────────────────────────────────────── */
   @media print{
-    @page{margin:14mm}
+    @page{margin:10mm}
+    *{-webkit-print-color-adjust:exact !important; print-color-adjust:exact !important}
     body{background:#fff; color:#000}
-    header.mast,.tabs,.search,.hint,.filters,.ttools,.icon-btn,.edit-dot,.board-meta .spacer{display:none !important}
+    header.mast,.tabs,.search,.hint,.filters,.ttools,.icon-btn,.edit-dot,.board-meta .spacer,
+    .full-bar{display:none !important}
+    /* official brand bar (logos) at top of the PDF */
+    .print-mast{display:flex !important; align-items:center; justify-content:space-between;
+      gap:16px; padding-bottom:8px; margin-bottom:8px; border-bottom:2px solid #444}
+    .print-mast .pm-logo{height:48px; width:auto}
+    .print-mast .pm-cr{height:42px; opacity:.8}
+    footer{break-inside:avoid; page-break-inside:avoid; padding:10px 20px 0}
+    footer .gen b{color:#b45309 !important}
+    footer .foot-banner{max-height:110px; width:auto; max-width:100%; border-radius:0; margin-top:8px}
     .ticket,.board{box-shadow:none; border:1px solid #bbb; background:#fff}
     .tno,.s-code,.tcell .val,.b-no,.b-time{color:#000 !important}
     .tname,.b-name,.muted{color:#333 !important}
     section[hidden]{display:none}
     .print-head{display:block !important}
+    .dir-band{break-before:page; page-break-before:always; break-after:avoid}
+    .dir-band.dn{color:#1d4ed8 !important; border-color:#1d4ed8 !important}
+    .dir-band.up{color:#b45309 !important; border-color:#b45309 !important}
+    .dir-band.byp{color:#0f766e !important; border-color:#0f766e !important}
+    .dir-band.memu{color:#6d28d9 !important; border-color:#6d28d9 !important}
+    .print-head + .dir-band{break-before:auto; page-break-before:auto}
+    /* Full WTT columnar grid — color on white */
+    .wtt-page{break-inside:avoid; page-break-inside:avoid; margin-bottom:0}
+    .wtt-page + .wtt-page{break-before:page; page-break-before:always}
+    .wtt-scroll{overflow:visible; box-shadow:none; border:1px solid #888; border-radius:0; background:#fff}
+    .wtt-cap{color:#b45309 !important}
+    .wtt-cap .sub{color:#666 !important}
+    table.wtt-grid{font-size:7.5pt; width:100%; table-layout:fixed}
+    table.wtt-grid col.c-stn{width:11mm}
+    table.wtt-grid col.c-ad{width:4mm}
+    table.wtt-grid th, table.wtt-grid td{border:1px solid #aaa; padding:1.5px 3px;
+      overflow:hidden; word-break:break-all}
+    /* left label columns + header band */
+    table.wtt-grid .lbl,table.wtt-grid .ad{position:static; background:#f3f4f6 !important; color:#555 !important}
+    table.wtt-grid .stn{position:static; background:#f3f4f6 !important; color:#111 !important; font-weight:700}
+    table.wtt-grid thead th,table.wtt-grid thead td{background:#eef2ff !important}
+    table.wtt-grid .h-no{color:#111 !important; font-weight:700}
+    table.wtt-grid .h-name{color:#555 !important}
+    table.wtt-grid .h-days{color:#b45309 !important; font-weight:700}
+    table.wtt-grid .h-type{color:#777 !important}
+    /* boundary stations highlighted amber */
+    table.wtt-grid .stn.bd{color:#b45309 !important}
+    table.wtt-grid tbody tr.stn-bd .stn{background:#fdf0d5 !important}
+    /* arrival blue, departure bold black */
+    table.wtt-grid tbody tr.r-a td{color:#1d4ed8 !important}
+    table.wtt-grid tbody tr.r-d td{color:#111 !important; font-weight:600}
+    table.wtt-grid td .nd{color:#9333ea !important}
   }
+  @media print{ @page{ size:landscape } }
   .print-head{display:none; text-align:center; margin-bottom:14px}
   .print-head h2{font-family:var(--serif); margin:0; font-size:1.2rem}
   .print-head p{margin:3px 0 0; font-size:.8rem; color:#555}
 </style>
 </head>
 <body class="dark">
+  <!-- official letterhead — PDF only -->
+  <div class="print-mast" aria-hidden="true">
+    <img class="pm-logo" src="/control-office/img/ir-logo.jpg" alt="Indian Railways">
+    <img class="pm-logo pm-cr" src="/control-office/img/cr-logo.jpg" alt="Central Railway">
+  </div>
+
   <header class="mast">
     <div class="mast-in">
       <a class="back" href="/control-office/" aria-label="Back to Control Office">← Control&nbsp;Office</a>
+      <img class="mast-logo" src="/control-office/img/ir-logo.jpg" alt="Indian Railways">
       <div class="title">
         <h1>Working&nbsp;Time&nbsp;Table <em>· BB</em></h1>
         <div class="sub">Central Railway — Mumbai Division</div>
@@ -330,6 +444,8 @@
       <span class="t-ico">🚆</span> Train Lookup</button>
     <button class="tab" role="tab" id="tab-station" aria-selected="false" aria-controls="view-station">
       <span class="t-ico">🛤️</span> Station Board</button>
+    <button class="tab" role="tab" id="tab-full" aria-selected="false" aria-controls="view-full">
+      <span class="t-ico">📖</span> Full WTT</button>
   </nav>
 
   <main>
@@ -408,11 +524,41 @@
       </form>
       <div id="station-result"></div>
     </section>
+
+    <!-- ══ VIEW 3 — FULL WTT ══ -->
+    <section id="view-full" class="wrap" role="tabpanel" aria-labelledby="tab-full" hidden>
+      <div class="full-bar">
+        <div class="full-note">
+          The whole working timetable as a <b>columnar book</b> — trains across the top,
+          stations down the side. Grouped <b>DN → UP</b>, sections <b>NE · SE · KR · Bypass</b>,
+          earliest departure first. Print is landscape, one page per column-block.
+        </div>
+        <span class="seg" id="fullDir" role="group" aria-label="Direction">
+          <button data-dir="ALL" aria-pressed="true">All</button>
+          <button data-dir="DN" aria-pressed="false">Down</button>
+          <button data-dir="UP" aria-pressed="false">Up</button>
+        </span>
+        <span class="cps">cols/page
+          <select id="fullCps">
+            <option value="8">8</option>
+            <option value="10" selected>10</option>
+            <option value="12">12</option>
+            <option value="14">14</option>
+            <option value="16">16</option>
+          </select>
+        </span>
+        <button class="tool" data-fact="pdf">⎙ Export PDF</button>
+        <button class="tool" data-fact="csv">⬇ Excel (CSV)</button>
+      </div>
+      <div id="full-result"></div>
+    </section>
   </main>
 
   <footer>
     <div class="rail-deco"><i></i><span class="ln"></span><i></i><span class="ln"></span><i></i></div>
     Working Time Table · halt timings are scheduled (WTT) values, not live running.
+    <div class="gen">Generated from <b>crtms.in</b></div>
+    <img class="foot-banner" src="/control-office/img/banner.png" alt="">
   </footer>
 
 <script>
@@ -436,15 +582,17 @@
   };
 
   /* tabs */
-  const tabs = [['#tab-train','#view-train'],['#tab-station','#view-station']];
+  const tabs = [['#tab-train','#view-train'],['#tab-station','#view-station'],['#tab-full','#view-full']];
   function selectTab(i){
     tabs.forEach(([t,v],k)=>{
       $(t).setAttribute('aria-selected', k===i);
       $(v).hidden = k!==i;
     });
+    if (i === 2) loadFull();   // lazy-load Full WTT on first open
   }
   $('#tab-train').onclick = ()=>selectTab(0);
   $('#tab-station').onclick = ()=>selectTab(1);
+  $('#tab-full').onclick = ()=>selectTab(2);
 
   /* ── Train lookup ── */
   let lastTrain = null;
@@ -685,6 +833,252 @@
     const el=$(sel);
     el.addEventListener('input', ()=>{ let v=el.value.replace(/[^\d:]/g,''); if(/^\d{3,4}$/.test(v)) v=v.slice(0,2)+':'+v.slice(2); el.value=v; });
   });
+
+  /* ── Full WTT (columnar grid — trains as columns, stations as rows) ── */
+  // corridor sections (reliable UP/DN); bypass & MEMU handled as their own blocks
+  const SEC_ORDER = ['NE','SE','KR'];
+  const SEC_LABEL = {
+    NE:'NE — Bhusaval line', SE:'SE — Pune line', KR:'KR — Konkan line',
+    MEMU:'MEMU / Chord workings'
+  };
+  const FULL_BD = new Set(['LNL','IGP','ROHA','PUNE','CSMT','LTT','DR','PNVL','KYN','TNA']);
+  const DAYL = ['','M','Tu','W','Th','F','Sa','Su'];   // 1=Mon … 7=Sun
+  let fullData = null;        // raw trains from /wtt/all
+  let fullDir = 'ALL';        // ALL | DN | UP
+  let fullCps = 10;           // train columns per printed page
+
+  async function loadFull(){
+    if (fullData) return;     // load once
+    const box = $('#full-result');
+    box.innerHTML = `<div class="state"><div class="spinner"></div><p>Building the full timetable…</p></div>`;
+    try{
+      const r = await fetch(`${API}/all`, {credentials:'same-origin'});
+      if(r.status===401){ box.innerHTML = state('🔒','Please sign in',''); return; }
+      const d = await r.json();
+      // exclude non-scheduled entries: tourist/luxury & operational codes (DO, MR …)
+      // — only real numbered trains belong in the working timetable
+      fullData = (d.trains || []).filter(t => /^\d{4,5}$/.test(String(t.train_no)));
+      renderFull();
+    }catch(e){ box.innerHTML = state('⚠️','Failed to load',''); fullData=null; }
+  }
+
+  // run_days → readable day letters ("1,3,5" → "M W F"; full week → DAILY)
+  function fmtDays(rd){
+    if(!rd) return '';
+    const s = String(rd).trim().toUpperCase();
+    if(s==='DAILY') return 'DAILY';
+    const nums = s.match(/[1-7]/g);
+    if(nums && nums.length){
+      if(nums.length>=7) return 'DAILY';
+      return nums.map(n=>DAYL[+n]).join(' ');
+    }
+    return s;   // already words like SAT / THU
+  }
+
+  // canonical station order for a set of trains (topological merge of stop sequences)
+  function stationOrder(trains){
+    const adj=new Map(), indeg=new Map(), seen=[];
+    const ensure=c=>{ if(!indeg.has(c)){ indeg.set(c,0); adj.set(c,new Set()); seen.push(c); } };
+    trains.forEach(t=>{
+      const seq=(t.stops||[]).map(s=>s.station_code);
+      seq.forEach(ensure);
+      for(let i=0;i<seq.length-1;i++){
+        const a=seq[i], b=seq[i+1];
+        if(a===b) continue;
+        if(!adj.get(a).has(b)){ adj.get(a).add(b); indeg.set(b,indeg.get(b)+1); }
+      }
+    });
+    const out=[], done=new Set(), rank=c=>seen.indexOf(c);
+    let avail=seen.filter(c=>indeg.get(c)===0);
+    while(avail.length){
+      avail.sort((a,b)=>rank(a)-rank(b));
+      const n=avail.shift();
+      if(done.has(n)) continue;
+      out.push(n); done.add(n);
+      adj.get(n).forEach(m=>{ indeg.set(m,indeg.get(m)-1); if(indeg.get(m)===0) avail.push(m); });
+    }
+    seen.forEach(c=>{ if(!done.has(c)) out.push(c); });   // leftover (data cycles)
+    return out;
+  }
+
+  function stopMap(t){
+    const m=new Map();
+    (t.stops||[]).forEach(s=>{ if(!m.has(s.station_code)) m.set(s.station_code, s); });
+    return m;
+  }
+
+  const byDep = (a,b)=>(a.dep_min??9999)-(b.dep_min??9999) || String(a.train_no).localeCompare(String(b.train_no));
+
+  // MEMU / short chord workings — pulled out of every corridor into their own page
+  function isMemu(t){ return /^6\d{4}$/.test(String(t.train_no)) || /MEMU/i.test(t.train_name||''); }
+
+  // Bypass route family — corridor × via-junction × travel direction (from the stop
+  // sequence, NOT the unreliable UP/DN field). Trains in one family share one directed
+  // path, so the station merge is unambiguous and never inverts (no "CHI after RN").
+  function bypassFamily(t){
+    const codes=(t.stops||[]).map(s=>s.station_code);
+    const set=new Set(codes);
+    const roha=set.has('ROHA'), lnl=set.has('LNL'), igp=set.has('IGP');
+    const o=codes[0]||'?', d=codes[codes.length-1]||'?';
+    const cross = {key:'X_'+o+'_'+d, label:'Bypass · Cross-corridor · '+o+' → '+d, rank:90};
+    if(igp && (roha||lnl)) return cross;    // runs through two corridors
+    const bsr=codes.indexOf('BSR');
+    const out = bsr===0;                    // BSR first  → outward from Mumbai
+    const inb = bsr===codes.length-1;       // BSR last   → inward to Mumbai
+    if(roha && (out||inb))
+      return out ? {key:'KR_OUT',label:'Bypass · Konkan via Panvel · BSR → Konkan',rank:10}
+                 : {key:'KR_IN', label:'Bypass · Konkan via Panvel · Konkan → BSR',rank:11};
+    if(lnl && (out||inb)){
+      if(set.has('KYN'))
+        return out ? {key:'PK_OUT',label:'Bypass · Pune via Kalyan · BSR → Pune',rank:20}
+                   : {key:'PK_IN', label:'Bypass · Pune via Kalyan · Pune → BSR',rank:21};
+      if(set.has('PNVL'))
+        return out ? {key:'PP_OUT',label:'Bypass · Pune via Panvel · BSR → Pune',rank:30}
+                   : {key:'PP_IN', label:'Bypass · Pune via Panvel · Pune → BSR',rank:31};
+    }
+    return cross;                            // origin→dest keeps each route directional
+  }
+
+  // group fullData → {groups:[{dir,sections}], bypass:[{label,trains}], memu:[...]}
+  function buildGroups(){
+    const dirs = fullDir==='ALL' ? ['DN','UP'] : [fullDir];
+    const byDir = { DN:{}, UP:{} };
+    const memu = [];
+    const byp = new Map();   // key → {label, rank, trains}
+    for(const t of fullData){
+      const dir=(t.direction==='UP')?'UP':'DN';
+      if(isMemu(t)){ if(fullDir==='ALL'||dir===fullDir) memu.push(t); continue; }
+      const sec=t.section;
+      if(sec==='NE'||sec==='SE'||sec==='KR'){
+        if(fullDir!=='ALL' && dir!==fullDir) continue;   // corridor: reliable UP/DN
+        (byDir[dir][sec]=byDir[dir][sec]||[]).push(t); continue;
+      }
+      // bypass: group by derived route family (ignores UP/DN field)
+      const f=bypassFamily(t);
+      if(!byp.has(f.key)) byp.set(f.key,{label:f.label, rank:f.rank, trains:[]});
+      byp.get(f.key).trains.push(t);
+    }
+    const groups = dirs.map(dir=>({
+      dir,
+      sections: SEC_ORDER.filter(s=>byDir[dir][s]&&byDir[dir][s].length).map(s=>({
+        section:s, trains: byDir[dir][s].slice().sort(byDep)
+      }))
+    }));
+    const bypass = [...byp.values()].sort((a,b)=>a.rank-b.rank || a.label.localeCompare(b.label))
+      .map(b=>({ label:b.label, trains:b.trains.slice().sort(byDep) }));
+    return { groups, bypass, memu: memu.slice().sort(byDep) };
+  }
+
+  function cell(s, kind){
+    if(!s) return '<td class="empty"></td>';
+    const tm = hhmm(kind==='a' ? s.arrival_time : s.departure_time);
+    if(!tm) return '<td class="empty"></td>';
+    const nd = s.day_offset>0?`<span class="nd">+${s.day_offset}</span>`:'';
+    return `<td>${tm}${nd}</td>`;
+  }
+
+  // one columnar page-table for a chunk of trains
+  function gridTable(trains){
+    const order = stationOrder(trains);
+    const maps  = trains.map(stopMap);
+    const colg = `<colgroup><col class="c-stn"><col class="c-ad">${trains.map(()=>'<col class="c-tr">').join('')}</colgroup>`;
+    const hNo = trains.map(t=>`<th class="h-no">${esc(t.train_no)}</th>`).join('');
+    const hNm = trains.map(t=>`<td class="h-name" title="${esc(t.train_name||'')}">${esc(t.train_name||'')}</td>`).join('');
+    const hDy = trains.map(t=>`<td class="h-days">${esc(fmtDays(t.run_days))}</td>`).join('');
+    const hTy = trains.map(t=>`<td class="h-type">${esc((t.train_type||'').slice(0,4).toUpperCase())}</td>`).join('');
+    const thead = `<thead>
+      <tr><th class="lbl" colspan="2">Train No.</th>${hNo}</tr>
+      <tr><th class="lbl" colspan="2">Name</th>${hNm}</tr>
+      <tr><th class="lbl" colspan="2">Days</th>${hDy}</tr>
+      <tr><th class="lbl" colspan="2">Type</th>${hTy}</tr></thead>`;
+    const body = order.map(code=>{
+      const bd  = FULL_BD.has(code);
+      const arr = maps.map(m=>cell(m.get(code),'a')).join('');
+      const dep = maps.map(m=>cell(m.get(code),'d')).join('');
+      return `<tr class="r-a ${bd?'stn-bd':''}"><th class="stn ${bd?'bd':''}" rowspan="2">${esc(code)}</th><th class="ad">a</th>${arr}</tr>`
+           + `<tr class="r-d ${bd?'stn-bd':''}"><th class="ad">d</th>${dep}</tr>`;
+    }).join('');
+    return `<div class="wtt-scroll"><table class="wtt-grid">${colg}${thead}<tbody>${body}</tbody></table></div>`;
+  }
+
+  // chunk a section's trains into per-page columnar tables
+  function sectionPages(label, trains, dirLabel){
+    const chunks=[];
+    for(let i=0;i<trains.length;i+=fullCps) chunks.push(trains.slice(i,i+fullCps));
+    return chunks.map((ch,ci)=>{
+      const span = chunks.length>1
+        ? ` · cols ${ci*fullCps+1}–${ci*fullCps+ch.length} of ${trains.length}`
+        : ` · ${trains.length} trains`;
+      return `<div class="wtt-page">
+        <div class="wtt-cap">${esc(label)}<span class="sub">${dirLabel}${span}</span></div>
+        ${gridTable(ch)}
+      </div>`;
+    }).join('');
+  }
+
+  function renderFull(){
+    const box=$('#full-result');
+    if(!fullData || !fullData.length){ box.innerHTML=state('📖','No WTT data',''); return; }
+    const { groups, bypass, memu } = buildGroups();
+    const printHead=`<div class="print-head"><h2>Full Working Time Table — BB Division</h2>
+      <p>Central Railway · Mumbai Division</p></div>`;
+    let html = groups.map(g=>{
+      const band=`<div class="dir-band ${g.dir.toLowerCase()}"><span class="dchip">${g.dir}</span> ${g.dir==='DN'?'Down trains':'Up trains'}</div>`;
+      const pages = g.sections.map(s=>sectionPages(SEC_LABEL[s.section]||s.section, s.trains, g.dir)).join('');
+      return band+pages;
+    }).join('');
+    // Bypass trains — grouped by route family (corridor × via × direction)
+    if(bypass.length){
+      html += `<div class="dir-band byp"><span class="dchip">BYPASS</span> Bypass trains · by route</div>`
+            + bypass.map(b=>sectionPages(b.label, b.trains, 'Bypass')).join('');
+    }
+    // MEMU / chord workings — all directions, time order, on their own page(s)
+    if(memu.length){
+      html += `<div class="dir-band memu"><span class="dchip">MEMU</span> Chord workings · time order</div>`
+            + sectionPages(SEC_LABEL.MEMU, memu, 'MEMU');
+    }
+    box.innerHTML = printHead + html;
+  }
+
+  // controls
+  $('#fullDir').addEventListener('click', e=>{
+    const b=e.target.closest('button[data-dir]'); if(!b) return;
+    fullDir=b.dataset.dir;
+    $('#fullDir').querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed', x===b));
+    renderFull();
+  });
+  $('#fullCps').addEventListener('change', e=>{ fullCps=parseInt(e.target.value,10)||12; renderFull(); });
+
+  $('#view-full').addEventListener('click', e=>{
+    const t=e.target.closest('[data-fact]'); if(!t) return;
+    if(t.dataset.fact==='pdf') window.print();
+    if(t.dataset.fact==='csv') exportFullCSV();
+  });
+
+  // Excel/CSV mirrors the columnar print: per section block, header rows then station a/d rows
+  function exportFullCSV(){
+    if(!fullData) return;
+    const { groups, bypass, memu } = buildGroups();
+    const q=v=>`"${String(v==null?'':v).replace(/"/g,'""')}"`;
+    const rows=[];
+    const block=(caption,trains)=>{
+      const order=stationOrder(trains), maps=trains.map(stopMap);
+      rows.push([q(caption)]);
+      rows.push(['Train No.',''].concat(trains.map(t=>q(t.train_no))));
+      rows.push(['Name',''].concat(trains.map(t=>q(t.train_name||''))));
+      rows.push(['Days',''].concat(trains.map(t=>q(fmtDays(t.run_days)))));
+      rows.push(['Type',''].concat(trains.map(t=>q(t.train_type||''))));
+      order.forEach(code=>{
+        rows.push([q(code),'a'].concat(maps.map(m=>{const x=m.get(code);return x?q(hhmm(x.arrival_time)):'';})));
+        rows.push(['','d'].concat(maps.map(m=>{const x=m.get(code);return x?q(hhmm(x.departure_time)):'';})));
+      });
+      rows.push([]);
+    };
+    groups.forEach(g=>g.sections.forEach(s=>block(`${g.dir} · ${SEC_LABEL[s.section]||s.section}`, s.trains)));
+    bypass.forEach(b=>block(b.label, b.trains));
+    if(memu.length) block(`MEMU · ${SEC_LABEL.MEMU}`, memu);
+    download('WTT_full.csv', rows.map(r=>r.join(',')).join('\r\n'));
+  }
 
   // deep-link ?train=12167 or ?station=CSMT
   const p = new URLSearchParams(location.search);
