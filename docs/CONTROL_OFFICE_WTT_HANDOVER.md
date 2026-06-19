@@ -9,21 +9,17 @@
 ## 0. TL;DR — where we are right now
 
 - **Committed & pushed** (on `origin/master`): mis-link loco-type tier, daily-sheet
-  loco highlight + search, mirror_sheet Phase 2, PNVL sheets, WTT stops loader.
-- **Built, working locally, NOT yet committed:** the **Full WTT columnar export**
-  (the big new thing) — `public/control-office/wtt.html` + `GET /wtt/all` in
-  `routes/division/locoLinkRoutes.js` + logos/banner in
-  `public/control-office/img/`.
+  loco highlight + search, mirror_sheet Phase 2, PNVL sheets, WTT stops loader, **and
+  the Full WTT columnar export** (commit `65349a9`).
+- The **Full WTT** (`wtt.html` Full WTT tab + `GET /wtt/all` + `img/` logos/banner +
+  this doc) is now committed & pushed. **Not yet deployed to prod** — user does
+  `git pull` + Node restart on the server when ready.
 - **Next session:** a "very important LPC + administrative task" (not yet specified)
   — needs discussion & logic design. Start fresh; this doc is the backdrop.
 
-### Exact uncommitted files (this feature)
-```
- M public/control-office/wtt.html              # Full WTT tab (columnar grid)
- M routes/division/locoLinkRoutes.js           # GET /wtt/all endpoint
-?? public/control-office/img/                  # ir-logo.jpg, cr-logo.jpg, banner.png
-```
-Everything else `??` under `sql/` etc. is the user's UNRELATED work — **do not commit it.**
+> Note: any `??` files under `sql/`, plus `server.js` signal work and
+> `awsUploadRoutes.js`, are the user's UNRELATED work — **never commit them** with
+> control-office changes.
 
 ---
 
@@ -220,14 +216,12 @@ Other relevant backend work (already committed):
 - `128acd4` docs: PENDING-DB-CHANGES (WTT loader, PNVL, mirror_sheet)
 - `11cb858` PNVL-UP / PNVL-DN sheets in UI
 
-**Uncommitted — the Full WTT feature (ready to commit when user confirms):**
-- `public/control-office/wtt.html` (Full WTT columnar tab)
-- `routes/division/locoLinkRoutes.js` (`GET /wtt/all`)
-- `public/control-office/img/{ir-logo,cr-logo,banner}.{jpg,png}`
+- `65349a9` **Full WTT: columnar timetable export (PDF/Excel)** — `wtt.html` Full WTT
+  tab + `GET /wtt/all` + `public/control-office/img/{ir-logo,cr-logo,banner}.{jpg,png}`
+  + this handover doc. Pushed to `origin/master`; **not yet deployed to prod.**
 
-Suggested commit message subject: *"Full WTT: columnar timetable export (PDF/Excel) with
-section + bypass-route + MEMU grouping"*. **Commit ONLY these files** — never the user's
-unrelated `sql/*.sql`, `server.js` signal work, `awsUploadRoutes.js`, etc.
+**Rule for any future commit here:** commit ONLY control-office/loco-link files — never
+the user's unrelated `sql/*.sql`, `server.js` signal work, `awsUploadRoutes.js`, etc.
 
 ---
 
