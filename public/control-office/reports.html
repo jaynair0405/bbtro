@@ -334,6 +334,7 @@
         <span class="summary">
             <span class="num bad" id="ml-count-real">—</span> real
             · <span class="num" id="ml-count-zoneok" style="color:var(--warning)">—</span> zone-OK
+            · <span class="num" id="ml-count-type" style="color:var(--danger)">—</span> type
             · <span class="num" id="ml-count-total">—</span> total
         </span>
     </div>
@@ -341,10 +342,11 @@
         <span style="font-size:.82rem; font-weight:600; color:var(--text-main)">Show:</span>
         <button class="quick-btn tier-btn active" data-tier="real">Real mis-links only</button>
         <button class="quick-btn tier-btn" data-tier="zone-ok">Zone-acceptable only</button>
-        <button class="quick-btn tier-btn" data-tier="all">All strict mis-links</button>
+        <button class="quick-btn tier-btn" data-tier="type">Loco-type mismatch</button>
+        <button class="quick-btn tier-btn" data-tier="all">All</button>
         <span style="margin-left:auto; font-size:.78rem; color:var(--text-light)">
             <i class="fa-solid fa-info-circle"></i>
-            Zone-OK = different shed but same railway zone &amp; matching loco type
+            Type = link's expected loco type (e.g. WAP7) ran with a different, non-accepted type
         </span>
     </div>
     <div class="card">
@@ -356,11 +358,12 @@
                     <th>Expected</th>
                     <th>Actual loco</th>
                     <th>Base shed</th>
+                    <th>Loco type</th>
                     <th>Tier</th>
                 </tr>
             </thead>
             <tbody>
-                <tr><td colspan="6" class="loading"><i class="fa-solid fa-spinner fa-spin"></i> Loading…</td></tr>
+                <tr><td colspan="7" class="loading"><i class="fa-solid fa-spinner fa-spin"></i> Loading…</td></tr>
             </tbody>
         </table>
     </div>
@@ -515,6 +518,21 @@ function classifyMislinkTier(row) {
     return 'real';
 }
 
+// Loco-type mismatch (front loco only): the link's expected_loco_type (e.g.
+// WAP7) ran with a different, non-accepted type. Normalises "WAP 7" vs "WAP7".
+function isTypeMismatch(row) {
+    if (row.position === 'rear') return false;   // rear is assist/banker, not the link type
+    const norm = s => (s || '').replace(/\s+/g, '').toUpperCase();
+    const exp = norm(row.expected_loco_type);
+    const act = norm(row.loco_type);
+    if (!exp || !act || exp === act) return false;
+    if (row.accepted_loco_types) {
+        const acc = row.accepted_loco_types.split(',').map(norm);
+        if (acc.includes(act)) return false;
+    }
+    return true;
+}
+
 // ── Tab switcher ────────────────────────────────────────────────────
 $$('.tab').forEach(t => {
     t.addEventListener('click', () => {
@@ -575,10 +593,15 @@ async function loadMislinks() {
         const r = await fetch(`/api/division/loco-link/reports/mislinks?${qs}`);
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const data = await r.json();
-        mlAllRows = (data.rows || []).map(row => ({ ...row, tier: classifyMislinkTier(row) }));
+        mlAllRows = (data.rows || []).map(row => ({
+            ...row,
+            shedMislink: Number(row.is_shed_mislink) === 1,
+            tier: Number(row.is_shed_mislink) === 1 ? classifyMislinkTier(row) : 'none',
+            typeMismatch: isTypeMismatch(row),
+        }));
         renderMislinks();
     } catch (e) {
-        tbody.innerHTML = `<tr><td colspan="6" class="empty" style="color:var(--danger)">Failed: ${esc(e.message)}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="empty" style="color:var(--danger)">Failed: ${esc(e.message)}</td></tr>`;
     }
 }
 
@@ -587,17 +610,21 @@ function renderMislinks() {
     const total = mlAllRows.length;
     const real = mlAllRows.filter(r => r.tier === 'real').length;
     const zoneOk = mlAllRows.filter(r => r.tier === 'zone-ok').length;
+    const typeN = mlAllRows.filter(r => r.typeMismatch).length;
     $('#ml-count-real').textContent = real;
     $('#ml-count-zoneok').textContent = zoneOk;
+    $('#ml-count-type').textContent = typeN;
     $('#ml-count-total').textContent = total;
 
     let visible = mlAllRows;
     if (mlActiveTier === 'real')    visible = mlAllRows.filter(r => r.tier === 'real');
     if (mlActiveTier === 'zone-ok') visible = mlAllRows.filter(r => r.tier === 'zone-ok');
+    if (mlActiveTier === 'type')    visible = mlAllRows.filter(r => r.typeMismatch);
 
     if (!visible.length) {
-        const lbl = mlActiveTier === 'all' ? 'mis-links' : `${mlActiveTier} mis-links`;
-        tbody.innerHTML = `<tr><td colspan="6" class="empty">No ${lbl} in this window.</td></tr>`;
+        const lbl = mlActiveTier === 'all' ? 'mis-links'
+            : mlActiveTier === 'type' ? 'loco-type mismatches' : `${mlActiveTier} mis-links`;
+        tbody.innerHTML = `<tr><td colspan="7" class="empty">No ${lbl} in this window.</td></tr>`;
         return;
     }
 
@@ -605,20 +632,29 @@ function renderMislinks() {
         const rear = row.position === 'rear'
             ? ' <span class="small-tag rear" title="rear loco of push-pull train">(R)</span>'
             : '';
-        const tierBadge = row.tier === 'real'
-            ? '<span class="pill mislink">Real</span>'
-            : (row.tier === 'zone-ok'
-                ? '<span class="pill" style="background:var(--warning-bg);color:var(--warning)" title="Same zone &amp; matching type — operationally OK">Zone-OK</span>'
-                : '<span class="pill" style="background:var(--bg);color:var(--text-light)">?</span>');
+        const tierBadge = !row.shedMislink
+            ? '<span class="pill" style="background:var(--bg);color:var(--text-light)" title="loco type only — shed is fine">shed OK</span>'
+            : (row.tier === 'real'
+                ? '<span class="pill mislink">Real</span>'
+                : (row.tier === 'zone-ok'
+                    ? '<span class="pill" style="background:var(--warning-bg);color:var(--warning)" title="Same zone &amp; matching type — operationally OK">Zone-OK</span>'
+                    : '<span class="pill" style="background:var(--bg);color:var(--text-light)">?</span>'));
+        // Loco-type cell: expected → actual, red when mismatched
+        const typeCell = row.typeMismatch
+            ? `<span style="color:var(--danger);font-weight:700">${esc(row.expected_loco_type || '?')} → ${esc(row.loco_type || '—')}</span>`
+            : (row.expected_loco_type
+                ? `<small style="color:var(--text-light)">${esc(row.expected_loco_type)}${row.loco_type && row.loco_type !== row.expected_loco_type ? ' ('+esc(row.loco_type)+')' : ''}</small>`
+                : (row.loco_type ? `<small style="color:var(--text-light)">${esc(row.loco_type)}</small>` : '—'));
+        const highlight = row.tier === 'real' || row.typeMismatch ? 'is-mislink' : '';
         return `
-            <tr class="${row.tier === 'real' ? 'is-mislink' : ''}">
+            <tr class="${highlight}">
                 <td>${fmtDate(row.working_date)}</td>
                 <td><span class="train">${esc(row.train_no)}</span>${rear}
                     <small style="color:var(--text-light); margin-left:4px">${esc(row.direction)}</small></td>
                 <td>${shedWithZone(row.expected_shed)}</td>
-                <td><span class="loco">${esc(row.actual_loco_no || '—')}</span>
-                    ${row.loco_type ? `<small style="color:var(--text-light); margin-left:4px">${esc(row.loco_type)}</small>` : ''}</td>
+                <td><span class="loco">${esc(row.actual_loco_no || '—')}</span></td>
                 <td>${shedWithZone(row.base_shed)}</td>
+                <td>${typeCell}</td>
                 <td>${tierBadge}</td>
             </tr>
         `;

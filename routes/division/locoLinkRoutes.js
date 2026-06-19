@@ -2153,8 +2153,22 @@ router.get('/reports/mislinks', async (req, res) => {
         const pool = req.app.locals.pool;
         // Build a UNION query covering both front + rear mis-links.
         // Each branch applies the same filters; we add them dynamically.
-        function build(positionLabel, lcol, shedCol, mlCol, typeCol) {
-            const conds = [`l.${mlCol} = 1`, 'l.working_date BETWEEN ? AND ?'];
+        // Loco-type mismatch (front only): the link expects e.g. WAP7 but a
+        // different, non-accepted type ran. expected_loco_type may be "WAP 7"
+        // while div_locos.loco_type is "WAP7", so normalise (strip spaces, upper).
+        // FIND_IN_SET against the normalised accepted_loco_types treats listed
+        // alternatives as OK.
+        const typeMismatchSql = (typeCol) => `(
+            m.expected_loco_type IS NOT NULL AND m.expected_loco_type <> ''
+            AND l.${typeCol} IS NOT NULL AND l.${typeCol} <> ''
+            AND REPLACE(UPPER(l.${typeCol}),' ','') <> REPLACE(UPPER(m.expected_loco_type),' ','')
+            AND (m.accepted_loco_types IS NULL OR m.accepted_loco_types = ''
+                 OR FIND_IN_SET(REPLACE(UPPER(l.${typeCol}),' ',''), REPLACE(UPPER(m.accepted_loco_types),' ','')) = 0)
+        )`;
+
+        function build(positionLabel, lcol, shedCol, mlCol, typeCol, checkType) {
+            const flag = checkType ? `(l.${mlCol} = 1 OR ${typeMismatchSql(typeCol)})` : `l.${mlCol} = 1`;
+            const conds = [flag, 'l.working_date BETWEEN ? AND ?'];
             const params = [from, to];
             if (sheet) { conds.push('l.sheet_source = ?'); params.push(sheet); }
             if (shed)  { conds.push(`l.${shedCol} = ?`); params.push(shed); }
@@ -2165,6 +2179,7 @@ router.get('/reports/mislinks', async (req, res) => {
                              l.expected_shed, l.${lcol} AS actual_loco_no,
                              l.${shedCol} AS base_shed,
                              l.${typeCol} AS loco_type,
+                             l.${mlCol} AS is_shed_mislink,
                              '${positionLabel}' AS position,
                              m.expected_loco_type, m.accepted_loco_types,
                              l.entered_by, l.updated_at
@@ -2175,8 +2190,8 @@ router.get('/reports/mislinks', async (req, res) => {
             };
         }
 
-        const front = build('front', 'actual_loco_no',      'base_shed',      'is_mislink',      'loco_type');
-        const rear  = build('rear',  'actual_loco_no_rear', 'base_shed_rear', 'is_mislink_rear', 'loco_type_rear');
+        const front = build('front', 'actual_loco_no',      'base_shed',      'is_mislink',      'loco_type',      true);
+        const rear  = build('rear',  'actual_loco_no_rear', 'base_shed_rear', 'is_mislink_rear', 'loco_type_rear', false);
         const sql = `${front.sql} UNION ALL ${rear.sql}
                      ORDER BY working_date DESC, train_no, position
                      LIMIT 500`;
