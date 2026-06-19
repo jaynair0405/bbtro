@@ -218,7 +218,7 @@ Other relevant backend work (already committed):
 
 - `65349a9` **Full WTT: columnar timetable export (PDF/Excel)** — `wtt.html` Full WTT
   tab + `GET /wtt/all` + `public/control-office/img/{ir-logo,cr-logo,banner}.{jpg,png}`
-  + this handover doc. Pushed to `origin/master`; **not yet deployed to prod.**
+  + this handover doc. **Deployed on prod 2026-06-19** (HEAD `1d7de98`, Node restarted).
 - `ab20d9d` **Bypass sheet: always-offer PUNE-ROHA / ROHA-PUNE routes** so LPC can
   register seasonal Pune↔Roha specials (`daily-entry.html`). The bypass page is
   driven by `route_label`; a group only rendered if it had data, so default empty
@@ -226,8 +226,14 @@ Other relevant backend work (already committed):
   each blank/add row carries its `sheet_source = BYPASS-<route_label>`. **Backend
   change:** `/today` now also returns bypass specials on the all-bypass view
   (`direction=BYPASS`, keyed by direction, not only by `sheet_source`) — previously
-  bypass specials wouldn't reload in the all-view. Pushed; **not yet on prod.**
+  bypass specials wouldn't reload in the all-view. **Deployed on prod 2026-06-19.**
   22149/22150 belong to this family but stay on KR/PNVL.
+
+> **Prod deploy note:** `div_train_stops` is populated on prod (2946 stops). The WTT
+> data CSV (`data/wtt_db_data.csv`) is scp-only (not in git); reload it with
+> `node scripts/load_wtt_stops.js` after scp if it ever needs refreshing. The
+> `/wtt/all` route is backend, so **a Node restart is required** after pulling WTT
+> changes — forgetting it shows "No WTT data" even though the data is present.
 
 **Rule for any future commit here:** commit ONLY control-office/loco-link files — never
 the user's unrelated `sql/*.sql`, `server.js` signal work, `awsUploadRoutes.js`, etc.
