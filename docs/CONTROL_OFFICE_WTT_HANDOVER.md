@@ -219,6 +219,15 @@ Other relevant backend work (already committed):
 - `65349a9` **Full WTT: columnar timetable export (PDF/Excel)** — `wtt.html` Full WTT
   tab + `GET /wtt/all` + `public/control-office/img/{ir-logo,cr-logo,banner}.{jpg,png}`
   + this handover doc. Pushed to `origin/master`; **not yet deployed to prod.**
+- `ab20d9d` **Bypass sheet: always-offer PUNE-ROHA / ROHA-PUNE routes** so LPC can
+  register seasonal Pune↔Roha specials (`daily-entry.html`). The bypass page is
+  driven by `route_label`; a group only rendered if it had data, so default empty
+  routes are now injected (`DEFAULT_BYPASS_ROUTES`) with an Add-Special button, and
+  each blank/add row carries its `sheet_source = BYPASS-<route_label>`. **Backend
+  change:** `/today` now also returns bypass specials on the all-bypass view
+  (`direction=BYPASS`, keyed by direction, not only by `sheet_source`) — previously
+  bypass specials wouldn't reload in the all-view. Pushed; **not yet on prod.**
+  22149/22150 belong to this family but stay on KR/PNVL.
 
 **Rule for any future commit here:** commit ONLY control-office/loco-link files — never
 the user's unrelated `sql/*.sql`, `server.js` signal work, `awsUploadRoutes.js`, etc.
