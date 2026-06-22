@@ -980,18 +980,8 @@
         return;
       }
 
-      // Warn if adding to existing letter
-      if (!state.isEditing && state.existingLetterForDate) {
-        const existingCount = state.existingLetterForDate.change_count || 0;
-        if (existingCount > 0) {
-          const confirmAdd = confirm(
-            `A letter already exists for this date with ${existingCount} staff.\n\n` +
-            `Your ${state.changes.length} new changes will REPLACE that letter.\n\n` +
-            `Click OK to continue, or Cancel to change the date.`
-          );
-          if (!confirmAdd) return;
-        }
-      }
+      // Note: multiple letters may be prepared for the same date — each saves as its
+      // own letter, so no "merge into existing letter" prompt is shown.
 
       showLoading();
       try {
@@ -1024,13 +1014,19 @@
           body: JSON.stringify(payload)
         });
 
-        state.letterId = result.letter_id;
-        state.isSaved = true;
-        state.isEditing = true;
+        // Reset to a fresh letter so the next save creates a new, separate letter —
+        // avoids accidentally editing the just-saved one without a page refresh.
+        // Date / staff type / letter no / template text are left in place.
+        state.letterId = null;
+        state.changes = [];
+        state.isSaved = false;
+        state.isEditing = false;
         state.existingLetterForDate = null;
 
+        renderChanges();
+        updatePreviewText();
         updateSaveButtonState();
-        showToast(result.message || 'Letter saved successfully', 'success');
+        showToast((result.message || 'Letter saved successfully') + '. Ready for next letter.', 'success');
 
       } catch (error) {
         showToast(error.message || 'Failed to save letter', 'error');

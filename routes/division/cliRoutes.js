@@ -357,19 +357,14 @@ router.post('/letters', requireDivisionAdmin, async (req, res) => {
             ? 'Due to posting & rotation of Motorman changes are made in Loco Inspectors nomination list with immediate effect.'
             : 'Due to posting & rotation of Loco Pilot changes are made in Loco Inspectors nomination list with immediate effect.';
 
+        // Always create a new letter. Multiple letters may be prepared on the same
+        // day for the same staff_type, and each must save as its own row.
         const [result] = await conn.query(
             `INSERT INTO div_cli_nomination_letters
              (letter_date, letter_no, staff_type, subject, subject_hindi, content_text, content_text_hindi,
               footer_text, signing_designation, signing_designation_hindi,
               signing_place, signing_place_hindi, created_by)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-             ON DUPLICATE KEY UPDATE
-               letter_no = VALUES(letter_no),
-               subject = VALUES(subject),
-               content_text = VALUES(content_text),
-               footer_text = VALUES(footer_text),
-               signing_designation = VALUES(signing_designation),
-               signing_place = VALUES(signing_place)`,
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 letter_date,
                 letter_no || null,
@@ -387,16 +382,7 @@ router.post('/letters', requireDivisionAdmin, async (req, res) => {
             ]
         );
 
-        // If it was an update (duplicate key), get the actual ID
-        if (!result.insertId) {
-            const [[existing]] = await conn.query(
-                `SELECT id FROM div_cli_nomination_letters WHERE letter_date = ? AND staff_type = ?`,
-                [letter_date, staff_type]
-            );
-            res.json({ success: true, message: 'Letter updated', id: existing.id });
-        } else {
-            res.json({ success: true, message: 'Letter created', id: result.insertId });
-        }
+        res.json({ success: true, message: 'Letter created', id: result.insertId });
 
     } catch (error) {
         console.error('Error creating letter:', error);

@@ -313,20 +313,8 @@ router.post('/letters', requireDivisionAdmin, async (req, res) => {
                 return res.status(404).json({ error: 'Letter not found' });
             }
 
-            // Check for date conflict with another letter (not this one)
-            const [[dateConflict]] = await conn.query(
-                `SELECT id, letter_no FROM div_category_change_letters
-                 WHERE letter_date = ? AND staff_type = ? AND id != ?`,
-                [letter_date, staff_type, letter_id]
-            );
-
-            if (dateConflict) {
-                await conn.rollback();
-                return res.status(400).json({
-                    error: `Another letter (${dateConflict.letter_no || 'ID: ' + dateConflict.id}) already exists for this date`
-                });
-            }
-
+            // Multiple letters may exist for the same date/staff_type, so no date-conflict
+            // check here.
             letterId = letter_id;
             await conn.query(`
                 UPDATE div_category_change_letters SET
@@ -359,63 +347,26 @@ router.post('/letters', requireDivisionAdmin, async (req, res) => {
             // Delete old changes for this letter
             await conn.query(`DELETE FROM div_category_change_history WHERE letter_id = ?`, [letterId]);
         } else {
-            // No letter_id: check if letter already exists for this date and type (upsert)
-            const [[existing]] = await conn.query(
-                `SELECT id FROM div_category_change_letters WHERE letter_date = ? AND staff_type = ?`,
-                [letter_date, staff_type]
-            );
-
-            if (existing) {
-                // Update existing letter found by date+type
-                letterId = existing.id;
-                await conn.query(`
-                    UPDATE div_category_change_letters SET
-                        letter_no = ?,
-                        subject = ?,
-                        subject_hindi = ?,
-                        reference_text = ?,
-                        content_text = ?,
-                        content_text_hindi = ?,
-                        footer_text = ?,
-                        signing_designation = ?,
-                        signing_designation_hindi = ?,
-                        signing_place = ?,
-                        signing_place_hindi = ?,
-                        cc_text = ?,
-                        total_changes = ?,
-                        updated_at = NOW()
-                    WHERE id = ?
-                `, [
-                    letter_no, subject, subject_hindi, reference_text,
-                    content_text, content_text_hindi, footer_text,
-                    signing_designation, signing_designation_hindi,
-                    signing_place, signing_place_hindi, cc_text,
-                    changes.length, letterId
-                ]);
-
-                // Delete old changes for this letter
-                await conn.query(`DELETE FROM div_category_change_history WHERE letter_id = ?`, [letterId]);
-            } else {
-                // Insert new letter
-                const [result] = await conn.query(`
-                    INSERT INTO div_category_change_letters (
-                        letter_date, letter_no, staff_type,
-                        subject, subject_hindi, reference_text,
-                        content_text, content_text_hindi, footer_text,
-                        signing_designation, signing_designation_hindi,
-                        signing_place, signing_place_hindi, cc_text,
-                        total_changes, created_by
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                `, [
+            // No letter_id: always insert a new letter. Multiple letters may be prepared
+            // on the same day for the same staff_type, and each saves as its own row.
+            const [result] = await conn.query(`
+                INSERT INTO div_category_change_letters (
                     letter_date, letter_no, staff_type,
                     subject, subject_hindi, reference_text,
                     content_text, content_text_hindi, footer_text,
                     signing_designation, signing_designation_hindi,
                     signing_place, signing_place_hindi, cc_text,
-                    changes.length, req.session.user?.username || 'system'
-                ]);
-                letterId = result.insertId;
-            }
+                    total_changes, created_by
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `, [
+                letter_date, letter_no, staff_type,
+                subject, subject_hindi, reference_text,
+                content_text, content_text_hindi, footer_text,
+                signing_designation, signing_designation_hindi,
+                signing_place, signing_place_hindi, cc_text,
+                changes.length, req.session.user?.username || 'system'
+            ]);
+            letterId = result.insertId;
         }
 
         // Insert changes and update staff_master

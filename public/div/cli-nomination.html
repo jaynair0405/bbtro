@@ -1502,6 +1502,23 @@
       }
     }
 
+    // Reset the form to a fresh, empty letter while keeping the date / staff type /
+    // letter number / template text. Used after a successful save so the next save
+    // creates a brand-new separate letter (no page refresh needed).
+    function resetForNewLetter() {
+      state.letterId = null;
+      state.changes = [];
+      state.staged = [];
+      state.deletedNominationIds = [];
+      state.isSaved = false;
+      state.isEditing = false;
+      state.existingLetterForDate = null;
+      renderStagingTray();
+      renderChanges();
+      updatePreviewText();
+      updateSaveButtonState();
+    }
+
     // Save/create letter with all changes
     async function saveLetter() {
       if (!letterDateInput.value) {
@@ -1514,18 +1531,8 @@
         return;
       }
 
-      // Warn if adding to existing letter (not editing)
-      if (!state.isEditing && state.existingLetterForDate) {
-        const existingCount = state.existingLetterForDate.change_count || 0;
-        if (existingCount > 0) {
-          const confirmAdd = confirm(
-            `A letter already exists for this date with ${existingCount} staff.\n\n` +
-            `Your ${state.changes.length} new staff will be ADDED to that letter.\n\n` +
-            `Click OK to add, or Cancel and change the date for a separate letter.`
-          );
-          if (!confirmAdd) return;
-        }
-      }
+      // Note: multiple letters may be prepared for the same date — each saves as its
+      // own letter, so no "add to existing letter" prompt is shown.
 
       showLoading();
       try {
@@ -1603,19 +1610,20 @@
           }
         }
 
-        state.isSaved = true;
-        state.isEditing = true;
-        state.existingLetterForDate = null; // Clear since we're now editing this letter
-        updateSaveButtonState();
-        renderChanges(); // Re-render to update any UI
-
         if (errorCount > 0) {
+          // Keep the current letter loaded so the user can retry the failed changes.
+          state.isSaved = true;
+          state.isEditing = true;
+          state.existingLetterForDate = null; // Clear since we're now editing this letter
+          updateSaveButtonState();
+          renderChanges(); // Re-render to update any UI
           showToast(`Saved ${successCount} changes, ${errorCount} failed`, 'error');
         } else {
-          showToast(`Letter saved with ${successCount} staff changes`, 'success');
+          showToast(`Letter saved with ${successCount} staff changes. Ready for next letter.`, 'success');
+          // Reset to a fresh letter so the next save creates a new, separate letter —
+          // avoids accidentally editing the just-saved one without a page refresh.
+          resetForNewLetter();
         }
-
-        // Don't reload letter - keep showing only current session's changes
 
       } catch (error) {
         showToast(error.message || 'Failed to save letter', 'error');
