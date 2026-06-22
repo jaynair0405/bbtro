@@ -175,51 +175,74 @@ async function main() {
   records.forEach((r) => byDir[r.direction || 'NULL']++);
   console.log(`\nDirection   : UP=${byDir.UP}, DN=${byDir.DN}, NULL=${byDir.NULL}`);
 
-  if (!shouldCommit) {
-    console.log('\nDry run successful. Sample records (first 5):');
-    records.slice(0, 5).forEach((r) => console.log(`  ${JSON.stringify(r)}`));
-    console.log('\nRe-run with --commit to write to div_signal_successors.');
-    return;
-  }
-
   const conn = await getConnection();
   try {
-    await conn.beginTransaction();
+    // ── Resolve every record to signal IDs (read-only; runs for dry-run too) ──
+    // A signal_number can exist in more than one section on the same line (the
+    // RVJ S-7/S-8 case: VDLR-GMN and CSMT-PNVL). Resolving by (number, line)
+    // alone is ambiguous, so disambiguate by the SECTION the two endpoints
+    // share. If the ambiguity can't be settled, leave the id NULL and warn —
+    // never attach to an arbitrary candidate.
+    const candidates = async (sigText, line) => {
+      const [rows] = await conn.execute(
+        `SELECT id, section FROM div_signals
+          WHERE UPPER(REPLACE(REPLACE(REPLACE(REPLACE(signal_number,' ',''),'-',''),'/',''),'.',''))
+              = UPPER(REPLACE(REPLACE(REPLACE(REPLACE(?,' ',''),'-',''),'/',''),'.',''))
+            AND \`line\` = ?
+          ORDER BY id`,
+        [sigText, line]
+      );
+      return rows;
+    };
 
-    // affectedRows from INSERT..ON DUPLICATE KEY UPDATE is driver/config
-    // dependent, so measure net inserts by row count before/after instead.
+    const warnings = [];
+    for (const r of records) {
+      const fc = await candidates(r.from_signal_text, r.from_line);
+      const tc = await candidates(r.to_signal_text, r.to_line);
+      const fSecs = [...new Set(fc.map((x) => x.section))];
+      const tSecs = [...new Set(tc.map((x) => x.section))];
+      const common = fSecs.filter((s) => tSecs.includes(s));
+
+      let fromId = null, toId = null, section = null, note = '';
+      if (common.length === 1) {
+        section = common[0];
+        fromId = fc.find((x) => x.section === section).id;
+        toId   = tc.find((x) => x.section === section).id;
+        if (fc.length > 1 || tc.length > 1) note = `disambiguated by common section ${section}`;
+      } else {
+        if (fc.length === 1) fromId = fc[0].id;
+        else if (fc.length > 1) note += `from-side AMBIGUOUS [${fSecs.join('|')}] `;
+        if (tc.length === 1) toId = tc[0].id;
+        else if (tc.length > 1) note += `to-side AMBIGUOUS [${tSecs.join('|')}] `;
+        if (common.length > 1) note += `multiple common sections [${common.join('|')}] `;
+        section = fromId != null ? fc.find((x) => x.id === fromId).section
+               : toId   != null ? tc.find((x) => x.id === toId).section
+               : null;
+        if (fromId != null && toId != null && fc.find((x) => x.id === fromId).section !== tc.find((x) => x.id === toId).section) {
+          note += `cross-section edge (${fc.find((x) => x.id === fromId).section} → ${tc.find((x) => x.id === toId).section}) `;
+        }
+      }
+      r._fromId = fromId; r._toId = toId; r._section = section;
+      if (note) warnings.push({ row: `${r.from_signal_text} → ${r.to_signal_text} [${r.from_line}/${r.to_line}]`, note });
+    }
+
+    const resFrom = records.filter((r) => r._fromId != null).length;
+    const resTo   = records.filter((r) => r._toId != null).length;
+    console.log(`\nResolved    : from=${resFrom}/${records.length}, to=${resTo}/${records.length}`);
+    if (warnings.length) {
+      console.log(`\nAmbiguities / notes (${warnings.length}):`);
+      warnings.forEach((w) => console.log(`  - ${w.row}: ${w.note}`));
+    }
+
+    if (!shouldCommit) {
+      console.log('\nDry run. Re-run with --commit to write to div_signal_successors.');
+      return;
+    }
+
+    await conn.beginTransaction();
     const [[{ c: countBefore }]] = await conn.query('SELECT COUNT(*) AS c FROM div_signal_successors');
     let processed = 0;
-
     for (const r of records) {
-      // Try to resolve IDs at insert time. Resolve via normalized comparison
-      // (mirroring the SQL migration's resolve step).
-      const [fromHit] = await conn.execute(
-        `SELECT id, section FROM div_signals
-          WHERE UPPER(REPLACE(REPLACE(REPLACE(REPLACE(signal_number,' ',''),'-',''),'/',''),'.',''))
-              = UPPER(REPLACE(REPLACE(REPLACE(REPLACE(?,' ',''),'-',''),'/',''),'.',''))
-            AND \`line\` = ?
-          LIMIT 1`,
-        [r.from_signal_text, r.from_line]
-      );
-
-      const [toHit] = await conn.execute(
-        `SELECT id, section FROM div_signals
-          WHERE UPPER(REPLACE(REPLACE(REPLACE(REPLACE(signal_number,' ',''),'-',''),'/',''),'.',''))
-              = UPPER(REPLACE(REPLACE(REPLACE(REPLACE(?,' ',''),'-',''),'/',''),'.',''))
-            AND \`line\` = ?
-          LIMIT 1`,
-        [r.to_signal_text, r.to_line]
-      );
-
-      const fromId = fromHit.length ? fromHit[0].id : null;
-      const toId   = toHit.length   ? toHit[0].id   : null;
-      // Section taken from whichever endpoint resolved (from-side preferred).
-      // NULL when neither signal is loaded yet — resolves on a later re-run.
-      const section = fromHit.length ? fromHit[0].section
-                    : toHit.length   ? toHit[0].section
-                    : null;
-
       await conn.execute(
         `INSERT INTO div_signal_successors (
             from_signal_id, from_signal_text, from_line,
@@ -234,27 +257,20 @@ async function main() {
             section          = VALUES(section),
             direction        = VALUES(direction)`,
         [
-          fromId, r.from_signal_text, r.from_line,
-          toId,   r.to_signal_text,   r.to_line,
+          r._fromId, r.from_signal_text, r.from_line,
+          r._toId,   r.to_signal_text,   r.to_line,
           r.succession_type, r.route_condition,
-          section, r.direction
+          r._section, r.direction
         ]
       );
-
       processed++;
     }
-
     const [[{ c: countAfter }]] = await conn.query('SELECT COUNT(*) AS c FROM div_signal_successors');
-    const inserted = countAfter - countBefore;
-    const updated  = processed - inserted;
-
     await conn.commit();
 
     console.log('\nImport completed.');
-    console.log(`Inserted    : ${inserted}`);
-    console.log(`Updated     : ${updated}`);
-
-    // Coverage report
+    console.log(`Inserted    : ${countAfter - countBefore}`);
+    console.log(`Updated     : ${processed - (countAfter - countBefore)}`);
     const [cov] = await conn.execute(
       `SELECT COUNT(*) AS total,
               SUM(from_signal_id IS NOT NULL) AS from_resolved,
@@ -263,7 +279,7 @@ async function main() {
     );
     console.log(`\nResolution  : total=${cov[0].total}, from_resolved=${cov[0].from_resolved}, to_resolved=${cov[0].to_resolved}`);
   } catch (err) {
-    await conn.rollback();
+    try { await conn.rollback(); } catch (e) { /* not in txn */ }
     throw err;
   } finally {
     await conn.end();
