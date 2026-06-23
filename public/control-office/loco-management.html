@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Loco Management | Control Office</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --brand: #0b3d91;
+            --brand-light: #1e5fb8;
+            --bg: #f1f5f9;
+            --surface: #ffffff;
+            --border: #e2e8f0;
+            --border-strong: #cbd5e1;
+            --text-main: #1e293b;
+            --text-light: #64748b;
+            --danger: #dc2626;
+            --danger-bg: #fee2e2;
+            --warning: #d97706;
+            --warning-bg: #fef3c7;
+            --success: #059669;
+            --success-bg: #d1fae5;
+            --muted: #94a3b8;
+            --info: #0284c7;
+            --info-bg: #e0f2fe;
+        }
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg);
+            margin: 0;
+            color: var(--text-main);
+        }
+
+        /* Header */
+        .header {
+            background: var(--brand);
+            color: white;
+            padding: 12px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 6px rgba(0,0,0,.08);
+        }
+        .header-title { font-size: 1.1rem; font-weight: 600; }
+        .header-title a { color: white; text-decoration: none; opacity: .85; }
+        .header-title a:hover { opacity: 1; }
+        .header-title .sep { margin: 0 10px; opacity: .6; }
+        .header-user { display: flex; align-items: center; gap: 14px; }
+        .header-user span small { opacity: .75; font-weight: 400; }
+        .header-user a { color: white; opacity: .85; }
+        .header-user a:hover { opacity: 1; }
+
+        .main { padding: 18px 24px; max-width: 980px; margin: 0 auto; }
+
+        /* Search */
+        .search-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,.04);
+        }
+        .search-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        .search-row input {
+            flex: 1;
+            min-width: 200px;
+            padding: 11px 14px;
+            border: 1px solid var(--border-strong);
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-family: 'Courier New', monospace;
+            font-weight: 600;
+            letter-spacing: .5px;
+        }
+        .search-row input:focus { outline: none; border-color: var(--brand); }
+        .search-hint { font-size: .8rem; color: var(--text-light); margin-top: 10px; }
+
+        .btn {
+            padding: 11px 18px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: .9rem;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+        }
+        .btn-primary { background: var(--brand); color: white; }
+        .btn-primary:hover { background: var(--brand-light); }
+        .btn-secondary { background: var(--bg); color: var(--text-main); border: 1px solid var(--border-strong); }
+        .btn-secondary:hover { background: var(--border); }
+        .btn-warning { background: var(--warning); color: white; }
+        .btn-warning:hover { filter: brightness(1.05); }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-danger:hover { filter: brightness(1.05); }
+        .btn:disabled { opacity: .5; cursor: not-allowed; }
+
+        .toolbar { display: flex; justify-content: flex-end; margin-bottom: 14px; }
+
+        /* Result card */
+        .result { margin-top: 20px; }
+        .loco-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,.04);
+        }
+        .loco-card .lc-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .lc-number {
+            font-family: 'Courier New', monospace;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--brand);
+            letter-spacing: 1px;
+        }
+        .lc-actions { display: flex; gap: 8px; }
+        .badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 999px;
+            font-size: .72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .4px;
+        }
+        .badge.active { background: var(--success-bg); color: var(--success); }
+        .badge.condemned { background: var(--danger-bg); color: var(--danger); }
+        .badge.transferred { background: var(--bg); color: var(--text-light); }
+        .badge.diesel { background: var(--warning-bg); color: var(--warning); }
+        .badge.electric { background: var(--info-bg); color: var(--info); }
+
+        .lc-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 14px 24px;
+            padding: 18px 20px;
+        }
+        .lc-field .k { font-size: .72rem; color: var(--text-light); text-transform: uppercase; letter-spacing: .4px; }
+        .lc-field .v { font-size: .95rem; font-weight: 600; margin-top: 2px; }
+        .lc-field .v.empty { color: var(--muted); font-weight: 400; font-style: italic; }
+
+        /* History */
+        .history { padding: 0 20px 18px; }
+        .history h4 { margin: 6px 0 10px; font-size: .85rem; color: var(--text-light); text-transform: uppercase; letter-spacing: .4px; }
+        table.hist { width: 100%; border-collapse: collapse; font-size: .85rem; }
+        table.hist th, table.hist td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--border); }
+        table.hist th { color: var(--text-light); font-weight: 600; font-size: .72rem; text-transform: uppercase; }
+        table.hist .act-transfer { color: var(--brand); font-weight: 700; }
+        table.hist .act-condemn { color: var(--danger); font-weight: 700; }
+        .hist-empty { color: var(--text-light); font-size: .85rem; padding: 6px 0; }
+
+        .state {
+            margin-top: 20px;
+            padding: 36px;
+            text-align: center;
+            color: var(--text-light);
+            background: var(--surface);
+            border: 1px dashed var(--border-strong);
+            border-radius: 10px;
+        }
+        .state i { font-size: 1.6rem; opacity: .5; display: block; margin-bottom: 10px; }
+        .state.notfound { color: var(--danger); border-color: var(--danger); background: var(--danger-bg); }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,.4);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+        .modal-overlay.visible { display: flex; }
+        .modal {
+            background: var(--surface);
+            border-radius: 12px;
+            width: 460px;
+            max-width: 94vw;
+            max-height: 92vh;
+            overflow: auto;
+            box-shadow: 0 12px 40px rgba(0,0,0,.25);
+        }
+        .modal-header {
+            padding: 15px 18px;
+            background: var(--brand);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-weight: 600;
+        }
+        .modal-header.warn { background: var(--warning); }
+        .modal-header.danger { background: var(--danger); }
+        .modal-header .close-btn { background: none; border: none; color: white; font-size: 1.1rem; cursor: pointer; opacity: .85; }
+        .modal-header .close-btn:hover { opacity: 1; }
+        .modal-body { padding: 18px; }
+        .form-group { margin-bottom: 14px; }
+        .form-group label { display: block; font-size: .82rem; font-weight: 600; margin-bottom: 5px; color: var(--text-main); }
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            padding: 9px 11px;
+            border: 1px solid var(--border-strong);
+            border-radius: 7px;
+            font-size: .9rem;
+            font-family: inherit;
+        }
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline: none; border-color: var(--brand); }
+        .form-group input.mono { font-family: 'Courier New', monospace; font-weight: 600; }
+        .form-group .hint { font-size: .75rem; color: var(--text-light); margin-top: 4px; }
+        .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .modal-footer { padding: 14px 18px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 10px; }
+        .form-error { color: var(--danger); font-size: .82rem; margin-top: 8px; min-height: 1em; }
+        .xfer-current { background: var(--bg); border-radius: 8px; padding: 10px 12px; font-size: .85rem; margin-bottom: 14px; }
+        .xfer-current b { font-family: 'Courier New', monospace; }
+
+        /* Toast */
+        #toast {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%) translateY(20px);
+            background: var(--text-main);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: .9rem;
+            font-weight: 500;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity .2s, transform .2s;
+            z-index: 200;
+            box-shadow: 0 6px 20px rgba(0,0,0,.25);
+        }
+        #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+        #toast.ok { background: var(--success); }
+        #toast.err { background: var(--danger); }
+    </style>
+</head>
+<body>
+
+<header class="header">
+    <div class="header-title">
+        <a href="/control-office/" title="Back to dashboard">
+            <i class="fa-solid fa-arrow-left"></i> Control Office
+        </a>
+        <span class="sep">›</span>
+        <span>Loco Management</span>
+    </div>
+    <div class="header-user">
+        <span id="userInfo">...</span>
+        <a href="/api/logout" title="Logout"><i class="fa-solid fa-right-from-bracket"></i></a>
+    </div>
+</header>
+
+<main class="main">
+    <div class="toolbar" id="toolbar" style="display:none">
+        <button class="btn btn-primary" onclick="openAddModal()">
+            <i class="fa-solid fa-plus"></i> Add Loco
+        </button>
+    </div>
+
+    <div class="search-card">
+        <div class="search-row">
+            <input type="text" id="searchInput" placeholder="Enter loco number…" autocomplete="off"
+                   onkeydown="if(event.key==='Enter') searchLoco()">
+            <button class="btn btn-primary" onclick="searchLoco()">
+                <i class="fa-solid fa-magnifying-glass"></i> Search
+            </button>
+            <button class="btn btn-secondary" onclick="clearSearch()">
+                <i class="fa-solid fa-xmark"></i> Clear
+            </button>
+        </div>
+        <div class="search-hint">Search a loco by its number to view, transfer or condemn it. Use <b>Add Loco</b> to enter a new (e.g. diesel) loco.</div>
+    </div>
+
+    <div class="result" id="result"></div>
+</main>
+
+<!-- Add Loco Modal -->
+<div class="modal-overlay" id="addModal">
+    <div class="modal">
+        <div class="modal-header">
+            <span><i class="fa-solid fa-plus"></i> Add Loco</span>
+            <button class="close-btn" onclick="closeModal('addModal')"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label>Loco Number *</label>
+                <input type="text" id="addLocoNo" class="mono" maxlength="20" placeholder="e.g. 16001">
+            </div>
+            <div class="row2">
+                <div class="form-group">
+                    <label>Loco Type *</label>
+                    <input type="text" id="addType" list="typeList" maxlength="20" placeholder="e.g. WDP4">
+                    <datalist id="typeList"></datalist>
+                </div>
+                <div class="form-group">
+                    <label>Traction *</label>
+                    <select id="addTraction">
+                        <option value="Electric">Electric</option>
+                        <option value="Diesel">Diesel</option>
+                        <option value="Dual">Dual</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Propulsion</label>
+                <input type="text" id="addPropulsion" list="propList" maxlength="30" placeholder="e.g. Siemens, Medha, BHEL, ABB…">
+                <datalist id="propList"></datalist>
+            </div>
+            <div class="row2">
+                <div class="form-group">
+                    <label>Home Shed *</label>
+                    <select id="addShed" onchange="onAddShedChange()"><option value="">— Select —</option></select>
+                </div>
+                <div class="form-group">
+                    <label>Railway Zone *</label>
+                    <select id="addZone"><option value="">— Select —</option></select>
+                </div>
+            </div>
+            <div class="row2">
+                <div class="form-group">
+                    <label>Commission Date</label>
+                    <input type="date" id="addCommission">
+                </div>
+                <div class="form-group">
+                    <label>Hotel Load OEM</label>
+                    <input type="text" id="addHotel" maxlength="30" placeholder="Optional">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Remarks</label>
+                <input type="text" id="addRemarks" maxlength="200" placeholder="Optional">
+            </div>
+            <div class="form-error" id="addError"></div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('addModal')">Cancel</button>
+            <button class="btn btn-primary" id="addSubmitBtn" onclick="submitAdd()">Add Loco</button>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Modal -->
+<div class="modal-overlay" id="editModal">
+    <div class="modal">
+        <div class="modal-header">
+            <span><i class="fa-solid fa-pen"></i> Edit Loco</span>
+            <button class="close-btn" onclick="closeModal('editModal')"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+            <div class="xfer-current" id="editCurrent"></div>
+            <div class="row2">
+                <div class="form-group">
+                    <label>Loco Type *</label>
+                    <input type="text" id="editType" list="typeList" maxlength="20">
+                </div>
+                <div class="form-group">
+                    <label>Traction *</label>
+                    <select id="editTraction">
+                        <option value="Electric">Electric</option>
+                        <option value="Diesel">Diesel</option>
+                        <option value="Dual">Dual</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Propulsion</label>
+                <input type="text" id="editPropulsion" list="propList" maxlength="30" placeholder="e.g. Siemens, Medha, BHEL…">
+            </div>
+            <div class="row2">
+                <div class="form-group">
+                    <label>Commission Date</label>
+                    <input type="date" id="editCommission">
+                </div>
+                <div class="form-group">
+                    <label>Hotel Load OEM</label>
+                    <input type="text" id="editHotel" maxlength="30">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Remarks</label>
+                <input type="text" id="editRemarks" maxlength="200">
+            </div>
+            <div class="hint" style="color:var(--text-light);font-size:.78rem">Shed/zone are changed via <b>Transfer</b>; status via <b>Condemn</b>.</div>
+            <div class="form-error" id="editError"></div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('editModal')">Cancel</button>
+            <button class="btn btn-primary" id="editSubmitBtn" onclick="submitEdit()">Save Changes</button>
+        </div>
+    </div>
+</div>
+
+<!-- Transfer Modal -->
+<div class="modal-overlay" id="xferModal">
+    <div class="modal">
+        <div class="modal-header">
+            <span><i class="fa-solid fa-right-left"></i> Transfer Loco</span>
+            <button class="close-btn" onclick="closeModal('xferModal')"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+            <div class="xfer-current" id="xferCurrent"></div>
+            <div class="row2">
+                <div class="form-group">
+                    <label>New Home Shed *</label>
+                    <select id="xferShed" onchange="onXferShedChange()"><option value="">— Select —</option></select>
+                </div>
+                <div class="form-group">
+                    <label>New Zone</label>
+                    <input type="text" id="xferZone" class="mono" readonly>
+                    <div class="hint">Auto-set from the shed</div>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Reason / Remark</label>
+                <input type="text" id="xferReason" maxlength="200" placeholder="Optional">
+            </div>
+            <div class="form-error" id="xferError"></div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('xferModal')">Cancel</button>
+            <button class="btn btn-primary" id="xferSubmitBtn" onclick="submitXfer()">Transfer</button>
+        </div>
+    </div>
+</div>
+
+<!-- Condemn Modal -->
+<div class="modal-overlay" id="condemnModal">
+    <div class="modal">
+        <div class="modal-header danger">
+            <span><i class="fa-solid fa-ban"></i> Condemn / Withdraw Loco</span>
+            <button class="close-btn" onclick="closeModal('condemnModal')"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+            <div class="xfer-current" id="condemnCurrent"></div>
+            <p style="font-size:.85rem;color:var(--text-light);margin-top:0">
+                This marks the loco <b>Condemned</b> (scrapped / permanently withdrawn). It will no longer count as an active loco.
+            </p>
+            <div class="form-group">
+                <label>Reason</label>
+                <input type="text" id="condemnReason" maxlength="200" placeholder="e.g. POH-life over, accident damage…">
+            </div>
+            <div class="form-error" id="condemnError"></div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('condemnModal')">Cancel</button>
+            <button class="btn btn-danger" id="condemnSubmitBtn" onclick="submitCondemn()">Condemn Loco</button>
+        </div>
+    </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const API = '/api/division/loco-link';
+let canEdit = false;
+let lookups = { zones: [], sheds: [], types: [] };
+let shedZone = {};            // shed → zone map
+let currentLoco = null;      // loco object currently displayed
+
+function toast(msg, kind) {
+    const t = $('#toast');
+    t.textContent = msg;
+    t.className = 'show' + (kind ? ' ' + kind : '');
+    setTimeout(() => { t.className = ''; }, 2800);
+}
+
+function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, (c) =>
+        ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function fld(k, v) {
+    const empty = v == null || v === '';
+    return `<div class="lc-field"><div class="k">${k}</div><div class="v${empty ? ' empty' : ''}">${empty ? '—' : esc(v)}</div></div>`;
+}
+
+async function loadMe() {
+    try {
+        const r = await fetch(`${API}/me`);
+        if (!r.ok) { $('#userInfo').textContent = '—'; return; }
+        const u = await r.json();
+        const role = u.div_role === 'lpc' ? 'LPC' : (u.div_role || u.role);
+        $('#userInfo').innerHTML = `<i class="fa-solid fa-user"></i> ${esc(u.full_name || u.username)} <small>(${esc(role)})</small>`;
+        // /me omits realm; backend still enforces realm in requireSettingsRole.
+        canEdit = ['division_admin', 'ctlc'].includes(u.div_role);
+        $('#toolbar').style.display = canEdit ? 'flex' : 'none';
+    } catch (e) { $('#userInfo').textContent = '—'; }
+}
+
+async function loadLookups() {
+    try {
+        const r = await fetch(`${API}/locos/lookups`);
+        if (!r.ok) return;
+        lookups = await r.json();
+        shedZone = {};
+        (lookups.sheds || []).forEach((s) => { shedZone[s.shed] = s.zone; });
+
+        const shedOpts = '<option value="">— Select —</option>' +
+            (lookups.sheds || []).map((s) => `<option value="${esc(s.shed)}">${esc(s.shed)}${s.zone ? ' (' + esc(s.zone) + ')' : ''}</option>`).join('');
+        $('#addShed').innerHTML = shedOpts;
+        $('#xferShed').innerHTML = shedOpts;
+        $('#addZone').innerHTML = '<option value="">— Select —</option>' +
+            (lookups.zones || []).map((z) => `<option value="${esc(z)}">${esc(z)}</option>`).join('');
+        $('#typeList').innerHTML = (lookups.types || []).map((t) => `<option value="${esc(t)}">`).join('');
+        $('#propList').innerHTML = (lookups.propulsions || []).map((p) => `<option value="${esc(p)}">`).join('');
+    } catch (e) { /* non-fatal */ }
+}
+
+function clearSearch() {
+    $('#searchInput').value = '';
+    $('#result').innerHTML = '';
+    currentLoco = null;
+    $('#searchInput').focus();
+}
+
+async function searchLoco() {
+    const no = $('#searchInput').value.trim();
+    if (!no) { $('#searchInput').focus(); return; }
+    $('#result').innerHTML = `<div class="state"><i class="fa-solid fa-spinner fa-spin"></i> Searching ${esc(no)}…</div>`;
+    try {
+        const r = await fetch(`${API}/locos/${encodeURIComponent(no)}`);
+        if (r.status === 404) {
+            currentLoco = null;
+            $('#result').innerHTML = `<div class="state notfound"><i class="fa-solid fa-circle-question"></i>
+                Loco <b>${esc(no)}</b> is not in the master.
+                ${canEdit ? '<br><br><button class="btn btn-primary" onclick="openAddModal(\'' + esc(no) + '\')"><i class="fa-solid fa-plus"></i> Add it</button>' : ''}</div>`;
+            return;
+        }
+        if (!r.ok) throw new Error('search failed');
+        const data = await r.json();
+        currentLoco = data.loco;
+        renderLoco(data.loco, data.history || []);
+    } catch (e) {
+        $('#result').innerHTML = `<div class="state notfound"><i class="fa-solid fa-triangle-exclamation"></i> Search failed. Try again.</div>`;
+    }
+}
+
+function renderLoco(loco, history) {
+    const st = (loco.status || '').toLowerCase();
+    const stClass = st === 'condemned' ? 'condemned' : (st === 'active' ? 'active' : 'transferred');
+    const tr = (loco.traction_type || '').toLowerCase();
+    const trClass = tr === 'diesel' ? 'diesel' : (tr === 'electric' ? 'electric' : 'transferred');
+    const condemned = st === 'condemned';
+
+    const actions = canEdit ? `
+        <button class="btn btn-secondary" onclick="openEditModal()"><i class="fa-solid fa-pen"></i> Edit</button>
+        <button class="btn btn-secondary" ${condemned ? 'disabled title="Loco is condemned"' : ''} onclick="openXferModal()"><i class="fa-solid fa-right-left"></i> Transfer</button>
+        <button class="btn btn-danger" ${condemned ? 'disabled' : ''} onclick="openCondemnModal()"><i class="fa-solid fa-ban"></i> Condemn</button>
+    ` : '';
+
+    const histRows = history.length ? history.map((h) => {
+        const when = (h.changed_at || '').toString().replace('T', ' ').slice(0, 16);
+        let detail;
+        if (h.action === 'CONDEMN') {
+            detail = `Condemned${h.from_shed ? ' (was at ' + esc(h.from_shed) + ')' : ''}`;
+        } else {
+            detail = `${esc(h.from_shed || '?')} (${esc(h.from_zone || '?')}) → ${esc(h.to_shed || '?')} (${esc(h.to_zone || '?')})`;
+        }
+        return `<tr>
+            <td class="act-${(h.action || '').toLowerCase()}">${esc(h.action)}</td>
+            <td>${detail}</td>
+            <td>${esc(h.reason || '')}</td>
+            <td>${esc(h.changed_by || '')}</td>
+            <td>${esc(when)}</td>
+        </tr>`;
+    }).join('') : '';
+
+    $('#result').innerHTML = `
+        <div class="loco-card">
+            <div class="lc-head">
+                <div>
+                    <div class="lc-number">${esc(loco.loco_number)}</div>
+                </div>
+                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                    <span class="badge ${trClass}">${esc(loco.traction_type || '?')}</span>
+                    <span class="badge ${stClass}">${esc(loco.status || '?')}</span>
+                </div>
+            </div>
+            <div class="lc-grid">
+                ${fld('Type', loco.loco_type)}
+                ${fld('Home Shed', loco.home_shed)}
+                ${fld('Zone', loco.railway_zone)}
+                ${fld('Commission Date', loco.commission_date ? String(loco.commission_date).slice(0, 10) : '')}
+                ${fld('Propulsion', loco.traction_converter)}
+                ${fld('Hotel Load OEM', loco.hotel_load_oem)}
+                ${fld('Source', loco.data_source)}
+                ${fld('Entered By', loco.entered_by)}
+                ${fld('Remarks', loco.remarks)}
+            </div>
+            ${actions ? `<div style="padding:0 20px 16px;display:flex;gap:8px">${actions}</div>` : ''}
+            <div class="history">
+                <h4>History</h4>
+                ${history.length ? `<table class="hist">
+                    <thead><tr><th>Action</th><th>Change</th><th>Reason</th><th>By</th><th>When</th></tr></thead>
+                    <tbody>${histRows}</tbody></table>`
+                    : '<div class="hist-empty">No transfers or status changes recorded.</div>'}
+            </div>
+        </div>`;
+}
+
+/* ── Add ──────────────────────────────────────────────────────────── */
+function openAddModal(prefill) {
+    if (!canEdit) return;
+    $('#addError').textContent = '';
+    $('#addLocoNo').value = prefill || '';
+    $('#addType').value = '';
+    $('#addTraction').value = 'Electric';
+    $('#addPropulsion').value = '';
+    $('#addShed').value = '';
+    $('#addZone').value = '';
+    $('#addCommission').value = '';
+    $('#addHotel').value = '';
+    $('#addRemarks').value = '';
+    openModal('addModal');
+    $('#addLocoNo').focus();
+}
+function onAddShedChange() {
+    const z = shedZone[$('#addShed').value];
+    if (z) $('#addZone').value = z;
+}
+async function submitAdd() {
+    const body = {
+        loco_number: $('#addLocoNo').value.trim(),
+        loco_type: $('#addType').value.trim(),
+        traction_type: $('#addTraction').value,
+        traction_converter: $('#addPropulsion').value.trim() || null,
+        home_shed: $('#addShed').value,
+        railway_zone: $('#addZone').value,
+        commission_date: $('#addCommission').value || null,
+        hotel_load_oem: $('#addHotel').value.trim() || null,
+        remarks: $('#addRemarks').value.trim() || null,
+    };
+    if (!body.loco_number || !body.loco_type || !body.home_shed || !body.railway_zone) {
+        $('#addError').textContent = 'Loco number, type, shed and zone are required.';
+        return;
+    }
+    const btn = $('#addSubmitBtn'); btn.disabled = true;
+    try {
+        const r = await fetch(`${API}/locos`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+        });
+        const data = await r.json();
+        if (!r.ok) { $('#addError').textContent = data.error || 'Failed to add loco.'; return; }
+        closeModal('addModal');
+        toast(`Loco ${body.loco_number} added`, 'ok');
+        await loadLookups();
+        $('#searchInput').value = body.loco_number;
+        searchLoco();
+    } catch (e) {
+        $('#addError').textContent = 'Network error. Try again.';
+    } finally { btn.disabled = false; }
+}
+
+/* ── Edit ─────────────────────────────────────────────────────────── */
+function openEditModal() {
+    if (!canEdit || !currentLoco) return;
+    $('#editError').textContent = '';
+    $('#editCurrent').innerHTML = `<b>${esc(currentLoco.loco_number)}</b> — ${esc(currentLoco.home_shed || '?')} (${esc(currentLoco.railway_zone || '?')})`;
+    $('#editType').value = currentLoco.loco_type || '';
+    $('#editTraction').value = currentLoco.traction_type || 'Electric';
+    $('#editPropulsion').value = currentLoco.traction_converter || '';
+    $('#editCommission').value = currentLoco.commission_date ? String(currentLoco.commission_date).slice(0, 10) : '';
+    $('#editHotel').value = currentLoco.hotel_load_oem || '';
+    $('#editRemarks').value = currentLoco.remarks || '';
+    openModal('editModal');
+}
+async function submitEdit() {
+    const body = {
+        loco_type: $('#editType').value.trim(),
+        traction_type: $('#editTraction').value,
+        traction_converter: $('#editPropulsion').value.trim() || null,
+        commission_date: $('#editCommission').value || null,
+        hotel_load_oem: $('#editHotel').value.trim() || null,
+        remarks: $('#editRemarks').value.trim() || null,
+    };
+    if (!body.loco_type) { $('#editError').textContent = 'Loco type is required.'; return; }
+    const btn = $('#editSubmitBtn'); btn.disabled = true;
+    try {
+        const r = await fetch(`${API}/locos/${encodeURIComponent(currentLoco.loco_number)}`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+        });
+        const data = await r.json();
+        if (!r.ok) { $('#editError').textContent = data.error || 'Failed to save.'; return; }
+        closeModal('editModal');
+        toast(`${currentLoco.loco_number} updated`, 'ok');
+        searchLoco();
+    } catch (e) {
+        $('#editError').textContent = 'Network error. Try again.';
+    } finally { btn.disabled = false; }
+}
+
+/* ── Transfer ─────────────────────────────────────────────────────── */
+function openXferModal() {
+    if (!canEdit || !currentLoco) return;
+    $('#xferError').textContent = '';
+    $('#xferShed').value = '';
+    $('#xferZone').value = '';
+    $('#xferReason').value = '';
+    $('#xferCurrent').innerHTML = `<b>${esc(currentLoco.loco_number)}</b> — currently at
+        <b>${esc(currentLoco.home_shed || '?')}</b> (${esc(currentLoco.railway_zone || '?')})`;
+    openModal('xferModal');
+}
+function onXferShedChange() {
+    $('#xferZone').value = shedZone[$('#xferShed').value] || '';
+}
+async function submitXfer() {
+    const to_shed = $('#xferShed').value;
+    if (!to_shed) { $('#xferError').textContent = 'Select a destination shed.'; return; }
+    const body = { to_shed, to_zone: $('#xferZone').value, reason: $('#xferReason').value.trim() || null };
+    const btn = $('#xferSubmitBtn'); btn.disabled = true;
+    try {
+        const r = await fetch(`${API}/locos/${encodeURIComponent(currentLoco.loco_number)}/transfer`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+        });
+        const data = await r.json();
+        if (!r.ok) { $('#xferError').textContent = data.error || 'Transfer failed.'; return; }
+        closeModal('xferModal');
+        toast(`${currentLoco.loco_number} → ${to_shed}`, 'ok');
+        searchLoco();
+    } catch (e) {
+        $('#xferError').textContent = 'Network error. Try again.';
+    } finally { btn.disabled = false; }
+}
+
+/* ── Condemn ──────────────────────────────────────────────────────── */
+function openCondemnModal() {
+    if (!canEdit || !currentLoco) return;
+    $('#condemnError').textContent = '';
+    $('#condemnReason').value = '';
+    $('#condemnCurrent').innerHTML = `<b>${esc(currentLoco.loco_number)}</b> — ${esc(currentLoco.loco_type || '')}
+        at <b>${esc(currentLoco.home_shed || '?')}</b> (${esc(currentLoco.railway_zone || '?')})`;
+    openModal('condemnModal');
+}
+async function submitCondemn() {
+    const body = { reason: $('#condemnReason').value.trim() || null };
+    const btn = $('#condemnSubmitBtn'); btn.disabled = true;
+    try {
+        const r = await fetch(`${API}/locos/${encodeURIComponent(currentLoco.loco_number)}/condemn`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+        });
+        const data = await r.json();
+        if (!r.ok) { $('#condemnError').textContent = data.error || 'Failed.'; return; }
+        closeModal('condemnModal');
+        toast(`${currentLoco.loco_number} condemned`, 'ok');
+        searchLoco();
+    } catch (e) {
+        $('#condemnError').textContent = 'Network error. Try again.';
+    } finally { btn.disabled = false; }
+}
+
+/* ── Modal helpers ────────────────────────────────────────────────── */
+function openModal(id) { $('#' + id).classList.add('visible'); }
+function closeModal(id) { $('#' + id).classList.remove('visible'); }
+document.querySelectorAll('.modal-overlay').forEach((ov) => {
+    ov.addEventListener('click', (e) => { if (e.target === ov) ov.classList.remove('visible'); });
+});
+
+loadMe();
+loadLookups();
+$('#searchInput').focus();
+</script>
+</body>
+</html>

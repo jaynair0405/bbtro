@@ -4150,4 +4150,314 @@ router.get('/train-aliases', async (req, res) => {
     }
 });
 
+// ═══════════════════════════════════════════════════════════════════════════
+//  LOCO MANAGEMENT (master roster admin) — Phase 4 of LOCO_MASTER_MIGRATION.md
+//
+//  Search-by-number driven admin over div_locos. Three mutations:
+//    • Add a loco (mostly LPC-entered diesels)
+//    • Transfer a loco to another home shed/zone (loco stays Active)
+//    • Condemn a loco (withdraw/scrap → status Condemned, drops from active use)
+//
+//  Transfers and condemns are logged to div_loco_transfers (history). Plain
+//  field edits are not logged. Mutations gated to division_admin/ctlc; reads
+//  require a logged-in division user. Distinct from the /master endpoints above
+//  (those manage train link-master rows, not the loco roster).
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Current IST datetime as "YYYY-MM-DD HH:MM:SS" for audit stamps.
+function nowISTDateTime() {
+    const t = nowIST();
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${t.getFullYear()}-${pad(t.getMonth() + 1)}-${pad(t.getDate())} ` +
+           `${pad(t.getHours())}:${pad(t.getMinutes())}:${pad(t.getSeconds())}`;
+}
+
+// ── GET /locos/lookups — dropdown sources (distinct zones, sheds, types) ─────
+// Sheds carry their zone so the Add/Transfer forms can auto-fill zone on pick.
+router.get('/locos/lookups', async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'not logged in' });
+    try {
+        const pool = req.app.locals.pool;
+        const [zones] = await pool.query(
+            `SELECT DISTINCT railway_zone FROM div_locos
+             WHERE railway_zone IS NOT NULL AND railway_zone <> ''
+             ORDER BY railway_zone`
+        );
+        const [sheds] = await pool.query(
+            `SELECT home_shed AS shed, MAX(railway_zone) AS zone
+             FROM div_locos
+             WHERE home_shed IS NOT NULL AND home_shed <> ''
+             GROUP BY home_shed ORDER BY home_shed`
+        );
+        const [types] = await pool.query(
+            `SELECT DISTINCT loco_type FROM div_locos
+             WHERE loco_type IS NOT NULL AND loco_type <> ''
+             ORDER BY loco_type`
+        );
+        const [props] = await pool.query(
+            `SELECT DISTINCT traction_converter FROM div_locos
+             WHERE traction_converter IS NOT NULL AND traction_converter <> ''
+             ORDER BY traction_converter`
+        );
+        res.json({
+            zones: zones.map((r) => r.railway_zone),
+            sheds: sheds.map((r) => ({ shed: r.shed, zone: r.zone })),
+            types: types.map((r) => r.loco_type),
+            propulsions: props.map((r) => r.traction_converter),
+        });
+    } catch (err) {
+        console.error('[loco-link GET /locos/lookups]', err);
+        res.status(500).json({ error: 'Failed to load lookups' });
+    }
+});
+
+// ── GET /locos/:loco_number — master row + transfer/condemn history ──────────
+// The search-by-number result for the Loco Management page. 404 if unknown.
+router.get('/locos/:loco_number', async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'not logged in' });
+    const locoNo = String(req.params.loco_number || '').trim();
+    if (!locoNo) return res.status(400).json({ error: 'loco_number required' });
+    try {
+        const pool = req.app.locals.pool;
+        const [rows] = await pool.query(
+            `SELECT id, loco_number, loco_type, traction_type, railway_zone,
+                    home_shed, status,
+                    DATE_FORMAT(commission_date, '%Y-%m-%d') AS commission_date,
+                    traction_converter, hotel_load_oem,
+                    data_source, entered_by, remarks, created_at, updated_at
+             FROM div_locos WHERE loco_number = ? LIMIT 1`,
+            [locoNo]
+        );
+        if (!rows.length) {
+            return res.status(404).json({ error: 'Loco not found in master', loco_number: locoNo });
+        }
+        const [history] = await pool.query(
+            `SELECT id, action, from_shed, to_shed, from_zone, to_zone,
+                    reason, changed_by, changed_at
+             FROM div_loco_transfers
+             WHERE loco_number = ?
+             ORDER BY changed_at DESC, id DESC`,
+            [locoNo]
+        );
+        res.json({ loco: rows[0], history });
+    } catch (err) {
+        console.error('[loco-link GET /locos/:n]', err);
+        res.status(500).json({ error: 'Lookup failed' });
+    }
+});
+
+// ── POST /locos — add a loco (mostly LPC-entered diesels) ────────────────────
+router.post('/locos', requireSettingsRole, async (req, res) => {
+    const b = req.body || {};
+    const loco_number = String(b.loco_number || '').trim();
+    const loco_type = String(b.loco_type || '').trim();
+    const railway_zone = String(b.railway_zone || '').trim().toUpperCase();
+    const home_shed = String(b.home_shed || '').trim();
+    const traction_type = String(b.traction_type || 'Electric').trim();
+    const commission_date = String(b.commission_date || '').trim() || null;
+    const traction_converter = String(b.traction_converter || '').trim() || null;
+    const hotel_load_oem = String(b.hotel_load_oem || '').trim() || null;
+    const remarks = String(b.remarks || '').trim() || null;
+
+    if (!loco_number) return res.status(400).json({ error: 'loco_number required' });
+    if (!loco_type) return res.status(400).json({ error: 'loco_type required' });
+    if (!railway_zone) return res.status(400).json({ error: 'railway_zone required' });
+    if (!home_shed) return res.status(400).json({ error: 'home_shed required' });
+    if (!['Electric', 'Diesel', 'Dual'].includes(traction_type)) {
+        return res.status(400).json({ error: 'traction_type must be Electric, Diesel or Dual' });
+    }
+    if (commission_date && !/^\d{4}-\d{2}-\d{2}$/.test(commission_date)) {
+        return res.status(400).json({ error: 'commission_date must be YYYY-MM-DD' });
+    }
+
+    try {
+        const pool = req.app.locals.pool;
+        const [dup] = await pool.query(
+            'SELECT id FROM div_locos WHERE loco_number = ? LIMIT 1', [loco_number]
+        );
+        if (dup.length) {
+            return res.status(409).json({ error: `Loco ${loco_number} already exists in the master` });
+        }
+        const [r] = await pool.query(
+            `INSERT INTO div_locos
+               (loco_number, loco_type, traction_type, railway_zone, home_shed,
+                status, commission_date, traction_converter, hotel_load_oem,
+                data_source, entered_by, remarks)
+             VALUES (?,?,?,?,?, 'Active', ?,?,?, 'LPC_ENTRY', ?, ?)`,
+            [loco_number, loco_type, traction_type, railway_zone, home_shed,
+             commission_date, traction_converter, hotel_load_oem,
+             req.session.user.username, remarks]
+        );
+        const [created] = await pool.query('SELECT * FROM div_locos WHERE id = ?', [r.insertId]);
+        res.status(201).json({ ok: true, loco: created[0] });
+    } catch (err) {
+        if (err && err.code === 'ER_DUP_ENTRY') {
+            return res.status(409).json({ error: `Loco ${loco_number} already exists in the master` });
+        }
+        console.error('[loco-link POST /locos]', err);
+        res.status(500).json({ error: 'Failed to add loco' });
+    }
+});
+
+// ── PUT /locos/:loco_number — edit descriptive fields (no audit row) ─────────
+// Shed/zone are changed via /transfer (logged); status via /condemn. This only
+// edits descriptive master fields, so it is intentionally NOT logged to history.
+const LOCO_EDITABLE_FIELDS = [
+    'loco_type', 'traction_type', 'traction_converter', 'hotel_load_oem',
+    'commission_date', 'remarks',
+];
+router.put('/locos/:loco_number', requireSettingsRole, async (req, res) => {
+    const locoNo = String(req.params.loco_number || '').trim();
+    if (!locoNo) return res.status(400).json({ error: 'loco_number required' });
+    const b = req.body || {};
+
+    const fields = {};
+    for (const f of LOCO_EDITABLE_FIELDS) {
+        if (b[f] === undefined) continue;
+        const v = (b[f] === null || String(b[f]).trim() === '') ? null : String(b[f]).trim();
+        fields[f] = v;
+    }
+    if (!Object.keys(fields).length) {
+        return res.status(400).json({ error: 'no editable fields supplied' });
+    }
+    if ('traction_type' in fields && !['Electric', 'Diesel', 'Dual'].includes(fields.traction_type)) {
+        return res.status(400).json({ error: 'traction_type must be Electric, Diesel or Dual' });
+    }
+    if (fields.commission_date && !/^\d{4}-\d{2}-\d{2}$/.test(fields.commission_date)) {
+        return res.status(400).json({ error: 'commission_date must be YYYY-MM-DD' });
+    }
+    if ('loco_type' in fields && !fields.loco_type) {
+        return res.status(400).json({ error: 'loco_type cannot be blank' });
+    }
+
+    try {
+        const pool = req.app.locals.pool;
+        const cols = Object.keys(fields);
+        const setSql = cols.map((c) => `${c} = ?`).join(', ');
+        const [r] = await pool.query(
+            `UPDATE div_locos SET ${setSql} WHERE loco_number = ?`,
+            [...cols.map((c) => fields[c]), locoNo]
+        );
+        if (!r.affectedRows) {
+            return res.status(404).json({ error: 'Loco not found in master', loco_number: locoNo });
+        }
+        res.json({ ok: true, loco_number: locoNo, updated: cols });
+    } catch (err) {
+        console.error('[loco-link PUT /locos/:n]', err);
+        res.status(500).json({ error: 'Failed to edit loco' });
+    }
+});
+
+// ── POST /locos/:loco_number/transfer — move to a new home shed/zone ─────────
+// Rewrites home_shed/railway_zone on div_locos and appends a TRANSFER history
+// row. Loco stays Active. A cross-zone move just changes railway_zone (so the
+// future div_cr_locos view naturally includes/excludes it — no status needed).
+router.post('/locos/:loco_number/transfer', requireSettingsRole, async (req, res) => {
+    const locoNo = String(req.params.loco_number || '').trim();
+    const to_shed = String((req.body || {}).to_shed || '').trim();
+    let to_zone = String((req.body || {}).to_zone || '').trim().toUpperCase();
+    const reason = String((req.body || {}).reason || '').trim() || null;
+    if (!locoNo) return res.status(400).json({ error: 'loco_number required' });
+    if (!to_shed) return res.status(400).json({ error: 'to_shed required' });
+
+    let conn;
+    try {
+        const pool = req.app.locals.pool;
+        conn = await pool.getConnection();
+        await conn.beginTransaction();
+
+        const [rows] = await conn.query(
+            'SELECT home_shed, railway_zone, status FROM div_locos WHERE loco_number = ? FOR UPDATE',
+            [locoNo]
+        );
+        if (!rows.length) {
+            await conn.rollback();
+            return res.status(404).json({ error: 'Loco not found in master', loco_number: locoNo });
+        }
+        const cur = rows[0];
+        if (cur.status === 'Condemned') {
+            await conn.rollback();
+            return res.status(409).json({ error: 'Loco is Condemned and cannot be transferred' });
+        }
+        // If caller didn't supply a zone, inherit the destination shed's known zone.
+        if (!to_zone) {
+            const [z] = await conn.query(
+                `SELECT MAX(railway_zone) AS zone FROM div_locos WHERE home_shed = ?`, [to_shed]
+            );
+            to_zone = (z[0] && z[0].zone) ? String(z[0].zone).toUpperCase() : cur.railway_zone;
+        }
+        if (to_shed === cur.home_shed && to_zone === cur.railway_zone) {
+            await conn.rollback();
+            return res.status(400).json({ error: 'Destination shed/zone is the same as current' });
+        }
+
+        await conn.query(
+            'UPDATE div_locos SET home_shed = ?, railway_zone = ? WHERE loco_number = ?',
+            [to_shed, to_zone, locoNo]
+        );
+        await conn.query(
+            `INSERT INTO div_loco_transfers
+               (loco_number, action, from_shed, to_shed, from_zone, to_zone, reason, changed_by, changed_at)
+             VALUES (?, 'TRANSFER', ?, ?, ?, ?, ?, ?, ?)`,
+            [locoNo, cur.home_shed, to_shed, cur.railway_zone, to_zone, reason,
+             req.session.user.username, nowISTDateTime()]
+        );
+        await conn.commit();
+        res.json({ ok: true, loco_number: locoNo, from_shed: cur.home_shed, to_shed, from_zone: cur.railway_zone, to_zone });
+    } catch (err) {
+        if (conn) { try { await conn.rollback(); } catch (_) {} }
+        console.error('[loco-link POST /locos/:n/transfer]', err);
+        res.status(500).json({ error: 'Failed to transfer loco' });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// ── POST /locos/:loco_number/condemn — withdraw/scrap (status → Condemned) ───
+router.post('/locos/:loco_number/condemn', requireSettingsRole, async (req, res) => {
+    const locoNo = String(req.params.loco_number || '').trim();
+    const reason = String((req.body || {}).reason || '').trim() || null;
+    if (!locoNo) return res.status(400).json({ error: 'loco_number required' });
+
+    let conn;
+    try {
+        const pool = req.app.locals.pool;
+        conn = await pool.getConnection();
+        await conn.beginTransaction();
+
+        const [rows] = await conn.query(
+            'SELECT home_shed, railway_zone, status FROM div_locos WHERE loco_number = ? FOR UPDATE',
+            [locoNo]
+        );
+        if (!rows.length) {
+            await conn.rollback();
+            return res.status(404).json({ error: 'Loco not found in master', loco_number: locoNo });
+        }
+        const cur = rows[0];
+        if (cur.status === 'Condemned') {
+            await conn.rollback();
+            return res.status(409).json({ error: 'Loco is already Condemned' });
+        }
+
+        await conn.query(
+            `UPDATE div_locos SET status = 'Condemned' WHERE loco_number = ?`, [locoNo]
+        );
+        await conn.query(
+            `INSERT INTO div_loco_transfers
+               (loco_number, action, from_shed, from_zone, reason, changed_by, changed_at)
+             VALUES (?, 'CONDEMN', ?, ?, ?, ?, ?)`,
+            [locoNo, cur.home_shed, cur.railway_zone, reason,
+             req.session.user.username, nowISTDateTime()]
+        );
+        await conn.commit();
+        res.json({ ok: true, loco_number: locoNo, status: 'Condemned' });
+    } catch (err) {
+        if (conn) { try { await conn.rollback(); } catch (_) {} }
+        console.error('[loco-link POST /locos/:n/condemn]', err);
+        res.status(500).json({ error: 'Failed to condemn loco' });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
 module.exports = router;
