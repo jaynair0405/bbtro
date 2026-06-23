@@ -257,16 +257,66 @@
     .print-as:hover { background: #eff6ff; }
     .print-as i { font-size: 0.62rem; opacity: 0.7; margin-left: 2px; }
 
+    /* Toolbar above the add-form: withdraw toggle + load batch */
+    .add-toolbar {
+      display: flex; flex-wrap: wrap; gap: 12px; align-items: center;
+      justify-content: space-between; padding: 14px 18px 0;
+    }
+    .withdraw-toggle {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-size: 0.85rem; font-weight: 600; color: #b45309; cursor: pointer;
+      padding: 8px 14px; border: 1px solid #e7c9a0; background: #fff7ed; border-radius: 10px;
+    }
+    .withdraw-toggle input { width: 16px; height: 16px; cursor: pointer; accent-color: #b45309; }
+    .withdraw-toggle.on { background: #b45309; color: #fff; border-color: #b45309; }
+
     .inline-form {
-      display: grid;
-      grid-template-columns: 1.5fr 1fr 0.5fr 0.8fr auto;
-      gap: 10px;
-      align-items: end;
-      padding: 16px 18px 18px;
+      display: flex; flex-wrap: wrap; gap: 10px 12px; align-items: end;
+      padding: 14px 18px 18px;
       background: #f8fafc;
       border-top: 1px solid var(--border);
     }
+    .inline-form .field { display: grid; gap: 6px; min-width: 0; flex: 1 1 160px; }
+    .inline-form .f-desig   { flex: 0 0 155px; }
+    .inline-form .f-search  { flex: 3 1 240px; }
+    .inline-form .f-cli     { flex: 3 1 220px; }
+    .inline-form .f-cat     { flex: 0 0 78px; }
+    .inline-form .f-lobby   { flex: 1 1 150px; }
+    .inline-form .f-remarks { flex: 1 1 150px; }
+    .inline-form .f-actions { flex: 0 0 auto; display: flex; align-items: end; }
+    .inline-form .field.disabled { opacity: 0.5; pointer-events: none; }
     .inline-form .btn { height: 44px; justify-content: center; }
+
+    /* Multi-select dropdown (designation) */
+    .ms-wrap { position: relative; }
+    .ms-button {
+      width: 100%; height: 44px; text-align: left; padding: 10px 28px 10px 12px;
+      border: 1px solid var(--border); border-radius: 8px; background: #fff;
+      cursor: pointer; font-size: 0.9rem; color: var(--text);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6'><path d='M0 0l5 6 5-6z' fill='%2364748b'/></svg>");
+      background-repeat: no-repeat; background-position: right 10px center;
+    }
+    .ms-panel {
+      position: fixed; z-index: 1003;
+      min-width: 240px; background: #fff; border: 1px solid var(--border);
+      border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+      padding: 6px; display: none; max-height: 300px; overflow: auto;
+    }
+    .ms-panel.show { display: block; }
+    .ms-panel label {
+      display: flex; align-items: center; gap: 8px; padding: 7px 8px;
+      font-size: 0.85rem; border-radius: 6px; cursor: pointer; white-space: nowrap;
+    }
+    .ms-panel label:hover { background: #f1f5f9; }
+    .ms-panel input { width: 15px; height: 15px; flex: none; }
+
+    /* Per-row CLI dropdown in the changes table (returned batch re-assignment) */
+    .row-cli-select {
+      width: 100%; min-width: 140px; padding: 6px 7px;
+      border: 1px solid var(--brand); border-radius: 6px;
+      font-size: 0.82rem; background: #fff; color: var(--text);
+    }
 
     /* Multi-select staging tray (bulk-assign many staff to one CLI) */
     .staging-tray {
@@ -292,9 +342,12 @@
       font-size: 0.7rem; display: inline-flex; align-items: center; justify-content: center;
     }
     .staged-chip button:hover { background: #fecaca; color: #b91c1c; }
-    .staging-tray .tray-add { margin-left: auto; height: 38px; }
+    .staging-tray .tray-actions { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .staging-tray .tray-add { height: 38px; }
     .staging-tray .tray-add:disabled { opacity: 0.5; cursor: not-allowed; }
-    .staging-tray .tray-hint { margin-left: auto; font-size: 0.78rem; color: var(--muted); font-style: italic; }
+    .staging-tray .tray-withdraw { height: 38px; background: #b45309; border-color: #b45309; color: #fff; }
+    .staging-tray .tray-withdraw:hover { background: #92400e; border-color: #92400e; }
+    .staging-tray .tray-hint { font-size: 0.78rem; color: var(--muted); font-style: italic; }
     .search-result-item .stage-cb { width: 17px; height: 17px; margin-right: 10px; flex: none; cursor: pointer; }
 
     /* Staff search autocomplete */
@@ -407,8 +460,8 @@
     /* CLI History Popup */
     .history-popup {
       position: fixed;
-      bottom: 80px;
-      right: 24px;
+      bottom: 24px;
+      left: 24px;
       background: #fff;
       border: 1px solid var(--border);
       border-radius: 12px;
@@ -537,7 +590,6 @@
 
     @media (max-width: 1080px) {
       .hero { grid-template-columns: 1fr; }
-      .inline-form { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
     }
     @media (max-width: 720px) {
       .table-head { flex-direction: column; align-items: flex-start; }
@@ -600,6 +652,7 @@
       <div class="hero-actions">
         <button class="btn btn-back" onclick="window.location.href='/div'"><i class="fa-solid fa-arrow-left"></i>Back</button>
         <button class="btn btn-ghost" id="btnHistory"><i class="fa-solid fa-clock-rotate-left"></i>History</button>
+        <button class="btn btn-ghost" id="btnLoadBatch" title="View withdrawn training batches / reload one to re-assign their CLIs"><i class="fa-solid fa-graduation-cap"></i>Training Batches</button>
         <button class="btn btn-ghost" id="btnSave"><i class="fa-regular fa-floppy-disk"></i>Save Letter</button>
         <button class="btn btn-primary" id="btnExport"><i class="fa-solid fa-file-export"></i>Export PDF</button>
       </div>
@@ -723,20 +776,42 @@
           </tbody>
         </table>
 
+        <div class="add-toolbar">
+          <label class="withdraw-toggle" id="withdrawToggle" title="Set the staff you add to Not Assigned (training withdrawal) — no CLI needed">
+            <input type="checkbox" id="withdrawMode" /> <i class="fa-solid fa-user-minus"></i> Withdraw to Not Assigned
+          </label>
+        </div>
+
         <form class="inline-form" id="addForm" onsubmit="return false;">
-          <label class="field">Search staff (name / PF / HRMS)
+          <label class="field f-desig">Designation
+            <div class="ms-wrap" id="desigWrap">
+              <button type="button" class="ms-button" id="desigButton" title="Filter the staff search by one or more designations">All</button>
+              <div class="ms-panel" id="desigPanel">
+                <label><input type="checkbox" value="1" data-label="ALP"> Assistant Loco Pilot</label>
+                <label><input type="checkbox" value="2" data-label="Sr.ALP"> Senior Assistant Loco Pilot</label>
+                <label><input type="checkbox" value="3" data-label="LPS"> Loco Pilot Shunter</label>
+                <label><input type="checkbox" value="4" data-label="Sr.LPS"> Senior Loco Pilot Shunter</label>
+                <label><input type="checkbox" value="5" data-label="LPG"> Loco Pilot Goods</label>
+                <label><input type="checkbox" value="6" data-label="LPP"> Loco Pilot Passenger</label>
+                <label><input type="checkbox" value="7" data-label="LPM"> Loco Pilot Mail/Express</label>
+                <label><input type="checkbox" value="8" data-label="MM"> Motorman</label>
+                <label><input type="checkbox" value="9" data-label="LP Ghat"> Loco Pilot Ghat</label>
+              </div>
+            </div>
+          </label>
+          <label class="field f-search">Search staff (name / PF / HRMS)
             <div class="search-wrapper">
-              <input type="text" id="searchInput" placeholder="Type to search..." autocomplete="off" />
+              <input type="text" id="searchInput" placeholder="Type to search (or pick a designation to list)..." autocomplete="off" />
               <div class="search-results" id="searchResults"></div>
             </div>
           </label>
-          <label class="field">To CLI
+          <label class="field f-cli" id="cliField">To CLI
             <div class="search-wrapper">
               <input type="text" id="cliSearchInput" placeholder="Type CLI name to search..." autocomplete="off" />
               <div class="search-results" id="cliResults"></div>
             </div>
           </label>
-          <label class="field">Category
+          <label class="field f-cat">Category
             <select id="catSelect">
               <option value="">--</option>
               <option value="A">A</option>
@@ -744,21 +819,63 @@
               <option value="C">C</option>
             </select>
           </label>
-          <label class="field">Proposed Lobby
+          <label class="field f-lobby">Proposed Lobby
             <div class="search-wrapper">
               <input type="text" id="lobbySearchInput" placeholder="Optional — search lobby..." autocomplete="off" />
               <div class="search-results" id="lobbyResults"></div>
             </div>
           </label>
-          <label class="field">Remarks
+          <label class="field f-remarks">Remarks
             <input type="text" id="remarksInput" placeholder="Optional" />
           </label>
-          <div>
+          <div class="f-actions">
             <button class="btn btn-primary" id="btnAdd" disabled><i class="fa-solid fa-plus"></i>Add</button>
           </div>
         </form>
         <div class="staging-tray" id="stagingTray" style="display:none;"></div>
       </section>
+    </div>
+  </div>
+
+  <!-- Withdraw-to-training and batch-picker modals -->
+  <style>
+    .cli-modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.55);
+      display: none; align-items: center; justify-content: center; z-index: 1000;
+    }
+    .cli-modal-overlay.show { display: flex; }
+    .cli-modal {
+      background: var(--surface, #ffffff); color: var(--text, #0f172a);
+      border: 1px solid var(--border, #e2e8f0); border-radius: 14px;
+      width: min(520px, 92vw); max-height: 86vh; overflow: auto;
+      box-shadow: 0 24px 60px rgba(15, 23, 42, 0.25); padding: 20px 22px;
+    }
+    .cli-modal h3 { margin: 0 0 4px; font-size: 1.1rem; color: var(--brand-ink, #0a4074); }
+    .cli-modal .modal-sub { font-size: 0.82rem; color: var(--muted, #64748b); margin-bottom: 14px; }
+    .cli-modal .field { display: grid; gap: 6px; margin-bottom: 12px; font-size: 0.85rem; }
+    .cli-modal input { padding: 9px 11px; border-radius: 8px;
+      border: 1px solid var(--border, #e2e8f0); background: #fff; color: var(--text, #0f172a); }
+    .cli-modal .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 8px; }
+    .batch-list { display: grid; gap: 8px; }
+    .batch-item {
+      display: flex; justify-content: space-between; align-items: center; gap: 12px;
+      padding: 11px 13px; border: 1px solid var(--border, #e2e8f0); border-radius: 10px;
+      background: var(--surface-soft, #f7fafc); color: var(--text, #0f172a);
+      cursor: pointer; transition: background 0.15s, border-color 0.15s;
+    }
+    .batch-item:hover { background: #eef5ff; border-color: var(--brand, #0b5fad); }
+    .batch-item .batch-meta { font-size: 0.78rem; color: var(--muted, #64748b); }
+    .batch-item .batch-count { font-weight: 700; color: var(--brand, #0b5fad); white-space: nowrap; }
+  </style>
+
+  <div class="cli-modal-overlay" id="batchModal">
+    <div class="cli-modal">
+      <h3><i class="fa-solid fa-graduation-cap"></i> Training batches</h3>
+      <div class="modal-sub">Pick a batch — its staff load into the table below, each ready for its own CLI.</div>
+      <div class="batch-list" id="batchList"><div class="modal-sub">Loading…</div></div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-back" id="btnBatchClose">Close</button>
+      </div>
     </div>
   </div>
 
@@ -778,7 +895,8 @@
       prevLetter: null,
       existingLetterForDate: null, // Existing letter for selected date (if any)
       isSaved: false,           // Track if current letter is saved
-      isEditing: false          // True if editing an existing letter from DB
+      isEditing: false,         // True if editing an existing letter from DB
+      withdrawMode: false       // True = added staff are withdrawn to Not Assigned (no letter)
     };
 
     // DOM Elements
@@ -812,6 +930,12 @@
     const catSelect = document.getElementById('catSelect');
     const remarksInput = document.getElementById('remarksInput');
     const btnAdd = document.getElementById('btnAdd');
+    const desigPanel = document.getElementById('desigPanel');
+    const desigButton = document.getElementById('desigButton');
+    const btnLoadBatch = document.getElementById('btnLoadBatch');
+    const withdrawModeInput = document.getElementById('withdrawMode');
+    const batchModal = document.getElementById('batchModal');
+    const batchListEl = document.getElementById('batchList');
 
     const previewLetterNo = document.getElementById('previewLetterNo');
     const previewLetterDate = document.getElementById('previewLetterDate');
@@ -1143,16 +1267,51 @@
       }
     }
 
+    // ---- Designation multi-select ----
+    function getSelectedDesignations() {
+      return Array.from(desigPanel.querySelectorAll('input:checked')).map(c => c.value);
+    }
+    function updateDesigButton() {
+      const checked = desigPanel.querySelectorAll('input:checked');
+      if (checked.length === 0) desigButton.textContent = 'All';
+      else if (checked.length === 1) desigButton.textContent = checked[0].dataset.label;
+      else desigButton.textContent = `${checked.length} selected`;
+    }
+    // Position the fixed panel against the button, flipping up if no room below
+    function positionDesigPanel() {
+      const r = desigButton.getBoundingClientRect();
+      desigPanel.style.left = r.left + 'px';
+      desigPanel.style.minWidth = Math.max(r.width, 240) + 'px';
+      const ph = desigPanel.offsetHeight || 300;
+      const spaceBelow = window.innerHeight - r.bottom;
+      desigPanel.style.top = (spaceBelow < ph + 12 ? Math.max(8, r.top - ph - 6) : r.bottom + 6) + 'px';
+    }
+    desigButton.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const show = !desigPanel.classList.contains('show');
+      desigPanel.classList.toggle('show', show);
+      if (show) positionDesigPanel();
+    });
+    desigPanel.addEventListener('change', () => { updateDesigButton(); searchStaff(searchInput.value); });
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('#desigWrap') && !e.target.closest('#desigPanel')) desigPanel.classList.remove('show');
+    });
+
     // Staff search with debounce
     let searchTimeout;
     async function searchStaff(query) {
-      if (!query || query.length < 2) {
+      const desigs = getSelectedDesignations();
+      // Need either 2+ search chars OR one+ chosen designation (to list those designations)
+      if ((!query || query.length < 2) && desigs.length === 0) {
         searchResults.classList.remove('show');
         return;
       }
 
       try {
-        const data = await fetchAPI(`/api/division/cli/staff-for-letter?search=${encodeURIComponent(query)}&staff_type=${state.staffType}`);
+        let url = `/api/division/cli/staff-for-letter?staff_type=${state.staffType}`;
+        if (query && query.length >= 2) url += `&search=${encodeURIComponent(query)}`;
+        if (desigs.length) url += `&designation_id=${encodeURIComponent(desigs.join(','))}`;
+        const data = await fetchAPI(url);
         const staff = data.data || [];
 
         if (staff.length === 0) {
@@ -1182,6 +1341,7 @@
       clearTimeout(searchTimeout);
       searchTimeout = setTimeout(() => searchStaff(e.target.value), 300);
     });
+
 
     // Keep the search box focused while clicking results (tick checkboxes or
     // pick a name) so the blur-reset doesn't close/clear before the click lands.
@@ -1264,8 +1424,8 @@
           `).join('');
         }
 
-        // Auto-hide after 8 seconds
-        setTimeout(() => popup.classList.remove('show'), 8000);
+        // Auto-hide after 4 seconds
+        setTimeout(() => popup.classList.remove('show'), 4000);
       } catch (error) {
         body.innerHTML = '<div class="history-empty">Failed to load history</div>';
       }
@@ -1437,6 +1597,149 @@
       showToast(msg, added ? 'success' : 'error');
     }
 
+    // ---- Withdraw-to-Not-Assigned mode (simple checkbox) ----
+    // When on: "To CLI" is irrelevant (forced to Not Assigned), staff you Add are
+    // collected like normal, and Save withdraws them all as one dated batch (no letter).
+    const NA_SENTINEL = { id: '__NA__', name: 'Not Assigned' };
+    const cliField = document.getElementById('cliField');
+    const withdrawToggle = document.getElementById('withdrawToggle');
+
+    function setWithdrawMode(on) {
+      state.withdrawMode = on;
+      withdrawToggle.classList.toggle('on', on);
+      if (on) {
+        // Force target = Not Assigned; lock the "To CLI" field
+        state.selectedCli = NA_SENTINEL;
+        cliSearchInput.value = 'Not Assigned';
+        cliSearchInput.disabled = true;
+        cliField.classList.add('disabled');
+      } else {
+        state.selectedCli = null;
+        cliSearchInput.value = '';
+        cliSearchInput.disabled = false;
+        cliField.classList.remove('disabled');
+      }
+      renderStagingTray();
+      updateSaveButtonState();
+    }
+
+    withdrawModeInput.addEventListener('change', (e) => setWithdrawMode(e.target.checked));
+
+    // Withdraw all currently-listed staff as one batch (no letter)
+    async function doWithdrawSave() {
+      if (state.changes.length === 0) { showToast('Add the staff to withdraw first', 'error'); return; }
+      const withdraw_date = letterDateInput.value;
+      if (!withdraw_date) { showToast('Please enter a date', 'error'); return; }
+
+      showLoading();
+      try {
+        const data = await fetchAPI('/api/division/cli/withdraw-batch', {
+          method: 'POST',
+          body: JSON.stringify({
+            withdraw_date,
+            staff_hrms_ids: state.changes.map(c => c.staff_hrms_id)
+          })
+        });
+        // Reset the working list for the next batch
+        state.changes = [];
+        state.staged = [];
+        state.isSaved = true;
+        renderChanges();
+        renderStagingTray();
+        updateSaveButtonState();
+        const skipNote = data.skipped ? `, ${data.skipped} already unassigned` : '';
+        showToast(`${data.withdrawn} staff withdrawn → ${data.batch_name}${skipNote}`, 'success');
+      } catch (error) {
+        showToast(error.message || 'Withdrawal failed', 'error');
+      } finally {
+        hideLoading();
+      }
+    }
+
+    // ---- Load a withdrawn batch back into the tray to re-assign CLIs ----
+    async function openBatchModal() {
+      batchModal.classList.add('show');
+      batchListEl.innerHTML = '<div class="modal-sub">Loading…</div>';
+      try {
+        const data = await fetchAPI('/api/division/cli/withdrawal-batches');
+        const batches = data.data || [];
+        if (batches.length === 0) {
+          batchListEl.innerHTML = '<div class="modal-sub">No withdrawn batches. Everyone is assigned.</div>';
+          return;
+        }
+        batchListEl.innerHTML = batches.map(b => `
+          <div class="batch-item" data-date="${b.batch_date}" data-remarks="${(b.batch_name || '').replace(/"/g, '&quot;')}">
+            <div>
+              <div><strong>${b.batch_name || '(no label)'}</strong></div>
+              <div class="batch-meta">Withdrawn ${formatDate(b.batch_date)}</div>
+            </div>
+            <span class="batch-count">${b.staff_count} staff</span>
+          </div>
+        `).join('');
+      } catch (error) {
+        batchListEl.innerHTML = '<div class="modal-sub">Failed to load batches.</div>';
+      }
+    }
+
+    function closeBatchModal() { batchModal.classList.remove('show'); }
+
+    // Build a change row for a returned staff with NO CLI yet (chosen per-row in the table)
+    function makeBatchRow(staff) {
+      const skipCategory = [1, 2, 3, 4].includes(staff.designation_id);
+      return {
+        staff_hrms_id: staff.hrms_id,
+        staff_name: staff.name,
+        mobile: staff.mobile || null,
+        pf_no: staff.current_cms_id,
+        pf_number: staff.pf_number || null,
+        designation_id: staff.designation_id,
+        designation_name: staff.designation_name,
+        depot: staff.current_office_code,
+        category: skipCategory ? '--' : staff.safety_category,
+        old_cli_name: staff.current_cli_name,   // 'Not Assigned'
+        old_cli_id: staff.current_cli_id,
+        new_cli_id: null,                        // <-- set per-row via dropdown
+        new_cli_name: '',
+        new_category: null,
+        proposed_lobby: null,
+        proposed_lobby_name: null,
+        remarks: null
+      };
+    }
+
+    async function loadBatchStaff(date, remarks) {
+      showLoading();
+      try {
+        const url = `/api/division/cli/withdrawal-batch-staff?date=${encodeURIComponent(date)}&remarks=${encodeURIComponent(remarks || '')}`;
+        const data = await fetchAPI(url);
+        const staff = data.data || [];
+        // Loading a batch is for RE-ASSIGNMENT — make sure withdraw mode is off
+        if (state.withdrawMode) { withdrawModeInput.checked = false; setWithdrawMode(false); }
+        // Each staff becomes a row with its own CLI dropdown (different staff → different CLI)
+        let added = 0;
+        staff.forEach(s => {
+          if (!state.changes.some(c => c.staff_hrms_id === s.hrms_id)) { state.changes.push(makeBatchRow(s)); added++; }
+        });
+        state.isSaved = false;
+        closeBatchModal();
+        renderChanges();
+        updateSaveButtonState();
+        showToast(`${added} staff loaded — set each one's CLI, then Save Letter`, 'success');
+      } catch (error) {
+        showToast(error.message || 'Failed to load batch staff', 'error');
+      } finally {
+        hideLoading();
+      }
+    }
+
+    batchListEl.addEventListener('click', (e) => {
+      const item = e.target.closest('.batch-item');
+      if (item) loadBatchStaff(item.dataset.date, item.dataset.remarks);
+    });
+    btnLoadBatch.addEventListener('click', openBatchModal);
+    document.getElementById('btnBatchClose').addEventListener('click', closeBatchModal);
+    batchModal.addEventListener('click', (e) => { if (e.target === batchModal) closeBatchModal(); });
+
     // Remove change (local only - will be deleted from DB on save)
     function removeChange(idx) {
       if (!confirm('Remove this staff from the list?')) return;
@@ -1453,6 +1756,24 @@
       renderChanges();
       updateSaveButtonState();
     }
+
+    // Per-row CLI dropdown (returned batch staff each get their own CLI)
+    function cliOptionsHtml() {
+      return state.cliOptions.map(c => `<option value="${c.cli_id}">${c.cli_name}</option>`).join('');
+    }
+    changeRowsEl.addEventListener('change', (e) => {
+      const sel = e.target.closest('select[data-row-cli]');
+      if (!sel) return;
+      const idx = parseInt(sel.dataset.rowCli);
+      const row = state.changes[idx];
+      if (!row) return;
+      const cli = state.cliOptions.find(c => String(c.cli_id) === sel.value);
+      row.new_cli_id = cli ? cli.cli_id : null;
+      row.new_cli_name = cli ? cli.cli_name : '';
+      state.isSaved = false;
+      renderPreviewTable();   // update letter preview without rebuilding the dropdowns
+      updateSaveButtonState();
+    });
 
     changeRowsEl.addEventListener('click', (e) => {
       const btn = e.target.closest('button[data-idx]');
@@ -1484,8 +1805,9 @@
     // Update save button state based on unsaved changes
     function updateSaveButtonState() {
       const btnSave = document.getElementById('btnSave');
+      const saveLabel = state.withdrawMode ? 'Withdraw &amp; Save' : 'Save Letter';
       if (state.changes.length > 0 && !state.isSaved) {
-        btnSave.innerHTML = '<i class="fa-regular fa-floppy-disk"></i>Save Letter (' + state.changes.length + ')';
+        btnSave.innerHTML = '<i class="fa-regular fa-floppy-disk"></i>' + saveLabel + ' (' + state.changes.length + ')';
         btnSave.style.background = '#fbbf24';
         btnSave.style.color = '#78350f';
         btnSave.style.borderColor = '#f59e0b';
@@ -1495,7 +1817,7 @@
         btnSave.style.color = '#059669';
         btnSave.style.borderColor = '#10b981';
       } else {
-        btnSave.innerHTML = '<i class="fa-regular fa-floppy-disk"></i>Save Letter';
+        btnSave.innerHTML = '<i class="fa-regular fa-floppy-disk"></i>' + saveLabel;
         btnSave.style.background = '';
         btnSave.style.color = '';
         btnSave.style.borderColor = '';
@@ -1521,6 +1843,9 @@
 
     // Save/create letter with all changes
     async function saveLetter() {
+      // Withdrawal mode: no letter — just move the listed staff to Not Assigned
+      if (state.withdrawMode) { return doWithdrawSave(); }
+
       if (!letterDateInput.value) {
         showToast('Please enter letter date', 'error');
         return;
@@ -1528,6 +1853,13 @@
 
       if (state.changes.length === 0 && state.deletedNominationIds.length === 0) {
         showToast('Add at least one staff change', 'error');
+        return;
+      }
+
+      // Every staff must have a CLI chosen (batch rows start with none)
+      const unassigned = state.changes.filter(c => !c.new_cli_id);
+      if (unassigned.length > 0) {
+        showToast(`Select a CLI for ${unassigned.length} staff before saving`, 'error');
         return;
       }
 
@@ -1697,7 +2029,11 @@
             <td>${row.proposed_lobby || '—'}</td>
             <td>${displayCategory(row)}</td>
             <td>${row.old_cli_name || '—'}</td>
-            <td><strong>${row.new_cli_name}</strong></td>
+            <td>${row.new_cli_id
+              ? `<strong>${row.new_cli_name}</strong>`
+              : `<select class="row-cli-select" data-row-cli="${idx}">
+                   <option value="">— select CLI —</option>${cliOptionsHtml()}
+                 </select>`}</td>
             <td>${row.remarks || '—'}</td>
             <td class="actions">
               <button class="icon-btn" data-idx="${idx}" title="Remove">

@@ -844,7 +844,7 @@ router.get('/staff-history/:hrmsId', requireDivisionAdmin, async (req, res) => {
 router.get('/staff-for-letter', requireDivisionAdmin, async (req, res) => {
     const conn = await getConnection(req);
     try {
-        const { staff_type, search, office } = req.query;
+        const { staff_type, search, office, designation_id } = req.query;
 
         let query = `
             SELECT
@@ -887,6 +887,15 @@ router.get('/staff-for-letter', requireDivisionAdmin, async (req, res) => {
             params.push(office);
         }
 
+        // Filter by designation(s) — comma-separated ids (used by bulk withdraw)
+        if (designation_id) {
+            const ids = String(designation_id).split(',').map(x => parseInt(x, 10)).filter(Boolean);
+            if (ids.length) {
+                query += ` AND s.designation_id IN (${ids.map(() => '?').join(',')})`;
+                params.push(...ids);
+            }
+        }
+
         query += ` ORDER BY s.name LIMIT 50`;
 
         const [staff] = await conn.query(query, params);
@@ -896,6 +905,226 @@ router.get('/staff-for-letter', requireDivisionAdmin, async (req, res) => {
     } catch (error) {
         console.error('Error fetching staff for letter:', error);
         res.status(500).json({ error: 'Failed to fetch staff' });
+    } finally {
+        conn.release();
+    }
+});
+
+// ============================================
+// TRAINING WITHDRAWAL BATCHES
+// Bulk-withdraw staff to "Not Assigned" when they leave for a (promotional)
+// course, then reload the same group later to re-assign new CLIs. A "batch"
+// is implicit: staff whose current Not-Assigned nomination shares the same
+// (nominated_from_date, remarks). No extra tables.
+// ============================================
+
+// Resolve the "Not Assigned" CLI id (the single name-tagged unassigned bucket)
+async function getNotAssignedCliId(conn) {
+    const [[na]] = await conn.query(
+        `SELECT cli_id FROM div_cli_master
+         WHERE cli_name = 'Not Assigned' AND cli_hrms_id IS NULL
+         ORDER BY cli_id LIMIT 1`
+    );
+    return na ? na.cli_id : null;
+}
+
+// Next "Training Batch-N" label for a withdrawal date (N = max existing + 1)
+async function nextBatchLabel(conn, naCliId, date) {
+    const [rows] = await conn.query(
+        `SELECT remarks FROM div_cli_nominations
+         WHERE cli_id = ? AND status = 'Active' AND nominated_from_date = ?
+           AND remarks REGEXP '^Training Batch-[0-9]+$'`,
+        [naCliId, date]
+    );
+    let max = 0;
+    for (const r of rows) {
+        const m = /^Training Batch-(\d+)$/.exec(r.remarks || '');
+        if (m) max = Math.max(max, parseInt(m[1], 10));
+    }
+    return `Training Batch-${max + 1}`;
+}
+
+// GET /api/division/cli/next-batch-no?date=YYYY-MM-DD - suggested batch label
+router.get('/next-batch-no', requireDivisionAdmin, async (req, res) => {
+    const conn = await getConnection(req);
+    try {
+        const { date } = req.query;
+        if (!date) return res.status(400).json({ error: 'date is required' });
+        const naCliId = await getNotAssignedCliId(conn);
+        if (!naCliId) return res.status(500).json({ error: '"Not Assigned" CLI not found' });
+        res.json({ success: true, next: await nextBatchLabel(conn, naCliId, date) });
+    } catch (error) {
+        console.error('Error computing next batch no:', error);
+        res.status(500).json({ error: 'Failed to compute batch number' });
+    } finally {
+        conn.release();
+    }
+});
+
+// POST /api/division/cli/withdraw-batch - bulk-withdraw staff to "Not Assigned"
+// Body: { withdraw_date, staff_hrms_ids: [...], remarks? }  (no letter created)
+router.post('/withdraw-batch', requireDivisionAdmin, async (req, res) => {
+    const conn = await getConnection(req);
+    try {
+        const { withdraw_date, staff_hrms_ids, remarks } = req.body;
+        if (!withdraw_date || !Array.isArray(staff_hrms_ids) || staff_hrms_ids.length === 0) {
+            return res.status(400).json({ error: 'withdraw_date and staff_hrms_ids[] are required' });
+        }
+
+        const naCliId = await getNotAssignedCliId(conn);
+        if (!naCliId) return res.status(500).json({ error: '"Not Assigned" CLI not found' });
+
+        const batchLabel = (remarks && remarks.trim())
+            ? remarks.trim()
+            : await nextBatchLabel(conn, naCliId, withdraw_date);
+        const createdBy = req.session.user?.name || req.session.user?.username || 'System';
+
+        await conn.beginTransaction();
+
+        const results = [];
+        const errors = [];
+        for (const hrmsId of staff_hrms_ids) {
+            try {
+                const [[cur]] = await conn.query(
+                    `SELECT nomination_id, cli_id FROM div_cli_nominations
+                     WHERE staff_hrms_id = ? AND status = 'Active'`,
+                    [hrmsId]
+                );
+
+                // Already unassigned — nothing to withdraw
+                if (cur && cur.cli_id === naCliId) {
+                    results.push({ hrms_id: hrmsId, skipped: true, reason: 'already Not Assigned' });
+                    continue;
+                }
+
+                // Expire the current nomination
+                if (cur) {
+                    await conn.query(
+                        `UPDATE div_cli_nominations
+                         SET status = 'Expired', nominated_to_date = DATE_SUB(?, INTERVAL 1 DAY)
+                         WHERE nomination_id = ?`,
+                        [withdraw_date, cur.nomination_id]
+                    );
+                }
+
+                // Insert (or revive) the Not-Assigned nomination — no letter
+                await conn.query(
+                    `INSERT INTO div_cli_nominations
+                     (staff_hrms_id, cli_id, nominated_from_date, status, remarks, created_by, letter_id)
+                     VALUES (?, ?, ?, 'Active', ?, ?, NULL)
+                     ON DUPLICATE KEY UPDATE
+                       status = 'Active',
+                       nominated_to_date = NULL,
+                       remarks = VALUES(remarks),
+                       created_by = VALUES(created_by),
+                       letter_id = NULL`,
+                    [hrmsId, naCliId, withdraw_date, batchLabel, createdBy]
+                );
+
+                await conn.query(
+                    `UPDATE div_staff_master SET current_cli_id = ? WHERE hrms_id = ?`,
+                    [naCliId, hrmsId]
+                );
+
+                results.push({ hrms_id: hrmsId, withdrawn: true });
+            } catch (e) {
+                errors.push({ hrms_id: hrmsId, error: e.message });
+            }
+        }
+
+        await conn.commit();
+
+        res.json({
+            success: true,
+            batch_name: batchLabel,
+            withdraw_date,
+            withdrawn: results.filter(r => r.withdrawn).length,
+            skipped: results.filter(r => r.skipped).length,
+            results,
+            errors
+        });
+    } catch (error) {
+        await conn.rollback();
+        console.error('Error withdrawing batch:', error);
+        res.status(500).json({ error: 'Failed to withdraw batch', details: error.message });
+    } finally {
+        conn.release();
+    }
+});
+
+// GET /api/division/cli/withdrawal-batches - open batches (staff still unassigned)
+router.get('/withdrawal-batches', requireDivisionAdmin, async (req, res) => {
+    const conn = await getConnection(req);
+    try {
+        const naCliId = await getNotAssignedCliId(conn);
+        if (!naCliId) return res.status(500).json({ error: '"Not Assigned" CLI not found' });
+
+        const [batches] = await conn.query(
+            `SELECT
+                DATE_FORMAT(n.nominated_from_date, '%Y-%m-%d') AS batch_date,
+                COALESCE(n.remarks, '') AS batch_name,
+                COUNT(*) AS staff_count
+             FROM div_cli_nominations n
+             WHERE n.cli_id = ? AND n.status = 'Active'
+             GROUP BY n.nominated_from_date, n.remarks
+             ORDER BY n.nominated_from_date DESC, n.remarks`,
+            [naCliId]
+        );
+
+        res.json({ success: true, data: batches });
+    } catch (error) {
+        console.error('Error listing withdrawal batches:', error);
+        res.status(500).json({ error: 'Failed to list batches' });
+    } finally {
+        conn.release();
+    }
+});
+
+// GET /api/division/cli/withdrawal-batch-staff?date=&remarks= - staff in one batch
+router.get('/withdrawal-batch-staff', requireDivisionAdmin, async (req, res) => {
+    const conn = await getConnection(req);
+    try {
+        const { date, remarks } = req.query;
+        if (!date) return res.status(400).json({ error: 'date is required' });
+        const naCliId = await getNotAssignedCliId(conn);
+        if (!naCliId) return res.status(500).json({ error: '"Not Assigned" CLI not found' });
+
+        const noRemarks = (remarks === undefined || remarks === '');
+        const remarksClause = noRemarks
+            ? `AND (n.remarks IS NULL OR n.remarks = '')`
+            : `AND n.remarks = ?`;
+        const params = [naCliId, date];
+        if (!noRemarks) params.push(remarks);
+
+        const [staff] = await conn.query(
+            `SELECT
+                s.hrms_id,
+                s.name,
+                s.current_cms_id,
+                s.pf_number,
+                s.current_office_code,
+                COALESCE(NULLIF(s.cug_number, ''), s.phone_number) as mobile,
+                o.office_name,
+                d.designation_name,
+                s.designation_id,
+                s.safety_category,
+                n.cli_id as current_cli_id,
+                c.cli_name as current_cli_name
+             FROM div_cli_nominations n
+             JOIN div_staff_master s ON n.staff_hrms_id = s.hrms_id
+             JOIN div_cli_master c ON n.cli_id = c.cli_id
+             LEFT JOIN offices o ON s.current_office_code = o.office_code
+             LEFT JOIN designations d ON s.designation_id = d.id
+             WHERE n.cli_id = ? AND n.status = 'Active' AND n.nominated_from_date = ?
+             ${remarksClause}
+             ORDER BY s.name`,
+            params
+        );
+
+        res.json({ success: true, data: staff });
+    } catch (error) {
+        console.error('Error fetching batch staff:', error);
+        res.status(500).json({ error: 'Failed to fetch batch staff' });
     } finally {
         conn.release();
     }
