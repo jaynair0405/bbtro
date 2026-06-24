@@ -66,7 +66,7 @@ async function loadBook(beatCode, providedConn) {
                 r.station_code, r.station_name, r.station_km_text,
                 r.highlight_color, r.text_color, r.icon_type, r.remarks,
                 sg.ri_left_arms, sg.ri_right_arms, sg.route_indicator_notes,
-                sg.is_rhs, sg.is_ext_rhs, sg.on_curve,
+                sg.is_rhs, sg.is_ext_rhs, sg.is_ext_lhs, sg.on_curve,
                 sg.signal_type, sg.signal_function
            FROM div_signal_book_rows r
            LEFT JOIN div_signals sg ON sg.id = r.signal_id
@@ -193,6 +193,9 @@ function descCellHtml(row) {
 
   const rhs = row.is_ext_rhs ? 'Ext RHS' : (row.is_rhs ? 'RHS' : null);
   if (rhs && !/RHS/i.test(text)) parts.push(`<span class="rhs-tag">${rhs}</span>`);
+  // Extreme-left placement flagged too (left is the default side, so only the
+  // unusual "extreme left" is marked — in blue, to distinguish from red RHS).
+  if (row.is_ext_lhs && !/LHS/i.test(text)) parts.push(`<span class="lhs-tag">Ext LHS</span>`);
   return parts.join(' ');
 }
 
@@ -458,6 +461,12 @@ ${rowsHtml}
   .row.signal.red .ri-glyph text { fill: #c2410c; }
   .rhs-tag {
     color: #c2410c;
+    font-weight: 700;
+    font-size: 7.5pt;
+    white-space: nowrap;
+  }
+  .lhs-tag {
+    color: #1d4ed8;
     font-weight: 700;
     font-size: 7.5pt;
     white-space: nowrap;
