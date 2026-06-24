@@ -978,14 +978,18 @@
     function shortDesignation(designation) {
       if (!designation) return '—';
       const d = designation.toLowerCase();
-      if (d.includes('asst') && d.includes('loco') && d.includes('pilot')) return 'ALP';
-      if (d.includes('loco') && d.includes('pilot') && d.includes('goods')) return 'LPG';
-      if (d.includes('loco') && d.includes('pilot') && d.includes('ghat')) return 'LP-GHAT';
-      if (d.includes('loco') && d.includes('pilot') && d.includes('mail')) return 'LPM';
-      if (d.includes('loco') && d.includes('pilot') && d.includes('pass')) return 'LPP';
-      if (d.includes('shunter')) return 'LPS';
-      if (d.includes('motorman')) return 'Motorman';
-      // Return first word or abbreviation if no match
+      const sr = d.includes('senior') || /\bsr\b/.test(d);   // senior prefix → "Sr."
+      const assistant = d.includes('assistant') || d.includes('asst') || d.includes('astt');
+      const locoPilot = d.includes('loco') && d.includes('pilot');
+
+      if (d.includes('motorman')) return 'MM';
+      if (assistant && locoPilot) return sr ? 'Sr.ALP' : 'ALP';
+      if (d.includes('shunter')) return sr ? 'Sr.LPS' : 'LPS';
+      if (locoPilot && d.includes('goods')) return 'LPG';
+      if (locoPilot && d.includes('ghat')) return 'LP Ghat';
+      if (locoPilot && (d.includes('mail') || d.includes('express'))) return 'LPM';
+      if (locoPilot && d.includes('pass')) return 'LPP';
+      // Fallback: keep it compact
       return designation.length > 10 ? designation.substring(0, 8) + '..' : designation;
     }
 
