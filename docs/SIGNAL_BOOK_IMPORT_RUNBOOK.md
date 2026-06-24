@@ -5,6 +5,15 @@ TH, HB, THB, SE, NE, BSU, KHPI, …). Follow this so every section goes in
 consistently. The authoritative state + per-section history is in
 `bbtro_signal_aws_master_plan.md` (§0 coverage tracker + decision log).
 
+## ⚠️ Branch policy (read first)
+**All signal-book / signal-AWS work commits to the `signal-book` branch ONLY — never to
+`master`.** `master` is the deployable line (the server runs `git pull origin master`);
+signal-book work must stay off it until the whole effort is complete and explicitly merged.
+This keeps in-progress data, migrations, render tweaks and any new pages from leaking to
+production. When signal-book is done & verified, merge `signal-book` → `master` and only
+then run the SQL migrations + data imports on the server. Workflow:
+`git checkout signal-book` before doing any work here.
+
 ## 0. Tooling
 - Importer: `node scripts/import-signal-section.js <section.xlsx> --signals <signals.xlsx|csv> [--commit] [--force]`
   - Dry-run without `--commit`. `--force` only to overwrite a `ui`-owned section.
