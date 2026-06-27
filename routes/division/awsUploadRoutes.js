@@ -1296,7 +1296,10 @@ function extractLocation(detail) {
         const station = stationSignalMatch[1];
         const sigNum = stationSignalMatch[2];
         // Only exclude very common English words that appear before "S [number]" in descriptions
-        const excludedWords = ['OF', 'THE', 'AND', 'FOR', 'BUT', 'NOT', 'ALL', 'ONE', 'TWO', 'OUT', 'OUR'];
+        // Common English words AND CMS shorthand that precede "S NN" but are not
+        // stations: AT = preposition "at", NO/NI = "No." (number). Treating them
+        // as a station produced false matches (e.g. "at S-27" -> ATG S-27).
+        const excludedWords = ['OF', 'THE', 'AND', 'FOR', 'BUT', 'NOT', 'ALL', 'ONE', 'TWO', 'OUT', 'OUR', 'AT', 'NO', 'NI'];
         if (!excludedWords.includes(station)) {
             return { raw: `${station} S ${sigNum}`, type: 'SIGNAL' };
         }
@@ -2270,10 +2273,12 @@ router.get('/export-excel', async (req, res) => {
 // to MEDIUM when the lookup is ambiguous so reviewers can disambiguate.
 // Station-abbreviation synonyms: how motormen write a station in the CMS vs the
 // canonical name in div_signals. Applied only to the leading token of an
-// extracted location, so "KALVA S 10" lines up with "KLVA …", "AT S 24" with
-// "ATG …", and "KILE S 3" with "KILLE …" (Kille Cabin). (KE needs no synonym —
-// already the code for Khardi, whose signals are all NE.)
-const STATION_SYNONYMS = { KALVA: 'KLVA', AT: 'ATG', KILE: 'KILLE' };
+// extracted location, so "KALVA S 10" lines up with "KLVA …", "KILE S 3" with
+// "KILLE …" (Kille Cabin), and "AMB S 6" with "ABH …" (Ambernath — confirmed by
+// the train route: AMB trains run the SE corridor, not Ambivli/NE).
+// NB: "AT" is NOT a synonym — it is the preposition "at" and was wrongly mapping
+// to Atgaon; route-aware matching + the parser exclusion handle it now.
+const STATION_SYNONYMS = { KALVA: 'KLVA', KILE: 'KILLE', AMB: 'ABH' };
 
 function normalizeForSignalMatch(text) {
     if (!text) return '';
@@ -2299,6 +2304,39 @@ function normalizeForSignalMatch(text) {
 // Partition-aware: pass { section, line, direction } in `context` to filter
 // candidates to one partition. Without context, ambiguous matches downgrade
 // to MEDIUM confidence so they surface for manual review.
+// Derive the section(s) a train ran, to scope route-aware signal matching.
+// Primary source: the event's own FROM/TO stations (already in the abnormality
+// row). Fallback: the train's start/end stations from the `trains` timetable.
+// Station tokens pass through STATION_SYNONYMS (e.g. AMB -> ABH), so the corridor
+// resolves even when the CMS abbreviation differs from the div_signals code.
+async function routeSectionsForEvent(pool, fromStn, toStn, trainNumber) {
+    const norm = (s) => {
+        const u = (s || '').toString().trim().toUpperCase();
+        return STATION_SYNONYMS[u] || u;
+    };
+    const sectionsFor = async (codes) => {
+        const list = [...new Set(codes.filter(Boolean))];
+        if (!list.length) return [];
+        const [rows] = await pool.query(
+            'SELECT DISTINCT section FROM div_signals WHERE station_code IN (?) AND section IS NOT NULL',
+            [list]
+        );
+        return rows.map((r) => r.section);
+    };
+
+    let sections = await sectionsFor([norm(fromStn), norm(toStn)]);
+    if (!sections.length && trainNumber) {
+        const nt = String(trainNumber).toUpperCase().replace(/[\s/.\-]/g, '');
+        const [legs] = await pool.query(
+            `SELECT start_station, end_station FROM trains
+              WHERE UPPER(REGEXP_REPLACE(train_number,'[[:space:]/.-]','')) = ?`,
+            [nt]
+        );
+        sections = await sectionsFor(legs.flatMap((l) => [norm(l.start_station), norm(l.end_station)]));
+    }
+    return sections;
+}
+
 async function matchSignalFromDb(pool, locationRaw, context = {}) {
     if (!locationRaw) return { signal_id: null, signal_number: null, confidence: null };
 
@@ -2312,9 +2350,25 @@ async function matchSignalFromDb(pool, locationRaw, context = {}) {
     if (context.direction) { partitionClauses.push('s.direction = ?'); partitionParams.push(context.direction); }
     const partitionSql = partitionClauses.length ? ` AND ${partitionClauses.join(' AND ')}` : '';
 
-    // 1. Exact match on normalized_alias — HIGH if unique, MEDIUM if ambiguous
+    // Route-aware disambiguation: when a signal number exists in more than one
+    // section (e.g. RVJ S-7 in VDLR-GMN and CSMT-PNVL), prefer the candidate in
+    // the section(s) the train actually ran (context.sections, derived from the
+    // event's FROM/TO stations + train route). A unique in-route hit is HIGH; a
+    // remaining tie is MEDIUM.
+    const routeSecs = Array.isArray(context.sections) && context.sections.length ? context.sections : null;
+    const pickByRoute = (hits) => {
+        if (!hits.length) return null;
+        if (routeSecs && hits.length > 1) {
+            const inRoute = hits.filter((h) => routeSecs.includes(h.section));
+            if (inRoute.length === 1) return { row: inRoute[0], confidence: 'HIGH' };
+            if (inRoute.length > 1)  return { row: inRoute[0], confidence: 'MEDIUM' };
+        }
+        return { row: hits[0], confidence: hits.length > 1 ? 'MEDIUM' : 'HIGH' };
+    };
+
+    // 1. Exact match on normalized_alias
     const [aliasHits] = await pool.query(
-        `SELECT a.signal_id, s.signal_number, s.section, s.\`line\`, s.direction
+        `SELECT a.signal_id, s.signal_number, s.section
          FROM div_signal_aliases a
          JOIN div_signals s ON s.id = a.signal_id
          WHERE a.normalized_alias = ?
@@ -2323,18 +2377,14 @@ async function matchSignalFromDb(pool, locationRaw, context = {}) {
          LIMIT 5`,
         [normalized, ...partitionParams]
     );
-
-    if (aliasHits.length > 0) {
-        return {
-            signal_id: aliasHits[0].signal_id,
-            signal_number: aliasHits[0].signal_number,
-            confidence: aliasHits.length > 1 ? 'MEDIUM' : 'HIGH'
-        };
+    const aliasPick = pickByRoute(aliasHits);
+    if (aliasPick) {
+        return { signal_id: aliasPick.row.signal_id, signal_number: aliasPick.row.signal_number, confidence: aliasPick.confidence };
     }
 
-    // 2. Exact match on normalized_signal_number — HIGH if unique, MEDIUM if ambiguous
+    // 2. Exact match on normalized_signal_number
     const [directHits] = await pool.query(
-        `SELECT s.id, s.signal_number
+        `SELECT s.id AS signal_id, s.signal_number, s.section
          FROM div_signals s
          WHERE s.normalized_signal_number = ?
            AND s.is_active = 1
@@ -2342,13 +2392,17 @@ async function matchSignalFromDb(pool, locationRaw, context = {}) {
          LIMIT 5`,
         [normalized, ...partitionParams]
     );
+    const directPick = pickByRoute(directHits);
+    if (directPick) {
+        return { signal_id: directPick.row.signal_id, signal_number: directPick.row.signal_number, confidence: directPick.confidence };
+    }
 
-    if (directHits.length > 0) {
-        return {
-            signal_id: directHits[0].id,
-            signal_number: directHits[0].signal_number,
-            confidence: directHits.length > 1 ? 'MEDIUM' : 'HIGH'
-        };
+    // Station-less signal refs ("S 24", "SH 59" — no station prefix) cannot be
+    // uniquely resolved: every station has an S-24. The fuzzy tiers below would
+    // LIKE-match an arbitrary signal ending in those digits (e.g. "S 24" ->
+    // "STC A-924"), so stop here and leave it for route/CLI review.
+    if (/^S[H]?\d+$/.test(normalized)) {
+        return { signal_id: null, signal_number: null, confidence: null };
     }
 
     // 3. Partial match - try with LIKE pattern (MEDIUM confidence)
@@ -3168,3 +3222,4 @@ module.exports.extractAwsCode = extractAwsCode;
 module.exports.extractLocation = extractLocation;
 module.exports.matchSignalFromDb = matchSignalFromDb;
 module.exports.normalizeForSignalMatch = normalizeForSignalMatch;
+module.exports.routeSectionsForEvent = routeSectionsForEvent;

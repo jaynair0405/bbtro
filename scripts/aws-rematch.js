@@ -10,7 +10,7 @@
 
 require('dotenv').config();
 const mysql = require('mysql2/promise');
-const { matchSignalFromDb, normalizeForSignalMatch } = require('../routes/division/awsUploadRoutes');
+const { matchSignalFromDb, normalizeForSignalMatch, routeSectionsForEvent } = require('../routes/division/awsUploadRoutes');
 
 const commit = process.argv.includes('--commit');
 
@@ -24,15 +24,18 @@ async function main() {
   });
 
   try {
+    // Pull FROM/TO stations + train so the matcher can scope by route.
     const [events] = await conn.query(
-      `SELECT id, location_raw FROM div_aws_events
-       WHERE location_type = 'SIGNAL' AND location_raw IS NOT NULL AND location_raw <> '' AND signal_id IS NULL`
+      `SELECT e.id, e.location_raw, e.train_number, r.from_station, r.to_station
+       FROM div_aws_events e LEFT JOIN div_aws_cms_raw r ON r.id = e.raw_id
+       WHERE e.location_type = 'SIGNAL' AND e.location_raw IS NOT NULL AND e.location_raw <> '' AND e.signal_id IS NULL`
     );
 
     const hits = [];
     for (const ev of events) {
-      const m = await matchSignalFromDb(conn, ev.location_raw);
-      if (m.signal_id) hits.push({ id: ev.id, location_raw: ev.location_raw, signal: m.signal_number, conf: m.confidence });
+      const sections = await routeSectionsForEvent(conn, ev.from_station, ev.to_station, ev.train_number);
+      const m = await matchSignalFromDb(conn, ev.location_raw, { sections });
+      if (m.signal_id) hits.push({ id: ev.id, location_raw: ev.location_raw, signal: m.signal_number, conf: m.confidence, signal_id: m.signal_id });
     }
 
     console.log(`Unmatched signal events : ${events.length}`);
@@ -44,10 +47,9 @@ async function main() {
       return;
     }
     for (const h of hits) {
-      const m = await matchSignalFromDb(conn, h.location_raw);
       await conn.query(
         `UPDATE div_aws_events SET signal_id = ?, signal_match_confidence = ?, normalized_location = ? WHERE id = ? AND signal_id IS NULL`,
-        [m.signal_id, m.confidence, normalizeForSignalMatch(h.location_raw), h.id]
+        [h.signal_id, h.conf, normalizeForSignalMatch(h.location_raw), h.id]
       );
     }
     console.log(`\nUpdated ${hits.length} events.`);
