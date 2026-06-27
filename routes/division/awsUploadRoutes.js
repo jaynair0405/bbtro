@@ -2269,11 +2269,11 @@ router.get('/export-excel', async (req, res) => {
 // (section,line,direction) partitions. matchSignalFromDb downgrades confidence
 // to MEDIUM when the lookup is ambiguous so reviewers can disambiguate.
 // Station-abbreviation synonyms: how motormen write a station in the CMS vs the
-// canonical station_code in div_signals. Applied only to the leading token of an
-// extracted location, so "KALVA S 10" lines up with the loaded "KLVA …" signals
-// and "AT S 24" with "ATG …". (KE needs no synonym — it is already the code for
-// Khardi, whose signals are all NE.)
-const STATION_SYNONYMS = { KALVA: 'KLVA', AT: 'ATG' };
+// canonical name in div_signals. Applied only to the leading token of an
+// extracted location, so "KALVA S 10" lines up with "KLVA …", "AT S 24" with
+// "ATG …", and "KILE S 3" with "KILLE …" (Kille Cabin). (KE needs no synonym —
+// already the code for Khardi, whose signals are all NE.)
+const STATION_SYNONYMS = { KALVA: 'KLVA', AT: 'ATG', KILE: 'KILLE' };
 
 function normalizeForSignalMatch(text) {
     if (!text) return '';
