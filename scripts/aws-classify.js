@@ -156,13 +156,17 @@ async function main() {
       }
     }
 
-    // Rule 2
+    // Rule 2 — count by magnet_id (physical magnet), not raw signal_id, so a
+    // junction signal stored as several per-section rows isn't split.
     const [rule2Res] = await conn.execute(
-      `UPDATE div_aws_events e JOIN (
-          SELECT signal_id, abn_date FROM div_aws_events
-          WHERE abn_date BETWEEN ? AND ? AND signal_id IS NOT NULL
-          GROUP BY signal_id, abn_date HAVING COUNT(*) > 2
-       ) flagged ON flagged.signal_id=e.signal_id AND flagged.abn_date=e.abn_date
+      `UPDATE div_aws_events e
+       JOIN div_signals es ON es.id=e.signal_id
+       JOIN (
+          SELECT ds.magnet_id AS mid, ev.abn_date AS d
+          FROM div_aws_events ev JOIN div_signals ds ON ds.id=ev.signal_id
+          WHERE ev.abn_date BETWEEN ? AND ? AND ev.signal_id IS NOT NULL
+          GROUP BY ds.magnet_id, ev.abn_date HAVING COUNT(*) > 2
+       ) flagged ON flagged.mid=es.magnet_id AND flagged.d=e.abn_date
        SET e.responsibility='S&T', e.root_cause='JPO Rule 2: >2/day on same signal'
        WHERE e.abn_date BETWEEN ? AND ? AND e.signal_id IS NOT NULL AND e.responsibility='NOT_DETERMINED'`,
       [from, to, from, to]);
@@ -171,13 +175,16 @@ async function main() {
     // Mon–Sun. Map each date to the Friday that starts its week.
     const fridayWeek = (col) => `DATE_SUB(${col}, INTERVAL ((DAYOFWEEK(${col}) + 1) % 7) DAY)`;
 
-    // Rule 3b
+    // Rule 3b — count by magnet_id per Fri–Thu week.
     const [rule3bRes] = await conn.execute(
-      `UPDATE div_aws_events e JOIN (
-          SELECT signal_id, ${fridayWeek('abn_date')} AS wk FROM div_aws_events
-          WHERE abn_date BETWEEN ? AND ? AND signal_id IS NOT NULL AND responsibility='NOT_DETERMINED'
-          GROUP BY signal_id, ${fridayWeek('abn_date')} HAVING COUNT(*) >= 3
-       ) flagged ON flagged.signal_id=e.signal_id AND ${fridayWeek('e.abn_date')}=flagged.wk
+      `UPDATE div_aws_events e
+       JOIN div_signals es ON es.id=e.signal_id
+       JOIN (
+          SELECT ds.magnet_id AS mid, ${fridayWeek('ev.abn_date')} AS wk
+          FROM div_aws_events ev JOIN div_signals ds ON ds.id=ev.signal_id
+          WHERE ev.abn_date BETWEEN ? AND ? AND ev.signal_id IS NOT NULL AND ev.responsibility='NOT_DETERMINED'
+          GROUP BY ds.magnet_id, ${fridayWeek('ev.abn_date')} HAVING COUNT(*) >= 3
+       ) flagged ON flagged.mid=es.magnet_id AND ${fridayWeek('e.abn_date')}=flagged.wk
        SET e.responsibility='S&T', e.root_cause='JPO Rule 3b: >=3/week on same magnet'
        WHERE e.abn_date BETWEEN ? AND ? AND e.signal_id IS NOT NULL AND e.responsibility='NOT_DETERMINED'`,
       [from, to, from, to]);
