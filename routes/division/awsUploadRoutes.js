@@ -786,6 +786,45 @@ router.post('/upload', upload.single('file'), async (req, res) => {
             console.log(`[AWS Auto-Parse] ${parsedCount} events created, ${needsReviewCount} need review, ${skippedDupCount} re-log duplicates skipped`);
         }
 
+        // ── Auto-match the just-parsed events (signals + rakes) ──
+        // So the operator only uploads — no separate Match Signals / Match Rakes
+        // click per file. (Classify stays a per-period action, run at review.)
+        let autoMatchedSignals = 0, autoMatchedRakes = 0;
+        const [newEvents] = await conn.query(
+            `SELECT e.id, e.location_raw, e.location_type, e.train_number, e.loco_raw,
+                    r.from_station, r.to_station
+             FROM div_aws_events e
+             JOIN div_aws_cms_raw r ON r.id = e.raw_id
+             WHERE r.upload_id = ? AND (e.signal_id IS NULL OR e.matched_rake_id IS NULL)`,
+            [uploadId]
+        );
+        for (const ev of newEvents) {
+            if (ev.location_type === 'SIGNAL' && ev.location_raw) {
+                const sections = await routeSectionsForEvent(conn, ev.from_station, ev.to_station, ev.train_number);
+                const sm = await matchSignalFromDb(conn, ev.location_raw, { sections });
+                if (sm.signal_id) {
+                    await conn.query(
+                        `UPDATE div_aws_events SET signal_id = ?, signal_match_confidence = ?, normalized_location = ?
+                         WHERE id = ? AND signal_id IS NULL`,
+                        [sm.signal_id, sm.confidence, normalizeForSignalMatch(ev.location_raw), ev.id]
+                    );
+                    autoMatchedSignals++;
+                }
+            }
+            if (ev.loco_raw) {
+                const rm = await matchRakeFromDb(conn, ev.loco_raw);
+                if (rm.rake_id) {
+                    await conn.query(
+                        `UPDATE div_aws_events SET matched_coach_id = ?, matched_rake_id = ?
+                         WHERE id = ? AND matched_rake_id IS NULL`,
+                        [rm.coach_id, rm.rake_id, ev.id]
+                    );
+                    autoMatchedRakes++;
+                }
+            }
+        }
+        console.log(`[AWS Upload] Auto-matched ${autoMatchedSignals} signals, ${autoMatchedRakes} rakes`);
+
         // Cleanup
         fs.unlinkSync(filePath);
         conn.release();
@@ -807,6 +846,8 @@ router.post('/upload', upload.single('file'), async (req, res) => {
             events_created: parsedCount,
             events_need_review: needsReviewCount,
             events_auto_approved: parsedCount - needsReviewCount,
+            auto_matched_signals: autoMatchedSignals,
+            auto_matched_rakes: autoMatchedRakes,
         });
 
     } catch (err) {
