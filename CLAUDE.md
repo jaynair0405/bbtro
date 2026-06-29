@@ -129,3 +129,33 @@ CREATE TABLE motormen_new AS SELECT * FROM motormen;
 DROP VIEW motormen;
 RENAME TABLE motormen_new TO motormen;
 ```
+
+## Git Workflow (branch-per-module)
+
+`master` is the always-deployable trunk (it deploys to the server). Several modules
+are built in parallel at different readiness levels (AWS, loco-link, signal-book,
+control-office, training-letter, transfer-letter). Keep them from tangling:
+
+- **master** = ready/deployable work only. Quick fixes and finished modules land here.
+- **One branch per incomplete module**, branched off master: `feature/<module>`
+  (e.g. `feature/signal-book`, `feature/training-letter`, `feature/control-office`).
+
+### Rules
+1. **One module per branch.** Before every commit, check `git branch --show-current`
+   matches the module you're editing — switch first if not. Never mix modules in one branch.
+2. **Push with plain `git push`** (repo is set to `push.default=current`, so it pushes the
+   CURRENT branch). NEVER run `git push origin master` from a feature branch — it silently
+   pushes an unchanged master and strands your commits.
+3. **Sync regularly:** on a feature branch run `git fetch && git rebase origin/master`.
+   Rebase auto-drops commits already on master (patch-id), keeping the branch = "master + my WIP".
+4. **Ship a module:** rebase it on master → `git checkout master && git merge --ff-only
+   feature/<module>` → `git push` → deploy → delete the branch.
+5. Per-module DB changes: dated `sql/` files travel on the module's branch and deploy on merge
+   (every DDL goes into a dated sql/ file).
+
+### Repo git config (already set)
+`push.default=current`, `pull.rebase=true`, `branch.autoSetupRebase=always`, `rerere.enabled=true`.
+
+### Cleaning a branch that picked up other modules' commits
+`git cherry -v master <branch>` lists unique (`+`) vs already-on-master (`-`) commits;
+`git rebase origin/master` then drops the duplicates automatically.
