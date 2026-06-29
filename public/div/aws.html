@@ -941,6 +941,37 @@
         transBody.appendChild(tr);
       });
 
+      // UD (un-determined) cases — auto-seeded review queue; rows stay editable.
+      const udBody = document.getElementById("udBody");
+      udBody.innerHTML = '';
+      (data.ud_cases || []).forEach((u, idx) => {
+        let dateVal = '';
+        if (u.abn_date) {
+          const d = new Date(u.abn_date);
+          dateVal = `${String(d.getDate()).padStart(2,'0')}-${String(d.getMonth()+1).padStart(2,'0')}-${d.getFullYear()}`;
+        }
+        let reason = 'Needs review';
+        if (u.signal_id == null && u.location_type === 'SIGNAL') reason = 'Signal not matched';
+        else if (!u.aws_code) reason = 'No AWS code parsed';
+        else if (u.signal_match_confidence === 'MEDIUM') reason = 'Low-confidence match';
+        else if (!u.responsibility || u.responsibility === 'NOT_DETERMINED') reason = 'Not classified';
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${idx + 1}</td>
+          <td><input class="form-control form-control-sm dynamic-date" type="text" value="${dateVal}" /></td>
+          <td><input class="form-control form-control-sm" value="${escapeHtml(u.train_number)}" /></td>
+          <td><input class="form-control form-control-sm" value="" /></td>
+          <td><input class="form-control form-control-sm" value="${escapeHtml(u.loco_raw)}" /></td>
+          <td><input class="form-control form-control-sm" value="${escapeHtml(u.aws_code)}" /></td>
+          <td><input class="form-control form-control-sm" value="${escapeHtml(u.location_raw)}" /></td>
+          <td><textarea class="form-control form-control-sm" rows="1">${escapeHtml(u.analysis_text)}</textarea></td>
+          <td><input class="form-control form-control-sm" value="${escapeHtml(reason)}" /></td>
+          <td><input class="form-control form-control-sm" value="${escapeHtml(u.responsibility)}" /></td>
+          <td><input class="form-control form-control-sm" value="" /></td>
+        `;
+        udBody.appendChild(tr);
+      });
+
       // Initialize flatpickr on dynamically added date inputs
       initDynamicDatepickers();
 

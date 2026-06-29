@@ -1819,6 +1819,30 @@ router.get('/report-data', async (req, res) => {
             dateParams
         );
 
+        // 5b. UD (un-determined) cases — events the auto-rules couldn't settle and
+        // that need a human decision: flagged for manual review, an unmatched
+        // signal location, or still NOT_DETERMINED. Seeds the UD worksheet so the
+        // CLI starts from a real list (rows stay editable; +Add Row still works).
+        const [udCases] = await pool.query(
+            `SELECT
+                e.id, e.abn_date, e.train_number, e.loco_raw, e.aws_code,
+                e.location_raw, e.location_type, e.analysis_text,
+                e.responsibility, e.needs_manual_review,
+                e.signal_match_confidence, e.signal_id,
+                r.from_station, r.to_station
+             FROM div_aws_events e
+             LEFT JOIN div_aws_cms_raw r ON r.id = e.raw_id
+             WHERE (
+                e.needs_manual_review = 1
+                OR e.responsibility = 'NOT_DETERMINED' OR e.responsibility IS NULL
+                OR (e.signal_id IS NULL AND e.location_type = 'SIGNAL')
+             )
+               ${dateFilter}
+             ORDER BY e.abn_date DESC, e.id DESC
+             LIMIT 100`,
+            dateParams
+        );
+
         // 6. Section-wise breakdown using div_sub_sections master
         const [sectionWise] = await pool.query(
             `WITH event_section AS (
@@ -1923,6 +1947,7 @@ router.get('/report-data', async (req, res) => {
             repeated_signals: repeatedSignals,
             repeated_cabs: repeatedCabs,
             transient_cases: transientCases,
+            ud_cases: udCases,
             section_wise: sectionWise,
             persistent_magnets: persistentMagnets,
             potential_duplicates: potentialDuplicates,
