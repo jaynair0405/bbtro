@@ -995,6 +995,18 @@
             </p>
             <div class="row2">
                 <div>
+                    <label>Sheet *</label>
+                    <select id="fl_sheet_source" onchange="onLinkSheetChange()"></select>
+                    <div class="hint">Moving this changes which daily sheet the train appears on.</div>
+                </div>
+                <div>
+                    <label>Direction</label>
+                    <input type="text" id="fl_direction" readonly>
+                    <div class="hint">Auto-set from the sheet.</div>
+                </div>
+            </div>
+            <div class="row2">
+                <div>
                     <label>Takeover / Origin Station</label>
                     <input type="text" id="fl_from_station" maxlength="10" placeholder="LNL / IGP / ROHA / CSMT…">
                     <div class="hint">UP sheets: takeover station (LNL=SE, IGP=NE, ROHA=KR). DN sheets: origin terminal (CSMT, LTT). This is where the event time refers to.</div>
@@ -2007,12 +2019,23 @@ function renderLinks() {
     };
 }
 
+// Standard daily sheets offered when moving a link. The row's current sheet is
+// always added (covers BYPASS-* variants not in this list) so it's never lost.
+const LINK_SHEETS = ['CSMT-UP','CSMT-DN','LTT-UP','LTT-DN','PNVL-UP','PNVL-DN','KR-UP','KR-DN','BYPASS'];
+function onLinkSheetChange() {
+    $('#fl_direction').value = directionFromSheet($('#fl_sheet_source').value) || '';
+}
 let editingLinkId = null;
 function openLinkModal(row) {
     if (!row) return;
     editingLinkId = row.id;
     $('#linkModalTrain').textContent = `${row.train_no}${row.train_name ? ' — ' + row.train_name : ''}`;
     $('#linkModalSheet').textContent = row.sheet_source;
+    // Build the Sheet dropdown, ensuring the current sheet is present + selected
+    const sheets = LINK_SHEETS.includes(row.sheet_source) ? LINK_SHEETS : [row.sheet_source, ...LINK_SHEETS];
+    $('#fl_sheet_source').innerHTML = sheets.map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join('');
+    $('#fl_sheet_source').value = row.sheet_source || '';
+    $('#fl_direction').value = directionFromSheet(row.sheet_source) || row.direction || '';
     $('#fl_from_station').value        = row.from_station || '';
     $('#fl_shed_code').value           = row.shed_code || '';
     $('#fl_link_attr').value           = row.link_attr || '';
@@ -2030,7 +2053,10 @@ function closeLinkModal() {
 }
 async function saveLink() {
     if (!editingLinkId) return;
+    const sheet = $('#fl_sheet_source').value;
     const body = {
+        sheet_source: sheet,
+        direction: directionFromSheet(sheet),   // sheet drives direction; keeps the row consistent
         from_station: $('#fl_from_station').value.trim().toUpperCase() || null,
         shed_code: $('#fl_shed_code').value || null,
         link_attr: $('#fl_link_attr').value.trim() || null,
