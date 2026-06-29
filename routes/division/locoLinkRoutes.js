@@ -3294,8 +3294,13 @@ router.put('/sheds/:shed_code', requireSettingsRole, async (req, res) => {
 // dedicated endpoints below; this section is for the regular timetable rows.
 // ═══════════════════════════════════════════════════════════════════════════
 
-// Fields admin/ctlc may edit on a master link entry
+// Fields admin/ctlc may edit on a master link entry.
+// sheet_source + direction are editable so a train can be moved between sheets
+// (e.g. PNVL-UP ↔ PNVL-DN) from the Trains modal — these drive which daily
+// sheet the train appears on. They must stay mutually consistent (the frontend
+// derives direction from the chosen sheet).
 const MASTER_EDITABLE_FIELDS = [
+    'sheet_source', 'direction',
     'from_station', 'to_station',
     'shed_code', 'link_attr', 'expected_loco_type',
     'accepted_loco_types', 'rake_type', 'expected_hog',
@@ -3410,6 +3415,19 @@ router.put('/master/:id', requireSettingsRole, async (req, res) => {
     // Normalize booleans for tinyint cols
     if ('expected_hog' in fields) fields.expected_hog = fields.expected_hog ? 1 : 0;
     if ('is_push_pull' in fields) fields.is_push_pull = fields.is_push_pull ? 1 : 0;
+    // Validate sheet/direction when moving a train between sheets
+    if ('direction' in fields) {
+        fields.direction = String(fields.direction || '').trim().toUpperCase();
+        if (!['UP', 'DN', 'BYPASS'].includes(fields.direction)) {
+            return res.status(400).json({ error: 'direction must be UP, DN or BYPASS' });
+        }
+    }
+    if ('sheet_source' in fields) {
+        fields.sheet_source = String(fields.sheet_source || '').trim();
+        if (!fields.sheet_source) {
+            return res.status(400).json({ error: 'sheet_source cannot be blank' });
+        }
+    }
 
     try {
         const pool = req.app.locals.pool;
@@ -3418,10 +3436,21 @@ router.put('/master/:id', requireSettingsRole, async (req, res) => {
             `UPDATE div_loco_link_master SET ${sets} WHERE id = ?`,
             [...Object.values(fields), id]
         );
-        if (!r.affectedRows) return res.status(404).json({ error: 'link master row not found' });
+        if (!r.affectedRows) {
+            // affectedRows is 0 either when the id doesn't exist or the values
+            // were identical; distinguish so a no-op edit doesn't 404.
+            const [exists] = await pool.query('SELECT id FROM div_loco_link_master WHERE id = ?', [id]);
+            if (!exists.length) return res.status(404).json({ error: 'link master row not found' });
+        }
         const [updated] = await pool.query('SELECT * FROM div_loco_link_master WHERE id = ?', [id]);
         res.json({ ok: true, master: updated[0] });
     } catch (err) {
+        if (err && err.code === 'ER_DUP_ENTRY') {
+            return res.status(409).json({
+                error: 'Another link already exists for this train in that direction and origin',
+                hint: 'A train can have only one link per (direction, origin station). Check the other sheet.',
+            });
+        }
         console.error('[loco-link PUT /master/:id]', err);
         res.status(500).json({ error: 'Failed to update link master row' });
     }

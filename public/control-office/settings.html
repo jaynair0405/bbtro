@@ -1077,6 +1077,16 @@ const $ = sel => document.querySelector(sel);
 const $$ = sel => Array.from(document.querySelectorAll(sel));
 const API = '/api/division/loco-link';
 
+// A sheet name implies its direction: PNVL-UP → UP, PNVL-DN → DN, BYPASS* → BYPASS.
+function directionFromSheet(sheet) {
+    const s = String(sheet || '').trim().toUpperCase();
+    if (!s) return null;
+    if (s.startsWith('BYPASS')) return 'BYPASS';
+    if (s.endsWith('-UP')) return 'UP';
+    if (s.endsWith('-DN')) return 'DN';
+    return null;
+}
+
 // ── Date helpers ──────────────────────────────────────────────────────────
 // Server returns DATE columns as ISO strings like "2026-03-31T18:30:00.000Z"
 // (IST midnight in UTC). Use local accessors to recover the calendar date.
@@ -1631,6 +1641,12 @@ async function openTrainModal(train) {
             } else if (matches.length === 1) {
                 const lk = matches[0];
                 editingTrainLinkId = lk.id;
+                // The link row drives the daily sheet, so show its direction as
+                // the train's direction (avoids the modal showing DN while the
+                // sheet/SQL says UP). div_trains.direction gets re-synced on save.
+                if (lk.direction && ['UP', 'DN'].includes(lk.direction)) {
+                    $('#ft_direction').value = lk.direction;
+                }
                 $('#ft_link_sheet_source').value         = lk.sheet_source || '';
                 $('#ft_link_from_station').value         = lk.from_station || '';
                 $('#ft_link_event_time').value           = lk.event_time || '';
@@ -1723,6 +1739,16 @@ async function saveTrain() {
                 expected_hog: parseInt($('#ft_link_expected_hog').value, 10) ? 1 : 0,
                 is_push_pull: parseInt($('#ft_link_is_push_pull').value, 10) ? 1 : 0,
             };
+            // The sheet decides the direction (PNVL-UP → UP, PNVL-DN → DN,
+            // BYPASS* → BYPASS). Send it so moving the train between sheets also
+            // moves it on the daily sheet and keeps the link self-consistent.
+            const dirFromSheet = directionFromSheet(linkSheet);
+            if (dirFromSheet) {
+                linkPayload.direction = dirFromSheet;
+                // Keep the train master's direction in sync (UP/DN only; the
+                // div_trains.direction enum doesn't carry BYPASS).
+                if (dirFromSheet !== 'BYPASS') body.direction = dirFromSheet;
+            }
         }
     }
     // For Add, embed link into body so backend creates everything together
