@@ -6,144 +6,396 @@
     <title>Documents - Central Railway BB Division</title>
     <link rel="stylesheet" href="/div/css/division-main.css">
     <style>
-        .documents-container {
-            padding: 24px;
-            max-width: 1200px;
-        }
-        .page-header {
-            margin-bottom: 24px;
-        }
-        .page-title {
-            font-size: 24px;
-            font-weight: 600;
-            color: #1e293b;
-            margin: 0 0 8px 0;
-        }
-        .page-subtitle {
-            color: #64748b;
-            font-size: 14px;
-        }
-        .documents-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-            gap: 20px;
-        }
-        .document-card {
-            background: white;
-            border-radius: 12px;
-            padding: 24px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            border: 1px solid #e2e8f0;
-            transition: all 0.2s ease;
-            cursor: pointer;
-            text-decoration: none;
-            display: block;
-        }
-        .document-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            border-color: #3b82f6;
-        }
-        .document-icon {
-            width: 48px;
-            height: 48px;
-            background: #fee2e2;
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 24px;
-            margin-bottom: 16px;
-        }
-        .document-icon.presentation {
-            background: #fef3c7;
-        }
-        .document-icon.brochure {
-            background: #dbeafe;
-        }
-        .document-title {
-            font-size: 16px;
-            font-weight: 600;
-            color: #1e293b;
-            margin-bottom: 8px;
-        }
-        .document-description {
-            font-size: 13px;
-            color: #64748b;
-            line-height: 1.5;
-        }
-        .document-meta {
-            margin-top: 12px;
-            padding-top: 12px;
-            border-top: 1px solid #f1f5f9;
-            font-size: 12px;
-            color: #94a3b8;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-        .back-link {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            color: #3b82f6;
-            text-decoration: none;
-            font-size: 14px;
-            margin-bottom: 20px;
-        }
-        .back-link:hover {
-            text-decoration: underline;
-        }
+        * { box-sizing: border-box; }
+        body { margin: 0; background: #f1f5f9; color: #1e293b;
+               font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+
+        .docs-page { display: flex; min-height: 100vh; }
+
+        /* Category rail */
+        .docs-rail { width: 240px; background: #fff; border-right: 1px solid #e2e8f0;
+                     padding: 20px 12px; flex-shrink: 0; }
+        .rail-back { display: inline-flex; align-items: center; gap: 6px; color: #3b82f6;
+                     text-decoration: none; font-size: 13px; margin: 0 8px 18px; }
+        .rail-back:hover { text-decoration: underline; }
+        .rail-title { font-size: 12px; text-transform: uppercase; letter-spacing: .04em;
+                      color: #94a3b8; margin: 0 8px 10px; font-weight: 600; }
+        .cat-link { display: flex; align-items: center; gap: 10px; width: 100%; border: none;
+                    background: none; text-align: left; padding: 10px 12px; border-radius: 8px;
+                    font-size: 14px; color: #334155; cursor: pointer; }
+        .cat-link:hover { background: #f1f5f9; }
+        .cat-link.active { background: #eff6ff; color: #1d4ed8; font-weight: 600; }
+        .cat-link .icon { font-size: 18px; }
+
+        /* Main */
+        .docs-main { flex: 1; padding: 28px 36px; max-width: 1100px; }
+        .docs-head { display: flex; align-items: center; justify-content: space-between;
+                     margin-bottom: 24px; }
+        .page-title { font-size: 22px; font-weight: 600; margin: 0; }
+        .page-subtitle { color: #64748b; font-size: 13px; margin-top: 4px; }
+        .btn { border: none; border-radius: 8px; padding: 10px 16px; font-size: 14px;
+               cursor: pointer; font-weight: 500; }
+        .btn-primary { background: #2563eb; color: #fff; }
+        .btn-primary:hover { background: #1d4ed8; }
+        .btn-ghost { background: #f1f5f9; color: #334155; }
+        .btn-ghost:hover { background: #e2e8f0; }
+
+        /* Card grid (flat lists) */
+        .docs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+                     gap: 18px; }
+        .doc-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px;
+                    position: relative; }
+        .doc-card .ficon { width: 42px; height: 42px; border-radius: 10px; background: #dbeafe;
+                           display: flex; align-items: center; justify-content: center;
+                           font-size: 20px; margin-bottom: 14px; }
+        .doc-card .dtitle { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+        .doc-card .ddesc { font-size: 13px; color: #64748b; line-height: 1.5; }
+        .doc-card .dmeta { margin-top: 12px; padding-top: 10px; border-top: 1px solid #f1f5f9;
+                           font-size: 12px; color: #94a3b8; display: flex; gap: 8px; flex-wrap: wrap; }
+        .doc-actions { display: flex; gap: 8px; margin-top: 12px; }
+        .link-btn { font-size: 13px; color: #2563eb; background: none; border: none;
+                    cursor: pointer; padding: 0; }
+        .link-btn.danger { color: #dc2626; }
+        .link-btn:hover { text-decoration: underline; }
+
+        /* Tree view */
+        .tree-node { margin-bottom: 4px; }
+        .tree-toggle { display: flex; align-items: center; gap: 8px; cursor: pointer;
+                       padding: 8px 10px; border-radius: 8px; font-size: 14px; user-select: none; }
+        .tree-toggle:hover { background: #fff; }
+        .tree-toggle .caret { transition: transform .15s; color: #94a3b8; font-size: 12px; }
+        .tree-toggle.open .caret { transform: rotate(90deg); }
+        .tree-year { font-weight: 600; }
+        .tree-children { margin-left: 18px; display: none; }
+        .tree-children.open { display: block; }
+        .tree-count { color: #94a3b8; font-size: 12px; font-weight: 400; }
+        .tree-leaf { display: flex; align-items: center; gap: 10px; padding: 8px 10px;
+                     border-radius: 8px; }
+        .tree-leaf:hover { background: #fff; }
+        .tree-leaf .lname { font-size: 14px; flex: 1; }
+        .tree-leaf .lname a { color: #1e293b; text-decoration: none; }
+        .tree-leaf .lname a:hover { color: #2563eb; text-decoration: underline; }
+        .tree-leaf .ldesc { color: #94a3b8; font-size: 12px; }
+
+        .empty { color: #94a3b8; font-size: 14px; padding: 40px 0; text-align: center; }
+
+        /* Modal */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(15,23,42,.45);
+                         display: none; align-items: center; justify-content: center; z-index: 50; }
+        .modal-overlay.show { display: flex; }
+        .modal { background: #fff; border-radius: 14px; padding: 26px; width: 460px;
+                 max-width: 92vw; }
+        .modal h3 { margin: 0 0 18px; font-size: 18px; }
+        .field { margin-bottom: 14px; }
+        .field label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; }
+        .field input, .field select, .field textarea { width: 100%; padding: 9px 11px;
+                 border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; font-family: inherit; }
+        .field textarea { resize: vertical; min-height: 60px; }
+        .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px; }
+        .form-err { color: #dc2626; font-size: 13px; margin-top: 8px; min-height: 18px; }
     </style>
 </head>
 <body>
-    <div class="documents-container">
-        <a href="/div/" class="back-link">
-            <span>←</span> Back to Dashboard
-        </a>
+    <div class="docs-page">
+        <!-- Category rail -->
+        <aside class="docs-rail">
+            <a href="/div/" class="rail-back"><span>←</span> Back to Dashboard</a>
+            <div class="rail-title">Documents</div>
+            <nav id="catNav"></nav>
+        </aside>
 
-        <div class="page-header">
-            <h1 class="page-title">Documents & Presentations</h1>
-            <p class="page-subtitle">Training materials, brochures, and presentations for BB Division</p>
-        </div>
-
-        <div class="documents-grid">
-            <a href="/div/pdf/TRO PRESENTATION FOR GM INSPECTION-final.pdf" target="_blank" class="document-card">
-                <div class="document-icon presentation">📊</div>
-                <div class="document-title">TRO Presentation</div>
-                <div class="document-description">GM Inspection presentation covering TRO operations and achievements</div>
-                <div class="document-meta">
-                    <span>📄</span> PDF Presentation
+        <!-- Main -->
+        <main class="docs-main">
+            <div class="docs-head">
+                <div>
+                    <h1 class="page-title" id="mainTitle">Documents</h1>
+                    <div class="page-subtitle" id="mainSubtitle">Division document repository</div>
                 </div>
-            </a>
+                <button class="btn btn-primary" id="uploadBtn" style="display:none;">＋ Upload</button>
+            </div>
+            <div id="content"><div class="empty">Loading…</div></div>
+        </main>
+    </div>
 
-            <a href="/div/pdf/ROHA RR presentation final-1.pdf" target="_blank" class="document-card">
-                <div class="document-icon presentation">📊</div>
-                <div class="document-title">ROHA RR Presentation</div>
-                <div class="document-description">Running Room presentation for ROHA section</div>
-                <div class="document-meta">
-                    <span>📄</span> PDF Presentation
-                </div>
-            </a>
-
-            <a href="/div/pdf/CRTMS_Brochure_Revised 4.pdf" target="_blank" class="document-card">
-                <div class="document-icon brochure">📘</div>
-                <div class="document-title">CRTMS Brochure</div>
-                <div class="document-description">Crew Resource & Time Management System - detailed brochure</div>
-                <div class="document-meta">
-                    <span>📄</span> PDF Brochure
-                </div>
-            </a>
-
-            <a href="/div/pdf/signal broucher FINAL.pdf" target="_blank" class="document-card">
-                <div class="document-icon brochure">📘</div>
-                <div class="document-title">Signal Brochure</div>
-                <div class="document-description">Signal department information brochure</div>
-                <div class="document-meta">
-                    <span>📄</span> PDF Brochure
-                </div>
-            </a>
+    <!-- Upload modal -->
+    <div class="modal-overlay" id="uploadModal">
+        <div class="modal">
+            <h3>Upload Document</h3>
+            <div class="field">
+                <label>Category</label>
+                <select id="upCategory"></select>
+            </div>
+            <div class="field">
+                <label>Title</label>
+                <input type="text" id="upTitle" placeholder="e.g. Refresher Letter — March 2026">
+            </div>
+            <div class="field" id="upDateField">
+                <label>Document date <span id="upDateReq" style="color:#dc2626;display:none;">*</span></label>
+                <input type="date" id="upDate">
+            </div>
+            <div class="field">
+                <label>Description (optional)</label>
+                <textarea id="upDesc" placeholder="Short description"></textarea>
+            </div>
+            <div class="field">
+                <label>File <span style="color:#94a3b8;font-weight:400;">(pdf, ppt, doc, xls — max 25 MB)</span></label>
+                <input type="file" id="upFile" accept=".pdf,.ppt,.pptx,.doc,.docx,.xls,.xlsx">
+            </div>
+            <div class="form-err" id="upErr"></div>
+            <div class="modal-actions">
+                <button class="btn btn-ghost" id="upCancel">Cancel</button>
+                <button class="btn btn-primary" id="upSubmit">Upload</button>
+            </div>
         </div>
     </div>
+
+<script>
+const CAT_META = {
+    TRAINING_LETTER: { label: 'Training Letters', icon: '🎓' },
+    PROMOTION_ORDER: { label: 'Promotion Orders', icon: '📈' },
+    MANUAL:          { label: 'Manuals',          icon: '📕' },
+    PRESENTATION:    { label: 'Presentations',    icon: '📊' },
+    BROCHURE:        { label: 'Brochures',        icon: '📘' },
+    MISC:            { label: 'Misc',             icon: '🗂️' },
+};
+const FILE_ICON = { pdf:'📄', pptx:'📊', ppt:'📊', docx:'📝', doc:'📝', xlsx:'📈', xls:'📈' };
+
+let perms = { canUpload: [], dateTreeCategories: [], categories: [] };
+let current = 'TRAINING_LETTER';
+
+function fmtSize(b) {
+    if (!b) return '';
+    if (b < 1024*1024) return (b/1024).toFixed(0) + ' KB';
+    return (b/1024/1024).toFixed(1) + ' MB';
+}
+function fmtDate(d) {
+    if (!d) return '';
+    // d is 'YYYY-MM-DD' — parse parts directly to avoid timezone shifts.
+    const [y, m, day] = String(d).slice(0, 10).split('-').map(Number);
+    if (!y) return '';
+    const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return `${String(day).padStart(2,'0')} ${MON[m-1]} ${y}`;
+}
+function isDateTree(cat) { return perms.dateTreeCategories.includes(cat); }
+function canManage(cat) { return perms.canUpload.includes(cat); }
+function viewUrl(id) { return `/api/division/documents/${id}/view`; }
+function downloadUrl(id) { return `/api/division/documents/${id}/download`; }
+
+async function loadPerms() {
+    const r = await fetch('/api/division/documents/permissions');
+    perms = await r.json();
+    if (perms.canUploadAny) document.getElementById('uploadBtn').style.display = '';
+}
+
+function buildRail() {
+    const nav = document.getElementById('catNav');
+    nav.innerHTML = '';
+    Object.keys(CAT_META).forEach(cat => {
+        const b = document.createElement('button');
+        b.className = 'cat-link' + (cat === current ? ' active' : '');
+        b.innerHTML = `<span class="icon">${CAT_META[cat].icon}</span> ${CAT_META[cat].label}`;
+        b.onclick = () => selectCategory(cat);
+        nav.appendChild(b);
+    });
+}
+
+function selectCategory(cat) {
+    current = cat;
+    buildRail();
+    document.getElementById('mainTitle').textContent = CAT_META[cat].label;
+    document.getElementById('mainSubtitle').textContent = isDateTree(cat)
+        ? 'Browse by year and month' : 'All documents in this category';
+    loadContent();
+}
+
+async function loadContent() {
+    const el = document.getElementById('content');
+    el.innerHTML = '<div class="empty">Loading…</div>';
+    if (isDateTree(current)) return renderTree(el);
+    return renderFlat(el);
+}
+
+async function renderFlat(el) {
+    const r = await fetch(`/api/division/documents?category=${current}`);
+    const { documents } = await r.json();
+    if (!documents.length) { el.innerHTML = '<div class="empty">No documents yet.</div>'; return; }
+    const grid = document.createElement('div');
+    grid.className = 'docs-grid';
+    documents.forEach(d => grid.appendChild(cardEl(d)));
+    el.innerHTML = '';
+    el.appendChild(grid);
+}
+
+function cardEl(d) {
+    const c = document.createElement('div');
+    c.className = 'doc-card';
+    const manage = canManage(d.category);
+    c.innerHTML = `
+        <div class="ficon">${FILE_ICON[d.file_type] || '📄'}</div>
+        <div class="dtitle">${escapeHtml(d.title)}</div>
+        <div class="ddesc">${escapeHtml(d.description || '')}</div>
+        <div class="dmeta">
+            <span>${d.file_type.toUpperCase()}</span>
+            ${d.file_size ? `<span>· ${fmtSize(d.file_size)}</span>` : ''}
+            ${d.doc_date ? `<span>· ${fmtDate(d.doc_date)}</span>` : ''}
+        </div>
+        <div class="doc-actions">
+            <a class="link-btn" href="${viewUrl(d.id)}" target="_blank" rel="noopener">Open ↗</a>
+            <a class="link-btn" href="${downloadUrl(d.id)}">Download</a>
+            ${manage ? `<button class="link-btn danger" data-del="${d.id}">Delete</button>` : ''}
+        </div>`;
+    if (manage) c.querySelector('[data-del]').onclick = () => delDoc(d.id);
+    return c;
+}
+
+async function renderTree(el) {
+    const r = await fetch(`/api/division/documents/tree?category=${current}`);
+    const data = await r.json();
+    if (!data.years.length && !data.undated.length) {
+        el.innerHTML = '<div class="empty">No documents yet.</div>'; return;
+    }
+    el.innerHTML = '';
+    data.years.forEach((y, yi) => {
+        const count = y.months.reduce((s, m) => s + m.documents.length, 0);
+        const node = document.createElement('div');
+        node.className = 'tree-node';
+        const open = yi === 0; // newest year expanded by default
+        node.innerHTML = `
+            <div class="tree-toggle tree-year ${open?'open':''}">
+                <span class="caret">▶</span><span>${y.year}</span>
+                <span class="tree-count">· ${count}</span>
+            </div>
+            <div class="tree-children ${open?'open':''}"></div>`;
+        const kids = node.querySelector('.tree-children');
+        node.querySelector('.tree-toggle').onclick = (e) => toggle(e.currentTarget);
+        y.months.forEach(m => {
+            const mnode = document.createElement('div');
+            mnode.className = 'tree-node';
+            mnode.innerHTML = `
+                <div class="tree-toggle">
+                    <span class="caret">▶</span><span>${m.monthName}</span>
+                    <span class="tree-count">· ${m.documents.length}</span>
+                </div>
+                <div class="tree-children"></div>`;
+            const mkids = mnode.querySelector('.tree-children');
+            mnode.querySelector('.tree-toggle').onclick = (e) => toggle(e.currentTarget);
+            m.documents.forEach(d => mkids.appendChild(leafEl(d)));
+            kids.appendChild(mnode);
+        });
+        el.appendChild(node);
+    });
+    if (data.undated.length) {
+        const node = document.createElement('div');
+        node.className = 'tree-node';
+        node.innerHTML = `
+            <div class="tree-toggle tree-year"><span class="caret">▶</span><span>Undated</span>
+                <span class="tree-count">· ${data.undated.length}</span></div>
+            <div class="tree-children"></div>`;
+        const kids = node.querySelector('.tree-children');
+        node.querySelector('.tree-toggle').onclick = (e) => toggle(e.currentTarget);
+        data.undated.forEach(d => kids.appendChild(leafEl(d)));
+        el.appendChild(node);
+    }
+}
+
+function toggle(t) {
+    t.classList.toggle('open');
+    const kids = t.nextElementSibling;
+    if (kids) kids.classList.toggle('open');
+}
+
+function leafEl(d) {
+    const wrap = document.createElement('div');
+    wrap.className = 'tree-leaf';
+    const manage = canManage(d.category || current);
+    wrap.innerHTML = `
+        <span>${FILE_ICON[d.file_type] || '📄'}</span>
+        <span class="lname"><a href="${viewUrl(d.id)}" target="_blank" rel="noopener">${escapeHtml(d.title)}</a>
+            ${d.description ? `<span class="ldesc"> — ${escapeHtml(d.description)}</span>` : ''}</span>
+        <span class="tree-count">${fmtDate(d.doc_date)}${d.file_size ? ' · '+fmtSize(d.file_size) : ''}</span>
+        <a class="link-btn" href="${downloadUrl(d.id)}" title="Download">⬇</a>
+        ${manage ? `<button class="link-btn danger" data-del="${d.id}" title="Delete">✕</button>` : ''}`;
+    if (manage) wrap.querySelector('[data-del]').onclick = () => delDoc(d.id);
+    return wrap;
+}
+
+async function delDoc(id) {
+    if (!confirm('Delete this document? This cannot be undone.')) return;
+    const r = await fetch(`/api/division/documents/${id}`, { method: 'DELETE' });
+    const j = await r.json();
+    if (j.success) loadContent();
+    else alert(j.error || 'Delete failed');
+}
+
+// ── Upload modal ───────────────────────────────────────────────────────────
+const modal = document.getElementById('uploadModal');
+document.getElementById('uploadBtn').onclick = openModal;
+document.getElementById('upCancel').onclick = () => modal.classList.remove('show');
+document.getElementById('upCategory').onchange = syncDateField;
+document.getElementById('upSubmit').onclick = submitUpload;
+
+function openModal() {
+    const sel = document.getElementById('upCategory');
+    sel.innerHTML = perms.canUpload.map(c => `<option value="${c}">${CAT_META[c].label}</option>`).join('');
+    // default to the currently viewed category if uploadable
+    if (perms.canUpload.includes(current)) sel.value = current;
+    document.getElementById('upTitle').value = '';
+    document.getElementById('upDate').value = '';
+    document.getElementById('upDesc').value = '';
+    document.getElementById('upFile').value = '';
+    document.getElementById('upErr').textContent = '';
+    syncDateField();
+    modal.classList.add('show');
+}
+
+function syncDateField() {
+    const cat = document.getElementById('upCategory').value;
+    document.getElementById('upDateReq').style.display = isDateTree(cat) ? '' : 'none';
+}
+
+async function submitUpload() {
+    const err = document.getElementById('upErr');
+    err.textContent = '';
+    const cat = document.getElementById('upCategory').value;
+    const title = document.getElementById('upTitle').value.trim();
+    const date = document.getElementById('upDate').value;
+    const file = document.getElementById('upFile').files[0];
+    if (!title) { err.textContent = 'Title is required.'; return; }
+    if (!file)  { err.textContent = 'Please choose a file.'; return; }
+    if (isDateTree(cat) && !date) { err.textContent = 'Document date is required for this category.'; return; }
+
+    const fd = new FormData();
+    fd.append('category', cat);
+    fd.append('title', title);
+    if (date) fd.append('doc_date', date);
+    fd.append('description', document.getElementById('upDesc').value.trim());
+    fd.append('file', file);
+
+    const btn = document.getElementById('upSubmit');
+    btn.disabled = true; btn.textContent = 'Uploading…';
+    try {
+        const r = await fetch('/api/division/documents', { method: 'POST', body: fd });
+        const j = await r.json();
+        if (!j.success) { err.textContent = j.error || 'Upload failed.'; return; }
+        modal.classList.remove('show');
+        if (cat !== current) selectCategory(cat); else loadContent();
+    } catch (e) {
+        err.textContent = 'Upload failed.';
+    } finally {
+        btn.disabled = false; btn.textContent = 'Upload';
+    }
+}
+
+function escapeHtml(s) {
+    return (s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// ── Init ─────────────────────────────────────────────────────────────────--
+(async function init() {
+    await loadPerms();
+    buildRail();
+    selectCategory('TRAINING_LETTER');
+})();
+</script>
 </body>
 </html>

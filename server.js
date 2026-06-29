@@ -735,6 +735,7 @@ const trainingCentreRoutes = require('./routes/division/trainingCentreRoutes');
 const locoLinkRoutes = require('./routes/division/locoLinkRoutes');
 const awsUploadRoutes = require('./routes/division/awsUploadRoutes');
 const signalBookRoutes = require('./routes/division/signalBookRoutes');
+const documentRoutes = require('./routes/division/documentRoutes');
 
 // Add division routes with realm protection
 app.use("/api/division/leave", requireRealm("division"), leaveRoutes); // mount early to avoid any catch-alls
@@ -763,6 +764,7 @@ app.use("/api/division/adas", requireRealm('division'), adasRoutes);
 app.use("/api/division/loco-link", requireRealm('division'), locoLinkRoutes);
 app.use("/api/division/aws", requireRealm('division'), awsUploadRoutes);
 app.use("/api/division/signal-book", requireRealm('division'), signalBookRoutes);
+app.use("/api/division/documents", requireRealm('division'), documentRoutes);
 
 // Session info endpoint
 app.get('/api/session', (req, res) => {
