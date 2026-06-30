@@ -764,7 +764,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
             for (const raw of awsRows) {
                 try {
                     const { code: awsCode, confidence } = extractAwsCode(raw.detail);
-                    const { raw: locationRaw, type: locationType } = extractLocation(raw.detail);
+                    let { raw: locationRaw, type: locationType } = extractLocation(raw.detail);
 
                     // Skip CMS re-logs (same crew+date+time+loco+code already an event).
                     if (await isDuplicateAwsEvent(conn, {
@@ -773,6 +773,13 @@ router.post('/upload', upload.single('file'), async (req, res) => {
                     })) {
                         skippedDupCount++;
                         continue;
+                    }
+
+                    // Prefix-less auto-signal number ("act at B at 5602"): pin the
+                    // NE/SE prefix from the train's ghat. Existence-gated.
+                    if (!locationRaw) {
+                        const bareSig = await resolveBareSignalForRow(conn, raw);
+                        if (bareSig) { locationRaw = bareSig; locationType = 'SIGNAL'; }
                     }
 
                     const needsManualReview = !awsCode || confidence === 'LOW' || !locationRaw || isMultiAwsEvent(raw.detail) ? 1 : 0;
@@ -1468,6 +1475,20 @@ function extractLocation(detail) {
     return { raw: null, type: 'UNKNOWN' };
 }
 
+// ── Helper: bare automatic-signal number (no NE/SE prefix) ─────────────────
+// Some details give only the number of an inter-station automatic signal:
+// "AWS act at B at 5602". The NE/SE prefix is missing, so extractLocation can't
+// resolve it (5602 alone is ambiguous and could be a train number). This pulls
+// the number ONLY when introduced by a location cue (AT / @ / NEAR / SIGNAL NO).
+// It is used purely as a LAST RESORT — caller must validate it against the
+// train's route (resolveBareAutoSignal); an un-routable number is left alone.
+function extractBareAutoNumber(detail) {
+    const text = String(detail || '').toUpperCase();
+    // number must follow a location preposition/cue and be a 3-5 digit run.
+    const m = text.match(/(?:@|\bAT\b|\bNEAR\b|\bSIG(?:NAL)?\b|\bNO\.?\b)[\s.:#\-]*(\d{3,5})\b/);
+    return m ? m[1] : null;
+}
+
 // ── POST /parse ───────────────────────────────────────────────────────────
 // Parse raw AWS candidates and create events
 router.post('/parse', async (req, res) => {
@@ -1497,7 +1518,7 @@ router.post('/parse', async (req, res) => {
                 const { code: awsCode, confidence } = extractAwsCode(raw.detail);
 
                 // Extract location
-                const { raw: locationRaw, type: locationType } = extractLocation(raw.detail);
+                let { raw: locationRaw, type: locationType } = extractLocation(raw.detail);
 
                 // Skip CMS re-logs (same crew+date+time+loco+code already an event).
                 if (await isDuplicateAwsEvent(pool, {
@@ -1505,6 +1526,13 @@ router.post('/parse', async (req, res) => {
                     loco_raw: raw.loco_raw, aws_code: awsCode
                 })) {
                     continue;
+                }
+
+                // Prefix-less auto-signal number ("act at B at 5602"): pin the
+                // NE/SE prefix from the train's ghat. Existence-gated.
+                if (!locationRaw) {
+                    const bareSig = await resolveBareSignalForRow(pool, raw);
+                    if (bareSig) { locationRaw = bareSig; locationType = 'SIGNAL'; }
                 }
 
                 // Determine if manual review needed
@@ -2419,6 +2447,51 @@ async function routeSectionsForEvent(pool, fromStn, toStn, trainNumber) {
     return sections;
 }
 
+// ── Helper: resolve a prefix-less automatic signal number via the train route ─
+// A bare number ("5602") is ambiguous on its own, but each ghat numbers its
+// automatic signals uniquely (NE-#### on KYN-KSRA, SE-#### on KYN-KJT) and the
+// 4-digit numbers do NOT collide across NE/SE. So the train's section(s) pick
+// the prefix: number + section IN (route sections) -> exactly one signal.
+// Existence-gated: returns a match ONLY if such an auto signal really exists on
+// the route. No route / no such signal -> { signal_id: null } (left for review).
+async function resolveBareAutoSignal(pool, bareNumber, routeSections) {
+    const num = String(bareNumber || '').replace(/\D/g, '');
+    const secs = [...new Set((routeSections || []).filter(Boolean))];
+    if (!num || !secs.length) return { signal_id: null, signal_number: null, confidence: null };
+
+    const [rows] = await pool.query(
+        `SELECT id AS signal_id, signal_number, section
+           FROM div_signals
+          WHERE signal_type = 'Automatic'
+            AND is_active = 1
+            AND SUBSTRING_INDEX(signal_number, '-', -1) = ?
+            AND section IN (?)`,
+        [num, secs]
+    );
+    if (rows.length === 1) {
+        return { signal_id: rows[0].signal_id, signal_number: rows[0].signal_number, confidence: 'HIGH' };
+    }
+    if (rows.length > 1) {
+        // Train spans >1 ghat (rare) — ambiguous, leave for manual review.
+        return { signal_id: rows[0].signal_id, signal_number: rows[0].signal_number, confidence: 'MEDIUM' };
+    }
+    return { signal_id: null, signal_number: null, confidence: null };
+}
+
+// ── Helper: bare auto-signal resolution for one raw row ────────────────────
+// Glue for the parse loops: pull a prefix-less number from the detail, reject
+// it if it is just the train/loco number echoed in the text, then resolve it
+// against the train's ghat. Returns the full signal_number ("SE-5602") or null.
+async function resolveBareSignalForRow(db, raw) {
+    const bareNum = extractBareAutoNumber(raw.detail);
+    if (!bareNum) return null;
+    const digits = (s) => String(s || '').replace(/\D/g, '');
+    if (bareNum === digits(raw.train_number) || bareNum === digits(raw.loco_raw)) return null;
+    const sections = await routeSectionsForEvent(db, raw.from_station, raw.to_station, raw.train_number);
+    const bare = await resolveBareAutoSignal(db, bareNum, sections);
+    return bare.signal_id ? bare.signal_number : null;
+}
+
 async function matchSignalFromDb(pool, locationRaw, context = {}) {
     if (!locationRaw) return { signal_id: null, signal_number: null, confidence: null };
 
@@ -3313,3 +3386,6 @@ module.exports.normalizeForSignalMatch = normalizeForSignalMatch;
 module.exports.routeSectionsForEvent = routeSectionsForEvent;
 module.exports.isAwsCandidate = isAwsCandidate;
 module.exports.isMultiAwsEvent = isMultiAwsEvent;
+module.exports.extractBareAutoNumber = extractBareAutoNumber;
+module.exports.resolveBareAutoSignal = resolveBareAutoSignal;
+module.exports.resolveBareSignalForRow = resolveBareSignalForRow;
