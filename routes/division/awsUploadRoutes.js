@@ -320,7 +320,21 @@ function isAwsCandidate(row) {
         return true;
     }
 
+    // Pattern 11: AWS malefaction/malfunction reports ("Aws Malefaction- B …").
+    if (/\bMAL(E?FACTION|FUNCTION)\b/i.test(detail)) {
+        return true;
+    }
+
     return false;
+}
+
+// ── Helper: detail records 2+ AWS acts ────────────────────────────────────
+// e.g. "B @ NE 5918   Aux @ NE 5510" — the parser still makes ONE event, so it
+// must stay flagged for review (the second act is otherwise silently lost),
+// until proper multi-event split is built.
+function isMultiAwsEvent(detail) {
+    const segs = String(detail || '').toUpperCase().match(/\b(AUX|[ABCDEPQR])\s*(@|AT\b)/g) || [];
+    return segs.length >= 2;
 }
 
 // ── Helper: Check if row is "suspected" AWS ───────────────────────────────
@@ -761,7 +775,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
                         continue;
                     }
 
-                    const needsManualReview = !awsCode || confidence === 'LOW' || !locationRaw ? 1 : 0;
+                    const needsManualReview = !awsCode || confidence === 'LOW' || !locationRaw || isMultiAwsEvent(raw.detail) ? 1 : 0;
                     if (needsManualReview) needsReviewCount++;
 
                     await conn.query(
@@ -1288,7 +1302,7 @@ function extractAwsCode(detail) {
     // stray letter inside a train/cab/unit number ("ER B 59", "D/CAB") is not
     // mistaken for a code. MEDIUM confidence — still surfaces for review.
     // keyword → code: "ACT @ E", "Act -A", "AWS ACT A ON", "at C"
-    const kwThenCode = text.match(/(?:\bAWS\b|\bACT(?:ED|ING)?\b|\bAT\b|\bON\b)[\s.:@\/\-",]{0,4}([ABCDEPQR])(?=$|[\s.,:@"'()\/\-])/);
+    const kwThenCode = text.match(/(?:\bAWS\b|\bACT(?:ED|ING)?\b|\bAT\b|\bON\b|\bMAL(?:E?FACTION|FUNCTION)\b)[\s.:@\/\-",]{0,4}([ABCDEPQR])(?=$|[\s.,:@"'()\/\-])/);
     if (kwThenCode) {
         return { code: kwThenCode[1], confidence: 'MEDIUM' };
     }
@@ -1385,8 +1399,8 @@ function extractLocation(detail) {
         return { raw: `Gate ${gateSignalMatch[1]} S ${gateSignalMatch[2]}`, type: 'SIGNAL' };
     }
 
-    // Pattern 2: Letter + space + digits like "L 4810", "K 48" (common signal format)
-    const letterSpaceDigits = text.match(/\b([A-Z])\s+(\d{2,5})\b/);
+    // Pattern 2: Letter + space/hyphen + digits like "L 4810", "K 48", "H-53"
+    const letterSpaceDigits = text.match(/\b([A-Z])[\s\-]+(\d{2,5})\b/);
     if (letterSpaceDigits) {
         return { raw: letterSpaceDigits[1] + letterSpaceDigits[2], type: 'SIGNAL' };
     }
@@ -1397,10 +1411,12 @@ function extractLocation(detail) {
         return { raw: alphaNumSignal[1], type: 'SIGNAL' };
     }
 
-    // Pattern 2c: Two-letter alphanumeric like "NE6111", "SE7306", "KJ4810" (2 letters + 3-5 digits)
-    const twoLetterAlphaNum = text.match(/\b([A-Z]{2}\d{3,5})\b/);
-    if (twoLetterAlphaNum) {
-        return { raw: twoLetterAlphaNum[1], type: 'SIGNAL' };
+    // Pattern 2c: Two-letter prefix + optional separator + digits: "NE6111",
+    // "NE 5918", "SE-7306" (NE/SE/KE… automatic signals). Skip 2-letter words
+    // that are prepositions, not signal prefixes.
+    const twoLetterAlphaNum = text.match(/\b([A-Z]{2})[\s\-]?(\d{3,5})\b/);
+    if (twoLetterAlphaNum && !['AT','ON','NO','NI','IN','TO','OF','IS','AS','OR','BE'].includes(twoLetterAlphaNum[1])) {
+        return { raw: twoLetterAlphaNum[1] + twoLetterAlphaNum[2], type: 'SIGNAL' };
     }
 
     // Pattern 2d: Two letters + space + digits/digits like "NE 54/26", "SE 12/5" (OHE KM marker)
@@ -1492,7 +1508,7 @@ router.post('/parse', async (req, res) => {
                 }
 
                 // Determine if manual review needed
-                const needsManualReview = !awsCode || confidence === 'LOW' || !locationRaw ? 1 : 0;
+                const needsManualReview = !awsCode || confidence === 'LOW' || !locationRaw || isMultiAwsEvent(raw.detail) ? 1 : 0;
                 if (needsManualReview) needsReview++;
 
                 // Insert event
@@ -3295,3 +3311,5 @@ module.exports.extractLocation = extractLocation;
 module.exports.matchSignalFromDb = matchSignalFromDb;
 module.exports.normalizeForSignalMatch = normalizeForSignalMatch;
 module.exports.routeSectionsForEvent = routeSectionsForEvent;
+module.exports.isAwsCandidate = isAwsCandidate;
+module.exports.isMultiAwsEvent = isMultiAwsEvent;
