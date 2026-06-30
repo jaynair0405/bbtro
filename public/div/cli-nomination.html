@@ -833,6 +833,7 @@
           </div>
         </form>
         <div class="staging-tray" id="stagingTray" style="display:none;"></div>
+        <div class="sel-staff-bar" id="selStaffBar" style="display:none;"></div>
       </section>
     </div>
   </div>
@@ -845,17 +846,29 @@
     }
     .cli-modal-overlay.show { display: flex; }
     .cli-modal {
+      position: relative;
       background: var(--surface, #ffffff); color: var(--text, #0f172a);
       border: 1px solid var(--border, #e2e8f0); border-radius: 14px;
       width: min(520px, 92vw); max-height: 86vh; overflow: auto;
       box-shadow: 0 24px 60px rgba(15, 23, 42, 0.25); padding: 20px 22px;
     }
-    .cli-modal h3 { margin: 0 0 4px; font-size: 1.1rem; color: var(--brand-ink, #0a4074); }
+    .cli-modal-x {
+      position: absolute; top: 10px; right: 12px; z-index: 2;
+      width: 30px; height: 30px; border: none; border-radius: 8px;
+      background: transparent; color: var(--muted, #64748b);
+      font-size: 1.5rem; line-height: 1; cursor: pointer;
+    }
+    .cli-modal-x:hover { background: #f1f5f9; color: var(--text, #0f172a); }
+    .cli-modal h3 { margin: 0 30px 4px 0; font-size: 1.1rem; color: var(--brand-ink, #0a4074); }
     .cli-modal .modal-sub { font-size: 0.82rem; color: var(--muted, #64748b); margin-bottom: 14px; }
     .cli-modal .field { display: grid; gap: 6px; margin-bottom: 12px; font-size: 0.85rem; }
     .cli-modal input { padding: 9px 11px; border-radius: 8px;
       border: 1px solid var(--border, #e2e8f0); background: #fff; color: var(--text, #0f172a); }
-    .cli-modal .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 8px; }
+    .cli-modal .modal-actions {
+      display: flex; gap: 10px; justify-content: flex-end; margin-top: 12px;
+      position: sticky; bottom: -20px; background: var(--surface, #fff);
+      padding: 12px 0 4px; border-top: 1px solid var(--border, #e2e8f0);
+    }
     .batch-list { display: grid; gap: 8px; }
     .batch-item {
       display: flex; justify-content: space-between; align-items: center; gap: 12px;
@@ -866,15 +879,69 @@
     .batch-item:hover { background: #eef5ff; border-color: var(--brand, #0b5fad); }
     .batch-item .batch-meta { font-size: 0.78rem; color: var(--muted, #64748b); }
     .batch-item .batch-count { font-weight: 700; color: var(--brand, #0b5fad); white-space: nowrap; }
+
+    /* Selected-staff bar with clickable designation (inline promotion) */
+    .sel-staff-bar {
+      display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+      margin: 0 18px 16px; padding: 10px 14px;
+      background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px;
+      font-size: 0.85rem; color: var(--text);
+    }
+    .sel-staff-bar .ssb-label { font-weight: 600; }
+    .sel-staff-bar .ssb-hint { font-size: 0.78rem; color: var(--muted); font-style: italic; margin-left: auto; }
+    .desig-chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 4px 10px; border: 1px dashed var(--brand); border-radius: 999px;
+      background: #fff; color: var(--brand); font-weight: 700; font-size: 0.8rem; cursor: pointer;
+    }
+    .desig-chip:hover { background: var(--brand); color: #fff; }
+    /* clickable designation cell in the changes table */
+    .desig-cell { cursor: pointer; border-bottom: 1px dashed var(--brand); }
+    .desig-cell:hover { color: var(--brand); }
   </style>
 
   <div class="cli-modal-overlay" id="batchModal">
     <div class="cli-modal">
+      <button type="button" class="cli-modal-x" id="btnBatchX" title="Close">&times;</button>
       <h3><i class="fa-solid fa-graduation-cap"></i> Training batches</h3>
       <div class="modal-sub">Pick a batch — its staff load into the table below, each ready for its own CLI.</div>
       <div class="batch-list" id="batchList"><div class="modal-sub">Loading…</div></div>
       <div class="modal-actions">
         <button type="button" class="btn btn-back" id="btnBatchClose">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="cli-modal-overlay" id="promotionModal">
+    <div class="cli-modal">
+      <button type="button" class="cli-modal-x" id="btnPromoX" title="Close">&times;</button>
+      <h3><i class="fa-solid fa-arrow-up-right-dots"></i> Add promotion / designation change</h3>
+      <div class="modal-sub" id="promoStaffName">—</div>
+      <label class="field">Change type
+        <select id="promoChangeType">
+          <option value="Promotion">Promotion</option>
+          <option value="Demotion">Demotion</option>
+          <option value="Lateral Transfer">Lateral Transfer</option>
+        </select>
+      </label>
+      <label class="field">From designation
+        <select id="promoFrom"></select>
+      </label>
+      <label class="field">To designation *
+        <select id="promoTo"></select>
+      </label>
+      <label class="field">Posting date *
+        <input type="date" id="promoDate" />
+      </label>
+      <label class="field">Order number
+        <input type="text" id="promoOrderNo" placeholder="Optional — promotion order no." />
+      </label>
+      <label class="field">Remarks
+        <input type="text" id="promoRemarks" placeholder="Optional" />
+      </label>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-back" id="btnPromoCancel">Cancel</button>
+        <button type="button" class="btn btn-primary" id="btnPromoSave"><i class="fa-regular fa-floppy-disk"></i> Save promotion</button>
       </div>
     </div>
   </div>
@@ -896,7 +963,9 @@
       existingLetterForDate: null, // Existing letter for selected date (if any)
       isSaved: false,           // Track if current letter is saved
       isEditing: false,         // True if editing an existing letter from DB
-      withdrawMode: false       // True = added staff are withdrawn to Not Assigned (no letter)
+      withdrawMode: false,      // True = added staff are withdrawn to Not Assigned (no letter)
+      allDesignations: [],      // designations master for the promotion modal
+      promoStaff: null          // staff currently being promoted (modal context)
     };
 
     // DOM Elements
@@ -936,6 +1005,15 @@
     const withdrawModeInput = document.getElementById('withdrawMode');
     const batchModal = document.getElementById('batchModal');
     const batchListEl = document.getElementById('batchList');
+    const selStaffBar = document.getElementById('selStaffBar');
+    const promotionModal = document.getElementById('promotionModal');
+    const promoFromSel = document.getElementById('promoFrom');
+    const promoToSel = document.getElementById('promoTo');
+    const promoChangeType = document.getElementById('promoChangeType');
+    const promoDateInput = document.getElementById('promoDate');
+    const promoOrderNoInput = document.getElementById('promoOrderNo');
+    const promoRemarksInput = document.getElementById('promoRemarks');
+    const promoStaffNameEl = document.getElementById('promoStaffName');
 
     const previewLetterNo = document.getElementById('previewLetterNo');
     const previewLetterDate = document.getElementById('previewLetterDate');
@@ -1342,6 +1420,7 @@
     searchInput.addEventListener('input', (e) => {
       state.selectedStaff = null;   // typing invalidates any previous pick
       btnAdd.disabled = true;
+      renderSelStaffBar();          // hide the selected-staff bar
       clearTimeout(searchTimeout);
       searchTimeout = setTimeout(() => searchStaff(e.target.value), 300);
     });
@@ -1388,6 +1467,9 @@
 
         // Fetch and show CLI history
         showCliHistory(state.selectedStaff.hrms_id, state.selectedStaff.name);
+
+        // Show the selected-staff bar (with clickable designation for promotion)
+        renderSelStaffBar();
       }
     });
 
@@ -1503,6 +1585,7 @@
       state.selectedLobby = null;
       state.selectedStaff = null;
       btnAdd.disabled = true;
+      renderSelStaffBar();          // hide the selected-staff bar
 
       // Focus back to search for quick next entry
       searchInput.focus();
@@ -1742,7 +1825,114 @@
     });
     btnLoadBatch.addEventListener('click', openBatchModal);
     document.getElementById('btnBatchClose').addEventListener('click', closeBatchModal);
+    document.getElementById('btnBatchX').addEventListener('click', closeBatchModal);
     batchModal.addEventListener('click', (e) => { if (e.target === batchModal) closeBatchModal(); });
+
+    // ---- Inline promotion / designation change ----
+    async function loadDesignations() {
+      try {
+        const r = await fetchAPI('/api/division/designations');
+        state.allDesignations = r.data || r || [];
+        const opts = state.allDesignations.map(d => `<option value="${d.id}">${d.designation_name}</option>`).join('');
+        promoFromSel.innerHTML = '<option value="">—</option>' + opts;
+        promoToSel.innerHTML = '<option value="">— select —</option>' + opts;
+      } catch (e) { console.error('Failed to load designations', e); }
+    }
+
+    // Bar shown under the form when a single staff is selected
+    function renderSelStaffBar() {
+      const s = state.selectedStaff;
+      if (!s) { selStaffBar.style.display = 'none'; selStaffBar.innerHTML = ''; return; }
+      selStaffBar.style.display = 'flex';
+      selStaffBar.innerHTML =
+        `<span class="ssb-label"><i class="fa-solid fa-user-check"></i> ${s.name}</span>` +
+        `<span>Designation: <button type="button" class="desig-chip" id="btnPromote" title="Wrong or old designation? Click to record a promotion">` +
+          `${shortDesignation(s.designation_name)} <i class="fa-solid fa-pen"></i></button></span>` +
+        `<span class="ssb-hint">click the designation to add a promotion</span>`;
+    }
+    selStaffBar.addEventListener('click', (e) => {
+      if (e.target.closest('#btnPromote')) openPromotionModal(state.selectedStaff);
+    });
+
+    // staff = { hrms_id, name, designation_id, designation_name }
+    function openPromotionModal(staff) {
+      if (!staff || !staff.hrms_id) return;
+      state.promoStaff = staff;
+      promoStaffNameEl.textContent = `${staff.name} — current: ${staff.designation_name || '—'}`;
+      promoChangeType.value = 'Promotion';
+      promoFromSel.value = staff.designation_id || '';
+      promoToSel.value = '';
+      promoDateInput.value = new Date().toISOString().slice(0, 10);
+      promoOrderNoInput.value = '';
+      promoRemarksInput.value = '';
+      promotionModal.classList.add('show');
+    }
+    function closePromotionModal() { promotionModal.classList.remove('show'); }
+
+    async function savePromotion() {
+      const staff = state.promoStaff;
+      if (!staff) return;
+      const to_designation_id = promoToSel.value;
+      const posting_date = promoDateInput.value;
+      if (!to_designation_id) { showToast('Select the new (To) designation', 'error'); return; }
+      if (!posting_date) { showToast('Enter the posting date', 'error'); return; }
+
+      showLoading();
+      try {
+        await fetchAPI('/api/division/promotions', {
+          method: 'POST',
+          body: JSON.stringify({
+            staff_hrms_id: staff.hrms_id,
+            from_designation_id: promoFromSel.value || null,
+            to_designation_id,
+            change_type: promoChangeType.value,
+            posting_date,
+            promotion_order_no: promoOrderNoInput.value || null,
+            remarks: promoRemarksInput.value || null
+          })
+        });
+        closePromotionModal();
+        await applyDesignationUpdate(staff.hrms_id);
+        const fresh = state.allDesignations.find(d => String(d.id) === to_designation_id);
+        showToast(`Promotion saved — ${staff.name} → ${fresh ? shortDesignation(fresh.designation_name) : 'updated'}`, 'success');
+      } catch (err) {
+        showToast(err.message || 'Failed to save promotion', 'error');
+      } finally {
+        hideLoading();
+      }
+    }
+
+    // Pull the true current designation from master (backend = latest posting_date wins)
+    // and propagate it to the selected staff + any change rows for this staff.
+    async function applyDesignationUpdate(hrmsId) {
+      let did = null, dname = null;
+      try {
+        const data = await fetchAPI(`/api/division/cli/staff-for-letter?search=${encodeURIComponent(hrmsId)}`);
+        const fresh = (data.data || []).find(x => x.hrms_id === hrmsId);
+        if (fresh) { did = fresh.designation_id; dname = fresh.designation_name; }
+      } catch (e) { /* fall through to optimistic */ }
+      if (did === null) {
+        const d = state.allDesignations.find(x => String(x.id) === promoToSel.value);
+        if (d) { did = d.id; dname = d.designation_name; }
+      }
+      if (did === null) return;
+
+      if (state.selectedStaff && state.selectedStaff.hrms_id === hrmsId) {
+        state.selectedStaff.designation_id = did;
+        state.selectedStaff.designation_name = dname;
+      }
+      state.changes.forEach(c => {
+        if (c.staff_hrms_id === hrmsId) { c.designation_id = did; c.designation_name = dname; }
+      });
+      renderSelStaffBar();
+      renderChanges();
+      renderPreviewTable();
+    }
+
+    document.getElementById('btnPromoCancel').addEventListener('click', closePromotionModal);
+    document.getElementById('btnPromoX').addEventListener('click', closePromotionModal);
+    document.getElementById('btnPromoSave').addEventListener('click', savePromotion);
+    promotionModal.addEventListener('click', (e) => { if (e.target === promotionModal) closePromotionModal(); });
 
     // Remove change (local only - will be deleted from DB on save)
     function removeChange(idx) {
@@ -1783,6 +1973,16 @@
       const btn = e.target.closest('button[data-idx]');
       if (btn) {
         removeChange(parseInt(btn.dataset.idx));
+        return;
+      }
+      // Click a designation cell → promote that staff
+      const desigCell = e.target.closest('.desig-cell[data-promote-idx]');
+      if (desigCell) {
+        const row = state.changes[parseInt(desigCell.dataset.promoteIdx)];
+        if (row) openPromotionModal({
+          hrms_id: row.staff_hrms_id, name: row.staff_name,
+          designation_id: row.designation_id, designation_name: row.designation_name
+        });
         return;
       }
       // Edit the name printed on the letter (print-only; does not change records)
@@ -2028,7 +2228,7 @@
             <td>${idx + 1}</td>
             <td>${row.staff_name}${row.pf_number ? `<br><span style="font-size:0.8em;color:#64748b;">PF: ${row.pf_number}</span>` : ''}${row.mobile ? `<br><span style="font-size:0.8em;color:#64748b;">${row.mobile}</span>` : ''}<br><span class="print-as" data-edit-name="${idx}" title="Edit name shown on letter (does not change records)">🖨 ${printName(row)} <i class="fa-solid fa-pen"></i></span></td>
             <td><code>${row.pf_no || '—'}</code>${row.staff_hrms_id ? `<br><span style="font-size:0.75em;color:#64748b;">${row.staff_hrms_id}</span>` : ''}</td>
-            <td>${shortDesignation(row.designation_name)}</td>
+            <td><span class="desig-cell" data-promote-idx="${idx}" title="Click to add a promotion / change designation">${shortDesignation(row.designation_name)}</span></td>
             <td>${row.depot || '—'}</td>
             <td>${row.proposed_lobby || '—'}</td>
             <td>${displayCategory(row)}</td>
@@ -2611,6 +2811,7 @@
 
       await loadCLIs();
       await loadOffices();
+      await loadDesignations();
       await loadPreviousLetter();
       renderChanges();
       updatePreviewText();
