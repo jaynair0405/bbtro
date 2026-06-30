@@ -329,12 +329,38 @@ function isAwsCandidate(row) {
 }
 
 // ── Helper: detail records 2+ AWS acts ────────────────────────────────────
-// e.g. "B @ NE 5918   Aux @ NE 5510" — the parser still makes ONE event, so it
-// must stay flagged for review (the second act is otherwise silently lost),
-// until proper multi-event split is built.
+// e.g. "B @ NE 5918   Aux @ NE 5510" — splitAwsEvents() breaks these into one
+// act each; this just reports whether a split is warranted.
 function isMultiAwsEvent(detail) {
-    const segs = String(detail || '').toUpperCase().match(/\b(AUX|[ABCDEPQR])\s*(@|AT\b)/g) || [];
-    return segs.length >= 2;
+    return splitAwsEvents(detail).length >= 2;
+}
+
+// ── Helper: split a multi-act detail into individual acts ──────────────────
+// Grammar (validated on real CMS data): a detail is a sequence of
+// "<CODE> (@|at) <location>" segments, optionally with a leading "AWS Unit no
+// …" prefix and "and"/"&"/"and again"/"AWS act." noise between/after acts.
+// Returns [{ code, locationText }, …] — one per act. A single-act detail yields
+// one element; a detail with no "code @/at" anchor yields []. The location text
+// is handed to extractLocation()/resolveBareSignalForRow() per act, so no new
+// location parsing lives here.
+function splitAwsEvents(detail) {
+    const text = String(detail || '').replace(/^DETAIL:\s*/i, '').toUpperCase();
+    // Same code-anchor used elsewhere: a code letter (or AUX) followed by @ or AT.
+    const anchor = /\b(AUX|[ABCDEPQR])\s*(?:@|AT\b)\s*/g;
+    const hits = [];
+    let m;
+    while ((m = anchor.exec(text)) !== null) {
+        hits.push({ code: m[1], start: m.index, locStart: anchor.lastIndex });
+    }
+    return hits.map((h, i) => {
+        const end = i + 1 < hits.length ? hits[i + 1].start : text.length;
+        const locationText = text
+            .slice(h.locStart, end)
+            // drop joiners / trailing "AWS …" boilerplate that follow the location.
+            .replace(/(\bAND AGAIN\b|\bAND\b|&|\bAWS\b.*).*$/, '')
+            .trim();
+        return { code: h.code, locationText };
+    });
 }
 
 // ── Helper: Check if row is "suspected" AWS ───────────────────────────────
@@ -763,41 +789,11 @@ router.post('/upload', upload.single('file'), async (req, res) => {
 
             for (const raw of awsRows) {
                 try {
-                    const { code: awsCode, confidence } = extractAwsCode(raw.detail);
-                    let { raw: locationRaw, type: locationType } = extractLocation(raw.detail);
-
-                    // Skip CMS re-logs (same crew+date+time+loco+code already an event).
-                    if (await isDuplicateAwsEvent(conn, {
-                        crew_id: raw.crew_id, abn_date: raw.abn_date, abn_time: raw.abn_time,
-                        loco_raw: raw.loco_raw, aws_code: awsCode
-                    })) {
-                        skippedDupCount++;
-                        continue;
-                    }
-
-                    // Prefix-less auto-signal number ("act at B at 5602"): pin the
-                    // NE/SE prefix from the train's ghat. Existence-gated.
-                    if (!locationRaw) {
-                        const bareSig = await resolveBareSignalForRow(conn, raw);
-                        if (bareSig) { locationRaw = bareSig; locationType = 'SIGNAL'; }
-                    }
-
-                    const needsManualReview = !awsCode || confidence === 'LOW' || !locationRaw || isMultiAwsEvent(raw.detail) ? 1 : 0;
-                    if (needsManualReview) needsReviewCount++;
-
-                    await conn.query(
-                        `INSERT INTO div_aws_events
-                            (raw_id, abn_id, entry_source, entered_by_user_id,
-                             abn_date, abn_time, aws_code, location_raw, location_type,
-                             needs_manual_review, loco_raw, train_number,
-                             crew_id, crew_name, status)
-                         VALUES (?, ?, 'CMS_IMPORT', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING')`,
-                        [raw.id, raw.abn_id, userId,
-                         raw.abn_date, raw.abn_time, awsCode, locationRaw, locationType,
-                         needsManualReview, raw.loco_raw, raw.train_number,
-                         raw.crew_id, raw.crew_name]
-                    );
-                    parsedCount++;
+                    // One CMS row -> 1..N events (multi-act details are split).
+                    const r = await insertEventsForRaw(conn, raw, userId);
+                    parsedCount += r.inserted;
+                    needsReviewCount += r.needsReview;
+                    skippedDupCount += r.skippedDup;
                 } catch (err) {
                     if (err.code !== 'ER_DUP_ENTRY') {
                         console.error(`[AWS Auto-Parse] Error:`, err.message);
@@ -1132,11 +1128,15 @@ router.get('/stats', async (req, res) => {
 // time and loco are all present (the fields that make the match meaningful).
 async function isDuplicateAwsEvent(db, ev) {
     if (!ev.crew_id || !ev.abn_time || !ev.loco_raw) return false;
+    // location_raw is part of the key so the separate acts of a split multi-event
+    // detail (e.g. two "A at …" acts at different signals) are NOT collapsed into
+    // one; a genuine CMS re-log still matches on identical crew+time+loco+code+loc.
     const [rows] = await db.query(
         `SELECT id FROM div_aws_events
-         WHERE crew_id = ? AND abn_date <=> ? AND abn_time = ? AND loco_raw = ? AND aws_code <=> ?
+         WHERE crew_id = ? AND abn_date <=> ? AND abn_time = ? AND loco_raw = ?
+           AND aws_code <=> ? AND location_raw <=> ?
          LIMIT 1`,
-        [ev.crew_id, ev.abn_date, ev.abn_time, ev.loco_raw, ev.aws_code ?? null]
+        [ev.crew_id, ev.abn_date, ev.abn_time, ev.loco_raw, ev.aws_code ?? null, ev.location_raw ?? null]
     );
     return rows.length > 0;
 }
@@ -1514,46 +1514,10 @@ router.post('/parse', async (req, res) => {
 
         for (const raw of rawRows) {
             try {
-                // Extract AWS code
-                const { code: awsCode, confidence } = extractAwsCode(raw.detail);
-
-                // Extract location
-                let { raw: locationRaw, type: locationType } = extractLocation(raw.detail);
-
-                // Skip CMS re-logs (same crew+date+time+loco+code already an event).
-                if (await isDuplicateAwsEvent(pool, {
-                    crew_id: raw.crew_id, abn_date: raw.abn_date, abn_time: raw.abn_time,
-                    loco_raw: raw.loco_raw, aws_code: awsCode
-                })) {
-                    continue;
-                }
-
-                // Prefix-less auto-signal number ("act at B at 5602"): pin the
-                // NE/SE prefix from the train's ghat. Existence-gated.
-                if (!locationRaw) {
-                    const bareSig = await resolveBareSignalForRow(pool, raw);
-                    if (bareSig) { locationRaw = bareSig; locationType = 'SIGNAL'; }
-                }
-
-                // Determine if manual review needed
-                const needsManualReview = !awsCode || confidence === 'LOW' || !locationRaw || isMultiAwsEvent(raw.detail) ? 1 : 0;
-                if (needsManualReview) needsReview++;
-
-                // Insert event
-                await pool.query(
-                    `INSERT INTO div_aws_events
-                        (raw_id, abn_id, entry_source, entered_by_user_id,
-                         abn_date, abn_time, aws_code, location_raw, location_type,
-                         needs_manual_review, loco_raw, train_number,
-                         crew_id, crew_name, status)
-                     VALUES (?, ?, 'CMS_IMPORT', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING')`,
-                    [raw.id, raw.abn_id, userId,
-                     raw.abn_date, raw.abn_time, awsCode, locationRaw, locationType,
-                     needsManualReview, raw.loco_raw, raw.train_number,
-                     raw.crew_id, raw.crew_name]
-                );
-
-                parsed++;
+                // One CMS row -> 1..N events (multi-act details are split).
+                const r = await insertEventsForRaw(pool, raw, userId);
+                parsed += r.inserted;
+                needsReview += r.needsReview;
             } catch (err) {
                 if (err.code !== 'ER_DUP_ENTRY') {
                     console.error(`[AWS Parse] Error parsing ${raw.abn_id}:`, err.message);
@@ -2492,6 +2456,86 @@ async function resolveBareSignalForRow(db, raw) {
     return bare.signal_id ? bare.signal_number : null;
 }
 
+// ── Helper: resolve ONE split act's location text ──────────────────────────
+// The act's "code @/at" anchor has already been stripped, so locationText is
+// just the place ("NE 5510", "KYN S 81", "8808"). Try extractLocation first;
+// if it finds nothing, treat a 3-5 digit run as a prefix-less auto signal and
+// resolve it via the train's ghat (the anchor already supplied the "at" cue).
+async function resolveActLocation(db, raw, locationText) {
+    const loc = extractLocation(locationText);
+    if (loc.raw) return { raw: loc.raw, type: loc.type };
+    const digits = (s) => String(s || '').replace(/\D/g, '');
+    const num = (String(locationText).match(/\b(\d{3,5})\b/) || [])[1];
+    if (num && num !== digits(raw.train_number) && num !== digits(raw.loco_raw)) {
+        const sections = await routeSectionsForEvent(db, raw.from_station, raw.to_station, raw.train_number);
+        const bare = await resolveBareAutoSignal(db, num, sections);
+        if (bare.signal_id) return { raw: bare.signal_number, type: 'SIGNAL' };
+    }
+    return { raw: null, type: 'UNKNOWN' };
+}
+
+// ── Helper: parse one raw candidate into 1..N events and insert them ───────
+// Single-act details behave exactly as before (one event). Multi-act details
+// ("B @ NE 5918  Aux @ NE 5510") are split into one event per act, numbered by
+// event_seq, and — per the conservative rollout — every act of a split is
+// flagged needs_manual_review so a human confirms the split before it counts.
+// Returns { inserted, needsReview, skippedDup }.
+async function insertEventsForRaw(db, raw, userId) {
+    const detail = raw.detail;
+    const segments = splitAwsEvents(detail);
+    const isSplit = segments.length >= 2;
+
+    let inserted = 0, needsReview = 0, skippedDup = 0, seq = 0;
+    // Single-act (or no anchor at all): one event from the whole detail.
+    const acts = isSplit ? segments : [{ whole: true }];
+
+    for (const act of acts) {
+        seq++;
+        let awsCode, confidence, locationRaw, locationType;
+        if (act.whole) {
+            ({ code: awsCode, confidence } = extractAwsCode(detail));
+            ({ raw: locationRaw, type: locationType } = extractLocation(detail));
+            if (!locationRaw) {
+                const bareSig = await resolveBareSignalForRow(db, raw);
+                if (bareSig) { locationRaw = bareSig; locationType = 'SIGNAL'; }
+            }
+        } else {
+            awsCode = act.code;                 // straight from the anchor (e.g. B, AUX)
+            confidence = 'HIGH';
+            ({ raw: locationRaw, type: locationType } = await resolveActLocation(db, raw, act.locationText));
+        }
+
+        // Skip CMS re-logs (now location-aware so split acts aren't collapsed).
+        if (await isDuplicateAwsEvent(db, {
+            crew_id: raw.crew_id, abn_date: raw.abn_date, abn_time: raw.abn_time,
+            loco_raw: raw.loco_raw, aws_code: awsCode, location_raw: locationRaw
+        })) { skippedDup++; continue; }
+
+        // Conservative: every split act is reviewed; single acts use the rule.
+        const needsManualReview = isSplit
+            ? 1
+            : (!awsCode || confidence === 'LOW' || !locationRaw ? 1 : 0);
+        if (needsManualReview) needsReview++;
+
+        try {
+            await db.query(
+                `INSERT INTO div_aws_events
+                    (raw_id, abn_id, event_seq, entry_source, entered_by_user_id,
+                     abn_date, abn_time, aws_code, location_raw, location_type,
+                     needs_manual_review, loco_raw, train_number, crew_id, crew_name, status)
+                 VALUES (?, ?, ?, 'CMS_IMPORT', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING')`,
+                [raw.id, raw.abn_id, seq, userId,
+                 raw.abn_date, raw.abn_time, awsCode, locationRaw, locationType,
+                 needsManualReview, raw.loco_raw, raw.train_number, raw.crew_id, raw.crew_name]
+            );
+            inserted++;
+        } catch (err) {
+            if (err.code !== 'ER_DUP_ENTRY') throw err;
+        }
+    }
+    return { inserted, needsReview, skippedDup };
+}
+
 async function matchSignalFromDb(pool, locationRaw, context = {}) {
     if (!locationRaw) return { signal_id: null, signal_number: null, confidence: null };
 
@@ -3389,3 +3433,6 @@ module.exports.isMultiAwsEvent = isMultiAwsEvent;
 module.exports.extractBareAutoNumber = extractBareAutoNumber;
 module.exports.resolveBareAutoSignal = resolveBareAutoSignal;
 module.exports.resolveBareSignalForRow = resolveBareSignalForRow;
+module.exports.splitAwsEvents = splitAwsEvents;
+module.exports.resolveActLocation = resolveActLocation;
+module.exports.insertEventsForRaw = insertEventsForRaw;
