@@ -820,10 +820,14 @@ router.post('/upload', upload.single('file'), async (req, res) => {
                 const sections = await routeSectionsForEvent(conn, ev.from_station, ev.to_station, ev.train_number);
                 const sm = await matchSignalFromDb(conn, ev.location_raw, { sections });
                 if (sm.signal_id) {
+                    // Canonicalise the displayed location to the matched signal's
+                    // name so "SE5602" and "SE-5602" (same magnet) read identically
+                    // and aggregate together in the reports.
                     await conn.query(
-                        `UPDATE div_aws_events SET signal_id = ?, signal_match_confidence = ?, normalized_location = ?
+                        `UPDATE div_aws_events SET signal_id = ?, signal_match_confidence = ?,
+                                location_raw = ?, normalized_location = ?
                          WHERE id = ? AND signal_id IS NULL`,
-                        [sm.signal_id, sm.confidence, normalizeForSignalMatch(ev.location_raw), ev.id]
+                        [sm.signal_id, sm.confidence, sm.signal_number, normalizeForSignalMatch(ev.location_raw), ev.id]
                     );
                     autoMatchedSignals++;
                 }
@@ -1428,8 +1432,10 @@ function extractLocation(detail) {
 
     // Pattern 2d: Two letters + space + digits/digits like "NE 54/26", "SE 12/5" (OHE KM marker)
     // Format: Line code (NE/SE/etc) + KM chainage - used for D type (Additional Magnet) locations
+    // Skip 2-letter prepositions ("D at 9/340" -> the "AT" must not read as a line code;
+    // it falls through to the bare-chainage Pattern 4b below which returns "9/340").
     const twoLetterChainage = text.match(/\b([A-Z]{2})\s+(\d+\/\d+)\b/);
-    if (twoLetterChainage) {
+    if (twoLetterChainage && !['AT','ON','NO','NI','IN','TO','OF','IS','AS','OR','BE'].includes(twoLetterChainage[1])) {
         return { raw: `${twoLetterChainage[1]} ${twoLetterChainage[2]}`, type: 'KM' };
     }
 
@@ -1548,14 +1554,21 @@ router.get('/events', async (req, res) => {
         const pool = req.app.locals.pool;
         const needsReview = req.query.needs_review === 'true';
         const awsCode = req.query.aws_code || null;
+        const statusFilter = req.query.status || null;   // e.g. 'DISMISSED' for the Dismissed view
         const limit = Math.min(parseInt(req.query.limit, 10) || 50, 200);
         const offset = parseInt(req.query.offset, 10) || 0;
 
         let where = '1=1';
         const params = [];
 
-        if (needsReview) {
-            where += ' AND e.needs_manual_review = 1';
+        if (statusFilter === 'DISMISSED') {
+            where += " AND e.status = 'DISMISSED'";
+        } else {
+            // Pending and All views never show dismissed (not-AWS) events.
+            where += " AND e.status <> 'DISMISSED'";
+            if (needsReview) {
+                where += ' AND e.needs_manual_review = 1';
+            }
         }
         if (awsCode) {
             where += ' AND e.aws_code = ?';
@@ -1666,6 +1679,19 @@ router.patch('/events/:id', async (req, res) => {
         if (b.status !== undefined) {
             updates.push('status = ?');
             params.push(b.status);
+            if (b.status === 'DISMISSED') {
+                // Soft-remove (not an AWS event). Keep needs_manual_review = 1 so the
+                // report aggregations (which require = 0) never count it; Review/UD
+                // lists drop it by status. Reversible via status = 'PENDING'.
+                updates.push('needs_manual_review = 1');
+            } else if (b.status === 'PENDING') {
+                // Restore: recompute the review flag from the current code + location.
+                const [[cur]] = await pool.query(
+                    'SELECT aws_code, location_raw FROM div_aws_events WHERE id = ?', [eventId]
+                );
+                updates.push('needs_manual_review = ?');
+                params.push(cur && cur.aws_code && cur.location_raw ? 0 : 1);
+            }
         }
 
         if (b.signal_id !== undefined) {
@@ -1719,7 +1745,7 @@ router.get('/review/pending', async (req, res) => {
         const pool = req.app.locals.pool;
 
         const [[{ count }]] = await pool.query(
-            'SELECT COUNT(*) AS count FROM div_aws_events WHERE needs_manual_review = 1'
+            "SELECT COUNT(*) AS count FROM div_aws_events WHERE needs_manual_review = 1 AND status <> 'DISMISSED'"
         );
 
         // Get breakdown by issue type
@@ -1728,7 +1754,7 @@ router.get('/review/pending', async (req, res) => {
                 SUM(CASE WHEN aws_code IS NULL THEN 1 ELSE 0 END) AS no_code,
                 SUM(CASE WHEN location_raw IS NULL THEN 1 ELSE 0 END) AS no_location
              FROM div_aws_events
-             WHERE needs_manual_review = 1`
+             WHERE needs_manual_review = 1 AND status <> 'DISMISSED'`
         );
 
         res.json({
@@ -1783,7 +1809,7 @@ router.get('/report-data', async (req, res) => {
                 SUM(responsibility = 'CAB_SIDE') AS cab_count,
                 SUM(responsibility = 'TRANSIENT' OR responsibility = 'NOT_DETERMINED' OR responsibility IS NULL) AS transient_count
              FROM div_aws_events e
-             WHERE aws_code IS NOT NULL ${dateFilter}
+             WHERE aws_code IS NOT NULL AND e.needs_manual_review = 0 ${dateFilter}
              GROUP BY aws_code
              ORDER BY FIELD(aws_code, 'A','B','C','D','E','P','Q','R','AUX','OTHER')`,
             dateParams
@@ -1797,7 +1823,7 @@ router.get('/report-data', async (req, res) => {
                 SUM(responsibility = 'CAB_SIDE') AS cab_count,
                 SUM(responsibility = 'TRANSIENT' OR responsibility = 'NOT_DETERMINED' OR responsibility IS NULL) AS transient_count
              FROM div_aws_events e
-             WHERE 1=1 ${dateFilter}`,
+             WHERE e.needs_manual_review = 0 ${dateFilter}`,
             dateParams
         );
 
@@ -1812,7 +1838,8 @@ router.get('/report-data', async (req, res) => {
                 GROUP_CONCAT(e.id ORDER BY e.abn_date) AS event_ids,
                 MAX(e.abn_date) AS last_date
              FROM div_aws_events e
-             WHERE e.responsibility = 'S&T' AND location_raw IS NOT NULL AND location_raw != '' ${dateFilter}
+             WHERE e.responsibility = 'S&T' AND e.needs_manual_review = 0
+               AND location_raw IS NOT NULL AND location_raw != '' ${dateFilter}
              GROUP BY location_raw, location_type
              HAVING COUNT(*) > 1
              ORDER BY braking_count DESC
@@ -1834,7 +1861,8 @@ router.get('/report-data', async (req, res) => {
              FROM div_aws_events e
              LEFT JOIN rake_coaches c ON c.coach_number = CONCAT(e.loco_raw, 'C')
              LEFT JOIN rake_formations f ON f.id = c.rake_id
-             WHERE e.responsibility = 'CAB_SIDE' AND e.loco_raw IS NOT NULL AND e.loco_raw != '' ${dateFilter}
+             WHERE e.responsibility = 'CAB_SIDE' AND e.needs_manual_review = 0
+               AND e.loco_raw IS NOT NULL AND e.loco_raw != '' ${dateFilter}
              GROUP BY e.loco_raw
              HAVING COUNT(*) > 1
              ORDER BY braking_count DESC
@@ -1862,6 +1890,7 @@ router.get('/report-data', async (req, res) => {
              WHERE (e.responsibility = 'TRANSIENT'
                  OR e.responsibility = 'NOT_DETERMINED'
                  OR e.responsibility IS NULL)
+               AND e.needs_manual_review = 0
                ${dateFilter}
              ORDER BY e.abn_date DESC, e.id DESC
              LIMIT 100`,
@@ -1886,6 +1915,7 @@ router.get('/report-data', async (req, res) => {
                 OR e.responsibility = 'NOT_DETERMINED' OR e.responsibility IS NULL
                 OR (e.signal_id IS NULL AND e.location_type = 'SIGNAL')
              )
+               AND e.status <> 'DISMISSED'
                ${dateFilter}
              ORDER BY e.abn_date DESC, e.id DESC
              LIMIT 100`,
@@ -1915,6 +1945,7 @@ router.get('/report-data', async (req, res) => {
                 JOIN div_sub_sections s ON s.section_code = ss1.section_code
                 WHERE r.from_station IS NOT NULL
                   AND ss1.seq_order < ss2.seq_order
+                  AND e.needs_manual_review = 0
                   ${dateFilter.replace(/e\./g, 'e.')}
             )
             SELECT
@@ -1947,7 +1978,7 @@ router.get('/report-data', async (req, res) => {
                     MAX(e.abn_date) AS last_date
              FROM div_aws_events e
              JOIN div_signals s ON s.id = e.signal_id
-             WHERE e.responsibility = 'S&T' ${dateFilter}
+             WHERE e.responsibility = 'S&T' AND e.needs_manual_review = 0 ${dateFilter}
              GROUP BY s.signal_number, s.line, s.section
              HAVING COUNT(DISTINCT ${friWk}) >= 2
              ORDER BY weeks_count DESC, total_acts DESC`,
@@ -1972,7 +2003,8 @@ router.get('/report-data', async (req, res) => {
               AND a.id < b.id AND a.abn_time <> b.abn_time
               AND ABS(TIME_TO_SEC(a.abn_time) - TIME_TO_SEC(b.abn_time)) BETWEEN 1 AND 900
              WHERE a.crew_id IS NOT NULL AND a.crew_id <> ''
-               AND a.loco_raw IS NOT NULL AND a.loco_raw <> '' ${dupFilterA}
+               AND a.loco_raw IS NOT NULL AND a.loco_raw <> ''
+               AND a.needs_manual_review = 0 AND b.needs_manual_review = 0 ${dupFilterA}
              ORDER BY a.abn_date DESC, a.abn_time`,
             dateParams
         );
@@ -2170,7 +2202,7 @@ router.get('/export-excel', async (req, res) => {
                 SUM(CASE WHEN location_type IN ('SIGNAL','KM','PLATFORM','SECTION') THEN 1 ELSE 0 END) AS st_count,
                 SUM(CASE WHEN (location_type IS NULL OR location_type = 'UNKNOWN') AND loco_raw IS NOT NULL THEN 1 ELSE 0 END) AS cab_count
              FROM div_aws_events e
-             WHERE 1=1 ${dateFilter}`,
+             WHERE e.needs_manual_review = 0 ${dateFilter}`,
             dateParams
         );
 
@@ -2182,7 +2214,7 @@ router.get('/export-excel', async (req, res) => {
                 SUM(CASE WHEN location_type IN ('SIGNAL','KM','PLATFORM','SECTION') THEN 1 ELSE 0 END) AS st_count,
                 SUM(CASE WHEN (location_type IS NULL OR location_type = 'UNKNOWN') AND loco_raw IS NOT NULL THEN 1 ELSE 0 END) AS cab_count
              FROM div_aws_events e
-             WHERE 1=1 ${dateFilter}
+             WHERE e.needs_manual_review = 0 ${dateFilter}
              GROUP BY aws_code
              ORDER BY FIELD(aws_code,'A','B','C','D','E','P','Q','R','AUX','OTHER')`,
             dateParams
@@ -2192,7 +2224,7 @@ router.get('/export-excel', async (req, res) => {
         const [repeatedLocations] = await pool.query(
             `SELECT location_raw, location_type, COUNT(*) as cnt, GROUP_CONCAT(id) as event_ids
              FROM div_aws_events e
-             WHERE location_raw IS NOT NULL AND location_raw != '' ${dateFilter}
+             WHERE location_raw IS NOT NULL AND location_raw != '' AND e.needs_manual_review = 0 ${dateFilter}
              GROUP BY location_raw, location_type
              HAVING cnt > 1
              ORDER BY cnt DESC`,
@@ -2203,7 +2235,7 @@ router.get('/export-excel', async (req, res) => {
         const [repeatedCabs] = await pool.query(
             `SELECT loco_raw, COUNT(*) as cnt, GROUP_CONCAT(id) as event_ids
              FROM div_aws_events e
-             WHERE loco_raw IS NOT NULL AND loco_raw != '' ${dateFilter}
+             WHERE loco_raw IS NOT NULL AND loco_raw != '' AND e.needs_manual_review = 0 ${dateFilter}
              GROUP BY loco_raw
              HAVING cnt > 1
              ORDER BY cnt DESC`,
@@ -2220,7 +2252,7 @@ router.get('/export-excel', async (req, res) => {
                 JOIN div_sub_section_stations ss1 ON ss1.station_code = r.from_station
                 JOIN div_sub_section_stations ss2 ON ss2.station_code = r.to_station AND ss2.section_code = ss1.section_code
                 JOIN div_sub_sections s ON s.section_code = ss1.section_code
-                WHERE r.from_station IS NOT NULL AND ss1.seq_order < ss2.seq_order ${dateFilter.replace(/e\./g, 'e.')}
+                WHERE r.from_station IS NOT NULL AND ss1.seq_order < ss2.seq_order AND e.needs_manual_review = 0 ${dateFilter.replace(/e\./g, 'e.')}
             )
             SELECT section_code, section_name, line_type, COUNT(*) as braking_count,
                 SUM(CASE WHEN location_type IN ('SIGNAL','KM','PLATFORM','SECTION') THEN 1 ELSE 0 END) AS st_count,
@@ -2241,7 +2273,7 @@ router.get('/export-excel', async (req, res) => {
              LEFT JOIN div_aws_cms_raw r ON r.id = e.raw_id
              LEFT JOIN rake_coaches c ON c.coach_number = CONCAT(e.loco_raw, 'C')
              LEFT JOIN rake_formations f ON f.id = c.rake_id
-             WHERE 1=1 ${dateFilter}
+             WHERE e.needs_manual_review = 0 ${dateFilter}
              ORDER BY e.abn_date DESC, e.abn_time DESC`,
             dateParams
         );
@@ -2690,14 +2722,16 @@ router.post('/match-signals', async (req, res) => {
             const match = await matchSignalFromDb(pool, event.location_raw);
 
             if (match.signal_id) {
-                // Update the event with matched signal
+                // Update the event with matched signal; canonicalise location_raw to
+                // the matched signal name so variants ("SE5602"/"SE-5602") unify.
                 await pool.query(
                     `UPDATE div_aws_events
                      SET signal_id = ?,
                          signal_match_confidence = ?,
+                         location_raw = ?,
                          normalized_location = ?
                      WHERE id = ?`,
-                    [match.signal_id, match.confidence, normalizeForSignalMatch(event.location_raw), event.id]
+                    [match.signal_id, match.confidence, match.signal_number, normalizeForSignalMatch(event.location_raw), event.id]
                 );
                 matched++;
                 results.push({
@@ -3016,9 +3050,9 @@ router.post('/match-all', async (req, res) => {
             if (match.signal_id) {
                 await pool.query(
                     `UPDATE div_aws_events
-                     SET signal_id = ?, signal_match_confidence = ?, normalized_location = ?
+                     SET signal_id = ?, signal_match_confidence = ?, location_raw = ?, normalized_location = ?
                      WHERE id = ?`,
-                    [match.signal_id, match.confidence, normalizeForSignalMatch(event.location_raw), event.id]
+                    [match.signal_id, match.confidence, match.signal_number, normalizeForSignalMatch(event.location_raw), event.id]
                 );
                 signalsMatched++;
             } else {

@@ -354,6 +354,7 @@
           <div class="btn-group btn-group-sm">
             <button class="btn btn-neo active" id="btnPending" onclick="setFilter('pending')">Pending</button>
             <button class="btn btn-neo" id="btnAll" onclick="setFilter('all')">All Events</button>
+            <button class="btn btn-neo" id="btnDismissed" onclick="setFilter('dismissed')">Dismissed</button>
           </div>
           <button class="btn btn-neo btn-sm" onclick="loadEvents()">
             <i class="bi bi-arrow-clockwise"></i>
@@ -372,7 +373,7 @@
     let currentOffset = 0;
     const PAGE_SIZE = 20;
     let totalEvents = 0;
-    let currentFilter = 'pending'; // 'pending' or 'all'
+    let currentFilter = 'pending'; // 'pending' | 'all' | 'dismissed'
 
     // Set filter and reload
     function setFilter(filter) {
@@ -382,10 +383,11 @@
       // Update button states
       document.getElementById('btnPending').classList.toggle('active', filter === 'pending');
       document.getElementById('btnAll').classList.toggle('active', filter === 'all');
+      document.getElementById('btnDismissed').classList.toggle('active', filter === 'dismissed');
 
       // Update title
-      document.getElementById('eventsTitle').textContent =
-        filter === 'pending' ? 'Events Needing Review' : 'All Events';
+      const titles = { pending: 'Events Needing Review', all: 'All Events', dismissed: 'Dismissed (Not AWS)' };
+      document.getElementById('eventsTitle').textContent = titles[filter] || 'Events';
 
       loadEvents();
     }
@@ -410,14 +412,22 @@
       container.innerHTML = '<div class="text-center py-4"><span class="spinner"></span></div>';
 
       try {
-        const needsReview = currentFilter === 'pending' ? 'true' : 'false';
-        const res = await fetch(`${API_BASE}/events?needs_review=${needsReview}&limit=${PAGE_SIZE}&offset=${offset}`);
+        let query;
+        if (currentFilter === 'dismissed') {
+          query = `status=DISMISSED&limit=${PAGE_SIZE}&offset=${offset}`;
+        } else {
+          const needsReview = currentFilter === 'pending' ? 'true' : 'false';
+          query = `needs_review=${needsReview}&limit=${PAGE_SIZE}&offset=${offset}`;
+        }
+        const res = await fetch(`${API_BASE}/events?${query}`);
         const data = await res.json();
         totalEvents = data.total;
 
         if (data.events.length === 0) {
           const emptyMsg = currentFilter === 'pending'
             ? '<p>All events have been reviewed!</p><a href="aws-upload.html" class="btn btn-accent mt-2">Upload More</a>'
+            : currentFilter === 'dismissed'
+            ? '<p>No dismissed events.</p>'
             : '<p>No events yet.</p><a href="aws-upload.html" class="btn btn-accent mt-2">Upload Data</a>';
           container.innerHTML = `
             <div class="empty-state">
@@ -429,7 +439,7 @@
           return;
         }
 
-        container.innerHTML = data.events.map(ev => renderEventCard(ev, currentFilter === 'all')).join('');
+        container.innerHTML = data.events.map(ev => renderEventCard(ev, currentFilter)).join('');
         renderPagination();
       } catch (err) {
         console.error('Events error:', err);
@@ -438,13 +448,14 @@
     }
 
     // Render single event card
-    function renderEventCard(ev, isAllView = false) {
+    function renderEventCard(ev, view = 'pending') {
       const dateStr = ev.abn_date ? new Date(ev.abn_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '-';
       const timeStr = ev.abn_time ? ev.abn_time.slice(0, 5) : '';
       const isReviewed = ev.needs_manual_review === 0;
+      const isDismissed = view === 'dismissed';
 
       // For "All Events" view, show reviewed events as read-only
-      const showReadOnly = isAllView && isReviewed;
+      const showReadOnly = (view === 'all' && isReviewed) || isDismissed;
 
       return `
         <div class="event-card ${isReviewed ? 'reviewed' : ''}" id="event-${ev.id}">
@@ -490,7 +501,19 @@
             <button class="btn btn-ok btn-sm" onclick="saveEvent(${ev.id})">
               <i class="bi bi-check2"></i> Save
             </button>
+
+            <button class="btn btn-neo btn-sm ms-auto" onclick="dismissEvent(${ev.id})"
+                    title="This row is not an AWS event — remove it from review &amp; reports">
+              <i class="bi bi-x-circle"></i> Not AWS
+            </button>
           </div>`}
+          ${isDismissed ? `<div class="event-actions">
+            <span class="chip warn"><i class="bi bi-x-circle me-1"></i> Dismissed — Not AWS</span>
+            <button class="btn btn-neo btn-sm ms-auto" onclick="restoreEvent(${ev.id})"
+                    title="Put this back into the review queue">
+              <i class="bi bi-arrow-counterclockwise"></i> Restore
+            </button>
+          </div>` : ''}
         </div>
       `;
     }
@@ -557,6 +580,36 @@
         alert('Failed to save. Please try again.');
         btn.innerHTML = origText;
         btn.disabled = false;
+      }
+    }
+
+    // Dismiss event as "Not AWS" (soft remove from review + reports)
+    async function dismissEvent(eventId) {
+      if (!confirm('Mark this row as NOT an AWS event?\nIt will be removed from the review queue and reports (you can restore it from the Dismissed tab).')) return;
+      await setEventStatus(eventId, 'DISMISSED');
+    }
+
+    // Restore a dismissed event back into the review queue
+    async function restoreEvent(eventId) {
+      await setEventStatus(eventId, 'PENDING');
+    }
+
+    async function setEventStatus(eventId, status) {
+      const card = document.getElementById(`event-${eventId}`);
+      if (card) card.style.opacity = '.5';
+      try {
+        const res = await fetch(`${API_BASE}/events/${eventId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status })
+        });
+        if (!res.ok) throw new Error('Status update failed');
+        loadStats();
+        loadEvents(currentOffset);
+      } catch (err) {
+        console.error('Status update error:', err);
+        alert('Action failed. Please try again.');
+        if (card) card.style.opacity = '';
       }
     }
 
