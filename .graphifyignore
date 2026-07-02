@@ -1,0 +1,34 @@
+# Dependencies & build
+node_modules/
+.git/
+graphify-out/
+
+# Secrets (config/ excluded to be safe — see note)
+.env
+.env.*
+*.env
+config/
+
+# Staff data / PII — CSV, Excel, SQL dumps
+*.csv
+*.xlsx
+*.xls
+*.sql
+data/
+csv/
+sql/
+uploads/
+backups_*/
+staff_postion_midnight
+
+# Brochures, media, binaries (noise + avoidable LLM cost)
+*.zip
+*.pdf
+*.docx
+*.pptx
+*.png
+*.jpg
+*.jpeg
+
+# Frontend — excluded for a clean backend-first map (see note)
+public/
