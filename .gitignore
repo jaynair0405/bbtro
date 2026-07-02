@@ -6,7 +6,12 @@ node_modules/
 
 # Uploads and temporary files
 uploads/
+tmp/
 *.log
+
+# Local AI/tool-generated worktrees and reports
+.claude/worktrees/
+graphify-out/
 
 # Database files
 *.db

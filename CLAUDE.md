@@ -143,14 +143,21 @@ control-office, training-letter, transfer-letter). Keep them from tangling:
 ### Rules
 1. **One module per branch.** Before every commit, check `git branch --show-current`
    matches the module you're editing — switch first if not. Never mix modules in one branch.
-2. **Push with plain `git push`** (repo is set to `push.default=current`, so it pushes the
+2. **Stage only files belonging to the current module.** Review `git status --short` and
+   `git diff` first. Do not use `git add .` or `git add -A` in a dirty worktree.
+3. **Push with plain `git push`** (repo is set to `push.default=current`, so it pushes the
    CURRENT branch). NEVER run `git push origin master` from a feature branch — it silently
    pushes an unchanged master and strands your commits.
-3. **Sync regularly:** on a feature branch run `git fetch && git rebase origin/master`.
+   For a new branch, `git push -u origin <branch>` may be used to record its upstream.
+4. **Pull master only while master is checked out:** `git switch master && git pull --ff-only
+   origin master`. Running `git pull origin master` on a feature branch updates that feature
+   branch instead of the local master branch.
+5. **Sync regularly:** on a feature branch run `git fetch && git rebase origin/master`.
    Rebase auto-drops commits already on master (patch-id), keeping the branch = "master + my WIP".
-4. **Ship a module:** rebase it on master → `git checkout master && git merge --ff-only
+6. **Ship a module:** rebase it on master → `git switch master && git pull --ff-only origin
+   master && git merge --ff-only
    feature/<module>` → `git push` → deploy → delete the branch.
-5. Per-module DB changes: dated `sql/` files travel on the module's branch and deploy on merge
+7. Per-module DB changes: dated `sql/` files travel on the module's branch and deploy on merge
    (every DDL goes into a dated sql/ file).
 
 ### Repo git config (already set)
