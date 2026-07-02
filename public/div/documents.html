@@ -87,9 +87,13 @@
                  max-width: 92vw; }
         .modal h3 { margin: 0 0 18px; font-size: 18px; }
         .field { margin-bottom: 14px; }
-        .field label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; }
+        .field label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px;
+                 color: #1e293b; }
         .field input, .field select, .field textarea { width: 100%; padding: 9px 11px;
-                 border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; font-family: inherit; }
+                 border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; font-family: inherit;
+                 color: #1e293b; background: #fff; }
+        .field input::placeholder, .field textarea::placeholder { color: #94a3b8; }
+        .field select { -webkit-appearance: menulist; appearance: menulist; }
         .field textarea { resize: vertical; min-height: 60px; }
         .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px; }
         .form-err { color: #dc2626; font-size: 13px; margin-top: 8px; min-height: 18px; }
@@ -125,6 +129,10 @@
                 <label>Category</label>
                 <select id="upCategory"></select>
             </div>
+            <div class="field" id="upFolderField" style="display:none;">
+                <label><span id="upFolderLabelText">Section</span> <span id="upFolderReq" style="color:#dc2626;display:none;">*</span></label>
+                <select id="upFolder"></select>
+            </div>
             <div class="field">
                 <label>Title</label>
                 <input type="text" id="upTitle" placeholder="e.g. Refresher Letter — March 2026">
@@ -150,17 +158,36 @@
     </div>
 
 <script>
+// mode: how a category is browsed —
+//   date       Year → Month tree
+//   promotion  Year → Month tree, plus a 'Reinstatements' sub-folder
+//   folders    fixed folders (from perms.folderConfig), flat list under each
+//   flat       plain card grid
 const CAT_META = {
-    TRAINING_LETTER: { label: 'Training Letters', icon: '🎓' },
-    PROMOTION_ORDER: { label: 'Promotion Orders', icon: '📈' },
-    MANUAL:          { label: 'Manuals',          icon: '📕' },
-    PRESENTATION:    { label: 'Presentations',    icon: '📊' },
-    BROCHURE:        { label: 'Brochures',        icon: '📘' },
-    MISC:            { label: 'Misc',             icon: '🗂️' },
+    TRAINING_LETTER:    { label: 'Training Letters',    icon: '🎓', mode: 'date' },
+    PROMOTION_ORDER:    { label: 'Promotion Orders',    icon: '📈', mode: 'promotion' },
+    SR_DEE_INSTRUCTION: { label: 'Sr.DEE Instructions', icon: '📋', mode: 'date' },
+    SAFETY_CIRCULAR:    { label: 'Safety Circulars',    icon: '🦺', mode: 'date' },
+    STUDY_MATERIAL:     { label: 'Study Materials',     icon: '📚', mode: 'folders' },
+    MANUAL:             { label: 'Manuals',             icon: '📕', mode: 'flat' },
+    PRESENTATION:       { label: 'Presentations',       icon: '📊', mode: 'flat' },
+    BROCHURE:           { label: 'Brochures',           icon: '📘', mode: 'flat' },
+    MISC:               { label: 'Misc',                icon: '🗂️', mode: 'flat' },
 };
 const FILE_ICON = { pdf:'📄', pptx:'📊', ppt:'📊', docx:'📝', doc:'📝', xlsx:'📈', xls:'📈' };
+const REINSTATEMENT_FOLDER = 'Reinstatements';
 
-let perms = { canUpload: [], dateTreeCategories: [], categories: [] };
+const DEFAULT_PERMS = {
+    success: true, role: null, canUpload: [], canUploadAny: false,
+    dateTreeCategories: ['TRAINING_LETTER','PROMOTION_ORDER','SR_DEE_INSTRUCTION','SAFETY_CIRCULAR'],
+    folderConfig: {
+        STUDY_MATERIAL:  { required: ['Main Line', 'Suburban'] },
+        PROMOTION_ORDER: { optional: [REINSTATEMENT_FOLDER] },
+    },
+    categories: ['TRAINING_LETTER','PROMOTION_ORDER','SR_DEE_INSTRUCTION','SAFETY_CIRCULAR',
+                 'STUDY_MATERIAL','MANUAL','PRESENTATION','BROCHURE','MISC'],
+};
+let perms = { ...DEFAULT_PERMS };
 let current = 'TRAINING_LETTER';
 
 function fmtSize(b) {
@@ -176,14 +203,32 @@ function fmtDate(d) {
     const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
     return `${String(day).padStart(2,'0')} ${MON[m-1]} ${y}`;
 }
-function isDateTree(cat) { return perms.dateTreeCategories.includes(cat); }
-function canManage(cat) { return perms.canUpload.includes(cat); }
+function isDateTree(cat) { return (perms.dateTreeCategories || []).includes(cat); }
+function canManage(cat) { return (perms.canUpload || []).includes(cat); }
+function catMode(cat) { return (CAT_META[cat] || {}).mode || 'flat'; }
+function foldersFor(cat) {
+    const fc = (perms.folderConfig || {})[cat] || {};
+    return fc.required || fc.optional || [];
+}
+function folderRequired(cat) { return !!((perms.folderConfig || {})[cat] || {}).required; }
 function viewUrl(id) { return `/api/division/documents/${id}/view`; }
 function downloadUrl(id) { return `/api/division/documents/${id}/download`; }
 
 async function loadPerms() {
-    const r = await fetch('/api/division/documents/permissions');
-    perms = await r.json();
+    try {
+        const r = await fetch('/api/division/documents/permissions');
+        if (!r.ok) throw new Error('permissions HTTP ' + r.status);
+        const j = await r.json();
+        if (!j || !j.success || !Array.isArray(j.dateTreeCategories)) {
+            throw new Error('permissions payload invalid');
+        }
+        perms = { ...DEFAULT_PERMS, ...j };
+    } catch (e) {
+        // Falls back to view-only defaults so the tree still renders. Most
+        // likely the server needs restarting to mount the documents routes.
+        console.error('Could not load document permissions (is the server running the latest code?):', e);
+        perms = { ...DEFAULT_PERMS };
+    }
     if (perms.canUploadAny) document.getElementById('uploadBtn').style.display = '';
 }
 
@@ -202,27 +247,34 @@ function buildRail() {
 function selectCategory(cat) {
     current = cat;
     buildRail();
+    const mode = catMode(cat);
     document.getElementById('mainTitle').textContent = CAT_META[cat].label;
-    document.getElementById('mainSubtitle').textContent = isDateTree(cat)
-        ? 'Browse by year and month' : 'All documents in this category';
+    document.getElementById('mainSubtitle').textContent =
+        (mode === 'date' || mode === 'promotion') ? 'Browse by year and month'
+        : mode === 'folders' ? 'Browse by section'
+        : 'All documents in this category';
     loadContent();
 }
 
 async function loadContent() {
     const el = document.getElementById('content');
     el.innerHTML = '<div class="empty">Loading…</div>';
-    if (isDateTree(current)) return renderTree(el);
-    return renderFlat(el);
+    const r = await fetch(`/api/division/documents?category=${current}`);
+    if (!r.ok) { el.innerHTML = '<div class="empty">Could not load documents. Refresh, or restart the server if this persists.</div>'; return; }
+    const docs = (await r.json()).documents || [];
+    el.innerHTML = '';
+    if (!docs.length) { el.innerHTML = '<div class="empty">No documents yet.</div>'; return; }
+    const mode = catMode(current);
+    if (mode === 'promotion') return renderPromotion(el, docs);
+    if (mode === 'folders')   return renderFixedFolders(el, docs);
+    if (mode === 'date')      return renderDateTree(el, docs);
+    return renderFlat(el, docs);
 }
 
-async function renderFlat(el) {
-    const r = await fetch(`/api/division/documents?category=${current}`);
-    const { documents } = await r.json();
-    if (!documents.length) { el.innerHTML = '<div class="empty">No documents yet.</div>'; return; }
+function renderFlat(el, documents) {
     const grid = document.createElement('div');
     grid.className = 'docs-grid';
     documents.forEach(d => grid.appendChild(cardEl(d)));
-    el.innerHTML = '';
     el.appendChild(grid);
 }
 
@@ -248,18 +300,35 @@ function cardEl(d) {
     return c;
 }
 
-async function renderTree(el) {
-    const r = await fetch(`/api/division/documents/tree?category=${current}`);
-    const data = await r.json();
-    if (!data.years.length && !data.undated.length) {
-        el.innerHTML = '<div class="empty">No documents yet.</div>'; return;
-    }
-    el.innerHTML = '';
-    data.years.forEach((y, yi) => {
+const MONTHS = ['January','February','March','April','May','June',
+    'July','August','September','October','November','December'];
+
+// Group docs (each doc_date 'YYYY-MM-DD' or null) → {years:[...], undated:[...]}
+function groupYears(docs) {
+    const tree = {}; const undated = [];
+    docs.forEach(d => {
+        if (!d.doc_date) { undated.push(d); return; }
+        const [ys, ms] = String(d.doc_date).split('-');
+        const y = Number(ys), m = Number(ms) - 1;
+        tree[y] = tree[y] || {};
+        (tree[y][m] = tree[y][m] || []).push(d);
+    });
+    const years = Object.keys(tree).map(Number).sort((a,b)=>b-a).map(y => ({
+        year: y,
+        months: Object.keys(tree[y]).map(Number).sort((a,b)=>b-a).map(m => ({
+            monthName: MONTHS[m], documents: tree[y][m],
+        })),
+    }));
+    return { years, undated };
+}
+
+// Append Year→Month→leaf nodes into container. autoExpand → open newest year+month.
+function appendYearNodes(container, grouped, autoExpand) {
+    grouped.years.forEach((y, yi) => {
         const count = y.months.reduce((s, m) => s + m.documents.length, 0);
+        const open = autoExpand && yi === 0;
         const node = document.createElement('div');
         node.className = 'tree-node';
-        const open = yi === 0; // newest year expanded by default
         node.innerHTML = `
             <div class="tree-toggle tree-year ${open?'open':''}">
                 <span class="caret">▶</span><span>${y.year}</span>
@@ -268,34 +337,80 @@ async function renderTree(el) {
             <div class="tree-children ${open?'open':''}"></div>`;
         const kids = node.querySelector('.tree-children');
         node.querySelector('.tree-toggle').onclick = (e) => toggle(e.currentTarget);
-        y.months.forEach(m => {
+        y.months.forEach((m, mi) => {
+            const mOpen = open && mi === 0;
             const mnode = document.createElement('div');
             mnode.className = 'tree-node';
             mnode.innerHTML = `
-                <div class="tree-toggle">
+                <div class="tree-toggle ${mOpen ? 'open' : ''}">
                     <span class="caret">▶</span><span>${m.monthName}</span>
                     <span class="tree-count">· ${m.documents.length}</span>
                 </div>
-                <div class="tree-children"></div>`;
+                <div class="tree-children ${mOpen ? 'open' : ''}"></div>`;
             const mkids = mnode.querySelector('.tree-children');
             mnode.querySelector('.tree-toggle').onclick = (e) => toggle(e.currentTarget);
             m.documents.forEach(d => mkids.appendChild(leafEl(d)));
             kids.appendChild(mnode);
         });
-        el.appendChild(node);
+        container.appendChild(node);
     });
-    if (data.undated.length) {
+    if (grouped.undated.length) {
         const node = document.createElement('div');
         node.className = 'tree-node';
         node.innerHTML = `
             <div class="tree-toggle tree-year"><span class="caret">▶</span><span>Undated</span>
-                <span class="tree-count">· ${data.undated.length}</span></div>
+                <span class="tree-count">· ${grouped.undated.length}</span></div>
             <div class="tree-children"></div>`;
         const kids = node.querySelector('.tree-children');
         node.querySelector('.tree-toggle').onclick = (e) => toggle(e.currentTarget);
-        data.undated.forEach(d => kids.appendChild(leafEl(d)));
-        el.appendChild(node);
+        grouped.undated.forEach(d => kids.appendChild(leafEl(d)));
+        container.appendChild(node);
     }
+}
+
+// A collapsible top-level folder node; buildFn fills its children container.
+function folderNode(label, count, open, buildFn) {
+    const node = document.createElement('div');
+    node.className = 'tree-node';
+    node.innerHTML = `
+        <div class="tree-toggle tree-year ${open?'open':''}">
+            <span class="caret">▶</span><span>${escapeHtml(label)}</span>
+            <span class="tree-count">· ${count}</span>
+        </div>
+        <div class="tree-children ${open?'open':''}"></div>`;
+    node.querySelector('.tree-toggle').onclick = (e) => toggle(e.currentTarget);
+    buildFn(node.querySelector('.tree-children'));
+    return node;
+}
+
+function renderDateTree(el, docs) {
+    appendYearNodes(el, groupYears(docs), true);
+}
+
+// Promotion Orders: a 'Reinstatements' sub-folder + the regular orders by year.
+function renderPromotion(el, docs) {
+    const reinstate = docs.filter(d => d.folder === REINSTATEMENT_FOLDER);
+    const general   = docs.filter(d => d.folder !== REINSTATEMENT_FOLDER);
+    if (reinstate.length) {
+        el.appendChild(folderNode(REINSTATEMENT_FOLDER, reinstate.length, false,
+            (kids) => appendYearNodes(kids, groupYears(reinstate), true)));
+    }
+    appendYearNodes(el, groupYears(general), true);
+}
+
+// Fixed folders (e.g. Study Materials: Main Line / Suburban) → flat list each.
+function renderFixedFolders(el, docs) {
+    const folders = foldersFor(current);
+    folders.forEach((f, i) => {
+        const inFolder = docs.filter(d => d.folder === f);
+        el.appendChild(folderNode(f, inFolder.length, i === 0, (kids) => {
+            if (!inFolder.length) {
+                kids.innerHTML = '<div class="empty" style="text-align:left;padding:8px 10px;">Empty</div>';
+                return;
+            }
+            inFolder.forEach(d => kids.appendChild(leafEl(d)));
+        }));
+    });
 }
 
 function toggle(t) {
@@ -331,7 +446,7 @@ async function delDoc(id) {
 const modal = document.getElementById('uploadModal');
 document.getElementById('uploadBtn').onclick = openModal;
 document.getElementById('upCancel').onclick = () => modal.classList.remove('show');
-document.getElementById('upCategory').onchange = syncDateField;
+document.getElementById('upCategory').onchange = syncModalFields;
 document.getElementById('upSubmit').onclick = submitUpload;
 
 function openModal() {
@@ -344,13 +459,31 @@ function openModal() {
     document.getElementById('upDesc').value = '';
     document.getElementById('upFile').value = '';
     document.getElementById('upErr').textContent = '';
-    syncDateField();
+    syncModalFields();
     modal.classList.add('show');
 }
 
-function syncDateField() {
+// Show/require the date and folder fields based on the selected category.
+function syncModalFields() {
     const cat = document.getElementById('upCategory').value;
-    document.getElementById('upDateReq').style.display = isDateTree(cat) ? '' : 'none';
+    const dateTree = isDateTree(cat);
+    document.getElementById('upDateField').style.display = dateTree ? '' : 'none';
+    document.getElementById('upDateReq').style.display = dateTree ? '' : 'none';
+
+    const opts = foldersFor(cat);
+    const wrap = document.getElementById('upFolderField');
+    if (opts.length) {
+        const req = folderRequired(cat);
+        wrap.style.display = '';
+        document.getElementById('upFolderReq').style.display = req ? '' : 'none';
+        document.getElementById('upFolderLabelText').textContent =
+            cat === 'STUDY_MATERIAL' ? 'Line' : cat === 'PROMOTION_ORDER' ? 'Type' : 'Section';
+        const none = req ? '' : '<option value="">Regular (no folder)</option>';
+        document.getElementById('upFolder').innerHTML =
+            none + opts.map(o => `<option value="${o}">${o}</option>`).join('');
+    } else {
+        wrap.style.display = 'none';
+    }
 }
 
 async function submitUpload() {
@@ -360,14 +493,21 @@ async function submitUpload() {
     const title = document.getElementById('upTitle').value.trim();
     const date = document.getElementById('upDate').value;
     const file = document.getElementById('upFile').files[0];
+    const folderVisible = document.getElementById('upFolderField').style.display !== 'none';
+    const folder = folderVisible ? document.getElementById('upFolder').value : '';
     if (!title) { err.textContent = 'Title is required.'; return; }
     if (!file)  { err.textContent = 'Please choose a file.'; return; }
     if (isDateTree(cat) && !date) { err.textContent = 'Document date is required for this category.'; return; }
+    if (folderVisible && folderRequired(cat) && !folder) {
+        err.textContent = 'Please choose a ' + (cat === 'STUDY_MATERIAL' ? 'line (Main Line / Suburban).' : 'section.');
+        return;
+    }
 
     const fd = new FormData();
     fd.append('category', cat);
     fd.append('title', title);
     if (date) fd.append('doc_date', date);
+    if (folder) fd.append('folder', folder);
     fd.append('description', document.getElementById('upDesc').value.trim());
     fd.append('file', file);
 

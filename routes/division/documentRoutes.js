@@ -25,24 +25,55 @@ const crypto = require('crypto');
 // ── Config ────────────────────────────────────────────────────────────────
 
 const CATEGORIES = [
-  'TRAINING_LETTER', 'PROMOTION_ORDER', 'MANUAL',
+  'TRAINING_LETTER', 'PROMOTION_ORDER', 'SR_DEE_INSTRUCTION',
+  'SAFETY_CIRCULAR', 'STUDY_MATERIAL', 'MANUAL',
   'PRESENTATION', 'BROCHURE', 'MISC',
 ];
 
 // Who may upload/delete each category. Everyone logged-in can view/download.
 // Single source of truth — tweak here.
 const CATEGORY_UPLOAD_ROLES = {
-  TRAINING_LETTER: ['trgcentre_admin', 'division_admin'],
-  PROMOTION_ORDER: ['office_hr', 'division_admin'],
-  MANUAL:          ['division_admin'],
-  PRESENTATION:    ['division_admin'],
-  BROCHURE:        ['division_admin'],
-  MISC:            ['division_admin'],
+  TRAINING_LETTER:    ['trgcentre_admin', 'division_admin'],
+  PROMOTION_ORDER:    ['office_hr', 'division_admin'],
+  SR_DEE_INSTRUCTION: ['division_admin'],
+  SAFETY_CIRCULAR:    ['division_admin'],
+  STUDY_MATERIAL:     ['trgcentre_admin', 'division_admin'],
+  MANUAL:             ['division_admin'],
+  PRESENTATION:       ['division_admin'],
+  BROCHURE:           ['division_admin'],
+  MISC:               ['division_admin'],
 };
 
 // Categories whose documents are organised by date (Year → Month tree).
 // doc_date is required when uploading into these.
-const DATE_TREE_CATEGORIES = new Set(['TRAINING_LETTER', 'PROMOTION_ORDER']);
+const DATE_TREE_CATEGORIES = new Set([
+  'TRAINING_LETTER', 'PROMOTION_ORDER', 'SR_DEE_INSTRUCTION', 'SAFETY_CIRCULAR',
+]);
+
+// Folder ("section") config per category, used for upload validation and to
+// tell the client how to build the folder dropdown.
+//   required: user MUST pick one of these folders.
+//   optional: user MAY pick one of these (else the doc is "general", folder NULL).
+const FOLDER_CONFIG = {
+  STUDY_MATERIAL:  { required: ['Main Line', 'Suburban'] },
+  PROMOTION_ORDER: { optional: ['Reinstatements'] },
+};
+
+// Validate/normalise a folder value for a category. Returns
+// { ok, value } — value is the folder string or null.
+function resolveFolder(category, raw) {
+  const cfg = FOLDER_CONFIG[category];
+  const folder = (raw || '').trim();
+  if (!cfg) return { ok: true, value: null };            // category has no folders
+  if (cfg.required) {
+    return cfg.required.includes(folder)
+      ? { ok: true, value: folder }
+      : { ok: false };
+  }
+  // optional
+  if (!folder) return { ok: true, value: null };
+  return cfg.optional.includes(folder) ? { ok: true, value: folder } : { ok: false };
+}
 
 const ALLOWED_EXT = new Set(['pdf', 'pptx', 'ppt', 'docx', 'doc', 'xlsx', 'xls']);
 const MAX_SIZE = 25 * 1024 * 1024; // 25 MB
@@ -126,53 +157,9 @@ router.get('/', async (req, res) => {
   }
 });
 
-// ── GET /tree?category= — year → month → docs ──────────────────────────────
-router.get('/tree', async (req, res) => {
-  try {
-    const pool = req.app.locals.pool;
-    const { category } = req.query;
-    if (!category || !CATEGORIES.includes(category)) {
-      return res.status(400).json({ success: false, error: 'Invalid category' });
-    }
-    const [rows] = await pool.query(
-      `SELECT id, title, description,
-              DATE_FORMAT(doc_date, '%Y-%m-%d') AS doc_date,
-              original_name, file_type, file_size, uploaded_by, created_at
-       FROM div_documents WHERE category = ?
-       ORDER BY (doc_date IS NULL), doc_date DESC, created_at DESC`,
-      [category]
-    );
-
-    const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December'];
-    const tree = {}; // year -> { monthIndex -> [docs] }
-    const undated = [];
-    for (const r of rows) {
-      if (!r.doc_date) { undated.push(r); continue; }
-      // doc_date is a 'YYYY-MM-DD' string — parse directly, no Date/TZ shift.
-      const [ys, ms] = r.doc_date.split('-');
-      const y = Number(ys);
-      const m = Number(ms) - 1;
-      tree[y] = tree[y] || {};
-      tree[y][m] = tree[y][m] || [];
-      tree[y][m].push(r);
-    }
-    const years = Object.keys(tree).map(Number).sort((a, b) => b - a).map((y) => ({
-      year: y,
-      months: Object.keys(tree[y]).map(Number).sort((a, b) => b - a).map((m) => ({
-        month: m + 1,
-        monthName: MONTHS[m],
-        documents: tree[y][m],
-      })),
-    }));
-    res.json({ success: true, category, years, undated });
-  } catch (err) {
-    console.error('documents tree error:', err);
-    res.status(500).json({ success: false, error: 'Failed to build tree' });
-  }
-});
-
 // ── GET /permissions — what the current user may upload/manage ──────────────
+// Grouping (year/month trees, folders) is done client-side from the list
+// endpoint, so there is no /tree route.
 router.get('/permissions', (req, res) => {
   const role = getRole(req);
   const canUpload = uploadableCategories(role);
@@ -181,6 +168,7 @@ router.get('/permissions', (req, res) => {
     role,
     categories: CATEGORIES,
     dateTreeCategories: [...DATE_TREE_CATEGORIES],
+    folderConfig: FOLDER_CONFIG,                // { CATEGORY: {required|optional: [...] } }
     canUpload,                                  // categories this role may add
     canUploadAny: canUpload.length > 0,
   });
@@ -215,6 +203,11 @@ router.post('/', (req, res) => {
         cleanup();
         return res.status(400).json({ success: false, error: 'Document date is required for this category.' });
       }
+      const folderRes = resolveFolder(category, folder);
+      if (!folderRes.ok) {
+        cleanup();
+        return res.status(400).json({ success: false, error: 'A valid section/folder is required for this category.' });
+      }
 
       const pool = req.app.locals.pool;
       const [result] = await pool.query(
@@ -227,7 +220,7 @@ router.post('/', (req, res) => {
           category,
           description?.trim() || null,
           doc_date || null,
-          folder?.trim() || null,
+          folderRes.value,
           req.file.filename,
           req.file.originalname,
           extOf(req.file.originalname),
