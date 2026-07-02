@@ -28,3 +28,7 @@ Thumbs.db
 # Backup files
 *.bak
 *.backup
+
+# One-time staff import artifacts (bulk data + PII, not schema) — never commit
+sql/*new_pnvl_alp*.sql
+csv/new_pnvl_alp*
