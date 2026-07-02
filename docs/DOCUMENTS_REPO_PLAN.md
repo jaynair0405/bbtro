@@ -178,3 +178,33 @@ Layout: **left sidebar of categories** + **main content pane**.
 - File type whitelist + max size (proposed: pdf/pptx/docx/xlsx, 25 MB).
 - Should `doc_date` be required for Training/Promotion uploads (so the tree is
   never "Undated")? Proposed: yes, required for those two categories.
+
+---
+
+## 10. Future enhancement — user-creatable folders (DEFERRED)
+
+Status as of **2026-07-02**: shipped sections are **hard-coded** (a DB `ENUM`
+plus config: upload roles, layout, folders). Adding a section = ALTER + code +
+deploy. This is fine for now — **decision: leave as-is.**
+
+Discussed three ways to make it extensible (see chat id below):
+
+1. **User-created sub-folders (PREFERRED direction).** Keep top-level sections
+   code-defined, but let a user type a **new folder** within a section at upload
+   (the `folder` column is already free-text, so no schema change — just a
+   "＋ New folder" input + relaxed server validation for chosen sections).
+   - **Prerequisite the user flagged:** first define **all the possible "parent
+     folders" (top-level sections)** — the fixed set, like we have now — and
+     only then allow user-created sub-folders beneath them. User will work out
+     that parent-folder taxonomy and come back before we build this.
+2. **Dynamic sections (bigger).** Replace the `category` ENUM with a
+   `div_document_categories` table + a small "Manage Sections" admin page where
+   an admin defines a section's name, layout (Year→Month / folders / flat) and
+   which roles may upload. True self-service; not chosen now.
+3. **Keep hard-coded.** I add each new section in code on request (~minutes +
+   deploy). This is the current mode.
+
+**Next step (when resumed):** user finalises the list of parent folders, then we
+implement option 1 (user-typed sub-folders under those parents).
+
+_Originating chat/session id: `2601e5bb-8233-482e-9270-6c39d9602123`._
