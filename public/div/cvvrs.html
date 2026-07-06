@@ -1,0 +1,1066 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Divisional Portal – CVVRS Analysis Report</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;}
+  body{background:#f6f7fb;font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;margin:0;color:#1e293b;}
+
+  /* Header */
+  .top-bar{background:#fff;border-bottom:1px solid #e2e8f0;padding:12px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:0 1px 3px rgba(0,0,0,.04);}
+  .top-bar h1{font-size:18px;font-weight:700;margin:0;color:#0f172a;display:flex;align-items:center;gap:10px;}
+  .top-bar h1 .badge-title{background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;font-size:10px;padding:3px 8px;border-radius:4px;font-weight:600;letter-spacing:.5px;}
+  .top-bar-actions{display:flex;align-items:center;gap:10px;}
+  .btn-back{background:none;border:1px solid #cbd5e1;border-radius:8px;padding:6px 14px;color:#475569;font-size:13px;cursor:pointer;transition:all .2s;}
+  .btn-back:hover{background:#f1f5f9;border-color:#94a3b8;}
+
+  /* Progress bar */
+  .progress-strip{height:3px;background:#e2e8f0;position:sticky;top:53px;z-index:99;}
+  .progress-strip .fill{height:100%;background:linear-gradient(90deg,#f87171,#fbbf24,#4ade80);transition:width .4s ease;width:0%;}
+
+  /* Page container */
+  .page{max-width:1100px;margin:0 auto;padding:20px 24px 60px;}
+
+  /* Cards */
+  .card{background:#fff;border-radius:12px;border:1px solid #e2e8f0;box-shadow:0 1px 3px rgba(0,0,0,.04);margin-bottom:20px;overflow:hidden;}
+  .card-header{padding:14px 20px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;justify-content:space-between;}
+  .card-header h2{font-size:14px;font-weight:700;margin:0;color:#0f172a;display:flex;align-items:center;gap:8px;}
+  .card-header .section-num{width:24px;height:24px;border-radius:6px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;font-size:11px;display:flex;align-items:center;justify-content:center;font-weight:700;}
+  .card-header .item-count{font-size:11px;color:#94a3b8;font-weight:500;}
+  .card-body{padding:20px;}
+
+  /* Grid layouts */
+  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
+  .grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;}
+
+  /* Form controls */
+  .form-group{margin-bottom:0;}
+  .form-label{font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;display:block;}
+  .form-control,.form-select{font-size:13px;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;transition:all .2s;background:#fff;}
+  .form-control:focus,.form-select:focus{border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,.1);outline:none;}
+  .form-control::placeholder{color:#cbd5e1;}
+
+  /* Crew selection cards */
+  .crew-card{border:2px dashed #e2e8f0;border-radius:12px;padding:16px;text-align:center;transition:all .2s;min-height:130px;display:flex;flex-direction:column;justify-content:center;}
+  .crew-card.filled{border-style:solid;border-color:#3b82f6;background:linear-gradient(135deg,#eff6ff,#dbeafe);}
+  .crew-card .search-icon{font-size:28px;color:#cbd5e1;margin-bottom:6px;}
+  .crew-card .hint{font-size:12px;color:#94a3b8;}
+  .crew-selected{display:flex;align-items:center;gap:12px;text-align:left;}
+  .crew-avatar{width:42px;height:42px;border-radius:10px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px;flex-shrink:0;}
+  .crew-info .name{font-weight:700;font-size:14px;color:#0f172a;}
+  .crew-info .meta{font-size:11px;color:#64748b;margin-top:2px;}
+  .crew-info .meta span{margin-right:10px;}
+  .crew-remove{margin-left:auto;background:none;border:none;color:#94a3b8;cursor:pointer;font-size:16px;padding:4px;border-radius:6px;transition:all .15s;}
+  .crew-remove:hover{background:#fee2e2;color:#ef4444;}
+
+  /* Search dropdown */
+  .search-wrapper{position:relative;}
+  .search-dropdown{position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.12);max-height:260px;overflow-y:auto;z-index:200;display:none;}
+  .search-dropdown.show{display:block;}
+  .search-item{padding:10px 14px;cursor:pointer;border-bottom:1px solid #f8fafc;transition:background .12s;}
+  .search-item:last-child{border:none;}
+  .search-item:hover,.search-item.active{background:#eff6ff;}
+  .search-item .name{font-weight:600;color:#0f172a;font-size:13px;}
+  .search-item .details{font-size:11px;color:#64748b;margin-top:2px;}
+
+  /* NCLI row under crew */
+  .ncli-row{margin-top:12px;padding-top:12px;border-top:1px solid #e2e8f0;}
+  .ncli-row .form-label{font-size:10px;margin-bottom:3px;}
+  .ncli-pill{display:inline-flex;align-items:center;gap:6px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:4px 10px;font-size:12px;color:#166534;font-weight:500;}
+
+  /* Observation table */
+  .obs-table{width:100%;border-collapse:separate;border-spacing:0;}
+  .obs-table thead th{font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.5px;padding:8px 12px;border-bottom:2px solid #e2e8f0;text-align:center;white-space:nowrap;}
+  .obs-table thead th:first-child{text-align:left;width:35%;}
+  .obs-table thead th.col-toggle{width:22%;}
+  .obs-table thead th.col-remark{width:21%;}
+  .obs-table tbody tr{transition:background .12s;}
+  .obs-table tbody tr:hover{background:#f8fafc;}
+  .obs-table tbody td{padding:8px 12px;border-bottom:1px solid #f1f5f9;vertical-align:middle;}
+  .obs-table tbody td:first-child{font-size:13px;color:#334155;font-weight:500;}
+  .obs-table tbody td.center{text-align:center;}
+  .obs-table .item-num{color:#94a3b8;font-size:11px;font-weight:400;margin-right:6px;}
+
+  /* Toggle button group */
+  .toggle-group{display:inline-flex;border-radius:8px;overflow:hidden;border:1px solid #e2e8f0;background:#f8fafc;}
+  .toggle-btn{padding:5px 12px;font-size:12px;font-weight:600;border:none;background:transparent;color:#64748b;cursor:pointer;transition:all .15s;white-space:nowrap;position:relative;}
+  .toggle-btn:not(:last-child){border-right:1px solid #e2e8f0;}
+  .toggle-btn:hover{background:#e2e8f0;}
+  .toggle-btn.active-pos{background:#dcfce7;color:#166534;border-color:#bbf7d0;}
+  .toggle-btn.active-neg{background:#fee2e2;color:#991b1b;border-color:#fecaca;}
+  .toggle-btn.active-neutral{background:#dbeafe;color:#1e40af;border-color:#bfdbfe;}
+  .toggle-btn.active-warn{background:#fef3c7;color:#92400e;border-color:#fde68a;}
+  .toggle-btn.disabled,.toggle-btn:disabled{opacity:.4;pointer-events:none;cursor:not-allowed;}
+  .toggle-group.dimmed{opacity:.55;position:relative;}
+  .toggle-group.dimmed::after{content:'';position:absolute;inset:0;cursor:not-allowed;}
+
+  /* Progress chip in top bar */
+  .progress-chip{display:flex;align-items:center;gap:8px;padding:4px 12px 4px 6px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:20px;transition:all .2s;}
+  .progress-chip.complete{background:linear-gradient(135deg,#dcfce7,#bbf7d0);border-color:#86efac;}
+  .progress-chip-ring{position:relative;display:flex;align-items:center;justify-content:center;}
+  .progress-chip-text{display:flex;flex-direction:column;line-height:1;}
+  .progress-chip-count{font-size:13px;font-weight:700;color:#0f172a;}
+  .progress-chip-label{font-size:9px;color:#64748b;text-transform:uppercase;letter-spacing:.3px;margin-top:2px;}
+  .progress-chip.complete .progress-chip-count{color:#166534;}
+
+  /* Jump-to-incomplete button */
+  .btn-jump{background:#fff7ed;border:1px solid #fed7aa;color:#c2410c;font-size:12px;font-weight:600;padding:6px 12px;border-radius:8px;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:6px;}
+  .btn-jump:hover{background:#ffedd5;border-color:#fdba74;}
+  .btn-jump.hidden{display:none;}
+  .btn-jump.complete{background:#f0fdf4;border-color:#bbf7d0;color:#166534;}
+
+  /* Incomplete row highlighting */
+  .obs-table tbody tr.row-incomplete{background:#fffbeb;box-shadow:inset 4px 0 0 #f59e0b;}
+  .obs-table tbody tr.row-incomplete:hover{background:#fef3c7;}
+  .obs-table tbody tr.row-incomplete .toggle-group:not(.dimmed){box-shadow:0 0 0 2px #fcd34d;border-radius:8px;}
+  .obs-table tbody tr.pulse-highlight{animation:pulseRow 1s ease 2;}
+  @keyframes pulseRow{0%,100%{background:#fffbeb;}50%{background:#fde68a;}}
+
+  /* Remark input inline */
+  .remark-input{width:100%;border:1px solid transparent;border-radius:6px;padding:5px 8px;font-size:12px;background:transparent;color:#475569;transition:all .2s;}
+  .remark-input:focus{border-color:#3b82f6;background:#fff;box-shadow:0 0 0 2px rgba(59,130,246,.08);}
+  .remark-input::placeholder{color:#cbd5e1;}
+
+  /* Overall performance */
+  .perf-group{display:inline-flex;border-radius:10px;overflow:hidden;border:1px solid #e2e8f0;background:#f8fafc;}
+  .perf-btn{padding:8px 20px;font-size:13px;font-weight:700;border:none;background:transparent;color:#94a3b8;cursor:pointer;transition:all .2s;letter-spacing:.3px;}
+  .perf-btn:not(:last-child){border-right:1px solid #e2e8f0;}
+  .perf-btn:hover{background:#e2e8f0;color:#475569;}
+  .perf-btn.sel-good{background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;border-color:#16a34a;}
+  .perf-btn.sel-sat{background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;border-color:#d97706;}
+  .perf-btn.sel-poor{background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff;border-color:#dc2626;}
+
+  /* Overall card layout */
+  .overall-row{display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap;}
+  .overall-col{flex:1;min-width:280px;}
+  .overall-label{font-size:12px;font-weight:600;color:#475569;margin-bottom:8px;display:flex;align-items:center;gap:6px;}
+  .overall-label .dot{width:8px;height:8px;border-radius:50%;}
+  .overall-label .dot.lp{background:#3b82f6;}
+  .overall-label .dot.alp{background:#8b5cf6;}
+
+  /* Save bar */
+  .save-bar{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #e2e8f0;padding:10px 24px;display:flex;align-items:center;justify-content:center;gap:16px;z-index:100;box-shadow:0 -2px 8px rgba(0,0,0,.04);}
+  .btn-save{background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;border:none;border-radius:10px;padding:10px 32px;font-size:14px;font-weight:700;cursor:pointer;transition:all .2s;box-shadow:0 2px 8px rgba(34,197,94,.3);}
+  .btn-save:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(34,197,94,.4);}
+  .btn-save:active{transform:translateY(0);}
+  .save-hint{font-size:11px;color:#94a3b8;}
+  .save-hint kbd{display:inline-block;padding:1px 5px;font-size:10px;background:#1e293b;color:#fff;border-radius:3px;font-family:monospace;}
+
+  /* Toast */
+  .toast-container{position:fixed;top:20px;right:20px;z-index:9999;}
+  .custom-toast{min-width:300px;padding:12px 20px;border-radius:10px;color:#fff;font-weight:500;font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,.15);animation:slideIn .3s ease;}
+  .custom-toast.success{background:linear-gradient(135deg,#22c55e,#16a34a);}
+  .custom-toast.error{background:linear-gradient(135deg,#ef4444,#dc2626);}
+  @keyframes slideIn{from{transform:translateX(100%);opacity:0;}to{transform:translateX(0);opacity:1;}}
+
+  /* Responsive */
+  @media(max-width:768px){
+    .grid-2,.grid-3,.grid-4{grid-template-columns:1fr;}
+    .obs-table thead th.col-remark{display:none;}
+    .obs-table tbody td:last-child{display:none;}
+    .top-bar{padding:10px 16px;}
+    .page{padding:16px;}
+  }
+
+  /* Print */
+  @media print{
+    .top-bar,.progress-strip,.save-bar,.no-print{display:none!important;}
+    .card{break-inside:avoid;box-shadow:none;border:1px solid #ccc;}
+    body{background:#fff;}
+  }
+
+  /* Section divider */
+  .section-divider{display:flex;align-items:center;gap:12px;margin:28px 0 16px;padding:0 4px;}
+  .section-divider .line{flex:1;height:1px;background:#e2e8f0;}
+  .section-divider .label{font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;}
+</style>
+</head>
+<body>
+
+<!-- Top Bar -->
+<div class="top-bar">
+  <div style="display:flex;align-items:center;gap:12px;">
+    <button class="btn-back" onclick="window.location.href='/div'">← Back</button>
+    <h1>
+      CVVRS Analysis Report
+      <span class="badge-title">CREW MONITORING</span>
+    </h1>
+  </div>
+  <div class="top-bar-actions">
+    <div class="progress-chip" id="progressChip" title="Items filled">
+      <div class="progress-chip-ring">
+        <svg width="28" height="28" viewBox="0 0 28 28">
+          <circle cx="14" cy="14" r="11" fill="none" stroke="#e2e8f0" stroke-width="3"/>
+          <circle id="progressChipCircle" cx="14" cy="14" r="11" fill="none" stroke="#3b82f6" stroke-width="3"
+                  stroke-dasharray="69.1" stroke-dashoffset="69.1" stroke-linecap="round"
+                  transform="rotate(-90 14 14)" style="transition:stroke-dashoffset .4s ease;"/>
+        </svg>
+      </div>
+      <div class="progress-chip-text">
+        <div class="progress-chip-count"><span id="chipFilled">0</span> / <span id="chipTotal">0</span></div>
+        <div class="progress-chip-label">items filled</div>
+      </div>
+    </div>
+    <button class="btn-jump" id="btnJumpIncomplete" onclick="jumpToIncomplete()" title="Jump to next unfilled item">
+      <span id="jumpIcon">⚠</span> <span id="jumpText">Show Incomplete</span>
+    </button>
+    <button class="btn btn-outline-primary btn-sm" onclick="window.location.href='/div/cvvrs-reports.html'" style="font-size:13px;border-radius:8px;">
+      View Reports
+    </button>
+    <button class="btn btn-outline-secondary btn-sm" onclick="resetForm()" style="font-size:13px;border-radius:8px;">
+      New Report
+    </button>
+  </div>
+</div>
+
+<!-- Progress Strip -->
+<div class="progress-strip">
+  <div class="fill" id="progressFill"></div>
+</div>
+
+<!-- Toast Container -->
+<div class="toast-container" id="toastContainer"></div>
+
+<div class="page">
+
+  <!-- ======== CARD 1: REPORT DETAILS ======== -->
+  <div class="card">
+    <div class="card-header">
+      <h2><span class="section-num">1</span> Report Details</h2>
+    </div>
+    <div class="card-body">
+      <div class="grid-3" style="margin-bottom:16px;">
+        <div class="form-group">
+          <label class="form-label">Analysis Done By (CLI)</label>
+          <div class="search-wrapper">
+            <input class="form-control" id="cliSearch" placeholder="Search CLI name..." autocomplete="off" data-cli-id="" data-cli-hrms="">
+            <div class="search-dropdown" id="cliDropdown"></div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Date of Analysis</label>
+          <input type="date" class="form-control" id="analysisDate" value="2026-04-14">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Date of Event</label>
+          <input type="date" class="form-control" id="eventDate">
+        </div>
+      </div>
+      <div class="grid-4">
+        <div class="form-group">
+          <label class="form-label">Train Number</label>
+          <input type="text" class="form-control" id="trainNumber" placeholder="e.g. 11140">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Loco Number</label>
+          <input type="text" class="form-control" id="locoNumber" placeholder="e.g. 22834">
+        </div>
+        <div class="form-group">
+          <label class="form-label">From Station</label>
+          <div class="search-wrapper">
+            <input class="form-control" id="fromStation" placeholder="Type station..." autocomplete="off">
+            <div class="search-dropdown" id="fromStationDropdown"></div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">To Station</label>
+          <div class="search-wrapper">
+            <input class="form-control" id="toStation" placeholder="Type station..." autocomplete="off">
+            <div class="search-dropdown" id="toStationDropdown"></div>
+          </div>
+        </div>
+      </div>
+      <div class="grid-3" style="margin-top:16px;">
+        <div class="form-group">
+          <label class="form-label">Crew HQ</label>
+          <select class="form-select" id="crewHQ">
+            <option value="">Select...</option>
+            <option value="CSMT">CSMT</option>
+            <option value="KYN">KYN</option>
+            <option value="PUNE">PUNE</option>
+            <option value="LTT">LTT</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Departure Time</label>
+          <input type="time" class="form-control" id="depTime">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Arrival Time</label>
+          <input type="time" class="form-control" id="arrTime">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======== CARD 2: CREW SELECTION ======== -->
+  <div class="card">
+    <div class="card-header">
+      <h2><span class="section-num">2</span> Crew Details</h2>
+    </div>
+    <div class="card-body">
+      <div class="grid-2">
+        <!-- LP -->
+        <div>
+          <div class="overall-label"><span class="dot lp"></span> Loco Pilot</div>
+          <div class="crew-card" id="lpCard">
+            <div class="search-wrapper" id="lpSearchWrap">
+              <input class="form-control" id="lpSearch" placeholder="Search Loco Pilot by name / HRMS..." autocomplete="off" style="text-align:center;" data-role="lp">
+              <div class="search-dropdown" id="lpDropdown"></div>
+            </div>
+            <div class="hint" style="margin-top:6px;">Type name or HRMS to search (min 2 chars)</div>
+          </div>
+          <div id="lpSelected" style="display:none;">
+            <div class="crew-card filled">
+              <div class="crew-selected">
+                <div class="crew-avatar" id="lpAvatar">SK</div>
+                <div class="crew-info">
+                  <div class="name" id="lpName">Shailendra Kumar</div>
+                  <div class="meta"><span id="lpHRMS">HRMS: 12345678</span><span id="lpDesig">Loco Pilot</span></div>
+                </div>
+                <button class="crew-remove" onclick="removeCrew('lp')" title="Remove">&#x2715;</button>
+              </div>
+            </div>
+            <div class="ncli-row">
+              <label class="form-label">Nominated CLI of LP</label>
+              <div class="ncli-pill" id="ncliLpPill">R.G. Nair</div>
+            </div>
+          </div>
+        </div>
+        <!-- ALP -->
+        <div>
+          <div class="overall-label"><span class="dot alp"></span> Assistant Loco Pilot</div>
+          <div class="crew-card" id="alpCard">
+            <div class="search-wrapper" id="alpSearchWrap">
+              <input class="form-control" id="alpSearch" placeholder="Search ALP by name / HRMS..." autocomplete="off" style="text-align:center;" data-role="alp">
+              <div class="search-dropdown" id="alpDropdown"></div>
+            </div>
+            <div class="hint" style="margin-top:6px;">Optional &middot; Type name or HRMS to search</div>
+          </div>
+          <div id="alpSelected" style="display:none;">
+            <div class="crew-card filled">
+              <div class="crew-selected">
+                <div class="crew-avatar" id="alpAvatar" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9);">RK</div>
+                <div class="crew-info">
+                  <div class="name" id="alpName">Ravi Kumar Kashyap</div>
+                  <div class="meta"><span id="alpHRMS">HRMS: 87654321</span><span id="alpDesig">Asst. Loco Pilot</span></div>
+                </div>
+                <button class="crew-remove" onclick="removeCrew('alp')" title="Remove">&#x2715;</button>
+              </div>
+            </div>
+            <div class="ncli-row">
+              <label class="form-label">Nominated CLI of ALP</label>
+              <div class="ncli-pill" id="ncliAlpPill" style="background:#f5f3ff;border-color:#c4b5fd;color:#5b21b6;">A.K. Nigam</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======== OBSERVATION SECTIONS ======== -->
+  <div id="checklistContainer"></div>
+
+  <!-- ======== OVERALL ASSESSMENT ======== -->
+  <div class="card" id="overallCard">
+    <div class="card-header">
+      <h2><span class="section-num" style="background:linear-gradient(135deg,#f59e0b,#d97706);">!</span> Overall Assessment</h2>
+    </div>
+    <div class="card-body">
+      <div class="overall-row">
+        <div class="overall-col">
+          <div class="overall-label"><span class="dot lp"></span> Loco Pilot Performance</div>
+          <div class="perf-group" id="lpPerfGroup">
+            <button class="perf-btn" onclick="selectPerf('lp','GOOD',this)">GOOD</button>
+            <button class="perf-btn" onclick="selectPerf('lp','SATISFACTORY',this)">SATISFACTORY</button>
+            <button class="perf-btn" onclick="selectPerf('lp','POOR',this)">POOR</button>
+          </div>
+        </div>
+        <div class="overall-col">
+          <div class="overall-label"><span class="dot alp"></span> Asst. Loco Pilot Performance</div>
+          <div class="perf-group" id="alpPerfGroup">
+            <button class="perf-btn" onclick="selectPerf('alp','GOOD',this)">GOOD</button>
+            <button class="perf-btn" onclick="selectPerf('alp','SATISFACTORY',this)">SATISFACTORY</button>
+            <button class="perf-btn" onclick="selectPerf('alp','POOR',this)">POOR</button>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:20px;">
+        <label class="form-label">Final Remark</label>
+        <textarea class="form-control" id="finalRemark" rows="3" placeholder="Any additional observations or remarks..."></textarea>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Save Bar -->
+<div class="save-bar no-print">
+  <div class="save-hint"><kbd>Ctrl</kbd>+<kbd>S</kbd> to save</div>
+  <button class="btn-save" onclick="saveReport()">Save Report</button>
+  <div id="progressText" style="font-size:12px;color:#64748b;min-width:120px;text-align:center;">0 / 0 items filled</div>
+</div>
+
+<script>
+// ============ STATE ============
+let CHECKLIST = [];              // Loaded from /api/division/cvvrs/checklist
+let CLIS = [];                   // Loaded from /api/division/cli/list-all
+let STATIONS = [];               // Loaded from /api/division/slate/stations
+let observations = {};           // { "itemId_lp": "OK", "itemId_alp": "NOT OK", "itemId_remark": "..." }
+let lpPerf = null, alpPerf = null;
+let lpSelected = false, alpSelected = false;
+let currentReportId = null;      // If editing existing report
+
+// Currently-selected entity IDs (for POST body)
+let selectedCLI = { hrms_id: null, name: null };
+let selectedLP  = { hrms_id: null, name: null, ncli_id: null, ncli_name: null };
+let selectedALP = { hrms_id: null, name: null, ncli_id: null, ncli_name: null };
+
+// ============ API HELPERS ============
+async function api(url, opts = {}) {
+  const res = await fetch(url, { credentials: 'same-origin', cache: 'no-store', ...opts });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`);
+  return json;
+}
+
+function debounce(fn, ms = 250) {
+  let t; return function(...a) { clearTimeout(t); t = setTimeout(() => fn.apply(this, a), ms); };
+}
+
+// ============ RENDER CHECKLIST ============
+function renderChecklist() {
+  const container = document.getElementById('checklistContainer');
+  container.innerHTML = '';
+
+  CHECKLIST.forEach((section, si) => {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `
+      <div class="card-header">
+        <h2><span class="section-num">${si + 3}</span> ${section.section_name}</h2>
+        <span class="item-count">${section.items.length} items</span>
+      </div>
+      <div class="card-body" style="padding:0;">
+        <table class="obs-table">
+          <thead>
+            <tr>
+              <th>Observation Item</th>
+              <th class="col-toggle">Loco Pilot</th>
+              <th class="col-toggle">Asst. Loco Pilot</th>
+              <th class="col-remark">Remark</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${section.items.map((item, ii) => renderItemRow(item, ii + 1, section)).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+    container.appendChild(card);
+  });
+  updateProgress();
+}
+
+function renderItemRow(item, num, section) {
+  const lpNA = item.applies_to === 'ALP';      // LP not applicable (ALP-only item)
+  const alpNA = item.applies_to === 'LP';      // ALP not applicable (LP-only item)
+  const lpDim = !lpSelected && !lpNA;          // Grey out until LP is selected
+  const alpDim = !alpSelected && !alpNA;       // Grey out until ALP is selected
+
+  const opts = item.response_options;
+
+  const renderGroup = (role, isNA, isDim) => {
+    if (isNA) return '<span style="color:#cbd5e1;font-size:11px;font-weight:600;">N/A</span>';
+    const title = isDim ? `title="Select ${role.toUpperCase()} first"` : '';
+    return `
+      <div class="toggle-group ${isDim ? 'dimmed' : ''}" data-item="${item.item_id}" data-role="${role}" ${title}>
+        ${opts.map((opt, oi) => `
+          <button class="toggle-btn ${isDim ? 'disabled' : ''}" data-value="${opt}" ${isDim ? 'disabled' : ''} onclick="toggleObs(${item.item_id},'${role}','${opt}',this,${oi})">${opt}</button>
+        `).join('')}
+      </div>`;
+  };
+
+  return `
+    <tr>
+      <td><span class="item-num">${num}.</span>${item.item_text}</td>
+      <td class="center">${renderGroup('lp', lpNA, lpDim)}</td>
+      <td class="center">${renderGroup('alp', alpNA, alpDim)}</td>
+      <td><input class="remark-input" placeholder="—" data-item="${item.item_id}" onchange="setRemark(${item.item_id},this.value)"></td>
+    </tr>
+  `;
+}
+
+// ============ TOGGLE OBSERVATION ============
+function toggleObs(itemId, role, value, btn, optionIndex) {
+  const key = `${itemId}_${role}`;
+  const group = btn.parentElement;
+
+  // Deselect all in group
+  group.querySelectorAll('.toggle-btn').forEach(b => {
+    b.classList.remove('active-pos','active-neg','active-neutral','active-warn');
+  });
+
+  // Toggle: if already selected, deselect
+  if (observations[key] === value) {
+    delete observations[key];
+  } else {
+    observations[key] = value;
+    // Color: first option = positive (green), second = negative (red)
+    if (optionIndex === 0) {
+      btn.classList.add('active-pos');
+    } else {
+      btn.classList.add('active-neg');
+    }
+  }
+  updateProgress();
+}
+
+function setRemark(itemId, value) {
+  const key = `${itemId}_remark`;
+  if (value.trim()) {
+    observations[key] = value.trim();
+  } else {
+    delete observations[key];
+  }
+}
+
+// ============ PROGRESS ============
+let highlightMode = false; // when true, incomplete rows get highlighted
+
+function updateProgress() {
+  let total = 0, filled = 0;
+  CHECKLIST.forEach(section => {
+    section.items.forEach(item => {
+      if (item.applies_to !== 'ALP') { total++; if (observations[`${item.item_id}_lp`]) filled++; }
+      if (item.applies_to !== 'LP') { total++; if (observations[`${item.item_id}_alp`]) filled++; }
+    });
+  });
+  const pct = total > 0 ? Math.round((filled / total) * 100) : 0;
+
+  // Bottom progress bar
+  document.getElementById('progressFill').style.width = pct + '%';
+  document.getElementById('progressText').textContent = `${filled} / ${total} items filled`;
+
+  // Top chip
+  document.getElementById('chipFilled').textContent = filled;
+  document.getElementById('chipTotal').textContent = total;
+  const circ = document.getElementById('progressChipCircle');
+  const dash = 69.1; // 2*PI*11
+  circ.setAttribute('stroke-dashoffset', dash - (dash * pct / 100));
+
+  const chip = document.getElementById('progressChip');
+  const btn = document.getElementById('btnJumpIncomplete');
+  if (filled === total && total > 0) {
+    chip.classList.add('complete');
+    circ.setAttribute('stroke', '#16a34a');
+    btn.classList.add('complete');
+    document.getElementById('jumpIcon').textContent = '✓';
+    document.getElementById('jumpText').textContent = 'All Filled';
+  } else {
+    chip.classList.remove('complete');
+    circ.setAttribute('stroke', '#3b82f6');
+    btn.classList.remove('complete');
+    document.getElementById('jumpIcon').textContent = '⚠';
+    const unfilled = total - filled;
+    document.getElementById('jumpText').textContent = `${unfilled} Pending`;
+  }
+
+  // Refresh incomplete highlighting if mode is on
+  if (highlightMode) applyIncompleteHighlight();
+}
+
+// ============ INCOMPLETE HIGHLIGHTING ============
+function applyIncompleteHighlight() {
+  document.querySelectorAll('.obs-table tbody tr').forEach(tr => {
+    tr.classList.remove('row-incomplete');
+  });
+  CHECKLIST.forEach(section => {
+    section.items.forEach(item => {
+      const needsLP = item.applies_to !== 'ALP';
+      const needsALP = item.applies_to !== 'LP';
+      const lpFilled = !!observations[`${item.item_id}_lp`];
+      const alpFilled = !!observations[`${item.item_id}_alp`];
+      const lpMissing = needsLP && !lpFilled;
+      const alpMissing = needsALP && !alpFilled;
+      if (lpMissing || alpMissing) {
+        // Find the row by data-item attribute
+        const group = document.querySelector(`.toggle-group[data-item="${item.item_id}"]`);
+        if (group) {
+          const row = group.closest('tr');
+          if (row) row.classList.add('row-incomplete');
+        }
+      }
+    });
+  });
+}
+
+function clearIncompleteHighlight() {
+  document.querySelectorAll('.obs-table tbody tr').forEach(tr => {
+    tr.classList.remove('row-incomplete');
+  });
+}
+
+function jumpToIncomplete() {
+  // Enable highlight mode
+  highlightMode = true;
+  applyIncompleteHighlight();
+
+  // Find first incomplete row
+  const firstIncomplete = document.querySelector('.obs-table tbody tr.row-incomplete');
+  if (!firstIncomplete) {
+    showToast('All applicable items are filled ✓', 'success');
+    highlightMode = false;
+    clearIncompleteHighlight();
+    return;
+  }
+
+  // Scroll to it (account for sticky header ~60px)
+  const topOffset = firstIncomplete.getBoundingClientRect().top + window.scrollY - 120;
+  window.scrollTo({ top: topOffset, behavior: 'smooth' });
+
+  // Pulse flash
+  firstIncomplete.classList.add('pulse-highlight');
+  setTimeout(() => firstIncomplete.classList.remove('pulse-highlight'), 2000);
+}
+
+// ============ PERFORMANCE ============
+function selectPerf(role, value, btn) {
+  const group = btn.parentElement;
+  const wasSelected = btn.classList.contains('sel-good') || btn.classList.contains('sel-sat') || btn.classList.contains('sel-poor');
+
+  group.querySelectorAll('.perf-btn').forEach(b => b.classList.remove('sel-good','sel-sat','sel-poor'));
+
+  if (!wasSelected) {
+    if (value === 'GOOD') btn.classList.add('sel-good');
+    else if (value === 'SATISFACTORY') btn.classList.add('sel-sat');
+    else btn.classList.add('sel-poor');
+    if (role === 'lp') lpPerf = value; else alpPerf = value;
+  } else {
+    if (role === 'lp') lpPerf = null; else alpPerf = null;
+  }
+}
+
+// ============ CREW SEARCH (real API) ============
+const searchCrew = debounce(async function(input) {
+  const role = input.dataset.role; // 'lp' or 'alp'
+  const query = input.value.trim();
+  const dd = document.getElementById(role + 'Dropdown');
+
+  if (query.length < 2) {
+    dd.innerHTML = '<div class="search-loading" style="padding:15px;text-align:center;color:#94a3b8;font-size:12px;">Type at least 2 characters to search</div>';
+    dd.classList.add('show');
+    return;
+  }
+
+  dd.innerHTML = '<div class="search-loading" style="padding:15px;text-align:center;color:#94a3b8;font-size:12px;">Searching…</div>';
+  dd.classList.add('show');
+
+  try {
+    const json = await api(`/api/division/cvvrs/staff-search?q=${encodeURIComponent(query)}&role=${role.toUpperCase()}`);
+    const results = json.data || [];
+
+    if (!results.length) {
+      dd.innerHTML = '<div style="padding:15px;text-align:center;color:#94a3b8;font-size:12px;">No matching staff found</div>';
+      return;
+    }
+
+    dd.innerHTML = results.map(s => {
+      const payload = JSON.stringify({
+        hrms: s.hrms_id, name: s.name,
+        desig: s.designation_name || '',
+        office: s.office_code || '',
+        office_name: s.office_name || '',
+        cli_id: s.current_cli_id || null,
+        cli_name: s.current_cli_name || null
+      }).replace(/"/g, '&quot;');
+      return `<div class="search-item" data-staff="${payload}">
+        <div class="name">${escapeHtml(s.name)}</div>
+        <div class="details">HRMS: ${escapeHtml(s.hrms_id)} &middot; ${escapeHtml(s.designation_name || '')} &middot; ${escapeHtml(s.office_code || '')}</div>
+      </div>`;
+    }).join('');
+
+    dd.querySelectorAll('.search-item').forEach(el => {
+      el.addEventListener('click', function() {
+        const data = JSON.parse(this.dataset.staff.replace(/&quot;/g, '"'));
+        selectCrew(role, data);
+      });
+    });
+  } catch (err) {
+    dd.innerHTML = `<div style="padding:15px;text-align:center;color:#dc2626;font-size:12px;">Error: ${escapeHtml(err.message)}</div>`;
+  }
+}, 250);
+
+function selectCrew(role, data) {
+  const initials = data.name.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase();
+  document.getElementById(role + 'Card').style.display = 'none';
+  document.getElementById(role + 'Selected').style.display = 'block';
+  document.getElementById(role + 'Avatar').textContent = initials;
+  document.getElementById(role + 'Name').textContent = data.name;
+  document.getElementById(role + 'HRMS').textContent = 'HRMS: ' + data.hrms;
+  document.getElementById(role + 'Desig').textContent = data.desig || '';
+  const ncliPill = document.getElementById('ncli' + (role === 'lp' ? 'Lp' : 'Alp') + 'Pill');
+  ncliPill.textContent = data.cli_name || '— no CLI assigned —';
+  document.getElementById(role + 'Search').value = '';
+
+  if (role === 'lp') {
+    lpSelected = true;
+    selectedLP = { hrms_id: data.hrms, name: data.name, ncli_id: data.cli_id, ncli_name: data.cli_name };
+    if (data.office) document.getElementById('crewHQ').value = data.office;
+  } else {
+    alpSelected = true;
+    selectedALP = { hrms_id: data.hrms, name: data.name, ncli_id: data.cli_id, ncli_name: data.cli_name };
+  }
+  renderChecklist();
+}
+
+function removeCrew(role) {
+  document.getElementById(role + 'Card').style.display = 'flex';
+  document.getElementById(role + 'Selected').style.display = 'none';
+  if (role === 'lp') { lpSelected = false; selectedLP = { hrms_id:null, name:null, ncli_id:null, ncli_name:null }; }
+  else { alpSelected = false; selectedALP = { hrms_id:null, name:null, ncli_id:null, ncli_name:null }; }
+  Object.keys(observations).forEach(k => {
+    if (k.endsWith('_' + role)) delete observations[k];
+  });
+  renderChecklist();
+}
+
+// ============ CLI SEARCH (all CLIs preloaded, filter client-side) ============
+function renderCLIDropdown(filter = '') {
+  const dd = document.getElementById('cliDropdown');
+  const q = filter.toLowerCase();
+  const filtered = CLIS.filter(c =>
+    (c.cli_name || '').toLowerCase().includes(q) ||
+    (c.cmsid || '').toLowerCase().includes(q) ||
+    (c.cli_hrms_id || '').toLowerCase().includes(q)
+  ).slice(0, 15);
+
+  if (!filtered.length) {
+    dd.innerHTML = '<div style="padding:12px;text-align:center;color:#94a3b8;font-size:12px;">No matching CLI</div>';
+    return;
+  }
+
+  dd.innerHTML = filtered.map(c => {
+    const payload = JSON.stringify({
+      id: c.cli_id, name: c.cli_name, hrms: c.cli_hrms_id || '',
+      office: c.current_office_code || ''
+    }).replace(/"/g, '&quot;');
+    return `<div class="search-item" data-cli="${payload}">
+      <div class="name">${escapeHtml(c.cli_name)}</div>
+      <div class="details">${c.cli_hrms_id ? 'HRMS: ' + escapeHtml(c.cli_hrms_id) + ' &middot; ' : ''}CLI/${escapeHtml(c.current_office_code || '')}</div>
+    </div>`;
+  }).join('');
+
+  dd.querySelectorAll('.search-item').forEach(el => {
+    el.addEventListener('click', function() {
+      const data = JSON.parse(this.dataset.cli.replace(/&quot;/g, '"'));
+      selectCLI(data);
+    });
+  });
+}
+
+function selectCLI(data) {
+  const input = document.getElementById('cliSearch');
+  input.value = data.name;
+  input.dataset.cliId = data.id;
+  input.dataset.cliHrms = data.hrms || '';
+  selectedCLI = { hrms_id: data.hrms, name: data.name };
+  document.getElementById('cliDropdown').classList.remove('show');
+}
+
+// ============ STATION SEARCH (preloaded list, filter client-side) ============
+function renderStationDropdown(fieldId, filter = '') {
+  const dd = document.getElementById(fieldId + 'Dropdown');
+  const q = filter.toLowerCase();
+  const filtered = STATIONS.filter(s =>
+    (s.code || '').toLowerCase().includes(q) ||
+    (s.name || '').toLowerCase().includes(q)
+  ).slice(0, 12);
+
+  if (!filtered.length) {
+    dd.innerHTML = '<div style="padding:12px;text-align:center;color:#94a3b8;font-size:12px;">No matching station</div>';
+    return;
+  }
+
+  dd.innerHTML = filtered.map(s => `
+    <div class="search-item" data-code="${escapeHtml(s.code)}">
+      <div class="name">${escapeHtml(s.code)}</div>
+      <div class="details">${escapeHtml(s.name || '')}</div>
+    </div>
+  `).join('');
+
+  dd.querySelectorAll('.search-item').forEach(el => {
+    el.addEventListener('click', function() {
+      document.getElementById(fieldId).value = this.dataset.code;
+      dd.classList.remove('show');
+    });
+  });
+}
+
+function escapeHtml(s) {
+  if (s == null) return '';
+  return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+}
+
+// ============ SEARCH INPUT LISTENERS ============
+function wireSearchInputs() {
+  // CLI search
+  const cliInput = document.getElementById('cliSearch');
+  cliInput.addEventListener('focus', () => { renderCLIDropdown(cliInput.value); document.getElementById('cliDropdown').classList.add('show'); });
+  cliInput.addEventListener('input', () => renderCLIDropdown(cliInput.value));
+
+  // LP / ALP search (API-based)
+  document.getElementById('lpSearch').addEventListener('focus', function() {
+    document.getElementById('lpDropdown').classList.add('show');
+    if (this.value.trim().length < 2) searchCrew(this);
+  });
+  document.getElementById('lpSearch').addEventListener('input', function() { searchCrew(this); });
+  document.getElementById('alpSearch').addEventListener('focus', function() {
+    document.getElementById('alpDropdown').classList.add('show');
+    if (this.value.trim().length < 2) searchCrew(this);
+  });
+  document.getElementById('alpSearch').addEventListener('input', function() { searchCrew(this); });
+
+  // Station search (preloaded filter)
+  ['fromStation','toStation'].forEach(fid => {
+    const inp = document.getElementById(fid);
+    inp.addEventListener('focus', () => { renderStationDropdown(fid, inp.value); document.getElementById(fid + 'Dropdown').classList.add('show'); });
+    inp.addEventListener('input', () => renderStationDropdown(fid, inp.value));
+  });
+}
+
+// Close dropdowns on click outside
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('.search-wrapper')) {
+    document.querySelectorAll('.search-dropdown').forEach(dd => dd.classList.remove('show'));
+  }
+});
+
+// ============ SAVE ============
+async function saveReport() {
+  // Validate required
+  if (!selectedCLI.name) return showToast('Please select analyzing CLI', 'error');
+  if (!document.getElementById('analysisDate').value) return showToast('Analysis date required', 'error');
+  if (!document.getElementById('eventDate').value) return showToast('Event date required', 'error');
+  if (!document.getElementById('trainNumber').value.trim()) return showToast('Train number required', 'error');
+  if (!selectedLP.name) return showToast('Please select Loco Pilot', 'error');
+
+  // Build observations array (only non-empty)
+  const obsArr = [];
+  CHECKLIST.forEach(section => {
+    section.items.forEach(item => {
+      const lp = observations[`${item.item_id}_lp`] || null;
+      const alp = observations[`${item.item_id}_alp`] || null;
+      const rem = observations[`${item.item_id}_remark`] || null;
+      if (lp || alp || rem) {
+        obsArr.push({ item_id: item.item_id, lp_value: lp, alp_value: alp, remark: rem });
+      }
+    });
+  });
+
+  const body = {
+    cli_hrms_id: selectedCLI.hrms_id,
+    cli_name: selectedCLI.name,
+    analysis_date: document.getElementById('analysisDate').value,
+    event_date: document.getElementById('eventDate').value,
+    train_number: document.getElementById('trainNumber').value.trim(),
+    loco_number: document.getElementById('locoNumber').value.trim() || null,
+    lp_hrms_id: selectedLP.hrms_id,
+    lp_name: selectedLP.name,
+    alp_hrms_id: selectedALP.hrms_id,
+    alp_name: selectedALP.name,
+    from_station: document.getElementById('fromStation').value.trim() || null,
+    to_station: document.getElementById('toStation').value.trim() || null,
+    ncli_lp_id: selectedLP.ncli_id,
+    ncli_lp_name: selectedLP.ncli_name,
+    ncli_alp_id: selectedALP.ncli_id,
+    ncli_alp_name: selectedALP.ncli_name,
+    crew_hq: document.getElementById('crewHQ').value || null,
+    departure_time: document.getElementById('depTime').value || null,
+    arrival_time: document.getElementById('arrTime').value || null,
+    lp_performance: lpPerf,
+    alp_performance: alpPerf,
+    final_remark: document.getElementById('finalRemark').value.trim() || null,
+    observations: obsArr
+  };
+
+  try {
+    const btn = document.querySelector('.btn-save');
+    btn.disabled = true; btn.textContent = 'Saving...';
+
+    const url = currentReportId
+      ? `/api/division/cvvrs/reports/${currentReportId}`
+      : '/api/division/cvvrs/reports';
+    const method = currentReportId ? 'PUT' : 'POST';
+
+    const res = await api(url, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+
+    showToast(`Report ${currentReportId ? 'updated' : 'saved'} successfully!`, 'success');
+    setTimeout(() => { window.location.href = '/div/cvvrs-reports.html'; }, 800);
+  } catch (err) {
+    showToast(`Save failed: ${err.message}`, 'error');
+    const btn = document.querySelector('.btn-save');
+    btn.disabled = false; btn.textContent = 'Save Report';
+  }
+}
+
+async function loadReport(id) {
+  try {
+    const json = await api(`/api/division/cvvrs/reports/${id}`);
+    const { report, observations: obs } = json.data;
+
+    currentReportId = id;
+    document.querySelector('.btn-save').textContent = 'Update Report';
+
+    // Header fields
+    document.getElementById('analysisDate').value = report.analysis_date?.slice(0, 10) || '';
+    document.getElementById('eventDate').value = report.event_date?.slice(0, 10) || '';
+    document.getElementById('trainNumber').value = report.train_number || '';
+    document.getElementById('locoNumber').value = report.loco_number || '';
+    document.getElementById('fromStation').value = report.from_station || '';
+    document.getElementById('toStation').value = report.to_station || '';
+    document.getElementById('crewHQ').value = report.crew_hq || '';
+    document.getElementById('depTime').value = report.departure_time || '';
+    document.getElementById('arrTime').value = report.arrival_time || '';
+    document.getElementById('finalRemark').value = report.final_remark || '';
+
+    // CLI
+    selectedCLI = { hrms_id: report.cli_hrms_id, name: report.cli_name };
+    document.getElementById('cliSearch').value = report.cli_name || '';
+
+    // Crew
+    if (report.lp_name) {
+      selectCrew('lp', { hrms: report.lp_hrms_id, name: report.lp_name, desig: '', office: report.crew_hq, cli_id: report.ncli_lp_id, cli_name: report.ncli_lp_name });
+    }
+    if (report.alp_name) {
+      selectCrew('alp', { hrms: report.alp_hrms_id, name: report.alp_name, desig: '', office: '', cli_id: report.ncli_alp_id, cli_name: report.ncli_alp_name });
+    }
+
+    // Performance
+    if (report.lp_performance) {
+      const btn = Array.from(document.querySelectorAll('#lpPerfGroup .perf-btn')).find(b => b.textContent.trim() === report.lp_performance);
+      if (btn) selectPerf('lp', report.lp_performance, btn);
+    }
+    if (report.alp_performance) {
+      const btn = Array.from(document.querySelectorAll('#alpPerfGroup .perf-btn')).find(b => b.textContent.trim() === report.alp_performance);
+      if (btn) selectPerf('alp', report.alp_performance, btn);
+    }
+
+    // Observations
+    obs.forEach(o => {
+      if (o.lp_value) observations[`${o.item_id}_lp`] = o.lp_value;
+      if (o.alp_value) observations[`${o.item_id}_alp`] = o.alp_value;
+      if (o.remark) observations[`${o.item_id}_remark`] = o.remark;
+    });
+    renderChecklist();
+    // Apply existing values visually
+    obs.forEach(o => {
+      if (o.lp_value) applyToggleVisual(o.item_id, 'lp', o.lp_value);
+      if (o.alp_value) applyToggleVisual(o.item_id, 'alp', o.alp_value);
+      if (o.remark) {
+        const input = document.querySelector(`.remark-input[data-item="${o.item_id}"]`);
+        if (input) input.value = o.remark;
+      }
+    });
+  } catch (err) {
+    showToast(`Failed to load report: ${err.message}`, 'error');
+  }
+}
+
+function applyToggleVisual(itemId, role, value) {
+  const group = document.querySelector(`.toggle-group[data-item="${itemId}"][data-role="${role}"]`);
+  if (!group) return;
+  const btn = group.querySelector(`.toggle-btn[data-value="${value}"]`);
+  if (!btn) return;
+  const optionIndex = Array.from(group.querySelectorAll('.toggle-btn')).indexOf(btn);
+  group.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active-pos','active-neg'));
+  btn.classList.add(optionIndex === 0 ? 'active-pos' : 'active-neg');
+}
+
+function resetForm() {
+  observations = {};
+  lpPerf = null;
+  alpPerf = null;
+  lpSelected = false;
+  alpSelected = false;
+  currentReportId = null;
+  selectedCLI = { hrms_id: null, name: null };
+  selectedLP = { hrms_id:null, name:null, ncli_id:null, ncli_name:null };
+  selectedALP = { hrms_id:null, name:null, ncli_id:null, ncli_name:null };
+  document.querySelectorAll('.form-control, .form-select').forEach(el => {
+    if (el.type === 'date' && el.id === 'analysisDate') el.value = new Date().toISOString().split('T')[0];
+    else if (el.tagName === 'SELECT') el.value = '';
+    else el.value = '';
+  });
+  removeCrew('lp');
+  removeCrew('alp');
+  document.querySelectorAll('.perf-btn').forEach(b => b.classList.remove('sel-good','sel-sat','sel-poor'));
+  document.getElementById('finalRemark').value = '';
+  document.querySelector('.btn-save').textContent = 'Save Report';
+  renderChecklist();
+}
+
+function showToast(msg, type) {
+  const c = document.getElementById('toastContainer');
+  const t = document.createElement('div');
+  t.className = 'custom-toast ' + type;
+  t.textContent = msg;
+  c.appendChild(t);
+  setTimeout(() => { t.style.animation = 'fadeOut .3s ease forwards'; setTimeout(() => t.remove(), 300); }, 3000);
+}
+
+// ============ KEYBOARD SHORTCUTS ============
+document.addEventListener('keydown', function(e) {
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+    e.preventDefault();
+    saveReport();
+  }
+});
+
+// ============ INIT ============
+async function init() {
+  // Set today's date
+  document.getElementById('analysisDate').value = new Date().toISOString().split('T')[0];
+
+  // Render empty checklist (will re-render after fetch)
+  renderChecklist();
+
+  // Parallel-fetch checklist, CLIs, stations
+  try {
+    const [checklistJson, clisJson, stationsJson] = await Promise.all([
+      api('/api/division/cvvrs/checklist'),
+      api('/api/division/cli/list-all'),
+      api('/api/division/slate/stations').catch(() => ({ data: [] }))
+    ]);
+
+    CHECKLIST = checklistJson.data || [];
+    CLIS = (clisJson.data || []).filter(c => c.cli_name);
+    // Stations API returns array of strings (codes)
+    const stData = stationsJson.data || [];
+    STATIONS = stData.map(s => (typeof s === 'string' ? { code: s, name: '' } : { code: s.station_code || s.code, name: s.station_name || s.name || '' })).filter(s => s.code);
+
+    renderChecklist();
+    wireSearchInputs();
+
+    // Edit mode?
+    const urlParams = new URLSearchParams(window.location.search);
+    const editId = urlParams.get('id');
+    if (editId) await loadReport(editId);
+  } catch (err) {
+    showToast('Failed to load form data: ' + err.message, 'error');
+    console.error('Init error:', err);
+  }
+}
+
+init();
+</script>
+</body>
+</html>

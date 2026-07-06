@@ -1,0 +1,892 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Divisional Portal – ADAS Analysis Report (Suburban)</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;}
+  body{background:#f6f7fb;font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;margin:0;color:#1e293b;}
+
+  /* Header */
+  .top-bar{background:#fff;border-bottom:1px solid #e2e8f0;padding:12px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:0 1px 3px rgba(0,0,0,.04);}
+  .top-bar h1{font-size:18px;font-weight:700;margin:0;color:#0f172a;display:flex;align-items:center;gap:10px;}
+  .top-bar h1 .badge-title{background:linear-gradient(135deg,#8b5cf6,#6d28d9);color:#fff;font-size:10px;padding:3px 8px;border-radius:4px;font-weight:600;letter-spacing:.5px;}
+  .top-bar-actions{display:flex;align-items:center;gap:10px;}
+  .btn-back{background:none;border:1px solid #cbd5e1;border-radius:8px;padding:6px 14px;color:#475569;font-size:13px;cursor:pointer;transition:all .2s;}
+  .btn-back:hover{background:#f1f5f9;border-color:#94a3b8;}
+
+  /* Progress bar */
+  .progress-strip{height:3px;background:#e2e8f0;position:sticky;top:53px;z-index:99;}
+  .progress-strip .fill{height:100%;background:linear-gradient(90deg,#c4b5fd,#8b5cf6,#4c1d95);transition:width .4s ease;width:0%;}
+
+  /* Page container */
+  .page{max-width:1100px;margin:0 auto;padding:20px 24px 60px;}
+
+  /* Cards */
+  .card{background:#fff;border-radius:12px;border:1px solid #e2e8f0;box-shadow:0 1px 3px rgba(0,0,0,.04);margin-bottom:20px;overflow:hidden;}
+  .card-header{padding:14px 20px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;justify-content:space-between;}
+  .card-header h2{font-size:14px;font-weight:700;margin:0;color:#0f172a;display:flex;align-items:center;gap:8px;}
+  .card-header .section-num{width:24px;height:24px;border-radius:6px;background:linear-gradient(135deg,#8b5cf6,#6d28d9);color:#fff;font-size:11px;display:flex;align-items:center;justify-content:center;font-weight:700;}
+  .card-header .item-count{font-size:11px;color:#94a3b8;font-weight:500;}
+  .card-body{padding:20px;}
+
+  /* Grid layouts */
+  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
+  .grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;}
+  .grid-5{display:grid;grid-template-columns:repeat(5,1fr);gap:16px;}
+
+  /* Form controls */
+  .form-group{margin-bottom:0;}
+  .form-label{font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;display:block;}
+  .form-control,.form-select{font-size:13px;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;transition:all .2s;background:#fff;}
+  .form-control:focus,.form-select:focus{border-color:#8b5cf6;box-shadow:0 0 0 3px rgba(139,92,246,.1);outline:none;}
+  .form-control::placeholder{color:#cbd5e1;}
+
+  /* Crew selection card */
+  .crew-card{border:2px dashed #e2e8f0;border-radius:12px;padding:16px;text-align:center;transition:all .2s;min-height:130px;display:flex;flex-direction:column;justify-content:center;}
+  .crew-card.filled{border-style:solid;border-color:#8b5cf6;background:linear-gradient(135deg,#f5f3ff,#ede9fe);}
+  .crew-card .hint{font-size:12px;color:#94a3b8;}
+  .crew-selected{display:flex;align-items:center;gap:12px;text-align:left;}
+  .crew-avatar{width:42px;height:42px;border-radius:10px;background:linear-gradient(135deg,#8b5cf6,#6d28d9);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px;flex-shrink:0;}
+  .crew-info .name{font-weight:700;font-size:14px;color:#0f172a;}
+  .crew-info .meta{font-size:11px;color:#64748b;margin-top:2px;}
+  .crew-info .meta span{margin-right:10px;}
+  .crew-remove{margin-left:auto;background:none;border:none;color:#94a3b8;cursor:pointer;font-size:16px;padding:4px;border-radius:6px;transition:all .15s;}
+  .crew-remove:hover{background:#fee2e2;color:#ef4444;}
+
+  /* Search dropdown */
+  .search-wrapper{position:relative;}
+  .search-dropdown{position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.12);max-height:260px;overflow-y:auto;z-index:200;display:none;}
+  .search-dropdown.show{display:block;}
+  .search-item{padding:10px 14px;cursor:pointer;border-bottom:1px solid #f8fafc;transition:background .12s;}
+  .search-item:last-child{border:none;}
+  .search-item:hover,.search-item.active{background:#f5f3ff;}
+  .search-item .name{font-weight:600;color:#0f172a;font-size:13px;}
+  .search-item .details{font-size:11px;color:#64748b;margin-top:2px;}
+
+  /* NLI row under crew */
+  .ncli-row{margin-top:12px;padding-top:12px;border-top:1px solid #e2e8f0;}
+  .ncli-row .form-label{font-size:10px;margin-bottom:3px;}
+  .ncli-pill{display:inline-flex;align-items:center;gap:6px;background:#f5f3ff;border:1px solid #c4b5fd;border-radius:6px;padding:4px 10px;font-size:12px;color:#5b21b6;font-weight:500;}
+
+  /* Observation table */
+  .obs-table{width:100%;border-collapse:separate;border-spacing:0;}
+  .obs-table thead th{font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.5px;padding:10px 14px;border-bottom:2px solid #e2e8f0;text-align:left;white-space:nowrap;}
+  .obs-table thead th.col-num{width:40px;text-align:center;}
+  .obs-table thead th.col-value{width:380px;}
+  .obs-table tbody tr{transition:background .12s;}
+  .obs-table tbody tr:hover{background:#fafaff;}
+  .obs-table tbody td{padding:10px 14px;border-bottom:1px solid #f1f5f9;vertical-align:middle;}
+  .obs-table tbody td.num{text-align:center;color:#94a3b8;font-size:12px;font-weight:600;}
+  .obs-table tbody td.obs-text{font-size:13px;color:#334155;font-weight:500;line-height:1.4;}
+
+  /* Value cell with quick buttons + text input */
+  .value-cell{display:flex;gap:6px;align-items:center;}
+  .quick-btns{display:inline-flex;gap:3px;}
+  .quick-btn{padding:5px 10px;font-size:11px;font-weight:700;border:1px solid #e2e8f0;background:#fff;color:#64748b;border-radius:6px;cursor:pointer;transition:all .15s;letter-spacing:.3px;}
+  .quick-btn:hover{border-color:#94a3b8;background:#f8fafc;}
+  .quick-btn.active-yes{background:#dcfce7;color:#166534;border-color:#86efac;}
+  .quick-btn.active-no{background:#fee2e2;color:#991b1b;border-color:#fca5a5;}
+  .quick-btn.active-na{background:#e0e7ff;color:#3730a3;border-color:#a5b4fc;}
+  .value-input{flex:1;min-width:140px;border:1px solid #e2e8f0;border-radius:6px;padding:6px 10px;font-size:12px;color:#334155;transition:all .2s;background:#fff;}
+  .value-input:focus{border-color:#8b5cf6;box-shadow:0 0 0 2px rgba(139,92,246,.1);outline:none;}
+  .value-input.yes{background:#f0fdf4;color:#166534;font-weight:600;}
+  .value-input.no{background:#fef2f2;color:#991b1b;font-weight:600;}
+  .value-input.na{background:#eef2ff;color:#3730a3;font-weight:600;}
+
+  /* Save bar */
+  .save-bar{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #e2e8f0;padding:10px 24px;display:flex;align-items:center;justify-content:center;gap:16px;z-index:100;box-shadow:0 -2px 8px rgba(0,0,0,.04);}
+  .btn-save{background:linear-gradient(135deg,#8b5cf6,#6d28d9);color:#fff;border:none;border-radius:10px;padding:10px 32px;font-size:14px;font-weight:700;cursor:pointer;transition:all .2s;box-shadow:0 2px 8px rgba(139,92,246,.3);}
+  .btn-save:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(139,92,246,.4);}
+  .save-hint{font-size:11px;color:#94a3b8;}
+  .save-hint kbd{display:inline-block;padding:1px 5px;font-size:10px;background:#1e293b;color:#fff;border-radius:3px;font-family:monospace;}
+
+  /* Toast */
+  .toast-container{position:fixed;top:20px;right:20px;z-index:9999;}
+  .custom-toast{min-width:300px;padding:12px 20px;border-radius:10px;color:#fff;font-weight:500;font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,.15);animation:slideIn .3s ease;}
+  .custom-toast.success{background:linear-gradient(135deg,#22c55e,#16a34a);}
+  .custom-toast.error{background:linear-gradient(135deg,#ef4444,#dc2626);}
+  @keyframes slideIn{from{transform:translateX(100%);opacity:0;}to{transform:translateX(0);opacity:1;}}
+
+  /* Motorman icon indicator */
+  .mman-indicator{display:inline-block;width:8px;height:8px;border-radius:50%;background:#8b5cf6;margin-right:6px;vertical-align:middle;}
+
+  /* Progress chip in top bar */
+  .progress-chip{display:flex;align-items:center;gap:8px;padding:4px 12px 4px 6px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:20px;transition:all .2s;}
+  .progress-chip.complete{background:linear-gradient(135deg,#dcfce7,#bbf7d0);border-color:#86efac;}
+  .progress-chip-ring{position:relative;display:flex;align-items:center;justify-content:center;}
+  .progress-chip-text{display:flex;flex-direction:column;line-height:1;}
+  .progress-chip-count{font-size:13px;font-weight:700;color:#0f172a;}
+  .progress-chip-label{font-size:9px;color:#64748b;text-transform:uppercase;letter-spacing:.3px;margin-top:2px;}
+  .progress-chip.complete .progress-chip-count{color:#166534;}
+
+  /* Jump-to-incomplete button */
+  .btn-jump{background:#fff7ed;border:1px solid #fed7aa;color:#c2410c;font-size:12px;font-weight:600;padding:6px 12px;border-radius:8px;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:6px;}
+  .btn-jump:hover{background:#ffedd5;border-color:#fdba74;}
+  .btn-jump.hidden{display:none;}
+  .btn-jump.complete{background:#f0fdf4;border-color:#bbf7d0;color:#166534;}
+
+  /* Incomplete row highlighting */
+  .obs-table tbody tr.row-incomplete{background:#fffbeb;box-shadow:inset 4px 0 0 #f59e0b;}
+  .obs-table tbody tr.row-incomplete:hover{background:#fef3c7;}
+  .obs-table tbody tr.row-incomplete .value-input{border-color:#fcd34d;}
+  .obs-table tbody tr.pulse-highlight{animation:pulseRow 1s ease 2;}
+  @keyframes pulseRow{0%,100%{background:#fffbeb;}50%{background:#fde68a;}}
+
+  /* Inverse color items (where NO is the desired answer) */
+  .quick-btn.active-yes-inv{background:#fee2e2;color:#991b1b;border-color:#fca5a5;}
+  .quick-btn.active-no-inv{background:#dcfce7;color:#166534;border-color:#86efac;}
+  .value-input.yes-inv{background:#fef2f2;color:#991b1b;font-weight:600;}
+  .value-input.no-inv{background:#f0fdf4;color:#166534;font-weight:600;}
+
+  /* Responsive */
+  @media(max-width:768px){
+    .grid-2,.grid-3,.grid-4,.grid-5{grid-template-columns:1fr;}
+    .value-cell{flex-direction:column;align-items:stretch;}
+    .top-bar{padding:10px 16px;}
+    .page{padding:16px;}
+  }
+
+  @media print{
+    .top-bar,.progress-strip,.save-bar,.no-print{display:none!important;}
+    .card{break-inside:avoid;box-shadow:none;border:1px solid #ccc;}
+    body{background:#fff;}
+  }
+</style>
+</head>
+<body>
+
+<!-- Top Bar -->
+<div class="top-bar">
+  <div style="display:flex;align-items:center;gap:12px;">
+    <button class="btn-back" onclick="window.location.href='/div/spm-hub.html'">← Back</button>
+    <h1>
+      ADAS Analysis Report
+      <span class="badge-title">SUBURBAN · CLI</span>
+    </h1>
+  </div>
+  <div class="top-bar-actions">
+    <div class="progress-chip" id="progressChip" title="Items filled">
+      <div class="progress-chip-ring">
+        <svg width="28" height="28" viewBox="0 0 28 28">
+          <circle cx="14" cy="14" r="11" fill="none" stroke="#e2e8f0" stroke-width="3"/>
+          <circle id="progressChipCircle" cx="14" cy="14" r="11" fill="none" stroke="#8b5cf6" stroke-width="3"
+                  stroke-dasharray="69.1" stroke-dashoffset="69.1" stroke-linecap="round"
+                  transform="rotate(-90 14 14)" style="transition:stroke-dashoffset .4s ease;"/>
+        </svg>
+      </div>
+      <div class="progress-chip-text">
+        <div class="progress-chip-count"><span id="chipFilled">0</span> / <span id="chipTotal">13</span></div>
+        <div class="progress-chip-label">items filled</div>
+      </div>
+    </div>
+    <button class="btn-jump" id="btnJumpIncomplete" onclick="jumpToIncomplete()" title="Jump to next unfilled item">
+      <span id="jumpIcon">⚠</span> <span id="jumpText">13 Pending</span>
+    </button>
+    <button class="btn btn-outline-primary btn-sm" onclick="window.location.href='/div/adas-reports.html'" style="font-size:13px;border-radius:8px;border-color:#8b5cf6;color:#8b5cf6;">
+      View Reports
+    </button>
+    <button class="btn btn-outline-secondary btn-sm" onclick="resetForm()" style="font-size:13px;border-radius:8px;">
+      New Report
+    </button>
+  </div>
+</div>
+
+<div class="progress-strip">
+  <div class="fill" id="progressFill"></div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<div class="page">
+
+  <!-- ======== CARD 1: REPORT DETAILS ======== -->
+  <div class="card">
+    <div class="card-header">
+      <h2><span class="section-num">1</span> Report Details</h2>
+    </div>
+    <div class="card-body">
+      <div class="grid-4" style="margin-bottom:16px;">
+        <div class="form-group">
+          <label class="form-label">Date of Analysis</label>
+          <input type="date" class="form-control" id="analysisDate" value="2026-04-14">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Date of Event</label>
+          <input type="date" class="form-control" id="eventDate">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Train Number</label>
+          <input type="text" class="form-control" id="trainNumber" placeholder="e.g. N-20">
+        </div>
+        <div class="form-group">
+          <label class="form-label">D CAB</label>
+          <input type="text" class="form-control" id="dcab" placeholder="e.g. 6012">
+        </div>
+      </div>
+      <div class="grid-4">
+        <div class="form-group">
+          <label class="form-label">Section</label>
+          <select class="form-select" id="section">
+            <option value="">Select Section...</option>
+            <option value="UPL/L">UPL/L — UP Local/Local</option>
+            <option value="DNL/L">DNL/L — DN Local/Local</option>
+            <option value="UPS/S">UPS/S — UP Slow/Slow</option>
+            <option value="DNS/S">DNS/S — DN Slow/Slow</option>
+            <option value="UP/F">UP/F — UP Fast</option>
+            <option value="DN/F">DN/F — DN Fast</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">From Station</label>
+          <div class="search-wrapper">
+            <input class="form-control" id="fromStation" placeholder="Type station..." autocomplete="off">
+            <div class="search-dropdown" id="fromStationDropdown"></div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">To Station</label>
+          <div class="search-wrapper">
+            <input class="form-control" id="toStation" placeholder="Type station..." autocomplete="off">
+            <div class="search-dropdown" id="toStationDropdown"></div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Safety Category</label>
+          <select class="form-select" id="safeCat">
+            <option value="">Select...</option>
+            <option value="A">A</option>
+            <option value="B">B</option>
+            <option value="C">C</option>
+          </select>
+        </div>
+      </div>
+      <div class="grid-3" style="margin-top:16px;">
+        <div class="form-group">
+          <label class="form-label">Time From</label>
+          <input type="time" class="form-control" id="timeFrom">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Time To</label>
+          <input type="time" class="form-control" id="timeTo">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Analysis Done By (CLI)</label>
+          <div class="search-wrapper">
+            <input class="form-control" id="cliSearch" placeholder="Search CLI name..." autocomplete="off">
+            <div class="search-dropdown" id="cliDropdown"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======== CARD 2: MOTORMAN SELECTION ======== -->
+  <div class="card">
+    <div class="card-header">
+      <h2><span class="section-num">2</span> Motorman Details</h2>
+    </div>
+    <div class="card-body">
+      <div>
+        <div style="font-size:12px;font-weight:600;color:#475569;margin-bottom:8px;">
+          <span class="mman-indicator"></span> Motorman (M/Man)
+        </div>
+        <div class="crew-card" id="mmanCard">
+          <div class="search-wrapper" id="mmanSearchWrap">
+            <input class="form-control" id="mmanSearch" placeholder="Search Motorman by name / HRMS..." autocomplete="off" style="text-align:center;">
+            <div class="search-dropdown" id="mmanDropdown"></div>
+          </div>
+          <div class="hint" style="margin-top:6px;">Click to search and select Motorman</div>
+        </div>
+        <div id="mmanSelected" style="display:none;">
+          <div class="crew-card filled">
+            <div class="crew-selected">
+              <div class="crew-avatar" id="mmanAvatar">SY</div>
+              <div class="crew-info">
+                <div class="name" id="mmanName">Surendra Yadav</div>
+                <div class="meta">
+                  <span id="mmanHRMS">HRMS: 23456789</span>
+                  <span id="mmanDesig">Motorman</span>
+                  <span>HQ: <strong id="mmanHQ">CST</strong></span>
+                </div>
+              </div>
+              <button class="crew-remove" onclick="removeMMan()" title="Remove">&#x2715;</button>
+            </div>
+          </div>
+          <div class="ncli-row">
+            <label class="form-label">Nominated Loco Inspector (NLI)</label>
+            <div class="ncli-pill" id="nliPill">Shiv Kumar</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======== CARD 3: OBSERVATIONS ======== -->
+  <div class="card">
+    <div class="card-header">
+      <h2><span class="section-num">3</span> Observations Checklist</h2>
+      <span class="item-count">13 items &middot; Click YES/NO/NA or type custom text</span>
+    </div>
+    <div class="card-body" style="padding:0;">
+      <table class="obs-table">
+        <thead>
+          <tr>
+            <th class="col-num">#</th>
+            <th>Observation</th>
+            <th class="col-value">Value (YES/NO/NA or free text)</th>
+          </tr>
+        </thead>
+        <tbody id="obsTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ======== CARD 4: FINAL REMARK ======== -->
+  <div class="card">
+    <div class="card-header">
+      <h2><span class="section-num" style="background:linear-gradient(135deg,#f59e0b,#d97706);">!</span> Final Remark (Optional)</h2>
+    </div>
+    <div class="card-body">
+      <textarea class="form-control" id="finalRemark" rows="3" placeholder="Any additional observations or remarks..."></textarea>
+    </div>
+  </div>
+
+</div>
+
+<!-- Save Bar -->
+<div class="save-bar no-print">
+  <div class="save-hint"><kbd>Ctrl</kbd>+<kbd>S</kbd> to save</div>
+  <button class="btn-save" onclick="saveReport()">Save ADAS Report</button>
+  <div id="progressText" style="font-size:12px;color:#64748b;min-width:120px;text-align:center;">0 / 13 items filled</div>
+</div>
+
+<script>
+// ============ STATE ============
+let ITEMS = [];                  // Loaded from /api/division/adas/checklist
+let CLIS = [];                   // Loaded from /api/division/cli/list-all
+let STATIONS = [];               // Loaded from /api/division/slate/stations
+let values = {};                 // { itemId: "YES" | "NO" | "N/A" | free text }
+let currentReportId = null;
+let selectedCLI = { hrms_id: null, name: null };
+let selectedMMan = { hrms_id: null, name: null, hq: null, safety_cat: null, nli_id: null, nli_name: null };
+
+// ============ API HELPERS ============
+async function api(url, opts = {}) {
+  const res = await fetch(url, { credentials: 'same-origin', cache: 'no-store', ...opts });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`);
+  return json;
+}
+
+function debounce(fn, ms = 250) {
+  let t; return function(...a) { clearTimeout(t); t = setTimeout(() => fn.apply(this, a), ms); };
+}
+
+function escapeHtml(s) {
+  if (s == null) return '';
+  return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+}
+
+// ============ RENDER ============
+function renderObs() {
+  const body = document.getElementById('obsTableBody');
+  body.innerHTML = ITEMS.map((item, idx) => `
+    <tr data-item-row="${item.item_id}">
+      <td class="num">${idx + 1}.</td>
+      <td class="obs-text">${escapeHtml(item.item_text)}${item.is_inverse ? ' <span style="color:#dc2626;font-size:10px;font-weight:700;margin-left:4px;">(NO is expected)</span>' : ''}</td>
+      <td>
+        <div class="value-cell">
+          <div class="quick-btns">
+            <button class="quick-btn" data-item="${item.item_id}" data-val="YES" onclick="quickSet(${item.item_id},'YES',this)">YES</button>
+            <button class="quick-btn" data-item="${item.item_id}" data-val="NO" onclick="quickSet(${item.item_id},'NO',this)">NO</button>
+            <button class="quick-btn" data-item="${item.item_id}" data-val="N/A" onclick="quickSet(${item.item_id},'N/A',this)">N/A</button>
+          </div>
+          <input class="value-input" type="text" id="val_${item.item_id}" placeholder="or type custom..." oninput="manualType(${item.item_id},this.value)">
+        </div>
+      </td>
+    </tr>
+  `).join('');
+  updateProgress();
+}
+
+// Returns which CSS class to apply based on value and whether the item is inverse
+function getStyleClasses(val, inverse) {
+  const v = String(val).trim().toUpperCase();
+  if (v === 'YES') return inverse ? { btn: 'active-yes-inv', input: 'yes-inv' } : { btn: 'active-yes', input: 'yes' };
+  if (v === 'NO')  return inverse ? { btn: 'active-no-inv',  input: 'no-inv'  } : { btn: 'active-no',  input: 'no'  };
+  if (v === 'N/A' || v === 'NA') return { btn: 'active-na', input: 'na' };
+  return null;
+}
+
+function clearValueClasses(row, input) {
+  row.querySelectorAll('.quick-btn').forEach(b => b.classList.remove('active-yes','active-no','active-na','active-yes-inv','active-no-inv'));
+  input.classList.remove('yes','no','na','yes-inv','no-inv');
+}
+
+function quickSet(id, val, btn) {
+  const input = document.getElementById('val_' + id);
+  const row = btn.closest('tr');
+  const item = ITEMS.find(i => i.item_id === id);
+  const isInverse = !!(item && item.is_inverse);
+
+  const alreadyActive = btn.classList.contains('active-yes') || btn.classList.contains('active-no') ||
+                        btn.classList.contains('active-na') || btn.classList.contains('active-yes-inv') ||
+                        btn.classList.contains('active-no-inv');
+
+  if (alreadyActive) {
+    clearValueClasses(row, input);
+    input.value = '';
+    delete values[id];
+  } else {
+    clearValueClasses(row, input);
+    const cls = getStyleClasses(val, isInverse);
+    if (cls) { btn.classList.add(cls.btn); input.classList.add(cls.input); }
+    input.value = val;
+    values[id] = val;
+  }
+  updateProgress();
+}
+
+function manualType(id, txt) {
+  const input = document.getElementById('val_' + id);
+  const row = input.closest('tr');
+  const item = ITEMS.find(i => i.item_id === id);
+  const isInverse = !!(item && item.is_inverse);
+  const upper = txt.trim().toUpperCase();
+
+  clearValueClasses(row, input);
+
+  if (!txt.trim()) {
+    delete values[id];
+  } else {
+    values[id] = txt.trim();
+    const cls = getStyleClasses(upper, isInverse);
+    if (cls) {
+      input.classList.add(cls.input);
+      const matchBtn = row.querySelector(`[data-val="${upper === 'NA' ? 'N/A' : upper}"]`);
+      if (matchBtn) matchBtn.classList.add(cls.btn);
+    }
+  }
+  updateProgress();
+}
+
+// ============ PROGRESS ============
+let highlightMode = false;
+
+function updateProgress() {
+  const filled = Object.keys(values).length;
+  const total = ITEMS.length;
+  const pct = Math.round((filled / total) * 100);
+
+  // Bottom progress strip
+  document.getElementById('progressFill').style.width = pct + '%';
+  document.getElementById('progressText').textContent = `${filled} / ${total} items filled`;
+
+  // Top chip
+  document.getElementById('chipFilled').textContent = filled;
+  document.getElementById('chipTotal').textContent = total;
+  const circ = document.getElementById('progressChipCircle');
+  const dash = 69.1;
+  circ.setAttribute('stroke-dashoffset', dash - (dash * pct / 100));
+
+  const chip = document.getElementById('progressChip');
+  const btn = document.getElementById('btnJumpIncomplete');
+  if (filled === total) {
+    chip.classList.add('complete');
+    circ.setAttribute('stroke', '#16a34a');
+    btn.classList.add('complete');
+    document.getElementById('jumpIcon').textContent = '✓';
+    document.getElementById('jumpText').textContent = 'All Filled';
+  } else {
+    chip.classList.remove('complete');
+    circ.setAttribute('stroke', '#8b5cf6');
+    btn.classList.remove('complete');
+    document.getElementById('jumpIcon').textContent = '⚠';
+    document.getElementById('jumpText').textContent = `${total - filled} Pending`;
+  }
+
+  if (highlightMode) applyIncompleteHighlight();
+}
+
+// ============ INCOMPLETE HIGHLIGHTING ============
+function applyIncompleteHighlight() {
+  document.querySelectorAll('.obs-table tbody tr').forEach(tr => tr.classList.remove('row-incomplete'));
+  ITEMS.forEach(item => {
+    if (!values[item.item_id]) {
+      const row = document.querySelector(`[data-item-row="${item.item_id}"]`);
+      if (row) row.classList.add('row-incomplete');
+    }
+  });
+}
+
+function clearIncompleteHighlight() {
+  document.querySelectorAll('.obs-table tbody tr').forEach(tr => tr.classList.remove('row-incomplete'));
+}
+
+function jumpToIncomplete() {
+  highlightMode = true;
+  applyIncompleteHighlight();
+
+  const firstIncomplete = document.querySelector('.obs-table tbody tr.row-incomplete');
+  if (!firstIncomplete) {
+    showToast('All items are filled ✓', 'success');
+    highlightMode = false;
+    clearIncompleteHighlight();
+    return;
+  }
+
+  const topOffset = firstIncomplete.getBoundingClientRect().top + window.scrollY - 120;
+  window.scrollTo({ top: topOffset, behavior: 'smooth' });
+
+  firstIncomplete.classList.add('pulse-highlight');
+  setTimeout(() => firstIncomplete.classList.remove('pulse-highlight'), 2000);
+}
+
+// ============ MOTORMAN SEARCH (real API) ============
+const searchMMan = debounce(async function(input) {
+  const query = input.value.trim();
+  const dd = document.getElementById('mmanDropdown');
+
+  if (query.length < 2) {
+    dd.innerHTML = '<div style="padding:12px;text-align:center;color:#94a3b8;font-size:12px;">Type at least 2 characters to search</div>';
+    dd.classList.add('show');
+    return;
+  }
+
+  dd.innerHTML = '<div style="padding:12px;text-align:center;color:#94a3b8;font-size:12px;">Searching…</div>';
+  dd.classList.add('show');
+
+  try {
+    const json = await api(`/api/division/adas/staff-search?q=${encodeURIComponent(query)}`);
+    const results = json.data || [];
+
+    if (!results.length) {
+      dd.innerHTML = '<div style="padding:12px;text-align:center;color:#94a3b8;font-size:12px;">No matching Motorman found</div>';
+      return;
+    }
+
+    dd.innerHTML = results.map(s => {
+      const payload = JSON.stringify({
+        hrms: s.hrms_id, name: s.name,
+        desig: s.designation_name || 'Motorman',
+        office: s.office_code || '', office_name: s.office_name || '',
+        safety_cat: s.safety_category || '',
+        cli_id: s.current_cli_id || null, cli_name: s.current_cli_name || null
+      }).replace(/"/g, '&quot;');
+      return `<div class="search-item" data-staff="${payload}">
+        <div class="name">${escapeHtml(s.name)}</div>
+        <div class="details">HRMS: ${escapeHtml(s.hrms_id)} &middot; ${escapeHtml(s.office_code || '')}${s.safety_category ? ' &middot; Safe.Cat: ' + escapeHtml(s.safety_category) : ''}</div>
+      </div>`;
+    }).join('');
+
+    dd.querySelectorAll('.search-item').forEach(el => {
+      el.addEventListener('click', function() {
+        const data = JSON.parse(this.dataset.staff.replace(/&quot;/g, '"'));
+        selectMMan(data);
+      });
+    });
+  } catch (err) {
+    dd.innerHTML = `<div style="padding:12px;text-align:center;color:#dc2626;font-size:12px;">Error: ${escapeHtml(err.message)}</div>`;
+  }
+}, 250);
+
+function selectMMan(data) {
+  const initials = data.name.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase();
+  document.getElementById('mmanCard').style.display = 'none';
+  document.getElementById('mmanSelected').style.display = 'block';
+  document.getElementById('mmanAvatar').textContent = initials;
+  document.getElementById('mmanName').textContent = data.name;
+  document.getElementById('mmanHRMS').textContent = 'HRMS: ' + data.hrms;
+  document.getElementById('mmanDesig').textContent = data.desig || 'Motorman';
+  document.getElementById('mmanHQ').textContent = data.office || '—';
+  document.getElementById('nliPill').textContent = data.cli_name || '— no CLI assigned —';
+  document.getElementById('mmanSearch').value = '';
+
+  // Auto-populate Safe.Cat if available
+  if (data.safety_cat) document.getElementById('safeCat').value = data.safety_cat;
+
+  selectedMMan = {
+    hrms_id: data.hrms, name: data.name, hq: data.office,
+    safety_cat: data.safety_cat || null,
+    nli_id: data.cli_id, nli_name: data.cli_name
+  };
+}
+
+function removeMMan() {
+  document.getElementById('mmanCard').style.display = 'flex';
+  document.getElementById('mmanSelected').style.display = 'none';
+  selectedMMan = { hrms_id:null, name:null, hq:null, safety_cat:null, nli_id:null, nli_name:null };
+}
+
+// ============ CLI SEARCH (preloaded list, filter client-side) ============
+function renderCLIDropdown(filter = '') {
+  const dd = document.getElementById('cliDropdown');
+  const q = filter.toLowerCase();
+  const filtered = CLIS.filter(c =>
+    (c.cli_name || '').toLowerCase().includes(q) ||
+    (c.cmsid || '').toLowerCase().includes(q) ||
+    (c.cli_hrms_id || '').toLowerCase().includes(q)
+  ).slice(0, 15);
+
+  if (!filtered.length) {
+    dd.innerHTML = '<div style="padding:12px;text-align:center;color:#94a3b8;font-size:12px;">No matching CLI</div>';
+    return;
+  }
+
+  dd.innerHTML = filtered.map(c => {
+    const payload = JSON.stringify({
+      id: c.cli_id, name: c.cli_name, hrms: c.cli_hrms_id || '',
+      office: c.current_office_code || ''
+    }).replace(/"/g, '&quot;');
+    return `<div class="search-item" data-cli="${payload}">
+      <div class="name">${escapeHtml(c.cli_name)}</div>
+      <div class="details">${c.cli_hrms_id ? 'HRMS: ' + escapeHtml(c.cli_hrms_id) + ' &middot; ' : ''}CLI/${escapeHtml(c.current_office_code || '')}</div>
+    </div>`;
+  }).join('');
+
+  dd.querySelectorAll('.search-item').forEach(el => {
+    el.addEventListener('click', function() {
+      const data = JSON.parse(this.dataset.cli.replace(/&quot;/g, '"'));
+      selectCLI(data);
+    });
+  });
+}
+
+function selectCLI(data) {
+  document.getElementById('cliSearch').value = data.name;
+  selectedCLI = { hrms_id: data.hrms, name: data.name };
+  document.getElementById('cliDropdown').classList.remove('show');
+}
+
+// ============ STATION SEARCH ============
+function renderStationDropdown(fieldId, filter = '') {
+  const dd = document.getElementById(fieldId + 'Dropdown');
+  const q = filter.toLowerCase();
+  const filtered = STATIONS.filter(s =>
+    (s.code || '').toLowerCase().includes(q) ||
+    (s.name || '').toLowerCase().includes(q)
+  ).slice(0, 12);
+
+  if (!filtered.length) {
+    dd.innerHTML = '<div style="padding:12px;text-align:center;color:#94a3b8;font-size:12px;">No matching station</div>';
+    return;
+  }
+
+  dd.innerHTML = filtered.map(s => `
+    <div class="search-item" data-code="${escapeHtml(s.code)}">
+      <div class="name">${escapeHtml(s.code)}</div>
+      <div class="details">${escapeHtml(s.name || '')}</div>
+    </div>
+  `).join('');
+
+  dd.querySelectorAll('.search-item').forEach(el => {
+    el.addEventListener('click', function() {
+      document.getElementById(fieldId).value = this.dataset.code;
+      dd.classList.remove('show');
+    });
+  });
+}
+
+// ============ WIRE SEARCH INPUTS ============
+function wireSearchInputs() {
+  const cliInput = document.getElementById('cliSearch');
+  cliInput.addEventListener('focus', () => { renderCLIDropdown(cliInput.value); document.getElementById('cliDropdown').classList.add('show'); });
+  cliInput.addEventListener('input', () => renderCLIDropdown(cliInput.value));
+
+  const mmanInput = document.getElementById('mmanSearch');
+  mmanInput.addEventListener('focus', function() {
+    document.getElementById('mmanDropdown').classList.add('show');
+    if (this.value.trim().length < 2) searchMMan(this);
+  });
+  mmanInput.addEventListener('input', function() { searchMMan(this); });
+
+  ['fromStation','toStation'].forEach(fid => {
+    const inp = document.getElementById(fid);
+    inp.addEventListener('focus', () => { renderStationDropdown(fid, inp.value); document.getElementById(fid + 'Dropdown').classList.add('show'); });
+    inp.addEventListener('input', () => renderStationDropdown(fid, inp.value));
+  });
+}
+
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('.search-wrapper')) {
+    document.querySelectorAll('.search-dropdown').forEach(dd => dd.classList.remove('show'));
+  }
+});
+
+// ============ SAVE ============
+async function saveReport() {
+  if (!selectedCLI.name) return showToast('Please select analyzing CLI', 'error');
+  if (!document.getElementById('analysisDate').value) return showToast('Analysis date required', 'error');
+  if (!document.getElementById('eventDate').value) return showToast('Event date required', 'error');
+  if (!document.getElementById('trainNumber').value.trim()) return showToast('Train number required', 'error');
+  if (!selectedMMan.name) return showToast('Please select Motorman', 'error');
+
+  const obsArr = [];
+  ITEMS.forEach(item => {
+    const v = values[item.item_id];
+    if (v) obsArr.push({ item_id: item.item_id, value_text: v });
+  });
+
+  const body = {
+    cli_hrms_id: selectedCLI.hrms_id,
+    cli_name: selectedCLI.name,
+    analysis_date: document.getElementById('analysisDate').value,
+    event_date: document.getElementById('eventDate').value,
+    train_number: document.getElementById('trainNumber').value.trim(),
+    d_cab: document.getElementById('dcab').value.trim() || null,
+    mman_hrms_id: selectedMMan.hrms_id,
+    mman_name: selectedMMan.name,
+    mman_hq: selectedMMan.hq,
+    safety_category: document.getElementById('safeCat').value || selectedMMan.safety_cat,
+    section: document.getElementById('section').value || null,
+    from_station: document.getElementById('fromStation').value.trim() || null,
+    to_station: document.getElementById('toStation').value.trim() || null,
+    time_from: document.getElementById('timeFrom').value || null,
+    time_to: document.getElementById('timeTo').value || null,
+    nli_id: selectedMMan.nli_id,
+    nli_name: selectedMMan.nli_name,
+    final_remark: document.getElementById('finalRemark').value.trim() || null,
+    observations: obsArr
+  };
+
+  try {
+    const btn = document.querySelector('.btn-save');
+    btn.disabled = true; btn.textContent = 'Saving...';
+
+    const url = currentReportId ? `/api/division/adas/reports/${currentReportId}` : '/api/division/adas/reports';
+    const method = currentReportId ? 'PUT' : 'POST';
+
+    await api(url, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+
+    showToast(`ADAS Report ${currentReportId ? 'updated' : 'saved'} successfully!`, 'success');
+    setTimeout(() => { window.location.href = '/div/adas-reports.html'; }, 800);
+  } catch (err) {
+    showToast(`Save failed: ${err.message}`, 'error');
+    const btn = document.querySelector('.btn-save');
+    btn.disabled = false; btn.textContent = 'Save ADAS Report';
+  }
+}
+
+async function loadReport(id) {
+  try {
+    const json = await api(`/api/division/adas/reports/${id}`);
+    const { report, observations: obs } = json.data;
+
+    currentReportId = id;
+    document.querySelector('.btn-save').textContent = 'Update ADAS Report';
+
+    document.getElementById('analysisDate').value = report.analysis_date?.slice(0, 10) || '';
+    document.getElementById('eventDate').value = report.event_date?.slice(0, 10) || '';
+    document.getElementById('trainNumber').value = report.train_number || '';
+    document.getElementById('dcab').value = report.d_cab || '';
+    document.getElementById('section').value = report.section || '';
+    document.getElementById('safeCat').value = report.safety_category || '';
+    document.getElementById('fromStation').value = report.from_station || '';
+    document.getElementById('toStation').value = report.to_station || '';
+    document.getElementById('timeFrom').value = report.time_from || '';
+    document.getElementById('timeTo').value = report.time_to || '';
+    document.getElementById('finalRemark').value = report.final_remark || '';
+
+    selectedCLI = { hrms_id: report.cli_hrms_id, name: report.cli_name };
+    document.getElementById('cliSearch').value = report.cli_name || '';
+
+    if (report.mman_name) {
+      selectMMan({
+        hrms: report.mman_hrms_id, name: report.mman_name,
+        desig: 'Motorman', office: report.mman_hq,
+        safety_cat: report.safety_category,
+        cli_id: report.nli_id, cli_name: report.nli_name
+      });
+    }
+
+    obs.forEach(o => {
+      values[o.item_id] = o.value_text;
+      const input = document.getElementById('val_' + o.item_id);
+      if (input) {
+        input.value = o.value_text;
+        // Trigger visual styling
+        manualType(o.item_id, o.value_text);
+      }
+    });
+  } catch (err) {
+    showToast(`Failed to load report: ${err.message}`, 'error');
+  }
+}
+
+function resetForm() {
+  values = {};
+  currentReportId = null;
+  selectedCLI = { hrms_id: null, name: null };
+  selectedMMan = { hrms_id:null, name:null, hq:null, safety_cat:null, nli_id:null, nli_name:null };
+  document.querySelectorAll('.form-control, .form-select').forEach(el => {
+    if (el.type === 'date' && el.id === 'analysisDate') el.value = new Date().toISOString().split('T')[0];
+    else el.value = '';
+  });
+  removeMMan();
+  document.getElementById('finalRemark').value = '';
+  document.querySelector('.btn-save').textContent = 'Save ADAS Report';
+  renderObs();
+}
+
+function showToast(msg, type) {
+  const c = document.getElementById('toastContainer');
+  const t = document.createElement('div');
+  t.className = 'custom-toast ' + type;
+  t.textContent = msg;
+  c.appendChild(t);
+  setTimeout(() => { t.style.animation = 'fadeOut .3s ease forwards'; setTimeout(() => t.remove(), 300); }, 3000);
+}
+
+document.addEventListener('keydown', function(e) {
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+    e.preventDefault();
+    saveReport();
+  }
+});
+
+// ============ INIT ============
+async function init() {
+  document.getElementById('analysisDate').value = new Date().toISOString().split('T')[0];
+
+  renderObs();
+
+  try {
+    const [itemsJson, clisJson, stationsJson] = await Promise.all([
+      api('/api/division/adas/checklist'),
+      api('/api/division/cli/list-all'),
+      api('/api/division/slate/stations').catch(() => ({ data: [] }))
+    ]);
+
+    ITEMS = itemsJson.data || [];
+    CLIS = (clisJson.data || []).filter(c => c.cli_name);
+    const stData = stationsJson.data || [];
+    STATIONS = stData.map(s => (typeof s === 'string' ? { code: s, name: '' } : { code: s.station_code || s.code, name: s.station_name || s.name || '' })).filter(s => s.code);
+
+    renderObs();
+    wireSearchInputs();
+
+    document.getElementById('chipTotal').textContent = ITEMS.length;
+    document.getElementById('jumpText').textContent = `${ITEMS.length} Pending`;
+
+    // Edit mode?
+    const urlParams = new URLSearchParams(window.location.search);
+    const editId = urlParams.get('id');
+    if (editId) await loadReport(editId);
+  } catch (err) {
+    showToast('Failed to load form data: ' + err.message, 'error');
+    console.error('Init error:', err);
+  }
+}
+
+init();
+</script>
+</body>
+</html>
