@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HOG Position | Control Office</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --brand: #0b3d91;
+            --text-main: #1e293b;
+            --text-light: #64748b;
+            --muted: #94a3b8;
+            --border: #e2e8f0;
+            --border-strong: #cbd5e1;
+            --bg: #f1f5f9;
+            --surface: #ffffff;
+            --hilite: #fff9c4;   /* non-HOG link yellow */
+        }
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg);
+            color: var(--text-main);
+            margin: 0;
+            padding: 18px;
+        }
+        .toolbar {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin-bottom: 14px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .toolbar a, .toolbar .label { color: var(--text-light); text-decoration: none; font-size: .85rem; }
+        .toolbar a:hover { color: var(--brand); }
+        .toolbar h1 { font-size: 1.05rem; margin: 0; color: var(--brand); letter-spacing: .5px; }
+        .toolbar input[type="date"], .toolbar select {
+            padding: 5px 8px;
+            border: 1px solid var(--border-strong);
+            border-radius: 4px;
+            font-size: .85rem;
+        }
+        .toolbar button {
+            background: var(--brand); color: white; border: none;
+            padding: 8px 14px; border-radius: 5px; font-size: .85rem;
+            font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+        }
+        .toolbar button.ghost { background: #eef2ff; color: var(--brand); }
+        .toolbar button:hover { filter: brightness(.92); }
+        .toolbar .status { margin-left: auto; font-size: .82rem; color: var(--text-light); }
+
+        .report-head {
+            display: flex; justify-content: space-between; align-items: center;
+            background: var(--brand); color: #fff; padding: 8px 16px;
+            border-radius: 8px 8px 0 0; font-weight: 700;
+        }
+        .report-head .ttl { font-size: 1.1rem; letter-spacing: 1px; }
+        .report-head .meta { font-size: .82rem; font-weight: 500; opacity: .9; }
+
+        .table-wrap { background: #fff; border: 1px solid var(--border); border-top: none; border-radius: 0 0 8px 8px; overflow-x: auto; }
+        table.hog { width: 100%; border-collapse: collapse; font-size: .74rem; }
+        table.hog thead th {
+            background: #eef2ff; color: #1e293b; font-weight: 700;
+            padding: 6px 7px; border: 1px solid #cbd5e1;
+            text-transform: uppercase; font-size: .64rem; letter-spacing: .3px;
+        }
+        table.hog tbody td { padding: 3px 7px; border: 1px solid #e2e8f0; vertical-align: middle; }
+        table.hog tbody tr:nth-child(even) { background: #fbfcfe; }
+        table.hog tbody tr.nonhog { background: var(--hilite) !important; }
+        .c-sr { text-align: center; color: var(--text-light); width: 34px; }
+        .c-link { font-weight: 700; white-space: nowrap; }
+        .c-train { font-weight: 700; }
+        .c-train small { display:block; font-weight: 400; color: var(--text-light); font-size: .66rem; line-height: 1.1; max-width: 160px; }
+        .c-dep, .c-fromto { white-space: nowrap; text-align: center; }
+        .c-days { font-size: .66rem; color: #475569; white-space: nowrap; }
+        .c-loco, .c-type, .c-base { font-family: 'Courier New', monospace; font-weight: 700; white-space: nowrap; }
+        .loco-line { line-height: 1.35; }
+        .loco-line + .loco-line { border-top: 1px dashed #e2e8f0; }
+        .oem { display:inline-block; font-size:.68rem; font-weight:700; padding:1px 6px; border-radius:4px; background:#dcfce7; color:#14532d; }
+        .oem.nhog { background:#e5e7eb; color:#475569; }
+        .oem.dsl  { background:#fef3c7; color:#92400e; letter-spacing:1px; }
+        .pp { display:inline-block; font-size:.6rem; font-weight:800; padding:0 5px; border-radius:3px; margin-left:4px; background:#e0e7ff; color:#3730a3; vertical-align:middle; }
+        .c-remark { font-size: .7rem; color: #334155; min-width: 180px; }
+        .remark-input {
+            width: 100%; min-width: 170px; box-sizing: border-box;
+            padding: 3px 6px; font-size: .7rem; font-family: inherit;
+            border: 1px solid transparent; border-radius: 4px; background: transparent;
+            color: #334155;
+        }
+        .remark-input:hover { border-color: var(--border-strong); background: #fff; }
+        .remark-input:focus { outline: none; border-color: var(--brand); background: #fff; }
+        .remark-input.saving { border-color: #f59e0b; background: #fffbeb; }
+        .remark-input.saved  { border-color: #16a34a; background: #f0fdf4; }
+        .remark-input.save-err { border-color: #dc2626; background: #fef2f2; }
+        .remark-input.remark-auto { color: #94a3b8; font-style: italic; }
+        .remark-input.remark-auto:focus { color: #334155; font-style: normal; }
+        .empty-cell { color: var(--muted); }
+        .loading-msg, .error-msg { padding: 24px; text-align: center; color: var(--text-light); }
+        .error-msg { color: #dc2626; }
+
+        .legend { margin-top: 10px; font-size: .74rem; color: var(--text-light); display:flex; gap:16px; flex-wrap:wrap; align-items:center; }
+        .legend .sw { display:inline-block; width:14px; height:14px; border-radius:3px; vertical-align:middle; margin-right:5px; border:1px solid #cbd5e1; }
+
+        @media print {
+            * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            body { background: #fff !important; padding: 0 !important; }
+            .toolbar, .legend { display: none !important; }
+            table.hog thead th { position: static; }
+            .report-head { border-radius: 0; }
+            table.hog { font-size: .66rem; }
+            table.hog tbody tr { page-break-inside: avoid; }
+            @page { size: A4 landscape; margin: 7mm; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="toolbar">
+    <a href="/control-office/"><i class="fa-solid fa-arrow-left"></i> Back</a>
+    <h1>HOG Position</h1>
+    <span class="label">Date:</span>
+    <input id="dateInput" type="date">
+    <span class="label">Shift:</span>
+    <select id="shiftSel">
+        <option value="full">Full day</option>
+        <option value="0-8">00:00 – 08:00</option>
+        <option value="8-16">08:00 – 16:00</option>
+        <option value="16-24">16:00 – 24:00</option>
+    </select>
+    <button onclick="loadReport()"><i class="fa-solid fa-rotate-right"></i> Reload</button>
+    <button class="ghost" onclick="window.print()"><i class="fa-solid fa-print"></i> Print / PDF</button>
+    <span class="status" id="loadStatus">Loading…</span>
+</div>
+
+<div id="report"></div>
+
+<div class="legend">
+    <span><span class="sw" style="background:var(--hilite)"></span> Non-HOG link (DSL / AC-DC / WAP-4)</span>
+    <span><span class="oem">MEDHA</span> HOG make (hotel-load OEM)</span>
+    <span><span class="oem nhog">N/HOG</span> loco not HOG-capable</span>
+    <span><span class="oem dsl">===</span> diesel</span>
+</div>
+
+<script>
+const $ = sel => document.querySelector(sel);
+const SHIFTS = { 'full': [null, null], '0-8': ['00:00','08:00'], '8-16': ['08:00','16:00'], '16-24': ['16:00','24:00'] };
+let reportDate = null;   // date the currently-shown rows belong to (for remark saves)
+
+function esc(s) {
+    if (s == null) return '';
+    return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c]);
+}
+function todayISO() { return new Date().toISOString().slice(0, 10); }
+function fmtDMY(iso) { if (!iso) return ''; const [y,m,d]=iso.split('-'); return `${d}-${m}-${y}`; }
+const DOW = ['','MON','TUE','WED','THU','FRI','SAT','SUN'];
+
+function oemCell(loco) {
+    if (!loco) return '';
+    const make = loco.hog_make || '';
+    let cls = 'oem';
+    if (make === '===') cls += ' dsl';
+    else if (!loco.is_hog) cls += ' nhog';
+    return `<span class="${cls}">${esc(make)}</span>`;
+}
+
+function stack(locos, pick) {
+    if (!locos || !locos.length) return '<span class="empty-cell">—</span>';
+    return locos.map(l => `<div class="loco-line">${pick(l)}</div>`).join('');
+}
+
+function renderRow(r) {
+    const tr = document.createElement('tr');
+    if (r.non_hog_link) tr.classList.add('nonhog');
+    const daysTxt = /^\d/.test(r.days || '')
+        ? (r.days || '').split(',').map(d => DOW[parseInt(d,10)] || d).join(',')
+        : (r.days || '');
+    // Show the LPC's saved remark if any; otherwise pre-fill the derived default
+    // (DSL LINK / NON HOG LINK), flagged as auto until the LPC edits it.
+    const remarkVal = r.remark || r.default_remark || '';
+    const isAuto = !r.remark && !!r.default_remark;
+    tr.innerHTML = `
+        <td class="c-sr">${r.sr}</td>
+        <td class="c-link">${esc(r.link || '—')}${r.is_push_pull ? '<span class="pp">PP</span>' : ''}</td>
+        <td class="c-train">${esc(r.train_no)}${r.train_name ? `<small>${esc(r.train_name)}</small>` : ''}</td>
+        <td class="c-fromto">${esc(r.from_station || '')}</td>
+        <td class="c-fromto">${esc(r.to_station || '') || '<span class="empty-cell">—</span>'}</td>
+        <td class="c-dep">${esc(r.dep || '')}</td>
+        <td class="c-days">${esc(daysTxt)}</td>
+        <td class="c-loco">${stack(r.locos, l => esc(l.loco_no))}</td>
+        <td class="c-type">${stack(r.locos, l => esc(l.loco_type) || '<span class="empty-cell">—</span>')}</td>
+        <td class="c-base">${stack(r.locos, l => esc(l.base) || '<span class="empty-cell">—</span>')}</td>
+        <td>${stack(r.locos, l => oemCell(l))}</td>
+        <td class="c-remark"><input class="remark-input${isAuto ? ' remark-auto' : ''}" type="text" maxlength="255"
+            value="${esc(remarkVal)}" placeholder="add remark…"
+            data-master="${r.master_id || ''}" data-train="${esc(r.train_no)}"
+            data-dir="${esc(r.direction || 'DN')}" data-sheet="${esc(r.sheet_source || '')}"
+            data-section="${esc(r.section || '')}"></td>
+    `;
+    return tr;
+}
+
+async function loadReport() {
+    const date = $('#dateInput').value || todayISO();
+    const [from, to] = SHIFTS[$('#shiftSel').value] || [null, null];
+    $('#loadStatus').textContent = 'Loading…';
+    const container = $('#report');
+    container.innerHTML = '<div class="loading-msg"><i class="fa-solid fa-spinner fa-spin"></i> Building HOG position…</div>';
+
+    const qs = new URLSearchParams({ date });
+    if (from) qs.set('from', from);
+    if (to)   qs.set('to', to);
+
+    try {
+        const r = await fetch(`/api/division/loco-link/hog-position?${qs}`);
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const data = await r.json();
+        reportDate = data.date;
+
+        const shiftLabel = $('#shiftSel').selectedOptions[0].textContent;
+        const head = document.createElement('div');
+        head.className = 'report-head';
+        head.innerHTML = `
+            <span class="ttl">HOG POSITION</span>
+            <span class="meta">${fmtDMY(data.date)} (${DOW[data.day_of_week_ir] || ''}) · ${shiftLabel} · ${data.total} trains</span>`;
+
+        const wrap = document.createElement('div');
+        wrap.className = 'table-wrap';
+        wrap.innerHTML = `
+            <table class="hog">
+                <thead><tr>
+                    <th>SR</th><th>Link</th><th>Train No</th><th>From</th><th>To</th>
+                    <th>Dep</th><th>Days</th><th>Actual Loco No</th><th>Loco Type</th>
+                    <th>Base</th><th>HOG Make</th><th>Remark</th>
+                </tr></thead>
+                <tbody></tbody>
+            </table>`;
+        const tbody = wrap.querySelector('tbody');
+        if (!data.rows.length) {
+            tbody.innerHTML = `<tr><td colspan="12" style="padding:14px;text-align:center;color:#888">No outbound trains for this date / shift.</td></tr>`;
+        } else {
+            for (const row of data.rows) tbody.appendChild(renderRow(row));
+        }
+
+        container.innerHTML = '';
+        container.appendChild(head);
+        container.appendChild(wrap);
+        const filled = data.rows.filter(r => r.locos && r.locos.length).length;
+        $('#loadStatus').textContent = `${fmtDMY(data.date)} · ${filled}/${data.total} locos entered`;
+    } catch (e) {
+        container.innerHTML = `<div class="error-msg"><i class="fa-solid fa-circle-exclamation"></i> ${esc(e.message)}</div>`;
+        $('#loadStatus').textContent = 'Failed';
+    }
+}
+
+// Save a remark inline (upserts only the remark on that train/date log row).
+async function saveRemark(input) {
+    if (!reportDate) return;
+    const body = {
+        working_date: reportDate,
+        master_id: input.dataset.master || null,
+        train_no: input.dataset.train,
+        direction: input.dataset.dir || 'DN',
+        sheet_source: input.dataset.sheet || null,
+        section: input.dataset.section || null,
+        remark: input.value.trim(),
+    };
+    input.classList.remove('saved', 'save-err');
+    input.classList.add('saving');
+    try {
+        const r = await fetch('/api/division/loco-link/log-remark', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
+        input.classList.remove('saving');
+        if (!r.ok) { input.classList.add('save-err'); return; }
+        input.classList.add('saved');
+        setTimeout(() => input.classList.remove('saved'), 1200);
+    } catch (e) {
+        input.classList.remove('saving');
+        input.classList.add('save-err');
+    }
+}
+// Delegated: 'change' fires on blur only when the value actually changed.
+$('#report').addEventListener('change', e => {
+    if (e.target.classList && e.target.classList.contains('remark-input')) saveRemark(e.target);
+});
+// As soon as the LPC types, it's no longer the auto default → drop the auto style.
+$('#report').addEventListener('input', e => {
+    if (e.target.classList && e.target.classList.contains('remark-input')) e.target.classList.remove('remark-auto');
+});
+
+const params = new URLSearchParams(location.search);
+const initialDate = params.get('date') && /^\d{4}-\d{2}-\d{2}$/.test(params.get('date')) ? params.get('date') : todayISO();
+$('#dateInput').value = initialDate;
+$('#dateInput').addEventListener('change', loadReport);
+$('#shiftSel').addEventListener('change', loadReport);
+loadReport();
+</script>
+</body>
+</html>

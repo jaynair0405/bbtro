@@ -170,6 +170,23 @@ async function loadLocos(csvPath) {
 }
 
 (async () => {
+    // ── SAFETY GUARD ──────────────────────────────────────────────────────
+    // This is a ONE-TIME bulk importer. div_locos is now a live table that also
+    // holds LPC-entered data (schedule_type / schedule_due_date, data_source,
+    // etc.). Re-running this refreshes the CSV columns and is NOT part of any
+    // day-to-day workflow. Disabled by default to prevent an accidental run.
+    // To intentionally re-import:  ALLOW_LOCO_RELOAD=1 node scripts/load_locos.js
+    if (process.env.ALLOW_LOCO_RELOAD !== '1') {
+        console.error(
+            'load_locos.js is a one-time importer and is disabled by default.\n' +
+            'It refreshes CSV-sourced div_locos columns (loco_type, home_shed, etc.);\n' +
+            'it does NOT touch LPC columns like schedule_type/schedule_due_date.\n' +
+            'If you really mean to re-import, run:\n' +
+            '  ALLOW_LOCO_RELOAD=1 node scripts/load_locos.js [csv-path]'
+        );
+        process.exit(1);
+    }
+
     const csvPath = process.argv[2] || DEFAULT_CSV;
     try {
         await loadLocos(path.resolve(csvPath));

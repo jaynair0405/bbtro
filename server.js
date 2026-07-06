@@ -140,10 +140,10 @@ app.get('/index.html', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// ✅ CTLC users are scoped to the Control Office portal only.
-//    Any /div/* request from a ctlc account is redirected to /control-office/.
+// ✅ CTLC (and view-only ctlc_view) users are scoped to the Control Office portal only.
+//    Any /div/* request from such an account is redirected to /control-office/.
 app.use('/div', (req, res, next) => {
-  if (req.session?.user?.div_role === 'ctlc') {
+  if (['ctlc', 'ctlc_view'].includes(req.session?.user?.div_role)) {
     return res.redirect('/control-office/');
   }
   next();
@@ -198,12 +198,12 @@ app.get('/div/training-centre.html', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'div', 'training-centre.html'));
 });
 
-// ✅ Control Office Portal — accessible by lpc, division_admin and ctlc
+// ✅ Control Office Portal — accessible by lpc, division_admin, ctlc and ctlc_view (read-only)
 function requireControlOffice(req, res, next) {
   if (!req.session.user) return res.redirect('/');
   if (req.session.user.realm !== 'division') return res.redirect('/');
   const role = req.session.user.div_role;
-  if (!['lpc', 'division_admin', 'ctlc'].includes(role)) return res.redirect('/div');
+  if (!['lpc', 'division_admin', 'ctlc', 'ctlc_view'].includes(role)) return res.redirect('/div');
   next();
 }
 app.get('/control-office/', requireControlOffice, (req, res) => {
@@ -218,8 +218,24 @@ app.get('/control-office/daily-entry.html', requireControlOffice, (req, res) => 
 app.get('/control-office/reports.html', requireControlOffice, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'control-office', 'reports.html'));
 });
+// Consolidated (all-sheets) loco-link view — admin/ctlc overview, plus ctlc_view (read-only).
+// LPCs use their per-section daily sheets; this merges every sheet into one page.
+app.get('/control-office/consolidated-sheet.html', requireControlOffice, (req, res) => {
+  if (!['division_admin', 'ctlc', 'ctlc_view'].includes(req.session.user.div_role)) {
+    return res.redirect('/control-office/');
+  }
+  res.sendFile(path.join(__dirname, 'public', 'control-office', 'consolidated-sheet.html'));
+});
 app.get('/control-office/sick-locos.html', requireControlOffice, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'control-office', 'sick-locos.html'));
+});
+// HOG Position report — daily outbound (DN) HOG status. Any Control Office role.
+app.get('/control-office/hog-position.html', requireControlOffice, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'control-office', 'hog-position.html'));
+});
+// Loco Schedule Due report — locos with overdue / upcoming maintenance schedule.
+app.get('/control-office/schedule-due.html', requireControlOffice, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'control-office', 'schedule-due.html'));
 });
 // WTT lookup page — viewable by any logged-in user (edits are gated in the API
 // to division_admin/ctlc). Explicit route so it is login-gated, not open static.

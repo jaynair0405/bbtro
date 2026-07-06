@@ -358,6 +358,7 @@
         Control Office <span class="sub">BB Division</span>
     </div>
     <div class="header-user">
+        <a id="backToDash" href="/div" title="Back to Division Dashboard" style="display:none"><i class="fa-solid fa-arrow-left"></i> Dashboard</a>
         <span id="userInfo">…</span>
         <a href="/api/logout" title="Logout"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
     </div>
@@ -473,11 +474,32 @@
     <section class="dashboard-section">
         <div class="section-title">Reports & Tools</div>
         <div class="quick-links">
+            <a class="link-card" id="consolidatedLink" href="/control-office/consolidated-sheet.html" style="display:none">
+                <i class="fa-solid fa-layer-group icn" style="color:var(--brand)"></i>
+                <div>
+                    <div class="ttl">Consolidated Sheet</div>
+                    <div class="desc">All sheets in one — UP then DN, bypass last</div>
+                </div>
+            </a>
             <a class="link-card" href="/control-office/reports.html">
                 <i class="fa-solid fa-triangle-exclamation icn" style="color:var(--danger)"></i>
                 <div>
                     <div class="ttl">Mis-link Reports</div>
                     <div class="desc">By shed, date, train, loco</div>
+                </div>
+            </a>
+            <a class="link-card" href="/control-office/hog-position.html">
+                <i class="fa-solid fa-bolt icn" style="color:var(--success)"></i>
+                <div>
+                    <div class="ttl">HOG Position</div>
+                    <div class="desc">Daily outbound HOG status by shift</div>
+                </div>
+            </a>
+            <a class="link-card" href="/control-office/schedule-due.html">
+                <i class="fa-solid fa-calendar-check icn" style="color:var(--warning)"></i>
+                <div>
+                    <div class="ttl">Loco Schedule Due</div>
+                    <div class="desc">Locos overdue / due for IA·IB·IC·IOH·TOH·POH</div>
                 </div>
             </a>
             <a class="link-card" href="/control-office/wtt.html">
@@ -552,10 +574,21 @@ async function loadMe() {
         const u = await r.json();
         const role = u.div_role === 'lpc' ? 'LPC' : (u.div_role || u.role);
         $('#userInfo').innerHTML = `<i class="fa-solid fa-user"></i> ${u.full_name || u.username} <small>(${role})</small>`;
-        // Show Settings tile only for division_admin / ctlc
+        // Consolidated Sheet tile — writers (division_admin/ctlc) plus read-only ctlc_view
+        if (['division_admin', 'ctlc', 'ctlc_view'].includes(u.div_role)) {
+            const consolidated = $('#consolidatedLink');
+            if (consolidated) consolidated.style.display = '';
+        }
+        // Settings tile — writers only (it is an edit page)
         if (['division_admin', 'ctlc'].includes(u.div_role)) {
-            const link = $('#settingsLink');
-            if (link) link.style.display = '';
+            const settings = $('#settingsLink');
+            if (settings) settings.style.display = '';
+        }
+        // Back-to-Dashboard only for division_admin — they have the wider division
+        // portal. ctlc/lpc are scoped to Control Office and have no dashboard to return to.
+        if (u.div_role === 'division_admin') {
+            const back = $('#backToDash');
+            if (back) back.style.display = '';
         }
     } catch (e) {
         $('#userInfo').textContent = '—';

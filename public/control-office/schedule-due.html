@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Loco Schedule Due | Control Office</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --brand: #0b3d91; --text-main: #1e293b; --text-light: #64748b; --muted: #94a3b8;
+            --border: #e2e8f0; --border-strong: #cbd5e1; --bg: #f1f5f9; --surface: #ffffff;
+        }
+        * { box-sizing: border-box; }
+        body { font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif; background: var(--bg); color: var(--text-main); margin: 0; padding: 18px; }
+        .toolbar {
+            display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+            background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+            padding: 12px 16px; margin-bottom: 14px; position: sticky; top: 0; z-index: 100;
+        }
+        .toolbar a, .toolbar .label { color: var(--text-light); text-decoration: none; font-size: .85rem; }
+        .toolbar a:hover { color: var(--brand); }
+        .toolbar h1 { font-size: 1.05rem; margin: 0; color: var(--brand); }
+        .toolbar select { padding: 5px 8px; border: 1px solid var(--border-strong); border-radius: 4px; font-size: .85rem; }
+        .toolbar button { background: var(--brand); color: #fff; border: none; padding: 8px 14px; border-radius: 5px; font-size: .85rem; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+        .toolbar button.ghost { background: #eef2ff; color: var(--brand); }
+        .toolbar button:hover { filter: brightness(.92); }
+        .toolbar .status { margin-left: auto; font-size: .82rem; color: var(--text-light); }
+
+        .report-head { display: flex; justify-content: space-between; align-items: center; background: var(--brand); color: #fff; padding: 8px 16px; border-radius: 8px 8px 0 0; font-weight: 700; }
+        .report-head .ttl { font-size: 1.05rem; letter-spacing: .5px; }
+        .report-head .meta { font-size: .82rem; font-weight: 500; opacity: .9; }
+
+        .table-wrap { background: #fff; border: 1px solid var(--border); border-top: none; border-radius: 0 0 8px 8px; overflow-x: auto; }
+        table.sched { width: 100%; border-collapse: collapse; font-size: .78rem; }
+        table.sched thead th { background: #eef2ff; color: #1e293b; font-weight: 700; padding: 7px 9px; border: 1px solid #cbd5e1; text-transform: uppercase; font-size: .66rem; letter-spacing: .3px; text-align: left; }
+        table.sched tbody td { padding: 5px 9px; border: 1px solid #e2e8f0; vertical-align: middle; }
+        table.sched tbody tr:nth-child(even) { background: #fbfcfe; }
+        .c-loco { font-family: 'Courier New', monospace; font-weight: 700; }
+        .sched-type { display:inline-block; font-size:.72rem; font-weight:800; padding:1px 7px; border-radius:4px; background:#e0e7ff; color:#3730a3; }
+        .sched-type.none { background:transparent; color:var(--muted); font-weight:400; }
+        .due { font-weight:700; white-space:nowrap; }
+        .overdue-badge { display:inline-block; font-size:.7rem; font-weight:800; padding:1px 8px; border-radius:999px; white-space:nowrap; }
+        .overdue-badge.od  { background:#fee2e2; color:#991b1b; }
+        .overdue-badge.soon{ background:#fef3c7; color:#92400e; }
+        .overdue-badge.ok  { background:#dcfce7; color:#14532d; }
+        tr.od-row td { background:#fff5f5; }
+        .last-train { white-space:nowrap; }
+        .last-train small { color: var(--text-light); }
+        .c-status { font-weight:700; white-space:nowrap; }
+        .c-planning { font-size:.72rem; color:#334155; }
+        .planning-input {
+            width:100%; min-width:150px; box-sizing:border-box; padding:3px 6px;
+            font-size:.72rem; font-family:inherit; color:#334155;
+            border:1px solid transparent; border-radius:4px; background:transparent;
+        }
+        .planning-input:hover { border-color:var(--border-strong); background:#fff; }
+        .planning-input:focus { outline:none; border-color:var(--brand); background:#fff; }
+        .planning-input.plan-auto { color:#94a3b8; font-style:italic; }
+        .planning-input.plan-auto:focus { color:#334155; font-style:normal; }
+        .planning-input.saving { border-color:#f59e0b; background:#fffbeb; }
+        .planning-input.saved  { border-color:#16a34a; background:#f0fdf4; }
+        .planning-input.save-err { border-color:#dc2626; background:#fef2f2; }
+        .planning-input.no-pos { border-color:#f59e0b; background:#fffbeb; }
+        /* Editable last-done schedule (type select + date) */
+        .lastsched-edit { display:flex; gap:4px; align-items:center; }
+        .lastsched-edit .ls-type { width:56px; padding:2px 3px; font-size:.7rem; font-weight:700; border:1px solid var(--border-strong); border-radius:4px; }
+        .lastsched-edit .ls-date { width:120px; padding:2px 3px; font-size:.7rem; border:1px solid var(--border-strong); border-radius:4px; font-family:inherit; }
+        .lastsched-edit.filled .ls-type, .lastsched-edit.filled .ls-date { background:#eef2ff; border-color:#818cf8; }
+        .lastsched-edit.saving .ls-type, .lastsched-edit.saving .ls-date { border-color:#f59e0b; background:#fffbeb; }
+        .lastsched-edit.saved  .ls-type, .lastsched-edit.saved  .ls-date { border-color:#16a34a; background:#f0fdf4; }
+        .lastsched-edit.save-err .ls-type, .lastsched-edit.save-err .ls-date { border-color:#dc2626; background:#fef2f2; }
+        .empty-cell { color: var(--muted); }
+        .loading-msg, .error-msg { padding: 24px; text-align: center; color: var(--text-light); }
+        .error-msg { color: #dc2626; }
+
+        @media print {
+            * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            body { background:#fff !important; padding:0 !important; }
+            .toolbar { display:none !important; }
+            .report-head { border-radius:0; }
+            @page { size: A4 landscape; margin: 8mm; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="toolbar">
+    <a href="/control-office/"><i class="fa-solid fa-arrow-left"></i> Back</a>
+    <h1>Loco Schedule Due</h1>
+    <span class="label">Show:</span>
+    <select id="filterSel">
+        <option value="overdue">Overdue only</option>
+        <option value="soon">Due soon (≤ 30 days)</option>
+        <option value="all">All scheduled</option>
+    </select>
+    <button onclick="loadReport()"><i class="fa-solid fa-rotate-right"></i> Reload</button>
+    <button class="ghost" onclick="window.print()"><i class="fa-solid fa-print"></i> Print / PDF</button>
+    <span class="status" id="loadStatus">Loading…</span>
+</div>
+
+<div id="report"></div>
+
+<script>
+const $ = sel => document.querySelector(sel);
+function esc(s){ if(s==null) return ''; return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function fmtDMY(iso){ if(!iso) return ''; const [y,m,d]=iso.split('-'); return `${d}-${m}-${y}`; }
+
+function overdueBadge(days) {
+    // days = DATEDIFF(today, due): >0 overdue, 0 due today, <0 upcoming
+    if (days > 0) return `<span class="overdue-badge od">${days}d overdue</span>`;
+    if (days === 0) return `<span class="overdue-badge od">due today</span>`;
+    return `<span class="overdue-badge ${(-days) <= 30 ? 'soon' : 'ok'}">in ${-days}d</span>`;
+}
+
+const SCHED_TYPES = ['IA','IB','IC','IOH','TOH','POH'];
+function lastSchedEditor(r) {
+    const opts = ['<option value="">—</option>']
+        .concat(SCHED_TYPES.map(v => `<option value="${v}"${r.last_sched_type === v ? ' selected' : ''}>${v}</option>`))
+        .join('');
+    const filled = r.last_sched_type || r.last_sched_date ? ' filled' : '';
+    return `<div class="lastsched-edit${filled}" data-loco="${esc(r.loco_number)}">
+        <select class="ls-type">${opts}</select>
+        <input type="date" class="ls-date" value="${esc(r.last_sched_date || '')}">
+    </div>`;
+}
+
+function renderRow(r, sr) {
+    const tr = document.createElement('tr');
+    if (r.days_overdue >= 0) tr.classList.add('od-row');
+    // Planning: show the LPC's saved note if any, else the derived ARRD/WKG note
+    // (auto-styled until edited). Editing needs an existing position row.
+    const planVal = r.planning || r.default_planning || '';
+    const isAutoPlan = !r.planning && !!r.default_planning;
+    tr.innerHTML = `
+        <td class="c-sr">${sr}</td>
+        <td class="c-loco">${esc(r.loco_number)}</td>
+        <td>${esc(r.loco_type) || '<span class="empty-cell">—</span>'}</td>
+        <td>${esc(r.base) || '<span class="empty-cell">—</span>'}</td>
+        <td>${lastSchedEditor(r)}</td>
+        <td>${r.schedule_type ? `<span class="sched-type">${esc(r.schedule_type)}</span>` : '<span class="sched-type none">—</span>'}</td>
+        <td class="due">${fmtDMY(r.schedule_due_date)}</td>
+        <td>${overdueBadge(r.days_overdue)}</td>
+        <td class="c-status">${esc(r.status) || '<span class="empty-cell">—</span>'}</td>
+        <td class="c-planning"><input class="planning-input${isAutoPlan ? ' plan-auto' : ''}" type="text" maxlength="255"
+            value="${esc(planVal)}" placeholder="planning…" data-loco="${esc(r.loco_number)}"${r.has_position ? '' : ' data-noposition="1"'}></td>
+        <td>${esc(r.hog_make) || '<span class="empty-cell">—</span>'}</td>
+        <td><small>${esc(r.updated_by || '')}${r.updated_at ? ' · ' + fmtDMY(r.updated_at) : ''}</small></td>
+    `;
+    return tr;
+}
+
+async function loadReport() {
+    const filter = $('#filterSel').value;
+    $('#loadStatus').textContent = 'Loading…';
+    const container = $('#report');
+    container.innerHTML = '<div class="loading-msg"><i class="fa-solid fa-spinner fa-spin"></i> Loading schedules…</div>';
+    try {
+        const r = await fetch(`/api/division/loco-link/schedule-due?filter=${encodeURIComponent(filter)}`);
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const data = await r.json();
+
+        const label = $('#filterSel').selectedOptions[0].textContent;
+        const head = document.createElement('div');
+        head.className = 'report-head';
+        head.innerHTML = `<span class="ttl">LOCO SCHEDULE — ${esc(label.toUpperCase())}</span>
+            <span class="meta">as on ${fmtDMY(data.today)} · ${data.total} loco(s)</span>`;
+
+        const wrap = document.createElement('div');
+        wrap.className = 'table-wrap';
+        wrap.innerHTML = `
+            <table class="sched">
+                <thead><tr>
+                    <th>SR</th><th>Loco No</th><th>Type</th><th>Base</th>
+                    <th>Last Sch (type · date)</th><th>Sch Due</th><th>Due Date</th><th>Days</th>
+                    <th>Status</th><th>Planning</th><th>HOG Make</th><th>Entered By</th>
+                </tr></thead>
+                <tbody></tbody>
+            </table>`;
+        const tbody = wrap.querySelector('tbody');
+        if (!data.rows.length) {
+            tbody.innerHTML = `<tr><td colspan="12" style="padding:14px;text-align:center;color:#888">No locos match this filter.</td></tr>`;
+        } else {
+            data.rows.forEach((row, i) => tbody.appendChild(renderRow(row, i + 1)));
+        }
+
+        container.innerHTML = '';
+        container.appendChild(head);
+        container.appendChild(wrap);
+        const od = data.rows.filter(r => r.days_overdue > 0).length;
+        $('#loadStatus').textContent = `${data.total} scheduled · ${od} overdue`;
+    } catch (e) {
+        container.innerHTML = `<div class="error-msg"><i class="fa-solid fa-circle-exclamation"></i> ${esc(e.message)}</div>`;
+        $('#loadStatus').textContent = 'Failed';
+    }
+}
+
+// Save the LPC-entered last-done schedule (type + date) for a loco.
+async function saveLastSched(box) {
+    if (!box) return;
+    const type = box.querySelector('.ls-type').value || '';
+    const date = box.querySelector('.ls-date').value || '';
+    box.classList.remove('saved', 'save-err');
+    box.classList.add('saving');
+    try {
+        const r = await fetch('/api/division/loco-link/loco-last-schedule', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ loco_number: box.dataset.loco, last_sched_type: type || null, last_sched_date: date || null }),
+        });
+        box.classList.remove('saving');
+        if (!r.ok) { box.classList.add('save-err'); return; }
+        box.classList.toggle('filled', !!(type || date));
+        box.classList.add('saved');
+        setTimeout(() => box.classList.remove('saved'), 1200);
+    } catch (e) {
+        box.classList.remove('saving');
+        box.classList.add('save-err');
+    }
+}
+$('#report').addEventListener('change', e => {
+    if (e.target.classList && (e.target.classList.contains('ls-type') || e.target.classList.contains('ls-date'))) {
+        saveLastSched(e.target.closest('.lastsched-edit'));
+    }
+    if (e.target.classList && e.target.classList.contains('planning-input')) {
+        savePlanning(e.target);
+    }
+});
+// Typing clears the auto-derived styling.
+$('#report').addEventListener('input', e => {
+    if (e.target.classList && e.target.classList.contains('planning-input')) e.target.classList.remove('plan-auto');
+});
+// Save the LPC-edited Planning note (stored in div_loco_positions.remarks).
+async function savePlanning(input) {
+    input.classList.remove('saved', 'save-err', 'no-pos');
+    input.classList.add('saving');
+    try {
+        const r = await fetch('/api/division/loco-link/loco-planning', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ loco_number: input.dataset.loco, planning: input.value.trim() }),
+        });
+        input.classList.remove('saving');
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) { input.classList.add('save-err'); return; }
+        if (!data.saved) {
+            // No position row for this loco → couldn't persist.
+            input.classList.add('no-pos');
+            input.title = 'This loco has no position record yet — planning note not saved.';
+            return;
+        }
+        input.title = '';
+        input.classList.add('saved');
+        setTimeout(() => input.classList.remove('saved'), 1200);
+    } catch (e) {
+        input.classList.remove('saving');
+        input.classList.add('save-err');
+    }
+}
+
+const params = new URLSearchParams(location.search);
+if (['overdue','soon','all'].includes(params.get('filter'))) $('#filterSel').value = params.get('filter');
+$('#filterSel').addEventListener('change', loadReport);
+loadReport();
+</script>
+</body>
+</html>

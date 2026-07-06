@@ -297,6 +297,50 @@
         .sheet input.loco-input:not(:placeholder-shown) {
             background: var(--success-bg);
         }
+        /* ── Inline loco maintenance-schedule editor (under the loco number) ── */
+        .sheet .sched-edit {
+            display: flex;
+            gap: 3px;
+            align-items: center;
+            margin-top: 3px;
+        }
+        .sheet .sched-edit .sched-type {
+            flex: 0 0 auto;
+            width: 58px;
+            padding: 2px 3px;
+            font-size: .72rem;
+            font-weight: 700;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-family: inherit;
+            background: #fff;
+        }
+        .sheet .sched-edit .sched-due {
+            flex: 1 1 auto;
+            min-width: 0;
+            padding: 2px 3px;
+            font-size: .72rem;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-family: inherit;
+        }
+        /* Filled → amber highlight so the schedule reads as "IA · 30-07-2027" */
+        .sheet .sched-edit.filled .sched-type,
+        .sheet .sched-edit.filled .sched-due {
+            background: #fef3c7;               /* amber-100 */
+            border-color: #f59e0b;             /* amber-500 */
+            color: #92400e;                    /* amber-800 */
+        }
+        .sheet .sched-edit.filled .sched-type { font-weight: 800; }
+        /* Overdue (due date < today) → red highlight */
+        .sheet .sched-edit.overdue .sched-type,
+        .sheet .sched-edit.overdue .sched-due {
+            background: #fee2e2;               /* red-100 */
+            border-color: #ef4444;             /* red-500 */
+            color: #991b1b;                    /* red-800 */
+        }
+        .sheet .sched-edit select:disabled,
+        .sheet .sched-edit input:disabled { opacity: .8; }
         .sheet input:focus {
             outline: none;
             border-color: var(--brand);
@@ -1570,6 +1614,8 @@ async function loadSheet() {
         }
         if (isBypass) renderBypass(data);
         else renderSheet(data);
+        setupSchedDelegation();
+        syncSchedEditors();
     } catch (e) {
         $('#sheetBody').innerHTML = `<tr><td colspan="10" class="empty" style="color:var(--danger)">
             Failed to load — ${e.message}</td></tr>`;
@@ -1804,6 +1850,150 @@ function terminalArrLine(ta) {
     return `<div class="term-arr" title="WTT arrival at ${esc(ta.station)}">arr ${esc(ta.station)} ${esc(ta.time)}</div>`;
 }
 
+// ── Loco maintenance-schedule inline editor ──────────────────────────────
+// A compact select (type) + date (due) that sits under the loco number in the
+// Actual-Loco cell. The LPC fills these when entering a loco; they auto-fill
+// next time that loco is entered (see /loco/:n/autofill) and persist per loco
+// in div_locos. `rear` picks the rear-loco data-field names so the front and
+// rear rows post distinct payload keys. Highlights amber when filled, red when
+// the due date is in the past (overdue).
+const SCHEDULE_TYPES = ['IA', 'IB', 'IC', 'IOH', 'TOH', 'POH'];
+function schedEditorHtml(type, due, dis, rear) {
+    const tf = rear ? 'schedule_type_rear' : 'schedule_type';
+    const df = rear ? 'schedule_due_date_rear' : 'schedule_due_date';
+    const opts = SCHEDULE_TYPES
+        .map(v => `<option value="${v}"${type === v ? ' selected' : ''}>${v}</option>`)
+        .join('');
+    return `<div class="sched-edit" title="Loco maintenance schedule (type + due date)">
+        <select class="sched-type" data-field="${tf}" ${dis}>
+            <option value="">sched</option>${opts}
+        </select>
+        <input type="date" class="sched-due" data-field="${df}" value="${esc(due || '')}" ${dis}>
+    </div>`;
+}
+function todayLocalISO() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+// Toggle amber/overdue highlight on one .sched-edit box from its current values.
+function styleSchedBox(box) {
+    if (!box) return;
+    const type = box.querySelector('.sched-type')?.value || '';
+    const due = box.querySelector('.sched-due')?.value || '';
+    box.classList.toggle('filled', !!(type || due));
+    box.classList.toggle('overdue', !!(due && due < todayLocalISO()));
+}
+// loco_number → first part, upper-cased (coupler "A+B" → "A").
+function firstPartUpper(s) {
+    const v = (s || '').trim().toUpperCase();
+    return v.includes('+') ? v.split('+')[0].trim() : v;
+}
+// Map loco_number → {type, due} from the loaded sheet. The backend attaches
+// schedule_type/schedule_due_date onto each row's log / special object so the
+// sheet can show stored schedules on load.
+function buildSchedMap() {
+    const map = new Map();
+    const add = (loco, type, due) => {
+        const k = firstPartUpper(loco);
+        if (k && (type || due)) map.set(k, { type: type || '', due: due || '' });
+    };
+    const data = currentSheet || {};
+    for (const row of (data.rows || [])) {
+        const l = row.log; if (!l) continue;
+        add(l.actual_loco_no, l.schedule_type, l.schedule_due_date);
+        add(l.actual_loco_no_rear, l.schedule_type_rear, l.schedule_due_date_rear);
+    }
+    for (const sp of (data.specials || [])) {
+        add(sp.actual_loco_no, sp.schedule_type, sp.schedule_due_date);
+        add(sp.actual_loco_no_rear, sp.schedule_type_rear, sp.schedule_due_date_rear);
+    }
+    return map;
+}
+// Ensure every Actual-Loco cell has a schedule editor, pre-filling a freshly
+// created one from the loaded sheet. Idempotent: existing editors (including
+// any the LPC has already edited) are left untouched — only restyled. Runs on
+// initial render and, via a MutationObserver, on any dynamically added row
+// (blank rows, "+ second loco", saved specials).
+let schedObserver = null;
+function syncSchedEditors() {
+    const body = document.getElementById('sheetBody');
+    if (!body) return;
+    if (schedObserver) schedObserver.disconnect();
+    try {
+        const map = buildSchedMap();
+        body.querySelectorAll('td.col-actual').forEach(td => {
+            const input = td.querySelector('input[data-field="actual_loco_no"], input[data-field="actual_loco_no_rear"]');
+            if (!input) return;
+            let box = td.querySelector('.sched-edit');
+            if (!box) {
+                const rear = input.dataset.field === 'actual_loco_no_rear';
+                const dis = input.disabled ? 'disabled' : '';
+                const tmp = document.createElement('template');
+                tmp.innerHTML = schedEditorHtml('', '', dis, rear).trim();
+                box = tmp.content.firstElementChild;
+                td.appendChild(box);
+                const sched = map.get(firstPartUpper(input.value));
+                if (sched) {
+                    const ts = box.querySelector('.sched-type');
+                    const ds = box.querySelector('.sched-due');
+                    if (ts) ts.value = sched.type || '';
+                    if (ds) ds.value = sched.due || '';
+                }
+            }
+            styleSchedBox(box);
+        });
+    } finally {
+        if (!schedObserver) schedObserver = new MutationObserver(() => syncSchedEditors());
+        schedObserver.observe(body, { childList: true, subtree: true });
+    }
+}
+// Find the Save button governing the logical row an element sits in (the
+// front row holds it, even for a rear/second-loco sub-row).
+function markSchedRowDirty(el) {
+    const tr = el.closest('tr'); if (!tr) return;
+    let front = tr;
+    if (tr.dataset.position === 'rear') {
+        const key = tr.dataset.specialKey, mid = tr.dataset.masterId;
+        front = key ? document.querySelector(`tr[data-special-key="${key}"][data-position="front"]`)
+              : (mid ? document.querySelector(`tr[data-master-id="${mid}"][data-position="front"]`) : tr);
+    }
+    front = front || tr;
+    const sb = front.querySelector('button.save-btn, button[data-action="save"], button[data-action="save-blank"]');
+    if (sb) { sb.classList.add('dirty'); if (typeof updateDirtyBar === 'function') updateDirtyBar(); }
+}
+// Delegated: LPC editing a schedule field restyles the chip and marks the row
+// dirty so Save lights up. Attached once. Injected editors miss the per-row
+// listeners attachRowHandlers wires, so delegation covers them uniformly.
+let schedDelegated = false;
+function setupSchedDelegation() {
+    if (schedDelegated) return;
+    const body = document.getElementById('sheetBody');
+    if (!body) return;
+    schedDelegated = true;
+    const handler = (e) => {
+        const el = e.target;
+        if (el && el.classList && (el.classList.contains('sched-type') || el.classList.contains('sched-due'))) {
+            styleSchedBox(el.closest('.sched-edit'));
+            markSchedRowDirty(el);
+        }
+    };
+    body.addEventListener('change', handler);
+    body.addEventListener('input', handler);
+}
+// After an autofill lookup, pre-fill this row's schedule editor from the loco
+// master — but only fields the LPC hasn't already filled, so edits are never
+// clobbered. The LPC can freely change these to add or update the schedule.
+function prefillSchedFromAutofill(tr, loco) {
+    if (!tr || !loco) return;
+    const box = tr.querySelector('.sched-edit');
+    if (!box) return;
+    const ts = box.querySelector('.sched-type');
+    const ds = box.querySelector('.sched-due');
+    if (ts && !ts.value && loco.schedule_type) ts.value = loco.schedule_type;
+    if (ds && !ds.value && loco.schedule_due_date) ds.value = loco.schedule_due_date;
+    styleSchedBox(box);
+}
+
 // ── Special-train extra-loco / dead-loco support ─────────────────────────
 // Special (master-less) rows now get the same "+ second loco" and "Dead"
 // controls regular rows have. The backend already accepts these fields for
@@ -1927,6 +2117,7 @@ function attachSpecialRearHandlers(tr) {
                 const { loco } = await r.json();
                 baseDisplay.textContent = loco.home_shed || '—';
                 baseDisplay.classList.toggle('empty', !loco.home_shed);
+                prefillSchedFromAutofill(tr, loco);
             } catch (e) { /* leave as-is on network error */ }
         });
     }
@@ -2852,6 +3043,7 @@ function attachRowHandlers(tr) {
                 const shedText = loco.home_shed || '—';
                 baseDisplay.textContent = hasPair ? `${shedText} (+pair)` : shedText;
                 baseDisplay.classList.toggle('empty', !loco.home_shed);
+                prefillSchedFromAutofill(tr, loco);
                 // pills: mislink check vs master shed_code — but only when applicable:
                 //   - Front row: always check
                 //   - Rear row with role='rear' (push-pull): check
@@ -3060,6 +3252,7 @@ function attachBlankRowHandlers(tr) {
                 const { loco, sick } = await r.json();
                 baseDisplay.textContent = loco.home_shed || '—';
                 baseDisplay.classList.toggle('empty', !loco.home_shed);
+                prefillSchedFromAutofill(tr, loco);
                 let pills = '';
                 if (sick) pills += '<span class="pill sick">SICK</span>';
                 else if (loco.home_shed) pills += '<span class="pill ok">OK</span>';
@@ -3211,6 +3404,10 @@ async function saveBlankRow(tr) {
         incoming_train: get('incoming_train'),
         outgoing_train: get('outgoing_train'),
         remark: get('remark'),
+        schedule_type: get('schedule_type'),
+        schedule_due_date: get('schedule_due_date'),
+        schedule_type_rear: rg('schedule_type_rear'),
+        schedule_due_date_rear: rg('schedule_due_date_rear'),
     };
     if (newTrainName) body.new_train = { train_name: newTrainName };
 
@@ -3364,6 +3561,10 @@ async function saveRow(tr) {
         outgoing_train: get(frontRow, 'outgoing_train'),
         outgoing_date_override: outgoingDateOverride,
         remark: get(frontRow, 'remark'),
+        schedule_type: get(frontRow, 'schedule_type'),
+        schedule_due_date: get(frontRow, 'schedule_due_date'),
+        schedule_type_rear: get(rearRow, 'schedule_type_rear'),
+        schedule_due_date_rear: get(rearRow, 'schedule_due_date_rear'),
     };
     // Special rows need sheet_source + section since they have no master to snapshot from
     if (isSpecial) {

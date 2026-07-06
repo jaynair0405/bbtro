@@ -21,6 +21,20 @@
 const express = require('express');
 const router = express.Router();
 
+// View-only div_roles may read (GET/HEAD) any loco-link resource but may never
+// mutate one. A single guard here backstops every write endpoint below, including
+// the ones that only check "logged in" — so a view-only account is read-only no
+// matter which route it hits.
+const VIEW_ONLY_DIV_ROLES = ['ctlc_view'];
+router.use((req, res, next) => {
+    const u = req.session && req.session.user;
+    if (u && VIEW_ONLY_DIV_ROLES.includes(u.div_role) &&
+        !['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
+        return res.status(403).json({ error: 'view-only access; modifications are not permitted' });
+    }
+    next();
+});
+
 const EDITABLE_DAYS_PAST = 3;       // today + past 3 days editable
 const EDITABLE_DAYS_FUTURE = 1;     // today + tomorrow editable
 
@@ -29,6 +43,11 @@ const MUMBAI_TERMINALS = ['CSMT', 'LTT', 'DR', 'PNVL', 'VVH', 'KYN', 'TNA'];
 
 // Valid location values for div_loco_positions
 const VALID_LOCATIONS = [...MUMBAI_TERMINALS, 'IN_TRANSIT', 'OUT_OF_DIV'];
+
+// Loco maintenance-schedule types (LPC-entered on the daily sheet).
+// IA/IB/IC = inspection schedules; IOH/TOH/POH = overhaul schedules.
+// Must match the ENUM on div_locos.schedule_type.
+const SCHEDULE_TYPES = ['IA', 'IB', 'IC', 'IOH', 'TOH', 'POH'];
 
 /**
  * Normalize a location string to a standard terminal code.
@@ -672,7 +691,8 @@ router.get('/loco/:loco_number/autofill', async (req, res) => {
         const pool = req.app.locals.pool;
         const [rows] = await pool.query(
             `SELECT loco_number, loco_type, traction_type,
-                    home_shed, hotel_load_oem, status
+                    home_shed, hotel_load_oem, status,
+                    schedule_type, schedule_due_date
              FROM div_locos WHERE loco_number = ? LIMIT 1`,
             [locoNo]
         );
@@ -680,6 +700,8 @@ router.get('/loco/:loco_number/autofill', async (req, res) => {
             return res.status(404).json({ error: 'Loco not found in master', loco_number: locoNo });
         }
         const loco = rows[0];
+        // schedule_due_date comes back as a Date; normalize to YYYY-MM-DD for the sheet.
+        loco.schedule_due_date = toDateISO(loco.schedule_due_date);
 
         let sick = null;
         try {
@@ -1281,13 +1303,58 @@ router.get('/today', async (req, res) => {
             }
         }
 
+        // ── Loco maintenance-schedule enrichment ──────────────────────────
+        // Attach each loco's current schedule_type/schedule_due_date (from the
+        // loco master) so the sheet shows stored values on load, without a
+        // per-input lookup. Merged master rows carry the entry under r.log;
+        // special rows are log rows themselves. Rear coupler strings like
+        // "A+B" resolve to the first loco (A).
+        {
+            const firstPart = (s) => {
+                const v = (s || '').trim();
+                return v.includes('+') ? v.split('+')[0].trim() : v;
+            };
+            const carriers = [...merged, ...specials].map(r => r.log || r).filter(Boolean);
+            const locoSet = new Set();
+            for (const c of carriers) {
+                const f = (c.actual_loco_no || '').trim();
+                if (f) locoSet.add(f);
+                const rl = firstPart(c.actual_loco_no_rear);
+                if (rl) locoSet.add(rl);
+            }
+            if (locoSet.size) {
+                const [schedRows] = await pool.query(
+                    `SELECT loco_number, schedule_type, schedule_due_date
+                     FROM div_locos WHERE loco_number IN (?)`,
+                    [[...locoSet]]
+                );
+                const schedMap = new Map();
+                for (const s of schedRows) {
+                    schedMap.set(s.loco_number, {
+                        type: s.schedule_type || null,
+                        due: toDateISO(s.schedule_due_date),
+                    });
+                }
+                for (const c of carriers) {
+                    const f = (c.actual_loco_no || '').trim();
+                    const fs = f ? schedMap.get(f) : null;
+                    if (fs) { c.schedule_type = fs.type; c.schedule_due_date = fs.due; }
+                    const rl = firstPart(c.actual_loco_no_rear);
+                    const rs = rl ? schedMap.get(rl) : null;
+                    if (rs) { c.schedule_type_rear = rs.type; c.schedule_due_date_rear = rs.due; }
+                }
+            }
+        }
+
         res.json({
             date,
             sheet_source: sheetSource || null,
             direction: derivedDirection,
             from_station: fromStation || null,
             day_of_week_ir: dow,
-            editable: isEditable(date),
+            // Sheet is editable only within the date window AND for writer roles.
+            // View-only roles (e.g. ctlc_view) always get a read-only sheet.
+            editable: isEditable(date) && ['lpc', 'ctlc', 'division_admin'].includes(req.session.user?.div_role),
             edit_window: { past_days: EDITABLE_DAYS_PAST, future_days: EDITABLE_DAYS_FUTURE },
             total: merged.length,
             filled: filledCount,
@@ -1297,6 +1364,381 @@ router.get('/today', async (req, res) => {
     } catch (err) {
         console.error('[loco-link /today]', err);
         res.status(500).json({ error: 'Failed to load today\'s sheet' });
+    }
+});
+
+// ── GET /hog-position ──────────────────────────────────────────────────────
+// Daily HOG Position report: outbound (DN) mail/express departures from the
+// Mumbai terminals with each train's actual loco(s), loco type, base shed,
+// HOG make (div_locos.hotel_load_oem) and HOG / non-HOG status. Optional
+// from/to time window (shift). Non-HOG links (DSL / AC-DC / WAP-4) are flagged.
+router.get('/hog-position', async (req, res) => {
+    const date = String(req.query.date || todayISO()).trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        return res.status(400).json({ error: 'date must be YYYY-MM-DD' });
+    }
+    const fromTime = /^\d{2}:\d{2}$/.test(req.query.from || '') ? req.query.from : null;
+    const toTime   = /^\d{2}:\d{2}$/.test(req.query.to   || '') ? req.query.to   : null;
+
+    try {
+        const pool = req.app.locals.pool;
+        const dow = dayOfWeekIR(date);
+        const eff = effectiveOnDateClause(date);
+        const hhmm = (t) => (t ? String(t).slice(0, 5) : '');
+        const firstPart = (s) => {
+            const v = (s || '').trim();
+            return v.includes('+') ? v.split('+')[0].trim() : v;
+        };
+
+        // 1. Outbound (DN) master trains active on the date
+        const [masters] = await pool.query(
+            `SELECT m.id, m.sheet_source, m.section, m.from_station, m.to_station,
+                    m.shed_code, m.link_attr, m.expected_hog, m.is_push_pull,
+                    m.train_no, m.event_time, m.run_days,
+                    t.train_id, COALESCE(t.train_name, m.train_name) AS train_name
+             FROM div_loco_link_master m
+             LEFT JOIN div_trains t ON t.train_no = m.train_no
+             WHERE m.active = 1 AND m.direction = 'DN' AND m.is_bypass = 0
+               AND ${eff.sql}
+             ORDER BY m.event_time, m.id`,
+            eff.params
+        );
+
+        let rows = masters.filter(m => runsToday(m.run_days, dow));
+        if (fromTime) rows = rows.filter(m => hhmm(m.event_time) >= fromTime);
+        if (toTime)   rows = rows.filter(m => hhmm(m.event_time) <  toTime);
+
+        // 2. Log entries for the date (front + rear loco, remark)
+        const ids = rows.map(m => m.id);
+        const logByMaster = new Map();
+        if (ids.length) {
+            const [logs] = await pool.query(
+                `SELECT master_id, actual_loco_no, actual_loco_no_rear, remark
+                 FROM div_loco_link_log
+                 WHERE working_date = ? AND master_id IN (?)`,
+                [date, ids]
+            );
+            for (const l of logs) logByMaster.set(l.master_id, l);
+        }
+
+        // 3. Loco details for every actual loco (front + rear first-part)
+        const locoSet = new Set();
+        for (const m of rows) {
+            const l = logByMaster.get(m.id); if (!l) continue;
+            if (l.actual_loco_no) locoSet.add(l.actual_loco_no.trim());
+            const rl = firstPart(l.actual_loco_no_rear); if (rl) locoSet.add(rl);
+        }
+        const locoInfo = new Map();
+        if (locoSet.size) {
+            const [locos] = await pool.query(
+                `SELECT loco_number, loco_type, home_shed, hotel_load_oem, traction_type
+                 FROM div_locos WHERE loco_number IN (?)`, [[...locoSet]]);
+            for (const lc of locos) locoInfo.set(lc.loco_number, lc);
+        }
+
+        // 4. Destination (TO): WTT final stop (max seq_order), else parse train_name
+        const trainIds = [...new Set(rows.map(m => m.train_id).filter(Boolean))];
+        const destByTrain = new Map();
+        if (trainIds.length) {
+            const [stops] = await pool.query(
+                `SELECT train_id, station_code, seq_order
+                 FROM div_train_stops WHERE train_id IN (?)`, [trainIds]);
+            const lastByTrain = new Map();
+            for (const s of stops) {
+                const cur = lastByTrain.get(s.train_id);
+                if (!cur || s.seq_order > cur.seq_order) lastByTrain.set(s.train_id, s);
+            }
+            for (const [tid, s] of lastByTrain) destByTrain.set(tid, s.station_code);
+        }
+        const destFromName = (name) => {
+            const m = String(name || '').match(/^[A-Z]+-([A-Z]+)/);
+            return m ? m[1] : '';
+        };
+
+        // Assemble
+        const NONHOG_ATTR = /DSL|AC\/?DC|P\/4|WAP[\/-]?4/i;
+        // Only these two standard notes are auto-filled; everything else (ICF
+        // RAKE detail, interchange notes, …) is left for the LPC to type.
+        const defaultRemarkFor = (attr) => {
+            const a = (attr || '').toUpperCase();
+            if (/DSL/.test(a)) return 'DSL LINK';
+            if (NONHOG_ATTR.test(a)) return 'NON HOG LINK';
+            return '';
+        };
+        const buildLoco = (no) => {
+            if (!no) return null;
+            const info = locoInfo.get(firstPart(no)) || {};
+            const isDsl = /DSL|DIESEL/i.test(info.traction_type || '') || /^WD/i.test(info.loco_type || '');
+            let hogMake;
+            if (info.hotel_load_oem) hogMake = info.hotel_load_oem;
+            else if (isDsl) hogMake = '===';
+            else hogMake = 'N/HOG';
+            return {
+                loco_no: no,
+                loco_type: info.loco_type || '',
+                base: info.home_shed || '',
+                hog_make: hogMake,
+                is_hog: !!info.hotel_load_oem,
+            };
+        };
+
+        let sr = 0;
+        const out = rows.map(m => {
+            const l = logByMaster.get(m.id) || {};
+            const front = buildLoco(l.actual_loco_no);
+            const rear = buildLoco(l.actual_loco_no_rear);
+            const shed = m.shed_code || '';
+            const typeLabel = (/HOG/i.test(m.link_attr || '') || m.expected_hog)
+                ? 'HOG'
+                : (m.link_attr || '').replace(/PUSH[\s-]?PULL/ig, '').trim();
+            const link = [shed, typeLabel].filter(Boolean).join('-');
+            const to = destByTrain.get(m.train_id) || destFromName(m.train_name);
+            return {
+                sr: ++sr,
+                master_id: m.id,
+                direction: 'DN',
+                sheet_source: m.sheet_source || null,
+                section: m.section || null,
+                link,
+                train_no: m.train_no,
+                train_name: m.train_name || '',
+                from_station: m.from_station || '',
+                to_station: to,
+                dep: hhmm(m.event_time),
+                days: m.run_days || '',
+                locos: [front, rear].filter(Boolean),
+                is_push_pull: !!m.is_push_pull,
+                non_hog_link: NONHOG_ATTR.test(m.link_attr || ''),
+                remark: l.remark || '',
+                default_remark: defaultRemarkFor(m.link_attr),
+            };
+        });
+
+        res.json({ date, day_of_week_ir: dow, from: fromTime, to: toTime, total: out.length, rows: out });
+    } catch (err) {
+        console.error('[loco-link /hog-position]', err);
+        res.status(500).json({ error: 'Failed to build HOG position' });
+    }
+});
+
+// ── GET /schedule-due ──────────────────────────────────────────────────────
+// Loco maintenance-schedule report. Lists locos whose schedule_due_date is set,
+// filtered to overdue (default), due-soon (next N days) or all. Each loco shows
+// its type/base/HOG-make, schedule type + due date, days overdue, and the last
+// train it worked (so the controller can see which service carries it).
+router.get('/schedule-due', async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'not logged in' });
+    const filter = ['overdue', 'soon', 'all'].includes(req.query.filter) ? req.query.filter : 'overdue';
+    const within = Math.min(365, Math.max(1, parseInt(req.query.within, 10) || 30));
+    try {
+        const pool = req.app.locals.pool;
+        let cond = 'schedule_due_date IS NOT NULL';
+        const params = [];
+        if (filter === 'overdue') {
+            cond += ' AND schedule_due_date < CURDATE()';
+        } else if (filter === 'soon') {
+            cond += ' AND schedule_due_date >= CURDATE() AND schedule_due_date <= DATE_ADD(CURDATE(), INTERVAL ? DAY)';
+            params.push(within);
+        }
+        const [locos] = await pool.query(
+            `SELECT loco_number, loco_type, home_shed, hotel_load_oem,
+                    schedule_type, schedule_due_date,
+                    last_sched_type, last_sched_date,
+                    DATEDIFF(CURDATE(), schedule_due_date) AS days_overdue,
+                    schedule_updated_by, schedule_updated_at
+             FROM div_locos WHERE ${cond}
+             ORDER BY home_shed, schedule_due_date ASC, loco_number`,
+            params
+        );
+
+        // Latest train each loco worked (front-loco assignments only).
+        const nums = locos.map(l => l.loco_number);
+        const lastTrain = new Map();
+        if (nums.length) {
+            const [rows] = await pool.query(
+                `SELECT t.loco_number, t.working_date, t.train_no, t.direction, t.sheet_source
+                 FROM (
+                    SELECT actual_loco_no AS loco_number, working_date, train_no, direction, sheet_source,
+                           ROW_NUMBER() OVER (PARTITION BY actual_loco_no ORDER BY working_date DESC, id DESC) rn
+                    FROM div_loco_link_log
+                    WHERE actual_loco_no IN (?)
+                 ) t WHERE t.rn = 1`,
+                [nums]
+            );
+            for (const r of rows) lastTrain.set(r.loco_number, r);
+        }
+
+        // Current position → Status (ON RUN / AT xxx / OUT OF DIV) + Planning
+        // (WKG/ARRD train + date), from div_loco_positions.
+        const posByLoco = new Map();
+        if (nums.length) {
+            const [pos] = await pool.query(
+                `SELECT loco_number, current_location, remarks,
+                        arrived_via_train, arrived_at, departed_via_train, departed_at
+                 FROM div_loco_positions WHERE loco_number IN (?)`,
+                [nums]
+            );
+            for (const p of pos) posByLoco.set(p.loco_number, p);
+        }
+        const statusFor = (loc) => {
+            if (!loc) return '';
+            if (loc === 'IN_TRANSIT') return 'ON RUN';
+            if (loc === 'OUT_OF_DIV') return 'OUT OF DIV';
+            return 'AT ' + loc;
+        };
+        const dmy = (d) => { const iso = toDateISO(d); if (!iso) return ''; const [y, m, day] = iso.split('-'); return `${day}-${m}-${y}`; };
+        const planningFor = (p, lt) => {
+            if (p) {
+                if (p.current_location === 'IN_TRANSIT' && p.departed_via_train) {
+                    return `WKG ${p.departed_via_train}${p.departed_at ? ' ON ' + dmy(p.departed_at) : ''}`;
+                }
+                if (p.arrived_via_train) {
+                    return `ARRD ${p.arrived_via_train}${p.arrived_at ? ' ON ' + dmy(p.arrived_at) : ''}`;
+                }
+            }
+            // Fallback: last loco-link assignment
+            if (lt) return `${lt.train_no} (${lt.direction || ''}) ${dmy(lt.working_date)}`;
+            return '';
+        };
+
+        const out = locos.map(l => {
+            const lt = lastTrain.get(l.loco_number) || null;
+            const p = posByLoco.get(l.loco_number) || null;
+            return {
+                loco_number: l.loco_number,
+                loco_type: l.loco_type || '',
+                base: l.home_shed || '',
+                hog_make: l.hotel_load_oem || '',
+                schedule_type: l.schedule_type || '',
+                schedule_due_date: toDateISO(l.schedule_due_date),
+                last_sched_type: l.last_sched_type || '',
+                last_sched_date: toDateISO(l.last_sched_date),
+                days_overdue: l.days_overdue,   // >0 overdue, <=0 upcoming
+                status: statusFor(p ? p.current_location : null),
+                // planning = LPC override (div_loco_positions.remarks) if set;
+                // default_planning = derived ARRD/WKG note. has_position tells the
+                // UI whether an edit can persist (needs an existing position row).
+                planning: (p && p.remarks) ? p.remarks : '',
+                default_planning: planningFor(p, lt),
+                has_position: !!p,
+                updated_by: l.schedule_updated_by || '',
+                updated_at: l.schedule_updated_at ? toDateISO(l.schedule_updated_at) : '',
+                last_train: lt ? {
+                    train_no: lt.train_no,
+                    date: toDateISO(lt.working_date),
+                    direction: lt.direction,
+                    sheet_source: lt.sheet_source,
+                } : null,
+            };
+        });
+        res.json({ filter, within, today: todayISO(), total: out.length, rows: out });
+    } catch (err) {
+        console.error('[loco-link /schedule-due]', err);
+        res.status(500).json({ error: 'Failed to build schedule-due report' });
+    }
+});
+
+// ── PATCH /loco-last-schedule ───────────────────────────────────────────────
+// LPC records a loco's LAST-DONE schedule (type + date) from the Schedule-Due
+// report. Optional/informational — updates only div_locos.last_sched_* ; the
+// overdue calc still uses schedule_due_date.
+router.patch('/loco-last-schedule', async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'not logged in' });
+    const u = req.session.user;
+    if (u.realm !== 'division' || !['lpc', 'ctlc', 'division_admin'].includes(u.div_role)) {
+        return res.status(403).json({ error: 'not permitted' });
+    }
+    const b = req.body || {};
+    const loco = String(b.loco_number || '').trim();
+    if (!loco) return res.status(400).json({ error: 'loco_number required' });
+    const type = b.last_sched_type ? String(b.last_sched_type).trim().toUpperCase() : null;
+    const date = b.last_sched_date ? String(b.last_sched_date).trim() : null;
+    if (type && !SCHEDULE_TYPES.includes(type)) {
+        return res.status(400).json({ error: `invalid last_sched_type; expected one of ${SCHEDULE_TYPES.join(', ')}` });
+    }
+    if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        return res.status(400).json({ error: 'last_sched_date must be YYYY-MM-DD' });
+    }
+    try {
+        const pool = req.app.locals.pool;
+        const [r] = await pool.query(
+            'UPDATE div_locos SET last_sched_type = ?, last_sched_date = ? WHERE loco_number = ?',
+            [type, date, loco]
+        );
+        if (!r.affectedRows) return res.status(404).json({ error: 'loco not in master' });
+        res.json({ ok: true, last_sched_type: type, last_sched_date: date });
+    } catch (err) {
+        console.error('[loco-link PATCH /loco-last-schedule]', err);
+        res.status(500).json({ error: 'Failed to save last schedule' });
+    }
+});
+
+// ── PATCH /loco-planning ────────────────────────────────────────────────────
+// LPC edits the Planning note on the Schedule-Due report. Stored in the existing
+// div_loco_positions.remarks (no new column). Updates only an existing position
+// row; a loco with no position record can't persist a note here (saved:false).
+router.patch('/loco-planning', async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'not logged in' });
+    const u = req.session.user;
+    if (u.realm !== 'division' || !['lpc', 'ctlc', 'division_admin'].includes(u.div_role)) {
+        return res.status(403).json({ error: 'not permitted' });
+    }
+    const b = req.body || {};
+    const loco = String(b.loco_number || '').trim();
+    if (!loco) return res.status(400).json({ error: 'loco_number required' });
+    const planning = b.planning != null ? String(b.planning).trim().slice(0, 255) : '';
+    try {
+        const pool = req.app.locals.pool;
+        const [r] = await pool.query(
+            'UPDATE div_loco_positions SET remarks = ? WHERE loco_number = ?',
+            [planning || null, loco]
+        );
+        res.json({ ok: true, saved: r.affectedRows > 0, planning: planning || null });
+    } catch (err) {
+        console.error('[loco-link PATCH /loco-planning]', err);
+        res.status(500).json({ error: 'Failed to save planning' });
+    }
+});
+
+// ── PATCH /log-remark ──────────────────────────────────────────────────────
+// Lightweight remark upsert used by read-only views (HOG Position report) so an
+// LPC can annotate a row without a full loco entry. Touches ONLY the remark on
+// the (working_date, train_no, direction) log row — never the loco fields — and
+// creates a minimal row if none exists yet.
+router.patch('/log-remark', async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'not logged in' });
+    const u = req.session.user;
+    if (u.realm !== 'division' || !['lpc', 'ctlc', 'division_admin'].includes(u.div_role)) {
+        return res.status(403).json({ error: 'not permitted' });
+    }
+    const b = req.body || {};
+    const working_date = String(b.working_date || '').trim();
+    const train_no = String(b.train_no || '').trim();
+    const direction = String(b.direction || '').trim().toUpperCase();
+    const master_id = b.master_id ? parseInt(b.master_id, 10) : null;
+    const sheet_source = b.sheet_source ? String(b.sheet_source).trim() : null;
+    const section = b.section ? String(b.section).trim() : null;
+    const remark = b.remark != null ? String(b.remark).trim().slice(0, 255) : '';
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(working_date)) return res.status(400).json({ error: 'working_date must be YYYY-MM-DD' });
+    if (!train_no) return res.status(400).json({ error: 'train_no required' });
+    if (!['UP', 'DN', 'BYPASS'].includes(direction)) return res.status(400).json({ error: 'invalid direction' });
+
+    try {
+        const pool = req.app.locals.pool;
+        // ON DUPLICATE updates only remark — entered_by/loco fields on an existing
+        // row are left intact (don't overwrite who entered the loco).
+        await pool.query(
+            `INSERT INTO div_loco_link_log
+                (working_date, direction, train_no, master_id, sheet_source, section, remark, entered_by)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE remark = VALUES(remark)`,
+            [working_date, direction, train_no, master_id, sheet_source, section, remark || null, u.username]
+        );
+        res.json({ ok: true, remark: remark || null });
+    } catch (err) {
+        console.error('[loco-link PATCH /log-remark]', err);
+        res.status(500).json({ error: 'Failed to save remark' });
     }
 });
 
@@ -1349,6 +1791,35 @@ router.post('/log', async (req, res) => {
     const outgoing_date_override_rear = b.outgoing_date_override_rear ? String(b.outgoing_date_override_rear).trim() : null;
     const remark = b.remark ? String(b.remark).trim().slice(0, 255) : null;
     const remarks_rear = b.remarks_rear ? String(b.remarks_rear).trim().slice(0, 500) : null;
+    // Loco maintenance schedule (LPC-entered; written back to div_locos master
+    // so it auto-fills next time). type ∈ enum or null; due YYYY-MM-DD or null.
+    // Front + rear loco each carry their own type/due.
+    const parseSchedType = (v) => {
+        const s = v ? String(v).trim().toUpperCase() : '';
+        return s && SCHEDULE_TYPES.includes(s) ? s : null;
+    };
+    const parseSchedDue = (v) => {
+        const s = v ? String(v).trim() : '';
+        return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : null;
+    };
+    const schedule_type = parseSchedType(b.schedule_type);
+    const schedule_due_date = parseSchedDue(b.schedule_due_date);
+    const schedule_type_rear = parseSchedType(b.schedule_type_rear);
+    const schedule_due_date_rear = parseSchedDue(b.schedule_due_date_rear);
+    // Reject only when the client sent a non-empty value we couldn't parse
+    // (typo / tampered payload) — silently nulling would hide the mistake.
+    if (b.schedule_type && !schedule_type) {
+        return res.status(400).json({ error: `invalid schedule_type; expected one of ${SCHEDULE_TYPES.join(', ')}` });
+    }
+    if (b.schedule_type_rear && !schedule_type_rear) {
+        return res.status(400).json({ error: `invalid schedule_type_rear; expected one of ${SCHEDULE_TYPES.join(', ')}` });
+    }
+    if (b.schedule_due_date && !schedule_due_date) {
+        return res.status(400).json({ error: 'invalid schedule_due_date; expected YYYY-MM-DD' });
+    }
+    if (b.schedule_due_date_rear && !schedule_due_date_rear) {
+        return res.status(400).json({ error: 'invalid schedule_due_date_rear; expected YYYY-MM-DD' });
+    }
     // Special-train fields — only used when master_id is null
     const reqSheetSource = b.sheet_source ? String(b.sheet_source).trim() : null;
     const reqSection = b.section ? String(b.section).trim() : null;
@@ -1669,6 +2140,30 @@ router.post('/log', async (req, res) => {
              expected_shed, is_mislink, is_mislink_rear,
              remark, remarks_rear, u.username]
         );
+
+        // ── Write loco maintenance schedule back to the master ────────────
+        // Latest entry wins, keyed on loco_number, so it auto-fills next time
+        // this loco is entered on any sheet/date. Only writes when a value was
+        // provided (blank inputs won't wipe an existing schedule). Best-effort:
+        // a failure here must not fail the already-saved log entry. Rear uses
+        // the first loco of a coupler "A+B" (rearLookup, computed above).
+        async function saveSchedule(locoNo, sType, sDue) {
+            if (!locoNo) return;
+            if (sType === null && sDue === null) return;
+            try {
+                await pool.query(
+                    `UPDATE div_locos
+                        SET schedule_type = ?, schedule_due_date = ?,
+                            schedule_updated_by = ?, schedule_updated_at = NOW()
+                      WHERE loco_number = ?`,
+                    [sType, sDue, u.username, locoNo]
+                );
+            } catch (e) {
+                console.error('[loco-link POST /log] schedule write-back failed for', locoNo, e.message);
+            }
+        }
+        await saveSchedule(actual_loco_no, schedule_type, schedule_due_date);
+        await saveSchedule(rearLookup, schedule_type_rear, schedule_due_date_rear);
 
         // ── Cross-direction propagation with day-change logic ────────────
         // If LPC filled outgoing_train (DN-bound from this loco) → auto-fill
