@@ -38,6 +38,8 @@
   - **TODO (future wiring):** Once the **Transfer Letter preparation** feature is built, auto-populate /
     reconcile `proposed_lobby` from the transfer record (and clear/confirm it when the transfer is
     accepted), instead of requiring manual entry on the nomination letter.
+- [ ] Next after cleanup: wire `proposed_lobby` into the Transfer Letter preparation flow so nomination
+  changes can reuse the transfer record instead of depending on manual entry.
 - [x] Auto-shorten long names on the letter (preview + PDF only; DB untouched) (2026-06-04)
   - Names >18 chars: middle names → initials (no periods), then first name → initial if still long.
     e.g. `SUNIL KASHINATH BAGADE` → `SUNIL K BAGADE`, `ANIL SUBHASH DUSANE` → `ANIL S DUSANE`.
@@ -124,6 +126,7 @@
 **Page:** `/div/category-change-letter.html`
 **API:** `/api/division/category/*`
 **Tables:** `div_category_change_letters`, `div_category_change_history`
+**Note:** Keep the schema migration for these tables as reference history. This is a live workflow and should not be treated as a runtime `.sql` dependency.
 **Features Implemented:**
 - Two staff types: Main Line / Suburban (different letter content/signing)
 - Staff search (excludes ALP/Sr.ALP designation IDs 1,2)
@@ -164,6 +167,8 @@
 - `div_detail_book_log` - Arrival log entries from Jr CC
 - `div_office_slot_template` - Slot time templates per office
 - `div_staff_fatigue_tracker` - Tracks duty hours for fatigue compliance
+**Note:** Keep the schema migration for these tables as reference history. This is a live workflow and should not be treated as a runtime `.sql` dependency.
+This also covers the later booking/SAFE extensions on `div_daily_slate` (`BOOKED`, `SAFE`, booking remarks, ALP source, extra ALP fields).
 
 **Phase 1 Features Implemented:**
 1. **Detail Book Interface (Jr CC)**
