@@ -61,7 +61,7 @@ const ENUM_VALUES = {
     marital_status: ['Married', 'Unmarried'],
     safety_category: ['A', 'B', 'C'],
     assignment_status: ['permanent', 'officiating', 'transferred'],
-    status: ['Active', 'Transferred', 'Retired', 'Suspended', 'Promoted to CLI', 'Medically Decategorised'],
+    status: ['Active', 'Transferred', 'Retired', 'Resigned', 'Suspended', 'Promoted to CLI', 'Medically Decategorised', 'Drafted/Ex-Cadre', 'Deputation', 'Expired', 'Returned to Parent depot'],
     punishment_severity: ['Minor', 'Major', 'Severe'],
     training_status: ['Completed', 'Pending', 'Overdue'],
     personnel_store_status: ['Issued', 'Returned'],

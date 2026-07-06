@@ -298,6 +298,17 @@
             <div id="designationOptions"></div>
           </div>
         </div>
+        <!-- Status filter -->
+        <select id="statusFilter" class="form-select form-select-sm" style="width:auto;display:inline-block;" onchange="onStatusChange()">
+          <option value="">Active (default)</option>
+          <option value="Transferred">Transferred</option>
+          <option value="Retired">Retired</option>
+          <option value="Resigned">Resigned</option>
+          <option value="Expired">Expired</option>
+          <option value="Returned to Parent depot">Returned to Parent depot</option>
+          <option value="Promoted to CLI">Promoted to CLI</option>
+          <option value="Medically Decategorised">Medically Decategorised</option>
+        </select>
         <button type="button" onclick="handleBack()">← Back</button>
         <button type="button" onclick="window.print()">Print</button>
       </div>
@@ -318,6 +329,13 @@
     let selectedDesignations = [];
     let allOffices = [];
     let selectedOffices = [];
+    let selectedStatus = '';
+
+    // Status filter changed -> re-fetch (status filtering is server-side)
+    function onStatusChange() {
+      selectedStatus = document.getElementById('statusFilter').value;
+      loadStaff();
+    }
 
     async function init() {
       await fetchCurrentUser();
@@ -446,18 +464,19 @@
 
     async function loadStaff() {
       let staffResults = [];
+      const statusParam = selectedStatus ? `&status=${encodeURIComponent(selectedStatus)}` : '';
 
       if (currentUser.div_role === 'division_admin') {
         // Admin: Load staff from selected offices or all if none selected
         if (selectedOffices.length === 0) {
           // No offices selected, load all
-          const res = await fetch('/api/division/staff');
+          const res = await fetch(`/api/division/staff${selectedStatus ? `?status=${encodeURIComponent(selectedStatus)}` : ''}`);
           const payload = await res.json();
           staffResults = payload?.data || payload || [];
         } else {
           // Load staff from each selected office
           for (const officeCode of selectedOffices) {
-            const res = await fetch(`/api/division/staff?office_code=${encodeURIComponent(officeCode)}`);
+            const res = await fetch(`/api/division/staff?office_code=${encodeURIComponent(officeCode)}${statusParam}`);
             const payload = await res.json();
             staffResults = staffResults.concat(payload?.data || payload || []);
           }
@@ -472,7 +491,7 @@
         }
       } else {
         // Non-admin users see only their office
-        const res = await fetch(`/api/division/staff?office_code=${encodeURIComponent(currentUser.div_office_code)}`);
+        const res = await fetch(`/api/division/staff?office_code=${encodeURIComponent(currentUser.div_office_code)}${statusParam}`);
         const payload = await res.json();
         staffResults = payload?.data || payload || [];
       }
@@ -546,6 +565,7 @@
           <td>${staff.current_cms_id || '—'}</td>
           <td><a class="staff-name-link" href="/div/biodataform.html?search=${encodeURIComponent(staff.hrms_id)}">${staff.name || '—'}</a></td>
           <td>${staff.designation_name || '—'}</td>
+          <td>${staff.status || '—'}</td>
         </tr>
       `).join('');
       container.innerHTML = `
@@ -557,6 +577,7 @@
               <th>Current CMS ID</th>
               <th>Name</th>
               <th>Designation</th>
+              <th>Status</th>
             </tr>
           </thead>
           <tbody>${rows}</tbody>

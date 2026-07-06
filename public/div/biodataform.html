@@ -132,6 +132,8 @@
               <option value="Medically Decategorised">Medically Decategorised</option>
               <option value="Drafted/Ex-Cadre">Drafted/Ex-Cadre</option>
               <option value="Deputation">Deputation</option>
+              <option value="Expired">Expired</option>
+              <option value="Returned to Parent depot">Returned to Parent depot</option>
             </select>
           </div>
           <!-- Profile Completion Progress -->
@@ -1542,7 +1544,7 @@ function handleStaffStatusChange() {
   const staffHrmsId = window.currentStaffHrmsId;
 
   // Block changes FROM final statuses
-  const finalStatuses = ['Transferred', 'Retired', 'Resigned'];
+  const finalStatuses = ['Transferred', 'Retired', 'Resigned', 'Expired', 'Returned to Parent depot'];
   if (finalStatuses.includes(previousStaffStatus)) {
     alert(`Cannot change status from "${previousStaffStatus}". This status is final.`);
     document.getElementById('staff_status').value = previousStaffStatus;
@@ -1583,6 +1585,20 @@ function handleStaffStatusChange() {
 
     // Open resignation modal
     openResignationModal();
+  }
+
+  // Handle Expired / Returned to Parent depot (exit statuses, no modal)
+  const exitStatuses = ['Expired', 'Returned to Parent depot'];
+  if (exitStatuses.includes(staffStatus) && !exitStatuses.includes(previousStaffStatus)) {
+    if (!staffHrmsId) {
+      alert(`Please load a staff member first before changing status to ${staffStatus}`);
+      document.getElementById('staff_status').value = previousStaffStatus;
+      return;
+    }
+    if (!confirm(`⚠️ This will mark the staff as "${staffStatus}".\n\nThey will be removed from active staff lists/counts and any active CLI nomination will be ended.\n\nContinue?`)) {
+      document.getElementById('staff_status').value = previousStaffStatus;
+      return;
+    }
   }
 
   // Update previous status
@@ -1759,7 +1775,7 @@ async function submitResignation() {
         designation_id: document.getElementById('designation').value,
         status: 'Resigned',
         retirement_date: resignationDate,
-        retirement_type: 'Resignation',
+        retirement_type: null,
         remarks: reason ? `Resigned: ${reason}` : null
       })
     });
@@ -3988,6 +4004,9 @@ function openTransferModal() {
 document.getElementById('transferModalForm').addEventListener('submit', async (e) => {
   e.preventDefault();
 
+  const submitButton = e.currentTarget.querySelector('button[type="submit"]');
+  if (submitButton.disabled) return;
+
   const toOffice = document.getElementById('modal_to_office').value;
   const effectiveDate = document.getElementById('modal_effective_date').value;
   const category = document.getElementById('modal_category').value;
@@ -4014,6 +4033,10 @@ document.getElementById('transferModalForm').addEventListener('submit', async (e
     alert('Cannot transfer to the same office');
     return;
   }
+
+  submitButton.disabled = true;
+  const originalButtonText = submitButton.textContent;
+  submitButton.textContent = 'Submitting...';
 
   try {
     // Build remarks with order number if provided
@@ -4060,6 +4083,9 @@ document.getElementById('transferModalForm').addEventListener('submit', async (e
   } catch (error) {
     console.error('Error submitting transfer request:', error);
     alert('Error submitting transfer request');
+  } finally {
+    submitButton.disabled = false;
+    submitButton.textContent = originalButtonText;
   }
 });
 

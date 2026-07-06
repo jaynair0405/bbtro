@@ -722,6 +722,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
+            if (!/^[A-Za-z]+[0-9]+$/.test(newCmsId)) {
+                alert('Invalid CMS ID. Enter letters immediately followed by digits, for example PNVL5545. Spaces, hyphens and other symbols are not allowed.');
+                return;
+            }
+
             // Get yard staff selection if visible
             const yardStaffSection = document.getElementById('yardStaffSection');
             let isYardStaff = null;

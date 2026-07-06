@@ -1,5 +1,11 @@
 const express = require('express');
 const router = express.Router();
+const {
+    isExitStatus,
+    nominationStatusForExit,
+    endActiveCliNomination,
+    resolvePendingTransferRequests
+} = require('../../utils/staffExit');
 
 // Special office access rules - for sister lobbies etc.
 const OFFICE_ACCESS_RULES = {
@@ -65,7 +71,9 @@ const STAFF_STATUS_OPTIONS = new Set([
     'Promoted to CLI',
     'Medically Decategorised',
     'Drafted/Ex-Cadre',
-    'Deputation'
+    'Deputation',
+    'Expired',
+    'Returned to Parent depot'
 ]);
 
 // GET /api/division/offices - Get all offices
@@ -259,19 +267,28 @@ router.get('/staff-sheet', async (req, res) => {
 router.get('/staff', async (req, res) => {
     let conn;
     try {
-        const { office_code } = req.query;
+        const { office_code, status } = req.query;
         conn = await req.app.locals.pool.getConnection();
+
+        // Default view shows currently-active-ish staff. When a specific status
+        // is requested (e.g. an exit status), show exactly that status instead.
+        const statusClause = (status && STAFF_STATUS_OPTIONS.has(status))
+            ? 's.status = ?'
+            : `s.status IN ('Active', 'Drafted/Ex-Cadre', 'Suspended', 'Deputation')`;
 
         let query = `
             SELECT s.hrms_id, s.name, s.current_cms_id, s.pf_number, o.office_name, d.designation_name,
-                   s.safety_category, s.assignment_status
+                   s.safety_category, s.assignment_status, s.status
             FROM div_staff_master s
             JOIN offices o ON s.current_office_code = o.office_code
             JOIN designations d ON s.designation_id = d.id
-            WHERE s.status IN ('Active', 'Drafted/Ex-Cadre', 'Suspended', 'Deputation')
+            WHERE ${statusClause}
         `;
 
         const params = [];
+        if (status && STAFF_STATUS_OPTIONS.has(status)) {
+            params.push(status);
+        }
         if (office_code) {
             const filter = buildOfficeFilter(office_code, 's');
             query += ' AND ' + filter.condition;
@@ -323,9 +340,9 @@ router.put('/staff/:hrms_id', async (req, res) => {
         const { hrms_id } = req.params;
         conn = await req.app.locals.pool.getConnection();
 
-        // First, get the staff's current office and designation
+        // First, get the staff's current office, designation and status
         const [staffCheck] = await conn.query(
-            'SELECT current_office_code, designation_id FROM div_staff_master WHERE hrms_id = ?',
+            'SELECT current_office_code, designation_id, status FROM div_staff_master WHERE hrms_id = ?',
             [hrms_id]
         );
 
@@ -336,6 +353,7 @@ router.put('/staff/:hrms_id', async (req, res) => {
 
         const staffOffice = staffCheck[0].current_office_code;
         const staffDesignationId = staffCheck[0].designation_id;
+        const prevStatus = staffCheck[0].status;
         const userOffice = req.session.user.div_office_code;
         const userRole = req.session.user.div_role;
 
@@ -387,6 +405,14 @@ router.put('/staff/:hrms_id', async (req, res) => {
         // Helper function: convert empty strings to NULL for ENUM fields
         const toNullIfEmpty = (val) => (val === '' || val === undefined) ? null : val;
 
+        // Sanitize retirement_type against its enum. Callers (e.g. the resignation
+        // modal) may send non-enum values like 'Resignation' which would trigger a
+        // "Data truncated" error under STRICT_TRANS_TABLES. Invalid -> NULL.
+        const VALID_RETIREMENT_TYPES = new Set(['Superannuation', 'VRS', 'CRS', 'Removal from Service', 'Dismissal']);
+        const cleanRetirementType = VALID_RETIREMENT_TYPES.has(retirement_type) ? retirement_type : null;
+
+        await conn.beginTransaction();
+
         const [result] = await conn.query(
             `UPDATE div_staff_master
              SET name = ?, designation_id = ?, date_of_birth = ?, gender = ?, fathers_name = ?, caste = ?,
@@ -430,17 +456,30 @@ router.put('/staff/:hrms_id', async (req, res) => {
                 toNullIfEmpty(safety_category),  // ENUM
                 staffStatus,
                 toNullIfEmpty(retirement_date),
-                toNullIfEmpty(retirement_type),
+                cleanRetirementType,
                 toNullIfEmpty(remarks),
                 hrms_id
             ]
         );
 
-        conn.release();
-
         if (result.affectedRows === 0) {
+            await conn.rollback();
+            conn.release();
             return res.status(404).json({ error: 'Staff not found' });
         }
+
+        // Exit side-effects: only when transitioning INTO an exit status.
+        // Strip the active CLI nomination (+ clear current_cli_id) and, for a
+        // transfer-out, complete any dangling 'Pending' transfer request.
+        if (isExitStatus(staffStatus) && !isExitStatus(prevStatus)) {
+            const effectiveDate = toNullIfEmpty(retirement_date) || new Date().toISOString().split('T')[0];
+            await endActiveCliNomination(conn, hrms_id, effectiveDate, nominationStatusForExit(staffStatus));
+            // Transferred -> complete pending requests; other exits -> reject them
+            await resolvePendingTransferRequests(conn, hrms_id, staffStatus);
+        }
+
+        await conn.commit();
+        conn.release();
 
         res.json({
             success: true,
@@ -449,7 +488,10 @@ router.put('/staff/:hrms_id', async (req, res) => {
 
     } catch (error) {
         console.error('Error updating staff:', error);
-        if (conn) conn.release();
+        if (conn) {
+            try { await conn.rollback(); } catch (e) { /* ignore */ }
+            conn.release();
+        }
         res.status(500).json({ error: 'Database error', details: error.message });
     }
 });

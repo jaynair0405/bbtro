@@ -1,5 +1,10 @@
 const express = require('express');
 const router = express.Router();
+const {
+    nominationStatusForExit,
+    endActiveCliNomination,
+    completePendingTransferRequests
+} = require('../../utils/staffExit');
 
 // Middleware to check authentication
 function requireAuth(req, res, next) {
@@ -67,12 +72,17 @@ router.post('/transfer-request', requireAuth, async (req, res) => {
         conn = await req.app.locals.pool.getConnection();
 
         // Check if staff exists
+        // Serialize transfer creation for this staff member. Without the row lock,
+        // two simultaneous submissions can both pass the pending check and insert.
+        await conn.beginTransaction();
+
         const [staffCheck] = await conn.query(
-            'SELECT hrms_id, current_office_code FROM div_staff_master WHERE hrms_id = ?',
+            'SELECT hrms_id, current_office_code FROM div_staff_master WHERE hrms_id = ? FOR UPDATE',
             [staff_hrms_id]
         );
 
         if (staffCheck.length === 0) {
+            await conn.rollback();
             conn.release();
             return res.status(404).json({ error: 'Staff not found' });
         }
@@ -84,6 +94,7 @@ router.post('/transfer-request', requireAuth, async (req, res) => {
         );
 
         if (pendingCheck.length > 0) {
+            await conn.rollback();
             conn.release();
             return res.status(409).json({
                 error: 'A pending transfer request already exists for this staff member'
@@ -95,7 +106,6 @@ router.post('/transfer-request', requireAuth, async (req, res) => {
 
         // Handle Inter Railway - Auto-approve (no receiving office to accept)
         if (category === 'Inter Railway') {
-            await conn.beginTransaction();
             try {
                 // Insert transfer request as Approved
                 const [result] = await conn.query(
@@ -143,6 +153,10 @@ router.post('/transfer-request', requireAuth, async (req, res) => {
                     [staff_hrms_id]
                 );
 
+                // Transfer-out side-effects: strip CLI nomination + complete pending requests
+                await endActiveCliNomination(conn, staff_hrms_id, effectiveDate, nominationStatusForExit('Transferred'));
+                await completePendingTransferRequests(conn, staff_hrms_id);
+
                 await conn.commit();
                 conn.release();
 
@@ -176,6 +190,7 @@ router.post('/transfer-request', requireAuth, async (req, res) => {
             ]
         );
 
+        await conn.commit();
         conn.release();
 
         res.json({
@@ -186,7 +201,14 @@ router.post('/transfer-request', requireAuth, async (req, res) => {
 
     } catch (error) {
         console.error('Error creating transfer request:', error);
-        if (conn) conn.release();
+        if (conn) {
+            try {
+                await conn.rollback();
+            } catch (rollbackError) {
+                console.error('Error rolling back transfer request:', rollbackError);
+            }
+            conn.release();
+        }
         res.status(500).json({ error: 'Database error', details: error.message });
     }
 });
@@ -233,8 +255,15 @@ router.put('/transfer-request/:id/accept', requireAuth, async (req, res) => {
         const { id } = req.params;
         const { new_cms_id, remarks, is_yard_staff } = req.body;
 
-        if (!new_cms_id || !new_cms_id.trim()) {
+        if (typeof new_cms_id !== 'string' || !new_cms_id.trim()) {
             return res.status(400).json({ error: 'New CMS ID is required' });
+        }
+
+        const normalizedCmsId = new_cms_id.trim().toUpperCase();
+        if (new_cms_id !== new_cms_id.trim() || !/^[A-Z]+[0-9]+$/.test(normalizedCmsId)) {
+            return res.status(400).json({
+                error: 'Invalid CMS ID. Enter letters immediately followed by digits, for example PNVL5545. Spaces, hyphens and other symbols are not allowed.'
+            });
         }
 
         conn = await req.app.locals.pool.getConnection();
@@ -267,7 +296,7 @@ router.put('/transfer-request/:id/accept', requireAuth, async (req, res) => {
             // NOW check for duplicate CMS ID (after we have transferReq.staff_hrms_id)
             const [duplicateCheck] = await conn.query(
                 'SELECT hrms_id, name FROM div_staff_master WHERE current_cms_id = ? OR original_cms_id = ?',
-                [new_cms_id.trim().toUpperCase(), new_cms_id.trim().toUpperCase()]
+                [normalizedCmsId, normalizedCmsId]
             );
 
             let isReturningToOriginalCMS = false;
@@ -281,7 +310,7 @@ router.put('/transfer-request/:id/accept', requireAuth, async (req, res) => {
                     await conn.rollback();
                     conn.release();
                     return res.status(409).json({
-                        error: `CMS ID ${new_cms_id.toUpperCase()} is already assigned to ${existingStaff.name} (${existingStaff.hrms_id})`
+                        error: `CMS ID ${normalizedCmsId} is already assigned to ${existingStaff.name} (${existingStaff.hrms_id})`
                     });
                 } else {
                     // CMS ID was originally assigned to THIS staff member - ALLOW with info
@@ -295,7 +324,7 @@ router.put('/transfer-request/:id/accept', requireAuth, async (req, res) => {
                  SET status = 'Approved', proposed_cms_id = ?,
                      reviewed_by = ?, review_date = CURDATE()
                  WHERE request_id = ?`,
-                [new_cms_id.trim().toUpperCase(), req.session.user.username, id]
+                [normalizedCmsId, req.session.user.username, id]
             );
 
             // Insert into transfer history
@@ -311,7 +340,7 @@ router.put('/transfer-request/:id/accept', requireAuth, async (req, res) => {
                     transferReq.to_office_code,
                     transferReq.transfer_category || 'Permanent Transfer',
                     transferReq.current_cms_id,
-                    new_cms_id.trim().toUpperCase(),
+                    normalizedCmsId,
                     transferReq.remarks,
                     transferReq.requested_by,
                     req.session.user.username,
@@ -350,22 +379,31 @@ router.put('/transfer-request/:id/accept', requireAuth, async (req, res) => {
                 staffUpdate = `UPDATE div_staff_master
                                SET current_office_code = 'OTHER', hq_station = NULL, current_cms_id = ?, status = 'Transferred'
                                WHERE hrms_id = ?`;
-                staffParams = [new_cms_id.trim().toUpperCase(), transferReq.staff_hrms_id];
+                staffParams = [normalizedCmsId, transferReq.staff_hrms_id];
             } else if (category === 'Temporary Transfer') {
                 // Temporary: Update current_office_code only, keep home_office_code unchanged
                 staffUpdate = `UPDATE div_staff_master
                                SET current_office_code = ?, hq_station = ?, current_cms_id = ?, is_yard_staff = ?
                                WHERE hrms_id = ?`;
-                staffParams = [transferReq.to_office_code, transferReq.to_office_code, new_cms_id.trim().toUpperCase(), yardStaffValue, transferReq.staff_hrms_id];
+                staffParams = [transferReq.to_office_code, transferReq.to_office_code, normalizedCmsId, yardStaffValue, transferReq.staff_hrms_id];
             } else if (category === 'Permanent Transfer' || category === 'Promotion') {
                 // Permanent/Promotion: Update both current and home office
                 staffUpdate = `UPDATE div_staff_master
                                SET current_office_code = ?, home_office_code = ?, hq_station = ?, current_cms_id = ?, is_yard_staff = ?
                                WHERE hrms_id = ?`;
-                staffParams = [transferReq.to_office_code, transferReq.to_office_code, transferReq.to_office_code, new_cms_id.trim().toUpperCase(), yardStaffValue, transferReq.staff_hrms_id];
+                staffParams = [transferReq.to_office_code, transferReq.to_office_code, transferReq.to_office_code, normalizedCmsId, yardStaffValue, transferReq.staff_hrms_id];
             }
 
             await conn.query(staffUpdate, staffParams);
+
+            // Inter Railway = transfer-out of the division: strip CLI nomination
+            // + complete any dangling pending requests. In-division transfers
+            // (Temporary/Permanent/Promotion) keep the staff Active - no strip.
+            if (category === 'Inter Railway') {
+                const effectiveDate = new Date().toISOString().split('T')[0];
+                await endActiveCliNomination(conn, transferReq.staff_hrms_id, effectiveDate, nominationStatusForExit('Transferred'));
+                await completePendingTransferRequests(conn, transferReq.staff_hrms_id);
+            }
 
             await conn.commit();
             conn.release();
@@ -374,7 +412,7 @@ router.put('/transfer-request/:id/accept', requireAuth, async (req, res) => {
                 success: true,
                 message: 'Transfer request accepted and staff transferred successfully',
                 info: isReturningToOriginalCMS ?
-                    `Staff member has been reassigned their original CMS ID (${new_cms_id.toUpperCase()})` : null
+                    `Staff member has been reassigned their original CMS ID (${normalizedCmsId})` : null
             });
 
         } catch (error) {
