@@ -4674,6 +4674,298 @@ router.get('/train-aliases', async (req, res) => {
     }
 });
 
+// ─── LOCO-LINK ROSTER (multi-day cyclic loco links) ──────────────────────
+//
+// A "loco link" is a multi-day cyclic roster one physical loco follows. The
+// loco leaves Mumbai division on some trains (worked by another zone under a
+// number we can't see) and returns on a known Mumbai-touching train. The link
+// is "maintained" when the SAME loco number we sent out comes back on the
+// expected return train on the expected day.
+//
+// Definitions live in div_loco_link_roster (header) + div_loco_link_roster_legs
+// (ordered checkpoint sequence). Loco observations are REUSED from
+// div_loco_link_log (the existing LPC daily sheet) — no new data entry.
+
+// Helper — load a roster header by link_no, plus its ordered legs (with names).
+async function loadRoster(pool, linkNo) {
+    const [hdr] = await pool.query(
+        `SELECT * FROM div_loco_link_roster WHERE link_no = ? LIMIT 1`, [linkNo]);
+    if (!hdr.length) return null;
+    const roster = hdr[0];
+    const [legs] = await pool.query(
+        `SELECT lg.seq_order, lg.train_no, lg.direction, lg.day_offset,
+                lg.is_checkpoint, lg.ti_after, lg.remark, lg.train_id
+         FROM div_loco_link_roster_legs lg
+         WHERE lg.roster_id = ?
+         ORDER BY lg.seq_order`, [roster.id]);
+    // Enrich with train names via a parameterized IN (avoids cross-collation
+    // column joins between the roster tables and div_trains).
+    const trainNos = [...new Set(legs.map((l) => l.train_no))];
+    if (trainNos.length) {
+        const [names] = await pool.query(
+            `SELECT train_no, train_name FROM div_trains WHERE train_no IN (?)`, [trainNos]);
+        const nameMap = new Map(names.map((n) => [String(n.train_no), n.train_name]));
+        for (const lg of legs) lg.train_name = nameMap.get(String(lg.train_no)) || null;
+    }
+    return { roster, legs };
+}
+
+// GET /roster — list links (for the picker). Includes leg counts.
+router.get('/roster', async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'not logged in' });
+    try {
+        const pool = req.app.locals.pool;
+        const [rows] = await pool.query(
+            `SELECT r.id, r.link_no, r.shed_code, r.loco_type, r.hog_flag,
+                    r.locos_in_link, r.cycle_days, r.active,
+                    COUNT(lg.id) AS leg_count,
+                    COALESCE(SUM(lg.is_checkpoint), 0) AS checkpoint_count
+             FROM div_loco_link_roster r
+             LEFT JOIN div_loco_link_roster_legs lg ON lg.roster_id = r.id
+             GROUP BY r.id
+             ORDER BY CAST(r.link_no AS UNSIGNED), r.link_no`);
+        res.json({ total: rows.length, rows });
+    } catch (err) {
+        console.error('[loco-link GET /roster]', err);
+        res.status(500).json({ error: 'Failed to load rosters' });
+    }
+});
+
+// GET /roster/:link_no — one link header + ordered legs.
+router.get('/roster/:link_no', async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'not logged in' });
+    try {
+        const pool = req.app.locals.pool;
+        const data = await loadRoster(pool, String(req.params.link_no).trim());
+        if (!data) return res.status(404).json({ error: 'link not found' });
+        res.json(data);
+    } catch (err) {
+        console.error('[loco-link GET /roster/:link_no]', err);
+        res.status(500).json({ error: 'Failed to load roster' });
+    }
+});
+
+// GET /reports/link-maintenance?link_no=1&from=YYYY-MM-DD&to=YYYY-MM-DD
+//   Walks consecutive CHECKPOINT legs (+ optional wrap-around leg) and, for
+//   each outbound date in [from,to], compares the loco logged on the outbound
+//   train with the loco logged on the next checkpoint train at the expected
+//   return date (out_date + Δdays).
+//     both present & equal  → maintained
+//     both present & differ → broken
+//     either missing        → unknown (pending entry; never counted as broken)
+router.get('/reports/link-maintenance', async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'not logged in' });
+    const linkNo = String(req.query.link_no || '').trim();
+    const today = todayISO();
+    const from = String(req.query.from || isoDaysAgo(30)).trim();
+    const to = String(req.query.to || today).trim();
+
+    if (!linkNo) return res.status(400).json({ error: 'link_no required' });
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) {
+        return res.status(400).json({ error: 'from/to must be YYYY-MM-DD' });
+    }
+    if (from > to) return res.status(400).json({ error: 'from must be <= to' });
+
+    try {
+        const pool = req.app.locals.pool;
+        const data = await loadRoster(pool, linkNo);
+        if (!data) return res.status(404).json({ error: 'link not found' });
+        const { roster } = data;
+        const cp = data.legs.filter((l) => l.is_checkpoint);
+        if (cp.length < 2) {
+            return res.json({
+                link_no: linkNo, header: roster, from, to,
+                legs: [], summary: { maintained: 0, broken: 0, unknown: 0, total: 0, compliance_pct: null },
+                note: 'Need at least 2 checkpoint legs to evaluate maintenance.',
+            });
+        }
+
+        // Build the list of leg-pairs to evaluate (consecutive + optional wrap).
+        const pairs = [];
+        for (let i = 0; i < cp.length - 1; i++) {
+            pairs.push({ a: cp[i], b: cp[i + 1], delta: cp[i + 1].day_offset - cp[i].day_offset, is_wrap: false });
+        }
+        if (roster.cycle_days && cp.length >= 2) {
+            const first = cp[0], last = cp[cp.length - 1];
+            const wrapDelta = (roster.cycle_days + first.day_offset) - last.day_offset;
+            if (wrapDelta > 0) pairs.push({ a: last, b: first, delta: wrapDelta, is_wrap: true });
+        }
+
+        // Max lookahead = largest Δ, so we fetch log rows up to to + maxDelta.
+        const maxDelta = pairs.reduce((m, p) => Math.max(m, p.delta), 0);
+        const fetchTo = addDays(to, Math.max(0, maxDelta));
+
+        // One batched fetch of all relevant log rows → map[train|dir|date] = loco.
+        const trainNos = [...new Set(cp.map((l) => l.train_no))];
+        const [logRows] = await pool.query(
+            `SELECT DATE_FORMAT(working_date, '%Y-%m-%d') AS d, train_no, direction, actual_loco_no
+             FROM div_loco_link_log
+             WHERE train_no IN (?) AND working_date BETWEEN ? AND ?`,
+            [trainNos, from, fetchTo]);
+        const norm = (s) => (s == null ? '' : String(s).trim().toUpperCase());
+        const key = (train, dir, date) => `${train}|${dir}|${date}`;
+        const locoMap = new Map();
+        for (const r of logRows) {
+            if (r.actual_loco_no) locoMap.set(key(r.train_no, r.direction, r.d), String(r.actual_loco_no).trim());
+        }
+
+        // Enumerate outbound dates in [from,to].
+        const outDates = [];
+        for (let d = from; d <= to; d = addDays(d, 1)) outDates.push(d);
+
+        const tally = { maintained: 0, broken: 0, unknown: 0, total: 0 };
+        const legsOut = pairs.map((p) => {
+            const counts = { maintained: 0, broken: 0, unknown: 0, total: 0 };
+            const details = [];
+            for (const od of outDates) {
+                const rd = addDays(od, p.delta);
+                const expected = locoMap.get(key(p.a.train_no, p.a.direction, od)) || null;
+                const returned = locoMap.get(key(p.b.train_no, p.b.direction, rd)) || null;
+                let status;
+                if (expected && returned) status = norm(expected) === norm(returned) ? 'maintained' : 'broken';
+                else status = 'unknown';
+                counts[status]++; counts.total++;
+                tally[status]++; tally.total++;
+                details.push({ out_date: od, expected_loco: expected, return_date: rd, returned_loco: returned, status });
+            }
+            return {
+                seq_from: p.a.seq_order, seq_to: p.b.seq_order,
+                train_from: p.a.train_no, dir_from: p.a.direction, name_from: p.a.train_name || null,
+                train_to: p.b.train_no, dir_to: p.b.direction, name_to: p.b.train_name || null,
+                delta_days: p.delta, is_wrap: p.is_wrap,
+                counts, details,
+            };
+        });
+
+        const denom = tally.maintained + tally.broken;
+        const compliance_pct = denom > 0 ? Math.round((tally.maintained / denom) * 1000) / 10 : null;
+
+        res.json({
+            link_no: linkNo, header: roster, from, to,
+            legs: legsOut,
+            summary: { ...tally, compliance_pct },
+        });
+    } catch (err) {
+        console.error('[loco-link GET /reports/link-maintenance]', err);
+        res.status(500).json({ error: 'Report failed' });
+    }
+});
+
+// ─── ROSTER ADMIN (division_admin / ctlc only) ───────────────────────────
+
+// POST /roster — create a link header. Body: link_no (required) + header fields.
+router.post('/roster', requireSettingsRole, async (req, res) => {
+    const b = req.body || {};
+    const linkNo = String(b.link_no || '').trim();
+    if (!linkNo) return res.status(400).json({ error: 'link_no required' });
+    try {
+        const pool = req.app.locals.pool;
+        const num = (v) => (v === '' || v == null ? null : parseInt(v, 10));
+        const [r] = await pool.query(
+            `INSERT INTO div_loco_link_roster
+               (link_no, shed_code, loco_type, hog_flag, locos_in_link, link_kms,
+                utilization, train_pairs, ti_locations, cycle_days, notes, active)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
+            [linkNo, b.shed_code || null, b.loco_type || null, b.hog_flag || null,
+             num(b.locos_in_link), num(b.link_kms), num(b.utilization), num(b.train_pairs),
+             b.ti_locations || null, num(b.cycle_days), b.notes || null,
+             b.active === 0 || b.active === false ? 0 : 1]);
+        res.json({ ok: true, id: r.insertId, link_no: linkNo });
+    } catch (err) {
+        if (err && err.code === 'ER_DUP_ENTRY') return res.status(409).json({ error: 'link_no already exists' });
+        console.error('[loco-link POST /roster]', err);
+        res.status(500).json({ error: 'Failed to create link' });
+    }
+});
+
+// PUT /roster/:id — update a link header.
+router.put('/roster/:id', requireSettingsRole, async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (!id) return res.status(400).json({ error: 'bad id' });
+    const b = req.body || {};
+    try {
+        const pool = req.app.locals.pool;
+        const num = (v) => (v === '' || v == null ? null : parseInt(v, 10));
+        const [r] = await pool.query(
+            `UPDATE div_loco_link_roster SET
+               shed_code=?, loco_type=?, hog_flag=?, locos_in_link=?, link_kms=?,
+               utilization=?, train_pairs=?, ti_locations=?, cycle_days=?, notes=?, active=?
+             WHERE id=?`,
+            [b.shed_code || null, b.loco_type || null, b.hog_flag || null,
+             num(b.locos_in_link), num(b.link_kms), num(b.utilization), num(b.train_pairs),
+             b.ti_locations || null, num(b.cycle_days), b.notes || null,
+             b.active === 0 || b.active === false ? 0 : 1, id]);
+        if (!r.affectedRows) return res.status(404).json({ error: 'link not found' });
+        res.json({ ok: true });
+    } catch (err) {
+        console.error('[loco-link PUT /roster/:id]', err);
+        res.status(500).json({ error: 'Failed to update link' });
+    }
+});
+
+// DELETE /roster/:id — remove a link (legs cascade).
+router.delete('/roster/:id', requireSettingsRole, async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (!id) return res.status(400).json({ error: 'bad id' });
+    try {
+        const pool = req.app.locals.pool;
+        const [r] = await pool.query(`DELETE FROM div_loco_link_roster WHERE id=?`, [id]);
+        if (!r.affectedRows) return res.status(404).json({ error: 'link not found' });
+        res.json({ ok: true });
+    } catch (err) {
+        console.error('[loco-link DELETE /roster/:id]', err);
+        res.status(500).json({ error: 'Failed to delete link' });
+    }
+});
+
+// PUT /roster/:id/legs — replace the whole ordered leg list for a link.
+//   Body: { legs: [{ train_no, direction, day_offset, is_checkpoint, ti_after,
+//                     remark, seq_order? }] }  (seq_order auto-assigned if absent)
+router.put('/roster/:id/legs', requireSettingsRole, async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (!id) return res.status(400).json({ error: 'bad id' });
+    const legs = Array.isArray(req.body && req.body.legs) ? req.body.legs : null;
+    if (!legs) return res.status(400).json({ error: 'legs array required' });
+    for (const lg of legs) {
+        if (!lg.train_no || !['UP', 'DN', 'BYPASS'].includes(lg.direction)) {
+            return res.status(400).json({ error: 'each leg needs train_no + direction (UP/DN/BYPASS)' });
+        }
+    }
+    const pool = req.app.locals.pool;
+    let conn;
+    try {
+        const [chk] = await pool.query(`SELECT id FROM div_loco_link_roster WHERE id=?`, [id]);
+        if (!chk.length) return res.status(404).json({ error: 'link not found' });
+
+        conn = await pool.getConnection();
+        await conn.beginTransaction();
+        await conn.query(`DELETE FROM div_loco_link_roster_legs WHERE roster_id=?`, [id]);
+        let seq = 0;
+        for (const lg of legs) {
+            seq++;
+            const resolved = await resolveTrainByNo(pool, lg.train_no);
+            await conn.query(
+                `INSERT INTO div_loco_link_roster_legs
+                   (roster_id, seq_order, train_no, train_id, direction, day_offset,
+                    is_checkpoint, ti_after, remark)
+                 VALUES (?,?,?,?,?,?,?,?,?)`,
+                [id, lg.seq_order != null ? parseInt(lg.seq_order, 10) : seq,
+                 String(lg.train_no).trim(), resolved ? resolved.train_id : null,
+                 lg.direction, lg.day_offset != null ? parseInt(lg.day_offset, 10) : seq,
+                 lg.is_checkpoint === 0 || lg.is_checkpoint === false ? 0 : 1,
+                 lg.ti_after ? 1 : 0, lg.remark || null]);
+        }
+        await conn.commit();
+        res.json({ ok: true, count: legs.length });
+    } catch (err) {
+        if (conn) { try { await conn.rollback(); } catch (_) {} }
+        console.error('[loco-link PUT /roster/:id/legs]', err);
+        res.status(500).json({ error: 'Failed to save legs' });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
 // ═══════════════════════════════════════════════════════════════════════════
 //  LOCO MANAGEMENT (master roster admin) — Phase 4 of LOCO_MASTER_MIGRATION.md
 //

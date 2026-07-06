@@ -249,9 +249,57 @@ the user's unrelated `sql/*.sql`, `server.js` signal work, `awsUploadRoutes.js`,
   `wtt_edit_feature_pending`.
 - **Settings mirror_sheet dropdown UI** — deferred.
 - **JL / BSL WTT station timings** — user to append to the loader CSV later.
-- The **new LPC/administrative task** — the reason for the fresh chat. Unspecified yet.
+- The **new LPC/administrative task** — became the **Loco-Link Roster Maintenance** module (§11).
 
 ---
+
+## 11. Loco-Link Roster Maintenance (new module — pilot Link 1)
+
+**What it is:** a report answering *"is each loco link being maintained?"*. A loco link
+(`data/CR ELECTRIC LOCO LINKS UNDER REVIEW 12.09.2025.pdf`, ~69 links) is a multi-day cyclic
+roster one physical loco follows. The loco leaves the division on some trains (worked by other
+zones under numbers we can't see) and returns on a known Mumbai-touching train. The link is
+**maintained** when the *same loco number* we sent out comes back on the expected return train on
+the expected day; a different number = **broken**; missing entry = **unknown/pending**.
+
+**Data source = reused, no double entry.** Loco observations come from the existing
+`div_loco_link_log.actual_loco_no` (the LPC daily sheet). All 10 of Link 1's checkpoint trains are
+already in `div_loco_link_master` (LTT-DN/LTT-UP) + `div_trains`.
+
+**New tables** (`sql/2026-06-19_loco_link_roster.sql`, idempotent, no existing-table changes):
+- `div_loco_link_roster` — one row per link (link_no, shed, loco_type, hog_flag, cycle_days, …).
+- `div_loco_link_roster_legs` — ordered checkpoint legs (`seq_order, train_no, direction,
+  day_offset, is_checkpoint, ti_after`). Seeded with **Link 1** (KYN/WAP7/HOG, 10 checkpoint legs).
+
+**Backend** (`routes/division/locoLinkRoutes.js`, appended before `module.exports`):
+- `GET /roster`, `GET /roster/:link_no` (login-gated).
+- `GET /reports/link-maintenance?link_no=&from=&to=` — the engine: walks consecutive checkpoint
+  legs (+ a cycle-wrap leg), and for each outbound date compares the logged loco on the outbound
+  train vs the logged loco on the next checkpoint at `out_date + Δdays`. Δ from `day_offset` diffs;
+  wrap Δ = `(cycle_days + offset_first) − offset_last`. Returns per-leg counts + compliance %.
+- Admin CRUD `POST/PUT/DELETE /roster`, `PUT /roster/:id/legs` — gated by `requireSettingsRole`
+  (division_admin/ctlc), like Settings.
+- **Collation note:** roster tables are `utf8mb4_unicode_ci` but `div_trains` is `utf8mb4_0900_ai_ci`
+  → train-name enrichment uses a **parameterized `IN`** (not a column-to-column join) to avoid
+  `ER_CANT_AGGREGATE_2COLLATIONS`. Don't reintroduce a `div_trains` column join here.
+
+**Frontend:** `public/control-office/link-maintenance.html` (control-office theme) — link picker +
+date range, roster header card, summary badges, per-leg compliance tables (green/red/grey),
+"hide unknown" toggle, CSV export, and a lean **Manage Links** admin editor (admin/ctlc only).
+Route gated in `server.js` via `requireControlOffice`; dashboard card added to `index.html`.
+
+**⚠ PENDING — verify with LPC before relying on the report:** the **Link 1 `day_offset` values**
+were inferred from the LPC narrative + page-4 pictorial (20103 d1 → 20104 d4 → 12167 d5 → 12168 d9
+→ … cycle_days 17). Confirm/adjust in the seed file. Memory: `loco_link_roster_module`.
+
+**Phase 2 (deferred):** links 2..69 (via the admin editor or a verified bulk PDF parse),
+day-of-week-aware matching for non-daily links, BYPASS/other-shed patterns, richer views
+(today's-returns dashboard, per-loco trace).
+
+**Local verification done:** schema applied, report classifies maintained/broken/unknown correctly
+on seeded log rows (compliance 60% on a 3✓/2✗ sample), wrap leg present, admin CRUD + cascade
+delete work, lpc role correctly 403'd on writes / 200 on reads. Throwaway data cleaned up.
+**Not yet committed / not deployed** — awaiting user confirmation + day-offset verification.
 
 ## 7. How to test locally
 

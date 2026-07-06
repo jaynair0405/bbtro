@@ -237,6 +237,9 @@ app.get('/control-office/hog-position.html', requireControlOffice, (req, res) =>
 app.get('/control-office/schedule-due.html', requireControlOffice, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'control-office', 'schedule-due.html'));
 });
+app.get('/control-office/link-maintenance.html', requireControlOffice, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'control-office', 'link-maintenance.html'));
+});
 // WTT lookup page — viewable by any logged-in user (edits are gated in the API
 // to division_admin/ctlc). Explicit route so it is login-gated, not open static.
 app.get('/control-office/wtt.html', (req, res) => {
