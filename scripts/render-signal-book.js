@@ -152,6 +152,7 @@ function riGlyphSvg(spec) {
   return svg;
 }
 
+
 // Signal-class badge shown next to the number, matching the printed book:
 //   Ⓟ = distant signal, ⒾⒷ = IBS, Ⓖ = gate signal.
 // Distant takes priority (an "IBS Distant" prints the distant circle).
@@ -343,9 +344,6 @@ ${rowsHtml}
     grid-template-columns: repeat(2, 1fr);
     gap: 6mm;
     margin-bottom: 4px;
-  }
-  .section-table-header::before, .section-table-header::after {
-    /* span header text across both columns: render the 3-col head twice */
   }
   .section-table-header .cell { font-weight: 600; font-size: 8.5pt; }
   .section-table-header { display: none; } /* simpler: skip extra header, columns repeat title only */
