@@ -549,9 +549,9 @@ function renderTransferRequests() {
     const tbody = document.getElementById('transfersTableBody');
 
     tbody.innerHTML = pendingTransfers.map((transfer, index) => {
-        // Extract category from remarks
-        let category = '-';
-        if (transfer.remarks && transfer.remarks.includes('Category:')) {
+        // Prefer the stored column; fall back to the legacy remarks convention
+        let category = transfer.transfer_category || '-';
+        if (category === '-' && transfer.remarks && transfer.remarks.includes('Category:')) {
             const match = transfer.remarks.match(/Category:\s*([^.]+)/);
             if (match) category = match[1].trim();
         }

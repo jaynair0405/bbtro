@@ -1465,6 +1465,16 @@
           catSelect.value = '';  // Clear category for these designations
         }
 
+        // Pre-fill proposed lobby from a pending transfer request (Transfer
+        // Letter / biodata flow) — still editable/clearable by the user.
+        if (state.selectedStaff.pending_transfer_lobby) {
+          const code = state.selectedStaff.pending_transfer_lobby;
+          const o = state.officeOptions.find(x => x.office_code === code);
+          state.selectedLobby = { code, name: o ? o.office_name : code };
+          lobbySearchInput.value = code;
+          showToast(`Proposed lobby pre-filled from pending transfer (${code})`, 'success');
+        }
+
         // Fetch and show CLI history
         showCliHistory(state.selectedStaff.hrms_id, state.selectedStaff.name);
 

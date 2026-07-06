@@ -27,7 +27,7 @@ const crypto = require('crypto');
 const CATEGORIES = [
   'TRAINING_LETTER', 'PROMOTION_ORDER', 'SR_DEE_INSTRUCTION',
   'SAFETY_CIRCULAR', 'STUDY_MATERIAL', 'MANUAL',
-  'PRESENTATION', 'BROCHURE', 'MISC',
+  'PRESENTATION', 'BROCHURE', 'MISC', 'TRANSFER_LETTER',
 ];
 
 // Who may upload/delete each category. Everyone logged-in can view/download.
@@ -42,12 +42,14 @@ const CATEGORY_UPLOAD_ROLES = {
   PRESENTATION:       ['division_admin'],
   BROCHURE:           ['division_admin'],
   MISC:               ['division_admin'],
+  TRANSFER_LETTER:    ['office_hr', 'division_admin'],
 };
 
 // Categories whose documents are organised by date (Year → Month tree).
 // doc_date is required when uploading into these.
 const DATE_TREE_CATEGORIES = new Set([
   'TRAINING_LETTER', 'PROMOTION_ORDER', 'SR_DEE_INSTRUCTION', 'SAFETY_CIRCULAR',
+  'TRANSFER_LETTER',
 ]);
 
 // Folder ("section") config per category, used for upload validation and to
@@ -57,6 +59,12 @@ const DATE_TREE_CATEGORIES = new Set([
 const FOLDER_CONFIG = {
   STUDY_MATERIAL:  { required: ['Main Line', 'Suburban'] },
   PROMOTION_ORDER: { optional: ['Reinstatements'] },
+  // Transfer letters: one folder per sending lobby (letter's from_office_code).
+  // Mirrors active offices.office_code values (minus the OTHER sentinel).
+  TRANSFER_LETTER: { required: [
+    'CSMT-SUB', 'KYN-SUB', 'PNVL-SUB', 'CSMT-ML', 'KYN-ML', 'PNVL-ML',
+    'IGP', 'CLA', 'LNL', 'NRL', 'KCS', 'NCS', 'SCS', 'MTN', 'VVH',
+  ] },
 };
 
 // Validate/normalise a folder value for a category. Returns
@@ -295,5 +303,10 @@ router.delete('/:id', async (req, res) => {
     res.status(500).json({ success: false, error: 'Delete failed' });
   }
 });
+
+// Shared with the Transfer Letter module, which files generated PDFs into
+// the same store with identical uuid__name naming (no multer involved).
+router.UPLOAD_DIR = UPLOAD_DIR;
+router.sanitize = sanitize;
 
 module.exports = router;

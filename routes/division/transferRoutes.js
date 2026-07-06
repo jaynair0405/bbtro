@@ -5,6 +5,7 @@ const {
     endActiveCliNomination,
     completePendingTransferRequests
 } = require('../../utils/staffExit');
+const { createPendingTransferRequest } = require('../../utils/transferRequests');
 
 // Middleware to check authentication
 function requireAuth(req, res, next) {
@@ -70,42 +71,39 @@ router.post('/transfer-request', requireAuth, async (req, res) => {
         }
 
         conn = await req.app.locals.pool.getConnection();
-
-        // Check if staff exists
-        // Serialize transfer creation for this staff member. Without the row lock,
-        // two simultaneous submissions can both pass the pending check and insert.
         await conn.beginTransaction();
-
-        const [staffCheck] = await conn.query(
-            'SELECT hrms_id, current_office_code FROM div_staff_master WHERE hrms_id = ? FOR UPDATE',
-            [staff_hrms_id]
-        );
-
-        if (staffCheck.length === 0) {
-            await conn.rollback();
-            conn.release();
-            return res.status(404).json({ error: 'Staff not found' });
-        }
-
-        // Check for pending transfer request
-        const [pendingCheck] = await conn.query(
-            'SELECT request_id FROM div_transfer_requests WHERE staff_hrms_id = ? AND status = "Pending"',
-            [staff_hrms_id]
-        );
-
-        if (pendingCheck.length > 0) {
-            await conn.rollback();
-            conn.release();
-            return res.status(409).json({
-                error: 'A pending transfer request already exists for this staff member'
-            });
-        }
 
         const effectiveDate = request_date || new Date().toISOString().split('T')[0];
         const category = transfer_category || 'Permanent Transfer';
 
         // Handle Inter Railway - Auto-approve (no receiving office to accept)
         if (category === 'Inter Railway') {
+            // Serialize transfer creation for this staff member. Without the row lock,
+            // two simultaneous submissions can both pass the pending check and insert.
+            const [staffCheck] = await conn.query(
+                'SELECT hrms_id, current_office_code FROM div_staff_master WHERE hrms_id = ? FOR UPDATE',
+                [staff_hrms_id]
+            );
+
+            if (staffCheck.length === 0) {
+                await conn.rollback();
+                conn.release();
+                return res.status(404).json({ error: 'Staff not found' });
+            }
+
+            const [pendingCheck] = await conn.query(
+                'SELECT request_id FROM div_transfer_requests WHERE staff_hrms_id = ? AND status = "Pending"',
+                [staff_hrms_id]
+            );
+
+            if (pendingCheck.length > 0) {
+                await conn.rollback();
+                conn.release();
+                return res.status(409).json({
+                    error: 'A pending transfer request already exists for this staff member'
+                });
+            }
+
             try {
                 // Insert transfer request as Approved
                 const [result] = await conn.query(
@@ -172,23 +170,34 @@ router.post('/transfer-request', requireAuth, async (req, res) => {
             }
         }
 
-        // For other transfer types - create pending request
-        const [result] = await conn.query(
-            `INSERT INTO div_transfer_requests
-             (staff_hrms_id, from_office_code, to_office_code, transfer_category, current_cms_id,
-              request_date, requested_by, remarks, status, created_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Pending', NOW())`,
-            [
+        // For other transfer types - create pending request (shared with Transfer Letter module)
+        let requestId;
+        try {
+            requestId = await createPendingTransferRequest(conn, {
                 staff_hrms_id,
                 from_office_code,
                 to_office_code,
-                category,
+                transfer_category: category,
                 current_cms_id,
-                effectiveDate,
-                req.session.user.username,
+                request_date: effectiveDate,
+                requested_by: req.session.user.username,
                 remarks
-            ]
-        );
+            });
+        } catch (err) {
+            if (err && err.code === 'STAFF_NOT_FOUND') {
+                await conn.rollback();
+                conn.release();
+                return res.status(404).json({ error: 'Staff not found' });
+            }
+            if (err && err.code === 'DUPLICATE_PENDING') {
+                await conn.rollback();
+                conn.release();
+                return res.status(409).json({
+                    error: 'A pending transfer request already exists for this staff member'
+                });
+            }
+            throw err;
+        }
 
         await conn.commit();
         conn.release();
@@ -196,7 +205,7 @@ router.post('/transfer-request', requireAuth, async (req, res) => {
         res.json({
             success: true,
             message: 'Transfer request submitted successfully',
-            request_id: result.insertId
+            request_id: requestId
         });
 
     } catch (error) {
@@ -395,6 +404,16 @@ router.put('/transfer-request/:id/accept', requireAuth, async (req, res) => {
             }
 
             await conn.query(staffUpdate, staffParams);
+
+            // proposed_lobby wiring: the transfer to that lobby is now real, so a
+            // MATCHING informational proposed_lobby on the active CLI nomination is
+            // confirmed → cleared. A mismatched value is left for manual review.
+            await conn.query(
+                `UPDATE div_cli_nominations
+                 SET proposed_lobby = NULL
+                 WHERE staff_hrms_id = ? AND status = 'Active' AND proposed_lobby = ?`,
+                [transferReq.staff_hrms_id, transferReq.to_office_code]
+            );
 
             // Inter Railway = transfer-out of the division: strip CLI nomination
             // + complete any dangling pending requests. In-division transfers

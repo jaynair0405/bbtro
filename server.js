@@ -334,6 +334,12 @@ app.get('/div/training-due-report.html', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'div', 'training-due-report.html'));
 });
 
+app.get('/div/transfer-letter.html', (req, res) => {
+  if (!req.session.user) return res.redirect('/');
+  if (req.session.user.realm !== 'division') return res.redirect('/');
+  res.sendFile(path.join(__dirname, 'public', 'div', 'transfer-letter.html'));
+});
+
 app.get('/div/decategorized-crew-report.html', (req, res) => {
   if (!req.session.user) return res.redirect('/');
   if (req.session.user.realm !== 'division') return res.redirect('/');
@@ -752,6 +758,7 @@ const locoLinkRoutes = require('./routes/division/locoLinkRoutes');
 const awsUploadRoutes = require('./routes/division/awsUploadRoutes');
 const signalBookRoutes = require('./routes/division/signalBookRoutes');
 const documentRoutes = require('./routes/division/documentRoutes');
+const transferLetterRoutes = require('./routes/division/transferLetterRoutes');
 
 // Add division routes with realm protection
 app.use("/api/division/leave", requireRealm("division"), leaveRoutes); // mount early to avoid any catch-alls
@@ -781,6 +788,7 @@ app.use("/api/division/loco-link", requireRealm('division'), locoLinkRoutes);
 app.use("/api/division/aws", requireRealm('division'), awsUploadRoutes);
 app.use("/api/division/signal-book", requireRealm('division'), signalBookRoutes);
 app.use("/api/division/documents", requireRealm('division'), documentRoutes);
+app.use("/api/division/transfer-letters", requireRealm('division'), transferLetterRoutes);
 
 // Session info endpoint
 app.get('/api/session', (req, res) => {

@@ -859,7 +859,10 @@ router.get('/staff-for-letter', requireDivisionAdmin, async (req, res) => {
                 s.designation_id,
                 s.safety_category,
                 n.cli_id as current_cli_id,
-                c.cli_name as current_cli_name
+                c.cli_name as current_cli_name,
+                (SELECT tr.to_office_code FROM div_transfer_requests tr
+                  WHERE tr.staff_hrms_id = s.hrms_id AND tr.status = 'Pending'
+                  ORDER BY tr.request_id DESC LIMIT 1) as pending_transfer_lobby
             FROM div_staff_master s
             LEFT JOIN div_cli_nominations n ON s.hrms_id = n.staff_hrms_id AND n.status = 'Active'
             LEFT JOIN div_cli_master c ON n.cli_id = c.cli_id

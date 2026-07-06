@@ -162,9 +162,11 @@
 //   date       Year → Month tree
 //   promotion  Year → Month tree, plus a 'Reinstatements' sub-folder
 //   folders    fixed folders (from perms.folderConfig), flat list under each
+//   folderdate fixed folders, Year → Month tree inside each (transfer letters)
 //   flat       plain card grid
 const CAT_META = {
     TRAINING_LETTER:    { label: 'Training Letters',    icon: '🎓', mode: 'date' },
+    TRANSFER_LETTER:    { label: 'Transfer Letters',    icon: '📨', mode: 'folderdate' },
     PROMOTION_ORDER:    { label: 'Promotion Orders',    icon: '📈', mode: 'promotion' },
     SR_DEE_INSTRUCTION: { label: 'Sr.DEE Instructions', icon: '📋', mode: 'date' },
     SAFETY_CIRCULAR:    { label: 'Safety Circulars',    icon: '🦺', mode: 'date' },
@@ -179,12 +181,15 @@ const REINSTATEMENT_FOLDER = 'Reinstatements';
 
 const DEFAULT_PERMS = {
     success: true, role: null, canUpload: [], canUploadAny: false,
-    dateTreeCategories: ['TRAINING_LETTER','PROMOTION_ORDER','SR_DEE_INSTRUCTION','SAFETY_CIRCULAR'],
+    dateTreeCategories: ['TRAINING_LETTER','PROMOTION_ORDER','SR_DEE_INSTRUCTION','SAFETY_CIRCULAR',
+                         'TRANSFER_LETTER'],
     folderConfig: {
         STUDY_MATERIAL:  { required: ['Main Line', 'Suburban'] },
         PROMOTION_ORDER: { optional: [REINSTATEMENT_FOLDER] },
+        TRANSFER_LETTER: { required: ['CSMT-SUB','KYN-SUB','PNVL-SUB','CSMT-ML','KYN-ML','PNVL-ML',
+                                      'IGP','CLA','LNL','NRL','KCS','NCS','SCS','MTN','VVH'] },
     },
-    categories: ['TRAINING_LETTER','PROMOTION_ORDER','SR_DEE_INSTRUCTION','SAFETY_CIRCULAR',
+    categories: ['TRAINING_LETTER','TRANSFER_LETTER','PROMOTION_ORDER','SR_DEE_INSTRUCTION','SAFETY_CIRCULAR',
                  'STUDY_MATERIAL','MANUAL','PRESENTATION','BROCHURE','MISC'],
 };
 let perms = { ...DEFAULT_PERMS };
@@ -265,9 +270,10 @@ async function loadContent() {
     el.innerHTML = '';
     if (!docs.length) { el.innerHTML = '<div class="empty">No documents yet.</div>'; return; }
     const mode = catMode(current);
-    if (mode === 'promotion') return renderPromotion(el, docs);
-    if (mode === 'folders')   return renderFixedFolders(el, docs);
-    if (mode === 'date')      return renderDateTree(el, docs);
+    if (mode === 'promotion')  return renderPromotion(el, docs);
+    if (mode === 'folders')    return renderFixedFolders(el, docs);
+    if (mode === 'folderdate') return renderFolderDate(el, docs);
+    if (mode === 'date')       return renderDateTree(el, docs);
     return renderFlat(el, docs);
 }
 
@@ -387,6 +393,17 @@ function renderDateTree(el, docs) {
     appendYearNodes(el, groupYears(docs), true);
 }
 
+// Folder per lobby, Year → Month tree inside each (Transfer Letters).
+// Only folders that actually have documents are shown.
+function renderFolderDate(el, docs) {
+    const folders = [...new Set(docs.map(d => d.folder || 'Unassigned'))].sort();
+    folders.forEach((f, i) => {
+        const inFolder = docs.filter(d => (d.folder || 'Unassigned') === f);
+        el.appendChild(folderNode(f, inFolder.length, i === 0,
+            (kids) => appendYearNodes(kids, groupYears(inFolder), i === 0)));
+    });
+}
+
 // Promotion Orders: a 'Reinstatements' sub-folder + the regular orders by year.
 function renderPromotion(el, docs) {
     const reinstate = docs.filter(d => d.folder === REINSTATEMENT_FOLDER);
@@ -477,7 +494,8 @@ function syncModalFields() {
         wrap.style.display = '';
         document.getElementById('upFolderReq').style.display = req ? '' : 'none';
         document.getElementById('upFolderLabelText').textContent =
-            cat === 'STUDY_MATERIAL' ? 'Line' : cat === 'PROMOTION_ORDER' ? 'Type' : 'Section';
+            cat === 'STUDY_MATERIAL' ? 'Line' : cat === 'PROMOTION_ORDER' ? 'Type'
+            : cat === 'TRANSFER_LETTER' ? 'Lobby' : 'Section';
         const none = req ? '' : '<option value="">Regular (no folder)</option>';
         document.getElementById('upFolder').innerHTML =
             none + opts.map(o => `<option value="${o}">${o}</option>`).join('');

@@ -1,0 +1,1070 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BBTRO | Prepare Transfer Letter</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,wght@0,400;0,600;0,700;1,400&family=Archivo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+    --ink: #101c33;            /* deep railway navy */
+    --ink-2: #182742;
+    --ink-3: #22345a;
+    --chrome-line: #2c4370;
+    --paper: #fdfbf3;          /* cream letter paper */
+    --paper-edge: #e8e2cd;
+    --amber: #f5a524;          /* signal amber */
+    --amber-deep: #d97706;
+    --green: #2f9e63;
+    --red: #d64545;
+    --text-dim: #93a5c4;
+    --text-mid: #c3cfe4;
+    --ui: 'Archivo', -apple-system, sans-serif;
+    --serif: 'Source Serif 4', 'Times New Roman', serif;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+    font-family: var(--ui);
+    background: var(--ink);
+    color: var(--text-mid);
+    overflow: hidden;
+}
+
+/* ── App bar ─────────────────────────────────────────────────────────── */
+.appbar {
+    height: 58px;
+    display: flex; align-items: center; gap: 18px;
+    padding: 0 20px;
+    background: linear-gradient(180deg, #14213c 0%, #101c33 100%);
+    border-bottom: 1px solid var(--chrome-line);
+    position: relative; z-index: 30;
+}
+.appbar .brand {
+    display: flex; align-items: center; gap: 10px;
+    color: #fff; text-decoration: none;
+}
+.appbar .brand .mark {
+    width: 34px; height: 34px; border-radius: 8px;
+    background: radial-gradient(circle at 35% 30%, #ffca55, var(--amber-deep));
+    display: grid; place-items: center;
+    font-size: 17px;
+    box-shadow: 0 2px 10px rgba(245,165,36,.35);
+}
+.appbar .brand b { font-weight: 800; letter-spacing: .4px; font-size: 15px; }
+.appbar .brand small { display: block; font-size: 10.5px; color: var(--text-dim); font-weight: 500; letter-spacing: 1.4px; text-transform: uppercase; }
+.appbar .spacer { flex: 1; }
+.appbar .who { font-size: 12.5px; color: var(--text-dim); text-align: right; line-height: 1.35; }
+.appbar .who b { color: var(--text-mid); }
+.appbar a.back {
+    color: var(--text-dim); text-decoration: none; font-size: 12.5px; font-weight: 600;
+    padding: 7px 12px; border: 1px solid var(--chrome-line); border-radius: 8px;
+    transition: all .15s;
+}
+.appbar a.back:hover { color: #fff; border-color: var(--amber); }
+
+/* ── Railway-track status stepper ────────────────────────────────────── */
+.trackline {
+    display: flex; align-items: center; gap: 0;
+    padding: 0 26px; height: 46px;
+    background: #0c1628;
+    border-bottom: 1px solid var(--chrome-line);
+    position: relative; z-index: 20;
+}
+.trackline .stop { display: flex; align-items: center; gap: 9px; }
+.trackline .dot {
+    width: 15px; height: 15px; border-radius: 50%;
+    border: 2.5px solid #3b5484; background: #0c1628;
+    transition: all .4s cubic-bezier(.5,1.6,.4,1);
+    position: relative;
+}
+.trackline .stop.done .dot { border-color: var(--green); background: var(--green); box-shadow: 0 0 0 3px rgba(47,158,99,.18); }
+.trackline .stop.now  .dot { border-color: var(--amber); background: var(--amber); box-shadow: 0 0 0 4px rgba(245,165,36,.22); animation: pulse 2.2s infinite; }
+@keyframes pulse { 50% { box-shadow: 0 0 0 7px rgba(245,165,36,.06); } }
+.trackline .lbl { font-size: 11.5px; font-weight: 700; letter-spacing: 1.6px; text-transform: uppercase; color: #51678f; transition: color .3s; }
+.trackline .stop.done .lbl { color: var(--green); }
+.trackline .stop.now  .lbl { color: var(--amber); }
+.trackline .rail {
+    flex: 0 0 72px; height: 0; margin: 0 12px;
+    border-top: 2px dashed #33497a;   /* sleepers on the track */
+    position: relative; top: 1px;
+}
+.trackline .stop.done + .rail { border-top-color: var(--green); border-top-style: solid; }
+.trackline .meta { margin-left: auto; font-size: 12px; color: var(--text-dim); }
+.trackline .meta b { color: var(--amber); font-weight: 700; }
+
+/* ── Layout ──────────────────────────────────────────────────────────── */
+.stage { display: flex; height: calc(100vh - 104px); }
+
+/* Left: form column */
+.desk {
+    width: 470px; min-width: 410px;
+    background: linear-gradient(180deg, var(--ink-2), var(--ink));
+    border-right: 1px solid var(--chrome-line);
+    display: flex; flex-direction: column;
+}
+.desk .scroll { flex: 1; overflow-y: auto; padding: 18px 18px 8px; }
+.desk .scroll::-webkit-scrollbar { width: 9px; }
+.desk .scroll::-webkit-scrollbar-thumb { background: var(--ink-3); border-radius: 5px; }
+
+.panel {
+    background: rgba(255,255,255,.028);
+    border: 1px solid var(--chrome-line);
+    border-radius: 13px;
+    margin-bottom: 14px;
+    overflow: hidden;
+    animation: rise .45s cubic-bezier(.2,.9,.3,1) both;
+}
+.panel:nth-child(2) { animation-delay: .06s; }
+.panel:nth-child(3) { animation-delay: .12s; }
+.panel:nth-child(4) { animation-delay: .18s; }
+@keyframes rise { from { opacity: 0; transform: translateY(14px); } }
+.panel > h2 {
+    font-size: 11.5px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase;
+    color: var(--amber);
+    padding: 13px 16px 11px;
+    border-bottom: 1px solid rgba(44,67,112,.6);
+    display: flex; align-items: center; gap: 9px;
+}
+.panel > h2 .n {
+    width: 20px; height: 20px; border-radius: 6px;
+    background: rgba(245,165,36,.14); border: 1px solid rgba(245,165,36,.35);
+    display: grid; place-items: center; font-size: 10.5px; color: var(--amber);
+}
+.panel .bd { padding: 14px 16px 16px; }
+
+.row { display: flex; gap: 10px; }
+.row > * { flex: 1; min-width: 0; }
+.fld { margin-bottom: 11px; }
+.fld label {
+    display: block; font-size: 10.5px; font-weight: 700; letter-spacing: 1.1px;
+    text-transform: uppercase; color: var(--text-dim); margin-bottom: 5px;
+}
+.fld input, .fld select, .fld textarea {
+    width: 100%;
+    background: #0d1830;
+    border: 1px solid var(--chrome-line);
+    color: #e8eefb;
+    border-radius: 9px;
+    padding: 9px 11px;
+    font-family: var(--ui);
+    font-size: 13.5px;
+    transition: border-color .15s, box-shadow .15s;
+}
+.fld textarea { resize: vertical; min-height: 58px; line-height: 1.45; }
+.fld input:focus, .fld select:focus, .fld textarea:focus {
+    outline: none; border-color: var(--amber);
+    box-shadow: 0 0 0 3px rgba(245,165,36,.13);
+}
+.fld input::placeholder, .fld textarea::placeholder { color: #4d628c; }
+.fld .hint { font-size: 11px; color: #5a7099; margin-top: 4px; }
+select:disabled, input:disabled, textarea:disabled { opacity: .55; cursor: not-allowed; }
+
+/* Staff picker */
+.search-wrap { position: relative; }
+.search-drop {
+    position: absolute; left: 0; right: 0; top: calc(100% + 5px); z-index: 50;
+    background: #0e1a33; border: 1px solid var(--chrome-line); border-radius: 10px;
+    max-height: 250px; overflow-y: auto;
+    box-shadow: 0 14px 34px rgba(0,0,0,.5);
+    display: none;
+}
+.search-drop.open { display: block; }
+.search-drop .opt { padding: 9px 12px; cursor: pointer; border-bottom: 1px solid rgba(44,67,112,.4); }
+.search-drop .opt:last-child { border-bottom: 0; }
+.search-drop .opt:hover { background: rgba(245,165,36,.09); }
+.search-drop .opt b { color: #fff; font-size: 13px; display: block; }
+.search-drop .opt small { color: var(--text-dim); font-size: 11.5px; }
+.search-drop .empty { padding: 12px; color: var(--text-dim); font-size: 12.5px; text-align: center; }
+
+.staff-card {
+    background: #0d1830;
+    border: 1px solid var(--chrome-line);
+    border-left: 3px solid var(--amber);
+    border-radius: 10px;
+    padding: 10px 12px;
+    margin-top: 10px;
+    animation: rise .3s both;
+}
+.staff-card .top { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.staff-card .sr {
+    width: 22px; height: 22px; border-radius: 50%; flex: 0 0 22px;
+    background: rgba(245,165,36,.15); color: var(--amber);
+    display: grid; place-items: center; font-size: 11px; font-weight: 800;
+}
+.staff-card .nm { flex: 1; min-width: 0; }
+.staff-card .nm b { color: #fff; font-size: 13.5px; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.staff-card .nm small { color: var(--text-dim); font-size: 11px; }
+.staff-card button.rm {
+    background: none; border: none; color: #5a7099; cursor: pointer; font-size: 16px;
+    padding: 2px 6px; border-radius: 6px; transition: all .15s;
+}
+.staff-card button.rm:hover { color: var(--red); background: rgba(214,69,69,.12); }
+.staff-card .grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 7px;
+}
+.staff-card .grid label { font-size: 9.5px; letter-spacing: .8px; }
+.staff-card .grid input {
+    padding: 6px 8px; font-size: 12.5px; border-radius: 7px;
+}
+.nostaff { text-align: center; color: #4d628c; font-size: 12.5px; padding: 14px 0 4px; }
+
+/* Action bar */
+.actions {
+    padding: 13px 18px;
+    background: rgba(10,18,36,.92);
+    border-top: 1px solid var(--chrome-line);
+    backdrop-filter: blur(6px);
+    display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+}
+.btn {
+    font-family: var(--ui); font-weight: 700; font-size: 12.5px;
+    letter-spacing: .3px;
+    border-radius: 9px; padding: 10px 15px;
+    border: 1px solid transparent; cursor: pointer;
+    transition: transform .12s, box-shadow .15s, opacity .15s;
+    display: inline-flex; align-items: center; gap: 7px;
+}
+.btn:active { transform: translateY(1px); }
+.btn:disabled { opacity: .38; cursor: not-allowed; transform: none; }
+.btn-ghost { background: transparent; color: var(--text-mid); border-color: var(--chrome-line); }
+.btn-ghost:hover:not(:disabled) { border-color: var(--amber); color: #fff; }
+.btn-amber {
+    background: linear-gradient(180deg, #ffb63c, var(--amber-deep));
+    color: #241500;
+    box-shadow: 0 3px 12px rgba(245,165,36,.3);
+}
+.btn-amber:hover:not(:disabled) { box-shadow: 0 5px 18px rgba(245,165,36,.45); }
+.btn-green { background: linear-gradient(180deg, #38b673, #23864f); color: #fff; box-shadow: 0 3px 12px rgba(47,158,99,.3); }
+.btn-red   { background: linear-gradient(180deg, #e25f5f, #c23a3a); color: #fff; box-shadow: 0 3px 12px rgba(214,69,69,.3); }
+.btn-red:hover:not(:disabled) { box-shadow: 0 5px 18px rgba(214,69,69,.45); }
+
+/* Right: the paper yard */
+.yard {
+    flex: 1; overflow-y: auto;
+    background:
+        radial-gradient(1100px 500px at 75% -10%, rgba(245,165,36,.05), transparent 60%),
+        radial-gradient(800px 600px at 20% 110%, rgba(60,110,220,.06), transparent 60%),
+        #0b1425;
+    padding: 34px 30px 60px;
+    display: flex; flex-direction: column; align-items: center;
+}
+.yard::-webkit-scrollbar { width: 10px; }
+.yard::-webkit-scrollbar-thumb { background: var(--ink-3); border-radius: 5px; }
+.yard .preview-tag {
+    font-size: 10.5px; font-weight: 800; letter-spacing: 2.4px; text-transform: uppercase;
+    color: #51678f; margin-bottom: 14px;
+    display: flex; align-items: center; gap: 8px;
+}
+.yard .preview-tag::before, .yard .preview-tag::after {
+    content: ''; width: 46px; height: 1px; background: #33497a;
+}
+
+/* The A4 sheet */
+.sheet {
+    width: min(210mm, 94%);
+    min-height: 297mm;
+    background:
+        radial-gradient(ellipse at top left, rgba(255,255,255,.7), transparent 45%),
+        var(--paper);
+    color: #17181a;
+    box-shadow:
+        0 1px 2px rgba(0,0,0,.4),
+        0 14px 44px rgba(0,0,0,.55),
+        0 34px 90px rgba(0,0,0,.4);
+    border-radius: 3px;
+    padding: 16mm 15mm 18mm;
+    font-family: var(--serif);
+    font-size: 12.2pt;
+    line-height: 1.5;
+    position: relative;
+    animation: paperIn .5s cubic-bezier(.2,.9,.3,1) both;
+}
+@keyframes paperIn { from { opacity: 0; transform: translateY(22px) scale(.985); } }
+.sheet::after {  /* paper grain */
+    content: ''; position: absolute; inset: 0; border-radius: 3px; pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='.028'/%3E%3C/svg%3E");
+}
+.sheet .lh {
+    display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; align-items: start;
+}
+.sheet .lh .l .hi { font-size: 13pt; font-weight: 700; }
+.sheet .lh .l .en { font-size: 13pt; font-weight: 700; letter-spacing: .5px; }
+.sheet .lh img { width: 21mm; height: 21mm; object-fit: contain; }
+.sheet .lh .r { text-align: left; justify-self: end; font-weight: 700; font-size: 11.5pt; white-space: pre-line; }
+.sheet .lh .r .dt { font-weight: 700; margin-top: 2px; }
+.sheet .rule { border: 0; border-top: 2.2px solid #17181a; margin: 4mm 0 0; }
+.sheet .rule2 { border: 0; border-top: 1px solid #17181a; margin: .8mm 0 5mm; }
+.sheet .to { white-space: pre-line; margin-bottom: 5mm; }
+.sheet .to .toword { font-weight: 400; }
+.sheet .to b { font-weight: 700; }
+.sheet .subref { margin: 0 0 4mm 10mm; }
+.sheet .subref div { margin-bottom: 1.4mm; font-weight: 700; }
+.sheet .body-par { text-align: justify; text-indent: 12mm; margin-bottom: 5mm; }
+.sheet table { width: 100%; border-collapse: collapse; margin-bottom: 5mm; font-size: 10.6pt; }
+.sheet th, .sheet td { border: 1.1px solid #17181a; padding: 2.2mm 1.6mm; text-align: center; vertical-align: middle; }
+.sheet th { font-size: 9.6pt; line-height: 1.25; }
+.sheet td.nm { text-align: left; padding-left: 2.4mm; }
+.sheet ul.bl { margin: 0 0 4mm 9mm; }
+.sheet ul.bl li { margin-bottom: 1.2mm; }
+.sheet .foot-line { margin-bottom: 14mm; }
+.sheet .sig { text-align: center; width: 62mm; margin-left: auto; font-weight: 700; }
+.sheet .sig .hi { font-size: 11.5pt; }
+.sheet .cc { margin-top: 12mm; white-space: pre-line; font-size: 11.2pt; }
+.sheet .ph { color: #a09a86; font-style: italic; }  /* placeholder text on paper */
+
+/* flash a preview region when its source field changes */
+.flash { animation: flash 1s ease-out; }
+@keyframes flash { 0% { background: rgba(245,165,36,.28); } 100% { background: transparent; } }
+
+/* ── History drawer ──────────────────────────────────────────────────── */
+.drawer-veil {
+    position: fixed; inset: 0; background: rgba(5,10,22,.6); backdrop-filter: blur(3px);
+    opacity: 0; pointer-events: none; transition: opacity .25s; z-index: 90;
+}
+.drawer {
+    position: fixed; top: 0; right: -430px; width: 410px; max-width: 92vw; height: 100vh;
+    background: var(--ink-2); border-left: 1px solid var(--chrome-line);
+    z-index: 95; transition: right .3s cubic-bezier(.3,.9,.3,1);
+    display: flex; flex-direction: column;
+    box-shadow: -20px 0 60px rgba(0,0,0,.5);
+}
+body.drawer-open .drawer { right: 0; }
+body.drawer-open .drawer-veil { opacity: 1; pointer-events: auto; }
+.drawer h3 {
+    padding: 17px 20px; color: #fff; font-size: 14px; font-weight: 800; letter-spacing: 1px;
+    text-transform: uppercase; border-bottom: 1px solid var(--chrome-line);
+    display: flex; justify-content: space-between; align-items: center;
+}
+.drawer h3 button { background: none; border: none; color: var(--text-dim); font-size: 20px; cursor: pointer; }
+.drawer .list { flex: 1; overflow-y: auto; padding: 12px; }
+.hist-card {
+    background: #0d1830; border: 1px solid var(--chrome-line); border-radius: 10px;
+    padding: 11px 13px; margin-bottom: 9px; cursor: pointer; transition: border-color .15s;
+}
+.hist-card:hover { border-color: var(--amber); }
+.hist-card .l1 { display: flex; justify-content: space-between; gap: 8px; align-items: center; margin-bottom: 3px; }
+.hist-card .no { color: #fff; font-weight: 700; font-size: 12.5px; }
+.hist-card .l2 { color: var(--text-dim); font-size: 11.5px; }
+.chip {
+    font-size: 9.5px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase;
+    border-radius: 20px; padding: 3px 9px;
+}
+.chip.draft       { background: rgba(147,165,196,.15); color: #93a5c4; }
+.chip.finalized   { background: rgba(245,165,36,.15);  color: var(--amber); }
+.chip.transferred { background: rgba(47,158,99,.16);   color: #4cc98a; }
+
+/* ── Modal (custom confirm) ──────────────────────────────────────────── */
+.modal-veil {
+    position: fixed; inset: 0; z-index: 120; background: rgba(5,10,22,.66); backdrop-filter: blur(4px);
+    display: none; align-items: center; justify-content: center;
+}
+.modal-veil.open { display: flex; }
+.modal {
+    width: 430px; max-width: 92vw;
+    background: var(--ink-2); border: 1px solid var(--chrome-line); border-radius: 15px;
+    padding: 22px; box-shadow: 0 28px 70px rgba(0,0,0,.6);
+    animation: rise .28s both;
+}
+.modal h4 { color: #fff; font-size: 15.5px; font-weight: 800; margin-bottom: 8px; }
+.modal p { font-size: 13px; color: var(--text-mid); line-height: 1.5; margin-bottom: 8px; }
+.modal ul { margin: 6px 0 10px 18px; font-size: 12.5px; color: var(--text-mid); }
+.modal .btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+
+/* toast */
+.toast {
+    position: fixed; bottom: 26px; left: 50%; transform: translateX(-50%) translateY(80px);
+    background: #0e1a33; color: #fff; border: 1px solid var(--chrome-line);
+    border-left: 4px solid var(--amber);
+    border-radius: 11px; padding: 12px 18px; font-size: 13px; font-weight: 600;
+    z-index: 200; transition: transform .3s cubic-bezier(.3,1.3,.4,1); max-width: 80vw;
+    box-shadow: 0 14px 40px rgba(0,0,0,.5);
+}
+.toast.show { transform: translateX(-50%) translateY(0); }
+.toast.err { border-left-color: var(--red); }
+.toast.ok  { border-left-color: var(--green); }
+
+/* readonly veil on form when not draft */
+.desk.readonly .scroll { opacity: .62; pointer-events: none; }
+.ro-note {
+    display: none;
+    margin: 0 18px 10px; padding: 10px 14px; border-radius: 10px;
+    background: rgba(245,165,36,.1); border: 1px solid rgba(245,165,36,.3);
+    color: var(--amber); font-size: 12px; font-weight: 600;
+}
+.desk.readonly .ro-note { display: block; }
+
+/* ── Print: only the sheet ───────────────────────────────────────────── */
+@media print {
+    @page { size: A4; margin: 0; }
+    body { overflow: visible; background: #fff; }
+    .appbar, .trackline, .desk, .yard .preview-tag, .drawer, .drawer-veil, .modal-veil, .toast { display: none !important; }
+    .stage, .yard { display: block; height: auto; overflow: visible; padding: 0; background: #fff; }
+    .sheet {
+        width: 210mm; min-height: auto; box-shadow: none; border-radius: 0;
+        animation: none; margin: 0;
+    }
+    .sheet::after { display: none; }
+    .sheet .ph { color: transparent; }
+}
+@media (max-width: 980px) {
+    body { overflow: auto; }
+    .stage { flex-direction: column; height: auto; }
+    .desk { width: 100%; min-width: 0; }
+    .yard { padding: 22px 8px 40px; }
+}
+</style>
+</head>
+<body>
+
+<header class="appbar">
+    <a class="brand" href="/div/index.html">
+        <span class="mark">🚆</span>
+        <span><b>Prepare Transfer Letter</b><small>BB Division · Crew Lobbies</small></span>
+    </a>
+    <span class="spacer"></span>
+    <a href="#" class="back" id="btnHistory">Letters History</a>
+    <a href="/div/index.html" class="back">← Dashboard</a>
+    <div class="who" id="whoBox"></div>
+</header>
+
+<nav class="trackline" id="trackline">
+    <span class="stop now" data-st="draft"><span class="dot"></span><span class="lbl">Draft</span></span>
+    <span class="rail"></span>
+    <span class="stop" data-st="finalized"><span class="dot"></span><span class="lbl">Finalized · PDF filed</span></span>
+    <span class="rail"></span>
+    <span class="stop" data-st="transferred"><span class="dot"></span><span class="lbl">Staff Transferred</span></span>
+    <span class="meta" id="trackMeta">New letter</span>
+</nav>
+
+<main class="stage">
+    <!-- ══ Left: the desk ══ -->
+    <section class="desk" id="desk">
+        <div class="scroll">
+            <div class="panel">
+                <h2><span class="n">1</span> Offices &amp; Letter</h2>
+                <div class="bd">
+                    <div class="row">
+                        <div class="fld">
+                            <label>From (sending lobby)</label>
+                            <select id="fromOffice"></select>
+                        </div>
+                        <div class="fld">
+                            <label>To (receiving lobby)</label>
+                            <select id="toOffice"></select>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="fld">
+                            <label>Letter No. <span style="color:#5a7099">(editable)</span></label>
+                            <input id="letterNo" placeholder="SR CC/TFR/…">
+                        </div>
+                        <div class="fld" style="max-width:150px">
+                            <label>Letter Date</label>
+                            <input type="date" id="letterDate">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="fld">
+                            <label>Transfer Category</label>
+                            <select id="category"></select>
+                        </div>
+                    </div>
+                    <div class="fld">
+                        <label>Ref. (office order no. / date)</label>
+                        <input id="refText" placeholder="Office Order No.142/2026/ALP dated 10/06/2026 …">
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2><span class="n">2</span> Staff on this letter</h2>
+                <div class="bd">
+                    <div class="fld search-wrap">
+                        <label>Add staff (name / PF / HRMS / CMS)</label>
+                        <input id="staffSearch" placeholder="Type at least 2 characters…" autocomplete="off">
+                        <div class="search-drop" id="searchDrop"></div>
+                    </div>
+                    <div id="staffList"></div>
+                    <div class="nostaff" id="noStaff">No staff added yet — search above.</div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2><span class="n">3</span> Letter text</h2>
+                <div class="bd">
+                    <div class="fld">
+                        <label>Issuing office block (letterhead right)</label>
+                        <textarea id="officeHeader" rows="3"></textarea>
+                    </div>
+                    <div class="fld">
+                        <label>Addressee (To)</label>
+                        <textarea id="addressee" rows="3"></textarea>
+                    </div>
+                    <div class="fld">
+                        <label>Subject</label>
+                        <input id="subject">
+                        <div class="hint">Auto-fills from lobbies until you edit it.</div>
+                    </div>
+                    <div class="fld">
+                        <label>Body paragraph</label>
+                        <textarea id="bodyText" rows="4"></textarea>
+                    </div>
+                    <div class="fld">
+                        <label>Bullet points (one per line)</label>
+                        <textarea id="bullets" rows="4"></textarea>
+                    </div>
+                    <div class="fld">
+                        <label>Closing line</label>
+                        <input id="footerText">
+                    </div>
+                    <div class="row">
+                        <div class="fld">
+                            <label>Signing designation</label>
+                            <input id="signDesig">
+                        </div>
+                        <div class="fld">
+                            <label>Hindi (print only)</label>
+                            <input id="signDesigHi">
+                        </div>
+                    </div>
+                    <div class="fld">
+                        <label>C/- copy to (one per line)</label>
+                        <textarea id="ccText" rows="3"></textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="ro-note" id="roNote"></div>
+        <div class="actions">
+            <button class="btn btn-ghost" id="btnNew">＋ New</button>
+            <button class="btn btn-ghost" id="btnPrint">🖨 Print</button>
+            <button class="btn btn-ghost" id="btnPdf" style="display:none">📄 PDF</button>
+            <span style="flex:1"></span>
+            <button class="btn btn-ghost" id="btnDelete" style="display:none">Delete</button>
+            <button class="btn btn-amber" id="btnSave">Save Draft</button>
+            <button class="btn btn-green" id="btnFinalize">Finalize &amp; File PDF</button>
+            <button class="btn btn-red" id="btnTransfer" disabled>Transfer staff now →</button>
+        </div>
+    </section>
+
+    <!-- ══ Right: the paper ══ -->
+    <section class="yard">
+        <div class="preview-tag">Live letter preview</div>
+        <div class="sheet" id="sheet">
+            <div class="lh">
+                <div class="l">
+                    <div class="hi">मध्य रेल</div>
+                    <div class="en">CENTRAL RAILWAY</div>
+                </div>
+                <img src="/img/railway-logo.png" alt="" onerror="this.style.visibility='hidden'">
+                <div class="r"><span id="pvOfficeHeader"></span><div class="dt" id="pvDate"></div></div>
+            </div>
+            <hr class="rule"><hr class="rule2">
+            <div class="to"><span class="toword">To,</span><br><b id="pvAddressee"></b></div>
+            <div class="subref">
+                <div id="pvSubject"></div>
+                <div id="pvRef"></div>
+            </div>
+            <div class="body-par" id="pvBody"></div>
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width:7%">S.N</th>
+                        <th style="width:15%">PF No.</th>
+                        <th style="width:24%">Name</th>
+                        <th style="width:14%">Reporting date of existing lobby</th>
+                        <th style="width:13%">Relieving date</th>
+                        <th style="width:14%">Actual footplate KM of present Lobby</th>
+                        <th style="width:13%">Reporting Date</th>
+                    </tr>
+                </thead>
+                <tbody id="pvRows"></tbody>
+            </table>
+            <ul class="bl" id="pvBullets"></ul>
+            <div class="foot-line" id="pvFooter"></div>
+            <div class="sig">
+                <div id="pvSign"></div>
+                <div class="hi" id="pvSignHi"></div>
+                <div id="pvSignOffice"></div>
+            </div>
+            <div class="cc" id="pvCc"></div>
+        </div>
+    </section>
+</main>
+
+<!-- History drawer -->
+<div class="drawer-veil" onclick="toggleDrawer(false)"></div>
+<aside class="drawer">
+    <h3>Letters History <button onclick="toggleDrawer(false)">×</button></h3>
+    <div class="list" id="histList"></div>
+</aside>
+
+<!-- Confirm modal -->
+<div class="modal-veil" id="modalVeil">
+    <div class="modal">
+        <h4 id="mTitle"></h4>
+        <div id="mBody"></div>
+        <div class="btns">
+            <button class="btn btn-ghost" id="mCancel">Cancel</button>
+            <button class="btn btn-amber" id="mOk">Confirm</button>
+        </div>
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+const API = '/api/division/transfer-letters';
+const $ = (id) => document.getElementById(id);
+
+let CFG = null;              // /config payload
+let LETTER_ID = null;
+let STATUS = 'draft';
+let DOCUMENT_ID = null;
+let STAFF = [];              // {staff_hrms_id, name, pf_number, designation_name, current_cms_id, existing_reporting_date, relieving_date, footplate_km, new_reporting_date}
+let subjectTouched = false;
+
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmtD = (d) => {
+    if (!d) return '';
+    const dt = new Date(d);
+    if (isNaN(dt)) return '';
+    return `${String(dt.getDate()).padStart(2,'0')}-${String(dt.getMonth()+1).padStart(2,'0')}-${dt.getFullYear()}`;
+};
+const toInputDate = (d) => d ? String(d).slice(0, 10) : '';
+
+function toast(msg, kind) {
+    const t = $('toast');
+    t.textContent = msg;
+    t.className = `toast show ${kind || ''}`;
+    clearTimeout(t._h);
+    t._h = setTimeout(() => t.classList.remove('show'), 3400);
+}
+
+/* ── Custom confirm ─────────────────────────────────────────────────── */
+function confirmBox(title, bodyHtml, okLabel, okClass) {
+    return new Promise((resolve) => {
+        $('mTitle').textContent = title;
+        $('mBody').innerHTML = bodyHtml;
+        const ok = $('mOk');
+        ok.textContent = okLabel || 'Confirm';
+        ok.className = `btn ${okClass || 'btn-amber'}`;
+        $('modalVeil').classList.add('open');
+        const done = (v) => { $('modalVeil').classList.remove('open'); ok.onclick = null; $('mCancel').onclick = null; resolve(v); };
+        ok.onclick = () => done(true);
+        $('mCancel').onclick = () => done(false);
+    });
+}
+
+/* ── Config / init ──────────────────────────────────────────────────── */
+async function init() {
+    const r = await fetch(`${API}/config`);
+    if (r.status === 401) { location.href = '/'; return; }
+    CFG = await r.json();
+
+    $('whoBox').innerHTML = `<b>${esc(CFG.user.fullName || CFG.user.username)}</b><br>${esc(CFG.user.officeCode || 'Division Admin')}`;
+
+    const fromSel = $('fromOffice'), toSel = $('toOffice'), catSel = $('category');
+    fromSel.innerHTML = CFG.offices.map(o => `<option value="${esc(o.code)}">${esc(o.label)} (${esc(o.code)})</option>`).join('');
+    catSel.innerHTML = CFG.categories.map(c => `<option>${esc(c)}</option>`).join('');
+
+    if (!CFG.user.canSwitchOffice) {
+        fromSel.value = CFG.user.officeCode;
+        fromSel.disabled = true;
+    }
+    $('letterDate').value = new Date().toISOString().slice(0, 10);
+    rebuildToOptions();
+    applyOfficeDefaults();
+    await nextNumber();
+
+    ['officeHeader','addressee','subject','bodyText','bullets','footerText','signDesig','signDesigHi','ccText','letterNo','letterDate','refText']
+        .forEach(id => $(id).addEventListener('input', updatePreview));
+    $('subject').addEventListener('input', () => { subjectTouched = true; });
+    $('fromOffice').addEventListener('change', async () => {
+        rebuildToOptions(); applyOfficeDefaults(); await nextNumber(); STAFF = []; renderStaff();
+    });
+    $('toOffice').addEventListener('change', () => { applyToDefaults(); updatePreview(); });
+    $('category').addEventListener('change', updatePreview);
+
+    updatePreview();
+    loadHistory();
+}
+
+function officeOf(code) { return (CFG.offices || []).find(o => o.code === code); }
+
+function rebuildToOptions() {
+    const from = $('fromOffice').value;
+    const cur = $('toOffice').value;
+    $('toOffice').innerHTML = CFG.offices.filter(o => o.code !== from)
+        .map(o => `<option value="${esc(o.code)}">${esc(o.label)} (${esc(o.code)})</option>`).join('');
+    if (cur && cur !== from) $('toOffice').value = cur;
+    applyToDefaults();
+}
+
+function applyOfficeDefaults() {
+    const o = officeOf($('fromOffice').value);
+    if (!o) return;
+    $('officeHeader').value = o.officeHeader;
+    $('signDesig').value = o.signingDesignation;
+    $('signDesigHi').value = o.signingDesignationHindi;
+    $('bodyText').value = CFG.defaults.body;
+    $('bullets').value = CFG.defaults.bullets;
+    $('ccText').value = CFG.defaults.cc;
+    $('footerText').value = CFG.defaults.footer;
+    subjectTouched = false;
+    applyToDefaults();
+}
+
+function applyToDefaults() {
+    const to = officeOf($('toOffice').value);
+    if (!to) return;
+    $('addressee').value = `The Senior Crew Controller\n${to.label} (${to.code})\nMumbai Division`;
+    if (!subjectTouched) {
+        $('subject').value = `Transfer of staff from ${$('fromOffice').value} to ${to.code} Lobby`;
+    }
+    updatePreview();
+}
+
+async function nextNumber() {
+    try {
+        const r = await fetch(`${API}/next-number?office_code=${encodeURIComponent($('fromOffice').value)}`);
+        const j = await r.json();
+        if (j.letterNo) { $('letterNo').value = j.letterNo; updatePreview(); }
+    } catch (e) { /* non-fatal */ }
+}
+
+/* ── Staff picker ───────────────────────────────────────────────────── */
+let searchTimer = null;
+$('staffSearch') && $('staffSearch');
+document.addEventListener('DOMContentLoaded', () => {});
+
+function bindSearch() {
+    const inp = $('staffSearch'), drop = $('searchDrop');
+    inp.addEventListener('input', () => {
+        clearTimeout(searchTimer);
+        const q = inp.value.trim();
+        if (q.length < 2) { drop.classList.remove('open'); return; }
+        searchTimer = setTimeout(async () => {
+            try {
+                const r = await fetch(`${API}/search-staff/${encodeURIComponent(q)}?office_code=${encodeURIComponent($('fromOffice').value)}`);
+                const j = await r.json();
+                const found = (j.staff || []).filter(s => !STAFF.some(x => x.staff_hrms_id === s.hrms_id));
+                drop.innerHTML = found.length
+                    ? found.map(s => `<div class="opt" data-h="${esc(s.hrms_id)}">
+                        <b>${esc(s.name)}</b>
+                        <small>${esc(s.designation_name || '')} · PF ${esc(s.pf_number || '—')} · ${esc(s.current_cms_id || s.hrms_id)}</small>
+                      </div>`).join('')
+                    : `<div class="empty">No matching active staff in ${esc($('fromOffice').value)}</div>`;
+                drop.classList.add('open');
+                drop.querySelectorAll('.opt').forEach(el => el.onclick = () => {
+                    const s = found.find(x => x.hrms_id === el.dataset.h);
+                    STAFF.push({
+                        staff_hrms_id: s.hrms_id, name: s.name, pf_number: s.pf_number,
+                        designation_name: s.designation_name, current_cms_id: s.current_cms_id,
+                        existing_reporting_date: toInputDate(s.reporting_date),
+                        relieving_date: '', footplate_km: '', new_reporting_date: '',
+                    });
+                    inp.value = ''; drop.classList.remove('open');
+                    renderStaff();
+                });
+            } catch (e) { drop.classList.remove('open'); }
+        }, 280);
+    });
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.search-wrap')) drop.classList.remove('open');
+    });
+}
+
+function renderStaff() {
+    const box = $('staffList');
+    $('noStaff').style.display = STAFF.length ? 'none' : 'block';
+    box.innerHTML = STAFF.map((s, i) => `
+        <div class="staff-card">
+            <div class="top">
+                <span class="sr">${i + 1}</span>
+                <span class="nm"><b>${esc(s.name)}</b><small>${esc(s.designation_name || '')} · PF ${esc(s.pf_number || '—')}</small></span>
+                <button class="rm" title="Remove" onclick="removeStaff(${i})">✕</button>
+            </div>
+            <div class="grid">
+                <div><label>Reporting date (existing lobby)</label>
+                    <input type="date" value="${esc(s.existing_reporting_date)}" onchange="setS(${i},'existing_reporting_date',this.value)"></div>
+                <div><label>Relieving date</label>
+                    <input type="date" value="${esc(s.relieving_date)}" onchange="setS(${i},'relieving_date',this.value)"></div>
+                <div><label>Footplate KM (present lobby)</label>
+                    <input type="number" min="0" placeholder="e.g. 2301" value="${esc(s.footplate_km)}" onchange="setS(${i},'footplate_km',this.value)"></div>
+                <div><label>Reporting date (new lobby)</label>
+                    <input type="date" value="${esc(s.new_reporting_date)}" onchange="setS(${i},'new_reporting_date',this.value)"></div>
+            </div>
+        </div>`).join('');
+    updatePreview();
+}
+function setS(i, k, v) { if (STAFF[i]) { STAFF[i][k] = v; updatePreview(); } }
+function removeStaff(i) { STAFF.splice(i, 1); renderStaff(); }
+
+/* ── Live preview ───────────────────────────────────────────────────── */
+function pvSet(id, val, ph) {
+    const el = $(id);
+    if (val) { el.textContent = val; el.classList.remove('ph'); }
+    else { el.textContent = ph || ''; el.classList.add('ph'); }
+}
+function updatePreview() {
+    pvSet('pvOfficeHeader', $('officeHeader').value, 'ISSUING OFFICE');
+    $('pvDate').textContent = `Date: ${fmtD($('letterDate').value) || '—'}`;
+    const no = $('letterNo').value;
+    pvSet('pvAddressee', $('addressee').value, 'Addressee…');
+    $('pvSubject').innerHTML = `Sub.: ${esc($('subject').value) || '<span class="ph">Subject…</span>'}`;
+    const ref = $('refText').value;
+    $('pvRef').innerHTML = ref ? `Ref.: ${esc(no ? ref : ref)}` : '';
+    $('pvRef').style.display = ref ? '' : 'none';
+    pvSet('pvBody', $('bodyText').value, 'Body paragraph…');
+
+    $('pvRows').innerHTML = STAFF.length
+        ? STAFF.map((s, i) => `<tr>
+            <td>${i + 1}</td>
+            <td>${esc(s.pf_number || '')}</td>
+            <td class="nm">${esc(s.name)}</td>
+            <td>${fmtD(s.existing_reporting_date)}</td>
+            <td>${fmtD(s.relieving_date)}</td>
+            <td>${esc(s.footplate_km)}</td>
+            <td>${fmtD(s.new_reporting_date)}</td>
+          </tr>`).join('')
+        : `<tr><td colspan="7" class="ph" style="padding:6mm">Staff will appear here as you add them</td></tr>`;
+
+    $('pvBullets').innerHTML = $('bullets').value.split('\n').map(s => s.trim()).filter(Boolean)
+        .map(b => `<li>${esc(b)}</li>`).join('');
+    pvSet('pvFooter', $('footerText').value, '');
+    pvSet('pvSign', $('signDesig').value, 'Signing designation');
+    $('pvSignHi').textContent = $('signDesigHi').value || '';
+    $('pvSignOffice').textContent = $('fromOffice').value || '';
+    $('pvCc').textContent = $('ccText').value || '';
+}
+
+/* ── Status / mode ──────────────────────────────────────────────────── */
+function setStatus(st) {
+    STATUS = st;
+    const order = ['draft', 'finalized', 'transferred'];
+    const idx = order.indexOf(st);
+    document.querySelectorAll('.trackline .stop').forEach((el) => {
+        const i = order.indexOf(el.dataset.st);
+        el.className = 'stop' + (i < idx ? ' done' : i === idx ? ' now' : '');
+    });
+    $('trackMeta').innerHTML = LETTER_ID
+        ? `Letter <b>#${LETTER_ID}</b> · ${st === 'draft' ? 'editing draft' : st === 'finalized' ? 'PDF filed, ready to transfer' : 'staff transferred'}`
+        : 'New letter';
+
+    const draft = st === 'draft';
+    $('desk').classList.toggle('readonly', !draft);
+    $('roNote').textContent = st === 'finalized'
+        ? '🔒 Finalized — the letter is locked and its PDF is filed in Documents. You can print, or transfer the staff now.'
+        : '🔒 Transferred — requests are with the receiving lobby. The letter is permanent.';
+    $('btnSave').style.display = draft ? '' : 'none';
+    $('btnFinalize').style.display = draft ? '' : 'none';
+    $('btnDelete').style.display = (draft && LETTER_ID) ? '' : 'none';
+    $('btnTransfer').disabled = st !== 'finalized';
+    $('btnPdf').style.display = DOCUMENT_ID ? '' : 'none';
+}
+
+/* ── Persistence ────────────────────────────────────────────────────── */
+function payload() {
+    return {
+        letter_id: LETTER_ID,
+        letter_no: $('letterNo').value.trim(),
+        letter_date: $('letterDate').value,
+        from_office_code: $('fromOffice').value,
+        to_office_code: $('toOffice').value,
+        transfer_category: $('category').value,
+        office_header_text: $('officeHeader').value,
+        addressee_text: $('addressee').value,
+        subject_text: $('subject').value,
+        ref_text: $('refText').value,
+        body_text: $('bodyText').value,
+        bullets_text: $('bullets').value,
+        footer_text: $('footerText').value,
+        signing_designation: $('signDesig').value,
+        signing_designation_hindi: $('signDesigHi').value,
+        cc_text: $('ccText').value,
+        staff: STAFF.map(s => ({
+            staff_hrms_id: s.staff_hrms_id,
+            existing_reporting_date: s.existing_reporting_date || null,
+            relieving_date: s.relieving_date || null,
+            footplate_km: s.footplate_km === '' ? null : s.footplate_km,
+            new_reporting_date: s.new_reporting_date || null,
+        })),
+    };
+}
+
+async function saveDraft(silent) {
+    if (!STAFF.length && !silent) toast('Tip: add staff before finalizing', '');
+    const r = await fetch(API, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload()),
+    });
+    const j = await r.json();
+    if (!r.ok) { toast(j.error || 'Save failed', 'err'); return false; }
+    LETTER_ID = j.letter_id;
+    setStatus('draft');
+    if (!silent) toast('Draft saved', 'ok');
+    loadHistory();
+    return true;
+}
+
+async function finalize() {
+    if (!STAFF.length) return toast('Add at least one staff member first', 'err');
+    const missingKm = STAFF.filter(s => s.footplate_km === '' || s.footplate_km == null);
+    if (missingKm.length) {
+        return toast(`Enter footplate KM for: ${missingKm.map(s => s.name.split(' ')[0]).join(', ')}`, 'err');
+    }
+    if (!(await saveDraft(true))) return;
+    const okGo = await confirmBox('Finalize this letter?',
+        `<p>The letter becomes <b>read-only</b> and its PDF is filed into
+         <b>Documents → Transfer Letters → ${esc($('fromOffice').value)}</b>.</p>
+         <p>${STAFF.length} staff · ${esc($('category').value)} · to ${esc($('toOffice').value)}</p>`,
+        'Finalize & File PDF', 'btn-green');
+    if (!okGo) return;
+    const r = await fetch(`${API}/${LETTER_ID}/finalize`, { method: 'POST' });
+    const j = await r.json();
+    if (!r.ok) return toast(j.error || 'Finalize failed', 'err');
+    DOCUMENT_ID = j.document_id;
+    setStatus('finalized');
+    toast('Letter finalized — PDF filed in Documents', 'ok');
+    loadHistory();
+}
+
+async function transferNow() {
+    const names = STAFF.map(s => `<li>${esc(s.name)}</li>`).join('');
+    const okGo = await confirmBox('Transfer staff now?',
+        `<p>This creates a <b>pending transfer request</b> for every staff on the letter.
+         They will appear in <b>${esc($('toOffice').value)}</b>'s Staff Transfers inbox for acceptance.</p>
+         <ul>${names}</ul><p>This cannot be undone.</p>`,
+        'Yes, transfer all', 'btn-red');
+    if (!okGo) return;
+    const r = await fetch(`${API}/${LETTER_ID}/transfer`, { method: 'POST' });
+    const j = await r.json();
+    if (!r.ok) {
+        if (j.failed && j.failed.length) {
+            await confirmBox('Could not transfer', `<p>${esc(j.error || '')}</p>
+                <ul>${j.failed.map(f => `<li><b>${esc(f.name)}</b> — ${esc(f.reason)}</li>`).join('')}</ul>
+                <p>No requests were created.</p>`, 'OK', 'btn-amber');
+        } else toast(j.error || 'Transfer failed', 'err');
+        return;
+    }
+    setStatus('transferred');
+    toast(j.message || 'Transfer requests created', 'ok');
+    loadHistory();
+}
+
+async function deleteDraft() {
+    const okGo = await confirmBox('Delete this draft?',
+        '<p>The draft letter and its staff list will be removed. This cannot be undone.</p>',
+        'Delete draft', 'btn-red');
+    if (!okGo) return;
+    const r = await fetch(`${API}/${LETTER_ID}`, { method: 'DELETE' });
+    const j = await r.json();
+    if (!r.ok) return toast(j.error || 'Delete failed', 'err');
+    toast('Draft deleted', 'ok');
+    newLetter();
+    loadHistory();
+}
+
+/* ── History ────────────────────────────────────────────────────────── */
+async function loadHistory() {
+    try {
+        const r = await fetch(`${API}/?limit=40`);
+        const j = await r.json();
+        const list = $('histList');
+        list.innerHTML = (j.letters || []).map(l => `
+            <div class="hist-card" onclick="openLetter(${l.id})">
+                <div class="l1"><span class="no">${esc(l.letter_no || '#' + l.id)}</span>
+                    <span class="chip ${esc(l.status)}">${esc(l.status)}</span></div>
+                <div class="l2">${esc(l.from_office_code)} → ${esc(l.to_office_code)} ·
+                    ${esc(String(l.total_staff))} staff · ${fmtD(l.letter_date)}</div>
+            </div>`).join('') || '<div class="nostaff">No letters yet.</div>';
+    } catch (e) { /* silent */ }
+}
+
+async function openLetter(id) {
+    const r = await fetch(`${API}/${id}`);
+    const j = await r.json();
+    if (!r.ok) return toast(j.error || 'Could not open letter', 'err');
+    const L = j.letter;
+    LETTER_ID = L.id;
+    DOCUMENT_ID = L.document_id;
+    subjectTouched = true;
+
+    $('fromOffice').value = L.from_office_code;
+    rebuildToOptions();
+    $('toOffice').value = L.to_office_code;
+    $('category').value = L.transfer_category;
+    $('letterNo').value = L.letter_no || '';
+    $('letterDate').value = toInputDate(L.letter_date);
+    $('refText').value = L.ref_text || '';
+    $('officeHeader').value = L.office_header_text || '';
+    $('addressee').value = L.addressee_text || '';
+    $('subject').value = L.subject_text || '';
+    $('bodyText').value = L.body_text || '';
+    $('bullets').value = L.bullets_text || '';
+    $('footerText').value = L.footer_text || '';
+    $('signDesig').value = L.signing_designation || '';
+    $('signDesigHi').value = L.signing_designation_hindi || '';
+    $('ccText').value = L.cc_text || '';
+
+    STAFF = (j.staff || []).map(s => ({
+        staff_hrms_id: s.staff_hrms_id,
+        name: s.name_snapshot || s.live_name || s.staff_hrms_id,
+        pf_number: s.pf_number_snapshot || s.live_pf || '',
+        designation_name: s.designation_name || '',
+        current_cms_id: s.current_cms_id || '',
+        existing_reporting_date: toInputDate(s.existing_reporting_date),
+        relieving_date: toInputDate(s.relieving_date),
+        footplate_km: s.footplate_km == null ? '' : String(s.footplate_km),
+        new_reporting_date: toInputDate(s.new_reporting_date),
+    }));
+    renderStaff();
+    setStatus(L.status);
+    toggleDrawer(false);
+    toast(`Opened ${L.letter_no || '#' + L.id}`, '');
+}
+
+function newLetter() {
+    LETTER_ID = null; DOCUMENT_ID = null; STAFF = []; subjectTouched = false;
+    if (!CFG.user.canSwitchOffice) $('fromOffice').value = CFG.user.officeCode;
+    $('letterDate').value = new Date().toISOString().slice(0, 10);
+    $('refText').value = '';
+    rebuildToOptions();
+    applyOfficeDefaults();
+    nextNumber();
+    renderStaff();
+    setStatus('draft');
+}
+
+function toggleDrawer(open) {
+    document.body.classList.toggle('drawer-open', open ?? !document.body.classList.contains('drawer-open'));
+}
+
+/* ── Wire up ────────────────────────────────────────────────────────── */
+$('btnSave').onclick = () => saveDraft(false);
+$('btnFinalize').onclick = finalize;
+$('btnTransfer').onclick = transferNow;
+$('btnDelete').onclick = deleteDraft;
+$('btnNew').onclick = async () => {
+    if (STATUS === 'draft' && (STAFF.length || LETTER_ID)) {
+        const okGo = await confirmBox('Start a new letter?', '<p>Unsaved changes on the current draft will be lost.</p>', 'New letter');
+        if (!okGo) return;
+    }
+    newLetter();
+};
+$('btnPrint').onclick = () => window.print();
+$('btnPdf').onclick = () => { if (DOCUMENT_ID) window.open(`/api/division/documents/${DOCUMENT_ID}/view`, '_blank'); };
+$('btnHistory').onclick = (e) => { e.preventDefault(); loadHistory(); toggleDrawer(true); };
+
+bindSearch();
+init();
+</script>
+</body>
+</html>
