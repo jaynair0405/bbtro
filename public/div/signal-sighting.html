@@ -1,0 +1,1068 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Signal Sighting</title>
+  <link rel="stylesheet" href="/div/css/division-main.css">
+  <style>
+    :root {
+      --sight-ink: #172033;
+      --sight-muted: #64748b;
+      --sight-line: #d8dee8;
+      --sight-soft: #f4f7fb;
+      --sight-panel: #ffffff;
+      --sight-blue: #155eaa;
+      --sight-green: #0f766e;
+      --sight-red: #b42318;
+      --sight-amber: #a16207;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      color: var(--sight-ink);
+      background: #eef2f7;
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .page {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 14px 22px;
+      background: #ffffff;
+      border-bottom: 1px solid var(--sight-line);
+      position: sticky;
+      top: 0;
+      z-index: 20;
+    }
+
+    .topbar h1 {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: 0;
+    }
+
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .content {
+      width: min(1520px, calc(100% - 28px));
+      margin: 14px auto 24px;
+    }
+
+    .toolbar,
+    .form-band,
+    .table-band {
+      background: var(--sight-panel);
+      border: 1px solid var(--sight-line);
+      border-radius: 8px;
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
+    }
+
+    .toolbar {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(160px, 1fr)) auto;
+      gap: 12px;
+      align-items: end;
+      padding: 14px;
+      margin-bottom: 14px;
+    }
+
+    .form-band {
+      padding: 14px;
+      margin-bottom: 14px;
+    }
+
+    .field-grid {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(130px, 1fr));
+      gap: 12px;
+    }
+
+    .wide-2 { grid-column: span 2; }
+    .wide-3 { grid-column: span 3; }
+    .wide-6 { grid-column: 1 / -1; }
+
+    .type-field {
+      border: 1px solid #bfdbfe;
+      border-left: 5px solid var(--sight-blue);
+      border-radius: 8px;
+      padding: 9px 10px;
+      background: linear-gradient(180deg, #eff6ff, #ffffff);
+    }
+
+    .type-field.quarterly {
+      border-color: #a7f3d0;
+      border-left-color: var(--sight-green);
+      background: linear-gradient(180deg, #ecfdf5, #ffffff);
+    }
+
+    .type-field select {
+      font-weight: 800;
+      border-color: transparent;
+      background: rgba(255,255,255,0.78);
+    }
+
+    label {
+      display: grid;
+      gap: 5px;
+      min-width: 0;
+      color: #334155;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0;
+    }
+
+    .content input,
+    .content select,
+    .content textarea {
+      width: 100%;
+      min-width: 0;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      padding: 9px 10px;
+      color: var(--sight-ink);
+      background: #fff;
+      font: inherit;
+      font-size: 14px;
+    }
+
+    textarea {
+      min-height: 68px;
+      resize: vertical;
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus {
+      outline: 2px solid rgba(21, 94, 170, 0.18);
+      border-color: var(--sight-blue);
+    }
+
+    .btn {
+      border: 1px solid transparent;
+      border-radius: 6px;
+      min-height: 38px;
+      padding: 8px 12px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      cursor: pointer;
+      font-weight: 700;
+      font-size: 14px;
+      color: #172033;
+      background: #eef2f7;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+
+    .btn:hover { filter: brightness(0.98); }
+    .btn.primary { background: var(--sight-blue); color: #fff; }
+    .btn.success { background: var(--sight-green); color: #fff; }
+    .btn.ghost { border-color: var(--sight-line); background: #fff; }
+    .btn.warn { background: #fff7ed; color: #7c2d12; border-color: #fed7aa; }
+
+    .status-line {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 0 2px 12px;
+      color: var(--sight-muted);
+      font-size: 13px;
+      flex-wrap: wrap;
+    }
+
+    .status-pills {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 26px;
+      padding: 4px 9px;
+      border: 1px solid var(--sight-line);
+      border-radius: 999px;
+      background: #fff;
+      color: #334155;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .pill.blue { color: var(--sight-blue); background: #eff6ff; border-color: #bfdbfe; }
+    .pill.green { color: var(--sight-green); background: #ecfdf5; border-color: #a7f3d0; }
+    .pill.amber { color: var(--sight-amber); background: #fffbeb; border-color: #fde68a; }
+
+    .table-band {
+      overflow: hidden;
+    }
+
+    .table-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--sight-line);
+      background: #fafcff;
+    }
+
+    .table-title {
+      font-size: 15px;
+      font-weight: 800;
+    }
+
+    .table-wrap {
+      overflow: auto;
+      max-height: calc(100vh - 370px);
+      min-height: 320px;
+    }
+
+    table {
+      width: 100%;
+      min-width: 1540px;
+      border-collapse: separate;
+      border-spacing: 0;
+      table-layout: fixed;
+      font-size: 13px;
+    }
+
+    th,
+    td {
+      border-bottom: 1px solid #e5eaf1;
+      border-right: 1px solid #edf1f6;
+      padding: 7px;
+      vertical-align: top;
+      background: #fff;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      background: #f8fafc;
+      color: #475569;
+      font-size: 12px;
+      font-weight: 800;
+      text-align: left;
+      text-transform: uppercase;
+      letter-spacing: 0;
+    }
+
+    td input,
+    td select,
+    td textarea {
+      font-size: 13px;
+      padding: 7px 8px;
+    }
+
+    td textarea {
+      min-height: 54px;
+    }
+
+    .col-sn { width: 54px; }
+    .col-signal { width: 130px; }
+    .col-location { width: 160px; }
+    .col-side { width: 92px; }
+    .col-distance { width: 96px; }
+    .col-previous { width: 180px; }
+    .col-remarks { width: 210px; }
+    .col-obstruction { width: 138px; }
+    .col-action { width: 210px; }
+    .col-status { width: 126px; }
+    .col-risk { width: 110px; }
+    .col-source { width: 108px; }
+    .col-row-action { width: 76px; }
+
+    /* Signal No. column header search */
+    .th-signal { display: flex; flex-direction: column; gap: 5px; }
+    .content .th-search {
+      width: 100%;
+      padding: 4px 7px;
+      font-size: 12px;
+      font-weight: 600;
+      border: 1px solid var(--sight-line);
+      border-radius: 5px;
+      background: #fff;
+      text-transform: none;
+      letter-spacing: 0;
+    }
+
+    /* UP / DN direction filter */
+    .table-head-left { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+    .dir-filter { display: inline-flex; border: 1px solid var(--sight-line); border-radius: 8px; overflow: hidden; }
+    .dir-filter button {
+      border: 0;
+      background: #fff;
+      color: var(--sight-muted);
+      font: inherit;
+      font-size: 12px;
+      font-weight: 800;
+      padding: 6px 12px;
+      cursor: pointer;
+      border-right: 1px solid var(--sight-line);
+    }
+    .dir-filter button:last-child { border-right: 0; }
+    .dir-filter button.active { background: var(--sight-blue); color: #fff; }
+
+    /* UP / DN group separator rows in the table */
+    tr.group-row th {
+      position: static;
+      background: #eef4fc;
+      color: var(--sight-blue);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      padding: 8px 10px;
+      border-top: 2px solid var(--sight-blue);
+    }
+    tr.group-row.dn th { background: #fef4ec; color: #9a3412; border-top-color: #c2630f; }
+    tr.group-row.other th { background: #f1f5f9; color: #475569; border-top-color: #94a3b8; }
+    tr.group-row .group-count { font-weight: 600; opacity: 0.8; margin-left: 6px; }
+
+    @media print {
+      .topbar, .toolbar, .form-band, .table-head, .col-row-action,
+      .status-line { display: none !important; }
+      .table-wrap { max-height: none; overflow: visible; }
+      table { min-width: 0; font-size: 11px; }
+      tr.group-row th { background: #e5e7eb !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .row-hidden { display: none !important; }
+    }
+    .row-hidden { display: none; }
+
+    .content .readonly,
+    .content input.readonly,
+    .content textarea.readonly {
+      color: var(--sight-ink);
+      font-weight: 600;
+      background: var(--sight-soft);
+    }
+    .content .readonly::placeholder { color: var(--sight-muted); font-weight: 400; }
+
+    .source-tag {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 24px;
+      padding: 3px 7px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 800;
+      background: #eef2f7;
+      color: #334155;
+    }
+
+    .source-tag.master { background: #eff6ff; color: var(--sight-blue); }
+    .source-tag.provisional { background: #fff7ed; color: #9a3412; }
+
+    .empty {
+      padding: 28px 14px;
+      color: var(--sight-muted);
+      text-align: center;
+      background: #fff;
+    }
+
+    .message {
+      min-height: 20px;
+      color: var(--sight-muted);
+      font-size: 13px;
+    }
+
+    .message.error { color: var(--sight-red); }
+    .message.ok { color: var(--sight-green); }
+
+    @media (max-width: 1100px) {
+      .toolbar { grid-template-columns: repeat(2, minmax(160px, 1fr)); }
+      .field-grid { grid-template-columns: repeat(2, minmax(130px, 1fr)); }
+      .wide-2,
+      .wide-3,
+      .wide-6 { grid-column: 1 / -1; }
+    }
+
+    @media (max-width: 640px) {
+      .topbar { align-items: flex-start; flex-direction: column; padding: 12px; }
+      .content { width: calc(100% - 16px); margin-top: 8px; }
+      .toolbar { grid-template-columns: 1fr; }
+      .field-grid { grid-template-columns: 1fr; }
+      .nav-actions { width: 100%; }
+      .btn { width: 100%; }
+      .table-wrap { max-height: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header class="topbar">
+      <h1>Signal Sighting</h1>
+      <div class="nav-actions">
+        <a class="btn ghost" href="/div/index.html">Dashboard</a>
+        <a class="btn ghost" href="/div/signal-book.html">Signal Book</a>
+      </div>
+    </header>
+
+    <main class="content">
+      <section class="toolbar">
+        <label>
+          Month
+          <input id="monthInput" type="month">
+        </label>
+        <label class="wide-2">
+          Territory
+          <select id="territorySelect">
+            <option value="">Select territory</option>
+          </select>
+        </label>
+        <label>
+          Conducting CLI
+          <input id="cliName" class="readonly" type="text" readonly>
+        </label>
+        <button id="loadBtn" class="btn primary" type="button">Load</button>
+      </section>
+
+      <div class="status-line">
+        <div class="status-pills">
+          <span id="typePill" class="pill blue">Monthly</span>
+          <span id="statusPill" class="pill amber">Not loaded</span>
+          <span id="countPill" class="pill">0 rows</span>
+        </div>
+        <div id="message" class="message"></div>
+      </div>
+
+      <section class="form-band">
+        <div class="field-grid">
+          <label class="wide-3">
+            Title
+            <input id="title" type="text">
+          </label>
+          <label class="type-field" id="inspectionTypeWrap">
+            Inspection Type
+            <select id="inspectionType">
+              <option value="MONTHLY">Monthly</option>
+              <option value="QUARTERLY">Quarterly</option>
+            </select>
+          </label>
+          <label>
+            Inspection Date
+            <input id="inspectionDate" type="date">
+          </label>
+          <label>
+            Train No.
+            <input id="trainNo" type="text">
+          </label>
+          <label>
+            Cab No.
+            <input id="cabNo" type="text">
+          </label>
+          <label>
+            LP
+            <input id="lpName" type="text">
+          </label>
+          <label>
+            ALP
+            <input id="alpName" type="text">
+          </label>
+          <label>
+            From
+            <input id="departureStation" type="text">
+          </label>
+          <label>
+            Departure
+            <input id="departureTime" type="time">
+          </label>
+          <label>
+            To
+            <input id="arrivalStation" type="text">
+          </label>
+          <label>
+            Arrival
+            <input id="arrivalTime" type="time">
+          </label>
+          <label class="wide-2">
+            TI
+            <input id="sntRepresentative" type="text">
+          </label>
+          <label class="wide-2">
+            SSE(S&T)
+            <input id="signalDeptRepresentative" type="text">
+          </label>
+          <label class="wide-2">
+            Reference
+            <input id="referenceText" type="text">
+          </label>
+          <label class="wide-6">
+            Inspection Remarks
+            <textarea id="inspectionRemarks"></textarea>
+          </label>
+        </div>
+      </section>
+
+      <section class="table-band">
+        <div class="table-head">
+          <div class="table-head-left">
+            <div class="table-title">Signals</div>
+            <div class="dir-filter" id="dirFilter" role="group" aria-label="Direction filter">
+              <button type="button" data-dir="ALL" class="active">All</button>
+              <button type="button" data-dir="UP">UP</button>
+              <button type="button" data-dir="DN">DN</button>
+            </div>
+          </div>
+          <div class="nav-actions">
+            <button id="printBtn" class="btn ghost" type="button">Print</button>
+            <button id="addRowBtn" class="btn warn" type="button">Add Signal</button>
+            <button id="saveBtn" class="btn primary" type="button">Save Draft</button>
+            <button id="submitBtn" class="btn success" type="button">Submit</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th class="col-sn">S.N.</th>
+                <th class="col-signal">
+                  <div class="th-signal">
+                    <span>Signal No.</span>
+                    <input id="signalSearch" class="th-search" type="text" placeholder="KYN / 23…" autocomplete="off">
+                  </div>
+                </th>
+                <th class="col-location">Location</th>
+                <th class="col-side">Side</th>
+                <th class="col-distance">Previous</th>
+                <th class="col-distance">Visible</th>
+                <th class="col-previous">Previous Remarks</th>
+                <th class="col-remarks">Remarks</th>
+                <th class="col-obstruction">Obstruction</th>
+                <th class="col-action">Remedial Action</th>
+                <th class="col-action">Action Taken</th>
+                <th class="col-status">Action Status</th>
+                <th class="col-risk">Risk</th>
+                <th class="col-source">Source</th>
+                <th class="col-row-action"></th>
+              </tr>
+            </thead>
+            <tbody id="rowsBody">
+              <tr><td class="empty" colspan="15">Select a month and territory.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const state = {
+      meta: null,
+      territories: [],
+      territory: null,
+      inspection: null,
+      rows: [],
+      saving: false,
+      filters: { signal: '', direction: 'ALL' },
+      canEdit: false,
+    };
+
+    const els = {
+      monthInput: document.getElementById('monthInput'),
+      territorySelect: document.getElementById('territorySelect'),
+      cliName: document.getElementById('cliName'),
+      loadBtn: document.getElementById('loadBtn'),
+      typePill: document.getElementById('typePill'),
+      statusPill: document.getElementById('statusPill'),
+      countPill: document.getElementById('countPill'),
+      message: document.getElementById('message'),
+      title: document.getElementById('title'),
+      inspectionType: document.getElementById('inspectionType'),
+      inspectionTypeWrap: document.getElementById('inspectionTypeWrap'),
+      inspectionDate: document.getElementById('inspectionDate'),
+      trainNo: document.getElementById('trainNo'),
+      cabNo: document.getElementById('cabNo'),
+      lpName: document.getElementById('lpName'),
+      alpName: document.getElementById('alpName'),
+      departureStation: document.getElementById('departureStation'),
+      departureTime: document.getElementById('departureTime'),
+      arrivalStation: document.getElementById('arrivalStation'),
+      arrivalTime: document.getElementById('arrivalTime'),
+      sntRepresentative: document.getElementById('sntRepresentative'),
+      signalDeptRepresentative: document.getElementById('signalDeptRepresentative'),
+      referenceText: document.getElementById('referenceText'),
+      inspectionRemarks: document.getElementById('inspectionRemarks'),
+      rowsBody: document.getElementById('rowsBody'),
+      signalSearch: document.getElementById('signalSearch'),
+      dirFilter: document.getElementById('dirFilter'),
+      printBtn: document.getElementById('printBtn'),
+      addRowBtn: document.getElementById('addRowBtn'),
+      saveBtn: document.getElementById('saveBtn'),
+      submitBtn: document.getElementById('submitBtn'),
+    };
+
+    function currentMonth() {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    }
+
+    function monthDate() {
+      return `${els.monthInput.value || currentMonth()}-01`;
+    }
+
+    function setMessage(text, kind) {
+      els.message.textContent = text || '';
+      els.message.className = `message ${kind || ''}`;
+    }
+
+    function api(path, options = {}) {
+      return fetch(`/api/division/signal-sighting${path}`, {
+        credentials: 'same-origin',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(options.headers || {}),
+        },
+        ...options,
+      }).then(async (res) => {
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || `Request failed: ${res.status}`);
+        return data;
+      });
+    }
+
+    function safe(value) {
+      return value == null ? '' : String(value);
+    }
+
+    function setValue(id, value) {
+      els[id].value = safe(value);
+    }
+
+    function updatePills() {
+      const inspection = state.inspection || {};
+      els.typePill.textContent = inspection.inspection_type === 'QUARTERLY' ? 'Quarterly' : 'Monthly';
+      els.typePill.className = `pill ${inspection.inspection_type === 'QUARTERLY' ? 'green' : 'blue'}`;
+      els.statusPill.textContent = inspection.status || 'Not loaded';
+      els.countPill.textContent = `${state.rows.length} rows`;
+      els.addRowBtn.disabled = !state.canEdit;
+      els.saveBtn.disabled = !state.canEdit;
+      els.submitBtn.disabled = !state.canEdit;
+    }
+
+    function monthLabel(monthDateValue) {
+      const raw = monthDateValue || monthDate();
+      const d = new Date(`${raw}T00:00:00Z`);
+      return d.toLocaleString('en-IN', { month: 'short', year: 'numeric', timeZone: 'UTC' });
+    }
+
+    function generatedTitle(type) {
+      const territoryName = state.territory ? state.territory.territory_name : '';
+      const prefix = type === 'QUARTERLY' ? 'Quarterly Signal Inspection' : 'Monthly Signal Inspection';
+      return territoryName ? `${prefix} - ${territoryName} - ${monthLabel(monthDate())}` : `${prefix} - ${monthLabel(monthDate())}`;
+    }
+
+    function updateInspectionTypeVisual() {
+      const type = els.inspectionType.value === 'QUARTERLY' ? 'QUARTERLY' : 'MONTHLY';
+      els.inspectionTypeWrap.classList.toggle('quarterly', type === 'QUARTERLY');
+      if (state.inspection) state.inspection.inspection_type = type;
+      updatePills();
+    }
+
+    function populateTerritories() {
+      const prior = els.territorySelect.value;
+      els.territorySelect.innerHTML = '<option value="">Select territory</option>';
+      for (const t of state.territories) {
+        const option = document.createElement('option');
+        option.value = t.id;
+        option.textContent = `${t.territory_name}${t.cli_name ? ` - ${t.cli_name}` : ''}`;
+        els.territorySelect.appendChild(option);
+      }
+      if (prior && state.territories.some((t) => String(t.id) === prior)) {
+        els.territorySelect.value = prior;
+      } else if (state.territories.length === 1) {
+        els.territorySelect.value = state.territories[0].id;
+      }
+      setCliName();
+    }
+
+    function setCliName() {
+      const selected = state.territories.find((t) => String(t.id) === els.territorySelect.value);
+      const cli = selected ? selected.cli_name : state.meta && state.meta.cli && state.meta.cli.cli_name;
+      els.cliName.value = cli || '';
+    }
+
+    function fillInspection() {
+      const i = state.inspection || {};
+      setValue('inspectionType', i.inspection_type || 'MONTHLY');
+      updateInspectionTypeVisual();
+      setValue('title', i.title || generatedTitle(els.inspectionType.value));
+      setValue('inspectionDate', i.inspection_date ? String(i.inspection_date).slice(0, 10) : '');
+      setValue('trainNo', i.train_no);
+      setValue('cabNo', i.cab_no);
+      setValue('lpName', i.lp_name);
+      setValue('alpName', i.alp_name);
+      setValue('departureStation', i.departure_station);
+      setValue('departureTime', i.departure_time ? String(i.departure_time).slice(0, 5) : '');
+      setValue('arrivalStation', i.arrival_station);
+      setValue('arrivalTime', i.arrival_time ? String(i.arrival_time).slice(0, 5) : '');
+      setValue('sntRepresentative', i.snt_representative);
+      setValue('signalDeptRepresentative', i.signal_dept_representative);
+      setValue('referenceText', i.reference_text);
+      setValue('inspectionRemarks', i.remarks);
+      updatePills();
+    }
+
+    function sourceLabel(row) {
+      const source = row.source || (row.signal_id ? 'MASTER' : 'PROVISIONAL');
+      const cls = source === 'MASTER' ? 'master' : 'provisional';
+      return `<span class="source-tag ${cls}">${source}</span>`;
+    }
+
+    function optionList(values, current) {
+      return values.map((v) => `<option value="${v}" ${v === current ? 'selected' : ''}>${v}</option>`).join('');
+    }
+
+    function normalizeDirection(value) {
+      const d = String(value || '').trim().toUpperCase();
+      if (d === 'UP') return 'UP';
+      if (d === 'DN' || d === 'DOWN') return 'DN';
+      return 'OTHER';
+    }
+
+    function rowMatchesSearch(row) {
+      const q = state.filters.signal.trim().toUpperCase();
+      if (!q) return true;
+      const num = String(row.signal_number || '').toUpperCase();
+      const station = String(row.station_code || '').toUpperCase();
+      return station.startsWith(q) || num.includes(q);
+    }
+
+    function rowMatchesDirection(row) {
+      const f = state.filters.direction;
+      if (f === 'ALL') return true;
+      return normalizeDirection(row.direction) === f;
+    }
+
+    function renderRows() {
+      if (!state.rows.length) {
+        els.rowsBody.innerHTML = '<tr><td class="empty" colspan="15">No signals loaded.</td></tr>';
+        updatePills();
+        return;
+      }
+
+      const groups = { UP: [], DN: [], OTHER: [] };
+      state.rows.forEach((row, index) => {
+        if (!rowMatchesSearch(row) || !rowMatchesDirection(row)) return;
+        groups[normalizeDirection(row.direction)].push({ row, index });
+      });
+
+      const labels = { UP: 'UP DIRECTION', DN: 'DN DIRECTION', OTHER: 'OTHER / UNSPECIFIED' };
+      const classes = { UP: 'up', DN: 'dn', OTHER: 'other' };
+      const order = ['UP', 'DN', 'OTHER'];
+      const visible = order.reduce((sum, key) => sum + groups[key].length, 0);
+
+      if (!visible) {
+        els.rowsBody.innerHTML = '<tr><td class="empty" colspan="15">No signals match the current filter.</td></tr>';
+        updatePills();
+        return;
+      }
+
+      let html = '';
+      let serial = 0;
+      for (const key of order) {
+        const items = groups[key];
+        if (!items.length) continue;
+        html += `<tr class="group-row ${classes[key]}"><th colspan="15">${labels[key]}<span class="group-count">${items.length} signal${items.length === 1 ? '' : 's'}</span></th></tr>`;
+        for (const { row, index } of items) {
+          serial += 1;
+          html += rowEntryHtml(row, index, serial);
+        }
+      }
+      els.rowsBody.innerHTML = html;
+      updatePills();
+    }
+
+    function rowEntryHtml(row, index, serial) {
+      const master = row.source === 'MASTER' || row.signal_id;
+      return `
+          <tr data-index="${index}">
+            <td>${serial}</td>
+            <td><input data-field="signal_number" value="${escapeAttr(row.signal_number)}" ${master ? 'class="readonly"' : ''}></td>
+            <td><input data-field="location_text" value="${escapeAttr(row.location_text)}"></td>
+            <td>
+              <select data-field="side">
+                ${optionList(['LHS', 'RHS', 'ELHS', 'ERHS', 'UNKNOWN'], row.side || 'UNKNOWN')}
+              </select>
+            </td>
+            <td><input class="readonly" data-field="previous_visibility_distance_m" type="number" min="0" value="${escapeAttr(row.previous_visibility_distance_m)}" readonly></td>
+            <td><input data-field="visibility_distance_m" type="number" min="0" value="${escapeAttr(row.visibility_distance_m)}"></td>
+            <td><textarea class="readonly" data-field="previous_remarks" readonly>${escapeHtml(row.previous_remarks)}</textarea></td>
+            <td><textarea data-field="remarks">${escapeHtml(row.remarks)}</textarea></td>
+            <td>
+              <select data-field="obstruction_type">
+                ${optionList(['NONE', 'OHE_MAST', 'TREE_BRANCH', 'CURVE', 'STRUCTURE', 'SIGNAL_CONFUSION', 'NUMBER_PLATE', 'OTHER'], row.obstruction_type || 'NONE')}
+              </select>
+            </td>
+            <td><textarea data-field="remedial_action">${escapeHtml(row.remedial_action)}</textarea></td>
+            <td><textarea data-field="action_taken">${escapeHtml(row.action_taken)}</textarea></td>
+            <td>
+              <select data-field="action_status">
+                ${optionList(['NOT_REQUIRED', 'PENDING', 'IN_PROGRESS', 'COMPLETED'], row.action_status || 'NOT_REQUIRED')}
+              </select>
+            </td>
+            <td>
+              <select data-field="risk_level">
+                ${optionList(['CLEAR', 'WATCH', 'ATTENTION', 'CRITICAL'], row.risk_level || 'CLEAR')}
+              </select>
+            </td>
+            <td>${sourceLabel(row)}</td>
+            <td>${master ? '' : '<button class="btn ghost" data-remove type="button">Remove</button>'}</td>
+          </tr>
+        `;
+    }
+
+    function escapeHtml(value) {
+      return safe(value)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+    }
+
+    function escapeAttr(value) {
+      return escapeHtml(value);
+    }
+
+    function readRowsFromDom() {
+      // Update state.rows in place by data-index so that rows hidden by the
+      // active filter (and therefore absent from the DOM) are preserved.
+      for (const tr of els.rowsBody.querySelectorAll('tr[data-index]')) {
+        const row = state.rows[Number(tr.dataset.index)];
+        if (!row) continue;
+        for (const input of tr.querySelectorAll('[data-field]')) {
+          row[input.dataset.field] = input.value;
+        }
+      }
+    }
+
+    function resetFilters() {
+      state.filters.signal = '';
+      state.filters.direction = 'ALL';
+      if (els.signalSearch) els.signalSearch.value = '';
+      if (els.dirFilter) {
+        for (const b of els.dirFilter.querySelectorAll('button')) {
+          b.classList.toggle('active', b.dataset.dir === 'ALL');
+        }
+      }
+    }
+
+    function addManualRow() {
+      readRowsFromDom();
+      resetFilters();
+      state.rows.push({
+        row_order: (state.rows.length + 1) * 100,
+        source: 'MANUAL',
+        is_added_by_cli: true,
+        signal_id: null,
+        provisional_signal_id: null,
+        signal_number: '',
+        station_code: '',
+        direction: 'UNKNOWN',
+        location_text: '',
+        side: 'UNKNOWN',
+        previous_visibility_distance_m: '',
+        visibility_distance_m: '',
+        previous_remarks: '',
+        remarks: '',
+        obstruction_type: 'NONE',
+        remedial_action: '',
+        action_taken: '',
+        action_status: 'NOT_REQUIRED',
+        risk_level: 'CLEAR',
+      });
+      renderRows();
+      const last = els.rowsBody.querySelector('tr:last-child input[data-field="signal_number"]');
+      if (last) last.focus();
+    }
+
+    function readInspectionPayload(status) {
+      readRowsFromDom();
+      return {
+        territory_id: Number(els.territorySelect.value),
+        inspection_month: monthDate(),
+        cli_id: state.inspection && state.inspection.cli_id,
+        inspection_type: els.inspectionType.value,
+        title: els.title.value,
+        inspection_date: els.inspectionDate.value,
+        status: status || 'DRAFT',
+        train_no: els.trainNo.value,
+        cab_no: els.cabNo.value,
+        lp_name: els.lpName.value,
+        alp_name: els.alpName.value,
+        departure_station: els.departureStation.value,
+        departure_time: els.departureTime.value,
+        arrival_station: els.arrivalStation.value,
+        arrival_time: els.arrivalTime.value,
+        snt_representative: els.sntRepresentative.value,
+        signal_dept_representative: els.signalDeptRepresentative.value,
+        reference_text: els.referenceText.value,
+        remarks: els.inspectionRemarks.value,
+        rows: state.rows,
+      };
+    }
+
+    async function loadMeta() {
+      state.meta = await api('/meta');
+      state.canEdit = !!(state.meta && (state.meta.canManage || (state.meta.user && state.meta.user.username === 'clicokynsub')));
+    }
+
+    async function loadTerritories() {
+      const data = await api(`/territories?month=${encodeURIComponent(monthDate())}`);
+      state.territories = data.territories || [];
+      populateTerritories();
+    }
+
+    async function loadTemplate() {
+      const territoryId = els.territorySelect.value;
+      if (!territoryId) {
+        setMessage('Select a territory.', 'error');
+        return;
+      }
+      setMessage('Loading...', '');
+      const data = await api(`/territories/${territoryId}/template?month=${encodeURIComponent(monthDate())}`);
+      state.territory = data.territory;
+      state.inspection = data.inspection;
+      state.rows = data.rows || [];
+      resetFilters();
+      fillInspection();
+      renderRows();
+      setCliName();
+      setMessage(data.existing ? 'Loaded saved inspection.' : 'Loaded template.', 'ok');
+    }
+
+    async function saveDraft() {
+      if (!els.territorySelect.value) {
+        setMessage('Select a territory.', 'error');
+        return null;
+      }
+      state.saving = true;
+      setMessage('Saving...', '');
+      try {
+        const data = await api('/inspections', {
+          method: 'PUT',
+          body: JSON.stringify(readInspectionPayload('DRAFT')),
+        });
+        state.inspection = data.inspection;
+        state.rows = data.rows || [];
+        fillInspection();
+        renderRows();
+        setMessage('Draft saved.', 'ok');
+        return data;
+      } finally {
+        state.saving = false;
+      }
+    }
+
+    async function submitInspection() {
+      const saved = await saveDraft();
+      if (!saved || !saved.inspection || !saved.inspection.id) return;
+      setMessage('Submitting...', '');
+      await api(`/inspections/${saved.inspection.id}/submit`, { method: 'POST', body: '{}' });
+      state.inspection.status = 'SUBMITTED';
+      updatePills();
+      setMessage('Submitted.', 'ok');
+    }
+
+    els.rowsBody.addEventListener('input', (event) => {
+      const tr = event.target.closest('tr[data-index]');
+      if (!tr || !event.target.dataset.field) return;
+      const row = state.rows[Number(tr.dataset.index)];
+      if (row) row[event.target.dataset.field] = event.target.value;
+    });
+
+    els.rowsBody.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-remove]');
+      if (!button) return;
+      const tr = button.closest('tr[data-index]');
+      if (!tr) return;
+      readRowsFromDom();
+      state.rows.splice(Number(tr.dataset.index), 1);
+      renderRows();
+    });
+
+    function applyFilters() {
+      readRowsFromDom();
+      renderRows();
+    }
+
+    els.signalSearch.addEventListener('input', () => {
+      state.filters.signal = els.signalSearch.value;
+      applyFilters();
+    });
+
+    els.dirFilter.addEventListener('click', (event) => {
+      const btn = event.target.closest('button[data-dir]');
+      if (!btn) return;
+      state.filters.direction = btn.dataset.dir;
+      for (const b of els.dirFilter.querySelectorAll('button')) {
+        b.classList.toggle('active', b === btn);
+      }
+      applyFilters();
+    });
+
+    els.printBtn.addEventListener('click', () => {
+      readRowsFromDom();
+      window.print();
+    });
+
+    els.monthInput.addEventListener('change', async () => {
+      try {
+        await loadTerritories();
+        state.inspection = null;
+        state.rows = [];
+        fillInspection();
+        renderRows();
+        setMessage('', '');
+      } catch (err) {
+        setMessage(err.message, 'error');
+      }
+    });
+
+    els.inspectionType.addEventListener('change', () => {
+      updateInspectionTypeVisual();
+      els.title.value = generatedTitle(els.inspectionType.value);
+    });
+    els.territorySelect.addEventListener('change', setCliName);
+    els.loadBtn.addEventListener('click', () => loadTemplate().catch((err) => setMessage(err.message, 'error')));
+    els.addRowBtn.addEventListener('click', addManualRow);
+    els.saveBtn.addEventListener('click', () => saveDraft().catch((err) => setMessage(err.message, 'error')));
+    els.submitBtn.addEventListener('click', () => submitInspection().catch((err) => setMessage(err.message, 'error')));
+
+    (async function init() {
+      els.monthInput.value = currentMonth();
+      try {
+        await loadMeta();
+        await loadTerritories();
+        updatePills();
+        if (!state.canEdit) setMessage('Read only access', '');
+      } catch (err) {
+        setMessage(err.message, 'error');
+      }
+    })();
+  </script>
+</body>
+</html>

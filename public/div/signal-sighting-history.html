@@ -1,0 +1,474 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Signal Sighting History</title>
+  <link rel="stylesheet" href="/div/css/division-main.css">
+  <style>
+    :root {
+      --bg: #eef2f7;
+      --panel: #ffffff;
+      --ink: #132033;
+      --muted: #64748b;
+      --line: #d9e1ec;
+      --soft: #f6f8fb;
+      --blue: #155eaa;
+      --green: #0f766e;
+      --amber: #a16207;
+      --red: #b42318;
+      --shadow: 0 10px 26px rgba(15, 23, 42, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--ink); font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    .page { min-height: 100vh; }
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 22px;
+      background: #fff;
+      border-bottom: 1px solid var(--line);
+    }
+    .topbar h1 { margin: 0; font-size: 20px; letter-spacing: 0; }
+    .actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .content { width: min(1520px, calc(100% - 28px)); margin: 14px auto 28px; }
+    .toolbar, .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+    .toolbar {
+      display: grid;
+      grid-template-columns: 150px minmax(220px, 1fr) 150px minmax(180px, 1fr) auto;
+      gap: 12px;
+      align-items: end;
+      padding: 14px;
+      margin-bottom: 14px;
+    }
+    label { display: grid; gap: 5px; color: #334155; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0; }
+    input, select {
+      width: 100%;
+      min-width: 0;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      padding: 9px 10px;
+      color: var(--ink);
+      background: #fff;
+      font: inherit;
+      font-size: 14px;
+    }
+    input:focus, select:focus { outline: 2px solid rgba(21, 94, 170, 0.18); border-color: var(--blue); }
+    .btn {
+      min-height: 38px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 8px 12px;
+      background: #fff;
+      color: var(--ink);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      font-weight: 800;
+      text-decoration: none;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .btn.primary { background: var(--blue); border-color: var(--blue); color: #fff; }
+    .status-line { display: flex; justify-content: space-between; gap: 12px; align-items: center; margin: 0 2px 12px; color: var(--muted); font-size: 13px; }
+    .pill { display: inline-flex; align-items: center; gap: 6px; min-height: 26px; border: 1px solid var(--line); border-radius: 999px; padding: 4px 9px; background: #fff; color: #334155; font-size: 12px; font-weight: 800; }
+    .pill.green { color: var(--green); background: #ecfdf5; border-color: #a7f3d0; }
+    .pill.amber { color: var(--amber); background: #fffbeb; border-color: #fde68a; }
+    .pill.red { color: var(--red); background: #fff1f2; border-color: #fecdd3; }
+    .layout { display: grid; grid-template-columns: minmax(360px, 0.9fr) minmax(620px, 1.6fr); gap: 14px; align-items: start; }
+    .panel { overflow: hidden; }
+    .panel-head { padding: 12px 14px; border-bottom: 1px solid var(--line); background: #fafcff; display: flex; justify-content: space-between; gap: 10px; align-items: center; }
+    .panel-title { font-size: 15px; font-weight: 900; }
+    .list { max-height: calc(100vh - 250px); overflow: auto; }
+    .inspection-row {
+      width: 100%;
+      border: 0;
+      border-bottom: 1px solid #edf1f6;
+      background: #fff;
+      padding: 11px 13px;
+      display: grid;
+      gap: 6px;
+      text-align: left;
+      color: var(--ink);
+      cursor: pointer;
+    }
+    .inspection-row:hover, .inspection-row.selected { background: #eef6ff; }
+    .inspection-main { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+    .inspection-title { font-size: 14px; font-weight: 900; line-height: 1.25; }
+    .inspection-meta { color: var(--muted); font-size: 12px; }
+    .summary { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; padding: 12px 14px; border-bottom: 1px solid var(--line); background: #fff; }
+    .summary-box { border: 1px solid #e6edf5; border-radius: 6px; background: var(--soft); padding: 8px; min-width: 0; }
+    .summary-label { color: var(--muted); font-size: 11px; font-weight: 900; text-transform: uppercase; }
+    .summary-value { margin-top: 3px; font-size: 18px; font-weight: 900; }
+    .compare-head { padding: 12px 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; border-bottom: 1px solid var(--line); }
+    .compare-card { border: 1px solid #e6edf5; background: var(--soft); border-radius: 6px; padding: 9px; }
+    .compare-label { color: var(--muted); font-size: 11px; font-weight: 900; text-transform: uppercase; }
+    .compare-value { margin-top: 3px; font-size: 14px; font-weight: 900; }
+    .table-wrap { overflow: auto; max-height: calc(100vh - 430px); min-height: 300px; }
+    table { width: 100%; min-width: 1260px; border-collapse: separate; border-spacing: 0; table-layout: fixed; font-size: 13px; }
+    th, td { border-bottom: 1px solid #e5eaf1; border-right: 1px solid #edf1f6; padding: 8px; vertical-align: top; background: #fff; }
+    th { position: sticky; top: 0; z-index: 5; background: #f8fafc; color: #475569; font-size: 12px; font-weight: 900; text-align: left; text-transform: uppercase; }
+    .delta-pos { color: var(--green); font-weight: 900; }
+    .delta-neg { color: var(--red); font-weight: 900; }
+    .delta-zero { color: var(--muted); font-weight: 900; }
+    .empty { padding: 30px 14px; color: var(--muted); text-align: center; background: #fff; }
+    .message { min-height: 18px; color: var(--muted); font-size: 13px; }
+    .message.error { color: var(--red); }
+
+    @media (max-width: 1200px) {
+      .toolbar { grid-template-columns: repeat(2, minmax(160px, 1fr)); }
+      .layout { grid-template-columns: 1fr; }
+      .summary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .table-wrap { max-height: none; }
+    }
+    @media (max-width: 680px) {
+      .topbar { align-items: flex-start; flex-direction: column; padding: 12px; }
+      .content { width: calc(100% - 16px); margin-top: 8px; }
+      .toolbar, .compare-head, .summary { grid-template-columns: 1fr; }
+      .actions, .btn { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header class="topbar">
+      <h1>Signal Sighting History</h1>
+      <div class="actions">
+        <a class="btn" href="/div/index.html">Dashboard</a>
+        <a class="btn" href="/div/cli-territory-nomination.html">Nominations</a>
+        <a class="btn" href="/div/signal-sighting.html">Sighting</a>
+      </div>
+    </header>
+
+    <main class="content">
+      <section class="toolbar">
+        <label>
+          Month
+          <input id="month" type="month">
+        </label>
+        <label>
+          Territory
+          <select id="territory"><option value="">All territories</option></select>
+        </label>
+        <label>
+          Status
+          <select id="status">
+            <option value="">All</option>
+            <option value="DRAFT">Draft</option>
+            <option value="SUBMITTED">Submitted</option>
+            <option value="REOPENED">Reopened</option>
+          </select>
+        </label>
+        <label>
+          Search
+          <input id="search" type="search" placeholder="CLI, territory, signal">
+        </label>
+        <button id="refreshBtn" class="btn primary" type="button">Refresh</button>
+      </section>
+
+      <div class="status-line">
+        <div class="actions">
+          <span id="countPill" class="pill">0 inspections</span>
+          <span id="comparePill" class="pill amber">No comparison</span>
+        </div>
+        <div id="message" class="message"></div>
+      </div>
+
+      <section class="layout">
+        <div class="panel">
+          <div class="panel-head">
+            <div class="panel-title">Inspection Records</div>
+          </div>
+          <div id="inspectionList" class="list">
+            <div class="empty">Loading...</div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <div class="panel-title">Latest vs Previous Available</div>
+            <a id="openInspectionLink" class="btn" href="/div/signal-sighting.html">Open</a>
+          </div>
+          <div id="compareHead" class="compare-head">
+            <div class="compare-card">
+              <div class="compare-label">Latest</div>
+              <div class="compare-value">Select an inspection</div>
+            </div>
+            <div class="compare-card">
+              <div class="compare-label">Previous</div>
+              <div class="compare-value">-</div>
+            </div>
+          </div>
+          <div id="summary" class="summary"></div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width:120px;">Signal</th>
+                  <th style="width:150px;">Location</th>
+                  <th style="width:86px;">Latest</th>
+                  <th style="width:86px;">Previous</th>
+                  <th style="width:80px;">Delta</th>
+                  <th style="width:210px;">Latest Remarks</th>
+                  <th style="width:210px;">Previous Remarks</th>
+                  <th style="width:170px;">Remedial Action</th>
+                  <th style="width:120px;">Action</th>
+                  <th style="width:98px;">Risk</th>
+                </tr>
+              </thead>
+              <tbody id="comparisonBody">
+                <tr><td class="empty" colspan="10">Select an inspection.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const state = {
+      territories: [],
+      inspections: [],
+      selectedInspectionId: null,
+      comparison: null,
+    };
+
+    const els = {
+      month: document.getElementById('month'),
+      territory: document.getElementById('territory'),
+      status: document.getElementById('status'),
+      search: document.getElementById('search'),
+      refreshBtn: document.getElementById('refreshBtn'),
+      countPill: document.getElementById('countPill'),
+      comparePill: document.getElementById('comparePill'),
+      message: document.getElementById('message'),
+      inspectionList: document.getElementById('inspectionList'),
+      compareHead: document.getElementById('compareHead'),
+      summary: document.getElementById('summary'),
+      comparisonBody: document.getElementById('comparisonBody'),
+      openInspectionLink: document.getElementById('openInspectionLink'),
+    };
+
+    function currentMonth() {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    }
+
+    function monthDate() {
+      return `${els.month.value || currentMonth()}-01`;
+    }
+
+    function api(path) {
+      return fetch(`/api/division/signal-sighting${path}`, { credentials: 'same-origin' }).then(async (res) => {
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || `Request failed: ${res.status}`);
+        return data;
+      });
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+    }
+
+    function formatMonth(value) {
+      return value ? String(value).slice(0, 7) : '-';
+    }
+
+    function setMessage(text, kind) {
+      els.message.textContent = text || '';
+      els.message.className = `message ${kind || ''}`;
+    }
+
+    async function loadTerritories() {
+      const data = await api(`/territories?month=${encodeURIComponent(monthDate())}`);
+      const prior = els.territory.value;
+      state.territories = data.territories || [];
+      els.territory.innerHTML = '<option value="">All territories</option>' + state.territories
+        .map((t) => `<option value="${t.id}">${escapeHtml(t.territory_name)}</option>`)
+        .join('');
+      if (prior && state.territories.some((t) => String(t.id) === prior)) els.territory.value = prior;
+    }
+
+    async function loadHistory() {
+      setMessage('Loading...', '');
+      const params = new URLSearchParams();
+      params.set('month', monthDate());
+      if (els.territory.value) params.set('territory_id', els.territory.value);
+      if (els.status.value) params.set('status', els.status.value);
+      const data = await api(`/history?${params.toString()}`);
+      state.inspections = data.inspections || [];
+      renderList();
+      setMessage('', '');
+      if (state.inspections.length) {
+        await selectInspection(state.inspections[0].id);
+      } else {
+        clearComparison();
+      }
+    }
+
+    function filteredInspections() {
+      const q = els.search.value.trim().toLowerCase();
+      if (!q) return state.inspections;
+      return state.inspections.filter((row) => {
+        const haystack = `${row.territory_name} ${row.cli_name || ''} ${row.status} ${row.title || ''}`.toLowerCase();
+        return haystack.includes(q);
+      });
+    }
+
+    function renderList() {
+      const rows = filteredInspections();
+      els.countPill.textContent = `${rows.length} inspections`;
+      if (!rows.length) {
+        els.inspectionList.innerHTML = '<div class="empty">No inspections found.</div>';
+        return;
+      }
+      els.inspectionList.innerHTML = rows.map((row) => `
+        <button class="inspection-row ${Number(row.id) === Number(state.selectedInspectionId) ? 'selected' : ''}" type="button" data-id="${row.id}">
+          <span class="inspection-main">
+            <span class="inspection-title">${escapeHtml(row.territory_name)}</span>
+            <span class="pill ${row.status === 'SUBMITTED' ? 'green' : 'amber'}">${escapeHtml(row.status)}</span>
+          </span>
+          <span class="inspection-meta">${formatMonth(row.inspection_month)} · ${escapeHtml(row.cli_name || '-')} · ${Number(row.row_count || 0)} rows</span>
+          <span class="inspection-meta">${escapeHtml(row.title || '')}</span>
+        </button>
+      `).join('');
+    }
+
+    async function selectInspection(id) {
+      state.selectedInspectionId = Number(id);
+      renderList();
+      const data = await api(`/history/${id}/comparison`);
+      state.comparison = data;
+      renderComparison();
+    }
+
+    function clearComparison() {
+      state.selectedInspectionId = null;
+      state.comparison = null;
+      els.comparePill.textContent = 'No comparison';
+      els.comparePill.className = 'pill amber';
+      els.compareHead.innerHTML = `
+        <div class="compare-card"><div class="compare-label">Latest</div><div class="compare-value">No inspection selected</div></div>
+        <div class="compare-card"><div class="compare-label">Previous</div><div class="compare-value">-</div></div>
+      `;
+      els.summary.innerHTML = '';
+      els.comparisonBody.innerHTML = '<tr><td class="empty" colspan="10">No inspection selected.</td></tr>';
+      els.openInspectionLink.href = '/div/signal-sighting.html';
+    }
+
+    function renderComparison() {
+      const data = state.comparison;
+      if (!data) return clearComparison();
+      const current = data.current || {};
+      const previous = data.previous || null;
+      const summary = data.summary || {};
+      els.openInspectionLink.href = `/div/signal-sighting.html?territory=${current.territory_id}&month=${formatMonth(current.inspection_month)}`;
+      els.comparePill.textContent = previous ? `${formatMonth(current.inspection_month)} vs ${formatMonth(previous.inspection_month)}` : 'No previous inspection';
+      els.comparePill.className = `pill ${previous ? 'green' : 'amber'}`;
+      els.compareHead.innerHTML = `
+        <div class="compare-card">
+          <div class="compare-label">Latest</div>
+          <div class="compare-value">${escapeHtml(current.territory_name || '-')}</div>
+          <div class="inspection-meta">${formatMonth(current.inspection_month)} · ${escapeHtml(current.cli_name || '-')} · ${escapeHtml(current.status || '-')}</div>
+        </div>
+        <div class="compare-card">
+          <div class="compare-label">Previous Available</div>
+          <div class="compare-value">${previous ? escapeHtml(previous.territory_name || '-') : 'No previous record'}</div>
+          <div class="inspection-meta">${previous ? `${formatMonth(previous.inspection_month)} · ${escapeHtml(previous.cli_name || '-')} · ${escapeHtml(previous.status || '-')}` : '-'}</div>
+        </div>
+      `;
+      els.summary.innerHTML = [
+        ['Total', summary.total || 0, ''],
+        ['Improved', summary.improved || 0, 'green'],
+        ['Reduced', summary.reduced || 0, 'red'],
+        ['Unchanged', summary.unchanged || 0, ''],
+        ['New', summary.new || 0, 'amber'],
+        ['Pending', summary.pendingAction || 0, 'amber'],
+      ].map(([label, value, tone]) => `
+        <div class="summary-box">
+          <div class="summary-label">${label}</div>
+          <div class="summary-value ${tone ? `delta-${tone === 'red' ? 'neg' : tone === 'green' ? 'pos' : 'zero'}` : ''}">${value}</div>
+        </div>
+      `).join('');
+      const q = els.search.value.trim().toLowerCase();
+      const rows = (data.rows || []).filter((row) => {
+        if (!q) return true;
+        return `${row.signal_number} ${row.location_text || ''} ${row.latest_remarks || ''} ${row.previous_remarks || ''}`.toLowerCase().includes(q);
+      });
+      if (!rows.length) {
+        els.comparisonBody.innerHTML = '<tr><td class="empty" colspan="10">No comparison rows matched.</td></tr>';
+        return;
+      }
+      els.comparisonBody.innerHTML = rows.map((row) => {
+        const delta = row.visibility_delta_m;
+        const deltaClass = delta > 0 ? 'delta-pos' : delta < 0 ? 'delta-neg' : 'delta-zero';
+        const deltaText = delta === null || delta === undefined ? '-' : (delta > 0 ? `+${delta}` : String(delta));
+        return `
+          <tr>
+            <td>${escapeHtml(row.signal_number)}</td>
+            <td>${escapeHtml(row.location_text || '')}</td>
+            <td>${row.latest_visibility_distance_m ?? '-'}</td>
+            <td>${row.previous_visibility_distance_m ?? '-'}</td>
+            <td class="${deltaClass}">${deltaText}</td>
+            <td>${escapeHtml(row.latest_remarks || '')}</td>
+            <td>${escapeHtml(row.previous_remarks || '')}</td>
+            <td>${escapeHtml(row.remedial_action || '')}</td>
+            <td><span class="pill">${escapeHtml(row.action_status || '')}</span></td>
+            <td><span class="pill ${row.risk_level === 'CRITICAL' || row.risk_level === 'ATTENTION' ? 'red' : ''}">${escapeHtml(row.risk_level || '')}</span></td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    els.inspectionList.addEventListener('click', (event) => {
+      const row = event.target.closest('[data-id]');
+      if (!row) return;
+      selectInspection(row.dataset.id).catch((err) => setMessage(err.message, 'error'));
+    });
+    els.search.addEventListener('input', () => {
+      renderList();
+      renderComparison();
+    });
+    els.refreshBtn.addEventListener('click', () => loadHistory().catch((err) => setMessage(err.message, 'error')));
+    els.territory.addEventListener('change', () => loadHistory().catch((err) => setMessage(err.message, 'error')));
+    els.status.addEventListener('change', () => loadHistory().catch((err) => setMessage(err.message, 'error')));
+    els.month.addEventListener('change', async () => {
+      try {
+        await loadTerritories();
+        await loadHistory();
+      } catch (err) {
+        setMessage(err.message, 'error');
+      }
+    });
+
+    (async function init() {
+      els.month.value = currentMonth();
+      try {
+        await loadTerritories();
+        await loadHistory();
+      } catch (err) {
+        setMessage(err.message, 'error');
+        els.inspectionList.innerHTML = `<div class="empty">${escapeHtml(err.message)}</div>`;
+      }
+    })();
+  </script>
+</body>
+</html>

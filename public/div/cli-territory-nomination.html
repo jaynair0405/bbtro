@@ -1,0 +1,644 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>CLI Territory Nomination</title>
+  <link rel="stylesheet" href="/div/css/division-main.css">
+  <style>
+    :root {
+      --bg: #eef2f7;
+      --panel: #ffffff;
+      --ink: #132033;
+      --muted: #64748b;
+      --line: #d9e1ec;
+      --soft: #f6f8fb;
+      --blue: #155eaa;
+      --green: #0f766e;
+      --amber: #a16207;
+      --red: #b42318;
+      --shadow: 0 10px 26px rgba(15, 23, 42, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--ink); font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    .page { min-height: 100vh; }
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 22px;
+      background: #fff;
+      border-bottom: 1px solid var(--line);
+    }
+    .topbar h1 { margin: 0; font-size: 20px; letter-spacing: 0; }
+    .actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .content { width: min(1380px, calc(100% - 28px)); margin: 14px auto 28px; }
+    .toolbar, .board, .modal-panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+    .toolbar {
+      display: grid;
+      grid-template-columns: 170px minmax(220px, 1fr) 170px auto;
+      gap: 12px;
+      align-items: end;
+      padding: 14px;
+      margin-bottom: 14px;
+    }
+    label { display: grid; gap: 5px; color: #334155; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0; }
+    input, select, textarea {
+      width: 100%;
+      min-width: 0;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      padding: 9px 10px;
+      color: var(--ink);
+      background: #fff;
+      font: inherit;
+      font-size: 14px;
+    }
+    textarea { resize: vertical; min-height: 74px; }
+    input:focus, select:focus, textarea:focus { outline: 2px solid rgba(21, 94, 170, 0.18); border-color: var(--blue); }
+    .btn {
+      min-height: 38px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 8px 12px;
+      background: #fff;
+      color: var(--ink);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      font-weight: 800;
+      text-decoration: none;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .btn.primary { background: var(--blue); border-color: var(--blue); color: #fff; }
+    .btn.success { background: var(--green); border-color: var(--green); color: #fff; }
+    .btn:disabled { opacity: 0.52; cursor: not-allowed; }
+    .status-line { display: flex; justify-content: space-between; gap: 12px; align-items: center; margin: 0 2px 12px; color: var(--muted); font-size: 13px; }
+    .pill { display: inline-flex; align-items: center; gap: 6px; min-height: 26px; border: 1px solid var(--line); border-radius: 999px; padding: 4px 9px; background: #fff; color: #334155; font-size: 12px; font-weight: 800; }
+    .pill.green { color: var(--green); background: #ecfdf5; border-color: #a7f3d0; }
+    .pill.amber { color: var(--amber); background: #fffbeb; border-color: #fde68a; }
+    .board { padding: 14px; }
+    .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+    .territory-card {
+      border: 1px solid var(--line);
+      border-left: 5px solid #cbd5e1;
+      border-radius: 8px;
+      background: #fff;
+      padding: 13px;
+      min-height: 190px;
+      display: grid;
+      gap: 10px;
+      align-content: start;
+    }
+    .territory-card:nth-child(6n + 1) { border-left-color: #155eaa; background: linear-gradient(180deg, #ffffff, #f7fbff); }
+    .territory-card:nth-child(6n + 2) { border-left-color: #0f766e; background: linear-gradient(180deg, #ffffff, #f6fdfb); }
+    .territory-card:nth-child(6n + 3) { border-left-color: #a16207; background: linear-gradient(180deg, #ffffff, #fffaf0); }
+    .territory-card:nth-child(6n + 4) { border-left-color: #7c3aed; background: linear-gradient(180deg, #ffffff, #fbf8ff); }
+    .territory-card:nth-child(6n + 5) { border-left-color: #be123c; background: linear-gradient(180deg, #ffffff, #fff7f9); }
+    .territory-card:nth-child(6n + 6) { border-left-color: #0369a1; background: linear-gradient(180deg, #ffffff, #f5fbff); }
+    .card-code { color: var(--muted); font-size: 11px; font-weight: 900; text-transform: uppercase; }
+    .territory-card h2 { margin: 0; font-size: 16px; line-height: 1.25; letter-spacing: 0; }
+    .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .meta-box { background: var(--soft); border: 1px solid #e6edf5; border-radius: 6px; padding: 8px; min-width: 0; }
+    .meta-label { color: var(--muted); font-size: 11px; font-weight: 800; text-transform: uppercase; }
+    .meta-value { margin-top: 3px; font-size: 13px; font-weight: 800; overflow-wrap: anywhere; }
+    .empty { padding: 32px 12px; color: var(--muted); text-align: center; }
+    .modal {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      background: rgba(15, 23, 42, 0.45);
+      z-index: 100;
+    }
+    .modal.show { display: flex; }
+    .modal-panel { width: min(760px, 100%); max-height: calc(100vh - 32px); overflow: hidden; display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto; }
+    .modal-head, .modal-foot { padding: 13px 14px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; gap: 12px; align-items: center; }
+    .modal-foot { border-top: 1px solid var(--line); border-bottom: 0; }
+    .modal-head h2 { margin: 0; font-size: 17px; }
+    .modal-body { padding: 14px; overflow: auto; display: grid; gap: 12px; }
+    .cli-list { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; max-height: 300px; overflow-y: auto; }
+    .cli-row {
+      width: 100%;
+      border: 0;
+      border-bottom: 1px solid #edf1f6;
+      background: #fff;
+      padding: 10px 12px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      text-align: left;
+      cursor: pointer;
+      color: var(--ink);
+    }
+    .cli-row:hover, .cli-row.selected { background: #eef6ff; }
+    .cli-name { font-weight: 900; }
+    .cli-detail { color: var(--muted); font-size: 12px; margin-top: 2px; }
+    .message { min-height: 18px; color: var(--muted); font-size: 13px; }
+    .message.error { color: var(--red); }
+    .message.ok { color: var(--green); }
+
+    @media (max-width: 1100px) {
+      .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .toolbar { grid-template-columns: repeat(2, minmax(160px, 1fr)); }
+    }
+    @media (max-width: 680px) {
+      .topbar { align-items: flex-start; flex-direction: column; padding: 12px; }
+      .content { width: calc(100% - 16px); margin-top: 8px; }
+      .toolbar { grid-template-columns: 1fr; }
+      .grid { grid-template-columns: 1fr; }
+      .actions, .btn { width: 100%; }
+      .meta-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header class="topbar">
+      <h1>CLI Territory Nomination</h1>
+      <div class="actions">
+        <a class="btn" href="/div/index.html">Dashboard</a>
+        <a class="btn" href="/div/signal-sighting-history.html">History</a>
+        <a class="btn" href="/div/signal-sighting.html">Sighting</a>
+      </div>
+    </header>
+
+    <main class="content">
+      <section class="toolbar">
+        <label>
+          Effective Date
+          <input id="month" type="date">
+        </label>
+        <label>
+          Search
+          <input id="search" type="search" placeholder="Territory or CLI">
+        </label>
+        <label>
+          Office
+          <select id="officeFilter"><option value="">All offices</option></select>
+        </label>
+        <div class="actions">
+          <button id="refreshBtn" class="btn primary" type="button">Refresh</button>
+          <button id="printBtn" class="btn" type="button">Print / PDF</button>
+          <button id="excelBtn" class="btn" type="button">Excel</button>
+        </div>
+      </section>
+
+      <div class="status-line">
+        <div class="actions">
+          <span id="editPill" class="pill amber">Checking access</span>
+          <span id="countPill" class="pill">0 territories</span>
+        </div>
+        <div id="message" class="message"></div>
+      </div>
+
+      <section class="board">
+        <div id="grid" class="grid">
+          <div class="empty">Loading...</div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div id="modal" class="modal" role="dialog" aria-modal="true">
+    <div class="modal-panel">
+      <div class="modal-head">
+        <h2 id="modalTitle">Reassign Territory</h2>
+        <button id="closeModalBtn" class="btn" type="button">Close</button>
+      </div>
+      <div class="modal-body">
+        <label>
+          CLI
+          <input id="cliSearch" type="search" placeholder="Name, CMS ID, mobile, or office">
+        </label>
+        <div id="cliList" class="cli-list"></div>
+        <div class="meta-grid">
+          <label>
+            Effective From
+            <input id="effectiveFrom" type="date">
+          </label>
+          <label>
+            Effective To
+            <input id="effectiveTo" type="date">
+          </label>
+        </div>
+        <label>
+          Remarks
+          <textarea id="remarks"></textarea>
+        </label>
+      </div>
+      <div class="modal-foot">
+        <div id="selectedCliText" class="message">No CLI selected</div>
+        <button id="saveAssignmentBtn" class="btn success" type="button">Save Assignment</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const state = {
+      meta: null,
+      territories: [],
+      clis: [],
+      selectedTerritory: null,
+      selectedCli: null,
+      canEdit: false,
+    };
+
+    const els = {
+      month: document.getElementById('month'),
+      search: document.getElementById('search'),
+      officeFilter: document.getElementById('officeFilter'),
+      refreshBtn: document.getElementById('refreshBtn'),
+      printBtn: document.getElementById('printBtn'),
+      excelBtn: document.getElementById('excelBtn'),
+      editPill: document.getElementById('editPill'),
+      countPill: document.getElementById('countPill'),
+      message: document.getElementById('message'),
+      grid: document.getElementById('grid'),
+      modal: document.getElementById('modal'),
+      modalTitle: document.getElementById('modalTitle'),
+      closeModalBtn: document.getElementById('closeModalBtn'),
+      cliSearch: document.getElementById('cliSearch'),
+      cliList: document.getElementById('cliList'),
+      effectiveFrom: document.getElementById('effectiveFrom'),
+      effectiveTo: document.getElementById('effectiveTo'),
+      remarks: document.getElementById('remarks'),
+      selectedCliText: document.getElementById('selectedCliText'),
+      saveAssignmentBtn: document.getElementById('saveAssignmentBtn'),
+    };
+
+    function today() {
+      return new Date().toISOString().slice(0, 10);
+    }
+
+    function api(path, options = {}) {
+      return fetch(`/api/division/signal-sighting${path}`, {
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+        ...options,
+      }).then(async (res) => {
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || `Request failed: ${res.status}`);
+        return data;
+      });
+    }
+
+    function setMessage(text, kind) {
+      els.message.textContent = text || '';
+      els.message.className = `message ${kind || ''}`;
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+    }
+
+    async function loadMetaAndClis() {
+      const [meta, clis] = await Promise.all([api('/meta'), api('/clis')]);
+      state.meta = meta;
+      state.canEdit = !!(meta.canManage || (meta.user && meta.user.username === 'clicokynsub'));
+      state.clis = clis.clis || [];
+      els.editPill.textContent = state.canEdit ? 'Edit enabled' : 'Read only';
+      els.editPill.className = `pill ${state.canEdit ? 'green' : 'amber'}`;
+      const offices = [...new Set(state.clis.map((c) => c.current_office_code).filter(Boolean))].sort();
+      els.officeFilter.innerHTML = '<option value="">All offices</option>' + offices.map((o) => `<option value="${escapeHtml(o)}">${escapeHtml(o)}</option>`).join('');
+    }
+
+    async function loadTerritories() {
+      setMessage('Loading...', '');
+      const effectiveOn = els.month.value || today();
+      const data = await api(`/territories?effective_on=${encodeURIComponent(effectiveOn)}`);
+      state.territories = data.territories || [];
+      renderTerritories();
+      setMessage('', '');
+    }
+
+    function renderTerritories() {
+      const rows = filteredTerritories();
+      els.countPill.textContent = `${rows.length} territories`;
+      if (!rows.length) {
+        els.grid.innerHTML = '<div class="empty">No territories matched.</div>';
+        return;
+      }
+      els.grid.innerHTML = rows.map((t) => `
+        <article class="territory-card">
+          <div>
+            <div class="card-code">${escapeHtml(t.territory_code)}</div>
+            <h2>${escapeHtml(t.territory_name)}</h2>
+          </div>
+          <div class="meta-grid">
+            <div class="meta-box">
+              <div class="meta-label">Current CLI</div>
+              <div class="meta-value">${escapeHtml(t.cli_name || 'Unassigned')}</div>
+            </div>
+            <div class="meta-box">
+              <div class="meta-label">Mobile</div>
+              <div class="meta-value">${escapeHtml(t.cli_mobile || '-')}</div>
+            </div>
+            <div class="meta-box">
+              <div class="meta-label">Parts</div>
+              <div class="meta-value">${Number(t.part_count || 0)}</div>
+            </div>
+            <div class="meta-box">
+              <div class="meta-label">Inspections</div>
+              <div class="meta-value">${Number(t.inspection_count || 0)}</div>
+            </div>
+          </div>
+          <div class="actions">
+            <button class="btn primary" type="button" ${state.canEdit ? '' : 'disabled'} data-edit="${t.id}">Reassign</button>
+            <a class="btn" href="/div/signal-sighting.html?territory=${t.id}">Open Sighting</a>
+          </div>
+        </article>
+      `).join('');
+    }
+
+    function filteredTerritories() {
+      const query = els.search.value.trim().toLowerCase();
+      const office = els.officeFilter.value;
+      return state.territories.filter((t) => {
+        const haystack = `${t.territory_name} ${t.territory_code} ${t.cli_name || ''}`.toLowerCase();
+        if (query && !haystack.includes(query)) return false;
+        if (office && t.current_office_code !== office) return false;
+        return true;
+      });
+    }
+
+    function renderCliList() {
+      const query = els.cliSearch.value.trim().toLowerCase();
+      const rows = state.clis.filter((cli) => {
+        const haystack = `${cli.cli_name} ${cli.cmsid || ''} ${cli.cli_mobile || ''} ${cli.current_office_code || ''}`.toLowerCase();
+        return !query || haystack.includes(query);
+      }).slice(0, 80);
+      if (!rows.length) {
+        els.cliList.innerHTML = '<div class="empty">No CLI matched.</div>';
+        return;
+      }
+      els.cliList.innerHTML = rows.map((cli) => `
+        <button class="cli-row ${state.selectedCli && state.selectedCli.cli_id === cli.cli_id ? 'selected' : ''}" type="button" data-cli="${cli.cli_id}">
+          <span>
+            <span class="cli-name">${escapeHtml(cli.cli_name)}</span>
+            <span class="cli-detail">${escapeHtml(cli.cmsid || '-')} · ${escapeHtml(cli.cli_mobile || '-')}</span>
+          </span>
+          <span class="pill">${escapeHtml(cli.current_office_code || '-')}</span>
+        </button>
+      `).join('');
+    }
+
+    function openModal(territoryId) {
+      const territory = state.territories.find((t) => Number(t.id) === Number(territoryId));
+      if (!territory) return;
+      state.selectedTerritory = territory;
+      state.selectedCli = state.clis.find((cli) => Number(cli.cli_id) === Number(territory.cli_id)) || null;
+      els.modalTitle.textContent = territory.territory_name;
+      els.effectiveFrom.value = today();
+      els.effectiveTo.value = '';
+      els.remarks.value = '';
+      els.cliSearch.value = '';
+      updateSelectedCliText();
+      renderCliList();
+      els.modal.classList.add('show');
+      setTimeout(() => els.cliSearch.focus(), 0);
+    }
+
+    function closeModal() {
+      els.modal.classList.remove('show');
+      state.selectedTerritory = null;
+      state.selectedCli = null;
+    }
+
+    function updateSelectedCliText() {
+      els.selectedCliText.textContent = state.selectedCli
+        ? `${state.selectedCli.cli_name} · ${state.selectedCli.current_office_code || '-'}`
+        : 'No CLI selected';
+      els.saveAssignmentBtn.disabled = !state.canEdit || !state.selectedCli;
+    }
+
+    async function saveAssignment() {
+      if (!state.selectedTerritory || !state.selectedCli) return;
+      const effectiveFrom = els.effectiveFrom.value || today();
+      await api(`/territories/${state.selectedTerritory.id}/assignment`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          cli_id: state.selectedCli.cli_id,
+          effective_from: effectiveFrom,
+          effective_to: els.effectiveTo.value || null,
+          remarks: els.remarks.value,
+        }),
+      });
+      els.month.value = effectiveFrom;
+      closeModal();
+      await loadTerritories();
+      setMessage('Assignment saved.', 'ok');
+    }
+
+    function formatDate(value) {
+      if (!value) return '-';
+      const d = new Date(`${value}T00:00:00`);
+      return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    }
+
+    function exportRows() {
+      return filteredTerritories().map((t, index) => ({
+        sr: index + 1,
+        territory: t.territory_name || '',
+        code: t.territory_code || '',
+        line: t.line_label || 'DN/UP',
+        cli: t.cli_name || '',
+        mobile: t.cli_mobile || '',
+      }));
+    }
+
+    function generateLetterHtml() {
+      const rows = exportRows();
+      const letterDate = formatDate(els.month.value || today());
+      const tableRows = rows.map((row) => `
+        <tr>
+          <td style="text-align:center;">${row.sr}</td>
+          <td>${escapeHtml(row.territory)}</td>
+          <td>${escapeHtml(row.line || 'DN/UP')}</td>
+          <td>${escapeHtml(row.cli || '-')}</td>
+          <td>${escapeHtml(row.mobile || '-')}</td>
+        </tr>
+      `).join('');
+
+      return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Signal Inspection CLI Nomination</title>
+  <style>
+    @page { size: A4; margin: 12mm; }
+    * { box-sizing: border-box; }
+    body { font-family: "Times New Roman", Times, serif; font-size: 11pt; color: #000; margin: 0; background: #fff; }
+    .print-actions { position: fixed; top: 10px; right: 10px; display: flex; gap: 8px; z-index: 10; }
+    .print-actions button { border: 0; border-radius: 6px; padding: 9px 14px; cursor: pointer; font: 13px Arial, sans-serif; }
+    .btn-print { background: #0b5fad; color: #fff; }
+    .btn-close { background: #e5e7eb; color: #111827; }
+    .letter-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid #000; padding-bottom: 10px; margin-bottom: 12px; }
+    .header-left, .header-right { flex: 1; }
+    .header-right { text-align: right; }
+    .header-center { flex: 0 0 auto; text-align: center; padding: 0 15px; }
+    .logo { height: 50px; width: auto; }
+    .railway-name { font-size: 14pt; font-weight: bold; }
+    .division-name, .railway-name-en { font-size: 12pt; font-weight: bold; }
+    .railway-address { font-size: 11pt; }
+    .letter-meta { display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 11pt; }
+    .addressee, .subject, .content, .note { margin-bottom: 10px; }
+    .subject { font-weight: bold; }
+    table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 9pt; }
+    thead { display: table-header-group; }
+    tr { page-break-inside: avoid; }
+    th, td { border: 1px solid #000; padding: 4px 5px; vertical-align: top; text-align: left; }
+    th { background: #f0f0f0; text-align: center; font-weight: bold; font-size: 8pt; }
+    .muted { color: #555; font-size: 8pt; }
+    .footer-section { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 28px; page-break-inside: avoid; }
+    .cc-section { font-size: 10pt; line-height: 1.7; }
+    .signature { text-align: right; min-width: 240px; }
+    .signature::before { content: ""; display: block; height: 48px; }
+    .designation-hindi, .designation-en { font-weight: bold; }
+    @media print { .print-actions { display: none; } }
+  </style>
+</head>
+<body>
+  <div class="print-actions">
+    <button class="btn-print" onclick="window.print()">Print / Save PDF</button>
+    <button class="btn-close" onclick="window.close()">Close</button>
+  </div>
+  <div class="letter-header">
+    <div class="header-left">
+      <div class="railway-name">मध्य रेल</div>
+      <div class="division-name">मुंबई मंडल</div>
+    </div>
+    <div class="header-center">
+      <img src="/img/railway-logo.png" alt="Indian Railways" class="logo" onerror="this.style.display='none'">
+    </div>
+    <div class="header-right">
+      <div class="railway-name-en">Central Railway</div>
+      <div class="division-name">Mumbai Division</div>
+      <div class="railway-address">Mumbai 400001.</div>
+    </div>
+  </div>
+  <div class="letter-meta">
+    <div><strong>No.</strong> BB/TRSO/SAFE/07</div>
+    <div><strong>Date:</strong> ${letterDate}</div>
+  </div>
+  <div class="addressee">
+    To,<br>
+    All CLI<br>
+    Mumbai Division
+  </div>
+  <div class="subject">Sub: Signal Inspection in Mumbai Division.</div>
+  <div class="content">
+    In connection with above subject CLI/BB is being nominated for signal inspection in Mumbai division with immediate effect.
+    The following CLIs have been nominated for mentioned sections to carry out signal inspection along with TI/SSE(S&amp;T). Details given below:
+  </div>
+  <div class="subject" style="text-align:center;">LIST OF CLIs NOMINATED FOR SIGNAL INSPECTION</div>
+  <table>
+    <thead>
+      <tr>
+        <th style="width:32px;">SN</th>
+        <th>Section</th>
+        <th style="width:95px;">Line</th>
+        <th style="width:160px;">Nominated CLI</th>
+        <th style="width:95px;">Mobile</th>
+      </tr>
+    </thead>
+    <tbody>${tableRows || '<tr><td colspan="5" style="text-align:center;">No records</td></tr>'}</tbody>
+  </table>
+  <div class="note">
+    <strong>Note:</strong> Above mentioned CLI will submit jointly quarterly signal inspection report with SSE/Signal and TI in 1st week of every quarter i.e. JAN, APR, JULY, and OCT.
+  </div>
+  <div class="footer-section">
+    <div class="cc-section">
+      C/ Sr.DOM(Co)/BB<br>
+      C/ Sr.DSTE(Co)/BB<br>
+      C/Sr.DSO/BB
+    </div>
+    <div class="signature">
+      <div class="designation-hindi">Sr. DEE (TRO) BB</div>
+    </div>
+  </div>
+</body>
+</html>`;
+    }
+
+    function printLetter() {
+      const printWindow = window.open('', '_blank');
+      if (!printWindow) {
+        setMessage('Popup blocked. Allow popups to print.', 'error');
+        return;
+      }
+      printWindow.document.write(generateLetterHtml());
+      printWindow.document.close();
+    }
+
+    function downloadExcel() {
+      const rows = exportRows();
+      const header = ['SN', 'Section', 'Line', 'Nominated CLI', 'Mobile'];
+      const body = rows.map((row) => [row.sr, row.territory, row.line, row.cli, row.mobile]);
+      const table = [header, ...body].map((r) => `<tr>${r.map((c) => `<td>${escapeHtml(c)}</td>`).join('')}</tr>`).join('');
+      const html = `<!doctype html><html><head><meta charset="utf-8"></head><body><table border="1">${table}</table></body></html>`;
+      const blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `signal-sighting-territory-cli-${els.month.value || today()}.xls`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    els.grid.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-edit]');
+      if (button) openModal(button.dataset.edit);
+    });
+    els.cliList.addEventListener('click', (event) => {
+      const row = event.target.closest('[data-cli]');
+      if (!row) return;
+      state.selectedCli = state.clis.find((cli) => Number(cli.cli_id) === Number(row.dataset.cli));
+      updateSelectedCliText();
+      renderCliList();
+    });
+    els.closeModalBtn.addEventListener('click', closeModal);
+    els.modal.addEventListener('click', (event) => { if (event.target === els.modal) closeModal(); });
+    els.cliSearch.addEventListener('input', renderCliList);
+    els.saveAssignmentBtn.addEventListener('click', () => saveAssignment().catch((err) => setMessage(err.message, 'error')));
+    els.search.addEventListener('input', renderTerritories);
+    els.officeFilter.addEventListener('change', renderTerritories);
+    els.month.addEventListener('change', () => loadTerritories().catch((err) => setMessage(err.message, 'error')));
+    els.refreshBtn.addEventListener('click', () => loadTerritories().catch((err) => setMessage(err.message, 'error')));
+    els.printBtn.addEventListener('click', printLetter);
+    els.excelBtn.addEventListener('click', downloadExcel);
+
+    (async function init() {
+      els.month.value = today();
+      try {
+        await loadMetaAndClis();
+        await loadTerritories();
+      } catch (err) {
+        setMessage(err.message, 'error');
+        els.grid.innerHTML = `<div class="empty">${escapeHtml(err.message)}</div>`;
+      }
+    })();
+  </script>
+</body>
+</html>

@@ -328,6 +328,24 @@ app.get('/div/signal-book-editor.html', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'div', 'signal-book-editor.html'));
 });
 
+app.get('/div/signal-sighting.html', (req, res) => {
+  if (!req.session.user) return res.redirect('/');
+  if (req.session.user.realm !== 'division') return res.redirect('/');
+  res.sendFile(path.join(__dirname, 'public', 'div', 'signal-sighting.html'));
+});
+
+app.get('/div/signal-sighting-history.html', (req, res) => {
+  if (!req.session.user) return res.redirect('/');
+  if (req.session.user.realm !== 'division') return res.redirect('/');
+  res.sendFile(path.join(__dirname, 'public', 'div', 'signal-sighting-history.html'));
+});
+
+app.get('/div/cli-territory-nomination.html', (req, res) => {
+  if (!req.session.user) return res.redirect('/');
+  if (req.session.user.realm !== 'division') return res.redirect('/');
+  res.sendFile(path.join(__dirname, 'public', 'div', 'cli-territory-nomination.html'));
+});
+
 app.get('/div/training-due-report.html', (req, res) => {
   if (!req.session.user) return res.redirect('/');
   if (req.session.user.realm !== 'division') return res.redirect('/');
@@ -752,6 +770,7 @@ const locoLinkRoutes = require('./routes/division/locoLinkRoutes');
 const awsUploadRoutes = require('./routes/division/awsUploadRoutes');
 const signalBookRoutes = require('./routes/division/signalBookRoutes');
 const documentRoutes = require('./routes/division/documentRoutes');
+const signalSightingRoutes = require('./routes/division/signalSightingRoutes');
 
 // Add division routes with realm protection
 app.use("/api/division/leave", requireRealm("division"), leaveRoutes); // mount early to avoid any catch-alls
@@ -781,6 +800,7 @@ app.use("/api/division/loco-link", requireRealm('division'), locoLinkRoutes);
 app.use("/api/division/aws", requireRealm('division'), awsUploadRoutes);
 app.use("/api/division/signal-book", requireRealm('division'), signalBookRoutes);
 app.use("/api/division/documents", requireRealm('division'), documentRoutes);
+app.use("/api/division/signal-sighting", requireRealm('division'), signalSightingRoutes);
 
 // Session info endpoint
 app.get('/api/session', (req, res) => {
