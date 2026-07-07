@@ -154,12 +154,13 @@ function renderTransferLetterPdf(letter, staffRows) {
         const ensureSpace = (need) => {
             if (y + need > usableBottom) { doc.addPage(); y = doc.page.margins.top; }
         };
-        doc.font('Helvetica').fontSize(11);
+        doc.font('Helvetica').fontSize(10);
         for (const b of lines(letter.bullets_text)) {
-            ensureSpace(18);
+            ensureSpace(16);
             doc.text(`•  ${b}`, left + 14, y, { width: usableW - 14 });
             y = doc.y + 2;
         }
+        doc.fontSize(11);
         if (letter.footer_text) {
             ensureSpace(20);
             doc.text(letter.footer_text, left, y + 4, { width: usableW });
