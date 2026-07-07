@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>User Manual — Transfer Letter | BB Division</title>
+<style>
+:root {
+    --navy: #14213c;
+    --amber: #d97706;
+    --green: #23864f;
+    --red: #c23a3a;
+    --ink: #1e2937;
+    --dim: #5b6b80;
+    --line: #dde4ee;
+    --bg: #f5f7fb;
+    --card: #ffffff;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg); color: var(--ink);
+    line-height: 1.65; font-size: 16px;
+}
+.wrap { max-width: 880px; margin: 0 auto; padding: 34px 22px 80px; }
+
+/* Cover */
+.cover {
+    background: linear-gradient(135deg, #14213c 0%, #1d3155 100%);
+    color: #fff; border-radius: 18px; padding: 40px 38px; margin-bottom: 34px;
+}
+.cover .tag { font-size: 12px; letter-spacing: 3px; text-transform: uppercase; color: #f5a524; font-weight: 700; }
+.cover h1 { font-size: 32px; margin: 8px 0 10px; }
+.cover p { color: #c3cfe4; max-width: 620px; }
+.cover .meta { margin-top: 18px; font-size: 13px; color: #93a5c4; }
+
+/* TOC */
+.toc { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 22px 26px; margin-bottom: 34px; }
+.toc h2 { font-size: 15px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--dim); margin-bottom: 12px; }
+.toc ol { margin-left: 20px; }
+.toc a { color: var(--navy); text-decoration: none; font-weight: 600; }
+.toc a:hover { color: var(--amber); }
+.toc li { margin-bottom: 5px; }
+
+h2.sec {
+    font-size: 24px; margin: 46px 0 6px; color: var(--navy);
+    display: flex; align-items: center; gap: 12px;
+}
+h2.sec .num {
+    width: 34px; height: 34px; flex: 0 0 34px; border-radius: 10px;
+    background: var(--navy); color: #f5a524;
+    display: grid; place-items: center; font-size: 16px;
+}
+.sec-sub { color: var(--dim); margin-bottom: 18px; }
+h3 { font-size: 18px; margin: 26px 0 8px; color: var(--navy); }
+p { margin-bottom: 12px; }
+ul, ol { margin: 0 0 14px 24px; }
+li { margin-bottom: 6px; }
+
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 22px 26px; margin-bottom: 16px; }
+
+/* Fake UI elements so users recognise what to look for */
+.btn-like {
+    display: inline-block; padding: 4px 12px; border-radius: 8px; font-size: 13.5px;
+    font-weight: 700; white-space: nowrap; vertical-align: middle;
+}
+.b-amber { background: #fbbf24; color: #3b2300; }
+.b-green { background: #2f9e63; color: #fff; }
+.b-red   { background: #d64545; color: #fff; }
+.b-ghost { background: #eef2f8; color: #33415c; border: 1px solid #cdd7e6; }
+.chip-like {
+    display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: 11.5px;
+    font-weight: 800; letter-spacing: .5px; text-transform: uppercase;
+}
+.c-draft { background: #e6eaf2; color: #55627a; }
+.c-final { background: #fdecc8; color: #9a5b00; }
+.c-trans { background: #d9f2e4; color: #1e7a48; }
+.c-pend  { background: #fdecc8; color: #9a5b00; }
+kbd-path, .path {
+    font-family: ui-monospace, Menlo, monospace; font-size: 13.5px;
+    background: #eef2f8; border: 1px solid #d5deea; border-radius: 6px; padding: 1px 8px;
+    color: #29405f; white-space: nowrap;
+}
+
+/* Callouts */
+.note, .warn, .tip {
+    border-radius: 12px; padding: 14px 18px 14px 16px; margin: 14px 0;
+    font-size: 15px; border-left: 4px solid;
+}
+.note { background: #eef4ff; border-color: #4a7fd4; }
+.warn { background: #fdf0ef; border-color: var(--red); }
+.tip  { background: #effaf3; border-color: var(--green); }
+.note b:first-child, .warn b:first-child, .tip b:first-child { display: block; margin-bottom: 3px; }
+
+/* Steps */
+.steps { counter-reset: st; margin: 14px 0; }
+.step {
+    display: flex; gap: 16px; padding: 14px 0; border-bottom: 1px dashed var(--line);
+}
+.step:last-child { border-bottom: 0; }
+.step::before {
+    counter-increment: st; content: counter(st);
+    width: 30px; height: 30px; flex: 0 0 30px; border-radius: 50%;
+    background: var(--navy); color: #fff; font-weight: 800; font-size: 14px;
+    display: grid; place-items: center; margin-top: 2px;
+}
+.step b.t { display: block; color: var(--navy); margin-bottom: 2px; }
+
+/* Flow diagram */
+.flow { margin: 20px 0 8px; }
+.flow .lane {
+    border-radius: 14px; padding: 16px 18px 10px; margin-bottom: 6px;
+}
+.lane.sender   { background: #fff7e8; border: 1.5px solid #f2ce8c; }
+.lane.system   { background: #eef4ff; border: 1.5px solid #b7cdf1; }
+.lane.receiver { background: #effaf3; border: 1.5px solid #a8dfc0; }
+.lane .lane-t { font-size: 11.5px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 10px; }
+.lane.sender .lane-t   { color: #9a5b00; }
+.lane.system .lane-t   { color: #29579e; }
+.lane.receiver .lane-t { color: #1e7a48; }
+.fl-row { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding-bottom: 10px; }
+.fl-box {
+    background: #fff; border: 1.5px solid #c9d4e5; border-radius: 10px;
+    padding: 8px 13px; font-size: 13.5px; font-weight: 600; color: var(--ink);
+    box-shadow: 0 1px 3px rgba(20,33,60,.08);
+}
+.fl-box small { display: block; font-weight: 500; color: var(--dim); font-size: 11.5px; }
+.fl-arrow { color: #8296b4; font-weight: 800; font-size: 16px; padding: 0 2px; }
+.fl-down { text-align: center; color: #8296b4; font-size: 18px; line-height: 1; margin: 2px 0 8px; }
+
+/* Status table */
+table.man { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 14.5px; background: #fff; border-radius: 12px; overflow: hidden; }
+table.man th { background: var(--navy); color: #fff; text-align: left; padding: 10px 14px; font-size: 13px; letter-spacing: .5px; }
+table.man td { padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+table.man tr:last-child td { border-bottom: 0; }
+
+/* FAQ */
+details {
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+    padding: 14px 18px; margin-bottom: 10px;
+}
+details summary { font-weight: 700; color: var(--navy); cursor: pointer; }
+details p { margin-top: 10px; }
+
+footer { margin-top: 50px; text-align: center; color: var(--dim); font-size: 13px; }
+
+@media print {
+    body { background: #fff; }
+    .cover { border-radius: 0; }
+    details { page-break-inside: avoid; }
+    details[open] summary { color: #000; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<!-- ═════════ COVER ═════════ -->
+<div class="cover">
+    <div class="tag">BB Division · Crew Lobbies · User Manual</div>
+    <h1>📨 Transfer Letter</h1>
+    <p>One uniform letter for inter-lobby staff transfers — prepared in minutes, filed automatically,
+       and the staff transferred to the receiving lobby with a single click. No more separate formats
+       per lobby, and no more transferring staff one by one.</p>
+    <div class="meta">Version 1.0 · July 2026 · For Lobby SRCC / Office staff &amp; Division Admin</div>
+</div>
+
+<!-- ═════════ TOC ═════════ -->
+<div class="toc">
+    <h2>Contents</h2>
+    <ol>
+        <li><a href="#what">What is this feature?</a></li>
+        <li><a href="#flow">The complete flow — one diagram</a></li>
+        <li><a href="#open">Opening the page &amp; knowing your role</a></li>
+        <li><a href="#prepare">Preparing a letter (sending lobby)</a></li>
+        <li><a href="#finalize">Finalize &amp; File PDF</a></li>
+        <li><a href="#transfer">Transfer staff now</a></li>
+        <li><a href="#receive">Receiving lobby — your side of the story</a></li>
+        <li><a href="#accept">Accepting reported staff on the letter</a></li>
+        <li><a href="#status">Letter statuses at a glance</a></li>
+        <li><a href="#find">Where to find letters &amp; PDFs later</a></li>
+        <li><a href="#faq">Common questions &amp; problems</a></li>
+    </ol>
+</div>
+
+<!-- ═════════ 1. WHAT ═════════ -->
+<h2 class="sec" id="what"><span class="num">1</span> What is this feature?</h2>
+<p class="sec-sub">Two minutes of background — why this exists.</p>
+<div class="card">
+    <p>When staff are transferred from one lobby to another, the sending lobby issues a <b>transfer
+    letter</b> to the receiving lobby. Earlier, every lobby had its own format in Word/Excel, and the
+    receiving lobby then had to transfer each staff into their lobby one at a time on the portal.</p>
+    <p>The Transfer Letter feature replaces all of that:</p>
+    <ul>
+        <li><b>One standard format</b> for the whole division — same header, same table, same look, always.</li>
+        <li><b>The letter PDF is filed automatically</b> in Documents → Transfer Letters, sorted by lobby and month.</li>
+        <li><b>One click transfers all the staff</b> on the letter to the receiving lobby — they appear in
+            that lobby's Staff Transfers inbox automatically.</li>
+        <li><b>The receiving lobby accepts everyone on the letter itself</b> — fill CMS IDs, press one button.</li>
+        <li>Every letter is <b>saved forever</b> and can be reopened, reprinted or downloaded any time.</li>
+    </ul>
+</div>
+
+<!-- ═════════ 2. FLOW ═════════ -->
+<h2 class="sec" id="flow"><span class="num">2</span> The complete flow — one diagram</h2>
+<p class="sec-sub">Follow a letter from the sending lobby to the receiving lobby.</p>
+
+<div class="flow">
+    <div class="lane sender">
+        <div class="lane-t">🏢 Sending lobby (e.g. IGP)</div>
+        <div class="fl-row">
+            <span class="fl-box">Open<br><small>Dashboard → Prepare Transfer Letter</small></span>
+            <span class="fl-arrow">→</span>
+            <span class="fl-box">Fill letter<br><small>To-lobby, order ref, staff list, dates</small></span>
+            <span class="fl-arrow">→</span>
+            <span class="fl-box">💾 Save Draft<br><small>edit any time</small></span>
+            <span class="fl-arrow">→</span>
+            <span class="fl-box">✅ Finalize &amp; File PDF<br><small>letter locks, PDF filed</small></span>
+            <span class="fl-arrow">→</span>
+            <span class="fl-box">🖨 Print &amp; sign<br><small>physical copy as usual</small></span>
+            <span class="fl-arrow">→</span>
+            <span class="fl-box" style="border-color:#d64545">🔴 Transfer staff now<br><small>one click, all staff</small></span>
+        </div>
+    </div>
+    <div class="fl-down">▼</div>
+    <div class="lane system">
+        <div class="lane-t">⚙️ What the system does by itself</div>
+        <div class="fl-row">
+            <span class="fl-box">Files the PDF<br><small>Documents → Transfer Letters → lobby → month</small></span>
+            <span class="fl-arrow">→</span>
+            <span class="fl-box">Creates a transfer request<br><small>for every staff on the letter</small></span>
+            <span class="fl-arrow">→</span>
+            <span class="fl-box">Alerts the receiving lobby<br><small>Staff Transfers badge counts up</small></span>
+        </div>
+    </div>
+    <div class="fl-down">▼</div>
+    <div class="lane receiver">
+        <div class="lane-t">🏢 Receiving lobby (e.g. KYN-SUB)</div>
+        <div class="fl-row">
+            <span class="fl-box">See the letter<br><small>Letters History → 📥 Received tab</small></span>
+            <span class="fl-arrow">→</span>
+            <span class="fl-box">Open it<br><small>view / print / save PDF</small></span>
+            <span class="fl-arrow">→</span>
+            <span class="fl-box">Staff reports for duty<br><small>physically, on their date</small></span>
+            <span class="fl-arrow">→</span>
+            <span class="fl-box">✅ Accept reported staff<br><small>fill New CMS ID + reported-on date</small></span>
+            <span class="fl-arrow">→</span>
+            <span class="fl-box">Done<br><small>staff joins your lobby; blanks stay pending</small></span>
+        </div>
+    </div>
+</div>
+<p class="note"><b>The key idea</b> The letter and the actual staff transfer are connected. Preparing the
+letter well means the receiving lobby's work is almost nothing — a CMS ID per staff and one button.</p>
+
+<!-- ═════════ 3. OPEN ═════════ -->
+<h2 class="sec" id="open"><span class="num">3</span> Opening the page &amp; knowing your role</h2>
+<p class="sec-sub">Who sees what.</p>
+<div class="card">
+    <p>From the Division portal dashboard, click <span class="path">📨 Prepare Transfer Letter</span> in the
+    left sidebar (just below Staff Transfers).</p>
+    <ul>
+        <li><b>Lobby office user (SRCC login):</b> the "From" lobby is fixed to <i>your own lobby</i> —
+            you prepare letters going out of your lobby, and accept staff coming into it.</li>
+        <li><b>Division Admin:</b> can prepare a letter from <i>any</i> lobby to any lobby (the From
+            dropdown is open), and can also un-finalize a letter if a mistake is found (see FAQ).</li>
+    </ul>
+    <p>The page has two halves: the <b>form on the left</b>, and a <b>live preview of the actual letter
+    on the right</b> — whatever you type appears on the letter instantly, exactly as it will print.</p>
+    <p>At the top you'll always see the letter's journey:
+    <span class="chip-like c-draft">Draft</span> → <span class="chip-like c-final">Finalized · PDF filed</span> →
+    <span class="chip-like c-trans">Staff Transferred</span></p>
+</div>
+
+<!-- ═════════ 4. PREPARE ═════════ -->
+<h2 class="sec" id="prepare"><span class="num">4</span> Preparing a letter (sending lobby)</h2>
+<p class="sec-sub">Section by section, top to bottom.</p>
+
+<h3>Panel 1 — Offices &amp; Letter</h3>
+<div class="card">
+    <div class="steps">
+        <div class="step"><div><b class="t">To (receiving lobby)</b>
+            Choose where the staff are going. The addressee block and subject line fill themselves —
+            you can still edit both.</div></div>
+        <div class="step"><div><b class="t">Letter No.</b>
+            A number is suggested automatically (e.g. <span class="path">SR CC/TFR/IGP/2026/03</span>) and
+            increases with every letter. <b>It is fully editable</b> — if your office follows its own
+            numbering, simply type over it.</div></div>
+        <div class="step"><div><b class="t">Letter Date &amp; Transfer Category</b>
+            Date defaults to today. Category (Permanent Transfer / Promotion / Temporary Transfer)
+            applies to all staff on the letter and decides how the receiving side records them.</div></div>
+        <div class="step"><div><b class="t">Ref.</b>
+            Type the office order number and date, e.g.
+            <i>"Office Order No.142/2026/ALP dated 10/06/2026"</i>.</div></div>
+    </div>
+</div>
+
+<h3>Panel 2 — Staff on this letter</h3>
+<div class="card">
+    <div class="steps">
+        <div class="step"><div><b class="t">Search and add staff</b>
+            Type a name, PF number, HRMS ID or CMS ID (2+ characters) and click the staff in the
+            dropdown. Repeat for everyone — the cursor stays in the search box so you can add 15 staff
+            in under a minute. Only <i>active staff of the sending lobby</i> appear.</div></div>
+        <div class="step"><div><b class="t">Set dates ONCE on the first staff</b>
+            Fill <b>Relieving date</b> and <b>Reporting date (new lobby)</b> on the <i>first</i> staff —
+            they copy to every other staff automatically (and to staff you add later). Then change only
+            the exceptions. Rows you've hand-edited are never overwritten.</div></div>
+        <div class="step"><div><b class="t">Per-staff details</b>
+            <b>Reporting date (existing lobby)</b> fills automatically from records.
+            <b>Footplate KM</b> is optional — type it if your lobby records it, else leave blank.
+            <b>Remarks</b> is optional (e.g. <i>"Availed Rest on 05-07-2026"</i>) — it prints as an
+            extra column only if at least one staff has a remark.</div></div>
+        <div class="step"><div><b class="t">Remove someone</b>
+            Click the ✕ on their card. Serial numbers renumber automatically.</div></div>
+    </div>
+    <p class="tip"><b>Must-fill rule</b> Before finalizing, every staff needs a <b>relieving date</b> and a
+    <b>new-lobby reporting date</b>. Everything else can be blank.</p>
+</div>
+
+<h3>Panel 3 — Letter text</h3>
+<div class="card">
+    <p>The office header, body paragraph, footnote bullets, closing line, signing designation and
+    C/- (copy to) list all come <b>pre-filled with the division's standard wording</b>. Edit any of them
+    for this letter — your edits affect this letter only; the next letter starts from the standard again.</p>
+</div>
+
+<h3>Saving</h3>
+<div class="card">
+    <p>Press <span class="btn-like b-amber">Save Draft</span> as often as you like. A draft can be
+    reopened from <span class="path">Letters History → 📤 Prepared</span>, edited, or deleted. Nothing
+    has gone anywhere yet — a draft is completely private to the portal.</p>
+    <p>You can <span class="btn-like b-ghost">🖨 Print</span> at any stage to see the paper output —
+    letters with up to about 15 staff print on one page; longer letters continue on page 2 with the
+    table header repeated and the signature at the end.</p>
+</div>
+
+<!-- ═════════ 5. FINALIZE ═════════ -->
+<h2 class="sec" id="finalize"><span class="num">5</span> Finalize &amp; File PDF</h2>
+<p class="sec-sub">Making the letter official.</p>
+<div class="card">
+    <p>When the letter is complete, press <span class="btn-like b-green">Finalize &amp; File PDF</span>
+    and confirm. Two things happen:</p>
+    <ol>
+        <li>The letter becomes <b>read-only</b> — its contents are now the official record.</li>
+        <li>A PDF of the letter is <b>generated and filed automatically</b> into
+            <span class="path">Documents → Transfer Letters → your lobby → year → month</span>,
+            visible to every logged-in user of the portal.</li>
+    </ol>
+    <p>Print it, get it signed and stamped, and dispatch the physical copy exactly as you do today.
+    The portal copy and the paper copy are the same letter.</p>
+    <p class="warn"><b>Made a mistake after finalizing?</b> A lobby user cannot unlock a finalized
+    letter. Ask the <b>Division Admin</b> — they can revert it to Draft (this also removes the filed
+    PDF) as long as the staff have <i>not</i> been transferred yet. After transfer, the letter is
+    permanent.</p>
+</div>
+
+<!-- ═════════ 6. TRANSFER ═════════ -->
+<h2 class="sec" id="transfer"><span class="num">6</span> Transfer staff now</h2>
+<p class="sec-sub">The one click that replaces all the manual work.</p>
+<div class="card">
+    <p>Once finalized, the red button <span class="btn-like b-red">Transfer staff now →</span> becomes
+    active, with an explanation right above it. Pressing it (and confirming — the box lists every staff
+    by name) does this:</p>
+    <ul>
+        <li>Every staff on the letter gets a <b>pending transfer request</b> to the receiving lobby —
+            the same kind the portal has always used, just all at once.</li>
+        <li>The receiving lobby's <b>Staff Transfers badge</b> on their dashboard counts up immediately.</li>
+        <li>The letter status becomes <span class="chip-like c-trans">Transferred</span> — permanent.</li>
+    </ul>
+    <p class="warn"><b>All-or-nothing safety</b> If even one staff already has some other pending
+    transfer request, <b>no requests are created at all</b> and the letter tells you exactly which staff
+    are blocked and why. Resolve those (usually: the old request needs accepting or rejecting) and press
+    the button again.</p>
+    <p class="note"><b>Important</b> Nothing changes for the staff yet — they still belong to your lobby.
+    The actual change of lobby happens only when the <i>receiving</i> lobby accepts each staff on
+    reporting. Until then they are simply "in transit" (pending).</p>
+</div>
+
+<!-- ═════════ 7. RECEIVE ═════════ -->
+<h2 class="sec" id="receive"><span class="num">7</span> Receiving lobby — your side of the story</h2>
+<p class="sec-sub">How you know a letter has come, and where to find it.</p>
+<div class="card">
+    <p>Two signals tell you staff are on their way:</p>
+    <ul>
+        <li>The <b>Staff Transfers</b> badge on your dashboard sidebar shows the pending count — as always.</li>
+        <li>On the Transfer Letter page, open <span class="path">Letters History → 📥 Received</span>.
+            Every letter addressed to your lobby is listed with who sent it and a live chip:
+            <span class="chip-like c-pend">⏳ 4 to accept</span> means four staff on that letter haven't
+            been accepted yet; <span class="chip-like c-trans">✓ all accepted</span> means the letter is
+            fully processed.</li>
+    </ul>
+    <p>Click any received letter to open it. You see the full letter exactly as the sending lobby
+    printed it — you can <span class="btn-like b-ghost">🖨 Print</span> it or open/save the filed
+    <span class="btn-like b-ghost">📄 PDF</span> for your records.</p>
+</div>
+
+<!-- ═════════ 8. ACCEPT ═════════ -->
+<h2 class="sec" id="accept"><span class="num">8</span> Accepting reported staff on the letter</h2>
+<p class="sec-sub">No more dashboard → transfers → accept, one by one.</p>
+<div class="card">
+    <p>When you open a received letter, the left side shows the green
+    <b>"Accept reported staff"</b> panel — every staff on the letter with two boxes:</p>
+    <div class="steps">
+        <div class="step"><div><b class="t">New CMS ID</b>
+            Fill it for each staff who has <b>physically reported</b> at your lobby (letters followed by
+            digits, e.g. <span class="path">KYN1234</span>). <b>Leave it blank for staff who haven't
+            reported yet</b> — that is the whole trick.</div></div>
+        <div class="step"><div><b class="t">Reported on</b>
+            Pre-filled with the reporting date written on the letter. If the staff actually reported on a
+            different day, change it. This date goes into the staff's service record and will appear
+            automatically as their "reporting date of existing lobby" on any <i>future</i> transfer letter.</div></div>
+        <div class="step"><div><b class="t">Press Accept</b>
+            <span class="btn-like b-green">Accept reported staff (4 pending)</span> — confirm, done. Each
+            filled staff is transferred into your lobby with their new CMS ID. Any problem with one staff
+            (say, a CMS ID already in use) is shown under that staff and does not stop the others.</div></div>
+        <div class="step"><div><b class="t">The rest come later</b>
+            Staff you left blank stay <span class="chip-like c-pend">⏳ Pending</span>. When they report
+            next week, open the same letter from the Received tab (the chip reminds you how many are
+            left) and accept them the same way. Repeat until the chip says
+            <span class="chip-like c-trans">✓ all accepted</span>.</div></div>
+    </div>
+    <p class="tip"><b>Same rules as before</b> The acceptance itself is identical to the old dashboard
+    accept — CMS ID checks, records, history — just done for many staff at once, from the letter.
+    The old dashboard accept also still works if you prefer it for a single staff.</p>
+</div>
+
+<!-- ═════════ 9. STATUS ═════════ -->
+<h2 class="sec" id="status"><span class="num">9</span> Letter statuses at a glance</h2>
+<p class="sec-sub">What each chip means and what you can still do.</p>
+<table class="man">
+    <tr><th style="width:170px">Status</th><th>Meaning</th><th>What can still be done</th></tr>
+    <tr>
+        <td><span class="chip-like c-draft">Draft</span></td>
+        <td>Being prepared. Nobody else acts on it.</td>
+        <td>Edit everything · Save · Print · Delete</td>
+    </tr>
+    <tr>
+        <td><span class="chip-like c-final">Finalized</span></td>
+        <td>Official and locked. PDF filed in Documents.</td>
+        <td>Print · Open PDF · <b>Transfer staff now</b> · (Admin only: revert to Draft)</td>
+    </tr>
+    <tr>
+        <td><span class="chip-like c-trans">Transferred</span></td>
+        <td>Staff are with the receiving lobby as pending requests. Permanent.</td>
+        <td>Print · Open PDF · Receiving lobby accepts staff as they report</td>
+    </tr>
+    <tr>
+        <td><span class="chip-like c-pend">⏳ N to accept</span></td>
+        <td>Shown on letter cards: N staff on this letter not yet accepted.</td>
+        <td>Open the letter and accept the reported ones</td>
+    </tr>
+</table>
+
+<!-- ═════════ 10. FIND ═════════ -->
+<h2 class="sec" id="find"><span class="num">10</span> Where to find letters &amp; PDFs later</h2>
+<div class="card">
+    <ul>
+        <li><b>Letters History (on the page)</b> — <span class="path">📤 Prepared</span> shows every
+            letter your lobby made; <span class="path">📥 Received</span> shows every letter sent to you.
+            Click to reopen and reprint — years later too.</li>
+        <li><b>Documents</b> — <span class="path">Dashboard → Documents → 📨 Transfer Letters →
+            (sending lobby) → year → month</span>. The auto-filed PDFs live here and every logged-in user
+            can open or download them. Offices may also upload the <i>signed/stamped scan</i> of a letter
+            here for record.</li>
+        <li><b>Staff record</b> — the transfer itself (from, to, category, dates, reporting date at the
+            new lobby) is written to the staff's transfer history, visible in the biodata form's
+            Transfers tab.</li>
+    </ul>
+</div>
+
+<!-- ═════════ 11. FAQ ═════════ -->
+<h2 class="sec" id="faq"><span class="num">11</span> Common questions &amp; problems</h2>
+<p class="sec-sub">Click a question to expand.</p>
+
+<details><summary>The Transfer button is grey / disabled. Why?</summary>
+<p>The letter must be <b>finalized first</b>. The order is always: Save Draft → Finalize &amp; File PDF →
+Transfer staff now. Also, only the sending lobby (or admin) can press it.</p></details>
+
+<details><summary>It says a staff "already has a pending transfer request". What do I do?</summary>
+<p>That staff has an older transfer request that was never accepted or rejected — possibly created
+months ago from the biodata form. Nothing was created for anyone on your letter (all-or-nothing). Ask
+the lobby that request points to (or the admin) to accept/reject the old request from
+<span class="path">Dashboard → Staff Transfers</span>, then press Transfer again.</p></details>
+
+<details><summary>I finalized a letter and then noticed a mistake.</summary>
+<p>If the staff have <b>not</b> been transferred yet: ask the Division Admin to open the letter and
+revert it to Draft (the filed PDF is removed automatically). Fix and finalize again.
+If they <b>have</b> been transferred: the letter is permanent — prepare a fresh corrective letter, and
+handle any wrongly-created requests from the Staff Transfers inbox (reject them).</p></details>
+
+<details><summary>The CMS ID I entered while accepting is rejected.</summary>
+<p>Two common causes: the format must be <b>letters immediately followed by digits</b>
+(<span class="path">KYN1234</span> — no spaces or hyphens), and the CMS ID must not already belong to
+another staff. The error message under the staff's name says which it is. A staff returning to a lobby
+may be given back their <i>own</i> old CMS ID — that is allowed.</p></details>
+
+<details><summary>Why is footplate KM empty on some letters?</summary>
+<p>It is optional. Lobbies that track footplate kilometres fill it; others leave it blank and the
+column simply prints empty — same as manual letters today.</p></details>
+
+<details><summary>The letter runs to two pages. Is that a problem?</summary>
+<p>No. Up to ~15 staff fit on one page. Longer letters continue on page 2 with the table header
+repeated and the signature at the end — standard practice. The on-screen preview shows page 1 only,
+with a "continues on page 2" mark at the bottom edge; the Print and PDF versions are always complete.</p></details>
+
+<details><summary>Who can see a letter?</summary>
+<p>Drafts: only the sending lobby (and admin). After transfer: the sending lobby (Prepared tab), the
+receiving lobby (Received tab), and the filed PDF in Documents is visible to all logged-in portal
+users — like any other document there. Other lobbies cannot open the letter page entry itself.</p></details>
+
+<details><summary>Does preparing a letter change anything for the staff immediately?</summary>
+<p>No. Drafting and finalizing change nothing anywhere. Even "Transfer staff now" only creates
+<i>pending</i> requests. A staff's lobby actually changes at the moment the receiving lobby accepts
+them with a new CMS ID — exactly like the old process.</p></details>
+
+<details><summary>What about Inter-Railway transfers (out of the division)?</summary>
+<p>They are deliberately not on this page — an Inter-Railway transfer has no receiving lobby in the
+division. Use the staff's biodata form → Transfer, as before.</p></details>
+
+<footer>
+    Transfer Letter · User Manual v1.0 · BB Division Crew Portal · July 2026<br>
+    For corrections or suggestions contact the Division Admin.
+</footer>
+
+</div>
+</body>
+</html>

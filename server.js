@@ -340,6 +340,12 @@ app.get('/div/transfer-letter.html', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'div', 'transfer-letter.html'));
 });
 
+app.get('/div/transfer-letter-manual.html', (req, res) => {
+  if (!req.session.user) return res.redirect('/');
+  if (req.session.user.realm !== 'division') return res.redirect('/');
+  res.sendFile(path.join(__dirname, 'public', 'div', 'transfer-letter-manual.html'));
+});
+
 app.get('/div/decategorized-crew-report.html', (req, res) => {
   if (!req.session.user) return res.redirect('/');
   if (req.session.user.realm !== 'division') return res.redirect('/');

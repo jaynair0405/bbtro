@@ -182,6 +182,12 @@ function renderTransferLetterPdf(letter, staffRows) {
             y = doc.y + 2;
         }
 
+        // Small credit at the very bottom of the last page (cli-nomination convention)
+        doc.font('Helvetica').fontSize(6.5).fillColor('#9aa0a6')
+            .text('Prepared from crtms.in', left, doc.page.height - doc.page.margins.bottom - 10,
+                { width: usableW, align: 'center' });
+        doc.fillColor('#000000');
+
         doc.end();
     });
 }

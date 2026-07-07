@@ -316,6 +316,7 @@ select:disabled, input:disabled, textarea:disabled { opacity: .55; cursor: not-a
 .sheet .sig { text-align: center; width: 62mm; margin-left: auto; font-weight: 700; }
 .sheet .sig .hi { font-size: 11.5pt; }
 .sheet .cc { margin-top: 12mm; white-space: pre-line; font-size: 11.2pt; }
+.sheet .gen-credit { margin-top: 10mm; text-align: center; font-size: 6.5pt; color: #9aa0a6; font-family: var(--ui); }
 .sheet .ph { color: #a09a86; font-style: italic; }  /* placeholder text on paper */
 
 /* fade + label at the sheet's bottom edge when content runs past page 1 */
@@ -493,6 +494,7 @@ body.drawer-open .drawer-veil { opacity: 1; pointer-events: auto; }
         <span><b>Prepare Transfer Letter</b><small>BB Division · Crew Lobbies</small></span>
     </a>
     <span class="spacer"></span>
+    <a href="/div/transfer-letter-manual.html" target="_blank" class="back" title="User manual">？ Help</a>
     <a href="#" class="back" id="btnHistory">Letters History</a>
     <a href="/div/index.html" class="back">← Dashboard</a>
     <div class="who" id="whoBox"></div>
@@ -678,6 +680,7 @@ body.drawer-open .drawer-veil { opacity: 1; pointer-events: auto; }
                 <div id="pvSignOffice"></div>
             </div>
             <div class="cc" id="pvCc"></div>
+            <div class="gen-credit">Prepared from crtms.in</div>
             <div class="page-fade">▼ continues on page 2 — full letter in Print / PDF</div>
         </div>
     </section>
