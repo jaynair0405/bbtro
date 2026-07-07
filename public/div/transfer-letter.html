@@ -266,6 +266,8 @@ select:disabled, input:disabled, textarea:disabled { opacity: .55; cursor: not-a
 .sheet {
     width: min(210mm, 94%);
     height: 297mm;          /* preview = exactly one A4 page */
+    min-height: 297mm;
+    flex-shrink: 0;         /* don't let the flex column squash the page */
     overflow: hidden;
     background:
         radial-gradient(ellipse at top left, rgba(255,255,255,.7), transparent 45%),
