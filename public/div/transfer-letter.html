@@ -405,9 +405,28 @@ body.drawer-open .drawer-veil { opacity: 1; pointer-events: auto; }
     .sheet {
         width: 210mm; min-height: auto; box-shadow: none; border-radius: 0;
         animation: none; margin: 0;
+        /* Slightly tighter than the screen preview so a typical letter
+           (up to ~10 staff) stays on one printed page. */
+        padding: 12mm 14mm 10mm;
+        font-size: 11.3pt;
+        line-height: 1.42;
     }
     .sheet::after { display: none; }
     .sheet .ph { color: transparent; }
+    .sheet table { font-size: 10pt; }
+    .sheet th, .sheet td { padding: 1.6mm 1.4mm; }
+    .sheet .to { margin-bottom: 3.5mm; }
+    .sheet .subref { margin-bottom: 3mm; }
+    .sheet .body-par { margin-bottom: 3.5mm; }
+    .sheet ul.bl li { margin-bottom: .8mm; }
+    .sheet .foot-line { margin-bottom: 9mm; }
+    .sheet .cc { margin-top: 7mm; }
+    .sheet .rule2 { margin-bottom: 3.5mm; }
+    /* Long letters may legitimately run over — but never orphan the
+       signature/C-/ block or split a staff row across pages. */
+    .sheet tr { page-break-inside: avoid; }
+    .sheet thead { display: table-header-group; }
+    .sheet .sig, .sheet .cc { page-break-inside: avoid; }
 }
 @media (max-width: 980px) {
     body { overflow: auto; }
