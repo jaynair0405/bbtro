@@ -29,7 +29,7 @@ const path = require('path');
 const crypto = require('crypto');
 
 const documentRoutes = require('./documentRoutes');
-const { createPendingTransferRequest } = require('../../utils/transferRequests');
+const { createPendingTransferRequest, acceptTransferRequest } = require('../../utils/transferRequests');
 const { renderTransferLetterPdf } = require('../../utils/transferLetterPdf');
 
 const UPLOAD_DIR = documentRoutes.UPLOAD_DIR;
@@ -214,10 +214,13 @@ router.get('/', requireDivisionAccess, async (req, res) => {
         if (status && box !== 'received') { where.push('l.status = ?'); params.push(status); }
 
         const [rows] = await conn.query(
-            `SELECT l.id, l.letter_no, l.letter_date, l.from_office_code, l.to_office_code,
+            `SELECT l.id, l.letter_no, DATE_FORMAT(l.letter_date, '%Y-%m-%d') AS letter_date,
+                    l.from_office_code, l.to_office_code,
                     l.transfer_category, l.status, l.total_staff, l.document_id,
                     l.created_by, l.created_at, l.finalized_at, l.transferred_at,
-                    o1.office_name AS from_office_name, o2.office_name AS to_office_name
+                    o1.office_name AS from_office_name, o2.office_name AS to_office_name,
+                    (SELECT COUNT(*) FROM div_transfer_requests tr
+                      WHERE tr.letter_id = l.id AND tr.status = 'Pending') AS pending_count
              FROM div_transfer_letters l
              LEFT JOIN offices o1 ON l.from_office_code = o1.office_code
              LEFT JOIN offices o2 ON l.to_office_code = o2.office_code
@@ -239,7 +242,8 @@ router.get('/', requireDivisionAccess, async (req, res) => {
 
 async function loadLetter(conn, id) {
     const [[letter]] = await conn.query(
-        `SELECT l.*, o1.office_name AS from_office_name, o2.office_name AS to_office_name
+        `SELECT l.*, DATE_FORMAT(l.letter_date, '%Y-%m-%d') AS letter_date,
+                o1.office_name AS from_office_name, o2.office_name AS to_office_name
          FROM div_transfer_letters l
          LEFT JOIN offices o1 ON l.from_office_code = o1.office_code
          LEFT JOIN offices o2 ON l.to_office_code = o2.office_code
@@ -248,11 +252,19 @@ async function loadLetter(conn, id) {
     );
     if (!letter) return null;
     const [staff] = await conn.query(
-        `SELECT ls.*, s.name AS live_name, s.pf_number AS live_pf, s.current_cms_id,
-                s.current_office_code, d.designation_name
+        `SELECT ls.id, ls.letter_id, ls.staff_hrms_id, ls.sr_no,
+                ls.pf_number_snapshot, ls.name_snapshot, ls.footplate_km, ls.remarks,
+                DATE_FORMAT(ls.existing_reporting_date, '%Y-%m-%d') AS existing_reporting_date,
+                DATE_FORMAT(ls.relieving_date, '%Y-%m-%d')          AS relieving_date,
+                DATE_FORMAT(ls.new_reporting_date, '%Y-%m-%d')      AS new_reporting_date,
+                s.name AS live_name, s.pf_number AS live_pf, s.current_cms_id,
+                s.current_office_code, d.designation_name,
+                tr.request_id, tr.status AS request_status, tr.proposed_cms_id
          FROM div_transfer_letter_staff ls
          LEFT JOIN div_staff_master s ON ls.staff_hrms_id = s.hrms_id
          LEFT JOIN designations d ON s.designation_id = d.id
+         LEFT JOIN div_transfer_requests tr
+                ON tr.letter_id = ls.letter_id AND tr.staff_hrms_id = ls.staff_hrms_id
          WHERE ls.letter_id = ?
          ORDER BY ls.sr_no`,
         [id]
@@ -614,6 +626,83 @@ router.post('/:id/transfer', requireDivisionAccess, async (req, res) => {
         console.error('transfer-letters transfer error:', error);
         if (conn) { try { await conn.rollback(); } catch (e) {} }
         res.status(500).json({ error: 'Failed to create transfer requests' });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// ── Bulk accept (receiving lobby) ──────────────────────────────────────────
+// The receiving lobby accepts the PHYSICALLY REPORTED staff of a letter in
+// one action: body { accepts: [{ staff_hrms_id, new_cms_id, reporting_date,
+// is_yard_staff }] }. Each staff is accepted in its own transaction so one
+// failure (bad CMS, already accepted) doesn't undo the others; unfilled
+// staff simply stay Pending and can be accepted later from the same page.
+
+router.post('/:id/accept', requireDivisionAccess, async (req, res) => {
+    let conn;
+    try {
+        conn = await getConnection(req);
+        const data = await loadLetter(conn, req.params.id);
+        if (!data) return res.status(404).json({ error: 'Letter not found' });
+        const { letter, staff } = data;
+
+        const userOffice = req.session.user?.div_office_code;
+        if (!isAdmin(req) && letter.to_office_code !== userOffice) {
+            return res.status(403).json({ error: 'Only the receiving lobby can accept these staff' });
+        }
+        if (letter.status !== 'transferred') {
+            return res.status(409).json({ error: 'Staff have not been transferred on this letter yet' });
+        }
+
+        const accepts = Array.isArray(req.body?.accepts) ? req.body.accepts : [];
+        if (!accepts.length) {
+            return res.status(400).json({ error: 'Fill the new CMS ID for at least one reported staff' });
+        }
+
+        const results = [];
+        for (const a of accepts) {
+            const row = staff.find(s => s.staff_hrms_id === a.staff_hrms_id);
+            const name = row ? (row.name_snapshot || row.live_name || a.staff_hrms_id) : a.staff_hrms_id;
+            if (!row || !row.request_id) {
+                results.push({ staff_hrms_id: a.staff_hrms_id, name, ok: false, error: 'No transfer request found for this staff on the letter' });
+                continue;
+            }
+            if (row.request_status !== 'Pending') {
+                results.push({ staff_hrms_id: a.staff_hrms_id, name, ok: false, error: `Request is already ${row.request_status}` });
+                continue;
+            }
+            try {
+                await conn.beginTransaction();
+                await acceptTransferRequest(conn, row.request_id, {
+                    new_cms_id: String(a.new_cms_id || ''),
+                    remarks: `Accepted via Transfer Letter ${letter.letter_no || '#' + letter.id}`,
+                    is_yard_staff: a.is_yard_staff ? 1 : 0,
+                    reporting_date: a.reporting_date || row.new_reporting_date || null,
+                    reviewed_by: req.session.user.username,
+                });
+                await conn.commit();
+                results.push({ staff_hrms_id: a.staff_hrms_id, name, ok: true });
+            } catch (err) {
+                try { await conn.rollback(); } catch (e) {}
+                let msg = 'Could not accept';
+                if (err && err.code === 'INVALID_CMS') msg = 'Invalid CMS ID (letters then digits, e.g. KYN1234)';
+                else if (err && err.code === 'CMS_TAKEN') msg = `CMS ID ${err.cms} already belongs to ${err.name}`;
+                else if (err && err.code === 'NOT_PENDING') msg = `Request already ${err.status}`;
+                else if (err && err.code === 'NOT_FOUND') msg = 'Transfer request not found';
+                else console.error('bulk accept error:', err);
+                results.push({ staff_hrms_id: a.staff_hrms_id, name, ok: false, error: msg });
+            }
+        }
+
+        const accepted = results.filter(r => r.ok).length;
+        const [[{ pending }]] = await conn.query(
+            `SELECT COUNT(*) AS pending FROM div_transfer_requests WHERE letter_id = ? AND status = 'Pending'`,
+            [letter.id]
+        );
+        res.json({ success: true, accepted, pending_left: pending, results });
+    } catch (error) {
+        console.error('transfer-letters bulk accept error:', error);
+        res.status(500).json({ error: 'Failed to accept staff' });
     } finally {
         if (conn) conn.release();
     }

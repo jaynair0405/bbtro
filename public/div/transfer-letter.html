@@ -401,6 +401,31 @@ body.drawer-open .drawer-veil { opacity: 1; pointer-events: auto; }
 .toast.err { border-left-color: var(--red); }
 .toast.ok  { border-left-color: var(--green); }
 
+/* Receiver mode: the receiving lobby sees only the accept panel */
+.desk.receiver .form-panel { display: none; }
+#acceptPanel { display: none; border-color: rgba(47,158,99,.45); }
+.desk.receiver #acceptPanel { display: block; }
+#acceptPanel > h2 { color: #4cc98a; }
+#acceptPanel > h2 .n { background: rgba(47,158,99,.14); border-color: rgba(47,158,99,.4); color: #4cc98a; }
+.acc-row {
+    background: #0d1830; border: 1px solid var(--chrome-line);
+    border-left: 3px solid #4cc98a; border-radius: 10px;
+    padding: 10px 12px; margin-bottom: 9px;
+}
+.acc-row.done { border-left-color: var(--green); opacity: .72; }
+.acc-row .top { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
+.acc-row .nm { flex: 1; min-width: 0; }
+.acc-row .nm b { color: #fff; font-size: 13.5px; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.acc-row .nm small { color: var(--text-dim); font-size: 11px; }
+.acc-row .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+.acc-row .grid label { display:block; font-size: 9.5px; font-weight:700; letter-spacing:.8px; text-transform:uppercase; color: var(--text-dim); margin-bottom:4px; }
+.acc-row .grid input {
+    width:100%; background:#0a1425; border:1px solid var(--chrome-line); color:#e8eefb;
+    border-radius:7px; padding:6px 8px; font-size:12.5px; font-family:var(--ui);
+}
+.acc-row .grid input:focus { outline:none; border-color:#4cc98a; box-shadow:0 0 0 3px rgba(47,158,99,.13); }
+.acc-row .err { color:#f3a6a6; font-size:11px; margin-top:5px; display:none; }
+
 /* readonly veil on form when not draft */
 .desk.readonly .scroll { opacity: .62; pointer-events: none; }
 .ro-note {
@@ -486,7 +511,20 @@ body.drawer-open .drawer-veil { opacity: 1; pointer-events: auto; }
     <!-- ══ Left: the desk ══ -->
     <section class="desk" id="desk">
         <div class="scroll">
-            <div class="panel">
+            <div class="panel" id="acceptPanel">
+                <h2><span class="n">✓</span> Accept reported staff</h2>
+                <div class="bd">
+                    <div class="hint" style="font-size:11.5px;color:#5a7099;margin-bottom:11px">
+                        Fill the <b>New CMS ID</b> for staff who have physically reported and press
+                        Accept — the rest stay pending and can be accepted here later.
+                        Reporting date defaults from the letter; edit if they reported on another day.
+                    </div>
+                    <div id="acceptList"></div>
+                    <button class="btn btn-green" id="btnAcceptAll" style="width:100%; justify-content:center; margin-top:4px">
+                        Accept reported staff</button>
+                </div>
+            </div>
+            <div class="panel form-panel">
                 <h2><span class="n">1</span> Offices &amp; Letter</h2>
                 <div class="bd">
                     <div class="row">
@@ -522,7 +560,7 @@ body.drawer-open .drawer-veil { opacity: 1; pointer-events: auto; }
                 </div>
             </div>
 
-            <div class="panel">
+            <div class="panel form-panel">
                 <h2><span class="n">2</span> Staff on this letter</h2>
                 <div class="bd">
                     <div class="hint" style="font-size:11px;color:#5a7099;margin:0 0 10px">
@@ -539,7 +577,7 @@ body.drawer-open .drawer-veil { opacity: 1; pointer-events: auto; }
                 </div>
             </div>
 
-            <div class="panel">
+            <div class="panel form-panel">
                 <h2><span class="n">3</span> Letter text</h2>
                 <div class="bd">
                     <div class="fld">
@@ -678,6 +716,7 @@ const $ = (id) => document.getElementById(id);
 let CFG = null;              // /config payload
 let LETTER_ID = null;
 let STATUS = 'draft';
+let RECEIVER = false;        // opened a letter ADDRESSED TO my lobby (accept mode)
 let DOCUMENT_ID = null;
 let STAFF = [];              // {staff_hrms_id, name, pf_number, designation_name, current_cms_id, existing_reporting_date, relieving_date, footplate_km, new_reporting_date}
 let subjectTouched = false;
@@ -997,16 +1036,102 @@ function setStatus(st) {
         : 'New letter';
 
     const draft = st === 'draft';
-    $('desk').classList.toggle('readonly', !draft);
+    $('desk').classList.toggle('receiver', RECEIVER);
+    $('desk').classList.toggle('readonly', !draft && !RECEIVER);
     $('roNote').textContent = st === 'finalized'
         ? '🔒 Finalized — the letter is locked and its PDF is filed in Documents. You can print, or transfer the staff now.'
         : '🔒 Transferred — requests are with the receiving lobby. The letter is permanent.';
-    $('btnSave').style.display = draft ? '' : 'none';
-    $('btnFinalize').style.display = draft ? '' : 'none';
-    $('btnDelete').style.display = (draft && LETTER_ID) ? '' : 'none';
+    $('btnSave').style.display = (draft && !RECEIVER) ? '' : 'none';
+    $('btnFinalize').style.display = (draft && !RECEIVER) ? '' : 'none';
+    $('btnDelete').style.display = (draft && LETTER_ID && !RECEIVER) ? '' : 'none';
     $('btnTransfer').disabled = st !== 'finalized';
+    $('btnTransfer').style.display = RECEIVER ? 'none' : '';
     $('btnPdf').style.display = DOCUMENT_ID ? '' : 'none';
+    if (RECEIVER) renderAcceptList();
     updateHint();
+}
+
+/* ── Receiver mode: accept reported staff on this letter ─────────────── */
+function renderAcceptList() {
+    const pending = STAFF.filter(s => s.request_status === 'Pending');
+    $('acceptList').innerHTML = STAFF.map((s, i) => {
+        const done = s.request_status && s.request_status !== 'Pending';
+        return `
+        <div class="acc-row ${done ? 'done' : ''}" data-h="${esc(s.staff_hrms_id)}">
+            <div class="top">
+                <span class="nm"><b>${esc(s.name)}</b>
+                    <small>${esc(s.designation_name || '')} · PF ${esc(s.pf_number || '—')} · was ${esc(s.current_cms_id || '—')}</small></span>
+                <span class="chip ${done ? 'transferred' : 'finalized'}">${done ? '✓ Accepted' : '⏳ Pending'}</span>
+            </div>
+            ${done ? '' : `
+            <div class="grid">
+                <div><label>New CMS ID</label>
+                    <input type="text" data-acc="cms" placeholder="e.g. ${esc(($('toOffice').value || 'KYN').replace(/[^A-Z]/g,'') || 'KYN')}1234"
+                           style="text-transform:uppercase" autocomplete="off"></div>
+                <div><label>Reported on</label>
+                    <input type="date" data-acc="date" value="${esc(s.new_reporting_date || '')}"></div>
+            </div>
+            <div class="err" data-acc="err"></div>`}
+        </div>`;
+    }).join('');
+    $('btnAcceptAll').textContent = pending.length
+        ? `Accept reported staff (${pending.length} pending)`
+        : 'All staff accepted ✓';
+    $('btnAcceptAll').disabled = !pending.length;
+}
+
+async function acceptReported() {
+    const accepts = [];
+    document.querySelectorAll('#acceptList .acc-row:not(.done)').forEach(row => {
+        const cms = (row.querySelector('[data-acc="cms"]')?.value || '').trim().toUpperCase();
+        if (!cms) return;   // left blank = not reported yet, stays pending
+        accepts.push({
+            staff_hrms_id: row.dataset.h,
+            new_cms_id: cms,
+            reporting_date: row.querySelector('[data-acc="date"]')?.value || null,
+        });
+    });
+    if (!accepts.length) return toast('Fill the new CMS ID for at least one reported staff', 'err');
+
+    const okGo = await confirmBox('Accept these staff?',
+        `<p>${accepts.length} staff will be transferred into <b>${esc(CFG.user.officeCode || 'your lobby')}</b>
+         with the CMS IDs you entered. Staff left blank stay pending.</p>`,
+        `Accept ${accepts.length} staff`, 'btn-green');
+    if (!okGo) return;
+
+    const r = await fetch(`${API}/${LETTER_ID}/accept`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accepts }),
+    });
+    const j = await r.json();
+    if (!r.ok) return toast(j.error || 'Accept failed', 'err');
+
+    // Per-staff errors inline; then refresh the letter state.
+    (j.results || []).filter(x => !x.ok).forEach(x => {
+        const row = document.querySelector(`#acceptList .acc-row[data-h="${CSS.escape(x.staff_hrms_id)}"]`);
+        const errEl = row && row.querySelector('[data-acc="err"]');
+        if (errEl) { errEl.textContent = x.error; errEl.style.display = 'block'; }
+    });
+    const failed = (j.results || []).filter(x => !x.ok).length;
+    toast(`${j.accepted} accepted${failed ? `, ${failed} failed` : ''}${j.pending_left ? ` · ${j.pending_left} still pending` : ' · all done'}`,
+        failed ? 'err' : 'ok');
+    if (j.accepted) {
+        const keepErrors = failed > 0;
+        if (!keepErrors) await openLetter(LETTER_ID);
+        else {
+            // refresh statuses without wiping the inline errors
+            const rr = await fetch(`${API}/${LETTER_ID}`); const jj = await rr.json();
+            (jj.staff || []).forEach(s2 => {
+                const s = STAFF.find(x => x.staff_hrms_id === s2.staff_hrms_id);
+                if (s) s.request_status = s2.request_status;
+            });
+            document.querySelectorAll('#acceptList .acc-row').forEach(row => {
+                const s = STAFF.find(x => x.staff_hrms_id === row.dataset.h);
+                if (s && s.request_status && s.request_status !== 'Pending') row.classList.add('done');
+            });
+        }
+        loadHistory();
+    }
 }
 
 /* ── Persistence ────────────────────────────────────────────────────── */
@@ -1124,7 +1249,10 @@ async function loadHistory() {
         list.innerHTML = (j.letters || []).map(l => `
             <div class="hist-card" onclick="openLetter(${l.id})">
                 <div class="l1"><span class="no">${esc(l.letter_no || '#' + l.id)}</span>
-                    <span class="chip ${esc(l.status)}">${HIST_BOX === 'received' ? 'received' : esc(l.status)}</span></div>
+                    ${l.status === 'transferred' && Number(l.pending_count) > 0
+                        ? `<span class="chip finalized">⏳ ${esc(String(l.pending_count))} to accept</span>`
+                        : `<span class="chip ${esc(l.status)}">${HIST_BOX === 'received' ? '✓ all accepted' : esc(l.status)}</span>`}
+                </div>
                 <div class="l2">${HIST_BOX === 'received'
                     ? `from <b>${esc(l.from_office_name || l.from_office_code)}</b>`
                     : `${esc(l.from_office_code)} → ${esc(l.to_office_code)}`} ·
@@ -1179,7 +1307,14 @@ async function openLetter(id) {
         footplate_km: s.footplate_km == null ? '' : String(s.footplate_km),
         new_reporting_date: toInputDate(s.new_reporting_date),
         remarks: s.remarks || '',
+        request_id: s.request_id || null,
+        request_status: s.request_status || null,
     }));
+    // Receiver mode: the letter is addressed TO my lobby and transferred —
+    // show the accept panel instead of the (locked) preparation form.
+    RECEIVER = L.status === 'transferred'
+        && CFG.user.officeCode === L.to_office_code
+        && CFG.user.officeCode !== L.from_office_code;
     renderStaff();
     setStatus(L.status);
     toggleDrawer(false);
@@ -1187,7 +1322,7 @@ async function openLetter(id) {
 }
 
 function newLetter() {
-    LETTER_ID = null; DOCUMENT_ID = null; STAFF = []; subjectTouched = false;
+    LETTER_ID = null; DOCUMENT_ID = null; STAFF = []; subjectTouched = false; RECEIVER = false;
     if (!CFG.user.canSwitchOffice) $('fromOffice').value = CFG.user.officeCode;
     $('letterDate').value = new Date().toISOString().slice(0, 10);
     $('refText').value = '';
@@ -1206,6 +1341,7 @@ function toggleDrawer(open) {
 $('btnSave').onclick = () => saveDraft(false);
 $('btnFinalize').onclick = finalize;
 $('btnTransfer').onclick = transferNow;
+$('btnAcceptAll').onclick = acceptReported;
 $('btnDelete').onclick = deleteDraft;
 $('btnNew').onclick = async () => {
     if (STATUS === 'draft' && (STAFF.length || LETTER_ID)) {

@@ -5,7 +5,7 @@ const {
     endActiveCliNomination,
     completePendingTransferRequests
 } = require('../../utils/staffExit');
-const { createPendingTransferRequest } = require('../../utils/transferRequests');
+const { createPendingTransferRequest, acceptTransferRequest } = require('../../utils/transferRequests');
 
 // Middleware to check authentication
 function requireAuth(req, res, next) {
@@ -258,187 +258,62 @@ router.get('/transfer-requests/pending', requireAuth, async (req, res) => {
 });
 
 // PUT /api/division/transfer-request/:id/accept - Accept transfer request
+// (core logic shared with the Transfer Letter bulk-accept: utils/transferRequests.js)
 router.put('/transfer-request/:id/accept', requireAuth, async (req, res) => {
     let conn;
     try {
         const { id } = req.params;
-        const { new_cms_id, remarks, is_yard_staff } = req.body;
-
-        if (typeof new_cms_id !== 'string' || !new_cms_id.trim()) {
-            return res.status(400).json({ error: 'New CMS ID is required' });
-        }
-
-        const normalizedCmsId = new_cms_id.trim().toUpperCase();
-        if (new_cms_id !== new_cms_id.trim() || !/^[A-Z]+[0-9]+$/.test(normalizedCmsId)) {
-            return res.status(400).json({
-                error: 'Invalid CMS ID. Enter letters immediately followed by digits, for example PNVL5545. Spaces, hyphens and other symbols are not allowed.'
-            });
-        }
+        const { new_cms_id, remarks, is_yard_staff, reporting_date } = req.body;
 
         conn = await req.app.locals.pool.getConnection();
-
         await conn.beginTransaction();
 
+        let result;
         try {
-            // Get transfer request details FIRST
-            const [request] = await conn.query(
-                'SELECT * FROM div_transfer_requests WHERE request_id = ?',
-                [id]
-            );
-
-            if (request.length === 0) {
-                await conn.rollback();
-                conn.release();
-                return res.status(404).json({ error: 'Transfer request not found' });
-            }
-
-            const transferReq = request[0];
-
-            if (transferReq.status !== 'Pending') {
-                await conn.rollback();
-                conn.release();
-                return res.status(400).json({
-                    error: `Cannot accept transfer request with status: ${transferReq.status}`
-                });
-            }
-
-            // NOW check for duplicate CMS ID (after we have transferReq.staff_hrms_id)
-            const [duplicateCheck] = await conn.query(
-                'SELECT hrms_id, name FROM div_staff_master WHERE current_cms_id = ? OR original_cms_id = ?',
-                [normalizedCmsId, normalizedCmsId]
-            );
-
-            let isReturningToOriginalCMS = false;
-
-            if (duplicateCheck.length > 0) {
-                // Check if the CMS ID belongs to the same staff member (same HRMS ID)
-                const existingStaff = duplicateCheck[0];
-
-                if (existingStaff.hrms_id !== transferReq.staff_hrms_id) {
-                    // CMS ID is assigned to a DIFFERENT staff member - BLOCK
-                    await conn.rollback();
-                    conn.release();
-                    return res.status(409).json({
-                        error: `CMS ID ${normalizedCmsId} is already assigned to ${existingStaff.name} (${existingStaff.hrms_id})`
-                    });
-                } else {
-                    // CMS ID was originally assigned to THIS staff member - ALLOW with info
-                    isReturningToOriginalCMS = true;
-                }
-            }
-
-            // Update transfer request
-            await conn.query(
-                `UPDATE div_transfer_requests
-                 SET status = 'Approved', proposed_cms_id = ?,
-                     reviewed_by = ?, review_date = CURDATE()
-                 WHERE request_id = ?`,
-                [normalizedCmsId, req.session.user.username, id]
-            );
-
-            // Insert into transfer history
-            await conn.query(
-                `INSERT INTO div_transfer_history
-                 (staff_hrms_id, from_office_code, to_office_code, transfer_category, from_cms_id, to_cms_id,
-                  transfer_date, transfer_order_no, transfer_reason,
-                  initiated_by, approved_by, status, remarks, created_at)
-                 VALUES (?, ?, ?, ?, ?, ?, CURDATE(), '', ?, ?, ?, 'Completed', ?, NOW())`,
-                [
-                    transferReq.staff_hrms_id,
-                    transferReq.from_office_code,
-                    transferReq.to_office_code,
-                    transferReq.transfer_category || 'Permanent Transfer',
-                    transferReq.current_cms_id,
-                    normalizedCmsId,
-                    transferReq.remarks,
-                    transferReq.requested_by,
-                    req.session.user.username,
-                    remarks || ''
-                ]
-            );
-
-            // Determine what to update based on transfer category
-            const category = transferReq.transfer_category || 'Permanent Transfer';
-            let staffUpdate = '';
-            let staffParams = [];
-
-            // Determine is_yard_staff value for CSMT-ML transfers
-            // Get staff's designation_id
-            const [staffInfo] = await conn.query(
-                'SELECT designation_id FROM div_staff_master WHERE hrms_id = ?',
-                [transferReq.staff_hrms_id]
-            );
-            const designationId = staffInfo[0]?.designation_id;
-
-            // Calculate yard staff flag:
-            // - LPS/Sr.LPS (3,4): always 1
-            // - ALP/Sr.ALP/LPG (1,2,5) at CSMT-ML: use provided value
-            // - Others: 0
-            let yardStaffValue = 0;
-            if (transferReq.to_office_code === 'CSMT-ML') {
-                if ([3, 4].includes(designationId)) {
-                    yardStaffValue = 1; // LPS always yard staff
-                } else if ([1, 2, 5].includes(designationId)) {
-                    yardStaffValue = is_yard_staff ? 1 : 0; // Use provided value
-                }
-            }
-
-            if (category === 'Inter Railway') {
-                // Inter Railway: Set office to OTHER, preserve home_office_code, set status to Transferred
-                staffUpdate = `UPDATE div_staff_master
-                               SET current_office_code = 'OTHER', hq_station = NULL, current_cms_id = ?, status = 'Transferred'
-                               WHERE hrms_id = ?`;
-                staffParams = [normalizedCmsId, transferReq.staff_hrms_id];
-            } else if (category === 'Temporary Transfer') {
-                // Temporary: Update current_office_code only, keep home_office_code unchanged
-                staffUpdate = `UPDATE div_staff_master
-                               SET current_office_code = ?, hq_station = ?, current_cms_id = ?, is_yard_staff = ?
-                               WHERE hrms_id = ?`;
-                staffParams = [transferReq.to_office_code, transferReq.to_office_code, normalizedCmsId, yardStaffValue, transferReq.staff_hrms_id];
-            } else if (category === 'Permanent Transfer' || category === 'Promotion') {
-                // Permanent/Promotion: Update both current and home office
-                staffUpdate = `UPDATE div_staff_master
-                               SET current_office_code = ?, home_office_code = ?, hq_station = ?, current_cms_id = ?, is_yard_staff = ?
-                               WHERE hrms_id = ?`;
-                staffParams = [transferReq.to_office_code, transferReq.to_office_code, transferReq.to_office_code, normalizedCmsId, yardStaffValue, transferReq.staff_hrms_id];
-            }
-
-            await conn.query(staffUpdate, staffParams);
-
-            // proposed_lobby wiring: the transfer to that lobby is now real, so a
-            // MATCHING informational proposed_lobby on the active CLI nomination is
-            // confirmed → cleared. A mismatched value is left for manual review.
-            await conn.query(
-                `UPDATE div_cli_nominations
-                 SET proposed_lobby = NULL
-                 WHERE staff_hrms_id = ? AND status = 'Active' AND proposed_lobby = ?`,
-                [transferReq.staff_hrms_id, transferReq.to_office_code]
-            );
+            result = await acceptTransferRequest(conn, id, {
+                new_cms_id, remarks, is_yard_staff, reporting_date,
+                reviewed_by: req.session.user.username,
+            });
 
             // Inter Railway = transfer-out of the division: strip CLI nomination
             // + complete any dangling pending requests. In-division transfers
             // (Temporary/Permanent/Promotion) keep the staff Active - no strip.
-            if (category === 'Inter Railway') {
+            if ((result.transferReq.transfer_category || 'Permanent Transfer') === 'Inter Railway') {
                 const effectiveDate = new Date().toISOString().split('T')[0];
-                await endActiveCliNomination(conn, transferReq.staff_hrms_id, effectiveDate, nominationStatusForExit('Transferred'));
-                await completePendingTransferRequests(conn, transferReq.staff_hrms_id);
+                await endActiveCliNomination(conn, result.staff_hrms_id, effectiveDate, nominationStatusForExit('Transferred'));
+                await completePendingTransferRequests(conn, result.staff_hrms_id);
             }
 
             await conn.commit();
-            conn.release();
-
-            res.json({
-                success: true,
-                message: 'Transfer request accepted and staff transferred successfully',
-                info: isReturningToOriginalCMS ?
-                    `Staff member has been reassigned their original CMS ID (${normalizedCmsId})` : null
-            });
-
-        } catch (error) {
+        } catch (err) {
             await conn.rollback();
             conn.release();
-            throw error;
+            conn = null;
+            if (err && err.code === 'INVALID_CMS') {
+                return res.status(400).json({
+                    error: 'Invalid CMS ID. Enter letters immediately followed by digits, for example PNVL5545. Spaces, hyphens and other symbols are not allowed.'
+                });
+            }
+            if (err && err.code === 'NOT_FOUND') {
+                return res.status(404).json({ error: 'Transfer request not found' });
+            }
+            if (err && err.code === 'NOT_PENDING') {
+                return res.status(400).json({ error: `Cannot accept transfer request with status: ${err.status}` });
+            }
+            if (err && err.code === 'CMS_TAKEN') {
+                return res.status(409).json({ error: `CMS ID ${err.cms} is already assigned to ${err.name} (${err.hrms_id})` });
+            }
+            throw err;
         }
+        conn.release();
+        conn = null;
+
+        res.json({
+            success: true,
+            message: 'Transfer request accepted and staff transferred successfully',
+            info: result.isReturningToOriginalCMS ?
+                `Staff member has been reassigned their original CMS ID (${new_cms_id.trim().toUpperCase()})` : null
+        });
 
     } catch (error) {
         console.error('Error accepting transfer request:', error);
