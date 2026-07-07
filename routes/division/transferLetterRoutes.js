@@ -194,6 +194,10 @@ router.get('/', requireDivisionAccess, async (req, res) => {
     let conn;
     try {
         conn = await getConnection(req);
+        // box=sent (default): letters PREPARED by the office.
+        // box=received: letters ADDRESSED TO the office — visible once the
+        // staff have actually been transferred (status 'transferred').
+        const box = req.query.box === 'received' ? 'received' : 'sent';
         let officeCode = req.query.office_code || null;
         if (!isAdmin(req)) officeCode = req.session.user.div_office_code; // forced own office
         const status = req.query.status || null;
@@ -201,8 +205,13 @@ router.get('/', requireDivisionAccess, async (req, res) => {
 
         const where = [];
         const params = [];
-        if (officeCode) { where.push('l.from_office_code = ?'); params.push(officeCode); }
-        if (status) { where.push('l.status = ?'); params.push(status); }
+        if (box === 'received') {
+            where.push("l.status = 'transferred'");
+            if (officeCode) { where.push('l.to_office_code = ?'); params.push(officeCode); }
+        } else if (officeCode) {
+            where.push('l.from_office_code = ?'); params.push(officeCode);
+        }
+        if (status && box !== 'received') { where.push('l.status = ?'); params.push(status); }
 
         const [rows] = await conn.query(
             `SELECT l.id, l.letter_no, l.letter_date, l.from_office_code, l.to_office_code,
@@ -257,7 +266,13 @@ router.get('/:id', requireDivisionAccess, async (req, res) => {
         conn = await getConnection(req);
         const data = await loadLetter(conn, req.params.id);
         if (!data) return res.status(404).json({ error: 'Letter not found' });
-        if (!assertOfficeAllowed(req, data.letter.from_office_code) ) {
+        // Sender (and admin) can always view; the RECEIVING lobby can view
+        // once the staff have been transferred to them (read-only anyway —
+        // all write endpoints still check the sending office).
+        const userOffice = req.session.user?.div_office_code;
+        const isReceiver = data.letter.to_office_code === userOffice
+            && data.letter.status === 'transferred';
+        if (!assertOfficeAllowed(req, data.letter.from_office_code) && !isReceiver) {
             return res.status(403).json({ error: 'Not allowed for this office' });
         }
         res.json(data);

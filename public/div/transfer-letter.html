@@ -649,6 +649,10 @@ body.drawer-open .drawer-veil { opacity: 1; pointer-events: auto; }
 <div class="drawer-veil" onclick="toggleDrawer(false)"></div>
 <aside class="drawer">
     <h3>Letters History <button onclick="toggleDrawer(false)">×</button></h3>
+    <div style="display:flex; gap:6px; padding:10px 12px 0;">
+        <button class="btn btn-ghost" id="tabSent" style="flex:1; justify-content:center">📤 Prepared</button>
+        <button class="btn btn-ghost" id="tabReceived" style="flex:1; justify-content:center">📥 Received</button>
+    </div>
     <div class="list" id="histList"></div>
 </aside>
 
@@ -1110,21 +1114,33 @@ async function deleteDraft() {
     loadHistory();
 }
 
-/* ── History ────────────────────────────────────────────────────────── */
+/* ── History (Prepared = sent by my lobby · Received = addressed to it) ─ */
+let HIST_BOX = 'sent';
 async function loadHistory() {
     try {
-        const r = await fetch(`${API}/?limit=40`);
+        const r = await fetch(`${API}/?limit=40&box=${HIST_BOX}`);
         const j = await r.json();
         const list = $('histList');
         list.innerHTML = (j.letters || []).map(l => `
             <div class="hist-card" onclick="openLetter(${l.id})">
                 <div class="l1"><span class="no">${esc(l.letter_no || '#' + l.id)}</span>
-                    <span class="chip ${esc(l.status)}">${esc(l.status)}</span></div>
-                <div class="l2">${esc(l.from_office_code)} → ${esc(l.to_office_code)} ·
+                    <span class="chip ${esc(l.status)}">${HIST_BOX === 'received' ? 'received' : esc(l.status)}</span></div>
+                <div class="l2">${HIST_BOX === 'received'
+                    ? `from <b>${esc(l.from_office_name || l.from_office_code)}</b>`
+                    : `${esc(l.from_office_code)} → ${esc(l.to_office_code)}`} ·
                     ${esc(String(l.total_staff))} staff · ${fmtD(l.letter_date)}</div>
-            </div>`).join('') || '<div class="nostaff">No letters yet.</div>';
+            </div>`).join('')
+            || `<div class="nostaff">${HIST_BOX === 'received'
+                ? 'No letters received yet — they appear here once a lobby transfers staff to you.'
+                : 'No letters yet.'}</div>`;
+        $('tabSent').className = `btn ${HIST_BOX === 'sent' ? 'btn-amber' : 'btn-ghost'}`;
+        $('tabReceived').className = `btn ${HIST_BOX === 'received' ? 'btn-amber' : 'btn-ghost'}`;
+        $('tabSent').style.cssText = 'flex:1; justify-content:center';
+        $('tabReceived').style.cssText = 'flex:1; justify-content:center';
     } catch (e) { /* silent */ }
 }
+$('tabSent').onclick = () => { HIST_BOX = 'sent'; loadHistory(); };
+$('tabReceived').onclick = () => { HIST_BOX = 'received'; loadHistory(); };
 
 async function openLetter(id) {
     const r = await fetch(`${API}/${id}`);
