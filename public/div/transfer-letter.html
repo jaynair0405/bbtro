@@ -265,7 +265,8 @@ select:disabled, input:disabled, textarea:disabled { opacity: .55; cursor: not-a
 /* The A4 sheet */
 .sheet {
     width: min(210mm, 94%);
-    min-height: 297mm;
+    height: 297mm;          /* preview = exactly one A4 page */
+    overflow: hidden;
     background:
         radial-gradient(ellipse at top left, rgba(255,255,255,.7), transparent 45%),
         var(--paper);
@@ -314,6 +315,18 @@ select:disabled, input:disabled, textarea:disabled { opacity: .55; cursor: not-a
 .sheet .sig .hi { font-size: 11.5pt; }
 .sheet .cc { margin-top: 12mm; white-space: pre-line; font-size: 11.2pt; }
 .sheet .ph { color: #a09a86; font-style: italic; }  /* placeholder text on paper */
+
+/* fade + label at the sheet's bottom edge when content runs past page 1 */
+.page-fade {
+    position: absolute; left: 0; right: 0; bottom: 0; height: 34mm;
+    display: none; align-items: flex-end; justify-content: center;
+    background: linear-gradient(180deg, rgba(253,251,243,0) 0%, rgba(253,251,243,.94) 62%, #fdfbf3 100%);
+    padding-bottom: 7mm;
+    font-family: var(--ui); font-size: 11px; font-weight: 700;
+    letter-spacing: 1.2px; text-transform: uppercase; color: #8a7d55;
+    pointer-events: none;
+}
+.sheet.overflowing .page-fade { display: flex; }
 
 /* flash a preview region when its source field changes */
 .flash { animation: flash 1s ease-out; }
@@ -403,7 +416,8 @@ body.drawer-open .drawer-veil { opacity: 1; pointer-events: auto; }
     .appbar, .trackline, .desk, .yard .preview-tag, .drawer, .drawer-veil, .modal-veil, .toast { display: none !important; }
     .stage, .yard { display: block; height: auto; overflow: visible; padding: 0; background: #fff; }
     .sheet {
-        width: 210mm; min-height: auto; height: auto; box-shadow: none; border-radius: 0;
+        width: 210mm; min-height: auto; height: auto; overflow: visible;
+        box-shadow: none; border-radius: 0;
         animation: none; margin: 0;
         /* Much tighter than the screen preview: 10-15 staff must fit one page. */
         padding: 10mm 13mm 8mm;
@@ -411,6 +425,7 @@ body.drawer-open .drawer-veil { opacity: 1; pointer-events: auto; }
         line-height: 1.35;
     }
     .sheet::after { display: none; }
+    .sheet .page-fade { display: none !important; }
     .sheet .ph { color: transparent; }
     .sheet .lh img { width: 17mm; height: 17mm; }
     .sheet .lh .l .hi, .sheet .lh .l .en { font-size: 12pt; }
@@ -623,6 +638,7 @@ body.drawer-open .drawer-veil { opacity: 1; pointer-events: auto; }
                 <div id="pvSignOffice"></div>
             </div>
             <div class="cc" id="pvCc"></div>
+            <div class="page-fade">▼ continues on page 2 — full letter in Print / PDF</div>
         </div>
     </section>
 </main>
@@ -932,6 +948,13 @@ function updatePreview() {
     $('pvSignHi').textContent = $('signDesigHi').value || '';
     $('pvSignOffice').textContent = $('fromOffice').value || '';
     $('pvCc').textContent = $('ccText').value || '';
+
+    // Preview is exactly one A4 page; show the "continues on page 2" fade
+    // when the content actually runs past it.
+    requestAnimationFrame(() => {
+        const sheet = $('sheet');
+        sheet.classList.toggle('overflowing', sheet.scrollHeight > sheet.clientHeight + 4);
+    });
 }
 
 /* ── Status / mode ──────────────────────────────────────────────────── */
@@ -949,7 +972,7 @@ function updateHint() {
     const pn = $('pageNotice');
     if (STAFF.length > 15) {
         pn.style.display = '';
-        pn.textContent = `📄 ${STAFF.length} staff — the letter will print on 2 pages: the table continues on page 2 with the header repeated, signature at the end. The preview below is one continuous sheet (scroll to see all rows).`;
+        pn.textContent = `📄 ${STAFF.length} staff — the letter will print on 2 pages: the table continues on page 2 with the header repeated, signature at the end. The preview below shows page 1 only; use Print or the PDF for the full letter.`;
     } else {
         pn.style.display = 'none';
     }
