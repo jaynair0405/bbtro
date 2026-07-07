@@ -64,7 +64,7 @@ const CATEGORIES = ['Permanent Transfer', 'Promotion', 'Temporary Transfer'];
 // inter-lobby letter.
 
 const DEFAULT_BULLETS = [
-    'Leave balance as per HRMS. CMS IDs will be transferred to your lobby.',
+    'Leave balance as per HRMS. • CMS IDs will be transferred to your lobby.',
     'They have not submitted their Personnel stores/FRC/Duty card pass.',
 ].join('\n');
 

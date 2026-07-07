@@ -134,7 +134,7 @@ function renderTransferLetterPdf(letter, staffRows) {
                 fmtDate(s.new_reporting_date),
             ];
             if (anyRemarks) cells.push(s.remarks || '');
-            const rowH = anyRemarks && (s.remarks || '').length > 24 ? 34 : 24;
+            const rowH = anyRemarks && (s.remarks || '').length > 24 ? 30 : 20;
             if (y + rowH > usableBottom) {
                 doc.addPage();
                 y = drawTableHeader(doc.page.margins.top);
@@ -143,7 +143,7 @@ function renderTransferLetterPdf(letter, staffRows) {
             let x = left;
             cells.forEach((c, ci) => {
                 doc.rect(x, y, cw[ci], rowH).stroke('#000000');
-                doc.text(c, x + 3, y + 7, { width: cw[ci] - 6, align: ci === 2 ? 'left' : 'center', ellipsis: true });
+                doc.text(c, x + 3, y + 5.5, { width: cw[ci] - 6, align: ci === 2 ? 'left' : 'center', ellipsis: true });
                 x += cw[ci];
             });
             y += rowH;
