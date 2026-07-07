@@ -482,19 +482,9 @@ body.drawer-open .drawer-veil { opacity: 1; pointer-events: auto; }
             <div class="panel">
                 <h2><span class="n">2</span> Staff on this letter</h2>
                 <div class="bd">
-                    <div class="row">
-                        <div class="fld">
-                            <label>Relieving date — all staff</label>
-                            <input type="date" id="commonRelieve">
-                        </div>
-                        <div class="fld">
-                            <label>Reporting at new lobby — all</label>
-                            <input type="date" id="commonReport">
-                        </div>
-                    </div>
-                    <div class="hint" style="font-size:11px;color:#5a7099;margin:-5px 0 10px">
-                        Auto-fills every staff you add (and can be changed per staff below).
-                        <a href="#" id="applyCommon" style="color:var(--amber)">Apply to all added staff</a>
+                    <div class="hint" style="font-size:11px;color:#5a7099;margin:0 0 10px">
+                        💡 The <b>first staff's</b> relieving date and new-lobby reporting date
+                        auto-fill for everyone — then edit only the exceptions.
                     </div>
                     <div class="fld search-wrap">
                         <label>Add staff (name / PF / HRMS / CMS)</label>
@@ -776,13 +766,15 @@ function bindSearch() {
                 drop.classList.add('open');
                 drop.querySelectorAll('.opt').forEach(el => el.onclick = () => {
                     const s = found.find(x => x.hrms_id === el.dataset.h);
+                    // New staff inherit the first staff's relieving / new-lobby dates.
+                    const first = STAFF[0];
                     STAFF.push({
                         staff_hrms_id: s.hrms_id, name: s.name, pf_number: s.pf_number,
                         designation_name: s.designation_name, current_cms_id: s.current_cms_id,
                         existing_reporting_date: toInputDate(s.reporting_date),
-                        relieving_date: $('commonRelieve').value || '',
+                        relieving_date: first ? first.relieving_date : '',
                         footplate_km: '',
-                        new_reporting_date: $('commonReport').value || '',
+                        new_reporting_date: first ? first.new_reporting_date : '',
                         remarks: '',
                     });
                     inp.value = ''; drop.classList.remove('open');
@@ -824,27 +816,42 @@ function renderStaff() {
 }
 
 // Delegated, live editing of any field on any staff card — fires while typing.
+// Editing the FIRST staff's relieving / new-lobby date cascades to every other
+// row that still has the old value (or is empty) — deliberate per-row edits stay.
+const CASCADE_KEYS = ['relieving_date', 'new_reporting_date'];
 $('staffList').addEventListener('input', (e) => {
     const k = e.target.dataset.k;
     const card = e.target.closest('.staff-card');
     if (!k || !card) return;
     const i = Number(card.dataset.idx);
-    if (STAFF[i]) { STAFF[i][k] = e.target.value; updatePreview(); }
+    if (!STAFF[i]) return;
+
+    const oldVal = STAFF[i][k];
+    STAFF[i][k] = e.target.value;
+
+    if (i === 0 && CASCADE_KEYS.includes(k) && e.target.value && STAFF.length > 1) {
+        let touched = 0;
+        STAFF.forEach((s, j) => {
+            if (j === 0) return;
+            if (!s[k] || s[k] === oldVal) { s[k] = e.target.value; touched++; }
+        });
+        if (touched) {
+            // Patch the sibling inputs in place — no re-render, focus stays put.
+            document.querySelectorAll(`#staffList .staff-card`).forEach(el => {
+                const j = Number(el.dataset.idx);
+                if (j > 0 && STAFF[j]) {
+                    const inp = el.querySelector(`input[data-k="${k}"]`);
+                    if (inp) inp.value = STAFF[j][k];
+                }
+            });
+            toast(`Date applied to all ${STAFF.length} staff — edit any exceptions`, 'ok');
+        }
+    }
+    updatePreview();
 });
 $('staffList').addEventListener('click', (e) => {
     const rm = e.target.closest('[data-rm]');
     if (rm) { STAFF.splice(Number(rm.dataset.rm), 1); renderStaff(); }
-});
-$('applyCommon').addEventListener('click', (e) => {
-    e.preventDefault();
-    const rel = $('commonRelieve').value, rep = $('commonReport').value;
-    if (!rel && !rep) return toast('Set a common date first', 'err');
-    STAFF.forEach(s => {
-        if (rel) s.relieving_date = rel;
-        if (rep) s.new_reporting_date = rep;
-    });
-    renderStaff();
-    toast('Dates applied to all staff on the letter', 'ok');
 });
 
 /* ── Live preview ───────────────────────────────────────────────────── */
@@ -1103,7 +1110,6 @@ function newLetter() {
     if (!CFG.user.canSwitchOffice) $('fromOffice').value = CFG.user.officeCode;
     $('letterDate').value = new Date().toISOString().slice(0, 10);
     $('refText').value = '';
-    $('commonRelieve').value = ''; $('commonReport').value = '';
     rebuildToOptions();
     applyOfficeDefaults();
     nextNumber();
