@@ -482,6 +482,20 @@ body.drawer-open .drawer-veil { opacity: 1; pointer-events: auto; }
             <div class="panel">
                 <h2><span class="n">2</span> Staff on this letter</h2>
                 <div class="bd">
+                    <div class="row">
+                        <div class="fld">
+                            <label>Relieving date — all staff</label>
+                            <input type="date" id="commonRelieve">
+                        </div>
+                        <div class="fld">
+                            <label>Reporting at new lobby — all</label>
+                            <input type="date" id="commonReport">
+                        </div>
+                    </div>
+                    <div class="hint" style="font-size:11px;color:#5a7099;margin:-5px 0 10px">
+                        Auto-fills every staff you add (and can be changed per staff below).
+                        <a href="#" id="applyCommon" style="color:var(--amber)">Apply to all added staff</a>
+                    </div>
                     <div class="fld search-wrap">
                         <label>Add staff (name / PF / HRMS / CMS)</label>
                         <input id="staffSearch" placeholder="Type at least 2 characters…" autocomplete="off">
@@ -539,6 +553,14 @@ body.drawer-open .drawer-veil { opacity: 1; pointer-events: auto; }
         </div>
 
         <div class="ro-note" id="roNote"></div>
+        <div id="transferHint" style="display:none; margin:0 18px 8px; padding:9px 13px; border-radius:10px;
+             background:rgba(214,69,69,.1); border:1px solid rgba(214,69,69,.32);
+             color:#f3a6a6; font-size:12px; line-height:1.45;">
+            <b>“Transfer staff now”</b> will automatically transfer all the staff on this letter to
+            <b id="hintToOffice"></b> — they will appear in that lobby's <b>Staff Transfers</b> inbox,
+            where the receiving office accepts each one with a new CMS ID. No staff-by-staff manual
+            transfer is needed.
+        </div>
         <div class="actions">
             <button class="btn btn-ghost" id="btnNew">＋ New</button>
             <button class="btn btn-ghost" id="btnPrint">🖨 Print</button>
@@ -571,17 +593,7 @@ body.drawer-open .drawer-veil { opacity: 1; pointer-events: auto; }
             </div>
             <div class="body-par" id="pvBody"></div>
             <table>
-                <thead>
-                    <tr>
-                        <th style="width:7%">S.N</th>
-                        <th style="width:15%">PF No.</th>
-                        <th style="width:24%">Name</th>
-                        <th style="width:14%">Reporting date of existing lobby</th>
-                        <th style="width:13%">Relieving date</th>
-                        <th style="width:14%">Actual footplate KM of present Lobby</th>
-                        <th style="width:13%">Reporting Date</th>
-                    </tr>
-                </thead>
+                <thead id="pvHead"></thead>
                 <tbody id="pvRows"></tbody>
             </table>
             <ul class="bl" id="pvBullets"></ul>
@@ -768,10 +780,14 @@ function bindSearch() {
                         staff_hrms_id: s.hrms_id, name: s.name, pf_number: s.pf_number,
                         designation_name: s.designation_name, current_cms_id: s.current_cms_id,
                         existing_reporting_date: toInputDate(s.reporting_date),
-                        relieving_date: '', footplate_km: '', new_reporting_date: '',
+                        relieving_date: $('commonRelieve').value || '',
+                        footplate_km: '',
+                        new_reporting_date: $('commonReport').value || '',
+                        remarks: '',
                     });
                     inp.value = ''; drop.classList.remove('open');
                     renderStaff();
+                    inp.focus();   // straight on to the next staff
                 });
             } catch (e) { drop.classList.remove('open'); }
         }, 280);
@@ -785,27 +801,51 @@ function renderStaff() {
     const box = $('staffList');
     $('noStaff').style.display = STAFF.length ? 'none' : 'block';
     box.innerHTML = STAFF.map((s, i) => `
-        <div class="staff-card">
+        <div class="staff-card" data-idx="${i}">
             <div class="top">
                 <span class="sr">${i + 1}</span>
                 <span class="nm"><b>${esc(s.name)}</b><small>${esc(s.designation_name || '')} · PF ${esc(s.pf_number || '—')}</small></span>
-                <button class="rm" title="Remove" onclick="removeStaff(${i})">✕</button>
+                <button class="rm" title="Remove" data-rm="${i}">✕</button>
             </div>
             <div class="grid">
                 <div><label>Reporting date (existing lobby)</label>
-                    <input type="date" value="${esc(s.existing_reporting_date)}" onchange="setS(${i},'existing_reporting_date',this.value)"></div>
+                    <input type="date" data-k="existing_reporting_date" value="${esc(s.existing_reporting_date)}"></div>
                 <div><label>Relieving date</label>
-                    <input type="date" value="${esc(s.relieving_date)}" onchange="setS(${i},'relieving_date',this.value)"></div>
+                    <input type="date" data-k="relieving_date" value="${esc(s.relieving_date)}"></div>
                 <div><label>Footplate KM (present lobby)</label>
-                    <input type="number" min="0" placeholder="e.g. 2301" value="${esc(s.footplate_km)}" onchange="setS(${i},'footplate_km',this.value)"></div>
+                    <input type="number" min="0" placeholder="e.g. 2301" data-k="footplate_km" value="${esc(s.footplate_km)}"></div>
                 <div><label>Reporting date (new lobby)</label>
-                    <input type="date" value="${esc(s.new_reporting_date)}" onchange="setS(${i},'new_reporting_date',this.value)"></div>
+                    <input type="date" data-k="new_reporting_date" value="${esc(s.new_reporting_date)}"></div>
+                <div style="grid-column:1/-1"><label>Remarks (optional, prints on letter)</label>
+                    <input type="text" maxlength="255" placeholder="e.g. Availed Rest on 05-07-2026" data-k="remarks" value="${esc(s.remarks || '')}"></div>
             </div>
         </div>`).join('');
     updatePreview();
 }
-function setS(i, k, v) { if (STAFF[i]) { STAFF[i][k] = v; updatePreview(); } }
-function removeStaff(i) { STAFF.splice(i, 1); renderStaff(); }
+
+// Delegated, live editing of any field on any staff card — fires while typing.
+$('staffList').addEventListener('input', (e) => {
+    const k = e.target.dataset.k;
+    const card = e.target.closest('.staff-card');
+    if (!k || !card) return;
+    const i = Number(card.dataset.idx);
+    if (STAFF[i]) { STAFF[i][k] = e.target.value; updatePreview(); }
+});
+$('staffList').addEventListener('click', (e) => {
+    const rm = e.target.closest('[data-rm]');
+    if (rm) { STAFF.splice(Number(rm.dataset.rm), 1); renderStaff(); }
+});
+$('applyCommon').addEventListener('click', (e) => {
+    e.preventDefault();
+    const rel = $('commonRelieve').value, rep = $('commonReport').value;
+    if (!rel && !rep) return toast('Set a common date first', 'err');
+    STAFF.forEach(s => {
+        if (rel) s.relieving_date = rel;
+        if (rep) s.new_reporting_date = rep;
+    });
+    renderStaff();
+    toast('Dates applied to all staff on the letter', 'ok');
+});
 
 /* ── Live preview ───────────────────────────────────────────────────── */
 function pvSet(id, val, ph) {
@@ -824,6 +864,17 @@ function updatePreview() {
     $('pvRef').style.display = ref ? '' : 'none';
     pvSet('pvBody', $('bodyText').value, 'Body paragraph…');
 
+    const anyRemarks = STAFF.some(s => (s.remarks || '').trim());
+    $('pvHead').innerHTML = `<tr>
+        <th style="width:6%">S.N</th>
+        <th style="width:14%">PF No.</th>
+        <th style="width:${anyRemarks ? 19 : 24}%">Name</th>
+        <th style="width:13%">Reporting date of existing lobby</th>
+        <th style="width:12%">Relieving date</th>
+        <th style="width:13%">Actual footplate KM of present Lobby</th>
+        <th style="width:12%">Reporting Date</th>
+        ${anyRemarks ? '<th style="width:11%">Remarks</th>' : ''}
+    </tr>`;
     $('pvRows').innerHTML = STAFF.length
         ? STAFF.map((s, i) => `<tr>
             <td>${i + 1}</td>
@@ -833,8 +884,10 @@ function updatePreview() {
             <td>${fmtD(s.relieving_date)}</td>
             <td>${esc(s.footplate_km)}</td>
             <td>${fmtD(s.new_reporting_date)}</td>
+            ${anyRemarks ? `<td class="nm">${esc(s.remarks || '')}</td>` : ''}
           </tr>`).join('')
-        : `<tr><td colspan="7" class="ph" style="padding:6mm">Staff will appear here as you add them</td></tr>`;
+        : `<tr><td colspan="${anyRemarks ? 8 : 7}" class="ph" style="padding:6mm">Staff will appear here as you add them</td></tr>`;
+    updateHint();
 
     $('pvBullets').innerHTML = $('bullets').value.split('\n').map(s => s.trim()).filter(Boolean)
         .map(b => `<li>${esc(b)}</li>`).join('');
@@ -846,6 +899,17 @@ function updatePreview() {
 }
 
 /* ── Status / mode ──────────────────────────────────────────────────── */
+// Plain-words explanation of the red button, shown once staff are on the
+// letter and until the transfer has actually happened.
+function updateHint() {
+    const show = STAFF.length > 0 && STATUS !== 'transferred';
+    $('transferHint').style.display = show ? '' : 'none';
+    if (show) {
+        const to = officeOf($('toOffice').value);
+        $('hintToOffice').textContent = to ? `${to.label} (${to.code})` : $('toOffice').value;
+    }
+}
+
 function setStatus(st) {
     STATUS = st;
     const order = ['draft', 'finalized', 'transferred'];
@@ -868,6 +932,7 @@ function setStatus(st) {
     $('btnDelete').style.display = (draft && LETTER_ID) ? '' : 'none';
     $('btnTransfer').disabled = st !== 'finalized';
     $('btnPdf').style.display = DOCUMENT_ID ? '' : 'none';
+    updateHint();
 }
 
 /* ── Persistence ────────────────────────────────────────────────────── */
@@ -895,6 +960,7 @@ function payload() {
             relieving_date: s.relieving_date || null,
             footplate_km: s.footplate_km === '' ? null : s.footplate_km,
             new_reporting_date: s.new_reporting_date || null,
+            remarks: s.remarks || null,
         })),
     };
 }
@@ -1024,6 +1090,7 @@ async function openLetter(id) {
         relieving_date: toInputDate(s.relieving_date),
         footplate_km: s.footplate_km == null ? '' : String(s.footplate_km),
         new_reporting_date: toInputDate(s.new_reporting_date),
+        remarks: s.remarks || '',
     }));
     renderStaff();
     setStatus(L.status);
@@ -1036,6 +1103,7 @@ function newLetter() {
     if (!CFG.user.canSwitchOffice) $('fromOffice').value = CFG.user.officeCode;
     $('letterDate').value = new Date().toISOString().slice(0, 10);
     $('refText').value = '';
+    $('commonRelieve').value = ''; $('commonReport').value = '';
     rebuildToOptions();
     applyOfficeDefaults();
     nextNumber();

@@ -58,6 +58,7 @@ CREATE TABLE IF NOT EXISTS div_transfer_letter_staff (
     relieving_date          DATE DEFAULT NULL,           -- manual
     footplate_km            INT DEFAULT NULL,            -- manual (no source in schema)
     new_reporting_date      DATE DEFAULT NULL,           -- manual (reporting date at new lobby)
+    remarks                 VARCHAR(255) DEFAULT NULL,   -- per-staff, e.g. "Availed Rest on 05-07-2026"
     created_at              TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE KEY uk_letter_staff (letter_id, staff_hrms_id),
     CONSTRAINT fk_tls_letter FOREIGN KEY (letter_id) REFERENCES div_transfer_letters (id) ON DELETE CASCADE,

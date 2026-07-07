@@ -367,13 +367,14 @@ router.post('/', requireDivisionAccess, async (req, res) => {
             await conn.query(
                 `INSERT INTO div_transfer_letter_staff
                     (letter_id, staff_hrms_id, sr_no, pf_number_snapshot, name_snapshot,
-                     existing_reporting_date, relieving_date, footplate_km, new_reporting_date)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                     existing_reporting_date, relieving_date, footplate_km, new_reporting_date, remarks)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 [
                     letterId, s.staff_hrms_id, i + 1, live.pf_number, live.name,
                     s.existing_reporting_date || null, s.relieving_date || null,
                     (s.footplate_km === '' || s.footplate_km == null) ? null : parseInt(s.footplate_km),
                     s.new_reporting_date || null,
+                    (s.remarks || '').trim().slice(0, 255) || null,
                 ]
             );
         }
@@ -543,7 +544,8 @@ router.post('/:id/transfer', requireDivisionAccess, async (req, res) => {
             const remarks =
                 `Category: ${letter.transfer_category}. Transfer Letter No: ${letter.letter_no || letter.id}.` +
                 (s.relieving_date ? ` Relieved: ${dateOrNull(s.relieving_date)}.` : '') +
-                (s.new_reporting_date ? ` Reporting at ${letter.to_office_code}: ${dateOrNull(s.new_reporting_date)}.` : '');
+                (s.new_reporting_date ? ` Reporting at ${letter.to_office_code}: ${dateOrNull(s.new_reporting_date)}.` : '') +
+                (s.remarks ? ` ${s.remarks}` : '');
             try {
                 await createPendingTransferRequest(conn, {
                     staff_hrms_id: s.staff_hrms_id,

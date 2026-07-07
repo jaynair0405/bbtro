@@ -100,16 +100,18 @@ function renderTransferLetterPdf(letter, staffRows) {
             });
         y = doc.y + 12;
 
-        // ── Staff table ──────────────────────────────────────────────────────
+        // ── Staff table (Remarks column only when any staff has one) ────────
+        const anyRemarks = staffRows.some(s => (s.remarks || '').trim());
         const headers = ['S.N', 'PF No.', 'Name', 'Reporting date of existing lobby',
             'Relieving date', 'Actual footplate KM of present Lobby', 'Reporting Date'];
-        const colW = [26, 78, 118, 78, 68, 82, 68]; // = 518 ≤ usableW (515)… trim
+        const colW = [26, 78, 118, 78, 68, 82, 68];
+        if (anyRemarks) { headers.push('Remarks'); colW.push(88); }
         const scale = usableW / colW.reduce((a, b) => a + b, 0);
         const cw = colW.map(w => w * scale);
 
         const drawTableHeader = (ty) => {
             doc.font('Helvetica-Bold').fontSize(8.5);
-            const headH = 40;
+            const headH = anyRemarks ? 48 : 40; // narrower columns wrap one line more
             let x = left;
             headers.forEach((h, i) => {
                 doc.rect(x, ty, cw[i], headH).stroke('#000000');
@@ -131,7 +133,8 @@ function renderTransferLetterPdf(letter, staffRows) {
                 (s.footplate_km ?? '') === '' ? '' : String(s.footplate_km),
                 fmtDate(s.new_reporting_date),
             ];
-            const rowH = 24;
+            if (anyRemarks) cells.push(s.remarks || '');
+            const rowH = anyRemarks && (s.remarks || '').length > 24 ? 34 : 24;
             if (y + rowH > usableBottom) {
                 doc.addPage();
                 y = drawTableHeader(doc.page.margins.top);
