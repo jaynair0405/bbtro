@@ -989,9 +989,11 @@ async function saveDraft(silent) {
 
 async function finalize() {
     if (!STAFF.length) return toast('Add at least one staff member first', 'err');
-    const missingKm = STAFF.filter(s => s.footplate_km === '' || s.footplate_km == null);
-    if (missingKm.length) {
-        return toast(`Enter footplate KM for: ${missingKm.map(s => s.name.split(' ')[0]).join(', ')}`, 'err');
+    // Required per staff: relieving date + reporting date at the new lobby.
+    // Footplate KM and existing-lobby reporting date may be left blank (for now).
+    const missing = STAFF.filter(s => !s.relieving_date || !s.new_reporting_date);
+    if (missing.length) {
+        return toast(`Enter relieving & new reporting dates for: ${missing.map(s => s.name.split(' ')[0]).join(', ')}`, 'err');
     }
     if (!(await saveDraft(true))) return;
     const okGo = await confirmBox('Finalize this letter?',

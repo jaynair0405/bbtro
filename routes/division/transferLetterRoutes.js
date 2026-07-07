@@ -439,6 +439,14 @@ router.post('/:id/finalize', requireDivisionAccess, async (req, res) => {
         if (!staff.length) {
             return res.status(400).json({ error: 'Add at least one staff member before finalizing' });
         }
+        // Required per staff: relieving + new-lobby reporting dates.
+        // Footplate KM / existing reporting date are optional (may tighten later).
+        const missing = staff.filter(s => !s.relieving_date || !s.new_reporting_date);
+        if (missing.length) {
+            return res.status(400).json({
+                error: `Relieving and new reporting dates are required for: ${missing.map(s => s.name_snapshot || s.staff_hrms_id).join(', ')}`,
+            });
+        }
 
         const pdf = await renderTransferLetterPdf(letter, staff);
         const originalName = sanitize(`Transfer_Letter_${letter.letter_no || letter.id}.pdf`);
