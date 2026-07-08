@@ -21,6 +21,7 @@ const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const sanitizeHtml = require('sanitize-html');
 
 // ── Config ────────────────────────────────────────────────────────────────
 
@@ -138,6 +139,73 @@ const upload = multer({
   },
 });
 
+// ── In-site composed instructions ──────────────────────────────────────────
+// Categories that can be authored in the portal (rich text) instead of only
+// uploaded as files. Composed rows carry source_type='composed', body_html
+// (English) / body_html_hi (Hindi), and no file on disk.
+const INSTRUCTION_COMPOSE_CATEGORIES = new Set(['SR_DEE_INSTRUCTION', 'CEE_OP_INSTRUCTION']);
+
+// Instruction-number prefix per category, e.g. SR DEE/INST/2026/03.
+const INSTRUCTION_NO_PREFIX = {
+  SR_DEE_INSTRUCTION: 'SR DEE/INST',
+  CEE_OP_INSTRUCTION: 'CEE OP/INST',
+};
+
+// Display labels for the server-rendered instruction viewer.
+const CATEGORY_LABELS = {
+  SR_DEE_INSTRUCTION: 'Sr.DEE Instruction',
+  CEE_OP_INSTRUCTION: 'CEE-OP Instruction',
+};
+
+// Allowlist for editor HTML — matches what Quill can produce. Strips scripts,
+// event handlers, styles, and anything else, so stored bodies are safe to render.
+const SANITIZE_OPTS = {
+  allowedTags: [
+    'p', 'br', 'span', 'strong', 'em', 'u', 's', 'blockquote',
+    'h1', 'h2', 'h3', 'h4', 'ul', 'ol', 'li', 'a',
+    'table', 'thead', 'tbody', 'tr', 'td', 'th', 'sub', 'sup', 'pre', 'code',
+  ],
+  allowedAttributes: {
+    a: ['href', 'target', 'rel'],
+    span: ['class'],
+    p: ['class'],
+    ol: ['class'],
+    li: ['class'],
+    td: ['colspan', 'rowspan'],
+    th: ['colspan', 'rowspan'],
+  },
+  allowedSchemes: ['http', 'https', 'mailto'],
+  transformTags: {
+    // Force safe external links.
+    a: sanitizeHtml.simpleTransform('a', { rel: 'noopener noreferrer' }),
+  },
+};
+
+function cleanBody(html) {
+  if (!html || !String(html).trim()) return null;
+  const out = sanitizeHtml(String(html), SANITIZE_OPTS).trim();
+  return out || null;
+}
+
+// Next sequential instruction number for a category within the current year,
+// mirroring the training/transfer-letter scheme (…/YYYY/NN).
+async function nextInstructionNo(pool, category) {
+  const prefix = INSTRUCTION_NO_PREFIX[category] || 'INSTR';
+  const year = new Date().getFullYear();
+  const [[last]] = await pool.query(
+    `SELECT title FROM div_documents
+      WHERE category = ? AND source_type = 'composed' AND title LIKE ?
+      ORDER BY id DESC LIMIT 1`,
+    [category, `${prefix}/${year}/%`]
+  );
+  let n = 1;
+  if (last && last.title) {
+    const m = String(last.title).match(/\/(\d+)$/);
+    if (m) n = parseInt(m[1], 10) + 1;
+  }
+  return `${prefix}/${year}/${String(n).padStart(2, '0')}`;
+}
+
 // ── GET / — list metadata ──────────────────────────────────────────────────
 router.get('/', async (req, res) => {
   try {
@@ -160,7 +228,8 @@ router.get('/', async (req, res) => {
     const sql = `
       SELECT id, title, category, description,
              DATE_FORMAT(doc_date, '%Y-%m-%d') AS doc_date, folder,
-             original_name, file_type, file_size, uploaded_by, created_at
+             original_name, file_type, file_size, uploaded_by, created_at,
+             source_type, language
       FROM div_documents
       ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
       ORDER BY (doc_date IS NULL), doc_date DESC, created_at DESC`;
@@ -187,6 +256,74 @@ router.get('/permissions', (req, res) => {
     canUpload,                                  // categories this role may add
     canUploadAny: canUpload.length > 0,
   });
+});
+
+// ── GET /instruction-no — suggested next instruction number ─────────────────
+router.get('/instruction-no', async (req, res) => {
+  try {
+    const { category } = req.query;
+    if (!INSTRUCTION_COMPOSE_CATEGORIES.has(category)) {
+      return res.status(400).json({ success: false, error: 'Category is not composable.' });
+    }
+    if (!canUploadCategory(getRole(req), category)) {
+      return res.status(403).json({ success: false, error: 'Not allowed.' });
+    }
+    const number = await nextInstructionNo(req.app.locals.pool, category);
+    res.json({ success: true, number });
+  } catch (err) {
+    console.error('instruction-no error:', err);
+    res.status(500).json({ success: false, error: 'Failed to suggest a number.' });
+  }
+});
+
+// ── POST /compose — author an instruction in-site (no file) ─────────────────
+router.post('/compose', async (req, res) => {
+  try {
+    const role = getRole(req);
+    const { category, subject, doc_date, body_html, body_html_hi } = req.body;
+    let { title } = req.body;
+
+    if (!INSTRUCTION_COMPOSE_CATEGORIES.has(category)) {
+      return res.status(400).json({ success: false, error: 'Category is not composable.' });
+    }
+    if (!canUploadCategory(role, category)) {
+      return res.status(403).json({ success: false, error: 'You are not allowed to add this category.' });
+    }
+    if (!doc_date) {
+      return res.status(400).json({ success: false, error: 'Instruction date is required.' });
+    }
+
+    const bodyEn = cleanBody(body_html);
+    const bodyHi = cleanBody(body_html_hi);
+    if (!bodyEn && !bodyHi) {
+      return res.status(400).json({ success: false, error: 'The instruction body is empty.' });
+    }
+    const language = bodyEn && bodyHi ? 'both' : bodyEn ? 'en' : 'hi';
+
+    const pool = req.app.locals.pool;
+    title = (title || '').trim() || await nextInstructionNo(pool, category);
+
+    const [result] = await pool.query(
+      `INSERT INTO div_documents
+         (title, category, description, doc_date, body_html, body_html_hi,
+          language, source_type, uploaded_by)
+       VALUES (?,?,?,?,?,?,?, 'composed', ?)`,
+      [
+        title,
+        category,
+        (subject || '').trim() || null,
+        doc_date,
+        bodyEn,
+        bodyHi,
+        language,
+        req.session?.user?.username || 'system',
+      ]
+    );
+    res.json({ success: true, id: result.insertId, title });
+  } catch (err) {
+    console.error('document compose error:', err);
+    res.status(500).json({ success: false, error: 'Failed to save the instruction.' });
+  }
 });
 
 // ── POST / — upload ────────────────────────────────────────────────────────
@@ -263,10 +400,120 @@ async function locateFile(pool, id) {
   return { doc, filePath };
 }
 
+function escapeText(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g,
+    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function fmtDocDate(d) {
+  if (!d) return '';
+  const [y, m, day] = String(d).slice(0, 10).split('-').map(Number);
+  if (!y) return '';
+  const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return `${String(day).padStart(2, '0')} ${MON[m - 1]} ${y}`;
+}
+
+// Print-first HTML page for an in-site composed instruction. Bodies were
+// sanitised on save, so they are injected as-is; text fields are escaped.
+function renderInstructionPage(doc) {
+  const en = doc.body_html || '';
+  const hi = doc.body_html_hi || '';
+  const hasEn = !!en.trim();
+  const hasHi = !!hi.trim();
+  const label = CATEGORY_LABELS[doc.category] || 'Instruction';
+  const toggle = (hasEn && hasHi)
+    ? `<div class="lang no-print">
+         <button data-lang="en" class="active">English</button>
+         <button data-lang="hi">हिंदी</button>
+         <button data-lang="both">Both</button>
+       </div>` : '';
+  return `<!doctype html><html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${escapeText(doc.title)} — ${escapeText(label)}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root { --ink:#1e293b; --muted:#64748b; --line:#e2e8f0; --brand:#0b3d91; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:#f1f5f9; color:var(--ink);
+         font-family:'Segoe UI',system-ui,-apple-system,sans-serif; }
+  .bar { position:sticky; top:0; display:flex; gap:12px; align-items:center;
+         justify-content:space-between; background:#fff; border-bottom:1px solid var(--line);
+         padding:10px 16px; }
+  .lang button { border:1px solid var(--line); background:#fff; padding:6px 12px;
+         border-radius:6px; cursor:pointer; font-size:13px; }
+  .lang button.active { background:var(--brand); color:#fff; border-color:var(--brand); }
+  .btn { border:1px solid var(--brand); background:var(--brand); color:#fff;
+         padding:7px 14px; border-radius:6px; cursor:pointer; font-size:13px; }
+  .sheet { max-width:800px; margin:20px auto; background:#fff; padding:40px 48px;
+           border:1px solid var(--line); box-shadow:0 1px 3px rgba(0,0,0,.06); }
+  .hd { text-align:center; border-bottom:2px solid var(--brand); padding-bottom:12px; margin-bottom:16px; }
+  .hd .cat { color:var(--brand); font-weight:700; text-transform:uppercase; letter-spacing:.04em; font-size:13px; }
+  .meta { display:flex; justify-content:space-between; font-size:13px; color:var(--muted); margin-bottom:8px; }
+  .subj { font-weight:600; margin:14px 0 18px; }
+  .body { line-height:1.6; }
+  .body.hi, .subj.hi { font-family:'Noto Sans Devanagari','Segoe UI',sans-serif; }
+  .body table { border-collapse:collapse; width:100%; }
+  .body td, .body th { border:1px solid var(--line); padding:6px 8px; }
+  .divider { border:none; border-top:1px dashed var(--line); margin:28px 0; }
+  [hidden] { display:none !important; }
+  @media print {
+    body { background:#fff; }
+    .no-print { display:none !important; }
+    .sheet { margin:0; border:none; box-shadow:none; max-width:none; padding:0; }
+  }
+</style></head>
+<body>
+  <div class="bar no-print">
+    ${toggle || '<span></span>'}
+    <button class="btn" onclick="window.print()">🖨 Print / Save PDF</button>
+  </div>
+  <div class="sheet">
+    <div class="hd">
+      <div class="cat">${escapeText(label)}</div>
+    </div>
+    <div class="meta">
+      <span><strong>No:</strong> ${escapeText(doc.title)}</span>
+      <span><strong>Date:</strong> ${escapeText(fmtDocDate(doc.doc_date))}</span>
+    </div>
+    ${doc.description ? `<div class="subj" data-en>Sub: ${escapeText(doc.description)}</div>` : ''}
+    ${hasEn ? `<div class="body" data-body="en">${en}</div>` : ''}
+    ${(hasEn && hasHi) ? `<hr class="divider" data-body="both-sep" hidden>` : ''}
+    ${hasHi ? `<div class="body hi" data-body="hi"${hasEn ? ' hidden' : ''}>${hi}</div>` : ''}
+  </div>
+<script>
+  var buttons = document.querySelectorAll('.lang button');
+  function show(lang) {
+    document.querySelectorAll('[data-body]').forEach(function (el) {
+      var k = el.getAttribute('data-body');
+      var on = lang === 'both' ? true : (k === lang);
+      el.hidden = !on;
+    });
+    buttons.forEach(function (b) { b.classList.toggle('active', b.dataset.lang === lang); });
+  }
+  buttons.forEach(function (b) { b.onclick = function () { show(b.dataset.lang); }; });
+</script>
+</body></html>`;
+}
+
 // ── GET /:id/view — open inline (browser viewer) ───────────────────────────
 router.get('/:id/view', async (req, res) => {
   try {
-    const { doc, filePath, error } = await locateFile(req.app.locals.pool, req.params.id);
+    const pool = req.app.locals.pool;
+    // Composed instructions have no file — render their stored HTML instead.
+    const [[row]] = await pool.query(
+      `SELECT title, category, description,
+              DATE_FORMAT(doc_date, '%Y-%m-%d') AS doc_date,
+              body_html, body_html_hi, source_type
+         FROM div_documents WHERE id = ?`, [req.params.id]
+    );
+    if (!row) return res.status(404).json({ success: false, error: 'Not found' });
+    if (row.source_type === 'composed') {
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      return res.send(renderInstructionPage(row));
+    }
+
+    const { doc, filePath, error } = await locateFile(pool, req.params.id);
     if (error) return res.status(error).json({ success: false, error: error === 404 ? 'Not found' : 'File missing on server' });
     // inline disposition → browser opens (PDFs in the viewer) instead of saving.
     res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(doc.original_name)}"`);

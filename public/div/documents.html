@@ -115,7 +115,10 @@
                     <h1 class="page-title" id="mainTitle">Documents</h1>
                     <div class="page-subtitle" id="mainSubtitle">Division document repository</div>
                 </div>
-                <button class="btn btn-primary" id="uploadBtn" style="display:none;">＋ Upload</button>
+                <div style="display:flex; gap:8px;">
+                    <a class="btn btn-primary" id="composeBtn" style="display:none;" href="#">✍ Add Instruction</a>
+                    <button class="btn btn-primary" id="uploadBtn" style="display:none;">＋ Upload</button>
+                </div>
             </div>
             <div id="content"><div class="empty">Loading…</div></div>
         </main>
@@ -275,7 +278,21 @@ function selectCategory(cat) {
         (mode === 'date' || mode === 'promotion') ? 'Browse by year and month'
         : mode === 'folders' ? 'Browse by section'
         : 'All documents in this category';
+    syncComposeBtn();
     loadContent();
+}
+
+// Instruction categories can be authored in-site (rich text) — show the
+// "Add Instruction" button for those when the user may manage the category.
+const COMPOSE_CATEGORIES = ['SR_DEE_INSTRUCTION', 'CEE_OP_INSTRUCTION'];
+function syncComposeBtn() {
+    const btn = document.getElementById('composeBtn');
+    if (COMPOSE_CATEGORIES.includes(current) && canManage(current)) {
+        btn.style.display = '';
+        btn.href = '/div/instruction-compose.html?category=' + encodeURIComponent(current);
+    } else {
+        btn.style.display = 'none';
+    }
 }
 
 async function loadContent() {

@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Compose Instruction — Central Railway BB Division</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css" rel="stylesheet">
+  <style>
+    :root { --ink:#1e293b; --muted:#64748b; --line:#e2e8f0; --brand:#0b3d91; --bg:#f1f5f9; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--bg); color:var(--ink);
+           font-family:'Segoe UI',system-ui,-apple-system,sans-serif; }
+    .top { background:#fff; border-bottom:1px solid var(--line); padding:12px 20px;
+           display:flex; align-items:center; justify-content:space-between; }
+    .top h1 { font-size:18px; margin:0; }
+    .top a { color:var(--brand); text-decoration:none; font-size:14px; }
+    .wrap { max-width:1100px; margin:20px auto; padding:0 16px; }
+    .card { background:#fff; border:1px solid var(--line); border-radius:10px; padding:20px; margin-bottom:16px; }
+    .row { display:flex; gap:16px; flex-wrap:wrap; }
+    .field { flex:1; min-width:200px; margin-bottom:14px; }
+    .field.full { flex-basis:100%; }
+    label { display:block; font-size:13px; font-weight:600; color:var(--muted); margin-bottom:5px; }
+    input[type=text], input[type=date], select {
+      width:100%; padding:9px 11px; border:1px solid var(--line); border-radius:7px; font-size:14px; }
+    .editors { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+    @media (max-width:820px) { .editors { grid-template-columns:1fr; } }
+    .pane h3 { font-size:14px; margin:0 0 8px; display:flex; align-items:center; gap:8px; }
+    .pane .tools { display:flex; gap:8px; margin-bottom:8px; flex-wrap:wrap; }
+    .qbox { background:#fff; }
+    .qbox .ql-container { min-height:280px; font-size:14px; }
+    #hiEditor .ql-editor { font-family:'Noto Sans Devanagari','Segoe UI',sans-serif; }
+    .btn { border:1px solid var(--brand); background:var(--brand); color:#fff;
+           padding:9px 16px; border-radius:7px; cursor:pointer; font-size:14px; }
+    .btn.ghost { background:#fff; color:var(--brand); }
+    .btn.sm { padding:5px 10px; font-size:12px; }
+    .btn:disabled { opacity:.6; cursor:default; }
+    .actions { display:flex; gap:10px; justify-content:flex-end; align-items:center; }
+    .hint { font-size:12px; color:var(--muted); margin-top:6px; }
+    .err { color:#dc2626; font-size:13px; margin-right:auto; }
+    .ok { color:#16a34a; font-size:13px; margin-right:auto; }
+  </style>
+</head>
+<body>
+  <div class="top">
+    <h1>Compose Instruction</h1>
+    <a href="/div/documents.html">← Back to Documents</a>
+  </div>
+
+  <div class="wrap">
+    <div class="card">
+      <div class="row">
+        <div class="field">
+          <label>Category</label>
+          <select id="category">
+            <option value="SR_DEE_INSTRUCTION">Sr.DEE Instructions</option>
+            <option value="CEE_OP_INSTRUCTION">CEE-OP Instructions</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Instruction No.</label>
+          <input type="text" id="number" placeholder="auto">
+        </div>
+        <div class="field">
+          <label>Date</label>
+          <input type="date" id="docDate">
+        </div>
+      </div>
+      <div class="field full">
+        <label>Subject</label>
+        <input type="text" id="subject" placeholder="Subject of the instruction">
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="editors">
+        <div class="pane">
+          <h3>📝 English</h3>
+          <div class="tools">
+            <button class="btn ghost sm" id="copyEn" type="button">Copy English text</button>
+            <a class="btn ghost sm" id="gtLink" href="https://translate.google.com/?sl=en&tl=hi&op=translate" target="_blank" rel="noopener">Open Google Translate ↗</a>
+          </div>
+          <div class="qbox"><div id="enEditor"></div></div>
+        </div>
+        <div class="pane">
+          <h3>🕉 हिंदी (Hindi) <span class="hint" style="font-weight:400">— optional; paste the translation here</span></h3>
+          <div class="tools"><span class="hint">Translate the English text, then paste the Hindi result below and tidy up.</span></div>
+          <div class="qbox"><div id="hiEditor"></div></div>
+        </div>
+      </div>
+      <div class="hint">Tip: click <b>Copy English text</b> → <b>Open Google Translate</b> → paste → copy the Hindi → paste it into the Hindi box. Hindi is optional.</div>
+    </div>
+
+    <div class="actions">
+      <span id="msg" class="err"></span>
+      <a class="btn ghost" href="/div/documents.html">Cancel</a>
+      <button class="btn" id="save" type="button">Save Instruction</button>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js"></script>
+  <script>
+    const TOOLBAR = [
+      [{ header: [1, 2, 3, false] }],
+      ['bold', 'italic', 'underline'],
+      [{ list: 'ordered' }, { list: 'bullet' }],
+      [{ align: [] }], ['link'], ['clean'],
+    ];
+    const enEditor = new Quill('#enEditor', { theme: 'snow', modules: { toolbar: TOOLBAR } });
+    const hiEditor = new Quill('#hiEditor', { theme: 'snow', modules: { toolbar: TOOLBAR } });
+
+    const $ = (id) => document.getElementById(id);
+    const catSel = $('category');
+
+    // Default date = today, and prefill category from ?category=
+    (function init() {
+      const q = new URLSearchParams(location.search).get('category');
+      if (q && [...catSel.options].some((o) => o.value === q)) catSel.value = q;
+      $('docDate').value = new Date().toISOString().slice(0, 10);
+      suggestNumber();
+    })();
+
+    catSel.onchange = suggestNumber;
+
+    async function suggestNumber() {
+      $('number').value = '';
+      $('number').placeholder = 'loading…';
+      try {
+        const r = await fetch('/api/division/documents/instruction-no?category=' + encodeURIComponent(catSel.value));
+        const j = await r.json();
+        $('number').value = j.success ? j.number : '';
+      } catch (e) { /* leave blank — server will auto-number */ }
+      $('number').placeholder = 'auto';
+    }
+
+    $('copyEn').onclick = async () => {
+      const text = enEditor.getText().trim();
+      if (!text) { flash('Nothing to copy — write the English instruction first.', true); return; }
+      try { await navigator.clipboard.writeText(text); flash('English text copied.', false); }
+      catch (e) { flash('Copy failed — select the text manually.', true); }
+    };
+
+    function bodyOf(editor) {
+      return editor.getText().trim() ? editor.root.innerHTML : '';
+    }
+
+    function flash(text, isErr) {
+      const m = $('msg');
+      m.textContent = text;
+      m.className = isErr ? 'err' : 'ok';
+    }
+
+    $('save').onclick = async () => {
+      const body_html = bodyOf(enEditor);
+      const body_html_hi = bodyOf(hiEditor);
+      if (!body_html && !body_html_hi) { flash('Write the instruction body first.', true); return; }
+      if (!$('docDate').value) { flash('Date is required.', true); return; }
+
+      const btn = $('save');
+      btn.disabled = true; btn.textContent = 'Saving…';
+      try {
+        const r = await fetch('/api/division/documents/compose', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            category: catSel.value,
+            title: $('number').value.trim(),
+            subject: $('subject').value.trim(),
+            doc_date: $('docDate').value,
+            body_html, body_html_hi,
+          }),
+        });
+        const j = await r.json();
+        if (!j.success) { flash(j.error || 'Save failed.', true); return; }
+        // Open the saved instruction, then return to the list.
+        window.open('/api/division/documents/' + j.id + '/view', '_blank', 'noopener');
+        location.href = '/div/documents.html';
+      } catch (e) {
+        flash('Save failed.', true);
+      } finally {
+        btn.disabled = false; btn.textContent = 'Save Instruction';
+      }
+    };
+  </script>
+</body>
+</html>
