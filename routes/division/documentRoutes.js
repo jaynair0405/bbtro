@@ -25,8 +25,8 @@ const crypto = require('crypto');
 // ── Config ────────────────────────────────────────────────────────────────
 
 const CATEGORIES = [
-  'TRAINING_LETTER', 'PROMOTION_ORDER', 'SR_DEE_INSTRUCTION',
-  'SAFETY_CIRCULAR', 'STUDY_MATERIAL', 'MANUAL',
+  'TRAINING_LETTER', 'INITIAL_APPOINTMENT', 'PROMOTION_ORDER', 'SR_DEE_INSTRUCTION',
+  'CEE_OP_INSTRUCTION', 'SAFETY_CIRCULAR', 'NEWS_LETTER', 'E_CASE_STUDY', 'STUDY_MATERIAL', 'MANUAL',
   'PRESENTATION', 'BROCHURE', 'MISC', 'TRANSFER_LETTER',
 ];
 
@@ -34,9 +34,13 @@ const CATEGORIES = [
 // Single source of truth — tweak here.
 const CATEGORY_UPLOAD_ROLES = {
   TRAINING_LETTER:    ['trgcentre_admin', 'division_admin'],
+  INITIAL_APPOINTMENT:['office_hr', 'division_admin'],
   PROMOTION_ORDER:    ['office_hr', 'division_admin'],
   SR_DEE_INSTRUCTION: ['division_admin'],
+  CEE_OP_INSTRUCTION: ['division_admin'],
   SAFETY_CIRCULAR:    ['division_admin'],
+  NEWS_LETTER:        ['division_admin'],
+  E_CASE_STUDY:       ['division_admin'],
   STUDY_MATERIAL:     ['trgcentre_admin', 'division_admin'],
   MANUAL:             ['division_admin'],
   PRESENTATION:       ['division_admin'],
@@ -48,7 +52,8 @@ const CATEGORY_UPLOAD_ROLES = {
 // Categories whose documents are organised by date (Year → Month tree).
 // doc_date is required when uploading into these.
 const DATE_TREE_CATEGORIES = new Set([
-  'TRAINING_LETTER', 'PROMOTION_ORDER', 'SR_DEE_INSTRUCTION', 'SAFETY_CIRCULAR',
+  'TRAINING_LETTER', 'INITIAL_APPOINTMENT', 'PROMOTION_ORDER',
+  'SR_DEE_INSTRUCTION', 'CEE_OP_INSTRUCTION', 'SAFETY_CIRCULAR', 'NEWS_LETTER', 'E_CASE_STUDY',
   'TRANSFER_LETTER',
 ]);
 
@@ -58,6 +63,8 @@ const DATE_TREE_CATEGORIES = new Set([
 //   optional: user MAY pick one of these (else the doc is "general", folder NULL).
 const FOLDER_CONFIG = {
   STUDY_MATERIAL:  { required: ['Main Line', 'Suburban'] },
+  NEWS_LETTER:     { required: ['Main Line', 'Sub Urban'] },
+  E_CASE_STUDY:    { required: ['Main Line', 'Sub Urban'] },
   PROMOTION_ORDER: { optional: ['Reinstatements'] },
   // Transfer letters: one folder per sending lobby (letter's from_office_code).
   // Mirrors active offices.office_code values (minus the OTHER sentinel).

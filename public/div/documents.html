@@ -142,7 +142,7 @@
                 <input type="date" id="upDate">
             </div>
             <div class="field">
-                <label>Description (optional)</label>
+                <label id="upDescLabel">Description (optional)</label>
                 <textarea id="upDesc" placeholder="Short description"></textarea>
             </div>
             <div class="field">
@@ -157,6 +157,8 @@
         </div>
     </div>
 
+<!-- pdf.js — used to auto-suggest the Subject line from an instruction PDF -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>
 // mode: how a category is browsed —
 //   date       Year → Month tree
@@ -166,10 +168,14 @@
 //   flat       plain card grid
 const CAT_META = {
     TRAINING_LETTER:    { label: 'Training Letters',    icon: '🎓', mode: 'date' },
+    INITIAL_APPOINTMENT:{ label: 'Initial Appointments', icon: '📝', mode: 'date' },
     TRANSFER_LETTER:    { label: 'Transfer Letters',    icon: '📨', mode: 'folderdate' },
     PROMOTION_ORDER:    { label: 'Promotion Orders',    icon: '📈', mode: 'promotion' },
     SR_DEE_INSTRUCTION: { label: 'Sr.DEE Instructions', icon: '📋', mode: 'date' },
+    CEE_OP_INSTRUCTION: { label: 'CEE-OP Instructions', icon: '📋', mode: 'date' },
     SAFETY_CIRCULAR:    { label: 'Safety Circulars',    icon: '🦺', mode: 'date' },
+    NEWS_LETTER:        { label: 'News Letters',         icon: '📰', mode: 'folderdate' },
+    E_CASE_STUDY:       { label: 'e-Case-Study',         icon: '🔎', mode: 'folderdate' },
     STUDY_MATERIAL:     { label: 'Study Materials',     icon: '📚', mode: 'folders' },
     MANUAL:             { label: 'Manuals',             icon: '📕', mode: 'flat' },
     PRESENTATION:       { label: 'Presentations',       icon: '📊', mode: 'flat' },
@@ -178,18 +184,29 @@ const CAT_META = {
 };
 const FILE_ICON = { pdf:'📄', pptx:'📊', ppt:'📊', docx:'📝', doc:'📝', xlsx:'📈', xls:'📈' };
 const REINSTATEMENT_FOLDER = 'Reinstatements';
+// Instruction categories whose "Description" field is really a Subject, and
+// whose PDFs we try to auto-read the subject line from on upload.
+const SUBJECT_CATEGORIES = ['SR_DEE_INSTRUCTION', 'CEE_OP_INSTRUCTION'];
+if (window.pdfjsLib) {
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+        'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+}
 
 const DEFAULT_PERMS = {
     success: true, role: null, canUpload: [], canUploadAny: false,
-    dateTreeCategories: ['TRAINING_LETTER','PROMOTION_ORDER','SR_DEE_INSTRUCTION','SAFETY_CIRCULAR',
-                         'TRANSFER_LETTER'],
+    dateTreeCategories: ['TRAINING_LETTER','INITIAL_APPOINTMENT','PROMOTION_ORDER',
+                         'SR_DEE_INSTRUCTION','CEE_OP_INSTRUCTION','SAFETY_CIRCULAR','NEWS_LETTER',
+                         'E_CASE_STUDY','TRANSFER_LETTER'],
     folderConfig: {
         STUDY_MATERIAL:  { required: ['Main Line', 'Suburban'] },
+        NEWS_LETTER:     { required: ['Main Line', 'Sub Urban'] },
+        E_CASE_STUDY:    { required: ['Main Line', 'Sub Urban'] },
         PROMOTION_ORDER: { optional: [REINSTATEMENT_FOLDER] },
         TRANSFER_LETTER: { required: ['CSMT-SUB','KYN-SUB','PNVL-SUB','CSMT-ML','KYN-ML','PNVL-ML',
                                       'IGP','CLA','LNL','NRL','KCS','NCS','SCS','MTN','VVH'] },
     },
-    categories: ['TRAINING_LETTER','TRANSFER_LETTER','PROMOTION_ORDER','SR_DEE_INSTRUCTION','SAFETY_CIRCULAR',
+    categories: ['TRAINING_LETTER','INITIAL_APPOINTMENT','TRANSFER_LETTER','PROMOTION_ORDER',
+                 'SR_DEE_INSTRUCTION','CEE_OP_INSTRUCTION','SAFETY_CIRCULAR','NEWS_LETTER','E_CASE_STUDY',
                  'STUDY_MATERIAL','MANUAL','PRESENTATION','BROCHURE','MISC'],
 };
 let perms = { ...DEFAULT_PERMS };
@@ -396,11 +413,20 @@ function renderDateTree(el, docs) {
 // Folder per lobby, Year → Month tree inside each (Transfer Letters).
 // Only folders that actually have documents are shown.
 function renderFolderDate(el, docs) {
-    const folders = [...new Set(docs.map(d => d.folder || 'Unassigned'))].sort();
+    const configured = foldersFor(current);
+    const discovered = [...new Set(docs.map(d => d.folder || 'Unassigned'))]
+        .filter(f => !configured.includes(f))
+        .sort();
+    const folders = [...configured, ...discovered];
     folders.forEach((f, i) => {
         const inFolder = docs.filter(d => (d.folder || 'Unassigned') === f);
-        el.appendChild(folderNode(f, inFolder.length, i === 0,
-            (kids) => appendYearNodes(kids, groupYears(inFolder), i === 0)));
+        el.appendChild(folderNode(f, inFolder.length, i === 0, (kids) => {
+            if (!inFolder.length) {
+                kids.innerHTML = '<div class="empty" style="text-align:left;padding:8px 10px;">Empty</div>';
+                return;
+            }
+            appendYearNodes(kids, groupYears(inFolder), i === 0);
+        }));
     });
 }
 
@@ -465,6 +491,7 @@ document.getElementById('uploadBtn').onclick = openModal;
 document.getElementById('upCancel').onclick = () => modal.classList.remove('show');
 document.getElementById('upCategory').onchange = syncModalFields;
 document.getElementById('upSubmit').onclick = submitUpload;
+document.getElementById('upFile').onchange = onFileChosen;
 
 function openModal() {
     const sel = document.getElementById('upCategory');
@@ -476,6 +503,7 @@ function openModal() {
     document.getElementById('upDesc').value = '';
     document.getElementById('upFile').value = '';
     document.getElementById('upErr').textContent = '';
+    lastAutoSubject = '';
     syncModalFields();
     modal.classList.add('show');
 }
@@ -494,7 +522,8 @@ function syncModalFields() {
         wrap.style.display = '';
         document.getElementById('upFolderReq').style.display = req ? '' : 'none';
         document.getElementById('upFolderLabelText').textContent =
-            cat === 'STUDY_MATERIAL' ? 'Line' : cat === 'PROMOTION_ORDER' ? 'Type'
+            ['STUDY_MATERIAL','NEWS_LETTER','E_CASE_STUDY'].includes(cat) ? 'Line'
+            : cat === 'PROMOTION_ORDER' ? 'Type'
             : cat === 'TRANSFER_LETTER' ? 'Lobby' : 'Section';
         const none = req ? '' : '<option value="">Regular (no folder)</option>';
         document.getElementById('upFolder').innerHTML =
@@ -502,6 +531,14 @@ function syncModalFields() {
     } else {
         wrap.style.display = 'none';
     }
+
+    // Instruction categories: the "Description" field is really the Subject,
+    // which we try to auto-fill from the PDF on file-select.
+    const isSubject = SUBJECT_CATEGORIES.includes(cat);
+    document.getElementById('upDescLabel').textContent =
+        isSubject ? 'Subject (optional)' : 'Description (optional)';
+    document.getElementById('upDesc').placeholder =
+        isSubject ? 'Auto-filled from the PDF where possible — edit if needed' : 'Short description';
 }
 
 async function submitUpload() {
@@ -517,7 +554,8 @@ async function submitUpload() {
     if (!file)  { err.textContent = 'Please choose a file.'; return; }
     if (isDateTree(cat) && !date) { err.textContent = 'Document date is required for this category.'; return; }
     if (folderVisible && folderRequired(cat) && !folder) {
-        err.textContent = 'Please choose a ' + (cat === 'STUDY_MATERIAL' ? 'line (Main Line / Suburban).' : 'section.');
+        const lineCategory = ['STUDY_MATERIAL','NEWS_LETTER','E_CASE_STUDY'].includes(cat);
+        err.textContent = 'Please choose a ' + (lineCategory ? 'line.' : 'section.');
         return;
     }
 
@@ -542,6 +580,70 @@ async function submitUpload() {
     } finally {
         btn.disabled = false; btn.textContent = 'Upload';
     }
+}
+
+// ── Auto-suggest Subject from an instruction PDF ────────────────────────────
+// Best-effort: only for subject categories + PDFs with a real text layer.
+// Scanned (image-only) PDFs yield nothing → the field stays blank for manual
+// entry. Never blocks upload; the user can always edit the suggestion.
+let lastAutoSubject = '';
+
+function onFileChosen() {
+    const cat = document.getElementById('upCategory').value;
+    const file = document.getElementById('upFile').files[0];
+    if (!file || !SUBJECT_CATEGORIES.includes(cat) || !/\.pdf$/i.test(file.name)) return;
+    const desc = document.getElementById('upDesc');
+    // Don't clobber a subject the user typed or edited themselves.
+    if (desc.value.trim() && desc.value !== lastAutoSubject) return;
+    extractPdfSubject(file).then(subj => {
+        if (!subj) return;
+        if (desc.value.trim() && desc.value !== lastAutoSubject) return; // re-check (async)
+        desc.value = subj;
+        lastAutoSubject = subj;
+    }).catch(() => { /* unreadable / scanned PDF — leave blank */ });
+}
+
+async function extractPdfSubject(file) {
+    if (!window.pdfjsLib) return '';
+    const buf = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+    let lines = [];
+    const pages = Math.min(pdf.numPages, 2); // subject sits near the top
+    for (let p = 1; p <= pages; p++) {
+        const tc = await (await pdf.getPage(p)).getTextContent();
+        lines = lines.concat(itemsToLines(tc.items));
+        const found = findSubject(lines);
+        if (found) return found;
+    }
+    return findSubject(lines);
+}
+
+// Rebuild visual lines from pdf.js text items by grouping on y-position.
+function itemsToLines(items) {
+    const rows = new Map();
+    items.forEach(it => {
+        const y = Math.round(it.transform[5]);
+        (rows.get(y) || rows.set(y, []).get(y)).push(it);
+    });
+    return [...rows.entries()]
+        .sort((a, b) => b[0] - a[0])                          // top → bottom
+        .map(([, its]) => its.sort((a, b) => a.transform[4] - b.transform[4])
+            .map(i => i.str).join(' ').replace(/\s+/g, ' ').trim())
+        .filter(Boolean);
+}
+
+// Find a "Sub:" / "Subject:" line; fall back to the next line if the label
+// sits alone. Returns '' when no subject label is present.
+function findSubject(lines) {
+    for (let i = 0; i < lines.length; i++) {
+        const m = lines[i].match(/\bsub(?:ject)?\s*[:\-]+\s*(.*)$/i);
+        if (m) {
+            let s = m[1].trim();
+            if (!s && i + 1 < lines.length) s = lines[i + 1].trim();
+            return s.replace(/\s+/g, ' ').slice(0, 300).trim();
+        }
+    }
+    return '';
 }
 
 function escapeHtml(s) {
