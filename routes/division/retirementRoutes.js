@@ -256,6 +256,75 @@ router.get('/upcoming', async (req, res) => {
     }
 });
 
+// GET /api/division/retirement/register - Full designation-wise retirement register
+router.get('/register', async (req, res) => {
+    let conn;
+    try {
+        const { office_code } = req.query;
+        const userOffice = req.session.user?.div_office_code;
+        const userRole = req.session.user?.div_role;
+
+        conn = await req.app.locals.pool.getConnection();
+
+        let query = `
+            SELECT s.hrms_id, s.name, s.current_cms_id, s.pf_number,
+                   s.date_of_birth, s.date_of_appointment,
+                   s.current_office_code, o.office_name,
+                   s.designation_id, d.designation_name, d.grade_level,
+                   dr.drafted_to_designation_id,
+                   d2.designation_name AS drafted_to_designation_name,
+                   dr.drafting_type, dr.drafted_date
+            FROM div_staff_master s
+            LEFT JOIN offices o ON s.current_office_code = o.office_code
+            LEFT JOIN designations d ON s.designation_id = d.id
+            LEFT JOIN div_staff_drafting_records dr
+                   ON dr.staff_hrms_id = s.hrms_id AND dr.status = 'Active'
+            LEFT JOIN designations d2 ON dr.drafted_to_designation_id = d2.id
+            WHERE s.status = 'Active'
+              AND s.date_of_birth IS NOT NULL
+              AND (s.assignment_status IS NULL OR s.assignment_status != 'transferred')
+              AND (s.current_office_code IS NULL OR s.current_office_code != 'OTHER')
+        `;
+        const params = [];
+
+        if (userRole !== 'division_admin') {
+            const filter = buildOfficeFilter(userOffice, 's');
+            query += ' AND ' + filter.condition;
+            params.push(...filter.params);
+        } else if (office_code && office_code !== 'ALL') {
+            const filter = buildOfficeFilter(office_code, 's');
+            query += ' AND ' + filter.condition;
+            params.push(...filter.params);
+        }
+
+        const [staff] = await conn.query(query, params);
+        conn.release();
+
+        const register = staff.map(s => {
+            const retDate = calculateRetirementDate(s.date_of_birth);
+            // Serialize from local date parts (toISOString shifts back a day on IST)
+            const yyyy = retDate.getFullYear();
+            const mm = String(retDate.getMonth() + 1).padStart(2, '0');
+            const dd = String(retDate.getDate()).padStart(2, '0');
+            return {
+                ...s,
+                retirement_date: `${yyyy}-${mm}-${dd}`,
+                formatted_retirement_date: retDate.toLocaleDateString('en-IN', {
+                    day: '2-digit', month: 'short', year: 'numeric'
+                }),
+                is_drafted: !!s.drafted_to_designation_id
+            };
+        });
+
+        res.json({ success: true, data: register, count: register.length });
+
+    } catch (error) {
+        console.error('Error fetching retirement register:', error);
+        if (conn) conn.release();
+        res.status(500).json({ error: 'Database error', details: error.message });
+    }
+});
+
 // GET /api/division/retirement/yearly-forecast - Get monthly breakdown for the year
 router.get('/yearly-forecast', async (req, res) => {
     let conn;
