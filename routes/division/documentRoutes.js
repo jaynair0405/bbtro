@@ -145,16 +145,24 @@ const upload = multer({
 // (English) / body_html_hi (Hindi), and no file on disk.
 const INSTRUCTION_COMPOSE_CATEGORIES = new Set(['SR_DEE_INSTRUCTION', 'CEE_OP_INSTRUCTION']);
 
-// Instruction-number prefix per category, e.g. SR DEE/INST/2026/03.
-const INSTRUCTION_NO_PREFIX = {
-  SR_DEE_INSTRUCTION: 'SR DEE/INST',
-  CEE_OP_INSTRUCTION: 'CEE OP/INST',
-};
-
-// Display labels for the server-rendered instruction viewer.
-const CATEGORY_LABELS = {
-  SR_DEE_INSTRUCTION: 'Sr.DEE Instruction',
-  CEE_OP_INSTRUCTION: 'CEE-OP Instruction',
+// Letterhead per category — the fixed office block (right side, Devanagari) and
+// the signatory block (bottom right). Single source of truth; edit here.
+// Instruction numbers are per-category serials: <n>/<year>, e.g. 11/2026.
+const LETTERHEAD = {
+  SR_DEE_INSTRUCTION: {
+    label: 'Sr.DEE Instruction',
+    // right-hand office block, one line each (Devanagari)
+    office: ['मंडल कार्यालय', 'वरि.मं.वि.इं. (क.च.स्टाक/परि) का कार्यालय,', 'मुंबई छ.शि.ट.'],
+    signName: 'व.मं.वि.इं. (क.च.स्टाक/परि)',
+    signSub: 'मुंबई छ.शि.म.ट.',
+  },
+  // NOTE: CEE-OP office/signatory text is a best guess — confirm the exact wording.
+  CEE_OP_INSTRUCTION: {
+    label: 'CEE-OP Instruction',
+    office: ['मुख्यालय', 'मुख्य विद्युत इंजीनियर (परिचालन) का कार्यालय,', 'मध्य रेल, मुंबई छ.शि.ट.'],
+    signName: 'मुख्य विद्युत इंजीनियर (परिचालन)',
+    signSub: 'मध्य रेल, मुंबई',
+  },
 };
 
 // Allowlist for editor HTML — matches what Quill can produce. Strips scripts,
@@ -187,23 +195,21 @@ function cleanBody(html) {
   return out || null;
 }
 
-// Next sequential instruction number for a category within the current year,
-// mirroring the training/transfer-letter scheme (…/YYYY/NN).
+// Next per-category instruction serial for the current year, formatted <n>/<year>
+// (e.g. 11/2026) to match the official "INSTRUCTION No. 11/2026" convention.
 async function nextInstructionNo(pool, category) {
-  const prefix = INSTRUCTION_NO_PREFIX[category] || 'INSTR';
   const year = new Date().getFullYear();
-  const [[last]] = await pool.query(
+  const [rows] = await pool.query(
     `SELECT title FROM div_documents
-      WHERE category = ? AND source_type = 'composed' AND title LIKE ?
-      ORDER BY id DESC LIMIT 1`,
-    [category, `${prefix}/${year}/%`]
+      WHERE category = ? AND source_type = 'composed' AND title REGEXP ?`,
+    [category, `^[0-9]+/${year}$`]
   );
-  let n = 1;
-  if (last && last.title) {
-    const m = String(last.title).match(/\/(\d+)$/);
-    if (m) n = parseInt(m[1], 10) + 1;
+  let max = 0;
+  for (const r of rows) {
+    const m = String(r.title).match(/^(\d+)\//);
+    if (m) max = Math.max(max, parseInt(m[1], 10));
   }
-  return `${prefix}/${year}/${String(n).padStart(2, '0')}`;
+  return `${max + 1}/${year}`;
 }
 
 // ── GET / — list metadata ──────────────────────────────────────────────────
@@ -280,7 +286,8 @@ router.get('/instruction-no', async (req, res) => {
 router.post('/compose', async (req, res) => {
   try {
     const role = getRole(req);
-    const { category, subject, doc_date, body_html, body_html_hi } = req.body;
+    const { category, subject, doc_date, body_html, body_html_hi,
+            ref_no, addressee, revised } = req.body;
     let { title } = req.body;
 
     if (!INSTRUCTION_COMPOSE_CATEGORIES.has(category)) {
@@ -303,11 +310,18 @@ router.post('/compose', async (req, res) => {
     const pool = req.app.locals.pool;
     title = (title || '').trim() || await nextInstructionNo(pool, category);
 
+    const header = {
+      ref_no: (ref_no || '').trim() || null,
+      addressee: (addressee || '').trim() || null,
+      revised: !!revised,
+    };
+    const hasHeader = header.ref_no || header.addressee || header.revised;
+
     const [result] = await pool.query(
       `INSERT INTO div_documents
          (title, category, description, doc_date, body_html, body_html_hi,
-          language, source_type, uploaded_by)
-       VALUES (?,?,?,?,?,?,?, 'composed', ?)`,
+          language, source_type, header, uploaded_by)
+       VALUES (?,?,?,?,?,?,?, 'composed', ?, ?)`,
       [
         title,
         category,
@@ -316,6 +330,7 @@ router.post('/compose', async (req, res) => {
         bodyEn,
         bodyHi,
         language,
+        hasHeader ? JSON.stringify(header) : null,
         req.session?.user?.username || 'system',
       ]
     );
@@ -413,14 +428,18 @@ function fmtDocDate(d) {
   return `${String(day).padStart(2, '0')} ${MON[m - 1]} ${y}`;
 }
 
-// Print-first HTML page for an in-site composed instruction. Bodies were
-// sanitised on save, so they are injected as-is; text fields are escaped.
+// Print-first, A4 letterhead page for an in-site composed instruction, matching
+// the official Sr.DEE/CEE-OP format. Bodies were sanitised on save (injected
+// as-is); all text fields are escaped.
 function renderInstructionPage(doc) {
   const en = doc.body_html || '';
   const hi = doc.body_html_hi || '';
   const hasEn = !!en.trim();
   const hasHi = !!hi.trim();
-  const label = CATEGORY_LABELS[doc.category] || 'Instruction';
+  const lh = LETTERHEAD[doc.category] || { label: 'Instruction', office: [], signName: '', signSub: '' };
+  const hdr = doc.header || {};          // mysql2 parses JSON columns to objects
+  const officeHtml = lh.office.map(escapeText).join('<br>');
+  const titleLine = `INSTRUCTION No. ${escapeText(doc.title)}${hdr.revised ? ' (REVISED)' : ''}`;
   const toggle = (hasEn && hasHi)
     ? `<div class="lang no-print">
          <button data-lang="en" class="active">English</button>
@@ -429,38 +448,62 @@ function renderInstructionPage(doc) {
        </div>` : '';
   return `<!doctype html><html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${escapeText(doc.title)} — ${escapeText(label)}</title>
+<title>${titleLine} — ${escapeText(lh.label)}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  :root { --ink:#1e293b; --muted:#64748b; --line:#e2e8f0; --brand:#0b3d91; }
+  :root { --brand:#0b3d91; --line:#e2e8f0; --ink:#17181a;
+          --serif:'Times New Roman',Georgia,serif;
+          --deva:'Noto Sans Devanagari','Times New Roman',serif; }
   * { box-sizing:border-box; }
-  body { margin:0; background:#f1f5f9; color:var(--ink);
-         font-family:'Segoe UI',system-ui,-apple-system,sans-serif; }
-  .bar { position:sticky; top:0; display:flex; gap:12px; align-items:center;
-         justify-content:space-between; background:#fff; border-bottom:1px solid var(--line);
-         padding:10px 16px; }
+  body { margin:0; background:#eef2f7; color:#334155;
+         font-family:'Segoe UI',system-ui,sans-serif; }
+  .bar { position:sticky; top:0; z-index:5; display:flex; gap:12px; align-items:center;
+         justify-content:space-between; background:#fff; border-bottom:1px solid var(--line); padding:10px 16px; }
   .lang button { border:1px solid var(--line); background:#fff; padding:6px 12px;
          border-radius:6px; cursor:pointer; font-size:13px; }
   .lang button.active { background:var(--brand); color:#fff; border-color:var(--brand); }
   .btn { border:1px solid var(--brand); background:var(--brand); color:#fff;
          padding:7px 14px; border-radius:6px; cursor:pointer; font-size:13px; }
-  .sheet { max-width:800px; margin:20px auto; background:#fff; padding:40px 48px;
-           border:1px solid var(--line); box-shadow:0 1px 3px rgba(0,0,0,.06); }
-  .hd { text-align:center; border-bottom:2px solid var(--brand); padding-bottom:12px; margin-bottom:16px; }
-  .hd .cat { color:var(--brand); font-weight:700; text-transform:uppercase; letter-spacing:.04em; font-size:13px; }
-  .meta { display:flex; justify-content:space-between; font-size:13px; color:var(--muted); margin-bottom:8px; }
-  .subj { font-weight:600; margin:14px 0 18px; }
-  .body { line-height:1.6; }
-  .body.hi, .subj.hi { font-family:'Noto Sans Devanagari','Segoe UI',sans-serif; }
+
+  .sheet { width:min(210mm,96%); margin:18px auto; background:#fff; color:var(--ink);
+           padding:16mm 15mm 18mm; border:1px solid var(--line);
+           box-shadow:0 8px 30px rgba(0,0,0,.12); font-family:var(--serif);
+           font-size:12.2pt; line-height:1.5; position:relative; }
+  .band { height:7mm; background:
+            repeating-linear-gradient(135deg,#f5a623 0 14px,#e58e0f 14px 28px);
+          margin:-16mm -15mm 6mm; }
+  .lh { display:grid; grid-template-columns:1fr auto 1fr; gap:8px; align-items:start; }
+  .lh .l .hi { font-size:13pt; font-weight:700; font-family:var(--deva); }
+  .lh .l .en { font-size:12pt; font-weight:700; letter-spacing:.5px; }
+  .lh img { width:20mm; height:20mm; object-fit:contain; }
+  .lh .r { justify-self:end; text-align:left; font-weight:700; font-size:11.5pt;
+           font-family:var(--deva); line-height:1.35; }
+  .lh .r .dt { margin-top:3px; font-family:var(--serif); }
+  .rule { border:0; border-top:2.2px solid var(--ink); margin:4mm 0 0; }
+  .rule2 { border:0; border-top:1px solid var(--ink); margin:.8mm 0 5mm; }
+  .refline { font-weight:700; margin-bottom:2mm; }
+  .addr { margin-bottom:4mm; }
+  .addr.deva { font-family:var(--deva); }
+  .title { text-align:center; font-weight:700; text-decoration:underline;
+           margin:2mm 0 3mm; font-size:12.5pt; }
+  .subj { text-align:center; font-weight:700; margin:0 0 5mm; }
+  .body { text-align:justify; }
+  .body.deva, .subj.deva, .addr.deva { font-family:var(--deva); }
+  .body :is(ol,ul) { margin:0 0 3mm 6mm; }
   .body table { border-collapse:collapse; width:100%; }
-  .body td, .body th { border:1px solid var(--line); padding:6px 8px; }
-  .divider { border:none; border-top:1px dashed var(--line); margin:28px 0; }
+  .body td, .body th { border:1px solid var(--ink); padding:1.6mm 1.4mm; }
+  .divider { border:0; border-top:1px dashed #999; margin:7mm 0; }
+  .sig { text-align:center; width:70mm; margin:16mm 0 0 auto; font-weight:700; }
+  .sig .sp { height:16mm; }
+  .sig .nm { font-family:var(--deva); }
   [hidden] { display:none !important; }
+
   @media print {
+    @page { size:A4; margin:0; }
     body { background:#fff; }
     .no-print { display:none !important; }
-    .sheet { margin:0; border:none; box-shadow:none; max-width:none; padding:0; }
+    .sheet { width:auto; margin:0; border:none; box-shadow:none; }
   }
 </style></head>
 <body>
@@ -469,25 +512,32 @@ function renderInstructionPage(doc) {
     <button class="btn" onclick="window.print()">🖨 Print / Save PDF</button>
   </div>
   <div class="sheet">
-    <div class="hd">
-      <div class="cat">${escapeText(label)}</div>
+    <div class="band"></div>
+    <div class="lh">
+      <div class="l"><div class="hi">मध्य रेल</div><div class="en">CENTRAL RAILWAY</div></div>
+      <img src="/img/railway-logo.png" alt="" onerror="this.style.visibility='hidden'">
+      <div class="r">${officeHtml}<div class="dt">Date: ${escapeText(fmtDocDate(doc.doc_date))}</div></div>
     </div>
-    <div class="meta">
-      <span><strong>No:</strong> ${escapeText(doc.title)}</span>
-      <span><strong>Date:</strong> ${escapeText(fmtDocDate(doc.doc_date))}</span>
-    </div>
-    ${doc.description ? `<div class="subj" data-en>Sub: ${escapeText(doc.description)}</div>` : ''}
+    <hr class="rule"><hr class="rule2">
+    ${hdr.ref_no ? `<div class="refline">No. ${escapeText(hdr.ref_no)}</div>` : ''}
+    ${hdr.addressee ? `<div class="addr deva">${escapeText(hdr.addressee)}</div>` : ''}
+    <div class="title">${titleLine}</div>
+    ${doc.description ? `<div class="subj">Sub: ${escapeText(doc.description)}</div>` : ''}
     ${hasEn ? `<div class="body" data-body="en">${en}</div>` : ''}
-    ${(hasEn && hasHi) ? `<hr class="divider" data-body="both-sep" hidden>` : ''}
-    ${hasHi ? `<div class="body hi" data-body="hi"${hasEn ? ' hidden' : ''}>${hi}</div>` : ''}
+    ${(hasEn && hasHi) ? `<hr class="divider" data-body="both" hidden>` : ''}
+    ${hasHi ? `<div class="body deva" data-body="hi"${hasEn ? ' hidden' : ''}>${hi}</div>` : ''}
+    <div class="sig">
+      <div class="sp"></div>
+      <div class="nm">${escapeText(lh.signName)}</div>
+      <div class="nm">${escapeText(lh.signSub)}</div>
+    </div>
   </div>
 <script>
   var buttons = document.querySelectorAll('.lang button');
   function show(lang) {
     document.querySelectorAll('[data-body]').forEach(function (el) {
-      var k = el.getAttribute('data-body');
-      var on = lang === 'both' ? true : (k === lang);
-      el.hidden = !on;
+      var k = el.getAttribute('data-body');   // 'en', 'hi', or 'both' (the divider)
+      el.hidden = lang === 'both' ? false : (k !== lang);
     });
     buttons.forEach(function (b) { b.classList.toggle('active', b.dataset.lang === lang); });
   }
@@ -504,7 +554,7 @@ router.get('/:id/view', async (req, res) => {
     const [[row]] = await pool.query(
       `SELECT title, category, description,
               DATE_FORMAT(doc_date, '%Y-%m-%d') AS doc_date,
-              body_html, body_html_hi, source_type
+              body_html, body_html_hi, source_type, header
          FROM div_documents WHERE id = ?`, [req.params.id]
     );
     if (!row) return res.status(404).json({ success: false, error: 'Not found' });

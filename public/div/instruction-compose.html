@@ -60,11 +60,26 @@
         </div>
         <div class="field">
           <label>Instruction No.</label>
-          <input type="text" id="number" placeholder="auto">
+          <input type="text" id="number" placeholder="e.g. 11/2026">
         </div>
         <div class="field">
           <label>Date</label>
           <input type="date" id="docDate">
+        </div>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label>Reference / File No. <span style="font-weight:400">(optional)</span></label>
+          <input type="text" id="refNo" placeholder="e.g. No.BB.TRSO.TECH-02">
+        </div>
+        <div class="field">
+          <label>Addressed to <span style="font-weight:400">(optional)</span></label>
+          <input type="text" id="addressee" placeholder="e.g. सभी लोको पायलट तथा सहायक लोको पायलट">
+        </div>
+        <div class="field" style="flex:0 0 auto; display:flex; align-items:flex-end;">
+          <label style="display:flex; align-items:center; gap:6px; font-weight:600; cursor:pointer;">
+            <input type="checkbox" id="revised" style="width:auto;"> Revised
+          </label>
         </div>
       </div>
       <div class="field full">
@@ -168,6 +183,9 @@
             title: $('number').value.trim(),
             subject: $('subject').value.trim(),
             doc_date: $('docDate').value,
+            ref_no: $('refNo').value.trim(),
+            addressee: $('addressee').value.trim(),
+            revised: $('revised').checked,
             body_html, body_html_hi,
           }),
         });
