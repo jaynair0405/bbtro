@@ -284,7 +284,7 @@ function selectCategory(cat) {
 
 // Instruction categories can be authored in-site (rich text) — show the
 // "Add Instruction" button for those when the user may manage the category.
-const COMPOSE_CATEGORIES = ['SR_DEE_INSTRUCTION', 'CEE_OP_INSTRUCTION'];
+const COMPOSE_CATEGORIES = ['SR_DEE_INSTRUCTION'];
 function syncComposeBtn() {
     const btn = document.getElementById('composeBtn');
     if (COMPOSE_CATEGORIES.includes(current) && canManage(current)) {

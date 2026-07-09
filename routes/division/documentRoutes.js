@@ -143,7 +143,9 @@ const upload = multer({
 // Categories that can be authored in the portal (rich text) instead of only
 // uploaded as files. Composed rows carry source_type='composed', body_html
 // (English) / body_html_hi (Hindi), and no file on disk.
-const INSTRUCTION_COMPOSE_CATEGORIES = new Set(['SR_DEE_INSTRUCTION', 'CEE_OP_INSTRUCTION']);
+// CEE-OP instructions are prepared by another office and only uploaded here, so
+// only Sr.DEE instructions are composable in-site.
+const INSTRUCTION_COMPOSE_CATEGORIES = new Set(['SR_DEE_INSTRUCTION']);
 
 // Letterhead per category — the fixed office block (right side, Devanagari) and
 // the signatory block (bottom right). Single source of truth; edit here.
@@ -155,13 +157,6 @@ const LETTERHEAD = {
     office: ['मंडल कार्यालय', 'वरि.मं.वि.इं. (क.च.स्टाक/परि) का कार्यालय,', 'मुंबई छ.शि.ट.'],
     signName: 'व.मं.वि.इं. (क.च.स्टाक/परि)',
     signSub: 'मुंबई छ.शि.म.ट.',
-  },
-  // NOTE: CEE-OP office/signatory text is a best guess — confirm the exact wording.
-  CEE_OP_INSTRUCTION: {
-    label: 'CEE-OP Instruction',
-    office: ['मुख्यालय', 'मुख्य विद्युत इंजीनियर (परिचालन) का कार्यालय,', 'मध्य रेल, मुंबई छ.शि.ट.'],
-    signName: 'मुख्य विद्युत इंजीनियर (परिचालन)',
-    signSub: 'मध्य रेल, मुंबई',
   },
 };
 
