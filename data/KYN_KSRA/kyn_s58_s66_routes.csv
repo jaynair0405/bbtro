@@ -1,0 +1,5 @@
+from_signal,diverted_to,from_line,to_line,route_condition
+KYN S-49,KYN S-66,DN LOC,DN NE,PF-1
+KYN S-66,KYN S-72,DN NE,DN NE,DN NE
+KYN S-58,KYN S-72,DN NE,DN NE,PF-5
+KYN S-58,KYN S-82,DN SE,DN SE,PF-5
