@@ -470,9 +470,6 @@ function renderInstructionPage(doc) {
            padding:16mm 15mm 18mm; border:1px solid var(--line);
            box-shadow:0 8px 30px rgba(0,0,0,.12); font-family:var(--serif);
            font-size:12.2pt; line-height:1.5; position:relative; }
-  .band { height:7mm; background:
-            repeating-linear-gradient(135deg,#f5a623 0 14px,#e58e0f 14px 28px);
-          margin:-16mm -15mm 6mm; }
   .lh { display:grid; grid-template-columns:1fr auto 1fr; gap:8px; align-items:start; }
   .lh .l .hi { font-size:13pt; font-weight:700; font-family:var(--deva); }
   .lh .l .en { font-size:12pt; font-weight:700; letter-spacing:.5px; }
@@ -497,6 +494,8 @@ function renderInstructionPage(doc) {
   .sig { text-align:center; width:70mm; margin:16mm 0 0 auto; font-weight:700; }
   .sig .sp { height:16mm; }
   .sig .nm { font-family:var(--deva); }
+  .foot { display:flex; justify-content:space-between; margin-top:14mm;
+          font-size:6.5pt; color:#c9ced6; letter-spacing:.2px; }
   [hidden] { display:none !important; }
 
   @media print {
@@ -512,7 +511,6 @@ function renderInstructionPage(doc) {
     <button class="btn" onclick="window.print()">🖨 Print / Save PDF</button>
   </div>
   <div class="sheet">
-    <div class="band"></div>
     <div class="lh">
       <div class="l"><div class="hi">मध्य रेल</div><div class="en">CENTRAL RAILWAY</div></div>
       <img src="/img/railway-logo.png" alt="" onerror="this.style.visibility='hidden'">
@@ -531,6 +529,7 @@ function renderInstructionPage(doc) {
       <div class="nm">${escapeText(lh.signName)}</div>
       <div class="nm">${escapeText(lh.signSub)}</div>
     </div>
+    <div class="foot"><span>@sr dee tro bb</span><span>crtms.in</span></div>
   </div>
 <script>
   var buttons = document.querySelectorAll('.lang button');
