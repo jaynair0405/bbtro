@@ -196,7 +196,8 @@ async function nextInstructionNo(pool, category) {
   const year = new Date().getFullYear();
   const [rows] = await pool.query(
     `SELECT title FROM div_documents
-      WHERE category = ? AND source_type = 'composed' AND title REGEXP ?`,
+      WHERE category = ? AND source_type = 'composed' AND status = 'final'
+        AND title REGEXP ?`,
     [category, `^[0-9]+/${year}$`]
   );
   let max = 0;
@@ -226,6 +227,8 @@ router.get('/', async (req, res) => {
       where.push('MONTH(doc_date) = ?');
       params.push(Number(month));
     }
+    // Draft instructions are private — never in the shared listing.
+    where.push("(status IS NULL OR status <> 'draft')");
     const sql = `
       SELECT id, title, category, description,
              DATE_FORMAT(doc_date, '%Y-%m-%d') AS doc_date, folder,
@@ -277,62 +280,161 @@ router.get('/instruction-no', async (req, res) => {
   }
 });
 
-// ── POST /compose — author an instruction in-site (no file) ─────────────────
+// Validate + clean an instruction payload from the compose form.
+// Returns { data } or { error: [status, message] }.
+function buildInstruction(req) {
+  const { category, subject, doc_date, body_html, body_html_hi,
+          ref_no, addressee, revised } = req.body;
+  const status = req.body.status === 'final' ? 'final' : 'draft';
+
+  if (!INSTRUCTION_COMPOSE_CATEGORIES.has(category)) {
+    return { error: [400, 'Category is not composable.'] };
+  }
+  if (!doc_date) return { error: [400, 'Instruction date is required.'] };
+
+  const bodyEn = cleanBody(body_html);
+  const bodyHi = cleanBody(body_html_hi);
+  if (!bodyEn && !bodyHi) return { error: [400, 'The instruction body is empty.'] };
+  const language = bodyEn && bodyHi ? 'both' : bodyEn ? 'en' : 'hi';
+
+  const header = {
+    ref_no: (ref_no || '').trim() || null,
+    addressee: (addressee || '').trim() || null,
+    revised: !!revised,
+  };
+  const hasHeader = header.ref_no || header.addressee || header.revised;
+
+  return {
+    data: {
+      category,
+      title: (req.body.title || '').trim(),
+      subject: (subject || '').trim() || null,
+      doc_date,
+      bodyEn, bodyHi, language,
+      header: hasHeader ? JSON.stringify(header) : null,
+      status,
+    },
+  };
+}
+
+// Owner check for a composed draft: only the author may see/edit their drafts.
+function ownsDraft(row, req) {
+  return row && row.source_type === 'composed'
+    && row.uploaded_by === (req.session?.user?.username || null);
+}
+
+// ── POST /compose — create an instruction (draft by default) ────────────────
 router.post('/compose', async (req, res) => {
   try {
-    const role = getRole(req);
-    const { category, subject, doc_date, body_html, body_html_hi,
-            ref_no, addressee, revised } = req.body;
-    let { title } = req.body;
-
-    if (!INSTRUCTION_COMPOSE_CATEGORIES.has(category)) {
-      return res.status(400).json({ success: false, error: 'Category is not composable.' });
-    }
-    if (!canUploadCategory(role, category)) {
+    const { data, error } = buildInstruction(req);
+    if (error) return res.status(error[0]).json({ success: false, error: error[1] });
+    if (!canUploadCategory(getRole(req), data.category)) {
       return res.status(403).json({ success: false, error: 'You are not allowed to add this category.' });
     }
-    if (!doc_date) {
-      return res.status(400).json({ success: false, error: 'Instruction date is required.' });
-    }
-
-    const bodyEn = cleanBody(body_html);
-    const bodyHi = cleanBody(body_html_hi);
-    if (!bodyEn && !bodyHi) {
-      return res.status(400).json({ success: false, error: 'The instruction body is empty.' });
-    }
-    const language = bodyEn && bodyHi ? 'both' : bodyEn ? 'en' : 'hi';
-
     const pool = req.app.locals.pool;
-    title = (title || '').trim() || await nextInstructionNo(pool, category);
-
-    const header = {
-      ref_no: (ref_no || '').trim() || null,
-      addressee: (addressee || '').trim() || null,
-      revised: !!revised,
-    };
-    const hasHeader = header.ref_no || header.addressee || header.revised;
+    // Only assign a real number when finalising; drafts may stay unnumbered.
+    const title = data.title || (data.status === 'final' ? await nextInstructionNo(pool, data.category) : null);
 
     const [result] = await pool.query(
       `INSERT INTO div_documents
          (title, category, description, doc_date, body_html, body_html_hi,
-          language, source_type, header, uploaded_by)
-       VALUES (?,?,?,?,?,?,?, 'composed', ?, ?)`,
-      [
-        title,
-        category,
-        (subject || '').trim() || null,
-        doc_date,
-        bodyEn,
-        bodyHi,
-        language,
-        hasHeader ? JSON.stringify(header) : null,
-        req.session?.user?.username || 'system',
-      ]
+          language, source_type, status, header, uploaded_by)
+       VALUES (?,?,?,?,?,?,?, 'composed', ?, ?, ?)`,
+      [title, data.category, data.subject, data.doc_date, data.bodyEn, data.bodyHi,
+       data.language, data.status, data.header, req.session?.user?.username || 'system']
     );
-    res.json({ success: true, id: result.insertId, title });
+    res.json({ success: true, id: result.insertId, title, status: data.status });
   } catch (err) {
     console.error('document compose error:', err);
     res.status(500).json({ success: false, error: 'Failed to save the instruction.' });
+  }
+});
+
+// ── POST /compose/:id — update a draft (save again or finalise) ─────────────
+router.post('/compose/:id', async (req, res) => {
+  try {
+    const { data, error } = buildInstruction(req);
+    if (error) return res.status(error[0]).json({ success: false, error: error[1] });
+    if (!canUploadCategory(getRole(req), data.category)) {
+      return res.status(403).json({ success: false, error: 'Not allowed.' });
+    }
+    const pool = req.app.locals.pool;
+    const [[row]] = await pool.query(
+      'SELECT category, source_type, status, uploaded_by, title FROM div_documents WHERE id = ?',
+      [req.params.id]
+    );
+    if (!row) return res.status(404).json({ success: false, error: 'Not found' });
+    if (!ownsDraft(row, req)) {
+      return res.status(403).json({ success: false, error: 'This is not your draft.' });
+    }
+    if (row.status === 'final') {
+      return res.status(409).json({ success: false, error: 'This instruction is already finalized.' });
+    }
+    // Keep any number the draft already had; assign one on finalise if still blank.
+    const title = data.title || row.title
+      || (data.status === 'final' ? await nextInstructionNo(pool, data.category) : null);
+
+    await pool.query(
+      `UPDATE div_documents
+          SET title = ?, description = ?, doc_date = ?, body_html = ?, body_html_hi = ?,
+              language = ?, header = ?, status = ?
+        WHERE id = ?`,
+      [title, data.subject, data.doc_date, data.bodyEn, data.bodyHi,
+       data.language, data.header, data.status, req.params.id]
+    );
+    res.json({ success: true, id: Number(req.params.id), title, status: data.status });
+  } catch (err) {
+    console.error('document update error:', err);
+    res.status(500).json({ success: false, error: 'Failed to save the instruction.' });
+  }
+});
+
+// ── GET /compose/:id — load a draft back into the editor (author only) ──────
+router.get('/compose/:id', async (req, res) => {
+  try {
+    const pool = req.app.locals.pool;
+    const [[row]] = await pool.query(
+      `SELECT id, title, category, description,
+              DATE_FORMAT(doc_date, '%Y-%m-%d') AS doc_date,
+              body_html, body_html_hi, header, status, source_type, uploaded_by
+         FROM div_documents WHERE id = ?`, [req.params.id]
+    );
+    if (!row) return res.status(404).json({ success: false, error: 'Not found' });
+    if (!ownsDraft(row, req)) {
+      return res.status(403).json({ success: false, error: 'This is not your draft.' });
+    }
+    if (row.status === 'final') {
+      return res.status(409).json({ success: false, error: 'Finalized instructions cannot be edited.' });
+    }
+    delete row.uploaded_by; delete row.source_type;
+    res.json({ success: true, instruction: row });
+  } catch (err) {
+    console.error('draft load error:', err);
+    res.status(500).json({ success: false, error: 'Failed to load the draft.' });
+  }
+});
+
+// ── GET /drafts — the current user's unfinalised instructions ───────────────
+router.get('/drafts', async (req, res) => {
+  try {
+    const { category } = req.query;
+    if (category && !INSTRUCTION_COMPOSE_CATEGORIES.has(category)) {
+      return res.status(400).json({ success: false, error: 'Not a composable category.' });
+    }
+    const pool = req.app.locals.pool;
+    const params = [req.session?.user?.username || null];
+    let sql = `
+      SELECT id, title, category, description,
+             DATE_FORMAT(doc_date, '%Y-%m-%d') AS doc_date, created_at
+        FROM div_documents
+       WHERE source_type = 'composed' AND status = 'draft' AND uploaded_by = ?`;
+    if (category) { sql += ' AND category = ?'; params.push(category); }
+    sql += ' ORDER BY created_at DESC';
+    const [rows] = await pool.query(sql, params);
+    res.json({ success: true, drafts: rows });
+  } catch (err) {
+    console.error('drafts list error:', err);
+    res.status(500).json({ success: false, error: 'Failed to list drafts' });
   }
 });
 
@@ -548,11 +650,15 @@ router.get('/:id/view', async (req, res) => {
     const [[row]] = await pool.query(
       `SELECT title, category, description,
               DATE_FORMAT(doc_date, '%Y-%m-%d') AS doc_date,
-              body_html, body_html_hi, source_type, header
+              body_html, body_html_hi, source_type, status, header, uploaded_by
          FROM div_documents WHERE id = ?`, [req.params.id]
     );
     if (!row) return res.status(404).json({ success: false, error: 'Not found' });
     if (row.source_type === 'composed') {
+      // A draft is a private preview — only its author may open it.
+      if (row.status === 'draft' && !ownsDraft(row, req)) {
+        return res.status(403).json({ success: false, error: 'This draft is not yours to view.' });
+      }
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
       return res.send(renderInstructionPage(row));
     }

@@ -109,7 +109,12 @@
     <div class="actions">
       <span id="msg" class="err"></span>
       <a class="btn ghost" href="/div/documents.html">Cancel</a>
-      <button class="btn" id="save" type="button">Save Instruction</button>
+      <button class="btn ghost" id="preview" type="button">Preview / Print</button>
+      <button class="btn ghost" id="saveDraft" type="button">Save draft</button>
+      <button class="btn" id="finalize" type="button">Finalize ✓</button>
+    </div>
+    <div class="hint" style="text-align:right; margin-top:6px;">
+      Drafts stay private and editable. <b>Finalize</b> publishes it to the Sr.DEE Instructions list.
     </div>
   </div>
 
@@ -126,16 +131,46 @@
 
     const $ = (id) => document.getElementById(id);
     const catSel = $('category');
+    let currentId = null;   // set once saved as a draft, or when editing ?id=
 
-    // Default date = today, and prefill category from ?category=
+    // Editing an existing draft (?id=) vs composing a new one (?category=)
     (function init() {
-      const q = new URLSearchParams(location.search).get('category');
+      const params = new URLSearchParams(location.search);
+      const editId = params.get('id');
+      if (editId) { loadDraft(editId); return; }
+      const q = params.get('category');
       if (q && [...catSel.options].some((o) => o.value === q)) catSel.value = q;
       $('docDate').value = new Date().toISOString().slice(0, 10);
       suggestNumber();
     })();
 
-    catSel.onchange = suggestNumber;
+    catSel.onchange = () => { if (!currentId) suggestNumber(); };
+
+    async function loadDraft(id) {
+      try {
+        const r = await fetch('/api/division/documents/compose/' + encodeURIComponent(id));
+        const j = await r.json();
+        if (!j.success) { flash(j.error || 'Could not load the draft.', true); return; }
+        const d = j.instruction;
+        currentId = d.id;
+        document.querySelector('.top h1').textContent = 'Edit Draft Instruction';
+        if ([...catSel.options].some((o) => o.value === d.category)) catSel.value = d.category;
+        $('number').value = d.title || '';
+        $('docDate').value = d.doc_date || '';
+        $('subject').value = d.description || '';
+        const h = d.header || {};
+        $('refNo').value = h.ref_no || '';
+        $('addressee').value = h.addressee || '';
+        $('revised').checked = !!h.revised;
+        enEditor.setContents([]);
+        if (d.body_html) enEditor.clipboard.dangerouslyPasteHTML(d.body_html);
+        hiEditor.setContents([]);
+        if (d.body_html_hi) hiEditor.clipboard.dangerouslyPasteHTML(d.body_html_hi);
+        flash('Draft loaded — make your corrections.', false);
+      } catch (e) {
+        flash('Could not load the draft.', true);
+      }
+    }
 
     async function suggestNumber() {
       $('number').value = '';
@@ -165,38 +200,61 @@
       m.className = isErr ? 'err' : 'ok';
     }
 
-    $('save').onclick = async () => {
+    // Persist current content. status: 'draft' | 'final'. Returns the id, or null.
+    async function submit(status) {
       const body_html = bodyOf(enEditor);
       const body_html_hi = bodyOf(hiEditor);
-      if (!body_html && !body_html_hi) { flash('Write the instruction body first.', true); return; }
-      if (!$('docDate').value) { flash('Date is required.', true); return; }
+      if (!body_html && !body_html_hi) { flash('Write the instruction body first.', true); return null; }
+      if (!$('docDate').value) { flash('Date is required.', true); return null; }
+      const url = '/api/division/documents/compose' + (currentId ? '/' + currentId : '');
+      const r = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          category: catSel.value,
+          title: $('number').value.trim(),
+          subject: $('subject').value.trim(),
+          doc_date: $('docDate').value,
+          ref_no: $('refNo').value.trim(),
+          addressee: $('addressee').value.trim(),
+          revised: $('revised').checked,
+          status,
+          body_html, body_html_hi,
+        }),
+      });
+      const j = await r.json();
+      if (!j.success) { flash(j.error || 'Save failed.', true); return null; }
+      currentId = j.id;
+      if (j.title) $('number').value = j.title;   // number assigned on finalise
+      return j.id;
+    }
 
-      const btn = $('save');
-      btn.disabled = true; btn.textContent = 'Saving…';
-      try {
-        const r = await fetch('/api/division/documents/compose', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            category: catSel.value,
-            title: $('number').value.trim(),
-            subject: $('subject').value.trim(),
-            doc_date: $('docDate').value,
-            ref_no: $('refNo').value.trim(),
-            addressee: $('addressee').value.trim(),
-            revised: $('revised').checked,
-            body_html, body_html_hi,
-          }),
-        });
-        const j = await r.json();
-        if (!j.success) { flash(j.error || 'Save failed.', true); return; }
-        // Open the saved instruction, then return to the list.
-        window.open('/api/division/documents/' + j.id + '/view', '_blank', 'noopener');
+    function busy(on) {
+      ['saveDraft', 'finalize', 'preview'].forEach((k) => { $(k).disabled = on; });
+    }
+
+    $('saveDraft').onclick = async () => {
+      busy(true); flash('Saving…', false);
+      const id = await submit('draft');
+      busy(false);
+      if (id) flash('Draft saved — private, and you can keep editing.', false);
+    };
+
+    $('preview').onclick = async () => {
+      busy(true); flash('Saving draft…', false);
+      const id = await submit('draft');
+      busy(false);
+      if (id) { flash('Draft saved.', false); window.open('/api/division/documents/' + id + '/view', '_blank', 'noopener'); }
+    };
+
+    $('finalize').onclick = async () => {
+      if (!confirm('Finalize this instruction? It will be published to the Sr.DEE Instructions list and can no longer be edited here.')) return;
+      busy(true); flash('Finalizing…', false);
+      const id = await submit('final');
+      busy(false);
+      if (id) {
+        window.open('/api/division/documents/' + id + '/view', '_blank', 'noopener');
         location.href = '/div/documents.html';
-      } catch (e) {
-        flash('Save failed.', true);
-      } finally {
-        btn.disabled = false; btn.textContent = 'Save Instruction';
       }
     };
   </script>
