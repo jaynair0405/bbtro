@@ -1191,6 +1191,12 @@ function normalizeDetail(detail) {
         .replace(/\b(AT|ON)(?=[A-Z]{1,2}[\s\-]?\d{2,5}[A-Z]?\b)/g, '$1 ')  // "atK 047A"
         .replace(/\b(AT|ON)(?=\d)/g, '$1 ')                          // "at16.21"
         .replace(/(\d)(AT|ON)\b/g, '$1 $2')                          // "NE6101at 16.01"
+        // A code word glued to the end of the location ("@H34AUX" -> "@H34 AUX").
+        // Without the space neither side can match: \bAUX\b has no word boundary
+        // after the digit, and the signal number has none before the letters.
+        // AUX only — a single trailing letter is ambiguous with a signal's
+        // sub-block letter ("K 024A"), where it belongs to the signal, not the code.
+        .replace(/(\d)(AUX)\b/g, '$1 $2')
         .replace(/\s{2,}/g, ' ')
         .trim();
 }
@@ -1441,11 +1447,16 @@ function extractLocation(detail) {
         return { raw: `${signalNoLetterMatch[1]}${signalNoLetterMatch[2]}`, type: 'SIGNAL' };
     }
 
-    // Pattern 1: Station + Signal format like "BY S 46", "NRL S-18", "KYN /S-78", "ASO.S23"
-    // Format: [2-5 letter station code] [space/./] S [hyphen/space/slash/.] [number]
+    // Pattern 1: Station + Signal format like "BY S 46", "NRL S-18", "KYN /S-78",
+    // "ASO.S23", "ATG - S/13"
+    // Format: [2-5 letter station code] [sep] S [sep] [number]
+    // The separator includes a HYPHEN: without it "ATG - S/13" fell through to the
+    // station-less Pattern 1a and became a bare "S 13", which the matcher refuses
+    // outright (every station has an S-13) — so the event landed in BOTH the
+    // unmatched-signal list and UD.
     // Exclude common English words (2-3 letters only) that appear before signals
     // Note: Uses exact match so ASO, ATG, BEPR etc are NOT excluded
-    const stationSignalMatch = text.match(/\b([A-Z]{2,5})[\s\.\/]+S[\s\-\.\/]*(\d+[A-Z]?)\b/);
+    const stationSignalMatch = text.match(/\b([A-Z]{2,5})[\s\.\/\-]+S[\s\-\.\/]*(\d+[A-Z]?)\b/);
     if (stationSignalMatch) {
         const station = stationSignalMatch[1];
         const sigNum = stationSignalMatch[2];
@@ -1453,7 +1464,10 @@ function extractLocation(detail) {
         // Common English words AND CMS shorthand that precede "S NN" but are not
         // stations: AT = preposition "at", NO/NI = "No." (number). Treating them
         // as a station produced false matches (e.g. "at S-27" -> ATG S-27).
-        const excludedWords = ['OF', 'THE', 'AND', 'FOR', 'BUT', 'NOT', 'ALL', 'ONE', 'TWO', 'OUT', 'OUR', 'AT', 'NO', 'NI'];
+        // AWS/ACT/SIG/ON/IN joined the list with the hyphen separator above —
+        // "AWS - S 22" must not read as a station called AWS.
+        const excludedWords = ['OF', 'THE', 'AND', 'FOR', 'BUT', 'NOT', 'ALL', 'ONE', 'TWO', 'OUT', 'OUR',
+                               'AT', 'NO', 'NI', 'ON', 'IN', 'AWS', 'ACT', 'SIG'];
         if (!excludedWords.includes(station)) {
             return { raw: `${station} S ${sigNum}`, type: 'SIGNAL' };
         }
