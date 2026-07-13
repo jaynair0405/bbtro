@@ -246,6 +246,18 @@ function mapColumnName(excelCol) {
     return COLUMN_MAP[normalized] || null;
 }
 
+// The three EMU crew lobbies. This module is about EMU motormen (MMAN/SGDP) and
+// the JPO rules count acts per CAB and per RAKE, so a loco-hauled report has no
+// place in it — its "D/Cab" is a loco number (39310, 37775) that can never match
+// a rake. The CMS file is division-wide and carries loco lobbies (CSMT, CSTM,
+// KYN, PNVL) plus ~40 foreign ones, so gate on the lobby in the abn_id.
+const EMU_LOBBIES = ['CSTS', 'KYNS', 'PNVS'];
+
+function isEmuLobby(abnId) {
+    const lobby = String(abnId || '').split('/')[0].trim().toUpperCase();
+    return EMU_LOBBIES.includes(lobby);
+}
+
 // ── Helper: Check if row is AWS candidate ─────────────────────────────────
 // AWS events almost always have braking type codes: A, B, C, D, E, P, Q, R, or AUX
 // Just mentioning "AWS" without a type code is usually a suggestion/feedback, not an event
@@ -253,20 +265,25 @@ function isAwsCandidate(row) {
     const abnType = String(row.abn_type || '').toUpperCase();
     const detail = String(row.detail || '').toUpperCase();
 
+    // EMU lobbies only — see EMU_LOBBIES above.
+    if (!isEmuLobby(row.abn_id)) {
+        return false;
+    }
+
     // Must be ST or EMU type
     if (!['ST', 'EMU'].includes(abnType)) {
         return false;
     }
 
-    // Pattern 1: "TYPE A", "TYPE B", ... "TYPE R" (with optional space)
-    // Examples: "TYPE A at signal", "TYPE-B BRAKING", "TYPEC at KM 45"
-    if (/TYPE[\s\-]*[ABCDEPQR]\b/i.test(detail)) {
+    // Pattern 1: "TYPE A" / "Cat-E" / "CATEGORY B" (with optional separator)
+    // Examples: "TYPE A at signal", "TYPE-B BRAKING", "TYPEC at KM 45", "Cat-E"
+    if (/\b(?:TYPE|CAT(?:EGORY)?)[\s\-.:]*[ABCDEPQR]\b/i.test(detail)) {
         return true;
     }
 
-    // Pattern 2: "A TYPE", "B TYPE", etc. (reverse order)
+    // Pattern 2: "A TYPE", "B TYPE", "E Cat" (reverse order)
     // Examples: "A TYPE at CSMT", "C-TYPE braking"
-    if (/\b[ABCDEPQR][\s\-]*TYPE\b/i.test(detail)) {
+    if (/\b[ABCDEPQR][\s\-]*(?:TYPE|CAT(?:EGORY)?)\b/i.test(detail)) {
         return true;
     }
 
@@ -1165,6 +1182,12 @@ function normalizeDetail(detail) {
                  (m, prefix, num) => (/\d/.test(num) && /O/.test(num))
                      ? `${prefix} ${num.replace(/O/g, '0')}`
                      : m)
+        // Same slip in a standalone number, where the prefix is a station rather
+        // than a signal letter ("SIGNAL MNKD 2O" -> "... 20"). The token must be
+        // ONLY digits and Os and hold at least one digit, so a word like "NO" or
+        // "ON" can never be mangled into a number.
+        .replace(/\b([0-9O]{2,5})\b/g,
+                 (m) => (/\d/.test(m) && /O/.test(m)) ? m.replace(/O/g, '0') : m)
         .replace(/\b(AT|ON)(?=[A-Z]{1,2}[\s\-]?\d{2,5}[A-Z]?\b)/g, '$1 ')  // "atK 047A"
         .replace(/\b(AT|ON)(?=\d)/g, '$1 ')                          // "at16.21"
         .replace(/(\d)(AT|ON)\b/g, '$1 $2')                          // "NE6101at 16.01"
@@ -1236,8 +1259,9 @@ function extractAwsCode(detail) {
         return { code: endCodeMatch[1], confidence: 'HIGH' };
     }
 
-    // Priority 1: Explicit TYPE codes (TYPE A, TYPE B, etc.)
-    const explicitMatch = text.match(/TYPE[\s\-]*([ABCDEPQR])\b/);
+    // Priority 1: Explicit TYPE / CATEGORY codes — "TYPE A", "Cat-E", "CATEGORY B".
+    // The JPO calls them types; crew also write them as the category of braking.
+    const explicitMatch = text.match(/\b(?:TYPE|CAT(?:EGORY)?)[\s\-.:]*([ABCDEPQR])\b/);
     if (explicitMatch) {
         return { code: explicitMatch[1], confidence: 'HIGH' };
     }
@@ -1268,8 +1292,8 @@ function extractAwsCode(detail) {
         return { code: awsSepCode[1], confidence: 'HIGH' };
     }
 
-    // Priority 2e: "<code> TYPE" ("A TYPE AT AMB S6").
-    const codeTypeMatch = text.match(/\b([ABCDEPQR])\s+TYPE\b/);
+    // Priority 2e: "<code> TYPE" / "<code> CAT" ("A TYPE AT AMB S6", "E Cat").
+    const codeTypeMatch = text.match(/\b([ABCDEPQR])[\s\-]+(?:TYPE|CAT(?:EGORY)?)\b/);
     if (codeTypeMatch) {
         return { code: codeTypeMatch[1], confidence: 'HIGH' };
     }
@@ -1400,6 +1424,16 @@ function extractLocation(detail) {
         return { raw: `${signalNo2LetterMatch[1]}${signalNo2LetterMatch[2]}`, type: 'SIGNAL' };
     }
 
+    // Pattern 0c: "SIGNAL <station> <number>" with the S dropped —
+    // "AWS ACT SIGNAL MNKD 20" means MNKD S-20. Station signals are named
+    // "<STN> S-<n>", so the S is implied by the word SIGNAL plus a station code.
+    // Bounded to 1-3 digits: a 4-5 digit number after two letters is an automatic
+    // (NE6111), which Pattern 0b above already owns.
+    const signalStationBare = text.match(/\bSIGNAL\s+(?:NO\.?\s*)?([A-Z]{2,5})[\s\-]+(\d{1,3}[A-Z]?)\b/);
+    if (signalStationBare && !['NO', 'AT', 'ON', 'KM', 'PF'].includes(signalStationBare[1])) {
+        return { raw: `${signalStationBare[1]} S ${signalStationBare[2]}`, type: 'SIGNAL' };
+    }
+
     // Pattern 0c: "SIGNAL NO [letter] [2-5 digits]" like "Signal No K 48", "Signal No L 4810"
     // Single letter signal ID
     const signalNoLetterMatch = text.match(/SIGNAL\s+NO\.?\s+([A-Z])\s*(\d{2,5})\b/);
@@ -1503,7 +1537,8 @@ function extractLocation(detail) {
     // Format: Line code (NE/SE/etc) + KM chainage - used for D type (Additional Magnet) locations
     // Skip 2-letter prepositions ("D at 9/340" -> the "AT" must not read as a line code;
     // it falls through to the bare-chainage Pattern 4b below which returns "9/340").
-    const twoLetterChainage = text.match(/\b([A-Z]{2})\s+(\d+\/\d+)\b/);
+    // The separator may be a hyphen, or a space AND a hyphen ("Km -9/239").
+    const twoLetterChainage = text.match(/\b([A-Z]{2})[\s\-]+(\d+\/\d+)\b/);
     if (twoLetterChainage && !['AT','ON','NO','NI','IN','TO','OF','IS','AS','OR','BE'].includes(twoLetterChainage[1])) {
         return { raw: `${twoLetterChainage[1]} ${twoLetterChainage[2]}`, type: 'KM' };
     }
@@ -1523,7 +1558,7 @@ function extractLocation(detail) {
 
     // Pattern 4: KM patterns like "KM 55", "KM 123/4", "Km 76/18", "Km.No.24/324"
     // Handles: KM, KM., KM.NO, KM.NO., KM NO etc.
-    const kmMatch = text.match(/\bKM\.?\s*(?:NO\.?)?\s*(\d+(?:[\s\/]\d+)?)\b/i);
+    const kmMatch = text.match(/\bKM\.?\s*(?:NO\.?)?[\s\-.:]*(\d+(?:[\s\/]\d+)?)\b/i);
     if (kmMatch) {
         return { raw: kmMatch[1], type: 'KM' };
     }
@@ -1541,9 +1576,10 @@ function extractLocation(detail) {
         return { raw: `PF ${pfMatch[1]}`, type: 'PLATFORM' };
     }
 
-    // Pattern 6: Station codes after "AT" (fallback)
+    // Pattern 6: Station codes after "AT" (fallback). KM/PF are units, not
+    // stations — without this guard "at KM-9/239" returned the location "KM".
     const stnMatch = text.match(/\bAT[\s\-]+([A-Z]{2,5})\b/);
-    if (stnMatch) {
+    if (stnMatch && !['KM', 'PF', 'CAT', 'TYPE', 'SIG'].includes(stnMatch[1])) {
         return { raw: stnMatch[1], type: 'SECTION' };
     }
 
@@ -2105,6 +2141,252 @@ router.get('/report-data', async (req, res) => {
     } catch (err) {
         console.error('[AWS /report-data] Error:', err);
         res.status(500).json({ error: 'Failed to load report data' });
+    }
+});
+
+// ── GET /chronic-cases ─────────────────────────────────────────────────────
+// Chronic low-frequency repeaters — the JPO blind spot.
+//
+// Every JPO threshold measures a PEAK inside one window:
+//   Rule 1  >=3 acts in a trip      Rule 2  >2/day on a signal
+//   Rule 3a >3/week on a cab        Rule 3b >=3/week on a magnet
+// A magnet or cab acting once or twice a week, week after week, clears all of
+// them and is written off as "Rule 4: transient" forever. So look at the SPREAD
+// instead: bucket the acts into Fri–Thu review weeks and surface anything seen
+// in >= minWeeks distinct weeks that a rule NEVER caught (st_acts = 0 /
+// cab_acts = 0). Whatever a rule DID catch is deliberately excluded — it is
+// already in repeated_signals / persistent_magnets / repeated_cabs, so the
+// lists never overlap.
+//
+// This carries its OWN date range, separate from the report period above it:
+// the report defaults to the current week, and a chronic pattern by definition
+// needs months to show. Sharing that range would silently return nothing.
+// With no from/to it spans all data.
+//
+// Cabs are NOT folded into their rake. Each driving cab carries its own AWS
+// equipment, so 2265 and 2266 of one unit are two separate cases.
+router.get('/chronic-cases', async (req, res) => {
+    try {
+        const pool = req.app.locals.pool;
+        const fromDate = req.query.from || null;
+        const toDate = req.query.to || null;
+
+        let dateFilter = '';
+        const dateParams = [];
+        if (fromDate && toDate) {
+            dateFilter = 'AND e.abn_date BETWEEN ? AND ?';
+            dateParams.push(fromDate, toDate);
+        } else if (fromDate) {
+            dateFilter = 'AND e.abn_date >= ?';
+            dateParams.push(fromDate);
+        } else if (toDate) {
+            dateFilter = 'AND e.abn_date <= ?';
+            dateParams.push(toDate);
+        }
+
+        const minWeeks = Math.max(2, parseInt(req.query.min_weeks, 10) || 2);
+        const minActs  = Math.max(2, parseInt(req.query.min_acts,  10) || 2);
+        const friWk = `DATE_SUB(e.abn_date, INTERVAL ((DAYOFWEEK(e.abn_date) + 1) % 7) DAY)`;
+
+        // Signals keyed by magnet_id so the per-section copies of one physical
+        // magnet count as one. The +1000000 offset keeps the fallback signal ids
+        // (158 signals carry no magnet_id) from colliding with real magnet ids.
+        const [signals] = await pool.query(
+            `WITH acts AS (
+                SELECT COALESCE(s.magnet_id, s.id + 1000000) AS magnet_key,
+                       s.signal_number, s.section, s.line,
+                       e.id, e.abn_date, e.aws_code, e.responsibility, e.loco_raw,
+                       ${friWk} AS wk
+                  FROM div_aws_events e
+                  JOIN div_signals s ON s.id = e.signal_id
+                 WHERE e.needs_manual_review = 0 ${dateFilter}
+             )
+             SELECT MIN(signal_number) AS signal_number,
+                    GROUP_CONCAT(DISTINCT section ORDER BY section) AS sections,
+                    COUNT(*) AS total_acts,
+                    -- The mirror of the cab cross-check: many different cabs
+                    -- tripping one magnet points at the magnet; the same cab
+                    -- every time points at that cab.
+                    COUNT(DISTINCT loco_raw) AS distinct_cabs,
+                    COUNT(DISTINCT wk) AS weeks_count,
+                    ROUND(COUNT(*) / COUNT(DISTINCT wk), 1) AS acts_per_week,
+                    GROUP_CONCAT(DISTINCT DATE_FORMAT(wk, '%d-%m') ORDER BY wk) AS weeks,
+                    GROUP_CONCAT(DISTINCT aws_code ORDER BY aws_code) AS codes,
+                    GROUP_CONCAT(id ORDER BY abn_date) AS event_ids,
+                    MAX(abn_date) AS last_date
+               FROM acts
+              GROUP BY magnet_key
+             HAVING COUNT(DISTINCT wk) >= ? AND COUNT(*) >= ?
+                AND SUM(responsibility = 'S&T') = 0
+              ORDER BY weeks_count DESC, total_acts DESC
+              LIMIT 50`,
+            [...dateParams, minWeeks, minActs]
+        );
+
+        const [cabs] = await pool.query(
+            `WITH acts AS (
+                SELECT e.loco_raw, e.id, e.abn_date, e.aws_code, e.responsibility,
+                       e.matched_rake_id, ${friWk} AS wk
+                  FROM div_aws_events e
+                 WHERE e.needs_manual_review = 0
+                   AND e.loco_raw IS NOT NULL AND e.loco_raw <> '' ${dateFilter}
+             )
+             SELECT a.loco_raw AS cab_number,
+                    COUNT(*) AS total_acts,
+                    COUNT(DISTINCT a.wk) AS weeks_count,
+                    ROUND(COUNT(*) / COUNT(DISTINCT a.wk), 1) AS acts_per_week,
+                    GROUP_CONCAT(DISTINCT DATE_FORMAT(a.wk, '%d-%m') ORDER BY a.wk) AS weeks,
+                    GROUP_CONCAT(DISTINCT a.aws_code ORDER BY a.aws_code) AS codes,
+                    GROUP_CONCAT(a.id ORDER BY a.abn_date) AS event_ids,
+                    MAX(a.abn_date) AS last_date,
+                    MAX(f.unit_no) AS unit_no,
+                    MAX(f.shed_code) AS shed_code
+               FROM acts a
+               LEFT JOIN rake_formations f ON f.id = a.matched_rake_id
+              GROUP BY a.loco_raw
+             HAVING COUNT(DISTINCT a.wk) >= ? AND COUNT(*) >= ?
+                AND SUM(a.responsibility = 'CAB_SIDE') = 0
+              ORDER BY weeks_count DESC, total_acts DESC
+              LIMIT 50`,
+            [...dateParams, minWeeks, minActs]
+        );
+
+        // So the page can default its range to the data that actually exists,
+        // instead of a window the operator has to discover is empty.
+        const [[range]] = await pool.query(
+            `SELECT MIN(abn_date) AS min_date, MAX(abn_date) AS max_date
+               FROM div_aws_events WHERE needs_manual_review = 0`
+        );
+
+        res.json({
+            signals,
+            cabs,
+            thresholds: { min_weeks: minWeeks, min_acts: minActs },
+            date_filter: { from: fromDate, to: toDate },
+            available_range: range,
+        });
+    } catch (err) {
+        console.error('[AWS /chronic-cases] Error:', err);
+        res.status(500).json({ error: 'Failed to load chronic cases' });
+    }
+});
+
+// ── GET /cab-cross-check ───────────────────────────────────────────────────
+// "Was it the cab, or the signal?" — the corroboration step for a chronic cab.
+//
+// A chronic cab acts at several different signals. For each of those acts, ask
+// whether ANY OTHER cab also acted at that same magnet:
+//   • nobody else ever did      -> the magnet is clean, the cab is the common
+//                                  factor  (cab-side evidence)
+//   • others did, same day      -> the magnet was misbehaving that day; this act
+//                                  says nothing about the cab (magnet evidence)
+//   • others did, but on other  -> weaker; the magnet has a history, so the act
+//     days in the period           is not clean cab evidence either
+//
+// Comparison is by magnet_id, not signal_id, so the per-section copies of one
+// physical magnet count as the same magnet. Acts that never resolved to a signal
+// can't be cross-checked at all and are returned separately rather than being
+// silently counted as cab evidence.
+router.get('/cab-cross-check', async (req, res) => {
+    try {
+        const pool = req.app.locals.pool;
+        const cab = String(req.query.cab || '').trim();
+        if (!cab) return res.status(400).json({ error: 'cab is required' });
+
+        const fromDate = req.query.from || null;
+        const toDate = req.query.to || null;
+
+        // The window bounds BOTH the cab's acts and the other cabs we compare
+        // against — otherwise a magnet could look "clean" only because the
+        // corroborating act sat just outside the range.
+        let dateFilter = '', otherFilter = '';
+        const dateParams = [], otherParams = [];
+        if (fromDate && toDate) {
+            dateFilter  = 'AND e.abn_date BETWEEN ? AND ?'; dateParams.push(fromDate, toDate);
+            otherFilter = 'AND o.abn_date BETWEEN ? AND ?'; otherParams.push(fromDate, toDate);
+        } else if (fromDate) {
+            dateFilter  = 'AND e.abn_date >= ?'; dateParams.push(fromDate);
+            otherFilter = 'AND o.abn_date >= ?'; otherParams.push(fromDate);
+        } else if (toDate) {
+            dateFilter  = 'AND e.abn_date <= ?'; dateParams.push(toDate);
+            otherFilter = 'AND o.abn_date <= ?'; otherParams.push(toDate);
+        }
+
+        const magnetKey = (a) => `COALESCE(${a}.magnet_id, ${a}.id + 1000000)`;
+
+        const [acts] = await pool.query(
+            `SELECT e.id, e.abn_date, e.abn_time, e.aws_code, e.train_number,
+                    s.signal_number, s.section, s.line,
+                    ${magnetKey('s')} AS magnet_key,
+
+                    (SELECT COUNT(*) FROM div_aws_events o
+                        JOIN div_signals os ON os.id = o.signal_id
+                       WHERE ${magnetKey('os')} = ${magnetKey('s')}
+                         AND o.loco_raw <> e.loco_raw
+                         AND o.needs_manual_review = 0
+                         AND o.abn_date = e.abn_date) AS others_same_day,
+
+                    (SELECT COUNT(DISTINCT o.loco_raw) FROM div_aws_events o
+                        JOIN div_signals os ON os.id = o.signal_id
+                       WHERE ${magnetKey('os')} = ${magnetKey('s')}
+                         AND o.loco_raw <> e.loco_raw
+                         AND o.needs_manual_review = 0 ${otherFilter}) AS other_cabs_in_period,
+
+                    (SELECT GROUP_CONCAT(DISTINCT o.loco_raw ORDER BY o.loco_raw)
+                       FROM div_aws_events o
+                        JOIN div_signals os ON os.id = o.signal_id
+                       WHERE ${magnetKey('os')} = ${magnetKey('s')}
+                         AND o.loco_raw <> e.loco_raw
+                         AND o.needs_manual_review = 0 ${otherFilter}) AS other_cabs,
+
+                    (SELECT GROUP_CONCAT(o.id) FROM div_aws_events o
+                        JOIN div_signals os ON os.id = o.signal_id
+                       WHERE ${magnetKey('os')} = ${magnetKey('s')}
+                         AND o.loco_raw <> e.loco_raw
+                         AND o.needs_manual_review = 0 ${otherFilter}) AS other_event_ids
+
+               FROM div_aws_events e
+               JOIN div_signals s ON s.id = e.signal_id
+              WHERE e.loco_raw = ? AND e.needs_manual_review = 0 ${dateFilter}
+              ORDER BY e.abn_date, e.abn_time`,
+            [...otherParams, ...otherParams, ...otherParams, cab, ...dateParams]
+        );
+
+        // Acts that never resolved to a signal — not evidence either way.
+        const [[unmatched]] = await pool.query(
+            `SELECT COUNT(*) AS cnt FROM div_aws_events e
+              WHERE e.loco_raw = ? AND e.needs_manual_review = 0
+                AND e.signal_id IS NULL ${dateFilter}`,
+            [cab, ...dateParams]
+        );
+
+        const verdictFor = (a) => {
+            if (a.others_same_day > 0)      return 'MAGNET';   // others tripped it that very day
+            if (a.other_cabs_in_period > 0) return 'SHARED';   // magnet has a history with other cabs
+            return 'CAB';                                      // nobody else ever — the cab is the common factor
+        };
+        const rows = acts.map((a) => ({ ...a, verdict: verdictFor(a) }));
+
+        const cabOnly = rows.filter((r) => r.verdict === 'CAB').length;
+        const magnet  = rows.filter((r) => r.verdict === 'MAGNET').length;
+        const shared  = rows.filter((r) => r.verdict === 'SHARED').length;
+
+        res.json({
+            cab,
+            date_filter: { from: fromDate, to: toDate },
+            acts: rows,
+            summary: {
+                acts_with_signal: rows.length,
+                acts_without_signal: unmatched.cnt,
+                cab_evidence: cabOnly,      // magnet clean -> points at the cab
+                magnet_evidence: magnet,    // others acted same day -> points at the magnet
+                shared: shared,             // magnet has a history -> inconclusive
+                distinct_magnets: new Set(rows.map((r) => r.magnet_key)).size,
+            },
+        });
+    } catch (err) {
+        console.error('[AWS /cab-cross-check] Error:', err);
+        res.status(500).json({ error: 'Failed to cross-check cab' });
     }
 });
 
@@ -3043,8 +3325,9 @@ router.get('/signals/search', async (req, res) => {
 async function matchRakeFromDb(pool, locoRaw) {
     if (!locoRaw) return { coach_id: null, rake_id: null, unit_no: null, shed_code: null };
 
-    // Clean the loco number - remove any existing suffix and whitespace
-    const cleanLoco = String(locoRaw).trim().replace(/[A-Za-z]+$/, '');
+    // Keep the digits and nothing else. Trimming only a trailing letter left
+    // stray punctuation in place, so a cab typed ".1130" never matched 1130.
+    const cleanLoco = (String(locoRaw).match(/\d+/) || [''])[0];
     if (!cleanLoco) return { coach_id: null, rake_id: null, unit_no: null, shed_code: null };
 
     // Try matching with C suffix (driving cab)
@@ -3068,7 +3351,31 @@ async function matchRakeFromDb(pool, locoRaw) {
         };
     }
 
-    // No match found
+    // Fallback: the cab has no row in rake_coaches, but the number is one of the
+    // units in a formation's unit_no (cab 2126 -> rake 160, "2119-2127-2128-2126").
+    // rake_coaches is not complete/consistent for every rake, so unit_no is the
+    // better witness when it disagrees. Only accept a UNIQUE hit — a unit number
+    // can repeat across formations (rakes 1 and 3 are both "2483-2483-2483-2483"),
+    // and a guess there would pin an act on the wrong rake.
+    const [byUnit] = await pool.query(
+        `SELECT id AS rake_id, unit_no, shed_code
+           FROM rake_formations
+          WHERE is_active = 1
+            AND FIND_IN_SET(?, REPLACE(unit_no, '-', ',')) > 0
+          LIMIT 2`,
+        [cleanLoco]
+    );
+
+    if (byUnit.length === 1) {
+        return {
+            coach_id: null,                 // no coach row exists for this cab
+            rake_id: byUnit[0].rake_id,
+            unit_no: byUnit[0].unit_no,
+            shed_code: byUnit[0].shed_code
+        };
+    }
+
+    // No match found (or ambiguous across formations)
     return { coach_id: null, rake_id: null, unit_no: null, shed_code: null };
 }
 
@@ -3600,6 +3907,8 @@ module.exports.routeSectionsForEvent = routeSectionsForEvent;
 module.exports.directionForEvent = directionForEvent;
 module.exports.tripDirection = tripDirection;
 module.exports.isAwsCandidate = isAwsCandidate;
+module.exports.isEmuLobby = isEmuLobby;
+module.exports.matchRakeFromDb = matchRakeFromDb;
 module.exports.isMultiAwsEvent = isMultiAwsEvent;
 module.exports.extractBareAutoNumber = extractBareAutoNumber;
 module.exports.resolveBareAutoSignal = resolveBareAutoSignal;

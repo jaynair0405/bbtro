@@ -447,6 +447,93 @@
         </div>
       </div>
 
+      <!-- Chronic low-frequency repeaters (JPO blind spot) -->
+      <div class="accordion-item mb-3 glass-card">
+        <h2 class="accordion-header">
+          <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#chronicCases">
+            Chronic Repeaters — escaping the JPO rules
+            <span class="badge bg-warning text-dark ms-2" id="chronicCount">0</span>
+          </button>
+        </h2>
+        <div id="chronicCases" class="accordion-collapse collapse" data-bs-parent="#detailsAcc">
+          <div class="accordion-body">
+            <div class="muted mb-3">
+              Every JPO threshold is measured inside one day, one trip or one week
+              (Rule&nbsp;2 &gt;2/day on a signal, Rule&nbsp;3a &gt;3/week on a cab, Rule&nbsp;3b &ge;3/week on a magnet).
+              A magnet or cab acting once or twice a week, week after week, clears them all and is
+              written off as <em>transient</em>. These are those cases — spread over several weeks,
+              never once caught by a rule.
+            </div>
+
+            <div class="p-3 rounded mb-3" style="background:rgba(255,255,255,.05);border:1px solid var(--stroke);">
+              <div class="d-flex align-items-center gap-2 flex-wrap" style="line-height:2.2;">
+                <span>Look at all acts between</span>
+                <input class="form-control form-control-sm d-inline-block" type="text" id="chronicFrom"
+                       placeholder="start date" style="width:135px;">
+                <span>and</span>
+                <input class="form-control form-control-sm d-inline-block" type="text" id="chronicTo"
+                       placeholder="end date" style="width:135px;">
+                <span>&nbsp;— flag a signal or cab that acted on</span>
+                <input type="number" min="2" max="52" class="form-control form-control-sm d-inline-block"
+                       id="chronicMinWeeks" value="2" style="width:70px;">
+                <span><strong>separate weeks</strong> or more, with</span>
+                <input type="number" min="2" max="99" class="form-control form-control-sm d-inline-block"
+                       id="chronicMinActs" value="2" style="width:70px;">
+                <span>acts in total or more.</span>
+                <button class="btn btn-accent btn-sm ms-2" id="chronicApply">Apply</button>
+              </div>
+              <div class="muted small mt-2" id="chronicRangeHint">
+                Separate weeks means <em>different</em> Fri–Thu review weeks — not "the last N weeks".
+                Two acts in one week is a spike a JPO rule may already catch; one act in each of two
+                weeks is the pattern that escapes.
+              </div>
+            </div>
+
+            <p class="fw-bold mb-2">Signals / Magnets <small class="muted fw-normal">— never held S&amp;T</small></p>
+            <div class="table-responsive mb-4">
+              <table class="table table-sm align-middle">
+                <thead>
+                  <tr>
+                    <th style="width:60px;">SR</th>
+                    <th>Signal</th>
+                    <th style="width:120px;">Section</th>
+                    <th style="width:80px;">Weeks</th>
+                    <th style="width:70px;">Acts</th>
+                    <th style="width:110px;" title="Many different cabs points at the magnet; the same cab every time points at that cab">Diff. cabs</th>
+                    <th style="width:90px;">Codes</th>
+                    <th>Week starts (Fri)</th>
+                    <th style="width:110px;">Last act</th>
+                    <th style="width:90px;"></th>
+                  </tr>
+                </thead>
+                <tbody id="chronicSignalsBody"></tbody>
+              </table>
+            </div>
+
+            <p class="fw-bold mb-2">D/Cabs <small class="muted fw-normal">— never held cab-side</small></p>
+            <div class="table-responsive">
+              <table class="table table-sm align-middle">
+                <thead>
+                  <tr>
+                    <th style="width:60px;">SR</th>
+                    <th>D/Cab</th>
+                    <th>Unit / Shed</th>
+                    <th style="width:80px;">Weeks</th>
+                    <th style="width:70px;">Acts</th>
+                    <th style="width:90px;">Acts/wk</th>
+                    <th style="width:90px;">Codes</th>
+                    <th>Week starts (Fri)</th>
+                    <th style="width:110px;">Last act</th>
+                    <th style="width:90px;"></th>
+                  </tr>
+                </thead>
+                <tbody id="chronicCabsBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Transient cases -->
       <div class="accordion-item mb-3 glass-card">
         <h2 class="accordion-header">
@@ -787,6 +874,157 @@
       }
     }
 
+    // ── Chronic repeaters ────────────────────────────────────────────────────
+    // Loads on its OWN date range, independent of the report period above. The
+    // report defaults to the current week; a chronic pattern needs months to
+    // show, so sharing that range would always come back empty.
+    async function loadChronic() {
+      const params = new URLSearchParams({
+        min_weeks: document.getElementById("chronicMinWeeks").value || 2,
+        min_acts: document.getElementById("chronicMinActs").value || 2
+      });
+      const f = document.getElementById("chronicFrom").value;
+      const t = document.getElementById("chronicTo").value;
+      if (f) params.set('from', toApiDate(f));
+      if (t) params.set('to', toApiDate(t));
+
+      try {
+        const resp = await fetch(`/api/division/aws/chronic-cases?${params}`);
+        if (!resp.ok) throw new Error('Failed to fetch');
+        renderChronic(await resp.json());
+      } catch (err) {
+        console.error('Load chronic cases error:', err);
+      }
+    }
+
+    function renderChronic(data) {
+      const sigs = data.signals || [];
+      const cabs = data.cabs || [];
+      document.getElementById("chronicCount").textContent = sigs.length + cabs.length;
+
+      const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-IN',
+        { day: '2-digit', month: 'short' }) : '-';
+      const viewBtn = (ids, title) => ids
+        ? `<button class="btn btn-sm btn-outline-info view-events-btn" data-ids="${escapeHtml(String(ids))}"
+                   data-title="${escapeHtml(title)}"><i class="bi bi-eye"></i> View</button>`
+        : '';
+
+      const sBody = document.getElementById("chronicSignalsBody");
+      sBody.innerHTML = sigs.length ? '' :
+        '<tr><td colspan="10" class="text-center muted py-3">None in this period at these thresholds.</td></tr>';
+      sigs.forEach((m, i) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${i + 1}</td>
+          <td><strong>${escapeHtml(m.signal_number)}</strong></td>
+          <td><small class="muted">${escapeHtml(m.sections || '')}</small></td>
+          <td><span class="badge bg-warning text-dark">${m.weeks_count}</span></td>
+          <td>${m.total_acts}</td>
+          <td>${m.distinct_cabs > 1
+                ? `<span class="badge bg-success">${m.distinct_cabs} cabs</span>`
+                : `<span class="badge bg-danger">1 cab</span>`}</td>
+          <td><small>${escapeHtml(m.codes || '')}</small></td>
+          <td><small>${escapeHtml(m.weeks || '')}</small></td>
+          <td><small>${fmtDate(m.last_date)}</small></td>
+          <td class="text-end">${viewBtn(m.event_ids, 'Chronic signal: ' + (m.signal_number || ''))}</td>`;
+        sBody.appendChild(tr);
+      });
+
+      const cBody = document.getElementById("chronicCabsBody");
+      cBody.innerHTML = cabs.length ? '' :
+        '<tr><td colspan="10" class="text-center muted py-3">None in this period at these thresholds.</td></tr>';
+      cabs.forEach((c, i) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${i + 1}</td>
+          <td><strong>${escapeHtml(c.cab_number)}</strong></td>
+          <td><small class="muted">${escapeHtml(c.unit_no || '—')}${c.shed_code ? ' / ' + escapeHtml(c.shed_code) : ''}</small></td>
+          <td><span class="badge bg-warning text-dark">${c.weeks_count}</span></td>
+          <td>${c.total_acts}</td>
+          <td>${c.acts_per_week}</td>
+          <td><small>${escapeHtml(c.codes || '')}</small></td>
+          <td><small>${escapeHtml(c.weeks || '')}</small></td>
+          <td><small>${fmtDate(c.last_date)}</small></td>
+          <td class="text-end">
+            <button class="btn btn-sm btn-outline-warning cab-check-btn" data-cab="${escapeHtml(c.cab_number)}">
+              <i class="bi bi-search"></i> Check
+            </button>
+            ${viewBtn(c.event_ids, 'Chronic D/Cab: ' + (c.cab_number || ''))}
+          </td>`;
+        cBody.appendChild(tr);
+      });
+    }
+
+    // ── Cab vs signal cross-check ────────────────────────────────────────────
+    // For each act of a chronic cab, did any OTHER cab act at that same magnet?
+    // Nobody else ever -> the magnet is clean and the cab is the common factor.
+    // Others the same day -> the magnet was misbehaving; that act does not
+    // incriminate the cab.
+    document.addEventListener('click', async (e) => {
+      const btn = e.target.closest('.cab-check-btn');
+      if (!btn) return;
+
+      const cab = btn.dataset.cab;
+      const params = new URLSearchParams({ cab });
+      const f = document.getElementById('chronicFrom').value;
+      const t = document.getElementById('chronicTo').value;
+      if (f) params.set('from', toApiDate(f));
+      if (t) params.set('to', toApiDate(t));
+
+      document.getElementById('eventModalTitle').textContent = `D/Cab ${cab} — was it the cab, or the signal?`;
+      document.getElementById('eventModalBody').innerHTML = '<div class="text-center py-4">Checking...</div>';
+      showEventModal();
+
+      try {
+        const d = await (await fetch(`/api/division/aws/cab-cross-check?${params}`)).json();
+        const s = d.summary || {};
+
+        const badge = { CAB: 'bg-danger', MAGNET: 'bg-success', SHARED: 'bg-secondary' };
+        const label = {
+          CAB: 'Cab — no other cab ever acted here',
+          MAGNET: 'Magnet — others acted the same day',
+          SHARED: 'Inconclusive — magnet has a history'
+        };
+
+        let html = `<div class="mb-3 p-3 rounded" style="background:rgba(255,255,255,.06);">
+          <div><strong>${s.cab_evidence || 0}</strong> of ${s.acts_with_signal || 0} acts happened at magnets
+               <strong>no other cab has tripped</strong> in this period — that points at the cab.</div>
+          <div class="mt-1 muted small">
+            ${s.magnet_evidence || 0} act(s) at magnets other cabs tripped the same day (magnet's fault, not the cab's) ·
+            ${s.shared || 0} inconclusive ·
+            ${s.acts_without_signal || 0} act(s) with no signal identified (can't be checked)
+          </div>
+        </div>`;
+
+        html += `<div class="table-responsive"><table class="table table-sm align-middle">
+          <thead><tr>
+            <th>Date</th><th>Code</th><th>Signal</th><th>Others same day</th>
+            <th>Other cabs in period</th><th>Verdict</th><th></th>
+          </tr></thead><tbody>`;
+
+        (d.acts || []).forEach(a => {
+          html += `<tr>
+            <td>${new Date(a.abn_date).toLocaleDateString('en-IN',{day:'2-digit',month:'short'})}</td>
+            <td><span class="badge bg-info">${escapeHtml(a.aws_code || '?')}</span></td>
+            <td><strong>${escapeHtml(a.signal_number)}</strong><br><small class="muted">${escapeHtml(a.section || '')}</small></td>
+            <td>${a.others_same_day > 0 ? `<span class="badge bg-success">${a.others_same_day}</span>` : '<span class="muted">none</span>'}</td>
+            <td><small>${a.other_cabs ? escapeHtml(a.other_cabs) : '<span class="muted">none</span>'}</small></td>
+            <td><span class="badge ${badge[a.verdict]}">${label[a.verdict]}</span></td>
+            <td class="text-end">${a.other_event_ids
+              ? `<button class="btn btn-sm btn-outline-info view-events-btn" data-ids="${escapeHtml(a.other_event_ids)}"
+                         data-title="Other cabs at ${escapeHtml(a.signal_number)}">Others</button>` : ''}</td>
+          </tr>`;
+        });
+
+        html += '</tbody></table></div>';
+        if (!(d.acts || []).length) html = '<div class="text-center py-4 muted">No signal-matched acts for this cab in the period.</div>';
+        document.getElementById('eventModalBody').innerHTML = html;
+      } catch (err) {
+        console.error('Cab cross-check error:', err);
+        document.getElementById('eventModalBody').innerHTML = '<div class="text-center py-4 text-danger">Error running cross-check</div>';
+      }
+    });
+
     function populateFromData(data) {
       // Summary cards
       document.getElementById("cmsBrakings").value = data.summary?.total_events || 0;
@@ -1030,6 +1268,26 @@
       onChange: function() { loadReportData(); }
     });
     const fpReport = flatpickr('#reportDate', fpConfig);
+
+    // Chronic section: its own pickers, defaulted to the full span of data that
+    // actually exists — so it never opens on an empty window the way the report
+    // period (current week) does.
+    const fpChronicFrom = flatpickr('#chronicFrom', fpConfig);
+    const fpChronicTo = flatpickr('#chronicTo', fpConfig);
+    document.getElementById('chronicApply')?.addEventListener('click', loadChronic);
+
+    (async () => {
+      try {
+        const resp = await fetch('/api/division/aws/chronic-cases?min_weeks=2&min_acts=2');
+        const d = await resp.json();
+        const r = d.available_range || {};
+        if (r.min_date) fpChronicFrom.setDate(new Date(r.min_date));
+        if (r.max_date) fpChronicTo.setDate(new Date(r.max_date));
+        renderChronic(d);
+      } catch (err) {
+        console.error('Chronic init error:', err);
+      }
+    })();
 
     // Set default dates (last 7 days)
     const today = new Date();
@@ -1354,8 +1612,17 @@
       }
     });
 
-    // Event modal for drill-down
-    const eventModal = new bootstrap.Modal(document.getElementById('eventModal'));
+    // Event modal for drill-down. ALWAYS go through getOrCreateInstance: several
+    // buttons (View, Check, Others) open this same element, and a second
+    // `new bootstrap.Modal` on it would add a second backdrop that the first
+    // instance's hide() never removes — leaving the page covered and unclickable
+    // after the modal closes.
+    function showEventModal() {
+      const el = document.getElementById('eventModal');
+      const m = bootstrap.Modal.getOrCreateInstance(el);
+      m.show();
+      return m;
+    }
 
     document.addEventListener('click', async (e) => {
       const btn = e.target.closest('.view-events-btn');
@@ -1371,7 +1638,7 @@
 
       document.getElementById('eventModalTitle').textContent = title;
       document.getElementById('eventModalBody').innerHTML = '<div class="text-center py-4">Loading...</div>';
-      eventModal.show();
+      showEventModal();
 
       try {
         const resp = await fetch(`/api/division/aws/events-by-ids?ids=${ids}`);
