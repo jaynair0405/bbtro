@@ -178,7 +178,35 @@
       color: var(--text);
       padding: 8px 12px;
       font-size: .86rem;
-      width: 140px;
+      width: 190px;
+    }
+    /* Signal picker dropdown on the review card */
+    .signal-suggest {
+      display: none;
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0;
+      z-index: 20;
+      min-width: 280px;
+      max-height: 240px;
+      overflow-y: auto;
+      background: #0f1830;
+      border: 1px solid var(--stroke);
+      border-radius: 10px;
+      box-shadow: 0 12px 30px rgba(0,0,0,.45);
+    }
+    .signal-suggest__item {
+      padding: 8px 12px;
+      cursor: pointer;
+      font-size: .84rem;
+      border-bottom: 1px solid rgba(255,255,255,.06);
+    }
+    .signal-suggest__item:last-child { border-bottom: none; }
+    .signal-suggest__item:hover { background: rgba(110,231,255,.14); }
+    .signal-suggest__empty {
+      padding: 8px 12px;
+      font-size: .8rem;
+      color: var(--muted);
     }
     .location-input:focus { outline: 2px solid var(--accent); border-color: var(--accent); }
     .location-input::placeholder { color: var(--muted); }
@@ -470,17 +498,38 @@
       // For "All Events" view, show reviewed events as read-only
       const showReadOnly = (view === 'all' && isReviewed) || isDismissed;
 
+      // One CMS row can hold several acts ("C at 8808  A at 7414") and each becomes
+      // its own event. Without this the two cards show the same abn_id and the same
+      // full detail text, with nothing to say which act is which.
+      const isSplit = (ev.act_count || 1) > 1;
+      const actChip = isSplit
+        ? `<span class="chip warn ms-2" title="This CMS entry held ${ev.act_count} AWS acts; this card is one of them">
+             Act ${ev.event_seq} of ${ev.act_count}</span>`
+        : '';
+
+      // Whether the location is actually tied to a signal. A location that is only
+      // TEXT is not matched — it will still show up as an unmatched signal and will
+      // count against no magnet in the reports.
+      const sigChip = ev.signal_id
+        ? `<span class="chip ok" title="Matched to ${escapeHtml(ev.signal_number || '')} (${escapeHtml(ev.signal_section || '')} ${escapeHtml(ev.signal_direction || '')})">
+             <i class="bi bi-check2-circle"></i> ${escapeHtml(ev.signal_number || '')}</span>`
+        : (ev.location_type === 'SIGNAL' && ev.location_raw
+            ? '<span class="chip warn" title="This looks like a signal but is not linked to one in div_signals"><i class="bi bi-exclamation-triangle"></i> No signal linked</span>'
+            : '');
+
       return `
         <div class="event-card ${isReviewed ? 'reviewed' : ''}" id="event-${ev.id}">
           <div class="event-header">
             <div>
               <span class="event-id">${escapeHtml(ev.abn_id || 'No ID')}</span>
               <span class="event-date ms-2">${dateStr} ${timeStr}</span>
+              ${actChip}
               ${isReviewed ? '<span class="chip ok ms-2"><i class="bi bi-check"></i> Reviewed</span>' : ''}
             </div>
             <div class="d-flex align-items-center gap-2">
               ${ev.aws_code ? `<span class="chip accent">${escapeHtml(ev.aws_code)}</span>` : '<span class="chip warn">No Code</span>'}
               ${ev.location_raw ? `<span class="chip">${escapeHtml(ev.location_raw)}</span>` : ''}
+              ${sigChip}
               ${viewBtn(ev.id, ev.abn_id || 'Event Details')}
             </div>
           </div>
@@ -509,8 +558,15 @@
               <option value="OTHER" ${ev.aws_code === 'OTHER' ? 'selected' : ''}>OTHER</option>
             </select>
 
-            <input type="text" class="location-input" id="loc-${ev.id}"
-                   value="${escapeHtml(ev.location_raw || '')}" placeholder="Location (signal/KM)">
+            <div class="position-relative">
+              <input type="text" class="location-input" id="loc-${ev.id}"
+                     value="${escapeHtml(ev.location_raw || '')}"
+                     placeholder="Signal (type to search) or KM"
+                     autocomplete="off"
+                     data-signal-id="${ev.signal_id || ''}"
+                     oninput="locationTyped(${ev.id})">
+              <div class="signal-suggest" id="sugg-${ev.id}"></div>
+            </div>
 
             <button class="btn btn-ok btn-sm" onclick="saveEvent(${ev.id})">
               <i class="bi bi-check2"></i> Save
@@ -530,6 +586,55 @@
           </div>` : ''}
         </div>
       `;
+    }
+
+    // ── Signal picker on the review card ─────────────────────────────────────
+    // The location used to be free text, so a CLI could type a signal that does
+    // not exist (or mistype one), and the event would leave review UNMATCHED —
+    // still listed as an unmatched signal, still counting against no magnet. Now
+    // typing searches div_signals and the CLI picks a real one; the picked id is
+    // sent with the save. Free text is still allowed for KM/platform locations —
+    // the server re-runs the matcher on whatever is typed.
+    const suggestTimers = {};
+
+    function locationTyped(eventId) {
+      const input = document.getElementById(`loc-${eventId}`);
+      const box = document.getElementById(`sugg-${eventId}`);
+      input.dataset.signalId = '';           // typing invalidates any previous pick
+      const q = input.value.trim();
+
+      clearTimeout(suggestTimers[eventId]);
+      if (q.length < 2) { box.innerHTML = ''; box.style.display = 'none'; return; }
+
+      suggestTimers[eventId] = setTimeout(async () => {
+        try {
+          const resp = await fetch(`${API_BASE}/signals/search?q=${encodeURIComponent(q)}`);
+          const data = await resp.json();
+          const sigs = data.signals || [];
+          if (!sigs.length) {
+            box.innerHTML = '<div class="signal-suggest__empty">No signal matches — save as free text (KM/platform)</div>';
+          } else {
+            box.innerHTML = sigs.slice(0, 8).map(s => `
+              <div class="signal-suggest__item"
+                   onclick="pickSignal(${eventId}, ${Number(s.id)}, '${escapeHtml(s.signal_number).replace(/'/g, "\\'")}')">
+                <strong>${escapeHtml(s.signal_number)}</strong>
+                <small class="muted"> ${escapeHtml(s.station_code || '')} ${escapeHtml(s.section || '')} ${escapeHtml(s.line || '')}</small>
+              </div>`).join('');
+          }
+          box.style.display = 'block';
+        } catch (err) {
+          console.error('Signal search error:', err);
+        }
+      }, 250);
+    }
+
+    function pickSignal(eventId, signalId, signalNumber) {
+      const input = document.getElementById(`loc-${eventId}`);
+      input.value = signalNumber;
+      input.dataset.signalId = String(signalId);
+      const box = document.getElementById(`sugg-${eventId}`);
+      box.innerHTML = '';
+      box.style.display = 'none';
     }
 
     // Escape HTML
@@ -566,14 +671,18 @@
       btn.innerHTML = '<span class="spinner"></span>';
       btn.disabled = true;
 
+      // If the CLI picked a signal from the dropdown, send its id — no typo can
+      // survive that. If they typed free text, send only the location and let the
+      // server run it through the same matcher the import uses.
+      const pickedSignalId = document.getElementById(`loc-${eventId}`).dataset.signalId;
+      const body = { aws_code: code, location_raw: loc || null };
+      if (pickedSignalId) body.signal_id = Number(pickedSignalId);
+
       try {
         const res = await fetch(`${API_BASE}/events/${eventId}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            aws_code: code,
-            location_raw: loc || null
-          })
+          body: JSON.stringify(body)
         });
 
         if (!res.ok) throw new Error('Update failed');

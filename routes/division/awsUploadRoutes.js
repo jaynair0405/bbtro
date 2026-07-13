@@ -1447,6 +1447,22 @@ function extractLocation(detail) {
         return { raw: `${signalNoLetterMatch[1]}${signalNoLetterMatch[2]}`, type: 'SIGNAL' };
     }
 
+    // Pattern 1d: Gate / level-crossing signal — "Gate No7 S1", "Gate No.12 S-2",
+    // "LC 45 S1", "Gate LX-26 S-3", "Gate-26".
+    // The gate may be written with an LX/LC prefix on its number, and the trailing
+    // signal number is OPTIONAL: most gates ARE the signal (div_signals holds
+    // "Gate-26"), and only a few carry a separate S-number row ("Gate-19 S-3").
+    // Keep the S-number when the crew gave one — matchSignalFromDb tries
+    // "GATE26S3" first and falls back to "GATE26" — so both kinds resolve.
+    const gateSignalMatch = text.match(
+        /\b(?:GATE|LC)[\s.\-]*(?:NO\.?|LX|LC)?[\s.\-]*(\d+)(?:[\s.\-]*S[\s\-]*(\d+[A-Z]?))?\b/i
+    );
+    if (gateSignalMatch) {
+        const gateNo = gateSignalMatch[1];
+        const sigNo = gateSignalMatch[2];
+        return { raw: sigNo ? `Gate-${gateNo} S-${sigNo}` : `Gate-${gateNo}`, type: 'SIGNAL' };
+    }
+
     // Pattern 1: Station + Signal format like "BY S 46", "NRL S-18", "KYN /S-78",
     // "ASO.S23", "ATG - S/13", "DW(S-7)"
     // Format: [2-5 letter station code] [sep] S [sep] [number]
@@ -1520,16 +1536,14 @@ function extractLocation(detail) {
         return { raw: `${station} SH ${sigNum}`, type: 'SIGNAL' };
     }
 
-    // Pattern 1d: Gate/LC signal like "Gate No7 S1", "Gate No.12 S-2", "LC 45 S1"
-    const gateSignalMatch = text.match(/\b(?:GATE|LC)[\s\.]*(?:NO\.?)?[\s]*(\d+)[\s\.]*S[\s\-]*(\d+[A-Z]?)\b/i);
-    if (gateSignalMatch) {
-        return { raw: `Gate ${gateSignalMatch[1]} S ${gateSignalMatch[2]}`, type: 'SIGNAL' };
-    }
-
-    // Pattern 2: Letter + space/hyphen + digits, with an optional sub-block letter
-    // like "L 4810", "K 48", "H-53", "K 24A", "K 024A" (K-series automatics have
-    // A/B suffixes). The trailing [A-Z]? mirrors Pattern 2b (the no-space form).
-    const letterSpaceDigits = text.match(/\b([A-Z])[\s\-]+(\d{2,5}[A-Z]?)\b/);
+    // Pattern 2: Letter + separator + digits, with an optional sub-block letter
+    // like "L 4810", "K 48", "H-53", "H/4406", "K 24A", "K 024A" (K-series
+    // automatics have A/B suffixes). The trailing [A-Z]? mirrors Pattern 2b (the
+    // no-space form). The separator takes a SLASH — crew write "H/4406" as often
+    // as "H-4406" — but NOT a dot: "Cab n. 7070" would then read as signal N-7070.
+    // A single letter at a word boundary is required, so a chainage ("9/340") or a
+    // unit number ("No. 7051") can never reach this.
+    const letterSpaceDigits = text.match(/\b([A-Z])[\s\-\/]+(\d{2,5}[A-Z]?)\b/);
     if (letterSpaceDigits) {
         return { raw: letterSpaceDigits[1] + letterSpaceDigits[2], type: 'SIGNAL' };
     }
@@ -1701,11 +1715,19 @@ router.get('/events', async (req, res) => {
             params
         );
 
-        // Get events with raw detail
+        // Get events with raw detail.
+        // act_count: how many events this ONE CMS row was split into. A split card
+        // otherwise shows the same abn_id and the same full detail text as its
+        // sibling, with nothing to say which act it is.
+        // signal_number: whether this event is actually matched to a signal — the
+        // card must show that, since a hand-typed location leaves it unmatched.
         const [events] = await pool.query(
-            `SELECT e.*, r.detail, r.from_station, r.to_station, r.abn_type
+            `SELECT e.*, r.detail, r.from_station, r.to_station, r.abn_type,
+                    s.signal_number, s.section AS signal_section, s.direction AS signal_direction,
+                    (SELECT COUNT(*) FROM div_aws_events x WHERE x.raw_id = e.raw_id) AS act_count
              FROM div_aws_events e
              LEFT JOIN div_aws_cms_raw r ON r.id = e.raw_id
+             LEFT JOIN div_signals s ON s.id = e.signal_id
              WHERE ${where}
              ORDER BY e.abn_date DESC, e.id DESC
              LIMIT ? OFFSET ?`,
@@ -1771,8 +1793,11 @@ router.patch('/events/:id', async (req, res) => {
             params.push(b.aws_code);
         }
 
+        let locationParamIdx = -1;   // so a successful match can canonicalise it below
+        let unresolvedSignal = false; // typed a signal name that matches nothing -> keep in review
         if (b.location_raw !== undefined) {
             updates.push('location_raw = ?');
+            locationParamIdx = params.length;
             params.push(b.location_raw || null);
         }
 
@@ -1820,9 +1845,52 @@ router.patch('/events/:id', async (req, res) => {
             if (b.signal_id) {
                 updates.push("signal_match_confidence = 'HIGH'");
             }
+        } else if (b.location_raw !== undefined) {
+            // The CLI typed a location instead of picking a signal. Run it through
+            // the same matcher the import uses (route + direction aware) and record
+            // the result. Without this the event left review with signal_id still
+            // NULL — it looked reviewed, but was unmatched: it reappeared in the
+            // unmatched-signal list and counted in the reports against no signal.
+            // A typo simply fails to match, which is the point: it stays visible.
+            const [[ctx]] = await pool.query(
+                `SELECT e.train_number, r.from_station, r.to_station, r.detail
+                   FROM div_aws_events e
+                   LEFT JOIN div_aws_cms_raw r ON r.id = e.raw_id
+                  WHERE e.id = ?`,
+                [eventId]
+            );
+            const sections  = ctx ? await routeSectionsForEvent(pool, ctx.from_station, ctx.to_station, ctx.train_number) : [];
+            const direction = ctx ? await directionForEvent(pool, ctx) : null;
+            const sm = await matchSignalFromDb(pool, b.location_raw, { sections, direction });
+
+            updates.push('signal_id = ?');
+            params.push(sm.signal_id || null);
+            updates.push('signal_match_confidence = ?');
+            params.push(sm.confidence || null);
+            updates.push('normalized_location = ?');
+            params.push(normalizeForSignalMatch(b.location_raw) || null);
+
+            // Keep location_type in step with what was actually typed — a free-text
+            // edit used to leave the parse-time type behind.
+            const typedType = b.location_raw ? extractLocation(b.location_raw).type : 'UNKNOWN';
+            if (b.location_type === undefined) {
+                updates.push('location_type = ?');
+                params.push(typedType);
+            }
+            // A typed location that LOOKS like a signal but matches nothing in
+            // div_signals is almost always a typo. It must stay in review rather
+            // than leave it "reviewed" but unmatched.
+            unresolvedSignal = !sm.signal_id && typedType === 'SIGNAL';
+            // Canonicalise to the matched signal's name, as the import does, so
+            // "SE5602" and "SE-5602" aggregate together in the reports.
+            if (sm.signal_id && locationParamIdx !== -1) {
+                params[locationParamIdx] = sm.signal_number;
+            }
         }
 
-        // Review is complete only when both code and location are present.
+        // Review is complete only when the code and the location are present AND
+        // the location actually resolved — a signal name that matches nothing in
+        // div_signals is a typo, and must not leave review looking reviewed.
         if (b.aws_code !== undefined || b.location_raw !== undefined) {
             const [[currentEvent]] = await pool.query(
                 'SELECT aws_code, location_raw FROM div_aws_events WHERE id = ?',
@@ -1831,7 +1899,7 @@ router.patch('/events/:id', async (req, res) => {
             const nextCode = b.aws_code !== undefined ? b.aws_code : currentEvent?.aws_code;
             const nextLocation = b.location_raw !== undefined ? b.location_raw : currentEvent?.location_raw;
             updates.push('needs_manual_review = ?');
-            params.push(nextCode && nextLocation ? 0 : 1);
+            params.push(nextCode && nextLocation && !unresolvedSignal ? 0 : 1);
         }
 
         if (updates.length === 0) {
@@ -3048,6 +3116,29 @@ async function matchSignalFromDb(pool, locationRaw, context = {}) {
     const directPick = pickByRoute(directHits);
     if (directPick) {
         return { signal_id: directPick.row.signal_id, signal_number: directPick.row.signal_number, confidence: directPick.confidence };
+    }
+
+    // 2b. Gate signals. A crew writes "Gate LX-26 S-3", but for most gates the
+    // GATE ITSELF is the signal — div_signals holds "Gate-26", not "Gate-26 S-3".
+    // Only a few carry the S-number as their own row (Gate-19 S-3, Gate-22 S-3,
+    // GATE-5 S-3), and the exact lookup above has already claimed those. So when
+    // "GATE<n>S<x>" finds nothing, retry as the bare gate. Restricted to GATE so
+    // it can never strip a station's S-number ("KYN S-19" is untouched).
+    const gateBase = normalized.match(/^(GATE\d+)S\d+[A-Z]?$/);
+    if (gateBase) {
+        const [gateHits] = await pool.query(
+            `SELECT s.id AS signal_id, s.signal_number, s.section, s.direction
+               FROM div_signals s
+              WHERE s.normalized_signal_number = ?
+                AND s.is_active = 1
+                ${partitionSql}
+              LIMIT 5`,
+            [gateBase[1], ...partitionParams]
+        );
+        const gatePick = pickByRoute(gateHits);
+        if (gatePick) {
+            return { signal_id: gatePick.row.signal_id, signal_number: gatePick.row.signal_number, confidence: gatePick.confidence };
+        }
     }
 
     // Station-less signal refs ("S 24", "SH 59" — no station prefix) cannot be
