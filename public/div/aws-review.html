@@ -368,6 +368,19 @@
     </div>
   </div>
 
+  <!-- Event Details Modal (drill-down from any View button) -->
+  <div class="modal fade" id="eventModal" tabindex="-1">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+      <div class="modal-content" style="background:var(--bg);border:1px solid var(--stroke);">
+        <div class="modal-header" style="border-color:var(--stroke);">
+          <h5 class="modal-title" id="eventModalTitle">Event Details</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body" id="eventModalBody"></div>
+      </div>
+    </div>
+  </div>
+
   <script>
     const API_BASE = '/api/division/aws';
     let currentOffset = 0;
@@ -465,9 +478,10 @@
               <span class="event-date ms-2">${dateStr} ${timeStr}</span>
               ${isReviewed ? '<span class="chip ok ms-2"><i class="bi bi-check"></i> Reviewed</span>' : ''}
             </div>
-            <div>
+            <div class="d-flex align-items-center gap-2">
               ${ev.aws_code ? `<span class="chip accent">${escapeHtml(ev.aws_code)}</span>` : '<span class="chip warn">No Code</span>'}
               ${ev.location_raw ? `<span class="chip">${escapeHtml(ev.location_raw)}</span>` : ''}
+              ${viewBtn(ev.id, ev.abn_id || 'Event Details')}
             </div>
           </div>
 
@@ -728,6 +742,7 @@
           <th>Normalized</th>
           <th style="width:80px">Count</th>
           <th>Dates</th>
+          <th style="width:90px">Events</th>
           <th style="width:200px">Link to Signal</th>
         </tr></thead><tbody>`;
 
@@ -737,6 +752,7 @@
             <td class="muted">${escapeHtml(s.normalized_location || '')}</td>
             <td><span class="badge bg-warning text-dark">${s.occurrence_count}</span></td>
             <td class="muted" style="font-size:.85rem">${escapeHtml(s.dates || '')}</td>
+            <td>${viewBtn(s.event_ids, `Unmatched signal: ${s.location_raw || ''}`)}</td>
             <td>
               <div class="input-group input-group-sm">
                 <input type="text" class="form-control signal-search" placeholder="Search signal..."
@@ -848,7 +864,8 @@
                   <strong>${escapeHtml(r.loco_raw)}</strong>
                   <span class="badge bg-warning text-dark">${r.occurrence_count}</span>
                 </div>
-                <small class="muted">${escapeHtml(r.dates || '')}</small>
+                <small class="muted d-block mb-2">${escapeHtml(r.dates || '')}</small>
+                ${viewBtn(r.event_ids, `Unmatched D/Cab: ${r.loco_raw || ''}`)}
               </div>
             </div>`;
         }
@@ -861,8 +878,74 @@
       }
     }
 
+    // ── Event drill-down modal ─────────────────────────────────────────────────
+    // Any element with .view-events-btn + data-ids opens the underlying events,
+    // same as the dashboard's repeated-signal / S&T drill-downs.
+    let eventModal;
+
+    function viewBtn(eventIds, title) {
+      if (!eventIds) return '';
+      return `<button class="btn btn-neo btn-sm view-events-btn" data-ids="${escapeHtml(String(eventIds))}"
+                      data-title="${escapeHtml(title || 'Event Details')}" title="See the events behind this">
+                <i class="bi bi-eye"></i> View
+              </button>`;
+    }
+
+    document.addEventListener('click', async (e) => {
+      const btn = e.target.closest('.view-events-btn');
+      if (!btn) return;
+
+      const ids = btn.dataset.ids;
+      if (!ids) return;
+
+      document.getElementById('eventModalTitle').textContent = btn.dataset.title || 'Event Details';
+      document.getElementById('eventModalBody').innerHTML = '<div class="text-center py-4"><span class="spinner"></span></div>';
+      eventModal.show();
+
+      try {
+        const resp = await fetch(`${API_BASE}/events-by-ids?ids=${encodeURIComponent(ids)}`);
+        if (!resp.ok) throw new Error('Failed to fetch');
+        const data = await resp.json();
+
+        if (!data.events || data.events.length === 0) {
+          document.getElementById('eventModalBody').innerHTML = '<div class="text-center py-4 muted">No events found</div>';
+          return;
+        }
+
+        let html = `<div class="table-responsive"><table class="table table-sm">
+          <thead><tr>
+            <th>Date</th><th>Time</th><th>Code</th><th>Location</th>
+            <th>D/Cab</th><th>Train</th><th>Crew</th><th>Detail</th>
+          </tr></thead><tbody>`;
+
+        data.events.forEach(ev => {
+          const dateStr = ev.abn_date
+            ? new Date(ev.abn_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+            : '-';
+          const timeStr = ev.abn_time ? String(ev.abn_time).slice(0, 5) : '';
+          html += `<tr>
+            <td>${dateStr}</td>
+            <td>${timeStr}</td>
+            <td>${ev.aws_code ? `<span class="chip accent">${escapeHtml(ev.aws_code)}</span>` : '<span class="chip warn">?</span>'}</td>
+            <td>${escapeHtml(ev.location_raw || '-')}</td>
+            <td>${escapeHtml(ev.loco_raw || '-')}${ev.unit_no ? `<br><small class="muted">${escapeHtml(ev.unit_no)}</small>` : ''}</td>
+            <td>${escapeHtml(ev.train_number || '-')}</td>
+            <td>${escapeHtml(ev.crew_name || '-')}<br><small class="muted">${escapeHtml(ev.crew_id || '')}</small></td>
+            <td><small>${escapeHtml(ev.detail || '')}</small></td>
+          </tr>`;
+        });
+
+        html += '</tbody></table></div>';
+        document.getElementById('eventModalBody').innerHTML = html;
+      } catch (err) {
+        console.error('Load events error:', err);
+        document.getElementById('eventModalBody').innerHTML = '<div class="text-center py-4 text-danger">Error loading events</div>';
+      }
+    });
+
     // Init
     document.addEventListener('DOMContentLoaded', () => {
+      eventModal = new bootstrap.Modal(document.getElementById('eventModal'));
       loadStats();
       loadEvents();
       loadUnmatchedSignals();

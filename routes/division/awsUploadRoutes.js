@@ -344,7 +344,7 @@ function isMultiAwsEvent(detail) {
 // is handed to extractLocation()/resolveBareSignalForRow() per act, so no new
 // location parsing lives here.
 function splitAwsEvents(detail) {
-    const text = String(detail || '').replace(/^DETAIL:\s*/i, '').toUpperCase();
+    const text = normalizeDetail(detail);
     // Same code-anchor used elsewhere: a code letter (or AUX) followed by @ or AT.
     const anchor = /\b(AUX|[ABCDEPQR])\s*(?:@|AT\b)\s*/g;
     const hits = [];
@@ -809,7 +809,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
         let autoMatchedSignals = 0, autoMatchedRakes = 0;
         const [newEvents] = await conn.query(
             `SELECT e.id, e.location_raw, e.location_type, e.train_number, e.loco_raw,
-                    r.from_station, r.to_station
+                    r.from_station, r.to_station, r.detail
              FROM div_aws_events e
              JOIN div_aws_cms_raw r ON r.id = e.raw_id
              WHERE r.upload_id = ? AND (e.signal_id IS NULL OR e.matched_rake_id IS NULL)`,
@@ -817,8 +817,9 @@ router.post('/upload', upload.single('file'), async (req, res) => {
         );
         for (const ev of newEvents) {
             if (ev.location_type === 'SIGNAL' && ev.location_raw) {
-                const sections = await routeSectionsForEvent(conn, ev.from_station, ev.to_station, ev.train_number);
-                const sm = await matchSignalFromDb(conn, ev.location_raw, { sections });
+                const sections  = await routeSectionsForEvent(conn, ev.from_station, ev.to_station, ev.train_number);
+                const direction = await directionForEvent(conn, ev);
+                const sm = await matchSignalFromDb(conn, ev.location_raw, { sections, direction });
                 if (sm.signal_id) {
                     // Canonicalise the displayed location to the matched signal's
                     // name so "SE5602" and "SE-5602" (same magnet) read identically
@@ -1145,11 +1146,36 @@ async function isDuplicateAwsEvent(db, ev) {
     return rows.length > 0;
 }
 
+// ── Helper: normalise the free-typed CMS detail before pattern matching ────
+// Crew type these by hand, so two habits break the patterns:
+//   "AWS act...  A. atK 047A"  -> an ellipsis run, and "at" glued to "K 047A".
+// Ellipses collapse to a single space, and a glued AT/ON is separated ONLY when
+// what follows looks like a signal (letter + 2-5 digits). That narrowness is
+// deliberate: it keeps station codes that begin with those letters (ATG, ONE…)
+// intact, since a plain word never follows.
+function normalizeDetail(detail) {
+    return String(detail || '')
+        .toUpperCase()
+        .replace(/^DETAIL:\s*/i, '')
+        .replace(/\.{2,}/g, ' ')
+        // Letter O typed for a zero inside a signal number ("LO12" -> "L 012").
+        // Only fires behind a known signal prefix, and only when the token already
+        // holds a digit — so "No. 7051" (a unit number, N + O) is never touched.
+        .replace(/\b(NE|SE|[LKHSA])[\s\-]?([O0-9]{2,5}[A-Z]?)\b/g,
+                 (m, prefix, num) => (/\d/.test(num) && /O/.test(num))
+                     ? `${prefix} ${num.replace(/O/g, '0')}`
+                     : m)
+        .replace(/\b(AT|ON)(?=[A-Z]{1,2}[\s\-]?\d{2,5}[A-Z]?\b)/g, '$1 ')  // "atK 047A"
+        .replace(/\b(AT|ON)(?=\d)/g, '$1 ')                          // "at16.21"
+        .replace(/(\d)(AT|ON)\b/g, '$1 $2')                          // "NE6101at 16.01"
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+}
+
 function extractAwsCode(detail) {
     if (!detail) return { code: null, confidence: null };
 
-    // Strip "DETAIL:" prefix if present
-    let text = detail.toUpperCase().replace(/^DETAIL:\s*/i, '');
+    let text = normalizeDetail(detail);
 
     // Priority 0: Code at START followed by "at" + location (most common pattern)
     // Examples: "B at H-16 AWS ACT", "A at S 46", "C at KM 45"
@@ -1200,9 +1226,12 @@ function extractAwsCode(detail) {
         return { code: commaCodeMatch[1], confidence: 'HIGH' };
     }
 
-    // Priority 0h: Single letter code at END of text (after signal/location)
-    // Examples: "AWS ACT ON CLA S12 C", "acted at BY S-46 A"
-    const endCodeMatch = text.match(/\b[A-Z]?\d+[A-Z]?\s+([ABCDEPQR])\s*$/);
+    // Priority 0h: Single letter code at END of text, trailing the location.
+    // Examples: "AWS ACT ON CLA S12 C", "acted at BY S-46 A",
+    //           "AWS Act At SE7613 -A." (hyphen-led, full stop after).
+    // A separator between the number and the code is REQUIRED — that is what
+    // keeps a signal's sub-block letter ("K 024A") from reading as a code.
+    const endCodeMatch = text.match(/\d+[A-Z]?[\s.,:\-\/]+([ABCDEPQR])[\s.]*$/);
     if (endCodeMatch) {
         return { code: endCodeMatch[1], confidence: 'HIGH' };
     }
@@ -1294,6 +1323,32 @@ function extractAwsCode(detail) {
         return { code: 'C', confidence: 'MEDIUM' };
     }
 
+    // Priority 5b: Aspect ABBREVIATIONS written as a letter instead of the word.
+    //   G  -> A (Green)
+    //   YY / DY / DBL Y -> B (Double Yellow)
+    //   Y  -> C (Yellow)
+    // Seen as "L 012 Y AWS ACT" (aspect before the keyword) and "AWS act on Y"
+    // (aspect after it). The AWS/ACT/ON/AT keyword must sit next to the letter —
+    // that is what stops a crew initial or a stray letter from reading as an
+    // aspect. Aspect CHANGES ("G to Y") are already P/Q/R at Priority 4, so a
+    // change description is excluded here.
+    if (!/\bTO\b|CHANGE/.test(text)) {
+        const KW = '(?:\\bAWS\\b|\\bACT(?:ED|ING)?\\b|\\bON\\b|\\bAT\\b)';
+        const SEP = '[\\s.:@\\/\\-",]{0,4}';
+        const ASPECTS = [
+            ['(?:YY|D[\\s\\-\\/]?Y|DBL[\\s\\-]?Y)', 'B'],
+            ['Y', 'C'],
+            ['G', 'A'],
+        ];
+        for (const [aspect, code] of ASPECTS) {
+            const beforeKw = new RegExp(`\\b${aspect}\\b${SEP}${KW}`);
+            const afterKw  = new RegExp(`${KW}${SEP}\\b${aspect}\\b`);
+            if (beforeKw.test(text) || afterKw.test(text)) {
+                return { code, confidence: 'MEDIUM' };
+            }
+        }
+    }
+
     // D - Additional magnet
     if (/ADD(ITIONAL|L)?[\s\.\-]*MAGNET/i.test(text)) {
         return { code: 'D', confidence: 'MEDIUM' };
@@ -1330,8 +1385,7 @@ function extractAwsCode(detail) {
 function extractLocation(detail) {
     if (!detail) return { raw: null, type: 'UNKNOWN' };
 
-    // Strip "DETAIL:" prefix if present
-    let text = detail.toUpperCase().replace(/^DETAIL:\s*/i, '');
+    let text = normalizeDetail(detail);
 
     // Pattern 0: "SIGNAL NO [station] S[number]" like "SIGNAL NO NEU S4"
     const signalNoMatch = text.match(/SIGNAL\s+NO\.?\s+([A-Z]{2,5})\s+S[\s\-]*(\d+[A-Z]?)\b/);
@@ -1380,6 +1434,19 @@ function extractLocation(detail) {
         return { raw: `S ${standaloneSignalMatch[1]}`, type: 'SIGNAL' };
     }
 
+    // Pattern 1a-IBS: Intermediate Block Signal distant — "KE UP IBS DISTANT",
+    // "ASO IB DIST SIG", "OMB IBH DIST". Spelling varies (IB / IBS / IBH) and the
+    // direction word may sit either side of it. div_signals names these
+    // "<STN> IBS DIST" and holds a SEPARATE UP and DN copy under that one name,
+    // so the direction is dropped from the location (it is not part of the signal
+    // id) and recovered later by tripDirection() as a match tie-breaker.
+    const ibsMatch = text.match(
+        /\b([A-Z]{2,5})\s+(?:(?:UP|DN|DOWN)\s+)?IB[SH]?\s+(?:(?:UP|DN|DOWN)\s+)?DIST(?:ANT)?\b/
+    );
+    if (ibsMatch && !['UP', 'DN', 'DOWN'].includes(ibsMatch[1])) {
+        return { raw: `${ibsMatch[1]} IBS DIST`, type: 'SIGNAL' };
+    }
+
     // Pattern 1b: Station + Signal Type like "ASO STR SIG", "CLA HOME SIG",
     // "BY DIST SIG", "KE UP DISTANT SIGNAL". An optional UP/DN direction word may
     // sit between the station and the type — it must NOT be captured as the
@@ -1410,8 +1477,10 @@ function extractLocation(detail) {
         return { raw: `Gate ${gateSignalMatch[1]} S ${gateSignalMatch[2]}`, type: 'SIGNAL' };
     }
 
-    // Pattern 2: Letter + space/hyphen + digits like "L 4810", "K 48", "H-53"
-    const letterSpaceDigits = text.match(/\b([A-Z])[\s\-]+(\d{2,5})\b/);
+    // Pattern 2: Letter + space/hyphen + digits, with an optional sub-block letter
+    // like "L 4810", "K 48", "H-53", "K 24A", "K 024A" (K-series automatics have
+    // A/B suffixes). The trailing [A-Z]? mirrors Pattern 2b (the no-space form).
+    const letterSpaceDigits = text.match(/\b([A-Z])[\s\-]+(\d{2,5}[A-Z]?)\b/);
     if (letterSpaceDigits) {
         return { raw: letterSpaceDigits[1] + letterSpaceDigits[2], type: 'SIGNAL' };
     }
@@ -2415,6 +2484,46 @@ function normalizeForSignalMatch(text) {
 // row). Fallback: the train's start/end stations from the `trains` timetable.
 // Station tokens pass through STATION_SYNONYMS (e.g. AMB -> ABH), so the corridor
 // resolves even when the CMS abbreviation differs from the div_signals code.
+// ── Helper: which way was the train running? ──────────────────────────────
+// Some signals exist as a matched UP/DN pair under ONE name — "KE IBS DIST" is
+// both signal 1258 (UP NE) and 1235 (DN NE) — so the name alone cannot identify
+// the magnet. Direction comes from two places, in order of trust:
+//   1. the crew wrote it in the detail ("KE UP IBS DISTANT")
+//   2. the trip itself: div_sub_section_stations orders the stations per
+//      direction (UP_NE runs KSRA->KYN, DN_NE runs KYN->KSRA), so the leg whose
+//      seq_order increases from FROM to TO tells us the direction.
+// Returns 'UP' | 'DN' | null (null = don't guess; leave the tie unbroken).
+function directionFromText(detail) {
+    const t = normalizeDetail(detail);
+    if (/\bUP\b/.test(t)) return 'UP';
+    if (/\b(DN|DOWN)\b/.test(t)) return 'DN';
+    return null;
+}
+
+async function tripDirection(pool, fromStn, toStn) {
+    const norm = (s) => {
+        const u = (s || '').toString().trim().toUpperCase();
+        return STATION_SYNONYMS[u] || u;
+    };
+    const from = norm(fromStn), to = norm(toStn);
+    if (!from || !to || from === to) return null;
+
+    const [rows] = await pool.query(
+        `SELECT DISTINCT CASE WHEN LEFT(a.section_code, 3) = 'UP_' THEN 'UP' ELSE 'DN' END AS direction
+           FROM div_sub_section_stations a
+           JOIN div_sub_section_stations b ON b.section_code = a.section_code
+          WHERE a.station_code = ? AND b.station_code = ?
+            AND a.seq_order < b.seq_order`,
+        [from, to]
+    );
+    // Every sub-section carrying this leg must agree, else we cannot tell.
+    return rows.length === 1 ? rows[0].direction : null;
+}
+
+async function directionForEvent(pool, { detail, from_station, to_station }) {
+    return directionFromText(detail) || await tripDirection(pool, from_station, to_station);
+}
+
 async function routeSectionsForEvent(pool, fromStn, toStn, trainNumber) {
     const norm = (s) => {
         const u = (s || '').toString().trim().toUpperCase();
@@ -2509,8 +2618,9 @@ async function resolveActLocation(db, raw, locationText) {
 // ── Helper: parse one raw candidate into 1..N events and insert them ───────
 // Single-act details behave exactly as before (one event). Multi-act details
 // ("B @ NE 5918  Aux @ NE 5510") are split into one event per act, numbered by
-// event_seq, and — per the conservative rollout — every act of a split is
-// flagged needs_manual_review so a human confirms the split before it counts.
+// event_seq. Split acts are judged by the same completeness rule as single acts:
+// an act with a code and a location is confirmed; only the incomplete acts
+// ("D at Parel PF" — a platform, not a signal) go to manual review.
 // Returns { inserted, needsReview, skippedDup }.
 async function insertEventsForRaw(db, raw, userId) {
     const detail = raw.detail;
@@ -2543,10 +2653,8 @@ async function insertEventsForRaw(db, raw, userId) {
             loco_raw: raw.loco_raw, aws_code: awsCode, location_raw: locationRaw
         })) { skippedDup++; continue; }
 
-        // Conservative: every split act is reviewed; single acts use the rule.
-        const needsManualReview = isSplit
-            ? 1
-            : (!awsCode || confidence === 'LOW' || !locationRaw ? 1 : 0);
+        // Same completeness rule for split acts and single acts.
+        const needsManualReview = (!awsCode || confidence === 'LOW' || !locationRaw) ? 1 : 0;
         if (needsManualReview) needsReview++;
 
         try {
@@ -2578,7 +2686,9 @@ async function matchSignalFromDb(pool, locationRaw, context = {}) {
     const partitionParams  = [];
     if (context.section)   { partitionClauses.push('s.section = ?');   partitionParams.push(context.section); }
     if (context.line)      { partitionClauses.push('s.`line` = ?');    partitionParams.push(context.line); }
-    if (context.direction) { partitionClauses.push('s.direction = ?'); partitionParams.push(context.direction); }
+    // NOTE: direction is deliberately NOT a WHERE clause. As a hard filter it
+    // would drop a signal outright whenever our inferred direction is wrong,
+    // turning a good match into no match. It is applied below as a tie-breaker.
     const partitionSql = partitionClauses.length ? ` AND ${partitionClauses.join(' AND ')}` : '';
 
     // Route-aware disambiguation: when a signal number exists in more than one
@@ -2589,17 +2699,25 @@ async function matchSignalFromDb(pool, locationRaw, context = {}) {
     const routeSecs = Array.isArray(context.sections) && context.sections.length ? context.sections : null;
     const pickByRoute = (hits) => {
         if (!hits.length) return null;
-        if (routeSecs && hits.length > 1) {
-            const inRoute = hits.filter((h) => routeSecs.includes(h.section));
-            if (inRoute.length === 1) return { row: inRoute[0], confidence: 'HIGH' };
-            if (inRoute.length > 1)  return { row: inRoute[0], confidence: 'MEDIUM' };
+        let pool = hits;
+        if (routeSecs && pool.length > 1) {
+            const inRoute = pool.filter((h) => routeSecs.includes(h.section));
+            if (inRoute.length) pool = inRoute;
         }
-        return { row: hits[0], confidence: hits.length > 1 ? 'MEDIUM' : 'HIGH' };
+        // Direction breaks a tie the section could not — "KE IBS DIST" exists once
+        // UP and once DN, both in KYN-KSRA. Applied as a tie-breaker, never as a
+        // filter: if it matches nothing we keep the section-narrowed candidates,
+        // so a signal with no direction recorded can still match.
+        if (context.direction && pool.length > 1) {
+            const sameDir = pool.filter((h) => h.direction === context.direction);
+            if (sameDir.length) pool = sameDir;
+        }
+        return { row: pool[0], confidence: pool.length > 1 ? 'MEDIUM' : 'HIGH' };
     };
 
     // 1. Exact match on normalized_alias
     const [aliasHits] = await pool.query(
-        `SELECT a.signal_id, s.signal_number, s.section
+        `SELECT a.signal_id, s.signal_number, s.section, s.direction
          FROM div_signal_aliases a
          JOIN div_signals s ON s.id = a.signal_id
          WHERE a.normalized_alias = ?
@@ -2608,14 +2726,21 @@ async function matchSignalFromDb(pool, locationRaw, context = {}) {
          LIMIT 5`,
         [normalized, ...partitionParams]
     );
-    const aliasPick = pickByRoute(aliasHits);
+    // An alias is a single hand-linked row, so it carries whichever direction the
+    // CLI happened to link ("KEIBSDIST" -> the UP copy). If every alias hit points
+    // the wrong way for this trip, don't trust it — fall through to the direct
+    // lookup, which sees both the UP and DN copy and can pick the right one.
+    const aliasUsable = (context.direction && aliasHits.length &&
+                         aliasHits.every((h) => h.direction && h.direction !== context.direction))
+        ? [] : aliasHits;
+    const aliasPick = pickByRoute(aliasUsable);
     if (aliasPick) {
         return { signal_id: aliasPick.row.signal_id, signal_number: aliasPick.row.signal_number, confidence: aliasPick.confidence };
     }
 
     // 2. Exact match on normalized_signal_number
     const [directHits] = await pool.query(
-        `SELECT s.id AS signal_id, s.signal_number, s.section
+        `SELECT s.id AS signal_id, s.signal_number, s.section, s.direction
          FROM div_signals s
          WHERE s.normalized_signal_number = ?
            AND s.is_active = 1
@@ -2704,14 +2829,16 @@ router.post('/match-signals', async (req, res) => {
     try {
         const pool = req.app.locals.pool;
 
-        // Get all events that need signal matching
+        // Get all events that need signal matching (with route/direction context)
         const [events] = await pool.query(
-            `SELECT id, location_raw
-             FROM div_aws_events
-             WHERE location_type = 'SIGNAL'
-               AND location_raw IS NOT NULL
-               AND location_raw != ''
-               AND signal_id IS NULL`
+            `SELECT e.id, e.location_raw, e.train_number,
+                    r.from_station, r.to_station, r.detail
+             FROM div_aws_events e
+             JOIN div_aws_cms_raw r ON r.id = e.raw_id
+             WHERE e.location_type = 'SIGNAL'
+               AND e.location_raw IS NOT NULL
+               AND e.location_raw != ''
+               AND e.signal_id IS NULL`
         );
 
         let matched = 0;
@@ -2719,7 +2846,9 @@ router.post('/match-signals', async (req, res) => {
         const results = [];
 
         for (const event of events) {
-            const match = await matchSignalFromDb(pool, event.location_raw);
+            const sections  = await routeSectionsForEvent(pool, event.from_station, event.to_station, event.train_number);
+            const direction = await directionForEvent(pool, event);
+            const match = await matchSignalFromDb(pool, event.location_raw, { sections, direction });
 
             if (match.signal_id) {
                 // Update the event with matched signal; canonicalise location_raw to
@@ -3034,19 +3163,25 @@ router.post('/match-all', async (req, res) => {
     try {
         const pool = req.app.locals.pool;
 
-        // 1. Signal matching
+        // 1. Signal matching — with the same route/direction context the upload
+        // auto-match uses, so a signal that needs the trip to disambiguate it
+        // (e.g. the UP vs DN copy of "KE IBS DIST") resolves here too.
         const [signalEvents] = await pool.query(
-            `SELECT id, location_raw
-             FROM div_aws_events
-             WHERE location_type = 'SIGNAL'
-               AND location_raw IS NOT NULL
-               AND location_raw != ''
-               AND signal_id IS NULL`
+            `SELECT e.id, e.location_raw, e.train_number,
+                    r.from_station, r.to_station, r.detail
+             FROM div_aws_events e
+             JOIN div_aws_cms_raw r ON r.id = e.raw_id
+             WHERE e.location_type = 'SIGNAL'
+               AND e.location_raw IS NOT NULL
+               AND e.location_raw != ''
+               AND e.signal_id IS NULL`
         );
 
         let signalsMatched = 0;
         for (const event of signalEvents) {
-            const match = await matchSignalFromDb(pool, event.location_raw);
+            const sections  = await routeSectionsForEvent(pool, event.from_station, event.to_station, event.train_number);
+            const direction = await directionForEvent(pool, event);
+            const match = await matchSignalFromDb(pool, event.location_raw, { sections, direction });
             if (match.signal_id) {
                 await pool.query(
                     `UPDATE div_aws_events
@@ -3462,6 +3597,8 @@ module.exports.extractLocation = extractLocation;
 module.exports.matchSignalFromDb = matchSignalFromDb;
 module.exports.normalizeForSignalMatch = normalizeForSignalMatch;
 module.exports.routeSectionsForEvent = routeSectionsForEvent;
+module.exports.directionForEvent = directionForEvent;
+module.exports.tripDirection = tripDirection;
 module.exports.isAwsCandidate = isAwsCandidate;
 module.exports.isMultiAwsEvent = isMultiAwsEvent;
 module.exports.extractBareAutoNumber = extractBareAutoNumber;
