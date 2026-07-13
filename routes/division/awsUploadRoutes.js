@@ -1448,15 +1448,16 @@ function extractLocation(detail) {
     }
 
     // Pattern 1: Station + Signal format like "BY S 46", "NRL S-18", "KYN /S-78",
-    // "ASO.S23", "ATG - S/13"
+    // "ASO.S23", "ATG - S/13", "DW(S-7)"
     // Format: [2-5 letter station code] [sep] S [sep] [number]
-    // The separator includes a HYPHEN: without it "ATG - S/13" fell through to the
-    // station-less Pattern 1a and became a bare "S 13", which the matcher refuses
+    // The separator includes a HYPHEN and an OPENING BRACKET: without them
+    // "ATG - S/13" and "SIGNAL NO.-DW(S-7)" fell through to the station-less
+    // Pattern 1a and became a bare "S 13" / "S 7", which the matcher refuses
     // outright (every station has an S-13) — so the event landed in BOTH the
-    // unmatched-signal list and UD.
+    // unmatched-signal list and UD, even though the crew HAD named the station.
     // Exclude common English words (2-3 letters only) that appear before signals
     // Note: Uses exact match so ASO, ATG, BEPR etc are NOT excluded
-    const stationSignalMatch = text.match(/\b([A-Z]{2,5})[\s\.\/\-]+S[\s\-\.\/]*(\d+[A-Z]?)\b/);
+    const stationSignalMatch = text.match(/\b([A-Z]{2,5})[\s\.\/\-\(]+S[\s\-\.\/]*(\d+[A-Z]?)\b/);
     if (stationSignalMatch) {
         const station = stationSignalMatch[1];
         const sigNum = stationSignalMatch[2];
