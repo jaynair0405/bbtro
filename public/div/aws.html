@@ -481,6 +481,9 @@
                        id="chronicMinActs" value="2" style="width:70px;">
                 <span>acts in total or more.</span>
                 <button class="btn btn-accent btn-sm ms-2" id="chronicApply">Apply</button>
+                <button class="btn btn-neo btn-sm" id="chronicPrint">
+                  <i class="bi bi-printer"></i> Print
+                </button>
               </div>
               <div class="muted small mt-2" id="chronicRangeHint">
                 Separate weeks means <em>different</em> Fri–Thu review weeks — not "the last N weeks".
@@ -867,6 +870,7 @@
         if (!resp.ok) throw new Error('Failed to fetch');
         const data = await resp.json();
 
+        lastReportData = data;          // kept for the print view
         populateFromData(data);
         await loadSavedDraft();
       } catch (err) {
@@ -898,6 +902,7 @@
     }
 
     function renderChronic(data) {
+      lastChronicData = data;          // kept for the print view
       const sigs = data.signals || [];
       const cabs = data.cabs || [];
       document.getElementById("chronicCount").textContent = sigs.length + cabs.length;
@@ -1275,6 +1280,7 @@
     const fpChronicFrom = flatpickr('#chronicFrom', fpConfig);
     const fpChronicTo = flatpickr('#chronicTo', fpConfig);
     document.getElementById('chronicApply')?.addEventListener('click', loadChronic);
+    document.getElementById('chronicPrint')?.addEventListener('click', printChronic);
 
     (async () => {
       try {
@@ -1448,7 +1454,177 @@
       }
     });
 
-    document.getElementById("btnPrint").addEventListener("click", () => window.print());
+    // ── Printing ─────────────────────────────────────────────────────────────
+    // window.print() on this page prints the PAGE — dark cards, stat tiles, input
+    // boxes, collapsed accordions. What an office needs is the DATA: plain tables
+    // on white paper. So both prints build a small self-contained document from
+    // the JSON already loaded and print that instead.
+    let lastReportData = null;
+    let lastChronicData = null;
+
+    const PRINT_CSS = `
+      @page { size: A4 landscape; margin: 12mm; }
+      * { box-sizing: border-box; }
+      body { font-family: "Segoe UI", Arial, sans-serif; color: #000; background: #fff;
+             margin: 0; font-size: 11px; }
+      h1 { font-size: 15px; margin: 0 0 2px; text-transform: uppercase; letter-spacing: .3px; }
+      h2 { font-size: 12px; margin: 16px 0 5px; padding-bottom: 3px;
+           border-bottom: 1.5px solid #000; text-transform: uppercase; letter-spacing: .3px; }
+      .sub { font-size: 11px; color: #333; margin: 0; }
+      .hdr { border-bottom: 2px solid #000; padding-bottom: 6px; margin-bottom: 4px; }
+      .meta { display: flex; justify-content: space-between; font-size: 10px; color: #444; margin-bottom: 6px; }
+      table { width: 100%; border-collapse: collapse; margin-bottom: 4px; }
+      th, td { border: 1px solid #666; padding: 3px 5px; text-align: left; vertical-align: top; }
+      th { background: #e8e8e8; font-weight: 600; font-size: 10px; }
+      td { font-size: 10px; }
+      tbody tr:nth-child(even) { background: #f6f6f6; }
+      .num { text-align: right; }
+      .none { padding: 6px; font-style: italic; color: #666; border: 1px solid #666; }
+      .note { font-size: 9.5px; color: #444; margin: 3px 0 8px; }
+      .sign { margin-top: 26px; display: flex; justify-content: space-between; font-size: 10px; }
+      .sign div { border-top: 1px solid #000; padding-top: 3px; width: 30%; text-align: center; }
+      section { page-break-inside: avoid; }
+    `;
+
+    function openPrint(title, bodyHtml) {
+      const w = window.open('', '_blank');
+      if (!w) { alert('Please allow pop-ups to print.'); return; }
+      w.document.write(`<!doctype html><html><head><meta charset="utf-8">
+        <title>${title}</title><style>${PRINT_CSS}</style></head>
+        <body>${bodyHtml}</body></html>`);
+      w.document.close();
+      w.focus();
+      // let the document lay out before the print dialog measures it
+      setTimeout(() => { w.print(); }, 300);
+    }
+
+    const pEsc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+    const pDate = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' }) : '-';
+
+    // rows: array of arrays. cols: [{h, num}] — `num` right-aligns.
+    function pTable(cols, rows, emptyMsg) {
+      if (!rows.length) return `<div class="none">${pEsc(emptyMsg || 'Nil')}</div>`;
+      return `<table>
+        <thead><tr>${cols.map(c => `<th${c.num ? ' class="num"' : ''}>${pEsc(c.h)}</th>`).join('')}</tr></thead>
+        <tbody>${rows.map(r => `<tr>${r.map((v, i) =>
+          `<td${cols[i] && cols[i].num ? ' class="num"' : ''}>${pEsc(v)}</td>`).join('')}</tr>`).join('')}</tbody>
+      </table>`;
+    }
+
+    function printHeader(title, subtitle, periodFrom, periodTo) {
+      return `<div class="hdr">
+          <h1>${pEsc(title)}</h1>
+          <p class="sub">${pEsc(subtitle)}</p>
+        </div>
+        <div class="meta">
+          <span><strong>Period:</strong> ${pEsc(periodFrom || '—')} to ${pEsc(periodTo || '—')}</span>
+          <span><strong>Printed:</strong> ${new Date().toLocaleString('en-IN')}</span>
+        </div>`;
+    }
+
+    const signOff = `<div class="sign">
+        <div>Prepared by (CLI)</div><div>Checked by</div><div>Sr. DEE / DEE</div>
+      </div>`;
+
+    // ── Print 1: the AWS report ──────────────────────────────────────────────
+    function printReport() {
+      const d = lastReportData;
+      if (!d) { alert('Report data is still loading.'); return; }
+
+      const from = document.getElementById('periodFrom').value;
+      const to   = document.getElementById('periodTo').value;
+      const s    = d.summary || {};
+
+      let html = printHeader(
+        'Weekly Investigation of AWS Repeated Defects (Dept-wise)',
+        'Central Railway — BB Division — CRTMS', from, to);
+
+      html += `<section><h2>Summary</h2>` + pTable(
+        [{h:'CMS Brakings', num:1}, {h:'S&T (Magnet)', num:1}, {h:'Cab-side', num:1}, {h:'Transient / Not verified', num:1}],
+        [[s.total_events || 0, s.st_count || 0, s.cab_count || 0, s.transient_count || 0]]) + `</section>`;
+
+      html += `<section><h2>Type-wise Braking</h2>` + pTable(
+        [{h:'Code'}, {h:'S&T', num:1}, {h:'Cab', num:1}, {h:'Transient', num:1}, {h:'Total', num:1}],
+        (d.type_counts || []).map(t => [t.aws_code || '?', t.st_count || 0, t.cab_count || 0,
+                                        t.transient_count || 0, t.total || 0]),
+        'No braking recorded in this period') + `</section>`;
+
+      html += `<section><h2>Repeated S&amp;T Defects (Signals)</h2>` + pTable(
+        [{h:'SR', num:1}, {h:'Signal / Location'}, {h:'Brakings', num:1}, {h:'Codes'}, {h:'Dates'}, {h:'Last act'}],
+        (d.repeated_signals || []).map((r, i) => [i+1, r.location_raw, r.braking_count, r.codes, r.dates, pDate(r.last_date)]),
+        'Nil') + `</section>`;
+
+      html += `<section><h2>Persistent (Chronic) Magnets — S&amp;T across multiple weeks</h2>` + pTable(
+        [{h:'SR', num:1}, {h:'Signal'}, {h:'Line'}, {h:'Weeks', num:1}, {h:'Acts', num:1}, {h:'Week starts'}, {h:'Last act'}],
+        (d.persistent_magnets || []).map((m, i) => [i+1, m.signal_number, m.line || '', m.weeks_count,
+                                                    m.total_acts, m.weeks, pDate(m.last_date)]),
+        'Nil') + `</section>`;
+
+      html += `<section><h2>Repeated Cab-side Defects (D/Cab)</h2>` + pTable(
+        [{h:'SR', num:1}, {h:'D/Cab'}, {h:'Unit / Shed'}, {h:'Brakings', num:1}, {h:'Codes'}, {h:'Dates'}, {h:'Last act'}],
+        (d.repeated_cabs || []).map((c, i) => [i+1, c.cab_number,
+          [c.unit_no, c.shed_code].filter(Boolean).join(' / '), c.braking_count, c.codes, c.dates, pDate(c.last_date)]),
+        'Nil') + `</section>`;
+
+      html += `<section><h2>Section-wise Braking</h2>` + pTable(
+        [{h:'Section'}, {h:'Line'}, {h:'Brakings', num:1}, {h:'S&T', num:1}, {h:'Cab', num:1}],
+        (d.section_wise || []).map(x => [x.section_name || x.section_code, x.line_type || '',
+                                         x.braking_count || 0, x.st_count || 0, x.cab_count || 0]),
+        'Nil') + `</section>`;
+
+      html += `<section><h2>Transient Type AWS Defects</h2>` + pTable(
+        [{h:'SR', num:1}, {h:'Date'}, {h:'Train'}, {h:'D/Cab'}, {h:'Code'}, {h:'Location'}, {h:'Analysis'}],
+        (d.transient_cases || []).map((t, i) => [i+1, pDate(t.abn_date), t.train_number || '', t.loco_raw || '',
+                                                 t.aws_code || '', t.location_raw || '', t.analysis_text || '']),
+        'Nil') + `</section>`;
+
+      openPrint('AWS Report', html + signOff);
+    }
+
+    // ── Print 2: chronic repeaters (the JPO blind spot) ──────────────────────
+    function printChronic() {
+      const d = lastChronicData;
+      if (!d) { alert('Chronic data is still loading.'); return; }
+
+      const t = d.thresholds || {};
+      const from = document.getElementById('chronicFrom').value;
+      const to   = document.getElementById('chronicTo').value;
+
+      let html = printHeader(
+        'AWS Chronic Repeaters — cases escaping the JPO rules',
+        'Central Railway — BB Division — CRTMS', from, to);
+
+      html += `<p class="note">
+        Every JPO threshold is measured inside one day, one trip or one week
+        (Rule 2 &gt;2/day on a signal, Rule 3a &gt;3/week on a cab, Rule 3b &ge;3/week on a magnet).
+        A magnet or cab acting once or twice a week, week after week, clears them all and is
+        written off as transient. Listed below are those that acted on
+        <strong>${pEsc(t.min_weeks)}</strong> or more separate Fri&ndash;Thu review weeks with
+        <strong>${pEsc(t.min_acts)}</strong> or more acts in total, and were
+        <strong>never once held by a JPO rule</strong>.
+      </p>`;
+
+      html += `<section><h2>Signals / Magnets — never held S&amp;T</h2>` + pTable(
+        [{h:'SR', num:1}, {h:'Signal'}, {h:'Section'}, {h:'Weeks', num:1}, {h:'Acts', num:1},
+         {h:'Acts/wk', num:1}, {h:'Diff. cabs', num:1}, {h:'Codes'}, {h:'Week starts (Fri)'}, {h:'Last act'}],
+        (d.signals || []).map((m, i) => [i+1, m.signal_number, m.sections || '', m.weeks_count, m.total_acts,
+                                         m.acts_per_week, m.distinct_cabs, m.codes || '', m.weeks || '', pDate(m.last_date)]),
+        'No chronic signals in this period at these thresholds') + `
+        <p class="note">Many different cabs on one magnet points at the magnet; the same cab every time points at that cab.</p>
+      </section>`;
+
+      html += `<section><h2>D/Cabs — never held cab-side</h2>` + pTable(
+        [{h:'SR', num:1}, {h:'D/Cab'}, {h:'Unit / Shed'}, {h:'Weeks', num:1}, {h:'Acts', num:1},
+         {h:'Acts/wk', num:1}, {h:'Codes'}, {h:'Week starts (Fri)'}, {h:'Last act'}],
+        (d.cabs || []).map((c, i) => [i+1, c.cab_number, [c.unit_no, c.shed_code].filter(Boolean).join(' / '),
+                                      c.weeks_count, c.total_acts, c.acts_per_week, c.codes || '',
+                                      c.weeks || '', pDate(c.last_date)]),
+        'No chronic cabs in this period at these thresholds') + `</section>`;
+
+      openPrint('AWS Chronic Repeaters', html + signOff);
+    }
+
+    document.getElementById("btnPrint").addEventListener("click", printReport);
 
     // PDF Export using jspdf + html2canvas
     document.getElementById("btnExportPdf").addEventListener("click", async (e) => {
