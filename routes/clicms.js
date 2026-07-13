@@ -42,12 +42,35 @@ router.post('/upload', upload.single('csv'), (req, res) => {
   }
 });
 
+// Dates arriving from the client are only used in labels/filenames — accept
+// strict ISO or treat as absent.
+function safeISO(v) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(String(v || '')) ? String(v) : '';
+}
+
 // Shared validation for export requests
 function readExportBody(req) {
   const { parameter, rows, generatedAtIST } = req.body || {};
   if (!PARAMETERS[parameter]) throw new Error('Invalid or missing parameter.');
   if (!Array.isArray(rows)) throw new Error('Missing rows.');
-  return { parameter, rows, generatedAtIST: generatedAtIST || '' };
+  const gen = safeISO(generatedAtIST);
+  return {
+    parameter,
+    rows,
+    generatedAtIST: gen,
+    dueFrom: safeISO(req.body.dueFrom),
+    dueTill: safeISO(req.body.dueTill) || gen,
+  };
+}
+
+// "Overdue as on X" / "Due till X" / "Due X to Y" — mirrors the client's window label.
+function windowText(dueFrom, dueTill, generatedAtIST) {
+  if (!dueFrom && dueTill === generatedAtIST) return `overdue as on ${isoToDDMMYYYY(dueTill)}`;
+  if (!dueFrom) return `due till ${isoToDDMMYYYY(dueTill)}`;
+  return `due ${isoToDDMMYYYY(dueFrom)} to ${isoToDDMMYYYY(dueTill)}`;
+}
+function windowFileTag(dueFrom, dueTill) {
+  return dueFrom ? `${dueFrom}_to_${dueTill}` : `till_${dueTill}`;
 }
 
 const EXPORT_HEADERS = ['S.No.', 'CLI ID', 'CLI NAME', 'CREW ID', 'NAME', 'DESIG.', 'CATEGORY', 'DONE DATE', 'DUE DATE', 'REMARKS'];
@@ -138,14 +161,14 @@ function drawReportFooter(doc, x, generatedAtIST, usableBottom) {
 // ---- Excel export ----
 router.post('/export/xlsx', async (req, res) => {
   try {
-    const { parameter, rows, generatedAtIST } = readExportBody(req);
+    const { parameter, rows, generatedAtIST, dueFrom, dueTill } = readExportBody(req);
     const meta = PARAMETERS[parameter];
 
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('Due List');
 
     ws.mergeCells('A1', 'J1');
-    ws.getCell('A1').value = `CMS Report — ${meta.label} Due List (overdue as on ${generatedAtIST})`;
+    ws.getCell('A1').value = `CMS Report — ${meta.label} Due List (${windowText(dueFrom, dueTill, generatedAtIST)})`;
     ws.getCell('A1').font = { name: 'Arial', size: 13, bold: true };
     ws.getCell('A1').alignment = { horizontal: 'center' };
 
@@ -188,7 +211,7 @@ router.post('/export/xlsx', async (req, res) => {
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition',
-      `attachment; filename="CMS_${meta.key}_due_${generatedAtIST}.xlsx"`);
+      `attachment; filename="CMS_${meta.key}_due_${windowFileTag(dueFrom, dueTill)}.xlsx"`);
     await wb.xlsx.write(res);
     res.end();
   } catch (err) {
@@ -199,13 +222,13 @@ router.post('/export/xlsx', async (req, res) => {
 // ---- PDF export (landscape A4, simple repeating-header table) ----
 router.post('/export/pdf', (req, res) => {
   try {
-    const { parameter, rows, generatedAtIST } = readExportBody(req);
+    const { parameter, rows, generatedAtIST, dueFrom, dueTill } = readExportBody(req);
     const meta = PARAMETERS[parameter];
 
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 28 });
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition',
-      `attachment; filename="CMS_${meta.key}_due_${generatedAtIST}.pdf"`);
+      `attachment; filename="CMS_${meta.key}_due_${windowFileTag(dueFrom, dueTill)}.pdf"`);
     doc.pipe(res);
 
     const colW = [28, 54, 108, 52, 132, 42, 42, 64, 64, 130]; // 10 cols incl. Remarks; sums to 716, fits ~786 usable
@@ -215,7 +238,7 @@ router.post('/export/pdf', (req, res) => {
     doc.font('Helvetica-Bold').fontSize(13)
       .text(`CMS Report — ${meta.label} Due List`, { align: 'center' });
     doc.font('Helvetica').fontSize(9)
-      .text(`Overdue as on ${generatedAtIST}  ·  ${rows.length} staff`, { align: 'center' });
+      .text(`${windowText(dueFrom, dueTill, generatedAtIST)}  ·  ${rows.length} staff`, { align: 'center' });
     doc.moveDown(0.6);
 
     const drawHeader = (y) => {
@@ -285,17 +308,20 @@ function totalRowOf(cats, rows) {
 
 router.post('/export/summary/pdf', (req, res) => {
   try {
-    const { parameter, generatedAtIST = '', cats, byDesig, totals, byCli } = req.body || {};
+    const { parameter, cats, byDesig, totals, byCli } = req.body || {};
     if (!PARAMETERS[parameter]) throw new Error('Invalid or missing parameter.');
     if (!Array.isArray(cats) || !Array.isArray(byDesig) || !Array.isArray(byCli)) {
       throw new Error('Malformed summary payload.');
     }
     const meta = PARAMETERS[parameter];
+    const generatedAtIST = safeISO(req.body.generatedAtIST);
+    const dueFrom = safeISO(req.body.dueFrom);
+    const dueTill = safeISO(req.body.dueTill) || generatedAtIST;
 
     const doc = new PDFDocument({ size: 'A4', margin: 36 });
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition',
-      `attachment; filename="CMS_${meta.key}_summary_${generatedAtIST}.pdf"`);
+      `attachment; filename="CMS_${meta.key}_summary_${windowFileTag(dueFrom, dueTill)}.pdf"`);
     doc.pipe(res);
 
     const left = doc.page.margins.left;
@@ -305,7 +331,7 @@ router.post('/export/summary/pdf', (req, res) => {
     doc.font('Helvetica-Bold').fontSize(14)
       .text(`CMS Report — ${meta.label} Due List`, { align: 'center' });
     doc.font('Helvetica').fontSize(10)
-      .text(`Summary · overdue as on ${generatedAtIST} · ${(totals && totals.total) || 0} staff`,
+      .text(`Summary · ${windowText(dueFrom, dueTill, generatedAtIST)} · ${(totals && totals.total) || 0} staff`,
         { align: 'center' });
     doc.moveDown(0.8);
 
@@ -321,7 +347,7 @@ router.post('/export/summary/pdf', (req, res) => {
 
     byCli.forEach((cli) => {
       if (doc.y + 60 > usableBottom) doc.addPage();
-      const title = `${cli.cliName || '—'}${cli.cliId ? ` (${cli.cliId})` : ''} — ${cli.total} overdue`;
+      const title = `${cli.cliName || '—'}${cli.cliId ? ` (${cli.cliId})` : ''} — ${cli.total} due`;
       drawDesigMatrix(doc, { cats, byDesig: cli.rows || [], totals: totalRowOf(cats, cli.rows || []) },
         { x: left, width: fullW, usableBottom, title });
       doc.moveDown(0.3);

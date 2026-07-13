@@ -13,6 +13,8 @@ const state = {
   cliSort: 'count',          // summary "By CLI" order: 'count' | 'name'
   removed: {},             // { paramKey: Set(rowId) }
   remarks: {},             // { rowId: text } — per-staff, shared across parameters
+  dueFrom: '',             // ISO; blank = no lower bound (already-overdue included)
+  dueTill: '',             // ISO; defaults to generatedAtIST (= plain overdue list)
 };
 
 const $ = (id) => document.getElementById(id);
@@ -63,6 +65,11 @@ function initWorkStage(data) {
   state.remarks = {};
   Object.keys(state.parameters).forEach((k) => (state.removed[k] = new Set()));
   state.activeParam = Object.keys(state.parameters)[0] || 'footplate';
+  state.dueFrom = '';
+  state.dueTill = data.generatedAtIST;
+  $('dueFrom').value = '';
+  $('dueTill').value = state.dueTill;
+  syncQuickChips();
 
   $('uploadStage').hidden = true;
   $('workStage').hidden = false;
@@ -82,8 +89,80 @@ function initWorkStage(data) {
   render();
 }
 
+// ---------- Due window ----------
+// A row is "due" when its due date falls inside [dueFrom, dueTill].
+// dueFrom blank = no lower bound, so already-overdue staff are included.
+function isDue(r, param) {
+  const d = r.params[param].dueISO;
+  if (d === null) return false;
+  if (state.dueFrom && d < state.dueFrom) return false;
+  return d <= state.dueTill;
+}
+
+function isoAddDays(iso, days) {
+  const dt = new Date(`${iso}T00:00:00Z`);
+  dt.setUTCDate(dt.getUTCDate() + days);
+  return dt.toISOString().slice(0, 10);
+}
+function isoToDDMM(iso) {
+  const m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return m ? `${m[3]}-${m[2]}-${m[1]}` : (iso || '');
+}
+// Human label for the current window, used in the table title and exports.
+function windowLabel() {
+  if (!state.dueFrom && state.dueTill === state.generatedAtIST) {
+    return `overdue as on ${isoToDDMM(state.dueTill)}`;
+  }
+  if (!state.dueFrom) return `due till ${isoToDDMM(state.dueTill)}`;
+  return `due ${isoToDDMM(state.dueFrom)} to ${isoToDDMM(state.dueTill)}`;
+}
+// Filename-safe tag for exports.
+function windowFileTag() {
+  return state.dueFrom ? `${state.dueFrom}_to_${state.dueTill}` : `till_${state.dueTill}`;
+}
+// Compact variant for the dashboard counters.
+function windowLabelShort() {
+  if (!state.dueFrom && state.dueTill === state.generatedAtIST) return 'overdue';
+  if (!state.dueFrom) return `due ≤ ${isoToDDMM(state.dueTill)}`;
+  return `${isoToDDMM(state.dueFrom)} → ${isoToDDMM(state.dueTill)}`;
+}
+
+function syncQuickChips() {
+  document.querySelectorAll('#quickRanges .qr').forEach((b) => {
+    const target = isoAddDays(state.generatedAtIST, Number(b.dataset.days));
+    b.classList.toggle('active', !state.dueFrom && state.dueTill === target);
+  });
+}
+
+// Window changed → the curated list belongs to the old window; reset removals.
+function applyWindowChange() {
+  Object.keys(state.parameters).forEach((k) => (state.removed[k] = new Set()));
+  syncQuickChips();
+  buildCounters(); renderSummary(); syncActive(); render();
+}
+
+$('dueFrom').addEventListener('change', () => {
+  state.dueFrom = $('dueFrom').value || '';
+  applyWindowChange();
+});
+$('dueTill').addEventListener('change', () => {
+  // Till is mandatory — an emptied field falls back to the report date.
+  state.dueTill = $('dueTill').value || state.generatedAtIST;
+  $('dueTill').value = state.dueTill;
+  applyWindowChange();
+});
+$('quickRanges').addEventListener('click', (e) => {
+  const b = e.target.closest('.qr');
+  if (!b) return;
+  state.dueFrom = '';
+  state.dueTill = isoAddDays(state.generatedAtIST, Number(b.dataset.days));
+  $('dueFrom').value = '';
+  $('dueTill').value = state.dueTill;
+  applyWindowChange();
+});
+
 function overdueRows(param) {
-  return state.rows.filter((r) => r.params[param].overdue && !state.removed[param].has(r.id));
+  return state.rows.filter((r) => isDue(r, param) && !state.removed[param].has(r.id));
 }
 
 // Switch active parameter from any control (counter or tab) in one place.
@@ -195,7 +274,7 @@ function renderSummary() {
 
   $('byDesig').innerHTML = s.byCli.length
     ? matrixTable(s.cats, s.byDesig, s.totals)
-    : '<p class="empty">No overdue staff for this parameter.</p>';
+    : '<p class="empty">No staff due for this parameter in the selected window.</p>';
 
   const acc = $('byCli');
   acc.innerHTML = '';
@@ -243,7 +322,7 @@ async function exportSummaryPdf() {
   const param = state.activeParam;
   const s = state._summary || summarize(param);
   if (!s.byCli.length) {
-    alert('Nothing to export — no overdue staff for this parameter.');
+    alert('Nothing to export — no staff due for this parameter in the selected window.');
     return;
   }
   try {
@@ -253,6 +332,8 @@ async function exportSummaryPdf() {
       body: JSON.stringify({
         parameter: param,
         generatedAtIST: state.generatedAtIST,
+        dueFrom: state.dueFrom,
+        dueTill: state.dueTill,
         cats: s.cats,
         byDesig: s.byDesig,
         totals: s.totals,
@@ -268,7 +349,7 @@ async function exportSummaryPdf() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `CMS_${param}_summary_${state.generatedAtIST}.pdf`;
+    a.download = `CMS_${param}_summary_${windowFileTag()}.pdf`;
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -290,7 +371,7 @@ function buildCounters() {
     div.innerHTML =
       `<div class="c-label">${p.label}</div>` +
       `<div class="c-num ${n ? 'has' : ''}">${n}</div>` +
-      `<div class="c-sub">overdue · due col ${p.dueCol}</div>`;
+      `<div class="c-sub">${windowLabelShort()} · due col ${p.dueCol}</div>`;
     div.addEventListener('click', () => setParam(p.key));
     c.appendChild(div);
   });
@@ -338,7 +419,7 @@ function render() {
   const meta = state.parameters[param];
   const rows = sortRows(overdueRows(param), param);
 
-  $('tableTitle').textContent = `${meta.label} — overdue list`;
+  $('tableTitle').textContent = `${meta.label} — ${windowLabel()}`;
   $('visibleCount').textContent = rows.length;
 
   const body = $('dueBody');
@@ -397,7 +478,13 @@ async function exportAs(kind) {
     const res = await fetch(`${API_BASE}export/${kind}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ parameter: param, generatedAtIST: state.generatedAtIST, rows }),
+      body: JSON.stringify({
+        parameter: param,
+        generatedAtIST: state.generatedAtIST,
+        dueFrom: state.dueFrom,
+        dueTill: state.dueTill,
+        rows,
+      }),
     });
     if (!res.ok) {
       const e = await res.json().catch(() => ({}));
@@ -408,7 +495,7 @@ async function exportAs(kind) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `CMS_${param}_due_${state.generatedAtIST}.${kind === 'xlsx' ? 'xlsx' : 'pdf'}`;
+    a.download = `CMS_${param}_due_${windowFileTag()}.${kind === 'xlsx' ? 'xlsx' : 'pdf'}`;
     document.body.appendChild(a); a.click(); a.remove();
     URL.revokeObjectURL(url);
   } catch (err) {
@@ -435,7 +522,7 @@ function drillList(cliKey, desig, cat) {
   const staff = state.rows
     .filter(
       (r) =>
-        r.params[param].overdue &&
+        isDue(r, param) &&
         !state.removed[param].has(r.id) &&
         cliKeyOf(r) === cliKey &&
         (r.desig || '—') === desig &&

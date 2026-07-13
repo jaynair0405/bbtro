@@ -87,6 +87,20 @@
           <div class="segmented" id="paramTabs"></div>
         </div>
         <div class="control-group">
+          <span class="control-label">Due window</span>
+          <div class="due-window">
+            <input type="date" id="dueFrom" title="From date (optional — leave blank to include already-overdue staff)" />
+            <span class="dw-sep">→</span>
+            <input type="date" id="dueTill" title="Till date" />
+            <span class="quick-ranges" id="quickRanges">
+              <button type="button" class="mini-toggle qr" data-days="0">Today</button>
+              <button type="button" class="mini-toggle qr" data-days="7">+7 d</button>
+              <button type="button" class="mini-toggle qr" data-days="15">+15 d</button>
+              <button type="button" class="mini-toggle qr" data-days="30">+30 d</button>
+            </span>
+          </div>
+        </div>
+        <div class="control-group">
           <label class="control-label" for="sortSel">Sort by</label>
           <select id="sortSel">
             <option value="cli" selected>CLI name</option>
@@ -128,7 +142,7 @@
           </thead>
           <tbody id="dueBody"></tbody>
         </table>
-        <p class="empty" id="emptyMsg" hidden>No overdue staff for this parameter.</p>
+        <p class="empty" id="emptyMsg" hidden>No staff due for this parameter in the selected window.</p>
       </div>
     </section>
   </main>
