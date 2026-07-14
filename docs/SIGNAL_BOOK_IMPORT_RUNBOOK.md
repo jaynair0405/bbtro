@@ -97,9 +97,25 @@ DELETE sg FROM div_signals sg
   sections; bind all of them to the beat. Don't duplicate the trunk signals.
   Exception when the user explicitly accepts duplication (VDLR-GMN: RVJ S-6/S-9
   intentionally shared with CSMT-PNVL).
-- **Identity vs display**: `div_signals.signal_number` is the UNIQUE id (qualify
-  repeating distants/gates). Optional `display_signal_no` column on the spine = the
-  short book label (e.g. id `ASO DIST`, label `DIST`). Falls back to signal_number.
+- **One signal, two lines** (distinct from shared trunk): at a junction a single signal
+  is read from BOTH the main and the MID line (or from a suburban and a ghat page), so it
+  must PRINT on both. There is no segment to factor out — the same physical signal
+  genuinely belongs to two lines/sections, so it is held as two+ rows. `id` = display row
+  (one per line/page); `magnet_id` = the ONE physical magnet all copies share.
+- **Identity vs display**: `div_signals.signal_number` is the **book label, NOT a unique
+  key** — 76 names legitimately repeat (per-line/per-section copies; also case-collisions
+  like `GATE-7` KJT-KHPI vs `Gate-7` KYN-KJT = two different gates). The unique PHYSICAL
+  identity is **`magnet_id`**. Optional `display_signal_no` on the spine = the short book
+  label (e.g. id `ASO DIST`, label `DIST`); falls back to signal_number.
+- **magnet_id invariant**: if a signal appears more than once, every copy MUST carry the
+  same `magnet_id` (canonical = lowest id in the group). AWS magnet-counting (JPO Rule 3b,
+  chronic-repeaters) groups by `magnet_id`; NULL/mismatched copies count as separate
+  magnets and never trip a rule. Rendering ignores `magnet_id` — it is an analysis field.
+  Check (must return 0 rows): `SELECT signal_number,section,direction FROM div_signals
+  WHERE is_active=1 GROUP BY signal_number,section,direction HAVING COUNT(*)>1 AND
+  COUNT(DISTINCT magnet_id)<>1;`  Cross-section same-magnet linking (e.g. ghat KJT S-16
+  → its KJT-KHPI copy) is applied when the user confirms it is the same physical signal;
+  see `sql/2026-07-14_ghat_magnet_ids.sql`.
 - **Class badges** (rendered, not typed): `signal_function` contains "Distant" → Ⓟ;
   else `signal_type`/`function` IBS → ⒾⒷ; else `signal_type='Gate'` → Ⓖ.
 - **Tags in description cell**: red `RHS`/`Ext RHS` from is_rhs/is_ext_rhs; blue
