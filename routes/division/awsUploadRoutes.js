@@ -253,6 +253,25 @@ function mapColumnName(excelCol) {
 // KYN, PNVL) plus ~40 foreign ones, so gate on the lobby in the abn_id.
 const EMU_LOBBIES = ['CSTS', 'KYNS', 'PNVS'];
 
+// The sections AWS covers: the suburban network only. The ghats (KJT-LNL,
+// KSRA-IGP) and anything beyond (Roha, RN …) are worked by mail/goods crew, not
+// EMU motormen, and are outside this module.
+//
+// This is not a nicety — it is what makes a Karjat signal resolvable. A station
+// signal is recorded once per section running through it, so "KJT S-22" exists
+// as KJT-KHPI id 1978 AND KJT-LNL ids 2012/2062 — the SAME physical magnet, but
+// the ghat copies carry no magnet_id, so they would count as separate magnets
+// and never trip Rule 3b. Scoping the match to suburban leaves exactly one
+// candidate: the copy an EMU motorman can actually have passed.
+//
+// An ALLOWLIST, deliberately: a section added to div_signals later (another ghat,
+// a goods line) is out of AWS scope until someone puts it here on purpose.
+// Every signal in these sections has a magnet_id; the two excluded ones have none.
+const AWS_SECTIONS = [
+    'CSMT-KYN', 'CSMT-PNVL', 'CLA-KYN', 'KYN-KSRA', 'KYN-KJT', 'KJT-KHPI',
+    'VDLR-GMN', 'TNA-TUH', 'TUH-NEU', 'TUH-VSH', 'NEU-KILLE', 'KILLE-URAN', 'BEPR-KILLE',
+];
+
 function isEmuLobby(abnId) {
     const lobby = String(abnId || '').split('/')[0].trim().toUpperCase();
     return EMU_LOBBIES.includes(lobby);
@@ -2898,8 +2917,13 @@ async function routeSectionsForEvent(pool, fromStn, toStn, trainNumber) {
         const list = [...new Set(codes.filter(Boolean))];
         if (!list.length) return [];
         const [rows] = await pool.query(
-            'SELECT DISTINCT section FROM div_signals WHERE station_code IN (?) AND section IS NOT NULL',
-            [list]
+            // Scoped to AWS_SECTIONS: Karjat sits on the ghat as well as the
+            // suburban line, so without this the route of an EMU trip would claim
+            // the ghat sections too, and a ghat copy of a Karjat signal would look
+            // like a legitimate in-route candidate.
+            `SELECT DISTINCT section FROM div_signals
+              WHERE station_code IN (?) AND section IS NOT NULL AND section IN (?)`,
+            [list, AWS_SECTIONS]
         );
         return rows.map((r) => r.section);
     };
@@ -3047,14 +3071,20 @@ async function matchSignalFromDb(pool, locationRaw, context = {}) {
     const normalized = normalizeForSignalMatch(locationRaw);
     if (!normalized) return { signal_id: null, signal_number: null, confidence: null };
 
-    const partitionClauses = [];
-    const partitionParams  = [];
+    // AWS scope is a HARD filter (unlike direction, below): an out-of-scope signal
+    // is not a worse candidate, it is not a candidate at all. A ghat copy of a
+    // Karjat signal is a magnet no EMU motorman passed. Applied to every tier —
+    // including the alias tier, so a stale alias pointing into the ghat cannot
+    // short-circuit the lookup, which is exactly how "KJT S-22" was resolving to
+    // the wrong magnet.
+    const partitionClauses = ['s.section IN (?)'];
+    const partitionParams  = [AWS_SECTIONS];
     if (context.section)   { partitionClauses.push('s.section = ?');   partitionParams.push(context.section); }
     if (context.line)      { partitionClauses.push('s.`line` = ?');    partitionParams.push(context.line); }
     // NOTE: direction is deliberately NOT a WHERE clause. As a hard filter it
     // would drop a signal outright whenever our inferred direction is wrong,
     // turning a good match into no match. It is applied below as a tie-breaker.
-    const partitionSql = partitionClauses.length ? ` AND ${partitionClauses.join(' AND ')}` : '';
+    const partitionSql = ` AND ${partitionClauses.join(' AND ')}`;
 
     // Route-aware disambiguation: when a signal number exists in more than one
     // section (e.g. RVJ S-7 in VDLR-GMN and CSMT-PNVL), prefer the candidate in
@@ -3159,8 +3189,9 @@ async function matchSignalFromDb(pool, locationRaw, context = {}) {
              FROM div_signal_aliases a
              JOIN div_signals s ON s.id = a.signal_id
              WHERE a.normalized_alias LIKE ? AND a.is_active = 1 AND s.is_active = 1
+               ${partitionSql}
              LIMIT 1`,
-            [likePattern]
+            [likePattern, ...partitionParams]
         );
 
         if (partialMatch.length > 0) {
