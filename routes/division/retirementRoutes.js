@@ -580,4 +580,67 @@ router.get('/history', async (req, res) => {
     }
 });
 
+// GET /api/division/retirement/former-staff - All separated staff (Archive tab)
+router.get('/former-staff', async (req, res) => {
+    let conn;
+    try {
+        const { office_code } = req.query;
+        const userOffice = req.session.user?.div_office_code;
+        const userRole = req.session.user?.div_role;
+
+        conn = await req.app.locals.pool.getConnection();
+
+        let query = `
+            SELECT s.hrms_id, s.name, s.current_cms_id, s.pf_number,
+                   s.current_office_code, o.office_name,
+                   s.designation_id, d.designation_name,
+                   s.status, s.retirement_type, s.retirement_date
+            FROM div_staff_master s
+            LEFT JOIN offices o ON s.current_office_code = o.office_code
+            LEFT JOIN designations d ON s.designation_id = d.id
+            WHERE s.status IN ('Retired', 'Expired', 'Transferred', 'Returned to Parent depot', 'Resigned')
+        `;
+        const params = [];
+
+        if (userRole !== 'division_admin') {
+            const filter = buildOfficeFilter(userOffice, 's');
+            query += ' AND ' + filter.condition;
+            params.push(...filter.params);
+        } else if (office_code && office_code !== 'ALL') {
+            const filter = buildOfficeFilter(office_code, 's');
+            query += ' AND ' + filter.condition;
+            params.push(...filter.params);
+        }
+
+        query += ' ORDER BY s.retirement_date DESC, s.name ASC';
+
+        const [staff] = await conn.query(query, params);
+        conn.release();
+
+        const formerStaff = staff.map(s => {
+            let retirement_date = null;
+            let formatted_retirement_date = null;
+            if (s.retirement_date) {
+                const rd = new Date(s.retirement_date);
+                // Serialize from local date parts (toISOString shifts back a day on IST)
+                const yyyy = rd.getFullYear();
+                const mm = String(rd.getMonth() + 1).padStart(2, '0');
+                const dd = String(rd.getDate()).padStart(2, '0');
+                retirement_date = `${yyyy}-${mm}-${dd}`;
+                formatted_retirement_date = rd.toLocaleDateString('en-IN', {
+                    day: '2-digit', month: 'short', year: 'numeric'
+                });
+            }
+            return { ...s, retirement_date, formatted_retirement_date };
+        });
+
+        res.json({ success: true, data: formerStaff, count: formerStaff.length });
+
+    } catch (error) {
+        console.error('Error fetching former staff:', error);
+        if (conn) conn.release();
+        res.status(500).json({ error: 'Database error', details: error.message });
+    }
+});
+
 module.exports = router;

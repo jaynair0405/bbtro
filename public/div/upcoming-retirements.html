@@ -254,6 +254,19 @@
         /* Designation-wise Register */
         .group-row td { background: #e8eef7; font-weight: 700; color: var(--brand); text-transform: uppercase; font-size: 12px; }
         .status-drafted { background: #fef3c7; color: #b45309; }
+        /* Register view toggle + counts matrix */
+        .view-toggle { display: inline-flex; border: 1px solid #d1d5db; border-radius: 6px; overflow: hidden; }
+        .view-toggle-btn { padding: 8px 14px; border: none; background: #fff; cursor: pointer; font-size: 13px; color: var(--text-light); }
+        .view-toggle-btn.active { background: var(--brand); color: #fff; }
+        .counts-table .total-cell { font-weight: 700; background: #f1f5f9; }
+        @media print {
+            .counts-table .total-cell { background: #f1f5f9 !important; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+        }
+        /* Former Staff Register badges */
+        .status-retired { background: #e0e7ff; color: #3730a3; }
+        .status-expired { background: #fee2e2; color: #b91c1c; }
+        .status-transferred { background: #fef3c7; color: #b45309; }
+        .status-other-exit { background: #f3f4f6; color: #4b5563; }
 
         @media print {
             body.printing-register .kpi-grid,
@@ -448,19 +461,53 @@
 
         <div id="history" class="tab-content">
             <div class="list-header">
-                <h3 style="margin:0; color:var(--text-light);">Retirement Archive</h3>
+                <h3 style="margin:0; color:var(--text-light);">Former Staff Register</h3>
                 <div class="list-filters">
-                    <select class="filter-select" id="historyYearFilter" onchange="loadHistory()">
-                        <!-- Populated dynamically -->
+                    <select class="filter-select" id="archiveStatusFilter" onchange="renderArchive()">
+                        <option value="">All Exit Types</option>
+                        <option value="Retired">Retired</option>
+                        <option value="Expired">Expired</option>
+                        <option value="Transferred">Transferred</option>
+                        <option value="Returned to Parent depot">Returned to Parent depot</option>
+                        <option value="Resigned">Resigned</option>
                     </select>
+                    <select class="filter-select" id="archiveYearFilter" onchange="renderArchive()">
+                        <option value="">All Years</option>
+                    </select>
+                    <button class="btn-add" onclick="exportArchiveExcel()"><i class="fas fa-file-excel"></i> Export Excel</button>
                 </div>
             </div>
-            <div id="historyContent" style="margin-top:20px;">Loading...</div>
+            <div id="historyContent" style="margin:20px 0;"></div>
+            <div id="archiveCount" style="margin-bottom:10px; color:var(--text-light); font-size:13px;"></div>
+            <div style="overflow-x:auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>CMS ID</th>
+                            <th>HRMS ID</th>
+                            <th>PF Number</th>
+                            <th>Designation</th>
+                            <th>Office</th>
+                            <th>Status</th>
+                            <th>Type</th>
+                            <th>Retirement Date</th>
+                        </tr>
+                    </thead>
+                    <tbody id="archiveTableBody">
+                        <tr><td colspan="9" style="text-align:center; padding:40px;">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
 
         <div id="register" class="tab-content">
             <div class="list-header">
                 <div class="list-filters">
+                    <div class="view-toggle">
+                        <button type="button" id="registerViewListBtn" class="view-toggle-btn active" onclick="setRegisterView('list')">List</button>
+                        <button type="button" id="registerViewCountsBtn" class="view-toggle-btn" onclick="setRegisterView('counts')">Counts</button>
+                    </div>
                     <select class="filter-select" id="registerDesignationFilter" onchange="renderRegister()">
                         <option value="">All Designations</option>
                     </select>
@@ -468,6 +515,18 @@
                         <option value="all">All Staff</option>
                         <option value="active">Active Only (excl. Drafted)</option>
                         <option value="drafted">Drafted Only</option>
+                    </select>
+                    <select class="filter-select" id="registerYearFilter" onchange="renderRegister()" style="display:none;">
+                        <option value="">All Years</option>
+                    </select>
+                    <select class="filter-select" id="registerMonthFilter" onchange="renderRegister()" style="display:none;">
+                        <option value="">All Months</option>
+                        <option value="01">January</option><option value="02">February</option>
+                        <option value="03">March</option><option value="04">April</option>
+                        <option value="05">May</option><option value="06">June</option>
+                        <option value="07">July</option><option value="08">August</option>
+                        <option value="09">September</option><option value="10">October</option>
+                        <option value="11">November</option><option value="12">December</option>
                     </select>
                     <select class="filter-select" id="registerOfficeFilter" onchange="loadRegister(true)" style="display:none;">
                         <option value="ALL">All Offices</option>
@@ -483,23 +542,26 @@
                 </div>
             </div>
             <div id="registerCount" style="font-size:13px; color:var(--text-light); margin-bottom:10px;"></div>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Name</th>
-                        <th>CMS ID</th>
-                        <th>HRMS ID</th>
-                        <th>PF Number</th>
-                        <th>DOB</th>
-                        <th>DOA</th>
-                        <th>Retirement Date</th>
-                        <th>Office</th>
-                    </tr>
-                </thead>
-                <tbody id="registerTableBody">
-                    <tr><td colspan="8" style="text-align:center; padding:40px; color:var(--text-light);">Loading...</td></tr>
-                </tbody>
-            </table>
+            <div id="registerListView">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>CMS ID</th>
+                            <th>HRMS ID</th>
+                            <th>PF Number</th>
+                            <th>DOB</th>
+                            <th>DOA</th>
+                            <th>Retirement Date</th>
+                            <th>Office</th>
+                        </tr>
+                    </thead>
+                    <tbody id="registerTableBody">
+                        <tr><td colspan="8" style="text-align:center; padding:40px; color:var(--text-light);">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div id="registerCountsView" style="display:none; overflow-x:auto;"></div>
         </div>
 
     </div>
@@ -559,7 +621,7 @@
         event.currentTarget.classList.add('active');
 
         if (tabName === 'vrs') loadVrsList();
-        if (tabName === 'history') loadHistory();
+        if (tabName === 'history' && !archiveLoaded) loadHistory();
         if (tabName === 'register' && !registerLoaded) loadRegister();
     }
 
@@ -584,7 +646,6 @@
         for (let y = currentYear; y >= currentYear - 5; y--) {
             yearSelect.innerHTML += `<option value="${y}">${y}</option>`;
         }
-        populateHistoryYears();
 
         await Promise.all([loadStats(), loadYearlyForecast(), loadUpcomingRetirements()]);
     });
@@ -782,53 +843,109 @@
         }
     }
 
-    // Populate history year dropdown
-    function populateHistoryYears() {
-        const select = document.getElementById('historyYearFilter');
-        select.innerHTML = '';
-        // Show last 5 years
-        for (let y = currentYear - 1; y >= currentYear - 5; y--) {
-            const opt = document.createElement('option');
-            opt.value = y;
-            opt.textContent = y;
-            select.appendChild(opt);
+    // Former Staff Register (Archive tab)
+    let archiveLoaded = false;
+    let archiveData = [];
+    let archiveFiltered = [];
+
+    async function loadHistory() {
+        const tbody = document.getElementById('archiveTableBody');
+        try {
+            const res = await fetch('/api/division/retirement/former-staff');
+            const data = await res.json();
+            if (!data.success) throw new Error(data.error || 'Failed');
+
+            archiveData = data.data;
+            archiveLoaded = true;
+
+            // Year dropdown from retirement dates present in the data
+            const yearSelect = document.getElementById('archiveYearFilter');
+            const years = [...new Set(archiveData
+                .filter(s => s.retirement_date)
+                .map(s => s.retirement_date.slice(0, 4)))].sort().reverse();
+            yearSelect.innerHTML = '<option value="">All Years</option>' +
+                years.map(y => `<option value="${y}">${y}</option>`).join('');
+
+            renderArchive();
+        } catch (err) {
+            console.error('Error:', err);
+            tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding:40px; color:var(--danger);">Error loading data</td></tr>';
         }
     }
 
-    // Load History
-    async function loadHistory() {
-        const year = document.getElementById('historyYearFilter').value || (currentYear - 1);
-        const contentDiv = document.getElementById('historyContent');
+    function renderArchive() {
+        const status = document.getElementById('archiveStatusFilter').value;
+        const year = document.getElementById('archiveYearFilter').value;
+        const tbody = document.getElementById('archiveTableBody');
 
-        try {
-            const res = await fetch(`/api/division/retirement/history?year=${year}`);
-            const data = await res.json();
+        archiveFiltered = archiveData.filter(s => {
+            if (status && s.status !== status) return false;
+            if (year && (!s.retirement_date || s.retirement_date.slice(0, 4) !== year)) return false;
+            return true;
+        });
 
-            if (data.success) {
-                const d = data.data;
-                contentDiv.innerHTML = `
-                    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:16px;">
-                        <div class="kpi-card">
-                            <div class="kpi-value">${d.totalRetired}</div>
-                            <div class="kpi-label">Total Separated</div>
-                        </div>
-                        <div class="kpi-card">
-                            <div class="kpi-value">${d.superannuation}</div>
-                            <div class="kpi-label">Superannuation</div>
-                        </div>
-                        <div class="kpi-card">
-                            <div class="kpi-value">${d.vrs}</div>
-                            <div class="kpi-label">VRS</div>
-                        </div>
-                    </div>
-                `;
-            } else {
-                contentDiv.innerHTML = '<p style="color:var(--text-light);">No data available</p>';
-            }
-        } catch (err) {
-            console.error('Error:', err);
-            contentDiv.innerHTML = '<p style="color:var(--danger);">Error loading data</p>';
+        // Summary cards for the current selection
+        const total = archiveFiltered.length;
+        const superann = archiveFiltered.filter(s => s.status === 'Retired' && s.retirement_type !== 'VRS').length;
+        const vrs = archiveFiltered.filter(s => s.retirement_type === 'VRS').length;
+        const others = archiveFiltered.filter(s => s.status !== 'Retired').length;
+        document.getElementById('historyContent').innerHTML = `
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:16px;">
+                <div class="kpi-card"><div class="kpi-value">${total}</div><div class="kpi-label">Total Separated</div></div>
+                <div class="kpi-card"><div class="kpi-value">${superann}</div><div class="kpi-label">Superannuation</div></div>
+                <div class="kpi-card"><div class="kpi-value">${vrs}</div><div class="kpi-label">VRS</div></div>
+                <div class="kpi-card"><div class="kpi-value">${others}</div><div class="kpi-label">Other Exits</div></div>
+            </div>`;
+
+        document.getElementById('archiveCount').textContent =
+            `Showing ${total} former staff${year ? ' • ' + year : ''}${status ? ' • ' + status : ''}`;
+
+        if (!archiveFiltered.length) {
+            tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding:40px; color:var(--text-light);">No records found</td></tr>';
+            return;
         }
+
+        tbody.innerHTML = archiveFiltered.map(s => `
+            <tr>
+                <td>${escapeHtml(s.name)}</td>
+                <td>${escapeHtml(s.current_cms_id || '-')}</td>
+                <td>${escapeHtml(s.hrms_id)}</td>
+                <td>${escapeHtml(s.pf_number || '-')}</td>
+                <td>${escapeHtml(s.designation_name || '-')}</td>
+                <td>${escapeHtml(s.office_name || s.current_office_code || '-')}</td>
+                <td><span class="status-badge ${archiveStatusClass(s.status)}">${escapeHtml(s.status)}</span></td>
+                <td>${s.status === 'Retired' ? escapeHtml(s.retirement_type || 'Superannuation') : '-'}</td>
+                <td>${s.formatted_retirement_date || '-'}</td>
+            </tr>`).join('');
+    }
+
+    function archiveStatusClass(status) {
+        switch (status) {
+            case 'Retired': return 'status-retired';
+            case 'Expired': return 'status-expired';
+            case 'Transferred': return 'status-transferred';
+            default: return 'status-other-exit';
+        }
+    }
+
+    function exportArchiveExcel() {
+        if (!archiveFiltered.length) { alert('No data to export'); return; }
+        const rows = archiveFiltered.map(s => ({
+            'Name': s.name,
+            'CMS ID': s.current_cms_id || '',
+            'HRMS ID': s.hrms_id,
+            'PF Number': s.pf_number || '',
+            'Designation': s.designation_name || '',
+            'Office': s.office_name || s.current_office_code || '',
+            'Status': s.status,
+            'Type': s.status === 'Retired' ? (s.retirement_type || 'Superannuation') : '',
+            'Retirement Date': s.retirement_date || ''
+        }));
+        const ws = XLSX.utils.json_to_sheet(rows);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Former Staff');
+        const today = new Date().toISOString().split('T')[0];
+        XLSX.writeFile(wb, `Former_Staff_Register_${today}.xlsx`);
     }
 
     // Modal Functions
@@ -969,6 +1086,7 @@
     // ===== Designation-wise Register =====
     let currentUser = null;
     let registerLoaded = false;
+    let registerView = 'list';
     let registerData = [];
     let registerFiltered = [];
 
@@ -1011,6 +1129,7 @@
                 registerData = data.data;
                 registerLoaded = true;
                 populateRegisterDesignations();
+                populateRegisterYears();
                 renderRegister();
             } else {
                 tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:40px; color:var(--danger);">Error loading data</td></tr>';
@@ -1036,6 +1155,26 @@
         if (previous && names.includes(previous)) select.value = previous;
     }
 
+    function populateRegisterYears() {
+        const select = document.getElementById('registerYearFilter');
+        const previous = select.value;
+        const years = [...new Set(registerData.map(s => s.retirement_date.slice(0, 4)))].sort();
+        select.innerHTML = '<option value="">All Years</option>' +
+            years.map(y => `<option value="${y}">${y}</option>`).join('');
+        if (previous && years.includes(previous)) select.value = previous;
+    }
+
+    function setRegisterView(view) {
+        registerView = view;
+        document.getElementById('registerViewListBtn').classList.toggle('active', view === 'list');
+        document.getElementById('registerViewCountsBtn').classList.toggle('active', view === 'counts');
+        document.getElementById('registerListView').style.display = view === 'list' ? '' : 'none';
+        document.getElementById('registerCountsView').style.display = view === 'counts' ? '' : 'none';
+        document.getElementById('registerYearFilter').style.display = view === 'counts' ? '' : 'none';
+        document.getElementById('registerMonthFilter').style.display = view === 'counts' ? '' : 'none';
+        renderRegister();
+    }
+
     function renderRegister() {
         const tbody = document.getElementById('registerTableBody');
         const designation = document.getElementById('registerDesignationFilter').value;
@@ -1047,6 +1186,18 @@
             if (status === 'drafted' && !s.is_drafted) return false;
             return true;
         });
+
+        if (registerView === 'counts') {
+            const year = document.getElementById('registerYearFilter').value;
+            const month = document.getElementById('registerMonthFilter').value;
+            registerFiltered = registerFiltered.filter(s => {
+                if (year && s.retirement_date.slice(0, 4) !== year) return false;
+                if (month && s.retirement_date.slice(5, 7) !== month) return false;
+                return true;
+            });
+            renderRegisterCounts();
+            return;
+        }
 
         if (registerFiltered.length === 0) {
             tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:40px; color:var(--text-light);">No staff found</td></tr>';
@@ -1087,9 +1238,80 @@
             `Showing ${registerFiltered.length} staff in ${groupNames.length} designation${groupNames.length === 1 ? '' : 's'}`;
     }
 
+    function buildRegisterMatrix() {
+        const offices = [...new Set(registerFiltered.map(s => s.current_office_code || '-'))].sort();
+        const desigs = [...new Set(registerFiltered.map(s => s.designation_name || 'Unknown'))].sort();
+        const matrix = {};
+        const colTotals = {};
+        registerFiltered.forEach(s => {
+            const d = s.designation_name || 'Unknown';
+            const o = s.current_office_code || '-';
+            matrix[d] = matrix[d] || {};
+            matrix[d][o] = (matrix[d][o] || 0) + 1;
+            colTotals[o] = (colTotals[o] || 0) + 1;
+        });
+        return { offices, desigs, matrix, colTotals, grand: registerFiltered.length };
+    }
+
+    function registerPeriodLabel() {
+        const year = document.getElementById('registerYearFilter').value;
+        const monthSel = document.getElementById('registerMonthFilter');
+        const monthName = monthSel.value ? monthSel.options[monthSel.selectedIndex].textContent : '';
+        if (year && monthName) return `retiring in ${monthName} ${year}`;
+        if (year) return `retiring in ${year}`;
+        if (monthName) return `retiring in ${monthName} (any year)`;
+        return 'in full register';
+    }
+
+    function renderRegisterCounts() {
+        const container = document.getElementById('registerCountsView');
+
+        if (registerFiltered.length === 0) {
+            container.innerHTML = '<div style="text-align:center; padding:40px; color:var(--text-light);">No staff found for this period</div>';
+            document.getElementById('registerCount').textContent = 'Showing 0 staff';
+            return;
+        }
+
+        const { offices, desigs, matrix, colTotals, grand } = buildRegisterMatrix();
+
+        const head = `<tr><th>Designation</th>${offices.map(o => `<th style="text-align:center;">${escapeHtml(o)}</th>`).join('')}<th style="text-align:center;">Total</th></tr>`;
+        const rows = desigs.map(d => {
+            let rowTotal = 0;
+            const cells = offices.map(o => {
+                const n = matrix[d][o] || 0;
+                rowTotal += n;
+                return `<td style="text-align:center;">${n || '<span style="color:#cbd5e1;">-</span>'}</td>`;
+            }).join('');
+            return `<tr><td>${escapeHtml(d)}</td>${cells}<td class="total-cell" style="text-align:center;">${rowTotal}</td></tr>`;
+        }).join('');
+        const totalsRow = `<tr class="totals-row"><td class="total-cell">Total</td>${offices.map(o => `<td class="total-cell" style="text-align:center;">${colTotals[o] || 0}</td>`).join('')}<td class="total-cell" style="text-align:center;">${grand}</td></tr>`;
+
+        container.innerHTML = `<table class="counts-table"><thead>${head}</thead><tbody>${rows}${totalsRow}</tbody></table>`;
+        document.getElementById('registerCount').textContent =
+            `${grand} staff ${registerPeriodLabel()} • ${desigs.length} designation${desigs.length === 1 ? '' : 's'} × ${offices.length} office${offices.length === 1 ? '' : 's'}`;
+    }
+
     function exportRegisterExcel() {
         if (registerFiltered.length === 0) {
             alert('No data to export');
+            return;
+        }
+
+        if (registerView === 'counts') {
+            const { offices, desigs, matrix, colTotals, grand } = buildRegisterMatrix();
+            const aoa = [
+                [`Retirement Counts (${registerPeriodLabel()})`],
+                ['Designation', ...offices, 'Total'],
+                ...desigs.map(d => {
+                    const counts = offices.map(o => matrix[d][o] || 0);
+                    return [d, ...counts, counts.reduce((a, b) => a + b, 0)];
+                }),
+                ['Total', ...offices.map(o => colTotals[o] || 0), grand]
+            ];
+            const ws = XLSX.utils.aoa_to_sheet(aoa);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Retirement Counts');
+            XLSX.writeFile(wb, `Retirement_Counts_${new Date().toISOString().split('T')[0]}.xlsx`);
             return;
         }
 
