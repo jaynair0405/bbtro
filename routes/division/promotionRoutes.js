@@ -9,6 +9,95 @@ function requireAuth(req, res, next) {
     next();
 }
 
+// Offices that identify their staff by CMS ID prefix
+const CMS_PREFIX_OFFICES = {
+    'VVH': 'VVH',
+    'VVH-ML': 'VVH'
+};
+
+// Helper to build office filter condition for queries
+function buildOfficeFilter(officeCode, tableAlias = 's') {
+    const cmsPrefix = CMS_PREFIX_OFFICES[officeCode];
+    if (cmsPrefix) {
+        return {
+            condition: `${tableAlias}.current_cms_id LIKE ?`,
+            params: [`${cmsPrefix}%`]
+        };
+    }
+    return {
+        condition: `${tableAlias}.current_office_code = ?`,
+        params: [officeCode]
+    };
+}
+
+// GET /api/division/promotions/report - All promotion records (report page)
+// NOTE: must stay registered before '/:hrms_id' or that route swallows the path
+router.get('/report', requireAuth, async (req, res) => {
+    let conn;
+    try {
+        const { office_code } = req.query;
+        const userOffice = req.session.user?.div_office_code;
+        const userRole = req.session.user?.div_role;
+
+        conn = await req.app.locals.pool.getConnection();
+
+        let query = `
+            SELECT ph.promotion_id, ph.staff_hrms_id, ph.change_type,
+                   ph.posting_date, ph.promotion_order_no, ph.remarks,
+                   s.name, s.current_cms_id, s.pf_number,
+                   s.current_office_code, o.office_name,
+                   d1.designation_name AS from_designation_name,
+                   d2.designation_name AS to_designation_name
+            FROM div_promotion_history ph
+            LEFT JOIN div_staff_master s ON ph.staff_hrms_id = s.hrms_id
+            LEFT JOIN offices o ON s.current_office_code = o.office_code
+            LEFT JOIN designations d1 ON ph.from_designation_id = d1.id
+            LEFT JOIN designations d2 ON ph.to_designation_id = d2.id
+            WHERE 1=1
+        `;
+        const params = [];
+
+        if (userRole !== 'division_admin') {
+            const filter = buildOfficeFilter(userOffice, 's');
+            query += ' AND ' + filter.condition;
+            params.push(...filter.params);
+        } else if (office_code && office_code !== 'ALL') {
+            const filter = buildOfficeFilter(office_code, 's');
+            query += ' AND ' + filter.condition;
+            params.push(...filter.params);
+        }
+
+        query += ' ORDER BY ph.posting_date DESC, ph.created_at DESC';
+
+        const [records] = await conn.query(query, params);
+        conn.release();
+
+        const report = records.map(r => {
+            let posting_date = null;
+            let formatted_posting_date = null;
+            if (r.posting_date) {
+                const pd = new Date(r.posting_date);
+                // Serialize from local date parts (toISOString shifts back a day on IST)
+                const yyyy = pd.getFullYear();
+                const mm = String(pd.getMonth() + 1).padStart(2, '0');
+                const dd = String(pd.getDate()).padStart(2, '0');
+                posting_date = `${yyyy}-${mm}-${dd}`;
+                formatted_posting_date = pd.toLocaleDateString('en-IN', {
+                    day: '2-digit', month: 'short', year: 'numeric'
+                });
+            }
+            return { ...r, posting_date, formatted_posting_date };
+        });
+
+        res.json({ success: true, data: report, count: report.length });
+
+    } catch (error) {
+        console.error('Error fetching promotion report:', error);
+        if (conn) conn.release();
+        res.status(500).json({ error: 'Database error', details: error.message });
+    }
+});
+
 // GET /api/division/promotions/:hrms_id - Get promotion history for a staff
 router.get('/:hrms_id', requireAuth, async (req, res) => {
     let conn;
