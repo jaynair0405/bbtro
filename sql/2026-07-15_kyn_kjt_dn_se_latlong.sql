@@ -1,0 +1,66 @@
+-- KYN-KJT DN SE signal coordinates backfill
+-- Date: 2026-07-15
+-- Source: data/KYN_KJT/upload_lat_long.xlsx sheet kyn_kjt_dn (user-supplied), matched
+-- by signal_number within section=KYN-KJT line="DN SE". Idempotent (normalized match).
+
+UPDATE div_signals SET latitude=19.23592, longitude=73.13261 WHERE is_active=1 AND section='KYN-KJT' AND line='DN SE' AND normalized_signal_number='KYNS56';
+UPDATE div_signals SET latitude=19.2358369976952, longitude=73.1326397913647 WHERE is_active=1 AND section='KYN-KJT' AND line='DN SE' AND normalized_signal_number='KYNS58';
+UPDATE div_signals SET latitude=19.23361, longitude=73.14278 WHERE is_active=1 AND section='KYN-KJT' AND line='DN SE' AND normalized_signal_number='KYNS82';
+UPDATE div_signals SET latitude=19.22757, longitude=73.15026 WHERE is_active=1 AND section='KYN-KJT' AND line='DN SE' AND normalized_signal_number='SE5511';
+UPDATE div_signals SET latitude=19.2215, longitude=73.15826 WHERE is_active=1 AND section='KYN-KJT' AND line='DN SE' AND normalized_signal_number='SE5609';
+UPDATE div_signals SET latitude=19.21709, longitude=73.16467 WHERE is_active=1 AND section='KYN-KJT' AND line='DN SE' AND normalized_signal_number='SE5707';
+UPDATE div_signals SET latitude=19.21377, longitude=73.17434 WHERE is_active=1 AND section='KYN-KJT' AND line='DN SE' AND normalized_signal_number='GATE4';
+UPDATE div_signals SET latitude=19.21242, longitude=73.17922 WHERE is_active=1 AND section='KYN-KJT' AND line='DN SE' AND normalized_signal_number='ABHS2';
+UPDATE div_signals SET latitude=19.20953, longitude=73.18609 WHERE is_active=1 AND section='KYN-KJT' AND line='DN SE' AND normalized_signal_number='ABHS6';
+UPDATE div_signals SET latitude=19.20436, longitude=73.19274 WHERE is_active=1 AND section='KYN-KJT' AND line='DN SE' AND normalized_signal_number='ABHS15';
+UPDATE div_signals SET latitude=19.20037, longitude=73.19836 WHERE is_active=1 AND section='KYN-KJT' AND line='DN SE' AND normalized_signal_number='ABHS18';
+UPDATE div_signals SET latitude=19.19683, longitude=73.20411 WHERE is_active=1 AND section='KYN-KJT' AND line='DN SE' AND normalized_signal_number='SE6205';
+UPDATE div_signals SET latitude=19.19053, longitude=73.21041 WHERE is_active=1 AND section='KYN-KJT' AND line='DN SE' AND normalized_signal_number='GATE7';
+UPDATE div_signals SET latitude=19.18567, longitude=73.21504 WHERE is_active=1 AND section='KYN-KJT' AND line='DN SE' AND normalized_signal_number='SE6315';
+UPDATE div_signals SET latitude=19.18182, longitude=73.22033 WHERE is_active=1 AND section='KYN-KJT' AND line='DN SE' AND normalized_signal_number='SE6411';
+UPDATE div_signals SET latitude=19.17767, longitude=73.22497 WHERE is_active=1 AND section='KYN-KJT' AND line='DN SE' AND normalized_signal_number='SE6513';
+UPDATE div_signals SET latitude=19.17394, longitude=73.22953 WHERE is_active=1 AND section='KYN-KJT' AND line='DN SE' AND normalized_signal_number='SE6515';
+UPDATE div_signals SET latitude=19.16968, longitude=73.23269 WHERE is_active=1 AND section='KYN-KJT' AND line='DN SE' AND normalized_signal_number='BUDS2';
+UPDATE div_signals SET latitude=19.16654, longitude=73.24101 WHERE is_active=1 AND section='KYN-KJT' AND line='DN SE' AND normalized_signal_number='BUDS9';
+UPDATE div_signals SET latitude=19.15892, longitude=73.24754 WHERE is_active=1 AND section='KYN-KJT' AND line='DN SE' AND normalized_signal_number='BUDS12';
+UPDATE div_signals SET latitude=19.15597, longitude=73.24863 WHERE is_active=1 AND section='KYN-KJT' AND line='DN SE' AND normalized_signal_number='BUDS14';
+UPDATE div_signals SET latitude=19.14863, longitude=73.25187 WHERE is_active=1 AND section='KYN-KJT' AND line='DN SE' AND normalized_signal_number='SE6913';
+UPDATE div_signals SET latitude=19.14125, longitude=73.25686 WHERE is_active=1 AND section='KYN-KJT' AND line='DN SE' AND normalized_signal_number='SE7013';
+UPDATE div_signals SET latitude=19.1337, longitude=73.26086 WHERE is_active=1 AND section='KYN-KJT' AND line='DN SE' AND normalized_signal_number='SE7113';
+UPDATE div_signals SET latitude=19.12418, longitude=73.26437 WHERE is_active=1 AND section='KYN-KJT' AND line='DN SE' AND normalized_signal_number='SE7223';
+UPDATE div_signals SET latitude=19.12068, longitude=73.26688 WHERE is_active=1 AND section='KYN-KJT' AND line='DN SE' AND normalized_signal_number='SE7307';
+UPDATE div_signals SET latitude=19.11541, longitude=73.27188 WHERE is_active=1 AND section='KYN-KJT' AND line='DN SE' AND normalized_signal_number='SE7403';
+UPDATE div_signals SET latitude=19.11122, longitude=73.2769 WHERE is_active=1 AND section='KYN-KJT' AND line='DN SE' AND normalized_signal_number='SE7413';
+UPDATE div_signals SET latitude=19.10666, longitude=73.27983 WHERE is_active=1 AND section='KYN-KJT' AND line='DN SE' AND normalized_signal_number='SE7507';
+UPDATE div_signals SET latitude=19.10316, longitude=73.28362 WHERE is_active=1 AND section='KYN-KJT' AND line='DN SE' AND normalized_signal_number='GATE16';
+UPDATE div_signals SET latitude=19.09977, longitude=73.29025 WHERE is_active=1 AND section='KYN-KJT' AND line='DN SE' AND normalized_signal_number='SE7613';
+UPDATE div_signals SET latitude=19.09829, longitude=73.29391 WHERE is_active=1 AND section='KYN-KJT' AND line='DN SE' AND normalized_signal_number='VGIS2';
+UPDATE div_signals SET latitude=19.09665, longitude=73.29738 WHERE is_active=1 AND section='KYN-KJT' AND line='DN SE' AND normalized_signal_number='VGIS7';
+UPDATE div_signals SET latitude=19.09132, longitude=73.30465 WHERE is_active=1 AND section='KYN-KJT' AND line='DN SE' AND normalized_signal_number='VGIS3';
+UPDATE div_signals SET latitude=19.08869, longitude=73.30699 WHERE is_active=1 AND section='KYN-KJT' AND line='DN SE' AND normalized_signal_number='VGIS8';
+UPDATE div_signals SET latitude=19.08286, longitude=73.31153 WHERE is_active=1 AND section='KYN-KJT' AND line='DN SE' AND normalized_signal_number='GATE18';
+UPDATE div_signals SET latitude=19.07698, longitude=73.31381 WHERE is_active=1 AND section='KYN-KJT' AND line='DN SE' AND normalized_signal_number='SE8009';
+UPDATE div_signals SET latitude=19.07122, longitude=73.31641 WHERE is_active=1 AND section='KYN-KJT' AND line='DN SE' AND normalized_signal_number='GATE19';
+UPDATE div_signals SET latitude=19.06568, longitude=73.31767 WHERE is_active=1 AND section='KYN-KJT' AND line='DN SE' AND normalized_signal_number='SE8115';
+UPDATE div_signals SET latitude=19.06088, longitude=73.31784 WHERE is_active=1 AND section='KYN-KJT' AND line='DN SE' AND normalized_signal_number='SE8205';
+UPDATE div_signals SET latitude=19.05348, longitude=73.31714 WHERE is_active=1 AND section='KYN-KJT' AND line='DN SE' AND normalized_signal_number='SE8303';
+UPDATE div_signals SET latitude=19.04651, longitude=73.31681 WHERE is_active=1 AND section='KYN-KJT' AND line='DN SE' AND normalized_signal_number='GATE20';
+UPDATE div_signals SET latitude=19.03997, longitude=73.31739 WHERE is_active=1 AND section='KYN-KJT' AND line='DN SE' AND normalized_signal_number='NRLS27';
+UPDATE div_signals SET latitude=19.02991, longitude=73.31836 WHERE is_active=1 AND section='KYN-KJT' AND line='DN SE' AND normalized_signal_number='NRLS21';
+UPDATE div_signals SET latitude=19.0248, longitude=73.31885 WHERE is_active=1 AND section='KYN-KJT' AND line='DN SE' AND normalized_signal_number='NRLS18';
+UPDATE div_signals SET latitude=19.01868, longitude=73.32059 WHERE is_active=1 AND section='KYN-KJT' AND line='DN SE' AND normalized_signal_number='NRLS17';
+UPDATE div_signals SET latitude=19.01389, longitude=73.32725 WHERE is_active=1 AND section='KYN-KJT' AND line='DN SE' AND normalized_signal_number='SE8801';
+UPDATE div_signals SET latitude=19.00717, longitude=73.33003 WHERE is_active=1 AND section='KYN-KJT' AND line='DN SE' AND normalized_signal_number='SE8813';
+UPDATE div_signals SET latitude=18.99972, longitude=73.33083 WHERE is_active=1 AND section='KYN-KJT' AND line='DN SE' AND normalized_signal_number='GATE22';
+UPDATE div_signals SET latitude=18.99225, longitude=73.331 WHERE is_active=1 AND section='KYN-KJT' AND line='DN SE' AND normalized_signal_number='SE9007';
+UPDATE div_signals SET latitude=18.98455, longitude=73.33118 WHERE is_active=1 AND section='KYN-KJT' AND line='DN SE' AND normalized_signal_number='SE9105';
+UPDATE div_signals SET latitude=18.97691, longitude=73.33136 WHERE is_active=1 AND section='KYN-KJT' AND line='DN SE' AND normalized_signal_number='BVSS2';
+UPDATE div_signals SET latitude=18.96647, longitude=73.33166 WHERE is_active=1 AND section='KYN-KJT' AND line='DN SE' AND normalized_signal_number='BVSS3';
+UPDATE div_signals SET latitude=18.9585, longitude=73.33179 WHERE is_active=1 AND section='KYN-KJT' AND line='DN SE' AND normalized_signal_number='BVSS8';
+UPDATE div_signals SET latitude=18.95036, longitude=73.33166 WHERE is_active=1 AND section='KYN-KJT' AND line='DN SE' AND normalized_signal_number='GATE25';
+UPDATE div_signals SET latitude=18.94512, longitude=73.33049 WHERE is_active=1 AND section='KYN-KJT' AND line='DN SE' AND normalized_signal_number='SE9511';
+UPDATE div_signals SET latitude=18.93995, longitude=73.32908 WHERE is_active=1 AND section='KYN-KJT' AND line='DN SE' AND normalized_signal_number='GATE26';
+UPDATE div_signals SET latitude=18.93368, longitude=73.32737 WHERE is_active=1 AND section='KYN-KJT' AND line='DN SE' AND normalized_signal_number='SE9615';
+UPDATE div_signals SET latitude=18.92737, longitude=73.32565 WHERE is_active=1 AND section='KYN-KJT' AND line='DN SE' AND normalized_signal_number='GATE27';
+UPDATE div_signals SET latitude=18.92308, longitude=73.32427 WHERE is_active=1 AND section='KYN-KJT' AND line='DN SE' AND normalized_signal_number='SE9803';
+UPDATE div_signals SET latitude=18.91913, longitude=73.32213 WHERE is_active=1 AND section='KYN-KJT' AND line='DN SE' AND normalized_signal_number='KJTS2';
