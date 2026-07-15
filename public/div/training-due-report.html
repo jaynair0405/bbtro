@@ -1282,7 +1282,9 @@
                 });
                 const trainingResult = await trainingResponse.json();
                 if (trainingResult.success) {
-                    trainingTypes = [{ id: 'all', training_name: 'All Trainings' }, ...trainingResult.data];
+                    // Safety Camp is excluded from this report entirely
+                    const types = trainingResult.data.filter(t => !/safety\s*camp/i.test(t.training_name || ''));
+                    trainingTypes = [{ id: 'all', training_name: 'All Trainings' }, ...types];
                 }
 
                 // Load offices
@@ -1437,7 +1439,9 @@
 
                 if (result.success) {
                     // Filter function: Exclude Shunter designations (3, 4) for Automatic training (5)
+                    // and Safety Camp records entirely (not part of this report)
                     const shouldExclude = (record) => {
+                        if (/safety\s*camp/i.test(record.training_name || '')) return true;
                         return record.training_id === 5 && (record.designation_id === 3 || record.designation_id === 4);
                     };
 
