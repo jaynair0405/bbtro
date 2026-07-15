@@ -137,6 +137,14 @@ router.get('/:hrms_id', requireAuth, async (req, res) => {
     }
 });
 
+// Posting date may be at most tomorrow (order letter can be effective from the next day)
+function postingDateTooFar(dateStr) {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(23, 59, 59, 999);
+    return new Date(dateStr) > tomorrow;
+}
+
 // POST /api/division/promotions - Add new promotion record
 router.post('/', requireAuth, async (req, res) => {
     let conn;
@@ -155,6 +163,12 @@ router.post('/', requireAuth, async (req, res) => {
         if (!staff_hrms_id || !to_designation_id || !posting_date) {
             return res.status(400).json({
                 error: 'Missing required fields: staff_hrms_id, to_designation_id, posting_date'
+            });
+        }
+
+        if (postingDateTooFar(posting_date)) {
+            return res.status(400).json({
+                error: 'Posting date cannot be in the future (latest allowed: tomorrow)'
             });
         }
 
@@ -229,6 +243,12 @@ router.put('/:promotion_id', requireAuth, async (req, res) => {
         if (!to_designation_id || !posting_date) {
             return res.status(400).json({
                 error: 'Missing required fields: to_designation_id, posting_date'
+            });
+        }
+
+        if (postingDateTooFar(posting_date)) {
+            return res.status(400).json({
+                error: 'Posting date cannot be in the future (latest allowed: tomorrow)'
             });
         }
 

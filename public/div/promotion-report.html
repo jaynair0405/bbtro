@@ -133,6 +133,7 @@
         .view-toggle-btn { padding: 8px 14px; border: none; background: #fff; cursor: pointer; font-size: 13px; color: var(--text-light); }
         .view-toggle-btn.active { background: var(--brand); color: #fff; }
         .counts-table .total-cell { font-weight: 700; background: #f1f5f9; }
+        .future-date { color: var(--danger); font-weight: 700; }
 
         @media print {
             body { background: white; }
@@ -353,9 +354,12 @@
             return;
         }
 
+        const todayStr = new Date().toISOString().split('T')[0];
         tbody.innerHTML = reportFiltered.map(r => `
             <tr>
-                <td>${r.formatted_posting_date || '-'}</td>
+                <td>${r.posting_date && r.posting_date > todayStr
+                    ? `<span class="future-date" title="Posting date is in the future — needs correction">${r.formatted_posting_date} <i class="fa-solid fa-triangle-exclamation"></i></span>`
+                    : (r.formatted_posting_date || '-')}</td>
                 <td>${escapeHtml(r.name || r.staff_hrms_id || '-')}</td>
                 <td>${escapeHtml(r.current_cms_id || '-')}</td>
                 <td>${escapeHtml(r.staff_hrms_id || '-')}</td>

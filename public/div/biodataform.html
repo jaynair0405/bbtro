@@ -1499,6 +1499,15 @@ function autoCalculateDueDate() {
 
 // Add event listeners for date restrictions on the training form
 document.addEventListener('DOMContentLoaded', function() {
+  const promoDateInput = document.getElementById('promo_date');
+  if (promoDateInput) {
+    // Posting date may be at most tomorrow (order letter can be effective from the next day)
+    const t = new Date();
+    t.setDate(t.getDate() + 1);
+    const maxPosting = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
+    promoDateInput.setAttribute('max', maxPosting);
+  }
+
   const doneDateInput = document.getElementById('training_done_date');
   if (doneDateInput) {
     // Done date can never be in the future
@@ -2173,6 +2182,14 @@ async function addPromotion() {
 
   if (!toDesignationId || !postingDate) {
     alert('Please enter posting date and to designation');
+    return;
+  }
+
+  // Posting date may be at most tomorrow (order letter can be effective from the next day)
+  const maxDate = new Date();
+  maxDate.setDate(maxDate.getDate() + 1);
+  if (new Date(postingDate) > maxDate) {
+    alert('Posting date cannot be in the future (latest allowed: tomorrow)');
     return;
   }
 
