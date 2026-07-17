@@ -170,13 +170,97 @@ ORDER BY TABLE_NAME, COLUMN_NAME;
 ```
 (`unmapped_cms_ids` is a free-text list column — left out of both.)
 
-## 4. Log of corrections applied (server)
+## 4. Reference — every hrms-keyed table/column (schema as of 2026-07-16)
+
+The complete checklist for an hrms_id correction: 47 columns across 37 base
+tables. Update ALL of them inside the FK-off transaction (0-row tables are
+harmless no-ops). Regenerate this list against the live schema with:
+`SELECT TABLE_NAME, COLUMN_NAME FROM information_schema.COLUMNS c JOIN
+information_schema.TABLES t USING (TABLE_SCHEMA, TABLE_NAME) WHERE
+c.TABLE_SCHEMA = DATABASE() AND t.TABLE_TYPE='BASE TABLE' AND c.COLUMN_NAME
+LIKE '%hrms%';`
+
+| Table | hrms column(s) |
+|-------|----------------|
+| `div_adas_reports` † | `cli_hrms_id`, `mman_hrms_id` |
+| `div_aws_events` | `staff_hrms_id` |
+| `div_category_change_history` | `staff_hrms_id` |
+| `div_cli_master` | `cli_hrms_id` |
+| `div_cli_nominations` | `staff_hrms_id` |
+| `div_ctr_duties` | `staff_hrms_id` |
+| `div_cvvrs_reports` † | `alp_hrms_id`, `cli_hrms_id`, `lp_hrms_id` |
+| `div_daily_slate` | `alp_hrms_id`, `extra_alp_hrms_id`, `lp_hrms_id` |
+| `div_detail_book_log` | `alp_hrms_id`, `lp_hrms_id` |
+| `div_detonator_usage_log` | `staff_hrms_id` |
+| `div_family_members` | `staff_hrms_id` |
+| `div_leave_tracking` | `staff_hrms_id` |
+| `div_lrd_segment_coverage` | `staff_hrms_id` |
+| `div_lrd_status` | `staff_hrms_id` |
+| `div_midnight_position_staff` | `staff_hrms_id` |
+| `div_promotion_history` | `staff_hrms_id` |
+| `div_rtis_analyses` | `alp_hrms_id`, `lp_hrms_id` |
+| `div_rtis_braking_runs` | `alp_hrms_id`, `lp_hrms_id` |
+| `div_rtis_daily_entries` | `alp_hrms_id`, `lp_hrms_id` |
+| `div_rtis_violations` | `alp_hrms_id`, `lp_hrms_id` |
+| `div_runsafe_dev_plans` | `staff_hrms_id` |
+| `div_runsafe_sessions` | `staff_hrms_id` |
+| `div_staff_awards` | `staff_hrms_id` |
+| `div_staff_detonator_stock` | `staff_hrms_id` |
+| `div_staff_drafting_records` | `staff_hrms_id` |
+| `div_staff_fatigue_tracker` | `hrms_id` |
+| `div_staff_master` | `hrms_id` (**PK — the parent**) |
+| `div_staff_personnel_stores` | `staff_hrms_id` |
+| `div_staff_punishments` | `staff_hrms_id` |
+| `div_sub_spm_runs` | `motorman_hrms_id` |
+| `div_training_letter_staff` | `staff_hrms_id` |
+| `div_training_records` | `staff_hrms_id` |
+| `div_transfer_history` | `staff_hrms_id` |
+| `div_transfer_letter_staff` | `staff_hrms_id` |
+| `div_transfer_requests` | `staff_hrms_id` |
+| `div_tw_detail` | `lp_hrms_id` |
+| `motormen_old` | `hrms_id` (backup table) |
+
+† LOCAL ONLY as of 2026-07-16 — CVVRS/ADAS schema not deployed to prod yet
+(`sql/2026-06-30_cvvrs_adas_schema.sql` pending). Skip on prod until deployed.
+
+Views (`motormen` etc.) read from base tables — never update them.
+
+### Format scan — run after every bulk import
+A valid hrms_id is **exactly 6 uppercase letters**. Digits (lookalikes: 2↔Z,
+5↔S, 6↔G, 4↔A…), wrong length, spaces, or lowercase are entry defects. Scan:
+```sql
+SELECT hrms_id, name, current_cms_id, current_office_code, status,
+       CASE WHEN LENGTH(hrms_id) <> 6 THEN CONCAT('length ', LENGTH(hrms_id))
+            WHEN hrms_id REGEXP '[0-9]' THEN 'contains digit'
+            WHEN BINARY hrms_id <> BINARY UPPER(hrms_id) THEN 'lowercase'
+            ELSE 'other' END AS problem
+FROM div_staff_master
+WHERE LENGTH(hrms_id) <> 6 OR hrms_id REGEXP '[^A-Za-z]'
+   OR BINARY hrms_id <> BINARY UPPER(hrms_id)
+ORDER BY problem, hrms_id;
+```
+Verify every suspected true id against the HRMS portal (never guess lookalikes),
+then batch the fixes through the FK-off method (one CASE-mapped transaction,
+BINARY matching so lowercase ids match exactly). 2026-07-17: swept 9 in one run.
+
+### Workbench gotchas (learned 2026-07-16)
+- **Error 1243 / NULL @sql**: the dynamic PREPARE-based discovery breaks if the
+  block isn't run as one selection. Prefer a static UNION ALL discovery query
+  (one `SELECT ... COUNT(*)` per column above, wrapped in
+  `SELECT * FROM (...) x WHERE n > 0`).
+- **Error 1175 safe update mode**: several hrms columns (daily_slate,
+  detail_book_log, rtis_*, tw_detail) are NOT indexed, so Workbench safe mode
+  blocks their UPDATEs. Put `SET SQL_SAFE_UPDATES = 0;` inside the transaction
+  (restore `= 1` after), alongside `SET FOREIGN_KEY_CHECKS = 0/1`.
+- After an errored partial run, `ROLLBACK;` first, then re-run the whole block.
+
+## 5. Log of corrections applied (server)
 | Date | Field | hrms_id / old cms | → | Method |
 |------|-------|-------------------|---|--------|
 | 2026-06-10 | hrms_id | PMQHDW | PMQHOW | FK-off (PK) |
 | 2026-06-10 | hrms_id | ZWIGKE | ZWIGLE | FK-off (PK) |
 | 2026-06-11 | hrms_id | JNLRU | FJNLRU | FK-off (PK) |
-| 2026-06-11 | current_cms_id | CFIEIR (SUNIL MAHARANA, was `_TEMP_SWAP_`) | CSMT6063 | A (hrms-anchored) — verified 2026-06-15 |
+| 2026-06-11 | current_cms_id | CFIEIR (SUNIL MAHARANA, was `_TEMP_SWAP_`) | CSMT6063 | A (hrms-anchored) — verified 2026-06-15. RE-BROKE on prod ~2026-06-16 04:20 (stuck at `__TEMP_SWAP__` again, other half DNGWXH=CSMT6177 had completed); re-fixed on prod + local swap mirrored (CFIEIR→6063, DNGWXH→6177) 2026-07-16 |
 | 2026-06-11 | cms (prefix) | QEEQOL (AJAY KUMAR VERMA) / 5341 | PNVL5341 | A (hrms-anchored) — verified 2026-06-15 |
 | 2026-06-11 | cms (prefix) | IDDRPA (GAJENDRA KR SHARMA) / 5348 | PNVL5348 | A (hrms-anchored) — verified 2026-06-15 |
 | 2026-06-11 | cms (prefix) | QOOIBU (Sunil Kumar T Bhagat) / 5713 | KYN5713 | A (hrms-anchored) — verified 2026-06-15 |
@@ -185,3 +269,7 @@ ORDER BY TABLE_NAME, COLUMN_NAME;
 | 2026-06-24 | cms (truncated) | CSTS (Dinesh Kumar Mahor, motorman CITMPI) | CSTS2213 | B (value-based, unique to one staff). 3 cols: div_staff_master.current_cms_id, div_transfer_history.to_cms_id, div_transfer_requests.proposed_cms_id |
 | 2026-07-01 | cms (duplicate) | EWYFQK (Ajay Kumar, PNVL-ML) / PNVL5341 shared with QEEQOL | PNVL5505 | A (hrms-anchored — 2 staff shared PNVL5341, value-based would corrupt both). 4 cols: div_staff_master.current_cms_id, div_ctr_duties.staff_cms_id, div_transfer_history.to_cms_id, div_transfer_requests.proposed_cms_id. PNVL5505 confirmed free; QEEQOL retains PNVL5341 |
 | 2026-07-01 | cms (transposition) | TUFJUX (Abdul Matin, PNVL-ML) / PNVL5504 | PNVL5540 | A (hrms-anchored). 4 cols: div_staff_master.current_cms_id, div_ctr_duties.staff_cms_id, div_transfer_history.to_cms_id, div_transfer_requests.proposed_cms_id. PNVL5540 confirmed free |
+| 2026-07-16 | cms (reassignment chain) | IJPUNC (V R MAHADIK) CSMT6162 → CSMT6362, then AIHFBZ (NANDKISHOR JADHAV) CSMT6279 → CSMT6162 | — | A (hrms-anchored, double-anchored on old value, vacate-first). Prod side tables: div_ctr_duties 2, div_transfer_history.to_cms_id 1, div_transfer_requests.proposed_cms_id 1, div_runsafe_sessions 1. div_staff_master_backup (prod-only snapshot) deliberately untouched. Chain 2 same day: YXSFRN (SATISH NIMASE) 6054→6290, then APLPOU (SATISH KUMAR YADAV) 6219→6054 — the apparent 6290 collision was stale local data (PHDMKP had transferred to CSTS2212/CSMT-SUB on prod 2026-06-25; local reconciled, dup IAYPRY→CSMT6046 fixed, dup DJGZYY deleted). PHDMKP's 2 pre-transfer ctr_duties rows corrected CSMT6290→CSMT6219 on prod (his TRUE id as LPG at the time; the DB's 6290 was part of the same mis-numbering). LESSON (user-confirmed policy): div_ctr_duties.staff_cms_id is the ACTUAL id at the time of duty — correct it to the true historical id when the recorded one was wrong, but a genuine role/office change (new id issued, e.g. LP→motorman) does NOT rewrite old rows to the new id. staff_hrms_id is the identity key |
+| 2026-07-17 | hrms_id (batch of 9, format-scan) | AAAY6J→AAAYGJ, DUDRX4→DUDRXL, RIKWQ2→RIKWQZ, IJMZY→IJYMZY, SSFTW→SSWFTW, UNMIL→UNMIIL, WGNWU→WGNLWU, YLLJBHJ→YLLJBJ, xzbjwd→XZBJWD | (user-verified vs HRMS portal) | FK-off (PK), single CASE-mapped transaction, all hrms cols per §4, BINARY matching. Found by format scan: valid id = exactly 6 uppercase letters (digits/5-char/7-char/lowercase = defect). Local: 151 rows / 8 tables. Prod: 762 rows / 21 hrms columns (ctr_duties 197, lrd_segment_coverage 175, rtis 177, training_records 63, detail_book_log 70, daily_slate 26, sub_spm_runs 15, promotion_history 5, others) — COMMITTED via Workbench 2026-07-17; one-time file deleted |
+| 2026-07-17 | hrms_id | HMJKCV (HEMANT KUSHWAHA, cms CSMT6405) | HMJKCU | FK-off (PK), all hrms cols per §4 (one-time file, deleted after run). Local: 5 tables (96 rows). Prod: 12 tables, 154 rows — incl. rtis_analyses 40, rtis_braking_runs 40, rtis_daily_entries 25, rtis_violations 8, lrd_segment_coverage 25, training_records 8, ctr_duties 2, cli_nominations 2, transfer_history/requests 1+1 — COMMITTED via Workbench 2026-07-17 |
+| 2026-07-16 | hrms_id | MGCT25 (GANESH LOHAR, cms CSMT6295) | MGCTZS | FK-off (PK), 47 hrms cols per §4 (one-time sql file deleted after run). Local: 3 tables (div_staff_master 1, div_cli_nominations 1, div_training_records 3). Prod: 4 tables (+ div_ctr_duties 1; div_training_records 5) — COMMITTED via Workbench 2026-07-16. adas/cvvrs skipped on prod (tables absent) |
