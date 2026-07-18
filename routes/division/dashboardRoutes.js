@@ -166,7 +166,13 @@ router.get('/staff-search/:search', async (req, res) => {
             params.push(userOffice);
         }
 
-        query += ` LIMIT 10`;
+        // Relevance: exact id match first, then ids/name starting with the term, then the rest by name
+        query += `
+            ORDER BY (s.hrms_id = ? OR s.current_cms_id = ? OR s.pf_number = ?) DESC,
+                     (s.current_cms_id LIKE ? OR s.hrms_id LIKE ? OR s.name LIKE ?) DESC,
+                     s.name
+            LIMIT 50`;
+        params.push(search, search, search, `${search}%`, `${search}%`, `${search}%`);
 
         const [results] = await conn.query(query, params);
         conn.release();

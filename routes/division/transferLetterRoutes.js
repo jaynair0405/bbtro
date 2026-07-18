@@ -134,6 +134,9 @@ router.get('/next-number', requireDivisionAccess, async (req, res) => {
     try {
         conn = await getConnection(req);
         const officeCode = req.query.office_code || req.session.user.div_office_code;
+        if (!assertOfficeAllowed(req, officeCode)) {
+            return res.status(403).json({ error: 'You can only number letters for your own lobby' });
+        }
         const year = new Date().getFullYear();
 
         const [[lastLetter]] = await conn.query(
@@ -165,6 +168,9 @@ router.get('/search-staff/:query', requireDivisionAccess, async (req, res) => {
     try {
         const officeCode = req.query.office_code || req.session.user.div_office_code;
         if (!officeCode) return res.status(400).json({ error: 'office_code required' });
+        if (!assertOfficeAllowed(req, officeCode)) {
+            return res.status(403).json({ error: 'You can only search staff of your own lobby' });
+        }
         conn = await getConnection(req);
         const like = `%${req.params.query}%`;
         const [rows] = await conn.query(
@@ -175,9 +181,10 @@ router.get('/search-staff/:query', requireDivisionAccess, async (req, res) => {
              WHERE s.current_office_code = ?
                AND s.status = 'Active'
                AND (s.name LIKE ? OR s.hrms_id LIKE ? OR s.pf_number LIKE ? OR s.current_cms_id LIKE ?)
-             ORDER BY s.name
-             LIMIT 15`,
-            [officeCode, like, like, like, like]
+             ORDER BY (s.name LIKE ? OR s.current_cms_id LIKE ? OR s.hrms_id LIKE ?) DESC, s.name
+             LIMIT 30`,
+            [officeCode, like, like, like, like,
+             `${req.params.query}%`, `${req.params.query}%`, `${req.params.query}%`]
         );
         res.json({ staff: rows });
     } catch (error) {
