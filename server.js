@@ -237,6 +237,11 @@ app.get('/control-office/hog-position.html', requireControlOffice, (req, res) =>
 app.get('/control-office/schedule-due.html', requireControlOffice, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'control-office', 'schedule-due.html'));
 });
+// Loco Assignment Board — loco-first view of a terminal's DN workings. Writes
+// go through the same POST /log the daily sheet uses, so it is gated the same.
+app.get('/control-office/loco-assign.html', requireControlOffice, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'control-office', 'loco-assign.html'));
+});
 // WTT lookup page — viewable by any logged-in user (edits are gated in the API
 // to division_admin/ctlc). Explicit route so it is login-gated, not open static.
 app.get('/control-office/wtt.html', (req, res) => {

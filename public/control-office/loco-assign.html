@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Loco Assignment Board | Control Office</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --brand: #0b3d91;
+            --brand-light: #1e5fb8;
+            --bg: #f1f5f9;
+            --surface: #ffffff;
+            --border: #e2e8f0;
+            --border-strong: #cbd5e1;
+            --text-main: #1e293b;
+            --text-light: #64748b;
+            --danger: #dc2626;
+            --danger-bg: #fee2e2;
+            --warning: #d97706;
+            --warning-bg: #fef3c7;
+            --success: #059669;
+            --success-bg: #d1fae5;
+            --muted: #94a3b8;
+            --info: #0284c7;
+            --info-bg: #e0f2fe;
+        }
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg);
+            margin: 0;
+            color: var(--text-main);
+        }
+
+        /* ── Header ─────────────────────────────────────────────────── */
+        .header {
+            background: var(--brand);
+            color: white;
+            padding: 12px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 6px rgba(0,0,0,.08);
+        }
+        .header-title { font-size: 1.1rem; font-weight: 600; }
+        .header-title a { color: white; text-decoration: none; opacity: .85; }
+        .header-title a:hover { opacity: 1; }
+        .header-title .sep { margin: 0 10px; opacity: .6; }
+        .header-user { display: flex; align-items: center; gap: 14px; font-size: .9rem; }
+        .header-user a {
+            color: white; text-decoration: none; background: rgba(255,255,255,.15);
+            padding: 5px 11px; border-radius: 4px; font-size: .82rem;
+        }
+        .header-user a:hover { background: rgba(255,255,255,.25); }
+
+        .main { padding: 18px 24px 60px; max-width: 1500px; margin: 0 auto; }
+
+        /* ── Toolbar ────────────────────────────────────────────────── */
+        .toolbar {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            flex-wrap: wrap;
+            margin-bottom: 16px;
+        }
+        .tool-group { display: flex; align-items: center; gap: 8px; }
+        .tool-label {
+            font-size: .72rem; text-transform: uppercase; letter-spacing: .06em;
+            color: var(--text-light); font-weight: 600;
+        }
+        .term-pills { display: flex; gap: 6px; flex-wrap: wrap; }
+        .term-pill {
+            border: 1px solid var(--border-strong);
+            background: var(--surface);
+            color: var(--text-main);
+            padding: 6px 14px;
+            border-radius: 999px;
+            font-size: .85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background .12s, color .12s, border-color .12s;
+        }
+        .term-pill:hover { border-color: var(--brand-light); color: var(--brand); }
+        .term-pill.active {
+            background: var(--brand); border-color: var(--brand); color: #fff;
+        }
+        .toolbar input[type=date] {
+            border: 1px solid var(--border-strong);
+            border-radius: 6px;
+            padding: 6px 10px;
+            font-size: .88rem;
+            font-family: inherit;
+            color: var(--text-main);
+        }
+        .btn {
+            border: 1px solid var(--border-strong);
+            background: var(--surface);
+            color: var(--text-main);
+            padding: 6px 13px;
+            border-radius: 6px;
+            font-size: .85rem;
+            font-family: inherit;
+            cursor: pointer;
+            display: inline-flex; align-items: center; gap: 6px;
+        }
+        .btn:hover { background: #f8fafc; border-color: var(--brand-light); }
+        .btn-primary {
+            background: var(--brand); border-color: var(--brand); color: #fff; font-weight: 600;
+        }
+        .btn-primary:hover { background: var(--brand-light); border-color: var(--brand-light); }
+        .btn-primary:disabled { background: var(--muted); border-color: var(--muted); cursor: not-allowed; }
+        .btn-warn { background: var(--warning); border-color: var(--warning); color: #fff; font-weight: 600; }
+        .btn-warn:hover { background: #b45309; border-color: #b45309; }
+        .btn-ghost { background: transparent; border-color: var(--border-strong); }
+        .btn-sm { padding: 4px 10px; font-size: .78rem; }
+        .spacer { flex: 1; }
+        .updated { font-size: .78rem; color: var(--text-light); }
+
+        /* ── Stats ──────────────────────────────────────────────────── */
+        .stats { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 18px; }
+        .stat {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-left: 4px solid var(--brand);
+            border-radius: 8px;
+            padding: 12px 18px;
+            min-width: 132px;
+        }
+        .stat .num { font-size: 1.9rem; font-weight: 700; color: var(--brand); line-height: 1.1; }
+        .stat .label {
+            font-size: .72rem; color: var(--text-light); margin-top: 3px;
+            text-transform: uppercase; letter-spacing: .05em; font-weight: 600;
+        }
+        .stat.need { border-left-color: var(--warning); }
+        .stat.need .num { color: var(--warning); }
+        .stat.done { border-left-color: var(--success); }
+        .stat.done .num { color: var(--success); }
+        .stat.spare { border-left-color: var(--info); }
+        .stat.spare .num { color: var(--info); }
+        .stat.short { border-left-color: var(--danger); }
+        .stat.short .num { color: var(--danger); }
+
+        /* ── Board layout ───────────────────────────────────────────── */
+        .board { display: grid; grid-template-columns: 1fr 420px; gap: 16px; align-items: start; }
+        @media (max-width: 1180px) { .board { grid-template-columns: 1fr; } }
+
+        .panel {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .panel-head {
+            background: var(--brand);
+            color: #fff;
+            padding: 11px 16px;
+            font-weight: 600;
+            font-size: .95rem;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .panel-head .count { font-size: .8rem; font-weight: 500; opacity: .9; }
+        .panel-body { padding: 12px; }
+
+        /* ── Loco rows ──────────────────────────────────────────────── */
+        .loco-row {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 11px 13px;
+            margin-bottom: 9px;
+            display: grid;
+            grid-template-columns: minmax(190px, 240px) 1fr auto;
+            gap: 14px;
+            align-items: center;
+            transition: border-color .12s, box-shadow .12s;
+        }
+        .loco-row:last-child { margin-bottom: 0; }
+        .loco-row:hover { border-color: var(--border-strong); box-shadow: 0 1px 4px rgba(0,0,0,.05); }
+        .loco-row.saving { opacity: .55; pointer-events: none; }
+        .loco-row.saved { border-color: var(--success); background: var(--success-bg); }
+        .loco-row.err { border-color: var(--danger); background: var(--danger-bg); }
+        @media (max-width: 760px) { .loco-row { grid-template-columns: 1fr; } }
+
+        .loco-ident .no {
+            font-size: 1.18rem; font-weight: 700; color: var(--brand);
+            letter-spacing: .01em;
+        }
+        .loco-ident .meta {
+            font-size: .78rem; color: var(--text-light); margin-top: 2px;
+        }
+        .loco-ident .meta .shed { font-weight: 600; color: var(--text-main); }
+
+        .badges { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 6px; }
+        .badge {
+            font-size: .68rem; font-weight: 700; padding: 2px 7px; border-radius: 4px;
+            text-transform: uppercase; letter-spacing: .03em;
+            border: 1px solid transparent; white-space: nowrap;
+        }
+        .badge.hog { background: var(--success-bg); color: #065f46; border-color: #a7f3d0; }
+        .badge.nohog { background: #f1f5f9; color: var(--text-light); border-color: var(--border); }
+        .badge.sched { background: var(--warning-bg); color: #92400e; border-color: #fde68a; }
+        .badge.sched.overdue { background: var(--danger-bg); color: #991b1b; border-color: #fecaca; }
+        .badge.age { background: #f1f5f9; color: var(--text-light); border-color: var(--border); }
+        .badge.age.stale { background: var(--warning-bg); color: #92400e; border-color: #fde68a; }
+
+        .loco-origin { font-size: .8rem; color: var(--text-light); }
+        .loco-origin i { width: 14px; text-align: center; opacity: .7; }
+        .loco-origin .via { color: var(--text-main); font-weight: 600; }
+
+        .assign-cell { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+        .assign-cell select {
+            border: 1px solid var(--border-strong);
+            border-radius: 6px;
+            padding: 6px 9px;
+            font-size: .84rem;
+            font-family: inherit;
+            min-width: 260px;
+            max-width: 340px;
+            color: var(--text-main);
+            background: var(--surface);
+        }
+        .assign-cell select:focus { outline: 2px solid var(--brand-light); outline-offset: -1px; }
+
+        .conflict-actions {
+            display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end;
+            width: 100%; margin-top: 6px;
+        }
+        .conflict-note {
+            width: 100%; text-align: right; font-size: .76rem;
+            color: var(--warning); font-weight: 600; margin-top: 4px;
+        }
+
+        /* ── Train list ─────────────────────────────────────────────── */
+        .train-item {
+            display: grid;
+            grid-template-columns: 52px 1fr auto;
+            gap: 10px;
+            align-items: center;
+            padding: 8px 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            margin-bottom: 6px;
+            font-size: .84rem;
+        }
+        .train-item:last-child { margin-bottom: 0; }
+        .train-item.is-assigned { background: #f8fafc; border-color: var(--border); }
+        .train-item.is-open { border-left: 3px solid var(--warning); }
+        .train-item .time {
+            font-variant-numeric: tabular-nums; font-weight: 700;
+            color: var(--text-main); font-size: .82rem;
+        }
+        .train-item .tno { font-weight: 700; color: var(--brand); }
+        .train-item .tname {
+            color: var(--text-light); font-size: .76rem;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 210px;
+        }
+        .train-item .want { font-size: .7rem; color: var(--text-light); margin-top: 2px; }
+        .train-item .want b { color: var(--text-main); }
+        .train-item .state { font-size: .74rem; font-weight: 700; text-align: right; white-space: nowrap; }
+        .train-item .state.open { color: var(--warning); }
+        .train-item .state.filled { color: var(--success); }
+        .train-item .state .loco { display: block; font-size: .82rem; color: var(--brand); }
+
+        .filter-row { display: flex; gap: 6px; margin-bottom: 10px; }
+        .filter-row .btn { flex: 1; justify-content: center; }
+        .filter-row .btn.active { background: var(--brand); border-color: var(--brand); color: #fff; }
+
+        .empty {
+            text-align: center; color: var(--text-light);
+            padding: 26px 14px; font-size: .88rem;
+        }
+        .empty i { display: block; font-size: 1.6rem; margin-bottom: 8px; opacity: .35; }
+
+        .flash {
+            position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%) translateY(80px);
+            background: var(--text-main); color: #fff; padding: 10px 20px;
+            border-radius: 7px; font-size: .87rem; font-weight: 600;
+            box-shadow: 0 6px 18px rgba(0,0,0,.2); z-index: 50;
+            opacity: 0; transition: opacity .18s, transform .18s;
+        }
+        .flash.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+        .flash.ok { background: #065f46; }
+        .flash.bad { background: #991b1b; }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <div class="header-title">
+        <a href="/control-office/"><i class="fa-solid fa-arrow-left"></i></a>
+        <span class="sep">|</span>
+        <i class="fa-solid fa-diagram-project"></i> Loco Assignment Board
+    </div>
+    <div class="header-user">
+        <span id="whoami"></span>
+        <a href="/api/logout" title="Logout"><i class="fa-solid fa-right-from-bracket"></i></a>
+    </div>
+</div>
+
+<div class="main">
+
+    <div class="toolbar">
+        <div class="tool-group">
+            <span class="tool-label">Terminal</span>
+            <div class="term-pills" id="termPills"></div>
+        </div>
+        <div class="tool-group">
+            <span class="tool-label">DN sheet date</span>
+            <input type="date" id="datePick">
+        </div>
+        <div class="spacer"></div>
+        <span class="updated" id="updated"></span>
+        <button class="btn" id="refreshBtn"><i class="fa-solid fa-rotate"></i> Refresh</button>
+    </div>
+
+    <div class="stats" id="stats"></div>
+
+    <div class="board">
+        <div class="panel">
+            <div class="panel-head">
+                <span><i class="fa-solid fa-train-subway"></i> Locos available</span>
+                <span class="count" id="locoCount"></span>
+            </div>
+            <div class="panel-body" id="locoList"></div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-head">
+                <span><i class="fa-solid fa-list-check"></i> DN workings</span>
+                <span class="count" id="trainCount"></span>
+            </div>
+            <div class="panel-body">
+                <div class="filter-row">
+                    <button class="btn btn-sm active" data-filter="open">Needs loco</button>
+                    <button class="btn btn-sm" data-filter="all">All</button>
+                    <button class="btn btn-sm" data-filter="filled">Assigned</button>
+                </div>
+                <div id="trainList"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="flash" id="flash"></div>
+
+<script>
+const $  = (s) => document.querySelector(s);
+const $$ = (s) => [...document.querySelectorAll(s)];
+const TERMINALS = ['CSMT', 'LTT', 'DR', 'PNVL', 'VVH', 'KYN', 'TNA'];
+
+let board = { locos: [], trains: [], counts: null };
+let terminal = localStorage.getItem('assignTerminal') || 'CSMT';
+let sheetDate = todayISO();
+let trainFilter = 'open';
+
+function todayISO() {
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0')
+         + '-' + String(d.getDate()).padStart(2, '0');
+}
+function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c =>
+        ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function dmy(iso) {
+    if (!iso) return '';
+    const [y, m, d] = String(iso).slice(0, 10).split('-');
+    return d + '-' + m;
+}
+function flash(msg, kind) {
+    const f = $('#flash');
+    f.textContent = msg;
+    f.className = 'flash show ' + (kind || '');
+    clearTimeout(f._t);
+    f._t = setTimeout(() => { f.className = 'flash ' + (kind || ''); }, 2600);
+}
+
+/* ── Fit scoring ────────────────────────────────────────────────────
+   A loco-first board can do what the train-first sheet cannot: show which
+   workings actually SUIT the loco in hand. Lower penalty = better fit, and
+   the reasons are spelled out in the option text so nothing is hidden.     */
+function fitFor(loco, train) {
+    const reasons = [];
+    let penalty = 0;
+    if (train.expected_shed && loco.home_shed && train.expected_shed !== loco.home_shed) {
+        penalty += 3; reasons.push('MISLINK');
+    }
+    if (train.expected_hog && !loco.is_hog) { penalty += 4; reasons.push('NO HOG'); }
+    if (train.expected_loco_type && loco.loco_type
+        && train.expected_loco_type.toUpperCase() !== String(loco.loco_type).toUpperCase()) {
+        penalty += 2; reasons.push('TYPE');
+    }
+    if (train.assigned) { penalty += 10; reasons.push('HAS LOCO ' + train.actual_loco_no); }
+    return { penalty, reasons };
+}
+
+function trainOptionsFor(loco) {
+    return board.trains
+        .map(t => ({ t, fit: fitFor(loco, t) }))
+        .sort((a, b) => (a.fit.penalty - b.fit.penalty)
+                     || String(a.t.event_time || '').localeCompare(String(b.t.event_time || ''))
+                     || String(a.t.train_no).localeCompare(String(b.t.train_no)));
+}
+
+/* ── Load ───────────────────────────────────────────────────────── */
+async function loadBoard() {
+    $('#locoList').innerHTML = '<div class="empty"><i class="fa-solid fa-spinner fa-spin"></i>Loading…</div>';
+    try {
+        const r = await fetch('/api/division/loco-link/assign-board?terminal='
+            + encodeURIComponent(terminal) + '&date=' + encodeURIComponent(sheetDate));
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.error || 'load failed');
+        board = d;
+        render();
+        $('#updated').textContent = 'Updated ' + new Date().toLocaleTimeString('en-IN');
+    } catch (e) {
+        $('#locoList').innerHTML = '<div class="empty" style="color:var(--danger)">'
+            + '<i class="fa-solid fa-triangle-exclamation"></i>' + esc(e.message) + '</div>';
+    }
+}
+
+function render() { renderStats(); renderLocos(); renderTrains(); }
+
+function renderStats() {
+    const c = board.counts;
+    if (!c) { $('#stats').innerHTML = ''; return; }
+    const shortfall = c.spare < 0;
+    $('#stats').innerHTML = `
+        <div class="stat"><div class="num">${c.available}</div><div class="label">Locos available</div></div>
+        <div class="stat need"><div class="num">${c.trains_unassigned}</div><div class="label">Need a loco</div></div>
+        <div class="stat done"><div class="num">${c.trains_assigned}</div><div class="label">Assigned</div></div>
+        <div class="stat ${shortfall ? 'short' : 'spare'}">
+            <div class="num">${shortfall ? c.spare : '+' + c.spare}</div>
+            <div class="label">${shortfall ? 'Short of locos' : 'Spare after all'}</div>
+        </div>`;
+    $('#locoCount').textContent = c.available + ' at ' + board.terminal;
+    $('#trainCount').textContent = c.trains_total + ' on ' + dmy(board.date);
+}
+
+function renderLocos() {
+    const box = $('#locoList');
+    if (!board.locos.length) {
+        box.innerHTML = '<div class="empty"><i class="fa-solid fa-inbox"></i>'
+            + 'No unassigned locos standing at ' + esc(board.terminal) + '.</div>';
+        return;
+    }
+    box.innerHTML = board.locos.map(locoRowHtml).join('');
+    wireLocoRows();
+}
+
+function locoRowHtml(l) {
+    const badges = [];
+    badges.push(l.is_hog
+        ? `<span class="badge hog" title="${esc(l.hotel_load_oem)}">HOG</span>`
+        : `<span class="badge nohog">N/HOG</span>`);
+
+    if (l.schedule_type || l.schedule_due_date) {
+        const overdue = l.sched_days_left != null && l.sched_days_left < 0;
+        const due = l.schedule_due_date ? dmy(l.schedule_due_date) : '—';
+        badges.push(`<span class="badge sched ${overdue ? 'overdue' : ''}"
+            title="Maintenance schedule${overdue ? ' — OVERDUE' : ''}">${esc(l.schedule_type || '?')} · ${due}</span>`);
+    }
+
+    const d = l.days_standing;
+    if (d != null) {
+        const label = d <= 0 ? 'today' : (d === 1 ? '1 day' : d + ' days');
+        badges.push(`<span class="badge age ${d > 2 ? 'stale' : ''}"
+            title="Standing at ${esc(board.terminal)}">${label}</span>`);
+    }
+
+    const origin = l.arrived_via_train
+        ? `<i class="fa-solid fa-right-to-bracket"></i> arrived <span class="via">${esc(l.arrived_via_train)}</span>`
+        : (l.moved_from
+            ? `<i class="fa-solid fa-right-left"></i> moved from <span class="via">${esc(l.moved_from)}</span>`
+            : `<i class="fa-solid fa-circle-question"></i> origin not recorded`);
+
+    return `
+    <div class="loco-row" data-loco="${esc(l.loco_number)}">
+        <div class="loco-ident">
+            <div class="no">${esc(l.loco_number)}</div>
+            <div class="meta">
+                <span class="shed">${esc(l.home_shed || '—')}</span>
+                ${l.railway_zone ? ' · ' + esc(l.railway_zone) : ''}
+                ${l.loco_type ? ' · ' + esc(l.loco_type) : ''}
+            </div>
+            <div class="badges">${badges.join('')}</div>
+        </div>
+        <div class="loco-origin">${origin}</div>
+        <div class="assign-cell">
+            <select class="train-pick" aria-label="Train for loco ${esc(l.loco_number)}">
+                <option value="">Select working…</option>
+            </select>
+            <button class="btn btn-primary btn-sm act-assign" disabled>
+                <i class="fa-solid fa-link"></i> Assign
+            </button>
+        </div>
+    </div>`;
+}
+
+function wireLocoRows() {
+    for (const row of $$('.loco-row')) {
+        const loco = board.locos.find(x => x.loco_number === row.dataset.loco);
+        if (!loco) continue;
+        const sel = row.querySelector('.train-pick');
+
+        for (const { t, fit } of trainOptionsFor(loco)) {
+            const o = document.createElement('option');
+            o.value = String(t.master_id);
+            const time = t.event_time ? t.event_time + ' ' : '';
+            const tag = fit.reasons.length ? '  [' + fit.reasons.join(' · ') + ']' : '  ✓ fits';
+            o.textContent = time + t.train_no + (t.to_station ? ' → ' + t.to_station : '') + tag;
+            sel.appendChild(o);
+        }
+
+        sel.addEventListener('change', () => onPick(row, loco));
+        row.querySelector('.act-assign').addEventListener('click', () => doAssign(row, loco, 'front'));
+    }
+}
+
+/* Selecting a working that already has a loco is not an error — it is the
+   common late-change case. Offer the three real outcomes explicitly rather
+   than guessing which one the LPC meant. */
+function onPick(row, loco) {
+    const cell = row.querySelector('.assign-cell');
+    cell.querySelectorAll('.conflict-actions, .conflict-note').forEach(n => n.remove());
+
+    const sel = row.querySelector('.train-pick');
+    const btn = row.querySelector('.act-assign');
+    const train = board.trains.find(t => String(t.master_id) === sel.value);
+    btn.disabled = !train;
+    if (!train) return;
+
+    if (!train.assigned) {
+        btn.style.display = '';
+        return;
+    }
+
+    btn.style.display = 'none';
+    const note = document.createElement('div');
+    note.className = 'conflict-note';
+    note.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> `
+        + `${esc(train.train_no)} already has loco ${esc(train.actual_loco_no)} — choose what to do:`;
+
+    const acts = document.createElement('div');
+    acts.className = 'conflict-actions';
+    acts.innerHTML = `
+        <button class="btn btn-warn btn-sm" data-mode="replace">
+            <i class="fa-solid fa-right-left"></i> Replace it</button>
+        <button class="btn btn-warn btn-sm" data-mode="dead">
+            <i class="fa-solid fa-link-slash"></i> Attach — old one dead in tow</button>
+        <button class="btn btn-ghost btn-sm" data-mode="second">
+            <i class="fa-solid fa-plus"></i> Add as second loco</button>`;
+    acts.querySelectorAll('button').forEach(b =>
+        b.addEventListener('click', () => doAssign(row, loco, b.dataset.mode)));
+
+    cell.appendChild(note);
+    cell.appendChild(acts);
+}
+
+/* ── Save ───────────────────────────────────────────────────────────
+   Goes through POST /log, the same endpoint the daily sheet uses, so the DN
+   sheet fills itself and propagation, position tracking, the duplicate-loco
+   guard and the dropped-loco restore all apply unchanged.                  */
+async function doAssign(row, loco, mode) {
+    const sel = row.querySelector('.train-pick');
+    const train = board.trains.find(t => String(t.master_id) === sel.value);
+    if (!train) return;
+
+    let role = null;
+    if (mode === 'second') {
+        role = prompt('Role for ' + loco.loco_number
+            + '?\n\nType one of:  rear  |  coupler  |  assist  |  dead_in_tow', 'rear');
+        if (role === null) return;
+        role = String(role).trim().toLowerCase();
+        if (!['rear', 'coupler', 'assist', 'dead_in_tow'].includes(role)) {
+            return flash('Role must be rear, coupler, assist or dead_in_tow', 'bad');
+        }
+    }
+
+    // Echo the row's existing values back — POST /log rewrites the whole row,
+    // so anything omitted here would be wiped from the sheet.
+    const body = {
+        working_date: board.date,
+        direction: 'DN',
+        train_no: train.train_no,
+        master_id: train.master_id,
+        sheet_source: train.sheet_source,
+        section: train.section,
+        incoming_train: train.incoming_train || null,
+        outgoing_train: train.outgoing_train || null,
+        outgoing_train_rear: train.outgoing_train_rear || null,
+        remark: train.remark || null,
+        remarks_rear: train.remarks_rear || null,
+        failed_in_division: train.failed_in_division ? 1 : 0,
+    };
+
+    if (mode === 'front' || mode === 'replace') {
+        body.actual_loco_no = loco.loco_number;
+        body.actual_loco_no_rear = train.actual_loco_no_rear || null;
+        body.secondary_role = train.secondary_role || null;
+        body.main_loco_dead = train.main_loco_dead ? 1 : 0;
+    } else if (mode === 'dead') {
+        // New working loco on the front; the failed one stays attached, towed.
+        body.actual_loco_no = loco.loco_number;
+        body.actual_loco_no_rear = train.actual_loco_no;
+        body.secondary_role = 'dead_in_tow';
+        body.main_loco_dead = 0;
+    } else if (mode === 'second') {
+        body.actual_loco_no = train.actual_loco_no;
+        body.actual_loco_no_rear = loco.loco_number;
+        body.secondary_role = role;
+        body.main_loco_dead = train.main_loco_dead ? 1 : 0;
+    }
+
+    row.classList.add('saving');
+    try {
+        const r = await fetch('/api/division/loco-link/log', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
+        const d = await r.json();
+        row.classList.remove('saving');
+
+        if (!r.ok) {
+            row.classList.add('err');
+            setTimeout(() => row.classList.remove('err'), 2600);
+            return flash(d.error || 'Save failed', 'bad');
+        }
+
+        row.classList.add('saved');
+        const back = (d.position_restored || []).map(x => x.loco);
+        flash(loco.loco_number + ' → ' + train.train_no
+            + (back.length ? '  ·  ' + back.join(', ') + ' back in the pool' : ''), 'ok');
+
+        setTimeout(loadBoard, 550);
+    } catch (e) {
+        row.classList.remove('saving');
+        row.classList.add('err');
+        flash('Save failed: ' + e.message, 'bad');
+    }
+}
+
+/* ── Train panel ────────────────────────────────────────────────── */
+function renderTrains() {
+    const box = $('#trainList');
+    let list = board.trains;
+    if (trainFilter === 'open') list = list.filter(t => !t.assigned);
+    if (trainFilter === 'filled') list = list.filter(t => t.assigned);
+
+    if (!list.length) {
+        box.innerHTML = '<div class="empty"><i class="fa-solid fa-circle-check"></i>'
+            + (trainFilter === 'open' ? 'Every working has a loco.' : 'Nothing to show.') + '</div>';
+        return;
+    }
+
+    box.innerHTML = list.map(t => {
+        const want = [];
+        if (t.expected_shed) want.push('<b>' + esc(t.expected_shed) + '</b>');
+        if (t.expected_hog) want.push('HOG');
+        if (t.expected_loco_type) want.push(esc(t.expected_loco_type));
+        if (t.link_attr) want.push(esc(t.link_attr));
+
+        const rear = t.actual_loco_no_rear
+            ? ' + ' + esc(t.actual_loco_no_rear)
+              + (t.secondary_role ? ' (' + esc(t.secondary_role.replace(/_/g, ' ')) + ')' : '')
+            : '';
+
+        return `
+        <div class="train-item ${t.assigned ? 'is-assigned' : 'is-open'}">
+            <div class="time">${esc(t.event_time || '—')}</div>
+            <div>
+                <span class="tno">${esc(t.train_no)}</span>
+                ${t.to_station ? '<span class="tname"> → ' + esc(t.to_station) + '</span>' : ''}
+                <div class="tname">${esc(t.train_name || '')}</div>
+                ${want.length ? '<div class="want">wants ' + want.join(' · ') + '</div>' : ''}
+            </div>
+            <div class="state ${t.assigned ? 'filled' : 'open'}">
+                ${t.assigned
+                    ? '<span class="loco">' + esc(t.actual_loco_no) + rear + '</span>'
+                    : 'needs loco'}
+            </div>
+        </div>`;
+    }).join('');
+}
+
+/* ── Chrome ─────────────────────────────────────────────────────── */
+function renderPills() {
+    $('#termPills').innerHTML = TERMINALS.map(t =>
+        `<button class="term-pill ${t === terminal ? 'active' : ''}" data-term="${t}">${t}</button>`).join('');
+    $$('.term-pill').forEach(b => b.addEventListener('click', () => {
+        terminal = b.dataset.term;
+        localStorage.setItem('assignTerminal', terminal);
+        renderPills();
+        loadBoard();
+    }));
+}
+
+async function init() {
+    try {
+        const r = await fetch('/api/division/loco-link/me');
+        if (r.ok) {
+            const u = await r.json();
+            $('#whoami').textContent = u.username || '';
+        }
+    } catch {}
+
+    sheetDate = todayISO();
+    $('#datePick').value = sheetDate;
+    $('#datePick').addEventListener('change', (e) => {
+        if (e.target.value) { sheetDate = e.target.value; loadBoard(); }
+    });
+    $('#refreshBtn').addEventListener('click', loadBoard);
+    $$('.filter-row .btn').forEach(b => b.addEventListener('click', () => {
+        trainFilter = b.dataset.filter;
+        $$('.filter-row .btn').forEach(x => x.classList.toggle('active', x === b));
+        renderTrains();
+    }));
+
+    renderPills();
+    loadBoard();
+}
+init();
+</script>
+</body>
+</html>

@@ -2804,6 +2804,188 @@ router.get('/available', async (req, res) => {
     }
 });
 
+// GET /assign-board — the loco-first view of a terminal's DN workings.
+//
+// The daily sheet is train-first: you walk the trains and fill in a loco. This
+// is the inverse — you see the locos standing at a terminal and give each one a
+// train. It answers the question the sheet cannot: how many locos do I have,
+// how many workings still need one, and how many will be left over.
+//
+// Writes go through POST /log exactly as the sheet does, so the DN sheet fills
+// itself and propagation, position tracking and the duplicate-loco guard all
+// apply unchanged. This endpoint is read-only.
+//
+//   Query: terminal=CSMT (required), date=YYYY-MM-DD (defaults to today)
+router.get('/assign-board', async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'not logged in' });
+
+    const terminal = String(req.query.terminal || '').trim().toUpperCase();
+    const date = String(req.query.date || todayISO()).trim();
+
+    if (!terminal || !MUMBAI_TERMINALS.includes(terminal)) {
+        return res.status(400).json({ error: `terminal required; one of: ${MUMBAI_TERMINALS.join(', ')}` });
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        return res.status(400).json({ error: 'date must be YYYY-MM-DD' });
+    }
+
+    try {
+        const pool = req.app.locals.pool;
+
+        // ── Locos standing here and free to work ──────────────────────────
+        // Deliberately NOT filtered by arrival date: a loco that came in three
+        // days ago is just as assignable as one that arrived this morning. The
+        // date on this page picks which DN sheet is being filled, nothing else.
+        const [locoRows] = await pool.query(
+            `SELECT lp.loco_number, lp.arrived_via_train, lp.arrived_at, lp.remarks AS pos_remarks,
+                    dl.loco_type, dl.home_shed, dl.railway_zone, dl.hotel_load_oem,
+                    dl.schedule_type, dl.schedule_due_date,
+                    DATEDIFF(CURDATE(), DATE(lp.arrived_at))    AS days_standing,
+                    DATEDIFF(dl.schedule_due_date, CURDATE())   AS sched_days_left
+             FROM div_loco_positions lp
+             LEFT JOIN div_locos dl ON dl.loco_number = lp.loco_number
+             LEFT JOIN div_loco_sick_records sr
+                    ON sr.loco_number = lp.loco_number AND sr.fit_from IS NULL
+             WHERE lp.current_location = ?
+               AND sr.id IS NULL
+               AND NOT EXISTS (${BOOKED_OUT_EXISTS})
+             ORDER BY lp.arrived_at ASC`,
+            [terminal]
+        );
+
+        // Where a loco was moved in by hand there is no arrival train, so show
+        // where it came from instead ("moved from VVH") rather than a blank.
+        const movedIn = locoRows.filter(l => !l.arrived_via_train).map(l => l.loco_number);
+        const movedFrom = new Map();
+        if (movedIn.length) {
+            const [mv] = await pool.query(
+                `SELECT h.loco_number, h.from_location
+                 FROM div_loco_position_history h
+                 JOIN (SELECT loco_number, MAX(moved_at) AS mx
+                       FROM div_loco_position_history
+                       WHERE loco_number IN (?) AND to_location = ?
+                       GROUP BY loco_number) last
+                   ON last.loco_number = h.loco_number AND last.mx = h.moved_at
+                 WHERE h.to_location = ?`,
+                [movedIn, terminal, terminal]
+            );
+            for (const r of mv) movedFrom.set(r.loco_number, r.from_location);
+        }
+
+        const locos = locoRows.map(l => ({
+            loco_number: l.loco_number,
+            loco_type: l.loco_type,
+            home_shed: l.home_shed,
+            railway_zone: l.railway_zone,
+            hotel_load_oem: l.hotel_load_oem,
+            is_hog: !!l.hotel_load_oem,
+            schedule_type: l.schedule_type,
+            schedule_due_date: toDateISO(l.schedule_due_date),
+            sched_days_left: l.sched_days_left,
+            arrived_via_train: l.arrived_via_train,
+            arrived_at: l.arrived_at,
+            days_standing: l.days_standing,
+            moved_from: l.arrived_via_train ? null : (movedFrom.get(l.loco_number) || null),
+        }));
+
+        // ── DN workings departing this terminal on the chosen date ────────
+        const dow = dayOfWeekIR(date);
+        const eff = effectiveOnDateClause(date);
+        const [masterRows] = await pool.query(
+            `SELECT m.id, m.train_no, COALESCE(t.train_name, m.train_name) AS train_name,
+                    m.event_time, m.section, m.sheet_source, m.from_station, m.to_station,
+                    m.shed_code AS expected_shed, m.expected_hog, m.link_attr,
+                    m.expected_loco_type, m.rake_type, m.is_push_pull, m.run_days
+             FROM div_loco_link_master m
+             LEFT JOIN div_trains t ON t.train_no = m.train_no
+             WHERE m.active = 1 AND m.direction = 'DN' AND m.is_bypass = 0
+               AND ${eff.sql.replace(/\b(effective_from|effective_until|skip_dates)\b/g, 'm.$1')}
+             ORDER BY m.event_time, m.id`,
+            eff.params
+        );
+
+        // from_station is free text and inconsistent ("LTT / LTT", "BIRD/ BIRD"),
+        // so normalise it and fall back to the sheet name when it is unusable.
+        const originOf = (m) => {
+            const norm = normalizeTerminal(m.from_station);
+            if (norm) return norm;
+            const prefix = String(m.sheet_source || '').split('-')[0];
+            return MUMBAI_TERMINALS.includes(prefix) ? prefix : null;
+        };
+        const mine = masterRows.filter(m => runsToday(m.run_days, dow) && originOf(m) === terminal);
+
+        // ── What is already entered on that date ──────────────────────────
+        const ids = mine.map(m => m.id);
+        const logByMaster = new Map();
+        if (ids.length) {
+            const [logs] = await pool.query(
+                // Every column the board may need to echo back on save. POST /log
+                // overwrites the whole row, so anything the sheet already entered
+                // (incoming train, remarks) must travel back with the assignment
+                // or it is silently wiped.
+                `SELECT master_id, train_no, actual_loco_no, actual_loco_no_rear,
+                        secondary_role, main_loco_dead, failed_in_division,
+                        incoming_train, outgoing_train, outgoing_train_rear,
+                        remark, remarks_rear, entered_by
+                 FROM div_loco_link_log
+                 WHERE working_date = ? AND direction = 'DN' AND master_id IN (?)`,
+                [date, ids]
+            );
+            for (const r of logs) logByMaster.set(r.master_id, r);
+        }
+
+        const trains = mine.map(m => {
+            const log = logByMaster.get(m.id) || null;
+            return {
+                master_id: m.id,
+                train_no: m.train_no,
+                train_name: m.train_name,
+                event_time: m.event_time,
+                section: m.section,
+                sheet_source: m.sheet_source,
+                to_station: m.to_station,
+                expected_shed: m.expected_shed,
+                expected_hog: m.expected_hog === 1,
+                expected_loco_type: m.expected_loco_type,
+                link_attr: m.link_attr,
+                rake_type: m.rake_type,
+                is_push_pull: m.is_push_pull === 1,
+                actual_loco_no: log ? log.actual_loco_no : null,
+                actual_loco_no_rear: log ? log.actual_loco_no_rear : null,
+                secondary_role: log ? log.secondary_role : null,
+                main_loco_dead: log ? !!log.main_loco_dead : false,
+                failed_in_division: log ? !!log.failed_in_division : false,
+                incoming_train: log ? log.incoming_train : null,
+                outgoing_train: log ? log.outgoing_train : null,
+                outgoing_train_rear: log ? log.outgoing_train_rear : null,
+                remark: log ? log.remark : null,
+                remarks_rear: log ? log.remarks_rear : null,
+                entered_by: log ? log.entered_by : null,
+                assigned: !!(log && log.actual_loco_no),
+            };
+        });
+
+        const assigned = trains.filter(t => t.assigned).length;
+        res.json({
+            terminal, date,
+            locos, trains,
+            counts: {
+                available: locos.length,
+                trains_total: trains.length,
+                trains_assigned: assigned,
+                trains_unassigned: trains.length - assigned,
+                spare: locos.length - (trains.length - assigned),
+            },
+        });
+    } catch (err) {
+        if (isTableNotExistError(err)) {
+            return res.json({ terminal, date, locos: [], trains: [], counts: null, error: 'tables_not_created' });
+        }
+        console.error('[loco-link GET /assign-board]', err);
+        res.status(500).json({ error: 'Failed to load assignment board' });
+    }
+});
+
 // GET /assigned-today — locos standing at a terminal that are already booked
 // out on a DN train (for the availability page).
 //
