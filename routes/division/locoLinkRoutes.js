@@ -397,34 +397,45 @@ async function getTrainTerminal(pool, trainNo, direction) {
         // UP: loco arrives at to_station (terminal)
         // DN: loco departs from from_station (terminal)
         const terminal = direction === 'UP' ? row.to_station : row.from_station;
-        return { terminal, locoChangeStation: row.loco_change_station || null };
+        return { terminal, locoChangeStation: row.loco_change_station || null, known: true };
     }
 
-    // Fallback to div_train_stops
-    try {
-        if (direction === 'UP') {
-            // Get last stop for UP train
-            const [stops] = await pool.query(
-                `SELECT station_code FROM div_train_stops
-                 WHERE train_no = ?
-                 ORDER BY seq_order DESC LIMIT 1`,
-                [trainNo]
-            );
-            return { terminal: stops.length ? stops[0].station_code : null, locoChangeStation: null };
-        } else {
-            // Get first stop for DN train
-            const [stops] = await pool.query(
-                `SELECT station_code FROM div_train_stops
-                 WHERE train_no = ?
-                 ORDER BY seq_order ASC LIMIT 1`,
-                [trainNo]
-            );
-            return { terminal: stops.length ? stops[0].station_code : null, locoChangeStation: null };
+    // Not in div_trains. That is normal for specials: the WTT deliberately holds
+    // only regular trains, while specials run for a couple of months and stop.
+    // div_loco_link_master carries them instead, and is the record the LPC keeps
+    // current, so use it rather than duplicating them into the timetable.
+    //
+    // (The previous fallback here queried div_train_stops by train_no — a column
+    // that table does not have, so it raised ER_BAD_FIELD_ERROR. It could never
+    // have worked anyway: stop rows key on train_id, which comes from div_trains,
+    // so a train missing there has no stops either. The throw was swallowed
+    // upstream as a warning, which is why ~6 live specials silently tracked no
+    // loco positions at all.)
+    const [masters] = await pool.query(
+        `SELECT from_station, to_station, sheet_source
+         FROM div_loco_link_master
+         WHERE train_no = ? AND direction = ? AND active = 1
+         LIMIT 1`,
+        [trainNo, direction]
+    );
+    if (masters.length) {
+        const m = masters[0];
+        const stated = direction === 'UP' ? m.to_station : m.from_station;
+        const norm = normalizeTerminal(stated);
+        if (norm) return { terminal: norm, locoChangeStation: null, known: true };
+
+        // from_station/to_station are patchy on specials (02187 has no
+        // to_station), but sheet_source names the terminal outright.
+        const prefix = String(m.sheet_source || '').split('-')[0];
+        if (MUMBAI_TERMINALS.includes(prefix)) {
+            return { terminal: prefix, locoChangeStation: null, known: true };
         }
-    } catch (e) {
-        if (!isTableNotExistError(e)) throw e;
-        return { terminal: null, locoChangeStation: null };
     }
+
+    // Genuinely unknown — say so, rather than returning null and letting the
+    // caller read it as "not a Mumbai terminal" and mark the loco OUT_OF_DIV on
+    // what was actually an arrival.
+    return { terminal: null, locoChangeStation: null, known: false };
 }
 
 /**
@@ -2464,7 +2475,7 @@ router.post('/log', async (req, res) => {
         const positionUpdates = [];
         if (actual_loco_no && direction !== 'BYPASS') {
             try {
-                const { terminal, locoChangeStation } = await getTrainTerminal(pool, train_no, direction);
+                const { terminal, locoChangeStation, known } = await getTrainTerminal(pool, train_no, direction);
 
                 // If train has loco_change_station, incoming loco becomes available there (both UP and DN)
                 if (locoChangeStation && MUMBAI_TERMINALS.includes(locoChangeStation)) {
@@ -2478,6 +2489,11 @@ router.post('/log', async (req, res) => {
                         userId: u.username,
                     });
                     if (posResult.success) positionUpdates.push({ loco: actual_loco_no, ...posResult });
+                } else if (direction === 'UP' && !known) {
+                    // Terminal could not be determined. The loco did arrive
+                    // somewhere in the division, so leave its position alone —
+                    // marking it OUT_OF_DIV would be a worse answer than none.
+                    positionUpdates.push({ loco: actual_loco_no, skipped: 'terminal unknown' });
                 } else if (direction === 'UP') {
                     // UP train arriving — set position to terminal (or OUT_OF_DIV for handover points)
                     const location = MUMBAI_TERMINALS.includes(terminal) ? stablingTerminal(terminal) : 'OUT_OF_DIV';
@@ -2515,7 +2531,7 @@ router.post('/log', async (req, res) => {
                 const rearLocoForPos = actual_loco_no_rear.includes('+')
                     ? actual_loco_no_rear.split('+')[0].trim()
                     : actual_loco_no_rear;
-                const { terminal, locoChangeStation } = await getTrainTerminal(pool, train_no, direction);
+                const { terminal, locoChangeStation, known } = await getTrainTerminal(pool, train_no, direction);
 
                 // If train has loco_change_station, incoming loco becomes available there (both UP and DN)
                 if (locoChangeStation && MUMBAI_TERMINALS.includes(locoChangeStation)) {
@@ -2529,6 +2545,9 @@ router.post('/log', async (req, res) => {
                         userId: u.username,
                     });
                     if (posResult.success) positionUpdates.push({ loco: rearLocoForPos, ...posResult });
+                } else if (direction === 'UP' && !known) {
+                    // See the front-loco branch: unknown terminal, leave it be.
+                    positionUpdates.push({ loco: rearLocoForPos, skipped: 'terminal unknown' });
                 } else if (direction === 'UP') {
                     const location = MUMBAI_TERMINALS.includes(terminal) ? stablingTerminal(terminal) : 'OUT_OF_DIV';
                     const posResult = await updateLocoPosition(pool, {
