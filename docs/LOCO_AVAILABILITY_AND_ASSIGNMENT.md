@@ -169,7 +169,32 @@ WHERE current_location IN ('CSMT','LTT','DR','PNVL','VVH','KYN','TNA')
 GROUP BY current_location WITH ROLLUP;
 ```
 
-`standing_3plus_days` is the ghost count. It was **125 of 223** on 19-07.
+`standing_3plus_days` is the ghost count.
+
+**Measured on prod 2026-07-20, one day after the fixes went live:**
+
+| | 19-07 (before) | 20-07 (after) |
+|---|---|---|
+| Locos at terminals | 223 | **58** |
+| Hidden by the booking fix | 108 | **34** (59%) |
+| Showing as available | ~115 | **24** |
+| Standing 3+ days (ghosts) | **125** | **7** |
+
+Per terminal on 20-07: CSMT 38 (22 booked, 1 stale), LTT 16 (10 booked, 4 stale),
+PNVL 1 (1 booked), VVH 1 (1 booked), KYN 1 (1 stale), TNA 1 (1 stale).
+
+Three things produced that: the booking fix, special-train position tracking,
+and the LPC's manual clear on the evening of 19-07.
+
+**This changes the recommendation on §5.** A residual of 7 is not worth a
+re-architecture. The open question is whether ghosts *re-accumulate* — this is
+a single snapshot taken on a freshly cleared table. Re-run the two queries above
+on 2026-07-27:
+
+* `standing_3plus_days` still ~5-10, MANUAL moves low → the booking fix carried
+  it; **do not do the derivation work**.
+* Climbing back toward 100, MANUAL still ~300/week → ghosts are still forming
+  and §5 is worth doing.
 
 > Note: VVH held only 1 loco right after deployment. That is the aftermath of
 > the LPC's 367 manual clearings on 19-07, not the new code — the pool refills
