@@ -44,6 +44,14 @@ const MUMBAI_TERMINALS = ['CSMT', 'LTT', 'DR', 'PNVL', 'VVH', 'KYN', 'TNA'];
 // Valid location values for div_loco_positions
 const VALID_LOCATIONS = [...MUMBAI_TERMINALS, 'IN_TRANSIT', 'OUT_OF_DIV'];
 
+// Where a loco actually stands after working into a terminal. Dadar terminates
+// nine train pairs (11004/11022/17317/22148/12132…) but has no stabling shed —
+// those locos stand at Vasai and work out from there. Applied to arrivals and,
+// for the same reason, to DR-originating DN workings on the assignment board,
+// so they draw from the shed that really holds their locos.
+const STABLING_TERMINAL = { DR: 'VVH' };
+const stablingTerminal = (t) => STABLING_TERMINAL[t] || t;
+
 // Loco maintenance-schedule types (LPC-entered on the daily sheet).
 // IA/IB/IC = inspection schedules; IOH/TOH/POH = overhaul schedules.
 // Must match the ENUM on div_locos.schedule_type.
@@ -2462,7 +2470,7 @@ router.post('/log', async (req, res) => {
                 if (locoChangeStation && MUMBAI_TERMINALS.includes(locoChangeStation)) {
                     const posResult = await updateLocoPosition(pool, {
                         locoNo: actual_loco_no,
-                        location: locoChangeStation,
+                        location: stablingTerminal(locoChangeStation),
                         movementType: 'ARRIVAL',
                         trainNo: train_no,
                         workingDate: working_date,
@@ -2472,7 +2480,7 @@ router.post('/log', async (req, res) => {
                     if (posResult.success) positionUpdates.push({ loco: actual_loco_no, ...posResult });
                 } else if (direction === 'UP') {
                     // UP train arriving — set position to terminal (or OUT_OF_DIV for handover points)
-                    const location = MUMBAI_TERMINALS.includes(terminal) ? terminal : 'OUT_OF_DIV';
+                    const location = MUMBAI_TERMINALS.includes(terminal) ? stablingTerminal(terminal) : 'OUT_OF_DIV';
                     const posResult = await updateLocoPosition(pool, {
                         locoNo: actual_loco_no,
                         location,
@@ -2513,7 +2521,7 @@ router.post('/log', async (req, res) => {
                 if (locoChangeStation && MUMBAI_TERMINALS.includes(locoChangeStation)) {
                     const posResult = await updateLocoPosition(pool, {
                         locoNo: rearLocoForPos,
-                        location: locoChangeStation,
+                        location: stablingTerminal(locoChangeStation),
                         movementType: 'ARRIVAL',
                         trainNo: train_no,
                         workingDate: working_date,
@@ -2522,7 +2530,7 @@ router.post('/log', async (req, res) => {
                     });
                     if (posResult.success) positionUpdates.push({ loco: rearLocoForPos, ...posResult });
                 } else if (direction === 'UP') {
-                    const location = MUMBAI_TERMINALS.includes(terminal) ? terminal : 'OUT_OF_DIV';
+                    const location = MUMBAI_TERMINALS.includes(terminal) ? stablingTerminal(terminal) : 'OUT_OF_DIV';
                     const posResult = await updateLocoPosition(pool, {
                         locoNo: rearLocoForPos,
                         location,
@@ -2836,8 +2844,15 @@ router.get('/assign-board', async (req, res) => {
         // Deliberately NOT filtered by arrival date: a loco that came in three
         // days ago is just as assignable as one that arrived this morning. The
         // date on this page picks which DN sheet is being filled, nothing else.
+        // VVH and DR are one stabling group: locos off DR-terminating trains run
+        // light to VVH for maintenance and light back to DR to attach. Locos are
+        // occasionally held at DR itself and worked out from there, so the VVH
+        // board must list them too — otherwise, with DR workings shown here, a
+        // DR-standing loco could not be assigned from any board.
+        const sourceLocations = terminal === 'VVH' ? ['VVH', 'DR'] : [terminal];
+
         const [locoRows] = await pool.query(
-            `SELECT lp.loco_number, lp.arrived_via_train, lp.arrived_at, lp.remarks AS pos_remarks,
+            `SELECT lp.loco_number, lp.current_location, lp.arrived_via_train, lp.arrived_at, lp.remarks AS pos_remarks,
                     dl.loco_type, dl.home_shed, dl.railway_zone, dl.hotel_load_oem,
                     dl.schedule_type, dl.schedule_due_date,
                     DATEDIFF(CURDATE(), DATE(lp.arrived_at))    AS days_standing,
@@ -2846,11 +2861,11 @@ router.get('/assign-board', async (req, res) => {
              LEFT JOIN div_locos dl ON dl.loco_number = lp.loco_number
              LEFT JOIN div_loco_sick_records sr
                     ON sr.loco_number = lp.loco_number AND sr.fit_from IS NULL
-             WHERE lp.current_location = ?
+             WHERE lp.current_location IN (?)
                AND sr.id IS NULL
                AND NOT EXISTS (${BOOKED_OUT_EXISTS})
              ORDER BY lp.arrived_at ASC`,
-            [terminal]
+            [sourceLocations]
         );
 
         // Where a loco was moved in by hand there is no arrival train, so show
@@ -2863,17 +2878,21 @@ router.get('/assign-board', async (req, res) => {
                  FROM div_loco_position_history h
                  JOIN (SELECT loco_number, MAX(moved_at) AS mx
                        FROM div_loco_position_history
-                       WHERE loco_number IN (?) AND to_location = ?
+                       WHERE loco_number IN (?) AND to_location IN (?)
                        GROUP BY loco_number) last
                    ON last.loco_number = h.loco_number AND last.mx = h.moved_at
-                 WHERE h.to_location = ?`,
-                [movedIn, terminal, terminal]
+                 WHERE h.to_location IN (?)`,
+                [movedIn, sourceLocations, sourceLocations]
             );
             for (const r of mv) movedFrom.set(r.loco_number, r.from_location);
         }
 
         const locos = locoRows.map(l => ({
             loco_number: l.loco_number,
+            // Surfaced so a loco held at DR rather than VVH is visibly different
+            // on the board, not silently listed as if it were at the shed.
+            standing_at: l.current_location,
+            off_terminal: l.current_location !== terminal,
             loco_type: l.loco_type,
             home_shed: l.home_shed,
             railway_zone: l.railway_zone,
@@ -2906,11 +2925,14 @@ router.get('/assign-board', async (req, res) => {
 
         // from_station is free text and inconsistent ("LTT / LTT", "BIRD/ BIRD"),
         // so normalise it and fall back to the sheet name when it is unusable.
+        // Mapped through stablingTerminal so a DR-originating working appears on
+        // the VVH board — that is where its locos actually stand. Without this
+        // the DR board would list workings it can never have a loco for.
         const originOf = (m) => {
             const norm = normalizeTerminal(m.from_station);
-            if (norm) return norm;
+            if (norm) return stablingTerminal(norm);
             const prefix = String(m.sheet_source || '').split('-')[0];
-            return MUMBAI_TERMINALS.includes(prefix) ? prefix : null;
+            return MUMBAI_TERMINALS.includes(prefix) ? stablingTerminal(prefix) : null;
         };
         const mine = masterRows.filter(m => runsToday(m.run_days, dow) && originOf(m) === terminal);
 
@@ -2936,6 +2958,12 @@ router.get('/assign-board', async (req, res) => {
 
         const trains = mine.map(m => {
             const log = logByMaster.get(m.id) || null;
+            // A push-pull working needs a loco at each end. With only the front
+            // filled it is NOT complete — it still needs a second, and the board
+            // must say so rather than showing it green and done.
+            const hasFront = !!(log && log.actual_loco_no);
+            const hasRear = !!(log && log.actual_loco_no_rear);
+            const needsSecond = m.is_push_pull === 1 && hasFront && !hasRear;
             return {
                 master_id: m.id,
                 train_no: m.train_no,
@@ -2961,20 +2989,28 @@ router.get('/assign-board', async (req, res) => {
                 remark: log ? log.remark : null,
                 remarks_rear: log ? log.remarks_rear : null,
                 entered_by: log ? log.entered_by : null,
-                assigned: !!(log && log.actual_loco_no),
+                assigned: hasFront,
+                needs_second: needsSecond,
             };
         });
 
-        const assigned = trains.filter(t => t.assigned).length;
+        // Open slots, not open trains: a push-pull working with one loco still
+        // consumes another. Counting trains would understate the requirement.
+        const needFirst = trains.filter(t => !t.assigned).length;
+        const needSecond = trains.filter(t => t.needs_second).length;
+        const openSlots = needFirst + needSecond;
+
         res.json({
             terminal, date,
             locos, trains,
             counts: {
                 available: locos.length,
                 trains_total: trains.length,
-                trains_assigned: assigned,
-                trains_unassigned: trains.length - assigned,
-                spare: locos.length - (trains.length - assigned),
+                trains_assigned: trains.length - needFirst,
+                trains_unassigned: needFirst,
+                need_second: needSecond,
+                open_slots: openSlots,
+                spare: locos.length - openSlots,
             },
         });
     } catch (err) {

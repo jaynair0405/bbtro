@@ -206,6 +206,7 @@
         .badge.sched.overdue { background: var(--danger-bg); color: #991b1b; border-color: #fecaca; }
         .badge.age { background: #f1f5f9; color: var(--text-light); border-color: var(--border); }
         .badge.age.stale { background: var(--warning-bg); color: #92400e; border-color: #fde68a; }
+        .badge.at-other { background: var(--info-bg); color: #075985; border-color: #bae6fd; }
 
         .loco-origin { font-size: .8rem; color: var(--text-light); }
         .loco-origin i { width: 14px; text-align: center; opacity: .7; }
@@ -233,6 +234,60 @@
             width: 100%; text-align: right; font-size: .76rem;
             color: var(--warning); font-weight: 600; margin-top: 4px;
         }
+        /* Push-pull needing its second loco is expected, not a conflict. */
+        .conflict-note.need-note { color: var(--info); }
+        .role-wrap { display: inline-flex; align-items: stretch; }
+        .role-wrap .btn { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+        .role-pick {
+            border: 1px solid var(--border-strong); border-left: none;
+            border-top-right-radius: 6px; border-bottom-right-radius: 6px;
+            background: var(--surface); color: var(--text-main);
+            font-family: inherit; font-size: .78rem; padding: 0 6px; cursor: pointer;
+        }
+        .role-pick:focus { outline: 2px solid var(--brand-light); outline-offset: -1px; }
+
+        /* Pinned strip above the loco list: what was just assigned, and a way
+           to put a second loco on the same working without hunting for it. */
+        .recent-strip {
+            position: relative;
+            border: 1px solid #a7f3d0;
+            background: var(--success-bg);
+            border-radius: 8px;
+            padding: 10px 34px 10px 13px;
+            margin-bottom: 11px;
+            display: flex; flex-direction: column; gap: 8px;
+        }
+        .recent-strip.busy { opacity: .55; pointer-events: none; }
+        .rs-close {
+            position: absolute; top: 7px; right: 8px;
+            border: none; background: transparent; cursor: pointer;
+            color: #065f46; opacity: .55; font-size: .95rem; padding: 2px 5px;
+        }
+        .rs-close:hover { opacity: 1; }
+        .rs-head { font-size: .88rem; color: #065f46; font-weight: 600; }
+        .rs-head b { color: var(--brand); }
+        .rs-saved {
+            font-size: .66rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: .05em; background: var(--success); color: #fff;
+            padding: 1px 6px; border-radius: 3px; margin-left: 6px;
+        }
+        .rs-add { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+        .rs-label {
+            font-size: .72rem; text-transform: uppercase; letter-spacing: .05em;
+            color: #065f46; font-weight: 700;
+        }
+        .rs-note { font-size: .78rem; color: #065f46; max-width: 560px; }
+        .rs-note code {
+            background: rgba(255,255,255,.7); border: 1px solid #a7f3d0;
+            border-radius: 3px; padding: 0 4px; font-size: .92em;
+        }
+        .fu-loco, .fu-role {
+            border: 1px solid var(--border-strong); border-radius: 6px;
+            padding: 5px 8px; font-size: .82rem; font-family: inherit;
+            background: var(--surface); color: var(--text-main);
+        }
+        .fu-loco { min-width: 200px; }
+        .fu-loco:focus, .fu-role:focus { outline: 2px solid var(--brand-light); outline-offset: -1px; }
 
         /* ── Train list ─────────────────────────────────────────────── */
         .train-item {
@@ -261,8 +316,14 @@
         .train-item .want { font-size: .7rem; color: var(--text-light); margin-top: 2px; }
         .train-item .want b { color: var(--text-main); }
         .train-item .state { font-size: .74rem; font-weight: 700; text-align: right; white-space: nowrap; }
+        .train-item.is-partial { border-left: 3px solid var(--info); background: #f8fbff; }
         .train-item .state.open { color: var(--warning); }
         .train-item .state.filled { color: var(--success); }
+        .train-item .state.partial { color: var(--info); }
+        .train-item .state .need2 {
+            display: block; font-size: .68rem; font-weight: 700; color: var(--info);
+            text-transform: uppercase; letter-spacing: .03em;
+        }
         .train-item .state .loco { display: block; font-size: .82rem; color: var(--brand); }
 
         .filter-row { display: flex; gap: 6px; margin-bottom: 10px; }
@@ -353,6 +414,11 @@ const $$ = (s) => [...document.querySelectorAll(s)];
 const TERMINALS = ['CSMT', 'LTT', 'DR', 'PNVL', 'VVH', 'KYN', 'TNA'];
 
 let board = { locos: [], trains: [], counts: null };
+// The working most recently assigned from this page. The board reloads after
+// every save so nothing is ever stale, and this is re-resolved from the fresh
+// data on each render — so the "add another loco" step survives the refresh
+// without a confirm click, and without holding old data on screen.
+let recentMasterId = null;
 let terminal = localStorage.getItem('assignTerminal') || 'CSMT';
 let sheetDate = todayISO();
 let trainFilter = 'open';
@@ -394,7 +460,12 @@ function fitFor(loco, train) {
         && train.expected_loco_type.toUpperCase() !== String(loco.loco_type).toUpperCase()) {
         penalty += 2; reasons.push('TYPE');
     }
-    if (train.assigned) { penalty += 10; reasons.push('HAS LOCO ' + train.actual_loco_no); }
+    // Occupied workings are NOT penalised into the tail of the list. Adding a
+    // second loco to a train that already has one is a normal daily action
+    // (~2/day), and burying it below 35 other options reads as "not there".
+    // Separation is done with option groups instead, which stays scannable.
+    if (train.needs_second) reasons.push('NEEDS 2nd');
+    else if (train.assigned) reasons.push('HAS ' + train.actual_loco_no);
     return { penalty, reasons };
 }
 
@@ -415,6 +486,10 @@ async function loadBoard() {
         const d = await r.json();
         if (!r.ok) throw new Error(d.error || 'load failed');
         board = d;
+        // Drop the pin if the working is no longer on the board (date/terminal changed).
+        if (recentMasterId && !board.trains.some(t => t.master_id === recentMasterId)) {
+            recentMasterId = null;
+        }
         render();
         $('#updated').textContent = 'Updated ' + new Date().toLocaleTimeString('en-IN');
     } catch (e) {
@@ -429,10 +504,14 @@ function renderStats() {
     const c = board.counts;
     if (!c) { $('#stats').innerHTML = ''; return; }
     const shortfall = c.spare < 0;
+    // Counts are in loco SLOTS, not trains — a push-pull working with one loco
+    // still needs another, so counting trains would understate the requirement.
     $('#stats').innerHTML = `
         <div class="stat"><div class="num">${c.available}</div><div class="label">Locos available</div></div>
-        <div class="stat need"><div class="num">${c.trains_unassigned}</div><div class="label">Need a loco</div></div>
-        <div class="stat done"><div class="num">${c.trains_assigned}</div><div class="label">Assigned</div></div>
+        <div class="stat need"><div class="num">${c.open_slots}</div><div class="label">Locos needed</div></div>
+        ${c.need_second ? `<div class="stat need"><div class="num">${c.need_second}</div>
+            <div class="label">Awaiting 2nd loco</div></div>` : ''}
+        <div class="stat done"><div class="num">${c.trains_assigned}</div><div class="label">Workings covered</div></div>
         <div class="stat ${shortfall ? 'short' : 'spare'}">
             <div class="num">${shortfall ? c.spare : '+' + c.spare}</div>
             <div class="label">${shortfall ? 'Short of locos' : 'Spare after all'}</div>
@@ -443,12 +522,15 @@ function renderStats() {
 
 function renderLocos() {
     const box = $('#locoList');
+    const strip = recentStripHtml();
     if (!board.locos.length) {
-        box.innerHTML = '<div class="empty"><i class="fa-solid fa-inbox"></i>'
+        box.innerHTML = strip + '<div class="empty"><i class="fa-solid fa-inbox"></i>'
             + 'No unassigned locos standing at ' + esc(board.terminal) + '.</div>';
+        wireRecentStrip();
         return;
     }
-    box.innerHTML = board.locos.map(locoRowHtml).join('');
+    box.innerHTML = strip + board.locos.map(locoRowHtml).join('');
+    wireRecentStrip();
     wireLocoRows();
 }
 
@@ -463,6 +545,13 @@ function locoRowHtml(l) {
         const due = l.schedule_due_date ? dmy(l.schedule_due_date) : '—';
         badges.push(`<span class="badge sched ${overdue ? 'overdue' : ''}"
             title="Maintenance schedule${overdue ? ' — OVERDUE' : ''}">${esc(l.schedule_type || '?')} · ${due}</span>`);
+    }
+
+    // VVH and DR share a pool; a loco actually held at DR is flagged so the LPC
+    // knows it needs running light across before it can attach.
+    if (l.off_terminal && l.standing_at) {
+        badges.push(`<span class="badge at-other" title="Standing at ${esc(l.standing_at)}, not ${esc(board.terminal)}"
+            >AT ${esc(l.standing_at)}</span>`);
     }
 
     const d = l.days_standing;
@@ -507,13 +596,28 @@ function wireLocoRows() {
         if (!loco) continue;
         const sel = row.querySelector('.train-pick');
 
-        for (const { t, fit } of trainOptionsFor(loco)) {
-            const o = document.createElement('option');
-            o.value = String(t.master_id);
-            const time = t.event_time ? t.event_time + ' ' : '';
-            const tag = fit.reasons.length ? '  [' + fit.reasons.join(' · ') + ']' : '  ✓ fits';
-            o.textContent = time + t.train_no + (t.to_station ? ' → ' + t.to_station : '') + tag;
-            sel.appendChild(o);
+        // Grouped so an occupied working is findable in its own labelled
+        // section rather than lost in a 45-item flat list.
+        const scored = trainOptionsFor(loco);
+        const groups = [
+            ['Needs a loco',        scored.filter(x => !x.t.assigned)],
+            ['Push-pull — needs 2nd', scored.filter(x => x.t.needs_second)],
+            ['Already has a loco',  scored.filter(x => x.t.assigned && !x.t.needs_second)],
+        ];
+        for (const [label, items] of groups) {
+            if (!items.length) continue;
+            const g = document.createElement('optgroup');
+            g.label = label + '  (' + items.length + ')';
+            for (const { t, fit } of items) {
+                const o = document.createElement('option');
+                o.value = String(t.master_id);
+                // Train number FIRST: typing it with the list open jumps to it.
+                const time = t.event_time ? '  ' + t.event_time : '';
+                const tag = fit.reasons.length ? '  [' + fit.reasons.join(' · ') + ']' : '  ✓ fits';
+                o.textContent = t.train_no + time + (t.to_station ? ' → ' + t.to_station : '') + tag;
+                g.appendChild(o);
+            }
+            sel.appendChild(g);
         }
 
         sel.addEventListener('change', () => onPick(row, loco));
@@ -542,20 +646,53 @@ function onPick(row, loco) {
     btn.style.display = 'none';
     const note = document.createElement('div');
     note.className = 'conflict-note';
-    note.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> `
-        + `${esc(train.train_no)} already has loco ${esc(train.actual_loco_no)} — choose what to do:`;
-
     const acts = document.createElement('div');
     acts.className = 'conflict-actions';
-    acts.innerHTML = `
-        <button class="btn btn-warn btn-sm" data-mode="replace">
-            <i class="fa-solid fa-right-left"></i> Replace it</button>
-        <button class="btn btn-warn btn-sm" data-mode="dead">
-            <i class="fa-solid fa-link-slash"></i> Attach — old one dead in tow</button>
-        <button class="btn btn-ghost btn-sm" data-mode="second">
-            <i class="fa-solid fa-plus"></i> Add as second loco</button>`;
+
+    if (train.needs_second) {
+        // Push-pull: the expected action is adding the trailing loco, so make
+        // that one click with the role it almost always is.
+        note.classList.add('need-note');
+        note.innerHTML = `<i class="fa-solid fa-circle-info"></i> `
+            + `${esc(train.train_no)} is push-pull — has ${esc(train.actual_loco_no)} on the front, needs its second:`;
+        acts.innerHTML = `
+            <button class="btn btn-primary btn-sm" data-mode="second" data-role="rear">
+                <i class="fa-solid fa-plus"></i> Add as trailing loco</button>
+            <span class="role-wrap">
+                <button class="btn btn-ghost btn-sm" data-mode="second">
+                    <i class="fa-solid fa-plus"></i> Add as</button>
+                <select class="role-pick" aria-label="Role for the second loco">
+                    <option value="coupler">coupler</option>
+                    <option value="assist">assist</option>
+                    <option value="dead_in_tow">dead in tow</option>
+                    <option value="rear">rear</option>
+                </select>
+            </span>
+            <button class="btn btn-ghost btn-sm" data-mode="replace">
+                <i class="fa-solid fa-right-left"></i> Replace the front one</button>`;
+    } else {
+        note.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> `
+            + `${esc(train.train_no)} already has loco ${esc(train.actual_loco_no)} — choose what to do:`;
+        // 'rear' is reserved for push-pull workings — the API rejects it on an
+        // ordinary train. Offer only the roles this train can actually take,
+        // rather than letting the LPC pick one that will bounce.
+        acts.innerHTML = `
+            <span class="role-wrap">
+                <button class="btn btn-primary btn-sm" data-mode="second">
+                    <i class="fa-solid fa-plus"></i> Add as 2nd</button>
+                <select class="role-pick" aria-label="Role for the second loco">
+                    <option value="assist" selected>assist</option>
+                    <option value="coupler">coupler</option>
+                    <option value="dead_in_tow">dead in tow</option>
+                </select>
+            </span>
+            <button class="btn btn-warn btn-sm" data-mode="dead">
+                <i class="fa-solid fa-link-slash"></i> Attach — old one dead in tow</button>
+            <button class="btn btn-ghost btn-sm" data-mode="replace">
+                <i class="fa-solid fa-right-left"></i> Replace it</button>`;
+    }
     acts.querySelectorAll('button').forEach(b =>
-        b.addEventListener('click', () => doAssign(row, loco, b.dataset.mode)));
+        b.addEventListener('click', () => doAssign(row, loco, b.dataset.mode, b.dataset.role || null)));
 
     cell.appendChild(note);
     cell.appendChild(acts);
@@ -565,21 +702,28 @@ function onPick(row, loco) {
    Goes through POST /log, the same endpoint the daily sheet uses, so the DN
    sheet fills itself and propagation, position tracking, the duplicate-loco
    guard and the dropped-loco restore all apply unchanged.                  */
-async function doAssign(row, loco, mode) {
+async function doAssign(row, loco, mode, presetRole) {
     const sel = row.querySelector('.train-pick');
     const train = board.trains.find(t => String(t.master_id) === sel.value);
-    if (!train) return;
-
-    let role = null;
-    if (mode === 'second') {
-        role = prompt('Role for ' + loco.loco_number
-            + '?\n\nType one of:  rear  |  coupler  |  assist  |  dead_in_tow', 'rear');
-        if (role === null) return;
-        role = String(role).trim().toLowerCase();
-        if (!['rear', 'coupler', 'assist', 'dead_in_tow'].includes(role)) {
-            return flash('Role must be rear, coupler, assist or dead_in_tow', 'bad');
-        }
+    if (!train) {
+        // Was a silent return. If the board refreshed between picking a working
+        // and pressing the button, the click did nothing and said nothing —
+        // indistinguishable from a broken button.
+        flash('That working is no longer on the board — reloading', 'bad');
+        return loadBoard();
     }
+
+    // Role comes from the inline picker (default "rear", 84% of real cases) or
+    // from a one-click button that presets it. No modal dialog.
+    let role = presetRole || null;
+    if (mode === 'second' && !role) {
+        const pick = row.querySelector('.role-pick');
+        // Fall back to what the API itself would default to for this train.
+        role = pick ? pick.value : (train.is_push_pull ? 'rear' : 'assist');
+    }
+    // Guard the one combination the API rejects outright, in case a stale board
+    // says push-pull and the master has since changed.
+    if (role === 'rear' && !train.is_push_pull) role = 'assist';
 
     // Echo the row's existing values back — POST /log rewrites the whole row,
     // so anything omitted here would be wiped from the sheet.
@@ -637,10 +781,120 @@ async function doAssign(row, loco, mode) {
         flash(loco.loco_number + ' → ' + train.train_no
             + (back.length ? '  ·  ' + back.join(', ') + ' back in the pool' : ''), 'ok');
 
-        setTimeout(loadBoard, 550);
+        // Pin this working and reload straight away: every row gets fresh data,
+        // and the "add another loco" step is rebuilt from it. No confirm click,
+        // so the LPC can never leave the board holding stale state.
+        recentMasterId = train.master_id;
+        loadBoard();
     } catch (e) {
         row.classList.remove('saving');
         row.classList.add('err');
+        flash('Save failed: ' + e.message, 'bad');
+    }
+}
+
+/* ── Pinned "just assigned" strip ───────────────────────────────────
+   Adding a second loco is a normal next step (~2 workings a day), and hunting
+   that same train down in another row's dropdown was the whole friction. This
+   sits above the loco list, is rebuilt from freshly loaded data on every
+   render, and needs no confirm click — so the board is never stale and the
+   ordinary dropdown route keeps working alongside it.                       */
+function recentStripHtml() {
+    if (!recentMasterId) return '';
+    const train = board.trains.find(t => t.master_id === recentMasterId);
+    if (!train || !train.assigned) return '';
+
+    const full = !!train.actual_loco_no_rear;
+    // 'rear' is push-pull only; the API rejects it otherwise.
+    const roles = train.is_push_pull
+        ? ['rear', 'assist', 'coupler', 'dead_in_tow']
+        : ['assist', 'coupler', 'dead_in_tow'];
+
+    return `
+    <div class="recent-strip">
+        <button class="rs-close" title="Dismiss"><i class="fa-solid fa-xmark"></i></button>
+        <div class="rs-head">
+            <i class="fa-solid fa-circle-check"></i>
+            <b>${esc(train.train_no)}</b> → ${esc(train.actual_loco_no)}
+            ${full ? ' + ' + esc(train.actual_loco_no_rear)
+                     + (train.secondary_role ? ' (' + esc(train.secondary_role.replace(/_/g, ' ')) + ')' : '')
+                   : ''}
+            <span class="rs-saved">saved</span>
+        </div>
+        ${full ? `
+            <div class="rs-note">
+                Both loco slots filled. A third loco goes on the daily sheet
+                using the <code>X+Y</code> coupler entry.
+            </div>` : (board.locos.length ? `
+            <div class="rs-add">
+                <span class="rs-label">Add another loco to ${esc(train.train_no)}</span>
+                <select class="fu-loco">
+                    ${board.locos.map(l => `<option value="${esc(l.loco_number)}">${esc(l.loco_number)}`
+                        + ` — ${esc(l.home_shed || '?')}${l.is_hog ? ' · HOG' : ''}`
+                        + `${l.loco_type ? ' · ' + esc(l.loco_type) : ''}</option>`).join('')}
+                </select>
+                <select class="fu-role">
+                    ${roles.map(r => `<option value="${r}">${r.replace(/_/g, ' ')}</option>`).join('')}
+                </select>
+                <button class="btn btn-primary btn-sm fu-go">
+                    <i class="fa-solid fa-plus"></i> Add</button>
+            </div>` : `
+            <div class="rs-note">No other locos available at ${esc(board.terminal)}.</div>`)}
+    </div>`;
+}
+
+function wireRecentStrip() {
+    const strip = document.querySelector('.recent-strip');
+    if (!strip) return;
+    strip.querySelector('.rs-close').addEventListener('click', () => {
+        recentMasterId = null;
+        renderLocos();
+    });
+    const go = strip.querySelector('.fu-go');
+    if (go) {
+        const train = board.trains.find(t => t.master_id === recentMasterId);
+        go.addEventListener('click', () => addSecond(train, strip));
+    }
+}
+
+async function addSecond(train, cell) {
+    const locoNo = cell.querySelector('.fu-loco').value;
+    let role = cell.querySelector('.fu-role').value;
+    if (role === 'rear' && !train.is_push_pull) role = 'assist';
+
+    const body = {
+        working_date: board.date,
+        direction: 'DN',
+        train_no: train.train_no,
+        master_id: train.master_id,
+        sheet_source: train.sheet_source,
+        section: train.section,
+        incoming_train: train.incoming_train || null,
+        outgoing_train: train.outgoing_train || null,
+        outgoing_train_rear: train.outgoing_train_rear || null,
+        remark: train.remark || null,
+        remarks_rear: train.remarks_rear || null,
+        failed_in_division: train.failed_in_division ? 1 : 0,
+        actual_loco_no: train.actual_loco_no,
+        actual_loco_no_rear: locoNo,
+        secondary_role: role,
+        main_loco_dead: train.main_loco_dead ? 1 : 0,
+    };
+
+    cell.classList.add('busy');
+    try {
+        const r = await fetch('/api/division/loco-link/log', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
+        const d = await r.json();
+        cell.classList.remove('busy');
+        if (!r.ok) return flash(d.error || 'Save failed', 'bad');
+
+        flash(locoNo + ' added to ' + train.train_no + ' as ' + role.replace(/_/g, ' '), 'ok');
+        loadBoard();
+    } catch (e) {
+        cell.classList.remove('busy');
         flash('Save failed: ' + e.message, 'bad');
     }
 }
@@ -649,8 +903,9 @@ async function doAssign(row, loco, mode) {
 function renderTrains() {
     const box = $('#trainList');
     let list = board.trains;
-    if (trainFilter === 'open') list = list.filter(t => !t.assigned);
-    if (trainFilter === 'filled') list = list.filter(t => t.assigned);
+    // "Needs loco" means an open slot — including a push-pull still short its second.
+    if (trainFilter === 'open') list = list.filter(t => !t.assigned || t.needs_second);
+    if (trainFilter === 'filled') list = list.filter(t => t.assigned && !t.needs_second);
 
     if (!list.length) {
         box.innerHTML = '<div class="empty"><i class="fa-solid fa-circle-check"></i>'
@@ -670,8 +925,9 @@ function renderTrains() {
               + (t.secondary_role ? ' (' + esc(t.secondary_role.replace(/_/g, ' ')) + ')' : '')
             : '';
 
+        const cls = t.needs_second ? 'is-partial' : (t.assigned ? 'is-assigned' : 'is-open');
         return `
-        <div class="train-item ${t.assigned ? 'is-assigned' : 'is-open'}">
+        <div class="train-item ${cls}">
             <div class="time">${esc(t.event_time || '—')}</div>
             <div>
                 <span class="tno">${esc(t.train_no)}</span>
@@ -679,9 +935,10 @@ function renderTrains() {
                 <div class="tname">${esc(t.train_name || '')}</div>
                 ${want.length ? '<div class="want">wants ' + want.join(' · ') + '</div>' : ''}
             </div>
-            <div class="state ${t.assigned ? 'filled' : 'open'}">
+            <div class="state ${t.needs_second ? 'partial' : (t.assigned ? 'filled' : 'open')}">
                 ${t.assigned
                     ? '<span class="loco">' + esc(t.actual_loco_no) + rear + '</span>'
+                      + (t.needs_second ? '<span class="need2">needs 2nd</span>' : '')
                     : 'needs loco'}
             </div>
         </div>`;
