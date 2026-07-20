@@ -2925,9 +2925,13 @@ router.get('/assign-board', async (req, res) => {
 
         // from_station is free text and inconsistent ("LTT / LTT", "BIRD/ BIRD"),
         // so normalise it and fall back to the sheet name when it is unusable.
-        // Mapped through stablingTerminal so a DR-originating working appears on
-        // the VVH board — that is where its locos actually stand. Without this
-        // the DR board would list workings it can never have a loco for.
+        // from_station is the single source for where a working starts — the same
+        // field the daily sheet groups by, so the sheet and this board cannot
+        // disagree by construction. Eight Dadar departures were recorded as LTT
+        // here; that was corrected in the data (sql/2026-07-20_dr_departures_
+        // from_station.sql) rather than overridden in code.
+        //
+        // Mapped through stablingTerminal because DR itself has no shed.
         const originOf = (m) => {
             const norm = normalizeTerminal(m.from_station);
             if (norm) return stablingTerminal(norm);
