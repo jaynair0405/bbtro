@@ -690,6 +690,10 @@ const TERMINALS = ['CSMT', 'LTT', 'DR', 'PNVL'];
 let allPositions = [];
 let sickLocos = new Set();
 let assignedToday = new Set();
+// loco_number → { train_no, working_date, role } for the booking that took it
+// out of the pool. Lets a card show "ASSIGNED DN 17612 · 18-07" rather than
+// just flagging it, so a stale booking is visible as stale.
+let assignments = {};
 
 async function loadAll() {
     try {
@@ -712,10 +716,12 @@ async function loadAll() {
             }
         }
 
-        // Build assigned-today set (DN trains)
+        // Build booked-out set (DN trains, front or rear, today or ahead)
         assignedToday.clear();
+        assignments = {};
         if (assignedRes.ok) {
             const assignedData = await assignedRes.json();
+            assignments = assignedData.assignments || {};
             for (const a of (assignedData.locos || [])) {
                 assignedToday.add(a);
             }
@@ -784,7 +790,7 @@ function render() {
                         <tr class="${l.isSick ? 'sick' : (l.isAssigned ? 'assigned' : '')}">
                             <td class="loco-col">${esc(l.loco_number)}</td>
                             <td>${esc(l.home_shed || '—')}</td>
-                            <td>${l.isSick ? 'SICK' : (l.isAssigned ? 'Assigned DN' : 'Available')}</td>
+                            <td>${l.isSick ? 'SICK' : (l.isAssigned ? esc(assignmentLabel(l.loco_number)) : 'Available')}</td>
                             <td>${l.arrived_via_train ? esc(l.arrived_via_train) : (l.remarks || 'Manual')}</td>
                         </tr>
                     `).join('')}
@@ -809,6 +815,15 @@ function render() {
     }
 }
 
+// "ASSIGNED DN 17612 · 18-07", or a bare flag if we somehow lack the detail.
+function assignmentLabel(locoNo) {
+    const a = assignments[locoNo];
+    if (!a) return 'ASSIGNED DN';
+    const d = a.working_date ? a.working_date.slice(5).split('-').reverse().join('-') : '';
+    const rear = a.role === 'rear' ? ' (rear)' : '';
+    return `ASSIGNED DN ${a.train_no}${rear}${d ? ' · ' + d : ''}`;
+}
+
 function renderLocoCard(loco) {
     const classes = ['loco-card'];
     if (loco.isSick) classes.push('sick');
@@ -824,7 +839,7 @@ function renderLocoCard(loco) {
     if (loco.isSick) {
         statusBadge = '<span class="status-badge sick">SICK</span>';
     } else if (loco.isAssigned) {
-        statusBadge = '<span class="status-badge assigned">ASSIGNED DN</span>';
+        statusBadge = `<span class="status-badge assigned">${esc(assignmentLabel(loco.loco_number))}</span>`;
     }
 
     const arrivalInfo = loco.arrived_via_train

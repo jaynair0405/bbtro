@@ -49,6 +49,31 @@ const VALID_LOCATIONS = [...MUMBAI_TERMINALS, 'IN_TRANSIT', 'OUT_OF_DIV'];
 // Must match the ENUM on div_locos.schedule_type.
 const SCHEDULE_TYPES = ['IA', 'IB', 'IC', 'IOH', 'TOH', 'POH'];
 
+// A loco standing at a terminal is "booked out" if it already appears on a DN
+// link row dated on/after the day it reached that terminal.
+//
+// Two things this deliberately does NOT do:
+//   - It does not pin to CURDATE(). Links are entered ahead of the departure —
+//     often on the arrival day, sometimes for tomorrow's train — so a
+//     working_date = today filter misses most live bookings. There is no lower
+//     bound either: the arrival date is the anchor, and a loco that genuinely
+//     left and came back gets a fresh arrived_at, which ages out its old
+//     bookings on its own.
+//   - It does not consult div_loco_positions.current_location. That column is
+//     written by an unordered event stream (see updateLocoPosition) and can say
+//     a loco is stabled when it has long since worked out; booking state is the
+//     reliable signal.
+// Matches front and rear locos, including "X+Y" couplers, which are stored
+// whole in actual_loco_no_rear but tracked by their first part elsewhere.
+// Expects the outer query to expose div_loco_positions as `lp`.
+const BOOKED_OUT_EXISTS = `
+    SELECT 1 FROM div_loco_link_log ll
+    WHERE ll.direction = 'DN'
+      AND ll.working_date >= COALESCE(DATE(lp.arrived_at), CURDATE())
+      AND (ll.actual_loco_no = lp.loco_number
+           OR ll.actual_loco_no_rear = lp.loco_number
+           OR SUBSTRING_INDEX(ll.actual_loco_no_rear, '+', 1) = lp.loco_number)`;
+
 /**
  * Normalize a location string to a standard terminal code.
  * Examples: "VVH TS" → "VVH", "csmt" → "CSMT", "LTT ELS" → "LTT"
@@ -2629,7 +2654,7 @@ router.get('/available', async (req, res) => {
 
         // Locos at the terminal that are:
         // 1. Not sick
-        // 2. Not already assigned to a DN train today
+        // 2. Not already booked out on a DN train (see BOOKED_OUT_EXISTS)
         const [rows] = await pool.query(
             `SELECT lp.loco_number, lp.arrived_via_train, lp.arrived_at, lp.remarks,
                     dl.loco_type, dl.home_shed, dl.railway_zone, dl.hotel_load_oem
@@ -2639,14 +2664,9 @@ router.get('/available', async (req, res) => {
                 ON lp.loco_number = sr.loco_number AND sr.fit_from IS NULL
              WHERE lp.current_location = ?
                AND sr.id IS NULL
-               AND NOT EXISTS (
-                   SELECT 1 FROM div_loco_link_log ll
-                   WHERE ll.actual_loco_no = lp.loco_number
-                     AND ll.direction = 'DN'
-                     AND ll.working_date = ?
-               )
+               AND NOT EXISTS (${BOOKED_OUT_EXISTS})
              ORDER BY lp.arrived_at ASC`,
-            [terminal, today]
+            [terminal]
         );
 
         res.json({
@@ -2664,25 +2684,47 @@ router.get('/available', async (req, res) => {
     }
 });
 
-// GET /assigned-today — locos assigned to DN trains today (for availability page)
+// GET /assigned-today — locos standing at a terminal that are already booked
+// out on a DN train (for the availability page).
+//
+// "today" in the name is historical: this used to filter working_date = today,
+// which hid every booking made on the arrival day or for tomorrow's departure —
+// the bulk of them. It now reports each loco's earliest live DN booking along
+// with the train and date, so the page can say WHICH train has it.
 router.get('/assigned-today', async (req, res) => {
     if (!req.session.user) return res.status(401).json({ error: 'not logged in' });
 
     try {
         const pool = req.app.locals.pool;
-        const today = todayISO();
 
         const [rows] = await pool.query(
-            `SELECT DISTINCT actual_loco_no
-             FROM div_loco_link_log
-             WHERE direction = 'DN'
-               AND working_date = ?
-               AND actual_loco_no IS NOT NULL`,
-            [today]
+            `SELECT lp.loco_number, ll.train_no, ll.working_date,
+                    CASE WHEN ll.actual_loco_no = lp.loco_number
+                         THEN 'front' ELSE 'rear' END AS role
+             FROM div_loco_positions lp
+             JOIN div_loco_link_log ll
+               ON ll.direction = 'DN'
+              AND ll.working_date >= COALESCE(DATE(lp.arrived_at), CURDATE())
+              AND (ll.actual_loco_no = lp.loco_number
+                   OR ll.actual_loco_no_rear = lp.loco_number
+                   OR SUBSTRING_INDEX(ll.actual_loco_no_rear, '+', 1) = lp.loco_number)
+             ORDER BY lp.loco_number, ll.working_date ASC, ll.train_no ASC`
         );
 
-        const locos = rows.map(r => r.actual_loco_no);
-        res.json({ date: today, total: locos.length, locos });
+        // A loco can carry several bookings (e.g. today's and tomorrow's link).
+        // Keep the earliest — that is the one that takes it out of the pool.
+        const assignments = {};
+        for (const r of rows) {
+            if (assignments[r.loco_number]) continue;
+            assignments[r.loco_number] = {
+                train_no: r.train_no,
+                working_date: toDateISO(r.working_date),
+                role: r.role,
+            };
+        }
+
+        const locos = Object.keys(assignments);
+        res.json({ date: todayISO(), total: locos.length, locos, assignments });
     } catch (err) {
         console.error('[loco-link GET /assigned-today]', err);
         res.status(500).json({ error: 'Lookup failed' });
