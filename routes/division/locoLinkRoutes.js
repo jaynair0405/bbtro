@@ -71,8 +71,8 @@ const BOOKED_OUT_EXISTS = `
     WHERE ll.direction = 'DN'
       AND ll.working_date >= COALESCE(DATE(lp.arrived_at), CURDATE())
       AND (ll.actual_loco_no = lp.loco_number
-           OR ll.actual_loco_no_rear = lp.loco_number
-           OR SUBSTRING_INDEX(ll.actual_loco_no_rear, '+', 1) = lp.loco_number)`;
+           OR FIND_IN_SET(lp.loco_number,
+                          REPLACE(REPLACE(ll.actual_loco_no_rear, ' ', ''), '+', ',')) > 0)`;
 
 /**
  * Normalize a location string to a standard terminal code.
@@ -527,6 +527,81 @@ async function updateLocoPosition(pool, { locoNo, location, movementType, trainN
             // Tables don't exist yet — skip silently
             return { success: false, error: 'position tables not yet created' };
         }
+        throw e;
+    }
+}
+
+/**
+ * Put a loco back where it was standing after it is dropped from a train.
+ *
+ * When a DN link is saved, the loco is marked OUT_OF_DIV — it has left the
+ * division. If the LPC then changes the loco (fault before departure, better
+ * loco found, link altered), the replaced loco is physically still at the
+ * terminal, but nothing used to undo its departure. It stayed OUT_OF_DIV,
+ * vanished from the availability page and the picker, and had to be moved back
+ * by hand — the same manual chore the booking fix removed.
+ *
+ * Only call this for a loco genuinely dropped from the row. A loco that merely
+ * moves front → rear (a failed loco left attached and towed dead) is still on
+ * the train and must stay OUT_OF_DIV.
+ *
+ * Restores from the DEPARTURE we ourselves wrote, and only if nothing has
+ * happened to the loco since — if its position no longer matches that
+ * departure, a later event owns it and we leave it alone.
+ */
+async function restoreDroppedLocoPosition(pool, { locoNo, trainNo, workingDate, userId }) {
+    if (!locoNo) return { success: false, error: 'loco_number required' };
+
+    try {
+        // The departure this train/date wrote for the loco — its from_location
+        // is where the loco was standing.
+        const [hist] = await pool.query(
+            `SELECT from_location FROM div_loco_position_history
+             WHERE loco_number = ? AND train_no = ? AND working_date = ?
+               AND movement_type = 'DEPARTURE' AND to_location = 'OUT_OF_DIV'
+             ORDER BY moved_at DESC LIMIT 1`,
+            [locoNo, trainNo, workingDate]
+        );
+        if (!hist.length || !hist[0].from_location) {
+            return { success: false, skipped: 'no departure to undo' };
+        }
+        const back = hist[0].from_location;
+        if (!VALID_LOCATIONS.includes(back) || back === 'OUT_OF_DIV') {
+            return { success: false, skipped: `not a restorable location: ${back}` };
+        }
+
+        // Only undo if the loco is still sitting on that departure.
+        const [cur] = await pool.query(
+            `SELECT current_location, departed_via_train FROM div_loco_positions
+             WHERE loco_number = ? LIMIT 1`,
+            [locoNo]
+        );
+        if (!cur.length) return { success: false, skipped: 'no position row' };
+        if (cur[0].current_location !== 'OUT_OF_DIV' || cur[0].departed_via_train !== trainNo) {
+            return { success: false, skipped: 'superseded by a later movement' };
+        }
+
+        const movedAt = nowISTDateTime();
+        // arrived_via_train / arrived_at survive a DEPARTURE untouched, so the
+        // loco keeps its original "via 12620" once it is back at the terminal.
+        await pool.query(
+            `UPDATE div_loco_positions
+             SET current_location = ?, departed_via_train = NULL, departed_at = NULL,
+                 remarks = ?, updated_by = ?
+             WHERE loco_number = ?`,
+            [back, `returned to pool — dropped from ${trainNo}`, userId, locoNo]
+        );
+        await pool.query(
+            `INSERT INTO div_loco_position_history
+                (loco_number, from_location, to_location, movement_type, train_no, working_date, moved_at, remarks, moved_by)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [locoNo, 'OUT_OF_DIV', back, 'TRANSFER', trainNo, workingDate, movedAt,
+             `dropped from ${trainNo} — position restored`, userId]
+        );
+
+        return { success: true, restored_to: back };
+    } catch (e) {
+        if (isTableNotExistError(e)) return { success: false, error: 'position tables not yet created' };
         throw e;
     }
 }
@@ -2115,6 +2190,25 @@ router.post('/log', async (req, res) => {
             }
         }
 
+        // Which locos were on this row before we overwrite it? Needed to spot a
+        // loco change (fault before departure, better loco found) so the dropped
+        // loco can be put back in the pool — see restoreDroppedLocoPosition.
+        let locosBefore = [];
+        try {
+            const [prior] = await pool.query(
+                `SELECT actual_loco_no, actual_loco_no_rear FROM div_loco_link_log
+                 WHERE working_date = ? AND direction = ? AND train_no = ? LIMIT 1`,
+                [working_date, direction, train_no]
+            );
+            if (prior.length) {
+                locosBefore = [prior[0].actual_loco_no, prior[0].actual_loco_no_rear]
+                    .filter(Boolean)
+                    .map(v => String(v).includes('+') ? String(v).split('+')[0].trim() : String(v).trim());
+            }
+        } catch (e) {
+            console.warn('[loco-link POST /log] prior-loco read failed:', e.message);
+        }
+
         // UPSERT
         const [result] = await pool.query(
             `INSERT INTO div_loco_link_log
@@ -2456,6 +2550,31 @@ router.post('/log', async (req, res) => {
             }
         }
 
+        // ── Dropped-loco position restore ─────────────────────────────────
+        // Any loco that was on this row and no longer is has been taken off the
+        // train. It is still standing at the terminal, so undo the departure we
+        // wrote for it earlier. A loco that only moved front → rear (failed and
+        // towed dead) is still present here, so it is not treated as dropped.
+        const restored = [];
+        if (locosBefore.length && direction === 'DN') {
+            const rearNow = actual_loco_no_rear && actual_loco_no_rear.includes('+')
+                ? actual_loco_no_rear.split('+')[0].trim()
+                : actual_loco_no_rear;
+            const locosNow = [actual_loco_no, rearNow].filter(Boolean).map(v => String(v).trim());
+            for (const gone of locosBefore) {
+                if (locosNow.includes(gone)) continue;
+                try {
+                    const r = await restoreDroppedLocoPosition(pool, {
+                        locoNo: gone, trainNo: train_no,
+                        workingDate: working_date, userId: u.username,
+                    });
+                    if (r.success) restored.push({ loco: gone, ...r });
+                } catch (e) {
+                    console.warn('[loco-link POST /log] position restore failed for', gone, e.message);
+                }
+            }
+        }
+
         // Read back the canonical row for the client
         const [final] = await pool.query(
             `SELECT * FROM div_loco_link_log
@@ -2470,6 +2589,7 @@ router.post('/log', async (req, res) => {
             log: final[0] || null,
             propagated,
             position_updates: positionUpdates,
+            position_restored: restored,
             warnings: {
                 hog_mismatch: master && master.expected_hog === 1
                     && front.snapshot && !front.snapshot.hotel_load_oem ? true : false,
@@ -2706,8 +2826,8 @@ router.get('/assigned-today', async (req, res) => {
                ON ll.direction = 'DN'
               AND ll.working_date >= COALESCE(DATE(lp.arrived_at), CURDATE())
               AND (ll.actual_loco_no = lp.loco_number
-                   OR ll.actual_loco_no_rear = lp.loco_number
-                   OR SUBSTRING_INDEX(ll.actual_loco_no_rear, '+', 1) = lp.loco_number)
+                   OR FIND_IN_SET(lp.loco_number,
+                                  REPLACE(REPLACE(ll.actual_loco_no_rear, ' ', ''), '+', ',')) > 0)
              ORDER BY lp.loco_number, ll.working_date ASC, ll.train_no ASC`
         );
 
