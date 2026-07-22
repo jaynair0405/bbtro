@@ -166,14 +166,22 @@
         .panel-head .count { font-size: .8rem; font-weight: 500; opacity: .9; }
         .panel-body { padding: 12px; }
 
-        /* Type breakdown strip under the "Locos available" header —
-           "WAP7-5 (4 HOG · 1 N)  WAP4-3" at a glance. */
+        /* Composition strip under the "Locos available" header. Highlighted on
+           purpose: it exists to explain an apparent glut — 20 standing but the
+           passenger/HOG count is what actually matters. */
         .type-summary {
-            display: flex; flex-wrap: wrap; gap: 6px;
-            padding: 9px 12px; border-bottom: 1px solid var(--border);
-            background: #f8fafc;
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--border);
+            background: linear-gradient(0deg, #eff6ff, #f8fbff);
+            border-left: 4px solid var(--brand);
         }
         .type-summary:empty { display: none; }
+        .ts-headline {
+            display: block; font-size: .8rem; color: var(--text-main); margin-bottom: 7px;
+        }
+        .ts-headline b { color: var(--brand); font-weight: 700; font-size: .92rem; }
+        .ts-fmuted { color: var(--warning); font-weight: 600; }
+        .ts-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
         .ts-chip {
             display: inline-flex; align-items: center; gap: 5px;
             background: var(--surface); border: 1px solid var(--border-strong);
@@ -181,9 +189,12 @@
             font-size: .82rem; color: var(--text-main);
         }
         .ts-chip b { color: var(--brand); font-weight: 700; letter-spacing: .01em; }
+        .ts-chip.ts-freight { background: #fffbeb; border-color: #fde68a; opacity: .85; }
+        .ts-chip.ts-freight b { color: var(--warning); }
         .ts-split { display: inline-flex; gap: 5px; padding-left: 5px; border-left: 1px solid var(--border); }
         .ts-hog { color: #065f46; font-weight: 600; font-size: .74rem; }
         .ts-nonhog { color: var(--text-light); font-weight: 600; font-size: .74rem; }
+        .ts-divider { width: 1px; align-self: stretch; background: var(--border-strong); margin: 0 3px; }
 
         /* ── Loco rows ──────────────────────────────────────────────── */
         .loco-row {
@@ -559,17 +570,42 @@ function locoTypeSummary(locos) {
 // A type can carry HOG (WAP7, WAP5) — only then is the hog/non-hog split shown.
 function typeCanHog(rows) { return rows.hog > 0; }
 
+// Only WAP* locos work these passenger DN links. WAG* / EF* freight standing at
+// the terminal inflates the "available" count without being usable — which is
+// the whole point of showing this: a pile of 20 that is mostly WAG9, or all
+// non-HOG, explains a shortage that otherwise looks like mismanagement.
+function isPassengerType(t) { return /^WAP/.test(String(t || '').toUpperCase()); }
+
 function typeSummaryHtml(locos) {
     const rows = locoTypeSummary(locos);
     if (!rows.length) return '';
-    return rows.map(r => {
+
+    const chip = (r, freight) => {
         const split = typeCanHog(r)
             ? `<span class="ts-split"><span class="ts-hog" title="HOG capable">${r.hog} HOG</span>`
               + (r.nonHog ? ` <span class="ts-nonhog" title="non-HOG">${r.nonHog} N</span>` : '')
               + `</span>`
             : '';
-        return `<span class="ts-chip"><b>${esc(r.type)}</b>-${r.count}${split}</span>`;
-    }).join('');
+        return `<span class="ts-chip${freight ? ' ts-freight' : ''}"><b>${esc(r.type)}</b>-${r.count}${split}</span>`;
+    };
+
+    const pass = rows.filter(r => isPassengerType(r.type));
+    const freight = rows.filter(r => !isPassengerType(r.type));
+    const passHog = pass.reduce((n, r) => n + r.hog, 0);
+    const passTotal = pass.reduce((n, r) => n + r.count, 0);
+    const freightTotal = freight.reduce((n, r) => n + r.count, 0);
+
+    // Headline states the usable pool bluntly, then the chips break it down.
+    const headline = `<span class="ts-headline">`
+        + `<b>${passHog}</b> HOG · <b>${passTotal}</b> passenger`
+        + (freightTotal ? ` · <span class="ts-fmuted">${freightTotal} freight</span>` : '')
+        + `</span>`;
+
+    return headline
+        + `<span class="ts-chips">`
+        + pass.map(r => chip(r, false)).join('')
+        + (freight.length ? `<span class="ts-divider"></span>` + freight.map(r => chip(r, true)).join('') : '')
+        + `</span>`;
 }
 
 function renderLocos() {
