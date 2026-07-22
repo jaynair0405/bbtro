@@ -166,6 +166,25 @@
         .panel-head .count { font-size: .8rem; font-weight: 500; opacity: .9; }
         .panel-body { padding: 12px; }
 
+        /* Type breakdown strip under the "Locos available" header —
+           "WAP7-5 (4 HOG · 1 N)  WAP4-3" at a glance. */
+        .type-summary {
+            display: flex; flex-wrap: wrap; gap: 6px;
+            padding: 9px 12px; border-bottom: 1px solid var(--border);
+            background: #f8fafc;
+        }
+        .type-summary:empty { display: none; }
+        .ts-chip {
+            display: inline-flex; align-items: center; gap: 5px;
+            background: var(--surface); border: 1px solid var(--border-strong);
+            border-radius: 999px; padding: 3px 11px;
+            font-size: .82rem; color: var(--text-main);
+        }
+        .ts-chip b { color: var(--brand); font-weight: 700; letter-spacing: .01em; }
+        .ts-split { display: inline-flex; gap: 5px; padding-left: 5px; border-left: 1px solid var(--border); }
+        .ts-hog { color: #065f46; font-weight: 600; font-size: .74rem; }
+        .ts-nonhog { color: var(--text-light); font-weight: 600; font-size: .74rem; }
+
         /* ── Loco rows ──────────────────────────────────────────────── */
         .loco-row {
             border: 1px solid var(--border);
@@ -386,6 +405,7 @@
                 <span><i class="fa-solid fa-train-subway"></i> Locos available</span>
                 <span class="count" id="locoCount"></span>
             </div>
+            <div class="type-summary" id="typeSummary"></div>
             <div class="panel-body" id="locoList"></div>
         </div>
 
@@ -520,8 +540,42 @@ function renderStats() {
     $('#trainCount').textContent = c.trains_total + ' on ' + dmy(board.date);
 }
 
+/* Breakdown of a loco set by type, HOG-split for HOG-capable types — the LPC
+   wants "how many WAP7, how many WAP4" at a glance, and for the P7s, how many
+   are HOG. Returns [{type, count, hog, nonHog}] ordered by count. Pure, so the
+   DN sheet's available banner can render the same summary from its own list. */
+function locoTypeSummary(locos) {
+    const by = new Map();
+    for (const l of locos) {
+        const t = (l.loco_type || 'UNKNOWN').toUpperCase();
+        if (!by.has(t)) by.set(t, { type: t, count: 0, hog: 0, nonHog: 0 });
+        const e = by.get(t);
+        e.count++;
+        if (l.is_hog) e.hog++; else e.nonHog++;
+    }
+    return [...by.values()].sort((a, b) => b.count - a.count);
+}
+
+// A type can carry HOG (WAP7, WAP5) — only then is the hog/non-hog split shown.
+function typeCanHog(rows) { return rows.hog > 0; }
+
+function typeSummaryHtml(locos) {
+    const rows = locoTypeSummary(locos);
+    if (!rows.length) return '';
+    return rows.map(r => {
+        const split = typeCanHog(r)
+            ? `<span class="ts-split"><span class="ts-hog" title="HOG capable">${r.hog} HOG</span>`
+              + (r.nonHog ? ` <span class="ts-nonhog" title="non-HOG">${r.nonHog} N</span>` : '')
+              + `</span>`
+            : '';
+        return `<span class="ts-chip"><b>${esc(r.type)}</b>-${r.count}${split}</span>`;
+    }).join('');
+}
+
 function renderLocos() {
     const box = $('#locoList');
+    const ts = $('#typeSummary');
+    if (ts) ts.innerHTML = typeSummaryHtml(board.locos);
     const strip = recentStripHtml();
     if (!board.locos.length) {
         box.innerHTML = strip + '<div class="empty"><i class="fa-solid fa-inbox"></i>'
