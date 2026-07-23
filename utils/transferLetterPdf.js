@@ -25,6 +25,23 @@ function lines(text) {
     return String(text || '').split('\n').map(s => s.trim()).filter(Boolean);
 }
 
+// Short-form designation (same convention used on cli-nomination / transfer-letter.html)
+function shortDesignation(designation) {
+    if (!designation) return '';
+    const d = designation.toLowerCase();
+    const sr = d.includes('senior') || /\bsr\b/.test(d);
+    const assistant = d.includes('assistant') || d.includes('asst') || d.includes('astt');
+    const locoPilot = d.includes('loco') && d.includes('pilot');
+    if (d.includes('motorman')) return 'MM';
+    if (assistant && locoPilot) return sr ? 'Sr.ALP' : 'ALP';
+    if (d.includes('shunter')) return sr ? 'Sr.LPS' : 'LPS';
+    if (locoPilot && d.includes('goods')) return 'LPG';
+    if (locoPilot && d.includes('ghat')) return 'LP Ghat';
+    if (locoPilot && (d.includes('mail') || d.includes('express'))) return 'LPM';
+    if (locoPilot && d.includes('pass')) return 'LPP';
+    return designation.length > 10 ? designation.substring(0, 8) + '..' : designation;
+}
+
 /**
  * @param {object} letter    div_transfer_letters row (+ from_office_name/to_office_name)
  * @param {Array}  staffRows div_transfer_letter_staff rows (snapshots preferred)
@@ -134,7 +151,9 @@ function renderTransferLetterPdf(letter, staffRows) {
                 fmtDate(s.new_reporting_date),
             ];
             if (anyRemarks) cells.push(s.remarks || '');
-            const rowH = anyRemarks && (s.remarks || '').length > 24 ? 30 : 20;
+            const desig = s.designation_name ? shortDesignation(s.designation_name) : '';
+            // Two-line PF cell (number + designation) needs a taller row.
+            const rowH = Math.max(28, anyRemarks && (s.remarks || '').length > 24 ? 30 : 20);
             if (y + rowH > usableBottom) {
                 doc.addPage();
                 y = drawTableHeader(doc.page.margins.top);
@@ -144,6 +163,11 @@ function renderTransferLetterPdf(letter, staffRows) {
             cells.forEach((c, ci) => {
                 doc.rect(x, y, cw[ci], rowH).stroke('#000000');
                 doc.text(c, x + 3, y + 5.5, { width: cw[ci] - 6, align: ci === 2 ? 'left' : 'center', ellipsis: true });
+                if (ci === 1 && desig) {
+                    doc.fontSize(7.5).fillColor('#555555')
+                        .text(desig, x + 3, y + 17, { width: cw[ci] - 6, align: 'center', ellipsis: true });
+                    doc.fontSize(9.5).fillColor('#000000');
+                }
                 x += cw[ci];
             });
             y += rowH;

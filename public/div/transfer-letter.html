@@ -738,6 +738,23 @@ const fmtD = (d) => {
 };
 const toInputDate = (d) => d ? String(d).slice(0, 10) : '';
 
+// Short-form designation (same convention used on cli-nomination etc.)
+function shortDesignation(designation) {
+    if (!designation) return '';
+    const d = designation.toLowerCase();
+    const sr = d.includes('senior') || /\bsr\b/.test(d);   // senior prefix → "Sr."
+    const assistant = d.includes('assistant') || d.includes('asst') || d.includes('astt');
+    const locoPilot = d.includes('loco') && d.includes('pilot');
+    if (d.includes('motorman')) return 'MM';
+    if (assistant && locoPilot) return sr ? 'Sr.ALP' : 'ALP';
+    if (d.includes('shunter')) return sr ? 'Sr.LPS' : 'LPS';
+    if (locoPilot && d.includes('goods')) return 'LPG';
+    if (locoPilot && d.includes('ghat')) return 'LP Ghat';
+    if (locoPilot && (d.includes('mail') || d.includes('express'))) return 'LPM';
+    if (locoPilot && d.includes('pass')) return 'LPP';
+    return designation.length > 10 ? designation.substring(0, 8) + '..' : designation;
+}
+
 function toast(msg, kind) {
     const t = $('toast');
     t.textContent = msg;
@@ -988,7 +1005,7 @@ function updatePreview() {
     $('pvRows').innerHTML = STAFF.length
         ? STAFF.map((s, i) => `<tr>
             <td>${i + 1}</td>
-            <td>${esc(s.pf_number || '')}</td>
+            <td>${esc(s.pf_number || '')}${s.designation_name ? `<br><small style="color:#555">${esc(shortDesignation(s.designation_name))}</small>` : ''}</td>
             <td class="nm">${esc(s.name)}</td>
             <td>${fmtD(s.existing_reporting_date)}</td>
             <td>${fmtD(s.relieving_date)}</td>
