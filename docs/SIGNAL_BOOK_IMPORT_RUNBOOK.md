@@ -15,6 +15,14 @@ then run the SQL migrations + data imports on the server. Workflow:
 `git checkout signal-book` before doing any work here.
 
 ## 0. Tooling
+- Pre-flight: `node scripts/preflight-corridor.js <master.xlsx>` — run FIRST on every
+  master. Reports dups, invalid enums (type/placement/function), orphan station/NS/PSR
+  anchors, PSR-line typos, blank-anchor terminal headers. Also run a cross-section check
+  (number+direction vs existing `div_signals`) before importing a renamed/deduped master.
+- Builder: `node scripts/build-corridor-master.js <master.xlsx> <outDir>` — splits a
+  corridor master into per-line section + signals files the importer eats. Auto-detects
+  both sheet-naming styles (spaces≡hyphens); carries blank-anchor terminals; header-only
+  empty inserts/PSR when a corridor has none.
 - Importer: `node scripts/import-signal-section.js <section.xlsx> --signals <signals.xlsx|csv> [--commit] [--force]`
   - Dry-run without `--commit`. `--force` only to overwrite a `ui`-owned section.
 - Renderer: `node scripts/render-signal-book.js <BEAT_CODE>` → `signal-book-<BEAT>.html`
