@@ -65,6 +65,15 @@ for (const { name, rows: sig } of sigSheets) {
   console.log('  Station anchors NOT in signals:', orphan(st, 'before_signal').join(', ') || 'none');
   console.log('  NS anchors NOT in signals:', orphan(ns, 'before_signal').join(', ') || 'none');
   console.log('  PSR anchors NOT in signals:', orphan(psr, 'insert_before_signal').join(', ') || 'none');
+  // PSR completeness — the importer requires start_km_text, end_km_text and speed_kmph
+  // (catches column-offset / missing cells before import).
+  const psrBad = [];
+  psr.forEach((r, i) => {
+    if (!String(r.start_km_text).trim()) psrBad.push(`row${i} blank start_km (before ${r.insert_before_signal})`);
+    if (!String(r.end_km_text).trim()) psrBad.push(`row${i} blank end_km (before ${r.insert_before_signal})`);
+    if (!String(r.speed_kmph).trim()) psrBad.push(`row${i} blank speed (before ${r.insert_before_signal})`);
+  });
+  console.log('  PSR incomplete rows:', psrBad.length ? psrBad.join('; ') : 'none');
   console.log('  PSR line values:', JSON.stringify([...new Set(psr.map((r) => String(r.line).trim()))]));
   const stBlank = st.filter((r) => !String(r.before_signal).trim()).map((r) => r.station_header);
   if (stBlank.length) console.log('  Terminal station header (blank anchor, appends at end):', stBlank.join(' | '));
