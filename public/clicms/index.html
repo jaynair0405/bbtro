@@ -16,7 +16,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="clicms.css" />
+  <!-- ?v tag must match CACHE_VERSION in clicms-sw.js: it stops a cache-first service
+       worker pairing a fresh index.html with a stale clicms.js (columns then misalign). -->
+  <link rel="stylesheet" href="clicms.css?v4" />
 </head>
 <body>
   <header class="topbar">
@@ -106,7 +108,7 @@
             <option value="cli" selected>CLI name</option>
             <option value="due">Due date (oldest first)</option>
             <option value="desig">Designation</option>
-            <option value="grade">Category (A/B/C)</option>
+            <option value="grade">Category (A/B/C/D)</option>
           </select>
         </div>
         <div class="control-spacer"></div>
@@ -133,6 +135,7 @@
               <th>Crew ID</th>
               <th>Name</th>
               <th>Desig.</th>
+              <th class="ctr">Status</th>
               <th class="ctr">Cat.</th>
               <th>Done Date</th>
               <th>Due Date</th>
@@ -147,7 +150,7 @@
     </section>
   </main>
 
-  <script src="clicms.js"></script>
+  <script src="clicms.js?v4"></script>
   <script>
     // Register the PWA service worker (caches the app shell only).
     if ('serviceWorker' in navigator) {

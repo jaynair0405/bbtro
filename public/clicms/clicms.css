@@ -296,6 +296,14 @@ td.num { text-align: center; color: var(--muted); font-family: var(--mono); font
 .cat-A { background: #e3f1e8; color: var(--ok); }
 .cat-B { background: #fdf2dd; color: #9a6a00; }
 .cat-C { background: #fbe4df; color: var(--alert); }
+.cat-D { background: #f6d2ca; color: #8a2a15; }
+/* CMS duty status (REST / SIGNON / LEAVE …). Kept monochrome so the A/B/C
+   category stays the only colour signal in the row. */
+.stat {
+  font-size: 11.5px; letter-spacing: 0.3px; color: var(--muted);
+  background: var(--bg-panel); border: 1px solid var(--line);
+  padding: 1px 6px; border-radius: 4px; white-space: nowrap;
+}
 .due-date { font-family: var(--mono); color: var(--alert); font-weight: 500; }
 .rm-btn {
   border: 1px solid var(--line); background: #fff; color: var(--alert);

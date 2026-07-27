@@ -73,15 +73,18 @@ function windowFileTag(dueFrom, dueTill) {
   return dueFrom ? `${dueFrom}_to_${dueTill}` : `till_${dueTill}`;
 }
 
-const EXPORT_HEADERS = ['S.No.', 'CLI ID', 'CLI NAME', 'CREW ID', 'NAME', 'DESIG.', 'CATEGORY', 'DONE DATE', 'DUE DATE', 'REMARKS'];
+// Keep in step with rowToCells and with the width arrays in both exporters (they index positionally).
+const EXPORT_HEADERS = ['S.No.', 'CLI ID', 'CLI NAME', 'CREW ID', 'NAME', 'DESIG.', 'STATUS', 'CATEGORY', 'DONE DATE', 'DUE DATE', 'REMARKS'];
 
 function rowToCells(r, parameter, idx) {
   const p = r.params && r.params[parameter] ? r.params[parameter] : { done: '', due: '' };
-  return [idx + 1, r.cliId, r.cliName, r.crewId, r.name, r.desig, r.grade, p.done, p.due, r.remark || ''];
+  return [idx + 1, r.cliId, r.cliName, r.crewId, r.name, r.desig, r.status || '', r.grade, p.done, p.due, r.remark || ''];
 }
 
 // ---- Designation × category summary (shared by both PDF exports) ----
-const SUMMARY_CATS = ['A', 'B', 'C'];
+// Keep in step with CATS in public/clicms/clicms.js — both mirror
+// div_staff_master.safety_category enum('A','B','C','D').
+const SUMMARY_CATS = ['A', 'B', 'C', 'D'];
 function summaryCatOf(grade) {
   const g = (grade || '').trim().toUpperCase();
   return SUMMARY_CATS.includes(g) ? g : 'Other';
@@ -182,10 +185,12 @@ router.post('/export/xlsx', async (req, res) => {
       row.font = { name: 'Arial', size: 10 };
     });
 
-    const widths = [7, 12, 22, 12, 26, 9, 10, 13, 13, 32];
+    const widths = [7, 12, 22, 12, 26, 9, 10, 10, 13, 13, 32]; // one per EXPORT_HEADERS entry
     ws.columns.forEach((c, i) => { c.width = widths[i] || 12; });
     ws.views = [{ state: 'frozen', ySplit: 2 }];
-    ws.autoFilter = { from: 'A2', to: 'J2' };
+    // Derived from the header count so adding a column can't leave the filter short.
+    const lastCol = String.fromCharCode(64 + EXPORT_HEADERS.length);
+    ws.autoFilter = { from: 'A2', to: `${lastCol}2` };
 
     // Totals: designation × category, below the list (spacer row keeps it separate).
     const agg = aggregateByDesig(rows);
@@ -231,7 +236,7 @@ router.post('/export/pdf', (req, res) => {
       `attachment; filename="CMS_${meta.key}_due_${windowFileTag(dueFrom, dueTill)}.pdf"`);
     doc.pipe(res);
 
-    const colW = [28, 54, 108, 52, 132, 42, 42, 64, 64, 130]; // 10 cols incl. Remarks; sums to 716, fits ~786 usable
+    const colW = [26, 52, 104, 50, 126, 40, 46, 52, 62, 62, 122]; // one per EXPORT_HEADERS entry; sums to 742, fits ~786 usable
     const startX = doc.page.margins.left;
     const usableBottom = doc.page.height - doc.page.margins.bottom;
 

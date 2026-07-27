@@ -8,18 +8,22 @@
  * "nothing is stored" guarantee.
  *
  * IMPORTANT: bump CACHE_VERSION whenever index.html / clicms.css / clicms.js
- * (or this file) changes, so installed devices pick up the new shell.
+ * (or this file) changes, so installed devices pick up the new shell — AND update
+ * the matching ?v tags on the <link>/<script> in index.html. Navigations are
+ * network-first while assets are cache-first, so without the ?v tag a device can
+ * load a fresh index.html against a stale clicms.js and the table columns
+ * silently misalign.
  */
 
-const CACHE_VERSION = 'v3';
+const CACHE_VERSION = 'v4';
 const CACHE_NAME = `clicms-shell-${CACHE_VERSION}`;
 
 // Paths are relative to the SW scope (/clicms/).
 const SHELL = [
   './',
   './index.html',
-  './clicms.css',
-  './clicms.js',
+  `./clicms.css?${CACHE_VERSION}`,
+  `./clicms.js?${CACHE_VERSION}`,
   './manifest.json',
   './icons/icon-192.png',
   './icons/icon-512.png',

@@ -6,7 +6,7 @@ const API_BASE = new URL('.', window.location.href).href; // always ends with "/
 
 const state = {
   rows: [],
-  parameters: {},          // { footplate:{label,dueCol}, ... }
+  parameters: {},          // { footplate:{key,label}, ... }
   generatedAtIST: '',
   activeParam: 'footplate',
   sortBy: 'cli',
@@ -176,7 +176,9 @@ function setParam(key) {
 // ---------- Summary (active parameter) ----------
 // Summary is based on the RAW overdue population (matches the counters), not the
 // trimmed export list — it's an analytical overview, not the deliverable.
-const CATS = ['A', 'B', 'C'];
+// Safety categories, matching div_staff_master.safety_category enum('A','B','C','D').
+// Anything else (blank, unexpected) falls into "Other".
+const CATS = ['A', 'B', 'C', 'D'];
 function catOf(grade) {
   const g = (grade || '').trim().toUpperCase();
   return CATS.includes(g) ? g : 'Other';
@@ -371,7 +373,7 @@ function buildCounters() {
     div.innerHTML =
       `<div class="c-label">${p.label}</div>` +
       `<div class="c-num ${n ? 'has' : ''}">${n}</div>` +
-      `<div class="c-sub">${windowLabelShort()} · due col ${p.dueCol}</div>`;
+      `<div class="c-sub">${windowLabelShort()}</div>`;
     div.addEventListener('click', () => setParam(p.key));
     c.appendChild(div);
   });
@@ -436,6 +438,7 @@ function render() {
       `<td class="mono">${esc(r.crewId)}</td>` +
       `<td>${esc(r.name)}</td>` +
       `<td>${esc(r.desig)}</td>` +
+      `<td class="ctr"><span class="stat">${esc(r.status) || '—'}</span></td>` +
       `<td class="ctr"><span class="cat cat-${esc(r.grade)}">${esc(r.grade) || '—'}</span></td>` +
       `<td class="mono">${esc(p.done) || '—'}</td>` +
       `<td><span class="due-date">${esc(p.due)}</span></td>` +
