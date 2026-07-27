@@ -35,8 +35,12 @@ router.use((req, res, next) => {
     next();
 });
 
-const EDITABLE_DAYS_PAST = 3;       // today + past 3 days editable
+const EDITABLE_DAYS_PAST = 7;       // today + past 7 days editable
 const EDITABLE_DAYS_FUTURE = 1;     // today + tomorrow editable
+// Past window is 7, not 3: LPCs legitimately fill a day's actuals over the
+// following 3-4 days, and a 3-day window was freezing sheets before they were
+// complete (e.g. 23-07 locked on 27-07 while still 77 entries short). There is
+// no delete for master-linked rows, so a wider window only permits filling.
 
 // Mumbai Division terminals where locos can be stabled
 const MUMBAI_TERMINALS = ['CSMT', 'LTT', 'DR', 'PNVL', 'VVH', 'KYN', 'TNA'];
