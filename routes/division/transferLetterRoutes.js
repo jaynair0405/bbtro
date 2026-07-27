@@ -84,10 +84,10 @@ function officeDefaults(office) {
     return {
         code: office.office_code,
         label: office.office_name,
-        officeHeader: `SR. CREW CONTROLLER\n${nameUpper} LOBBY`,
+        officeHeader: `CHIEF CREW CONTROLLER\n${nameUpper} LOBBY`,
         letterNoPrefix: `SR CC/TFR/${office.office_code}`,
-        signingDesignation: 'Sr. Crew Controller',
-        signingDesignationHindi: 'वरिष्ठ कर्मीदल नियंत्रक',
+        signingDesignation: 'Chief Crew Controller',
+        signingDesignationHindi: 'मुख्य कर्मीदल नियंत्रक',
     };
 }
 
@@ -710,6 +710,58 @@ router.post('/:id/accept', requireDivisionAccess, async (req, res) => {
     } catch (error) {
         console.error('transfer-letters bulk accept error:', error);
         res.status(500).json({ error: 'Failed to accept staff' });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// ── Reject one staff who did not report (receiving lobby) ──────────────────
+// Body { staff_hrms_id, remarks? }. Marks that staff's pending transfer
+// request Rejected. The staff was never moved (the move happens only on
+// accept), so div_staff_master is untouched — they simply stay at the old
+// lobby. The letter itself stays as the issued record; a fresh letter can be
+// prepared later if they transfer another day.
+router.post('/:id/reject', requireDivisionAccess, async (req, res) => {
+    let conn;
+    try {
+        conn = await getConnection(req);
+        const data = await loadLetter(conn, req.params.id);
+        if (!data) return res.status(404).json({ error: 'Letter not found' });
+        const { letter, staff } = data;
+
+        const userOffice = req.session.user?.div_office_code;
+        if (!isAdmin(req) && letter.to_office_code !== userOffice) {
+            return res.status(403).json({ error: 'Only the receiving lobby can reject these staff' });
+        }
+        if (letter.status !== 'transferred') {
+            return res.status(409).json({ error: 'Staff have not been transferred on this letter yet' });
+        }
+
+        const hrmsId = String(req.body?.staff_hrms_id || '');
+        const row = staff.find(s => s.staff_hrms_id === hrmsId);
+        if (!row) return res.status(404).json({ error: 'Staff not on this letter' });
+        if (!row.request_id) return res.status(404).json({ error: 'No transfer request found for this staff' });
+        if (row.request_status !== 'Pending') {
+            return res.status(409).json({ error: `Request is already ${row.request_status}` });
+        }
+
+        const remarks = `Did not report — rejected via Transfer Letter ${letter.letter_no || '#' + letter.id}.`
+            + (req.body?.remarks ? ` ${String(req.body.remarks)}` : '');
+        await conn.query(
+            `UPDATE div_transfer_requests
+             SET status='Rejected', reviewed_by=?, review_date=CURDATE(), remarks=?
+             WHERE request_id=? AND status='Pending'`,
+            [req.session.user.username, remarks, row.request_id]
+        );
+
+        const [[{ pending }]] = await conn.query(
+            `SELECT COUNT(*) AS pending FROM div_transfer_requests WHERE letter_id = ? AND status = 'Pending'`,
+            [letter.id]
+        );
+        res.json({ success: true, pending_left: pending });
+    } catch (error) {
+        console.error('transfer-letters reject error:', error);
+        res.status(500).json({ error: 'Failed to reject staff' });
     } finally {
         if (conn) conn.release();
     }

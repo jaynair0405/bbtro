@@ -195,7 +195,7 @@ function renderTransferLetterPdf(letter, staffRows) {
         ensureSpace(90);
         y += 46; // space for the physical signature
         doc.font('Helvetica-Bold').fontSize(11);
-        doc.text(letter.signing_designation || 'Sr. Crew Controller', rightX, y, { width: 220, align: 'center' });
+        doc.text(letter.signing_designation || 'Chief Crew Controller', rightX, y, { width: 220, align: 'center' });
         doc.text(letter.from_office_code || '', rightX, doc.y + 1, { width: 220, align: 'center' });
         y = doc.y + 18;
 

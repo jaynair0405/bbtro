@@ -112,6 +112,22 @@ function uploadableCategories(role) {
   return CATEGORIES.filter((c) => canUploadCategory(role, c));
 }
 
+// Who may DELETE each category. Defaults to the upload roles, except where
+// overridden below. Transfer letters are auto-filed formal records — only the
+// division admin may delete them, even though office_hr may still file them.
+const CATEGORY_DELETE_ROLES = {
+  TRANSFER_LETTER: ['division_admin'],
+};
+
+function canDeleteCategory(role, category) {
+  const roles = CATEGORY_DELETE_ROLES[category] || CATEGORY_UPLOAD_ROLES[category];
+  return !!roles && roles.includes(role);
+}
+
+function deletableCategories(role) {
+  return CATEGORIES.filter((c) => canDeleteCategory(role, c));
+}
+
 function extOf(name) {
   return (path.extname(name || '').replace('.', '') || '').toLowerCase();
 }
@@ -251,6 +267,7 @@ router.get('/', async (req, res) => {
 router.get('/permissions', (req, res) => {
   const role = getRole(req);
   const canUpload = uploadableCategories(role);
+  const canDelete = deletableCategories(role);
   res.json({
     success: true,
     role,
@@ -259,6 +276,7 @@ router.get('/permissions', (req, res) => {
     folderConfig: FOLDER_CONFIG,                // { CATEGORY: {required|optional: [...] } }
     canUpload,                                  // categories this role may add
     canUploadAny: canUpload.length > 0,
+    canDelete,                                  // categories this role may delete
   });
 });
 
@@ -695,7 +713,7 @@ router.delete('/:id', async (req, res) => {
       [req.params.id]
     );
     if (!doc) return res.status(404).json({ success: false, error: 'Not found' });
-    if (!canUploadCategory(getRole(req), doc.category)) {
+    if (!canDeleteCategory(getRole(req), doc.category)) {
       return res.status(403).json({ success: false, error: 'Not allowed to delete this category.' });
     }
     await pool.query('DELETE FROM div_documents WHERE id = ?', [req.params.id]);

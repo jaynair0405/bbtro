@@ -230,6 +230,9 @@ function fmtDate(d) {
 }
 function isDateTree(cat) { return (perms.dateTreeCategories || []).includes(cat); }
 function canManage(cat) { return (perms.canUpload || []).includes(cat); }
+// Delete is gated separately from upload — e.g. transfer letters are admin-only
+// to delete even though office_hr may still file them.
+function canDelete(cat) { return (perms.canDelete || []).includes(cat); }
 function catMode(cat) { return (CAT_META[cat] || {}).mode || 'flat'; }
 function foldersFor(cat) {
     const fc = (perms.folderConfig || {})[cat] || {};
@@ -353,7 +356,7 @@ function renderFlat(el, documents) {
 function cardEl(d) {
     const c = document.createElement('div');
     c.className = 'doc-card';
-    const manage = canManage(d.category);
+    const manage = canDelete(d.category);
     c.innerHTML = `
         <div class="ficon">${FILE_ICON[d.file_type] || '📄'}</div>
         <div class="dtitle">${escapeHtml(d.title)}</div>
@@ -514,7 +517,7 @@ function toggle(t) {
 function leafEl(d) {
     const wrap = document.createElement('div');
     wrap.className = 'tree-leaf';
-    const manage = canManage(d.category || current);
+    const manage = canDelete(d.category || current);
     const composed = d.source_type === 'composed';   // in-site instruction, no file
     wrap.innerHTML = `
         <span>${composed ? '📋' : (FILE_ICON[d.file_type] || '📄')}</span>

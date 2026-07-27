@@ -430,6 +430,10 @@ body.drawer-open .drawer-veil { opacity: 1; pointer-events: auto; }
 }
 .acc-row .grid input:focus { outline:none; border-color:#4cc98a; box-shadow:0 0 0 3px rgba(47,158,99,.13); }
 .acc-row .err { color:#f3a6a6; font-size:11px; margin-top:5px; display:none; }
+.acc-row .acc-foot { margin-top:7px; text-align:right; }
+.acc-reject { background:none; border:none; color:#e78a8a; font-size:11px; font-weight:700;
+    cursor:pointer; padding:2px 4px; border-radius:5px; }
+.acc-reject:hover { color:#f3a6a6; background:rgba(214,69,69,.12); }
 
 /* readonly veil on form when not draft */
 .desk.readonly .scroll { opacity: .62; pointer-events: none; }
@@ -840,7 +844,7 @@ function applyOfficeDefaults() {
 function applyToDefaults() {
     const to = officeOf($('toOffice').value);
     if (!to) return;
-    $('addressee').value = `The Senior Crew Controller\n${to.label} (${to.code})\nMumbai Division`;
+    $('addressee').value = `The Chief Crew Controller\n${to.label} (${to.code})\nMumbai Division`;
     if (!subjectTouched) {
         $('subject').value = `Transfer of staff from ${$('fromOffice').value} to ${to.code} Lobby`;
     }
@@ -1101,13 +1105,41 @@ function renderAcceptList() {
                 <div><label>Reported on</label>
                     <input type="date" data-acc="date" value="${esc(s.new_reporting_date || '')}"></div>
             </div>
+            <div class="acc-foot">
+                <button type="button" class="acc-reject" data-reject="${esc(s.staff_hrms_id)}">Did not report — reject</button>
+            </div>
             <div class="err" data-acc="err"></div>`}
         </div>`;
     }).join('');
+    $('acceptList').querySelectorAll('[data-reject]').forEach(btn => {
+        btn.onclick = () => rejectStaff(btn.dataset.reject);
+    });
     $('btnAcceptAll').textContent = pending.length
         ? `Accept reported staff (${pending.length} pending)`
         : 'All staff accepted ✓';
     $('btnAcceptAll').disabled = !pending.length;
+}
+
+// Reject one staff who did not report — cancels their pending transfer
+// request. The staff stays at the current lobby; the letter is unchanged.
+async function rejectStaff(hrmsId) {
+    const s = STAFF.find(x => x.staff_hrms_id === hrmsId);
+    const nm = s ? s.name : hrmsId;
+    const okGo = await confirmBox('Mark as “did not report”?',
+        `<p><b>${esc(nm)}</b>’s transfer will be <b>rejected</b> on this letter. They stay at their
+         current lobby and are removed from the pending list. The issued letter is not changed —
+         you can prepare a fresh letter later if they transfer another day.</p>`,
+        'Reject staff', 'btn-red');
+    if (!okGo) return;
+    const r = await fetch(`${API}/${LETTER_ID}/reject`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ staff_hrms_id: hrmsId }),
+    });
+    const j = await r.json();
+    if (!r.ok) return toast(j.error || 'Reject failed', 'err');
+    toast(`${String(nm).split(' ')[0]} rejected — did not report`, 'ok');
+    await openLetter(LETTER_ID);
+    loadHistory();
 }
 
 async function acceptReported() {
