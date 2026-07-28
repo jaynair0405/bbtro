@@ -910,6 +910,27 @@
             border-style: solid;
         }
 
+        /* Draft-restore banner */
+        .draft-banner {
+            display: none; align-items: center; justify-content: space-between;
+            gap: 14px; flex-wrap: wrap;
+            margin: 10px 0; padding: 10px 16px;
+            background: var(--warning-bg, #fef3c7);
+            border: 1px solid #fcd34d; border-left: 4px solid var(--warning, #d97706);
+            border-radius: 6px; font-size: .9rem; color: #92400e;
+        }
+        .draft-banner b { color: #92400e; }
+        .draft-banner .db-warn { color: var(--danger, #dc2626); font-weight: 600; }
+        .draft-banner .db-actions { display: flex; gap: 8px; }
+        .draft-banner button {
+            border: none; border-radius: 5px; padding: 6px 13px;
+            font-size: .84rem; font-weight: 600; cursor: pointer; font-family: inherit;
+        }
+        .draft-banner .db-save { background: var(--brand, #0b3d91); color: #fff; }
+        .draft-banner .db-save:hover { background: var(--brand-light, #1e5fb8); }
+        .draft-banner .db-discard { background: transparent; color: #92400e; border: 1px solid #fcd34d; }
+        .draft-banner .db-discard:hover { background: rgba(0,0,0,.04); }
+
         /* Sticky Save All bar */
         .save-all-bar {
             position: fixed;
@@ -1616,6 +1637,9 @@ async function loadSheet() {
         else renderSheet(data);
         setupSchedDelegation();
         syncSchedEditors();
+        bindDraftListener();     // idempotent; attaches the edit→draft listener once
+        restoreDraft();          // re-apply any unsaved edits for this sheet+date
+        updateDirtyBar();        // reflect the post-restore dirty state (or clear a stale count)
     } catch (e) {
         $('#sheetBody').innerHTML = `<tr><td colspan="10" class="empty" style="color:var(--danger)">
             Failed to load — ${e.message}</td></tr>`;
@@ -3499,6 +3523,195 @@ function clearStatus(tr) {
     tr.classList.remove('row-error');
 }
 
+// ── Local draft persistence ──────────────────────────────────────────
+// Unsaved edits used to live only in the DOM: a reload, a crash, or a failed
+// save lost them silently (23-07 lost whole LTT/KR sheets this way). Every
+// dirty row's field values are now mirrored to localStorage, keyed by
+// sheet_source + date, and restored on return. This is a browser-side draft,
+// NOT an auto-POST — it never fires a save, so it can't propagate or persist a
+// half-typed row. The manual Save / Save-All flow and its green/red
+// confirmation are unchanged; this only stops work from vanishing before it.
+const DRAFT_PREFIX = 'llDraft::v2::';
+const DRAFT_MAX_AGE_MS = 3 * 86400000;   // ignore drafts older than 3 days
+let draftDebounce = null;
+let draftListenerBound = false;
+
+function draftKey() {
+    const src = sheetSource || (currentSheet && currentSheet.sheet_source) || '';
+    return DRAFT_PREFIX + src + '::' + currentDate;
+}
+
+// Front + rear share a logical row; snapshot both under the front's master id.
+function pairedRows(frontTr) {
+    const isSpecial = frontTr.dataset.special === '1';
+    const rear = isSpecial
+        ? document.querySelector(`tr[data-special-key="${frontTr.dataset.specialKey}"][data-position="rear"]`)
+        : document.querySelector(`tr[data-master-id="${frontTr.dataset.masterId}"][data-position="rear"]`);
+    return { front: frontTr, rear };
+}
+
+function draftRowId(tr) {
+    return tr.dataset.special === '1'
+        ? 'S:' + (tr.dataset.specialKey || tr.dataset.trainNo || '')
+        : 'M:' + tr.dataset.masterId;
+}
+
+// Only rows whose Save button is dirty (unsaved) are drafted.
+function collectDirtyDraft() {
+    const rows = {};
+    document.querySelectorAll('button[data-action="save"].dirty').forEach(btn => {
+        const front = btn.closest('tr');
+        if (!front || front.dataset.position === 'rear') return;
+        const { rear } = pairedRows(front);
+        const fields = {};
+        [front, rear].forEach(r => {
+            if (!r) return;
+            r.querySelectorAll('[data-field]').forEach(el => {
+                fields[el.dataset.field] = el.type === 'checkbox' ? el.checked : el.value;
+            });
+        });
+        rows[draftRowId(front)] = {
+            trainNo: front.dataset.trainNo || null,
+            special: front.dataset.special === '1' ? 1 : 0,
+            fields,
+        };
+    });
+    return rows;
+}
+
+function flushDraft() {
+    try {
+        const rows = collectDirtyDraft();
+        const key = draftKey();
+        if (!Object.keys(rows).length) { localStorage.removeItem(key); return; }
+        localStorage.setItem(key, JSON.stringify({
+            savedAt: new Date().toISOString(),
+            sheet: sheetSource || (currentSheet && currentSheet.sheet_source) || '',
+            date: currentDate, rows,
+        }));
+    } catch (e) { console.warn('[draft] flush failed', e.message); }
+}
+
+function scheduleDraftSave() {
+    clearTimeout(draftDebounce);
+    draftDebounce = setTimeout(flushDraft, 800);
+}
+
+// Re-apply a drafted master row onto the freshly-loaded (server) row, and mark
+// it dirty so Save All picks it up. Special/ad-hoc rows are not auto-recreated
+// in this version — reported in the banner instead of silently dropped.
+function applyDraftRow(id, rd) {
+    if (!id.startsWith('M:')) return { applied: false, special: rd.special === 1 };
+    const mid = id.slice(2);
+    const front = document.querySelector(`tr[data-master-id="${mid}"][data-position="front"]`);
+    const rear = document.querySelector(`tr[data-master-id="${mid}"][data-position="rear"]`);
+    if (!front) return { applied: false, special: false };
+    const sb = front.querySelector('button[data-action="save"]');
+    // If a prior restore this render already applied this draft, the row is
+    // dirty and the values now match — count it as present so a second pass
+    // can't zero the restore-count and wrongly clear the draft.
+    const alreadyDirty = !!(sb && sb.classList.contains('dirty'));
+    let changed = false;
+    for (const [f, v] of Object.entries(rd.fields || {})) {
+        const el = front.querySelector(`[data-field="${f}"]`)
+                || (rear && rear.querySelector(`[data-field="${f}"]`));
+        if (!el) continue;
+        if (el.type === 'checkbox') {
+            if (el.checked !== !!v) { el.checked = !!v; changed = true; }
+        } else if (el.value !== (v == null ? '' : v)) {
+            el.value = v == null ? '' : v; changed = true;
+        }
+    }
+    if (changed && sb) sb.classList.add('dirty');
+    // applied = we changed the row now, OR it was already restored this render.
+    // If neither (draft equals the server value), it is effectively saved and
+    // the caller may drop it as stale.
+    return { applied: changed || alreadyDirty, special: false };
+}
+
+function restoreDraft() {
+    let saved = null;
+    try { saved = JSON.parse(localStorage.getItem(draftKey()) || 'null'); } catch { saved = null; }
+    if (!saved || !saved.rows) return;
+    if (Date.now() - new Date(saved.savedAt).getTime() > DRAFT_MAX_AGE_MS) {
+        localStorage.removeItem(draftKey()); return;
+    }
+    let restored = 0, specialsMissed = 0;
+    for (const [id, rd] of Object.entries(saved.rows)) {
+        const r = applyDraftRow(id, rd);
+        if (r.applied) restored++;
+        else if (r.special) specialsMissed++;
+    }
+    if (restored || specialsMissed) {
+        showDraftBanner(restored, specialsMissed, saved.savedAt);
+        updateDirtyBar();
+    } else {
+        localStorage.removeItem(draftKey());
+    }
+}
+
+function timeAgo(iso) {
+    const mins = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return mins + ' min ago';
+    const h = Math.round(mins / 60);
+    return h < 24 ? h + ' hr ago' : Math.round(h / 24) + ' day(s) ago';
+}
+
+function showDraftBanner(restored, specialsMissed, savedAt) {
+    let bar = document.getElementById('draftBanner');
+    if (!bar) {
+        bar = document.createElement('div');
+        bar.id = 'draftBanner';
+        bar.className = 'draft-banner';
+        const wrap = document.querySelector('.sheet-wrap');
+        wrap.parentNode.insertBefore(bar, wrap);
+    }
+    const extra = specialsMissed
+        ? ` <span class="db-warn">+${specialsMissed} ad-hoc row(s) need re-adding</span>` : '';
+    bar.innerHTML = `
+        <span><i class="fa-solid fa-rotate-left"></i>
+            Restored <b>${restored}</b> unsaved row${restored === 1 ? '' : 's'}
+            from ${timeAgo(savedAt)} — not yet saved to server.${extra}</span>
+        <span class="db-actions">
+            <button class="db-save" id="draftSaveAll"><i class="fa-solid fa-cloud-arrow-up"></i> Save all now</button>
+            <button class="db-discard" id="draftDiscard">Discard</button>
+        </span>`;
+    bar.style.display = 'flex';
+    document.getElementById('draftSaveAll').onclick = async () => { await saveAll(); dismissDraftBanner(); };
+    document.getElementById('draftDiscard').onclick = () => {
+        localStorage.removeItem(draftKey());
+        dismissDraftBanner();
+        loadSheet();   // reload server state, dropping the local edits
+    };
+}
+function dismissDraftBanner() {
+    const bar = document.getElementById('draftBanner');
+    if (bar) bar.style.display = 'none';
+}
+
+// One delegated listener drafts any edit; bound once.
+function bindDraftListener() {
+    if (draftListenerBound) return;
+    const body = document.getElementById('sheetBody');
+    if (!body) return;
+    body.addEventListener('input', scheduleDraftSave);
+    body.addEventListener('change', scheduleDraftSave);
+    draftListenerBound = true;
+    // Auto-persist every 20s (biodata model) — to localStorage only, never the server.
+    setInterval(() => {
+        if (document.querySelector('button[data-action="save"].dirty')) flushDraft();
+    }, 20000);
+    // Last-chance flush + warn before leaving with unsaved rows.
+    window.addEventListener('beforeunload', (e) => {
+        if (document.querySelector('button[data-action="save"].dirty')) {
+            flushDraft();
+            e.preventDefault();
+            e.returnValue = '';
+        }
+    });
+}
+
 // ── save ─────────────────────────────────────────────────────────────
 async function saveRow(tr) {
     const isSpecial = tr.dataset.special === '1';
@@ -3619,6 +3832,7 @@ async function saveRow(tr) {
             if (success) saveBtn.classList.remove('dirty');
         }
         updateDirtyBar();
+        if (success) flushDraft();   // saved row is no longer dirty → drops from draft
     }
     return success;
 }
@@ -3661,6 +3875,7 @@ async function saveAll() {
     allBtn.disabled = false;
     setTimeout(() => { status.textContent = ''; }, 4000);
     updateDirtyBar();
+    flushDraft();   // rewrite draft with whatever remains unsaved (empty → cleared)
 }
 
 function applyLogToRow(tr, log, rear) {
