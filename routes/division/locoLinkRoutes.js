@@ -4897,8 +4897,32 @@ router.put('/trains/:train_no', requireSettingsRole, async (req, res) => {
             [...Object.values(fields), trainNo]
         );
         if (!r.affectedRows) return res.status(404).json({ error: 'train not found' });
+
+        // Write-through to div_loco_link_master (the table the daily sheet
+        // reads), so a Settings edit actually reaches the sheet. run_days lives
+        // in both tables; Settings used to write only div_trains, so seasonal
+        // curtailments (e.g. monsoon on KR trains) never showed on the sheet.
+        //
+        // ONLY fields that mean the SAME thing in both tables are mirrored.
+        // Deliberately NOT from_station/to_station (div_trains = real origin,
+        // div_loco_link_master = LPC handover point — mirroring would overwrite
+        // the reconciled handover values, commit 76013bc) nor direction
+        // (train-level here vs per-row UP/DN there). These are train-level
+        // attributes, so all active master rows for the train get them.
+        const MIRROR_FIELDS = ['run_days', 'train_name', 'traction_type'];
+        const mirror = {};
+        for (const f of MIRROR_FIELDS) if (f in fields) mirror[f] = fields[f];
+        let mirrored = 0;
+        if (Object.keys(mirror).length) {
+            const sets2 = Object.keys(mirror).map(k => `${k} = ?`).join(', ');
+            const [mr] = await pool.query(
+                `UPDATE div_loco_link_master SET ${sets2} WHERE train_no = ? AND active = 1`,
+                [...Object.values(mirror), trainNo]);
+            mirrored = mr.affectedRows;
+        }
+
         const [updated] = await pool.query('SELECT * FROM div_trains WHERE train_no = ?', [trainNo]);
-        res.json({ ok: true, train: updated[0] });
+        res.json({ ok: true, train: updated[0], mirrored_master_rows: mirrored });
     } catch (err) {
         console.error('[loco-link PUT /trains/:no]', err);
         res.status(500).json({ error: 'Failed to update train' });
