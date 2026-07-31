@@ -50,7 +50,7 @@ async function loadBook(beatCode, providedConn) {
 
     const [sections] = await conn.execute(
       `SELECT s.id, s.section_code, s.section_title, s.direction, s.line,
-              bs.display_order, bs.start_page_no, bs.end_page_no
+              bs.display_order, bs.display_group, bs.start_page_no, bs.end_page_no
          FROM div_signal_beat_sections bs
          JOIN div_signal_book_sections s ON s.id = bs.section_id
         WHERE bs.beat_id = ? AND bs.is_active = 1 AND s.is_active = 1
@@ -271,11 +271,26 @@ function stationLine(row) {
 }
 
 function renderHtml({ beat, sections }) {
-  const sectionsHtml = sections.map((section) => {
-    const rowsHtml = section.rows.map(renderRow).join('\n');
+  // Consolidate consecutive bound sections that share a display_group into ONE
+  // rendered block (one heading = the display_group, rows concatenated) so a route
+  // reads as a single continuous list. A NULL display_group renders standalone with
+  // its own section_title (each in its own group).
+  const groups = [];
+  for (const section of sections) {
+    const key = section.display_group && String(section.display_group).trim();
+    const prev = groups[groups.length - 1];
+    if (key && prev && prev.key === key) {
+      prev.sections.push(section);
+    } else {
+      groups.push({ key: key || null, title: key || section.section_title, sections: [section] });
+    }
+  }
+
+  const sectionsHtml = groups.map((group) => {
+    const rowsHtml = group.sections.flatMap((s) => s.rows).map(renderRow).join('\n');
     return `
 <section class="book-section">
-  <h2 class="section-title">${esc(section.section_title)}</h2>
+  <h2 class="section-title">${esc(group.title)}</h2>
   <div class="section-table-header">
     <div class="cell hd-no">SIGNAL NO.</div>
     <div class="cell hd-loc">LOCATION</div>
