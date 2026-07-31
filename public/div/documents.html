@@ -15,7 +15,7 @@
             --line:#232b37; --line2:#2c3745;
             --ink:#e8edf4; --ink2:#aeb9c8; --ink3:#6b7686;
             --amber:#f4a533; --amber-dim:#3a2c15;
-            --triple:#e56a86; --cont:#4fd1a5;
+            --triple:#e56a86; --cont:#4fd1a5; --single:#5aa9e6;
             --shadow:0 18px 50px -20px rgba(0,0,0,.75);
             --mono:'Space Mono',ui-monospace,monospace;
             --disp:'Bricolage Grotesque',system-ui,sans-serif;
@@ -155,7 +155,17 @@
         .tree-leaf .ldesc { color: var(--ink3); font-size: 12px; }
         .tree-leaf .tree-count { font: 400 11px var(--mono); color: var(--ink3); }
 
-        /* Colour-coded promotion sub-folders — keyed off data-folder, set by folderNode() */
+        /* Colour-coded promotion folders — keyed off data-folder, set by folderNode() */
+        .tree-node[data-folder="Promotions"] > .tree-toggle {
+                       background: linear-gradient(90deg, rgba(90,169,230,.13), transparent 70%);
+                       border-left-color: var(--single); color: var(--single); }
+        .tree-node[data-folder="Promotions"] > .tree-toggle:hover {
+                       background: linear-gradient(90deg, rgba(90,169,230,.2), transparent 70%); }
+        .tree-node[data-folder="Promotions"] > .tree-toggle .caret,
+        .tree-node[data-folder="Promotions"] > .tree-toggle .tree-count { color: var(--single); }
+        .tree-node[data-folder="Promotions"] > .tree-toggle .tree-count { border-color: rgba(90,169,230,.35); }
+        .tree-node[data-folder="Promotions"] > .tree-toggle > .flabel { background: rgba(90,169,230,.13); }
+
         .tree-node[data-folder="Demotions"] > .tree-toggle {
                        background: linear-gradient(90deg, rgba(229,106,134,.13), transparent 70%);
                        border-left-color: var(--triple); color: var(--triple); }
@@ -176,7 +186,8 @@
         .tree-node[data-folder="Reinstatements"] > .tree-toggle .tree-count { border-color: rgba(79,209,165,.35); }
         .tree-node[data-folder="Reinstatements"] > .tree-toggle > .flabel { background: rgba(79,209,165,.14); }
 
-        /* tint-fill tag, only rendered coloured for the two folders above */
+        /* tint-fill tag, only rendered coloured for the three folders above */
+        .tree-node[data-folder="Promotions"] > .tree-toggle > .flabel,
         .tree-node[data-folder="Demotions"] > .tree-toggle > .flabel,
         .tree-node[data-folder="Reinstatements"] > .tree-toggle > .flabel {
                        font: 700 10.5px var(--mono); letter-spacing: .14em; text-transform: uppercase;
@@ -620,18 +631,24 @@ function renderFolderDate(el, docs) {
     });
 }
 
-// Promotion Orders: the optional sub-folders (Demotions / Reinstatements) that
-// hold documents, followed by the regular orders by year.
+// Promotion Orders: three self-describing folders — the regular promotions
+// first (folder NULL, shown under a 'Promotions' header so the year nodes are
+// never read as belonging to the folder above), then the optional sub-folders
+// (Demotions / Reinstatements) that actually hold documents.
+const PROMOTION_GENERAL_FOLDER = 'Promotions';
 function renderPromotion(el, docs) {
     const subs = foldersFor(current);
+    const general = docs.filter(d => !subs.includes(d.folder));
+    if (general.length) {
+        el.appendChild(folderNode(PROMOTION_GENERAL_FOLDER, general.length, true,
+            (kids) => appendYearNodes(kids, groupYears(general), true)));
+    }
     subs.forEach(f => {
         const inFolder = docs.filter(d => d.folder === f);
         if (!inFolder.length) return;                 // hide empty sub-folders
         el.appendChild(folderNode(f, inFolder.length, false,
             (kids) => appendYearNodes(kids, groupYears(inFolder), true)));
     });
-    const general = docs.filter(d => !subs.includes(d.folder));
-    appendYearNodes(el, groupYears(general), true);
 }
 
 // Fixed folders (e.g. Study Materials: Main Line / Suburban) → flat list each.
@@ -719,7 +736,10 @@ function syncModalFields() {
             ['STUDY_MATERIAL','NEWS_LETTER','E_CASE_STUDY'].includes(cat) ? 'Line'
             : cat === 'PROMOTION_ORDER' ? 'Type'
             : cat === 'TRANSFER_LETTER' ? 'Lobby' : 'Section';
-        const none = req ? '' : '<option value="">Regular (no folder)</option>';
+        // The "no folder" choice — named after the folder it lands in on screen.
+        const noneLabel = cat === 'PROMOTION_ORDER'
+            ? PROMOTION_GENERAL_FOLDER : 'Regular (no folder)';
+        const none = req ? '' : `<option value="">${noneLabel}</option>`;
         document.getElementById('upFolder').innerHTML =
             none + opts.map(o => `<option value="${o}">${o}</option>`).join('');
     } else {
