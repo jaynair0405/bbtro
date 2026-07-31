@@ -5,122 +5,254 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Documents - Central Railway BB Division</title>
     <link rel="stylesheet" href="/div/css/division-main.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Hanken+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
     <style>
+        /* Design tokens — shared with crew-dashboard-mockup / detail-book-mockup */
+        :root {
+            --bg:#0b0e14; --bg2:#0e1219; --panel:#141922; --panel2:#1a2029;
+            --line:#232b37; --line2:#2c3745;
+            --ink:#e8edf4; --ink2:#aeb9c8; --ink3:#6b7686;
+            --amber:#f4a533; --amber-dim:#3a2c15;
+            --triple:#e56a86; --cont:#4fd1a5;
+            --shadow:0 18px 50px -20px rgba(0,0,0,.75);
+            --mono:'Space Mono',ui-monospace,monospace;
+            --disp:'Bricolage Grotesque',system-ui,sans-serif;
+            --body:'Hanken Grotesk',system-ui,sans-serif;
+        }
         * { box-sizing: border-box; }
-        body { margin: 0; background: #f1f5f9; color: #1e293b;
-               font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        html, body { height: 100%; }
+        body { margin: 0; font-family: var(--body); color: var(--ink); background: var(--bg);
+               -webkit-font-smoothing: antialiased;
+               background-image: radial-gradient(1200px 640px at 80% -12%, rgba(244,165,51,.11), transparent 60%),
+                                 radial-gradient(1000px 760px at 4% 112%, rgba(87,182,255,.08), transparent 55%); }
+        /* blueprint grid + film grain, both non-interactive */
+        body::before { content:""; position:fixed; inset:0; pointer-events:none; z-index:0; opacity:.13;
+               background-image: linear-gradient(var(--line) 1px, transparent 1px),
+                                 linear-gradient(90deg, var(--line) 1px, transparent 1px);
+               background-size: 46px 46px;
+               -webkit-mask-image: radial-gradient(circle at 55% 30%, #000 25%, transparent 82%);
+                       mask-image: radial-gradient(circle at 55% 30%, #000 25%, transparent 82%); }
+        body::after { content:""; position:fixed; inset:0; pointer-events:none; z-index:0; opacity:.03;
+               background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
 
-        .docs-page { display: flex; min-height: 100vh; }
+        /* Shell — the main column scrolls, the page itself does not */
+        .docs-page { position: relative; z-index: 1; display: grid;
+                     grid-template-columns: 272px 1fr; height: 100vh; }
 
-        /* Category rail */
-        .docs-rail { width: 240px; background: #fff; border-right: 1px solid #e2e8f0;
-                     padding: 20px 12px; flex-shrink: 0; }
-        .rail-back { display: inline-flex; align-items: center; gap: 6px; color: #3b82f6;
-                     text-decoration: none; font-size: 13px; margin: 0 8px 18px; }
-        .rail-back:hover { text-decoration: underline; }
-        .rail-title { font-size: 12px; text-transform: uppercase; letter-spacing: .04em;
-                      color: #94a3b8; margin: 0 8px 10px; font-weight: 600; }
-        .cat-link { display: flex; align-items: center; gap: 10px; width: 100%; border: none;
-                    background: none; text-align: left; padding: 10px 12px; border-radius: 8px;
-                    font-size: 14px; color: #334155; cursor: pointer; }
-        .cat-link:hover { background: #f1f5f9; }
-        .cat-link.active { background: #eff6ff; color: #1d4ed8; font-weight: 600; }
-        .cat-link .icon { font-size: 18px; }
+        /* ── Category rail ─────────────────────────────────────── */
+        .docs-rail { background: linear-gradient(180deg, var(--bg2), var(--bg));
+                     border-right: 1px solid var(--line); display: flex; flex-direction: column;
+                     overflow: hidden; }
+        .rail-brand { padding: 22px 22px 18px; border-bottom: 1px solid var(--line); }
+        .rail-back { font: 700 10px/1 var(--mono); letter-spacing: .3em; color: var(--amber);
+                     text-transform: uppercase; text-decoration: none; display: inline-block; }
+        .rail-back:hover { color: #ffc266; }
+        .rail-brand h1 { font-family: var(--disp); font-weight: 800; font-size: 26px;
+                         letter-spacing: -.02em; margin: 9px 0 0; line-height: .95; }
+        .rail-brand h1 em { font-style: normal; color: var(--amber); }
+        .rail-brand .sub { color: var(--ink3); font-size: 12px; margin-top: 6px; font-weight: 500; }
+        .rail-nav { flex: 1; overflow-y: auto; padding: 16px 12px 20px; }
+        .rail-nav::-webkit-scrollbar { width: 8px; }
+        .rail-nav::-webkit-scrollbar-thumb { background: var(--line2); border-radius: 8px; }
+        .rail-title { font: 700 10px var(--mono); letter-spacing: .2em; color: var(--ink3);
+                      text-transform: uppercase; margin: 6px 12px 8px; }
+        .cat-link { position: relative; display: flex; align-items: center; gap: 12px; width: 100%;
+                    padding: 10px 13px; margin: 2px 0; border: none; background: none;
+                    text-align: left; border-radius: 12px; cursor: pointer; color: var(--ink2);
+                    font-family: inherit; font-size: 14px; font-weight: 600;
+                    transition: background .16s, color .16s, transform .16s; }
+        .cat-link:hover { background: var(--panel); color: var(--ink); transform: translateX(2px); }
+        .cat-link.active { background: linear-gradient(90deg, rgba(244,165,51,.15), rgba(244,165,51,.02));
+                           color: var(--ink); }
+        .cat-link.active::before { content:""; position:absolute; left:-12px; top:9px; bottom:9px;
+                           width:3px; border-radius:3px; background: var(--amber); }
+        .cat-link .icon { font-size: 16px; flex: none; filter: grayscale(.35); }
+        .cat-link.active .icon { filter: none; }
 
-        /* Main */
-        .docs-main { flex: 1; padding: 28px 36px; max-width: 1100px; }
-        .docs-head { display: flex; align-items: center; justify-content: space-between;
-                     margin-bottom: 24px; }
-        .page-title { font-size: 22px; font-weight: 600; margin: 0; }
-        .page-subtitle { color: #64748b; font-size: 13px; margin-top: 4px; }
-        .btn { border: none; border-radius: 8px; padding: 10px 16px; font-size: 14px;
-               cursor: pointer; font-weight: 500; }
-        .btn-primary { background: #2563eb; color: #fff; }
-        .btn-primary:hover { background: #1d4ed8; }
-        .btn-ghost { background: #f1f5f9; color: #334155; }
-        .btn-ghost:hover { background: #e2e8f0; }
+        /* ── Main column ───────────────────────────────────────── */
+        .docs-main { overflow-y: auto; }
+        .docs-main::-webkit-scrollbar { width: 10px; }
+        .docs-main::-webkit-scrollbar-thumb { background: var(--line2); border-radius: 10px; }
+        .docs-head { position: sticky; top: 0; z-index: 5;
+                     -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+                     background: rgba(11,14,20,.82); border-bottom: 1px solid var(--line);
+                     padding: 20px 40px 18px; display: flex; align-items: flex-end;
+                     justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+        .crumbs { font: 400 12px var(--mono); color: var(--ink3); }
+        .crumbs i { font-style: normal; color: var(--line2); margin: 0 7px; }
+        .crumbs b { font-weight: 700; color: var(--amber); }
+        .page-title { font-family: var(--disp); font-weight: 700; font-size: 32px;
+                      letter-spacing: -.025em; margin: 6px 0 0; }
+        .page-subtitle { color: var(--ink3); margin-top: 5px; font-size: 13.5px; }
+        .docs-wrap { padding: 26px 40px 90px; max-width: 1240px; }
+        .btn { border: 1px solid var(--line2); border-radius: 10px; padding: 10px 16px;
+               font-size: 13px; font-weight: 700; font-family: inherit; cursor: pointer;
+               background: var(--panel); color: var(--ink2); text-decoration: none;
+               display: inline-flex; align-items: center; gap: 7px; transition: .18s; }
+        .btn:hover { background: var(--panel2); color: var(--ink); }
+        .btn-primary { background: var(--amber); border-color: transparent; color: #1a1206; }
+        .btn-primary:hover { background: #ffb44a; color: #1a1206; }
+        .btn-ghost { background: var(--panel); color: var(--ink2); }
 
-        /* Card grid (flat lists) */
-        .docs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-                     gap: 18px; }
-        .doc-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px;
-                    position: relative; }
-        .doc-card .ficon { width: 42px; height: 42px; border-radius: 10px; background: #dbeafe;
-                           display: flex; align-items: center; justify-content: center;
-                           font-size: 20px; margin-bottom: 14px; }
-        .doc-card .dtitle { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
-        .doc-card .ddesc { font-size: 13px; color: #64748b; line-height: 1.5; }
-        .doc-card .dmeta { margin-top: 12px; padding-top: 10px; border-top: 1px solid #f1f5f9;
-                           font-size: 12px; color: #94a3b8; display: flex; gap: 8px; flex-wrap: wrap; }
-        .doc-actions { display: flex; gap: 8px; margin-top: 12px; }
-        .link-btn { font-size: 13px; color: #2563eb; background: none; border: none;
-                    cursor: pointer; padding: 0; }
-        .link-btn.danger { color: #dc2626; }
-        .link-btn:hover { text-decoration: underline; }
+        /* Content panel — gradient surface + one entrance per category load */
+        .docs-panel { background: linear-gradient(180deg, var(--panel), var(--bg2));
+                      border: 1px solid var(--line); border-radius: 18px; box-shadow: var(--shadow);
+                      padding: 18px 20px; opacity: 0; transform: translateY(14px);
+                      animation: rise .45s cubic-bezier(.2,.7,.2,1) forwards; }
+        @keyframes rise { to { opacity: 1; transform: none; } }
 
-        /* Tree view */
-        .tree-node { margin-bottom: 4px; }
-        .tree-toggle { display: flex; align-items: center; gap: 8px; cursor: pointer;
-                       padding: 8px 10px; border-radius: 8px; font-size: 14px; user-select: none; }
-        .tree-toggle:hover { background: #fff; }
-        .tree-toggle .caret { transition: transform .15s; color: #94a3b8; font-size: 12px; }
+        /* ── Card grid (flat categories) ───────────────────────── */
+        .docs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+                     gap: 16px; }
+        .doc-card { position: relative; background: linear-gradient(180deg, var(--panel), var(--bg2));
+                    border: 1px solid var(--line); border-radius: 18px; padding: 22px;
+                    overflow: hidden; display: flex; flex-direction: column; gap: 12px;
+                    min-height: 170px;
+                    transition: border-color .2s, transform .2s, box-shadow .2s; }
+        .doc-card:hover { border-color: var(--line2); transform: translateY(-4px); box-shadow: var(--shadow); }
+        .doc-card::after { content:""; position:absolute; inset:0; pointer-events:none; opacity:.7;
+                    background: radial-gradient(340px 160px at 100% 0, rgba(244,165,51,.10), transparent 60%); }
+        .doc-card > * { position: relative; z-index: 1; }
+        .doc-card .ficon { width: 44px; height: 44px; border-radius: 12px; display: grid;
+                           place-items: center; font-size: 20px; border: 1px solid var(--line2);
+                           background: var(--bg); }
+        .doc-card .dtitle { font-family: var(--disp); font-weight: 700; font-size: 18px;
+                            letter-spacing: -.01em; }
+        .doc-card .ddesc { color: var(--ink3); font-size: 12.5px; line-height: 1.5; margin-top: -4px; }
+        .doc-card .dmeta { margin-top: auto; padding-top: 12px; border-top: 1px solid var(--line);
+                           font: 400 11px var(--mono); color: var(--ink3);
+                           display: flex; gap: 8px; flex-wrap: wrap; }
+        .doc-actions { display: flex; gap: 8px; }
+        .link-btn { font: 700 11px var(--mono); color: var(--ink3); background: none;
+                    border: 1px solid var(--line2); border-radius: 7px; padding: 3px 8px;
+                    cursor: pointer; text-decoration: none; }
+        .link-btn:hover { color: var(--amber); border-color: var(--amber-dim); }
+        .link-btn.danger:hover { color: var(--triple); border-color: rgba(229,106,134,.4); }
+
+        /* ── Tree view ─────────────────────────────────────────── */
+        .tree-node { margin-bottom: 3px; }
+        .tree-toggle { position: relative; display: flex; align-items: center; gap: 10px;
+                       cursor: pointer; padding: 9px 12px; border-radius: 10px; font-size: 14px;
+                       user-select: none; border-left: 3px solid transparent;
+                       transition: background .16s; }
+        .tree-toggle:hover { background: var(--panel2); }
+        .tree-toggle .caret { transition: transform .15s; color: var(--ink3); font-size: 11px; }
         .tree-toggle.open .caret { transform: rotate(90deg); }
-        .tree-year { font-weight: 600; }
-        .tree-children { margin-left: 18px; display: none; }
+        .tree-year { font-family: var(--disp); font-weight: 700; font-size: 15px; letter-spacing: -.01em; }
+        .tree-children { margin-left: 20px; display: none;
+                         border-left: 1px dashed var(--line); padding-left: 10px; }
         .tree-children.open { display: block; }
-        .tree-count { color: #94a3b8; font-size: 12px; font-weight: 400; }
-        .tree-leaf { display: flex; align-items: center; gap: 10px; padding: 8px 10px;
-                     border-radius: 8px; }
-        .tree-leaf:hover { background: #fff; }
-        .tree-leaf .lname { font-size: 14px; flex: 1; }
-        .tree-leaf .lname a { color: #1e293b; text-decoration: none; }
-        .tree-leaf .lname a:hover { color: #2563eb; text-decoration: underline; }
-        .tree-leaf .ldesc { color: #94a3b8; font-size: 12px; }
+        .tree-toggle .tree-count { margin-left: auto; font: 700 10px var(--mono); color: var(--ink3);
+                       padding: 2px 8px; border: 1px solid var(--line2); border-radius: 20px; }
+        .tree-leaf { display: flex; align-items: center; gap: 11px; padding: 8px 12px;
+                     border-radius: 10px; transition: background .16s; }
+        .tree-leaf:hover { background: var(--panel2); }
+        .tree-leaf .lname { font-size: 13.5px; flex: 1; min-width: 0; }
+        .tree-leaf .lname a { color: var(--ink); text-decoration: none; }
+        .tree-leaf .lname a:hover { color: var(--amber); }
+        .tree-leaf .ldesc { color: var(--ink3); font-size: 12px; }
+        .tree-leaf .tree-count { font: 400 11px var(--mono); color: var(--ink3); }
 
-        .empty { color: #94a3b8; font-size: 14px; padding: 40px 0; text-align: center; }
+        /* Colour-coded promotion sub-folders — keyed off data-folder, set by folderNode() */
+        .tree-node[data-folder="Demotions"] > .tree-toggle {
+                       background: linear-gradient(90deg, rgba(229,106,134,.13), transparent 70%);
+                       border-left-color: var(--triple); color: var(--triple); }
+        .tree-node[data-folder="Demotions"] > .tree-toggle:hover {
+                       background: linear-gradient(90deg, rgba(229,106,134,.2), transparent 70%); }
+        .tree-node[data-folder="Demotions"] > .tree-toggle .caret,
+        .tree-node[data-folder="Demotions"] > .tree-toggle .tree-count { color: var(--triple); }
+        .tree-node[data-folder="Demotions"] > .tree-toggle .tree-count { border-color: rgba(229,106,134,.35); }
+        .tree-node[data-folder="Demotions"] > .tree-toggle > .flabel { background: rgba(229,106,134,.13); }
 
-        /* Modal */
-        .modal-overlay { position: fixed; inset: 0; background: rgba(15,23,42,.45);
+        .tree-node[data-folder="Reinstatements"] > .tree-toggle {
+                       background: linear-gradient(90deg, rgba(79,209,165,.14), transparent 70%);
+                       border-left-color: var(--cont); color: var(--cont); }
+        .tree-node[data-folder="Reinstatements"] > .tree-toggle:hover {
+                       background: linear-gradient(90deg, rgba(79,209,165,.2), transparent 70%); }
+        .tree-node[data-folder="Reinstatements"] > .tree-toggle .caret,
+        .tree-node[data-folder="Reinstatements"] > .tree-toggle .tree-count { color: var(--cont); }
+        .tree-node[data-folder="Reinstatements"] > .tree-toggle .tree-count { border-color: rgba(79,209,165,.35); }
+        .tree-node[data-folder="Reinstatements"] > .tree-toggle > .flabel { background: rgba(79,209,165,.14); }
+
+        /* tint-fill tag, only rendered coloured for the two folders above */
+        .tree-node[data-folder="Demotions"] > .tree-toggle > .flabel,
+        .tree-node[data-folder="Reinstatements"] > .tree-toggle > .flabel {
+                       font: 700 10.5px var(--mono); letter-spacing: .14em; text-transform: uppercase;
+                       padding: 4px 11px; border-radius: 20px; }
+
+        .empty { color: var(--ink3); font-size: 14px; padding: 40px 0; text-align: center; }
+
+        /* ── Modal ─────────────────────────────────────────────── */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.7);
+                         -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
                          display: none; align-items: center; justify-content: center; z-index: 50; }
         .modal-overlay.show { display: flex; }
-        .modal { background: #fff; border-radius: 14px; padding: 26px; width: 460px;
-                 max-width: 92vw; }
-        .modal h3 { margin: 0 0 18px; font-size: 18px; }
+        .modal { background: var(--panel2); border: 1px solid var(--line2); border-radius: 18px;
+                 box-shadow: var(--shadow); padding: 26px 28px; width: 470px; max-width: 92vw;
+                 max-height: 92vh; overflow-y: auto; }
+        .modal h3 { font-family: var(--disp); font-weight: 700; font-size: 21px; margin: 0 0 18px; }
         .field { margin-bottom: 14px; }
-        .field label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px;
-                 color: #1e293b; }
-        .field input, .field select, .field textarea { width: 100%; padding: 9px 11px;
-                 border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; font-family: inherit;
-                 color: #1e293b; background: #fff; }
-        .field input::placeholder, .field textarea::placeholder { color: #94a3b8; }
+        .field label { display: block; font: 700 10px var(--mono); letter-spacing: .14em;
+                 text-transform: uppercase; color: var(--ink3) !important; margin-bottom: 7px; }
+        .field input, .field select, .field textarea { width: 100%; padding: 10px 12px;
+                 background: var(--bg); border: 1px solid var(--line); border-radius: 10px;
+                 font-size: 13.5px; font-family: inherit; color: var(--ink); }
+        .field input:focus, .field select:focus, .field textarea:focus {
+                 outline: none; border-color: var(--amber); }
+        .field input::placeholder, .field textarea::placeholder { color: var(--ink3); }
         .field select { -webkit-appearance: menulist; appearance: menulist; }
-        .field textarea { resize: vertical; min-height: 60px; }
+        .field textarea { resize: vertical; min-height: 62px; }
         .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px; }
-        .form-err { color: #dc2626; font-size: 13px; margin-top: 8px; min-height: 18px; }
+        .form-err { color: var(--triple); font-size: 13px; margin-top: 8px; min-height: 18px; }
+
+        /* ── Print: strip every ornament ───────────────────────── */
+        @media print {
+            body { background: #fff; color: #000; background-image: none; }
+            body::before, body::after { display: none; }
+            .docs-rail, .docs-head .head-actions, .link-btn { display: none; }
+            .docs-page { display: block; height: auto; }
+            .docs-head { position: static; background: #fff; -webkit-backdrop-filter: none;
+                         backdrop-filter: none; border-color: #ccc; }
+            .docs-panel, .doc-card { background: #fff; border-color: #ccc; box-shadow: none;
+                         animation: none; opacity: 1; transform: none; }
+            .page-title, .tree-year, .tree-leaf .lname a, .doc-card .dtitle { color: #000; }
+            .tree-children { display: block !important; }
+        }
     </style>
 </head>
 <body>
     <div class="docs-page">
         <!-- Category rail -->
         <aside class="docs-rail">
-            <a href="/div/" class="rail-back"><span>←</span> Back to Dashboard</a>
-            <div class="rail-title">Documents</div>
-            <nav id="catNav"></nav>
+            <div class="rail-brand">
+                <a href="/div/" class="rail-back">← Dashboard</a>
+                <h1>Doc<em>uments</em></h1>
+                <div class="sub">Central Railway · BB Division</div>
+            </div>
+            <nav class="rail-nav">
+                <div class="rail-title">Categories</div>
+                <div id="catNav"></div>
+            </nav>
         </aside>
 
         <!-- Main -->
         <main class="docs-main">
             <div class="docs-head">
                 <div>
+                    <div class="crumbs">DOCUMENTS <i>/</i> <b id="crumb">—</b></div>
                     <h1 class="page-title" id="mainTitle">Documents</h1>
                     <div class="page-subtitle" id="mainSubtitle">Division document repository</div>
                 </div>
-                <div style="display:flex; gap:8px;">
-                    <a class="btn btn-primary" id="composeBtn" style="display:none;" href="#">✍ Add Instruction</a>
+                <div class="head-actions" style="display:flex; gap:10px;">
+                    <a class="btn" id="composeBtn" style="display:none;" href="#">✍ Add Instruction</a>
                     <button class="btn btn-primary" id="uploadBtn" style="display:none;">＋ Upload</button>
                 </div>
             </div>
-            <div id="content"><div class="empty">Loading…</div></div>
+            <div class="docs-wrap">
+                <div id="content"><div class="empty">Loading…</div></div>
+            </div>
         </main>
     </div>
 
@@ -149,7 +281,7 @@
                 <textarea id="upDesc" placeholder="Short description"></textarea>
             </div>
             <div class="field">
-                <label>File <span style="color:#94a3b8;font-weight:400;">(pdf, ppt, doc, xls — max 25 MB)</span></label>
+                <label>File <span style="color:var(--ink3);font-weight:400;">(pdf, ppt, doc, xls — max 25 MB)</span></label>
                 <input type="file" id="upFile" accept=".pdf,.ppt,.pptx,.doc,.docx,.xls,.xlsx">
             </div>
             <div class="form-err" id="upErr"></div>
@@ -165,7 +297,8 @@
 <script>
 // mode: how a category is browsed —
 //   date       Year → Month tree
-//   promotion  Year → Month tree, plus a 'Reinstatements' sub-folder
+//   promotion  Year → Month tree, plus optional sub-folders (Demotions,
+//              Reinstatements) shown above the years when they hold documents
 //   folders    fixed folders (from perms.folderConfig), flat list under each
 //   folderdate fixed folders, Year → Month tree inside each (transfer letters)
 //   flat       plain card grid
@@ -173,7 +306,7 @@ const CAT_META = {
     TRAINING_LETTER:    { label: 'Training Letters',    icon: '🎓', mode: 'date' },
     INITIAL_APPOINTMENT:{ label: 'Initial Appointments', icon: '📝', mode: 'date' },
     TRANSFER_LETTER:    { label: 'Transfer Letters',    icon: '📨', mode: 'folderdate' },
-    PROMOTION_ORDER:    { label: 'Promotion Orders',    icon: '📈', mode: 'promotion' },
+    PROMOTION_ORDER:    { label: 'Promotion / Demotion Orders', icon: '📈', mode: 'promotion' },
     SR_DEE_INSTRUCTION: { label: 'Sr.DEE Instructions', icon: '📋', mode: 'date' },
     CEE_OP_INSTRUCTION: { label: 'CEE-OP Instructions', icon: '📋', mode: 'date' },
     SAFETY_CIRCULAR:    { label: 'Safety Circulars',    icon: '🦺', mode: 'date' },
@@ -186,7 +319,6 @@ const CAT_META = {
     MISC:               { label: 'Misc',                icon: '🗂️', mode: 'flat' },
 };
 const FILE_ICON = { pdf:'📄', pptx:'📊', ppt:'📊', docx:'📝', doc:'📝', xlsx:'📈', xls:'📈' };
-const REINSTATEMENT_FOLDER = 'Reinstatements';
 // Instruction categories whose "Description" field is really a Subject, and
 // whose PDFs we try to auto-read the subject line from on upload.
 const SUBJECT_CATEGORIES = ['SR_DEE_INSTRUCTION', 'CEE_OP_INSTRUCTION'];
@@ -204,7 +336,7 @@ const DEFAULT_PERMS = {
         STUDY_MATERIAL:  { required: ['Main Line', 'Suburban'] },
         NEWS_LETTER:     { required: ['Main Line', 'Sub Urban'] },
         E_CASE_STUDY:    { required: ['Main Line', 'Sub Urban'] },
-        PROMOTION_ORDER: { optional: [REINSTATEMENT_FOLDER] },
+        PROMOTION_ORDER: { optional: ['Demotions', 'Reinstatements'] },
         TRANSFER_LETTER: { required: ['CSMT-SUB','KYN-SUB','PNVL-SUB','CSMT-ML','KYN-ML','PNVL-ML',
                                       'IGP','CLA','LNL','NRL','KCS','NCS','SCS','MTN','VVH'] },
     },
@@ -277,6 +409,7 @@ function selectCategory(cat) {
     buildRail();
     const mode = catMode(cat);
     document.getElementById('mainTitle').textContent = CAT_META[cat].label;
+    document.getElementById('crumb').textContent = cat.replace(/_/g, ' ');
     document.getElementById('mainSubtitle').textContent =
         (mode === 'date' || mode === 'promotion') ? 'Browse by year and month'
         : mode === 'folders' ? 'Browse by section'
@@ -307,9 +440,11 @@ async function loadContent() {
     el.innerHTML = '';
     await renderDraftsPanel(el);                 // author's unfinalised instructions, on top
     const body = document.createElement('div');
+    const mode = catMode(current);
+    // Tree modes sit on one gradient panel; flat mode's cards are panels themselves.
+    if (mode !== 'flat') body.className = 'docs-panel';
     el.appendChild(body);
     if (!docs.length) { body.innerHTML = '<div class="empty">No documents yet.</div>'; return; }
-    const mode = catMode(current);
     if (mode === 'promotion')  return renderPromotion(body, docs);
     if (mode === 'folders')    return renderFixedFolders(body, docs);
     if (mode === 'folderdate') return renderFolderDate(body, docs);
@@ -328,15 +463,15 @@ async function renderDraftsPanel(el) {
     } catch (e) { return; }
     if (!drafts.length) return;
     const panel = document.createElement('div');
-    panel.style.cssText = 'margin-bottom:18px;border:1px solid #fde68a;background:#fffbeb;border-radius:10px;padding:12px 14px;';
-    panel.innerHTML = `<div style="font-weight:600;color:#b45309;font-size:13px;margin-bottom:6px;">📝 Your drafts (${drafts.length}) — not yet finalized, visible only to you</div>`;
+    panel.style.cssText = 'margin-bottom:18px;border:1px solid var(--amber-dim);background:linear-gradient(180deg,#1c1608,#12100a);border-radius:14px;padding:12px 16px;';
+    panel.innerHTML = `<div style="font-weight:700;color:var(--amber);font-size:12px;font-family:var(--mono);letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px;">📝 Your drafts (${drafts.length}) — not yet finalized, visible only to you</div>`;
     drafts.forEach(d => {
         const row = document.createElement('div');
-        row.style.cssText = 'display:flex;align-items:center;gap:12px;padding:6px 0;border-top:1px solid #fef3c7;font-size:13px;';
-        const name = d.title ? escapeHtml(d.title) : '<i style="color:#94a3b8">Untitled</i>';
+        row.style.cssText = 'display:flex;align-items:center;gap:12px;padding:6px 0;border-top:1px solid var(--amber-dim);font-size:13px;';
+        const name = d.title ? escapeHtml(d.title) : '<i style="color:var(--ink3)">Untitled</i>';
         row.innerHTML = `
             <span style="flex:1;">${name}${d.description ? ' — ' + escapeHtml(d.description) : ''}</span>
-            <span style="color:#94a3b8;">${d.doc_date ? fmtDate(d.doc_date) : ''}</span>
+            <span style="color:var(--ink3);">${d.doc_date ? fmtDate(d.doc_date) : ''}</span>
             <a class="link-btn" href="/div/instruction-compose.html?id=${d.id}">Edit</a>
             <a class="link-btn" href="${viewUrl(d.id)}" target="_blank" rel="noopener">Preview ↗</a>
             <button class="link-btn danger" data-deldraft="${d.id}">Delete</button>`;
@@ -407,7 +542,7 @@ function appendYearNodes(container, grouped, autoExpand) {
         node.innerHTML = `
             <div class="tree-toggle tree-year ${open?'open':''}">
                 <span class="caret">▶</span><span>${y.year}</span>
-                <span class="tree-count">· ${count}</span>
+                <span class="tree-count">${count}</span>
             </div>
             <div class="tree-children ${open?'open':''}"></div>`;
         const kids = node.querySelector('.tree-children');
@@ -419,7 +554,7 @@ function appendYearNodes(container, grouped, autoExpand) {
             mnode.innerHTML = `
                 <div class="tree-toggle ${mOpen ? 'open' : ''}">
                     <span class="caret">▶</span><span>${m.monthName}</span>
-                    <span class="tree-count">· ${m.documents.length}</span>
+                    <span class="tree-count">${m.documents.length}</span>
                 </div>
                 <div class="tree-children ${mOpen ? 'open' : ''}"></div>`;
             const mkids = mnode.querySelector('.tree-children');
@@ -434,7 +569,7 @@ function appendYearNodes(container, grouped, autoExpand) {
         node.className = 'tree-node';
         node.innerHTML = `
             <div class="tree-toggle tree-year"><span class="caret">▶</span><span>Undated</span>
-                <span class="tree-count">· ${grouped.undated.length}</span></div>
+                <span class="tree-count">${grouped.undated.length}</span></div>
             <div class="tree-children"></div>`;
         const kids = node.querySelector('.tree-children');
         node.querySelector('.tree-toggle').onclick = (e) => toggle(e.currentTarget);
@@ -447,10 +582,13 @@ function appendYearNodes(container, grouped, autoExpand) {
 function folderNode(label, count, open, buildFn) {
     const node = document.createElement('div');
     node.className = 'tree-node';
+    // Lets CSS colour-code specific folders (Demotions / Reinstatements) without
+    // branching here — see the .tree-node[data-folder=…] rules.
+    node.dataset.folder = label;
     node.innerHTML = `
         <div class="tree-toggle tree-year ${open?'open':''}">
-            <span class="caret">▶</span><span>${escapeHtml(label)}</span>
-            <span class="tree-count">· ${count}</span>
+            <span class="caret">▶</span><span class="flabel">${escapeHtml(label)}</span>
+            <span class="tree-count">${count}</span>
         </div>
         <div class="tree-children ${open?'open':''}"></div>`;
     node.querySelector('.tree-toggle').onclick = (e) => toggle(e.currentTarget);
@@ -482,14 +620,17 @@ function renderFolderDate(el, docs) {
     });
 }
 
-// Promotion Orders: a 'Reinstatements' sub-folder + the regular orders by year.
+// Promotion Orders: the optional sub-folders (Demotions / Reinstatements) that
+// hold documents, followed by the regular orders by year.
 function renderPromotion(el, docs) {
-    const reinstate = docs.filter(d => d.folder === REINSTATEMENT_FOLDER);
-    const general   = docs.filter(d => d.folder !== REINSTATEMENT_FOLDER);
-    if (reinstate.length) {
-        el.appendChild(folderNode(REINSTATEMENT_FOLDER, reinstate.length, false,
-            (kids) => appendYearNodes(kids, groupYears(reinstate), true)));
-    }
+    const subs = foldersFor(current);
+    subs.forEach(f => {
+        const inFolder = docs.filter(d => d.folder === f);
+        if (!inFolder.length) return;                 // hide empty sub-folders
+        el.appendChild(folderNode(f, inFolder.length, false,
+            (kids) => appendYearNodes(kids, groupYears(inFolder), true)));
+    });
+    const general = docs.filter(d => !subs.includes(d.folder));
     appendYearNodes(el, groupYears(general), true);
 }
 

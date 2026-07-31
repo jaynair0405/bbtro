@@ -181,6 +181,35 @@ Layout: **left sidebar of categories** + **main content pane**.
 
 ---
 
+## 9a. Promotion Orders sub-folders (2026-07-31)
+
+Promotion Orders carries two **optional** sub-folders — `Demotions` and
+`Reinstatements` — defined in `FOLDER_CONFIG` (`documentRoutes.js`) and mirrored
+in `DEFAULT_PERMS.folderConfig` (`documents.html`). Orders with no folder are
+plain promotions and render in the Year → Month tree as before; a sub-folder is
+only drawn when it holds documents.
+
+Demotions (imposed under punishment) and the reinstatements that later restore
+the post were deliberately **not** given their own top-level sections: they are
+posting-change orders issued by the same office under the same
+`office_hr` / `division_admin` roles, the rail is already 14 entries long, and
+`folder` is free text so this needed no DDL. The rail label reads
+"Promotion / Demotion Orders".
+
+This is documents-only — filing such an order does not touch
+`div_staff_master.designation_id` or `div_promotion_history`.
+
+**Look.** The page was restyled at the same time onto the ops-console design system
+shared by `crew-dashboard-mockup.html` / `detail-book-mockup.html` (ink `#0b0e14`, amber
+`#f4a533`, gradient panels, blueprint grid + grain, mono micro-labels). It no longer
+overrides `division-main.css` back to a light theme. The two sub-folders are colour-coded
+by CSS keyed off `data-folder`, which `folderNode()` now sets — rose `#e56a86` for
+Demotions, mint `#4fd1a5` for Reinstatements — so no render logic branches and every other
+folder (transfer lobbies, study-material lines) stays neutral. A `@media print` block
+strips the ornament for printing.
+
+---
+
 ## 10. Future enhancement — user-creatable folders (DEFERRED)
 
 Status as of **2026-07-02**: shipped sections are **hard-coded** (a DB `ENUM`

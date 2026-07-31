@@ -66,7 +66,9 @@ const FOLDER_CONFIG = {
   STUDY_MATERIAL:  { required: ['Main Line', 'Suburban'] },
   NEWS_LETTER:     { required: ['Main Line', 'Sub Urban'] },
   E_CASE_STUDY:    { required: ['Main Line', 'Sub Urban'] },
-  PROMOTION_ORDER: { optional: ['Reinstatements'] },
+  // Posting-change orders: plain promotions live at the top level; punishment
+  // demotions and later reinstatements get their own sub-folder.
+  PROMOTION_ORDER: { optional: ['Demotions', 'Reinstatements'] },
   // Transfer letters: one folder per sending lobby (letter's from_office_code).
   // Mirrors active offices.office_code values (minus the OTHER sentinel).
   TRANSFER_LETTER: { required: [
