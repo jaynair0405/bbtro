@@ -1585,7 +1585,18 @@ if (!isBypass && sheetSource) {
 })();
 
 // Date helpers
-function todayISO() { return new Date().toISOString().slice(0, 10); }
+// IST (UTC+5:30) civil date — the working day the LPC is actually on, and what
+// the server treats as "today" (routes use nowIST()). Using UTC here made the
+// sheet default to *yesterday* between 00:00 and 05:30 IST (UTC still on the
+// previous date), so the LPC opened the wrong day's sheet and the Today/Tomorrow
+// tabs pointed a day early. Computed independent of the browser's own timezone.
+function todayISO() {
+    const ist = new Date(Date.now() + (330 + new Date().getTimezoneOffset()) * 60000);
+    const y = ist.getFullYear();
+    const m = String(ist.getMonth() + 1).padStart(2, '0');
+    const d = String(ist.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+}
 function isoPlusDays(d, n) {
     const dt = new Date(d + 'T00:00:00Z');
     dt.setUTCDate(dt.getUTCDate() + n);
@@ -3638,6 +3649,19 @@ function scheduleDraftSave() {
     draftDebounce = setTimeout(flushDraft, 800);
 }
 
+// Change the active date. flushDraft() and draftKey() read the mutable global
+// currentDate, so a debounced save still pending from the day you're leaving
+// would otherwise fire AFTER currentDate flipped and write this day's locos
+// under the new day's key — the bug where today's locos appeared on Tomorrow.
+// Cancel that pending save and flush synchronously to the OLD date first, then
+// move.
+function switchDate(newDate) {
+    clearTimeout(draftDebounce);
+    flushDraft();            // persist pending edits under the still-current date
+    currentDate = newDate;
+    loadSheet();
+}
+
 // Re-apply a drafted master row onto the freshly-loaded (server) row, and mark
 // it dirty so Save All picks it up. Special/ad-hoc rows are not auto-recreated
 // in this version — reported in the banner instead of silently dropped.
@@ -3675,6 +3699,12 @@ function restoreDraft() {
     try { saved = JSON.parse(localStorage.getItem(draftKey()) || 'null'); } catch { saved = null; }
     if (!saved || !saved.rows) return;
     if (Date.now() - new Date(saved.savedAt).getTime() > DRAFT_MAX_AGE_MS) {
+        localStorage.removeItem(draftKey()); return;
+    }
+    // The draft records the date it belongs to; if it doesn't match the sheet
+    // we're loading, it was mis-keyed (e.g. a stray flush during a date switch)
+    // — never paint another day's locos onto this sheet. Drop the bad entry.
+    if (saved.date && saved.date !== currentDate) {
         localStorage.removeItem(draftKey()); return;
     }
     let restored = 0, specialsMissed = 0;
@@ -3960,13 +3990,11 @@ function updateQuickBtns() {
     });
 }
 $('#dateInput').addEventListener('change', e => {
-    currentDate = e.target.value;
-    loadSheet();
+    switchDate(e.target.value);
 });
 $$('.quick-btn').forEach(b => {
     b.addEventListener('click', () => {
-        currentDate = isoPlusDays(todayISO(), parseInt(b.dataset.rel, 10));
-        loadSheet();
+        switchDate(isoPlusDays(todayISO(), parseInt(b.dataset.rel, 10)));
     });
 });
 
