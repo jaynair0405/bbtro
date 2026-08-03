@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Suburban Rest Analysis · CRTMS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="rest.css?v1" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">CR</span>
+      <div>
+        <h1>Suburban Rest Analysis</h1>
+        <p class="sub">Central Railway · Mumbai Division · CMS kiosk sign-on/off</p>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <span class="asof" id="asof" hidden>Period <strong id="asofPeriod">—</strong></span>
+      <a class="topbar-btn" href="/div">← Division</a>
+    </div>
+  </header>
+
+  <main>
+    <!-- Upload -->
+    <section id="uploadStage" class="upload-stage">
+      <div class="dropzone" id="dropzone">
+        <div class="dz-icon">⇪</div>
+        <p class="dz-title">Drop the CMS Sign On/Off Excel files here</p>
+        <p class="dz-or">or</p>
+        <label class="btn btn-primary">
+          Choose files
+          <input type="file" id="fileInput" accept=".xlsx" multiple hidden />
+        </label>
+        <p class="dz-note">
+          Add as many files as you like — one per lobby per window. Rest is measured across
+          <strong>all</strong> files together, because motormen sign on at other lobbies too.
+        </p>
+      </div>
+      <div class="thresholds">
+        <label>Hard floor for double rest
+          <input type="text" id="floorInput" value="5:00" size="5" />
+        </label>
+        <label>Second duty counted as “extra” if the gap is under
+          <input type="text" id="gapInput" value="4:00" size="5" />
+        </label>
+      </div>
+      <div class="err" id="uploadErr" hidden></div>
+      <div class="hist" id="histWrap" hidden>
+        <h3>Saved runs</h3>
+        <div id="histList"></div>
+      </div>
+    </section>
+
+    <!-- Results -->
+    <section id="workStage" hidden>
+      <div class="banner" id="coverage" hidden></div>
+      <div class="warnings" id="warnings" hidden></div>
+      <div class="counters" id="counters"></div>
+
+      <div class="controls">
+        <div class="segmented" id="tabs">
+          <button type="button" class="seg active" data-tab="double">Double-detail rest</button>
+          <button type="button" class="seg" data-tab="extra">Interval between 2 duties</button>
+        </div>
+        <label class="office-filter">Office
+          <select id="officeSel">
+            <option value="">All</option>
+            <option value="CSMT">CSMT</option>
+            <option value="KYN">KYN</option>
+            <option value="PNVL">PNVL</option>
+          </select>
+        </label>
+        <div class="control-spacer"></div>
+        <button class="btn btn-ghost" id="saveBtn">Save run</button>
+        <button class="btn btn-export" id="xlsxBtn">⬇ Excel</button>
+        <button class="btn btn-ghost" id="newBtn">New upload</button>
+      </div>
+
+      <div class="table-meta">
+        <span id="tableTitle">—</span>
+        <span class="count-pill" id="visibleCount">0</span>
+      </div>
+
+      <div class="table-wrap">
+        <table id="resultTable">
+          <thead id="resultHead"></thead>
+          <tbody id="resultBody"></tbody>
+        </table>
+        <p class="empty" id="emptyMsg" hidden>Nothing to report for this view.</p>
+      </div>
+
+      <p class="footnote">
+        Only pairs where <strong>both</strong> duties fall inside a covered window can be
+        reported. These figures are a floor on what happened, not a complete count.
+      </p>
+    </section>
+  </main>
+
+  <script src="rest.js?v1"></script>
+</body>
+</html>

@@ -597,6 +597,20 @@ app.use('/clicms', express.static(path.join(__dirname, 'public', 'clicms')));
 // Data endpoints (/upload, /export/*) stay gated to division-realm clicms/division_admin.
 app.use('/clicms', requireClicms, express.json({ limit: '15mb' }), clicmsRouter);
 
+// ---- Suburban rest analysis (double-detail rest + interval between two duties) ----
+// Mounted BEFORE the open public/ static below so the gate intercepts the page assets.
+// Suburban-realm crew controllers plus division admins.
+const requireSuburbanRest = (req, res, next) => {
+  if (!req.session.user) return res.redirect('/');
+  const u = req.session.user;
+  if (u.realm === 'suburban') return next();
+  if (u.realm === 'division' && (u.div_role === 'division_admin' || u.div_role === 'clicms')) return next();
+  return res.redirect('/');
+};
+const suburbanRestRouter = require('./routes/suburbanRest');
+app.use('/suburban-rest', requireSuburbanRest, express.static(path.join(__dirname, 'public', 'suburban-rest')));
+app.use('/suburban-rest', requireSuburbanRest, express.json({ limit: '25mb' }), suburbanRestRouter);
+
 app.use(express.static(path.join(__dirname, "public"), { index: false }));
 
 // Add realm-based authentication middleware
