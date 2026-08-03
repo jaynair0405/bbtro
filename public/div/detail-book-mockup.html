@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Detail Book — BB Division</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Hanken+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0b0e14; --bg2:#0e1219; --panel:#141922; --panel2:#1a2029;
+  --line:#232b37; --line2:#2c3745;
+  --ink:#e8edf4; --ink2:#aeb9c8; --ink3:#6b7686;
+  --amber:#f4a533; --amber-dim:#3a2c15;
+  --single:#5aa9e6; --double:#f4a533; --triple:#e56a86;
+  --cont:#4fd1a5; --fix:#b98cff; --memu:#57b6ff;
+  --shadow:0 18px 50px -20px rgba(0,0,0,.75);
+  --mono:'Space Mono',ui-monospace,monospace;
+  --disp:'Bricolage Grotesque',sans-serif;
+  --body:'Hanken Grotesk',system-ui,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  font-family:var(--body); color:var(--ink); background:var(--bg);
+  -webkit-font-smoothing:antialiased; overflow:hidden;
+  background-image:
+    radial-gradient(1100px 600px at 78% -10%, rgba(244,165,51,.10), transparent 60%),
+    radial-gradient(900px 700px at 10% 110%, rgba(87,182,255,.07), transparent 55%);
+}
+/* faint grid + grain overlay */
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:44px 44px; opacity:.14; mask-image:radial-gradient(circle at 50% 40%,#000 30%,transparent 85%);}
+body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.035;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");}
+
+.app{position:relative;z-index:1;display:grid;grid-template-columns:288px 1fr;height:100vh}
+
+/* ---------- SIDEBAR ---------- */
+.side{background:linear-gradient(180deg,var(--bg2),var(--bg));border-right:1px solid var(--line);
+  display:flex;flex-direction:column;overflow:hidden}
+.brand{padding:22px 22px 18px;border-bottom:1px solid var(--line)}
+.brand .kick{font:700 10px/1 var(--mono);letter-spacing:.32em;color:var(--amber);text-transform:uppercase}
+.brand h1{font-family:var(--disp);font-weight:800;font-size:27px;letter-spacing:-.02em;margin-top:9px;line-height:.95}
+.brand h1 em{font-style:normal;color:var(--amber)}
+.brand .sub{color:var(--ink3);font-size:12px;margin-top:6px;font-weight:500}
+.nav{flex:1;overflow-y:auto;padding:14px 12px 30px}
+.nav::-webkit-scrollbar{width:8px}.nav::-webkit-scrollbar-thumb{background:var(--line2);border-radius:8px}
+.office{margin:6px 0 4px;padding:0 10px}
+.office .oname{display:flex;align-items:center;gap:9px;font:700 11px/1 var(--mono);letter-spacing:.16em;color:var(--ink3);text-transform:uppercase;margin:16px 0 8px}
+.office .oname .dot{width:9px;height:9px;border-radius:50%;background:var(--amber);box-shadow:0 0 0 3px rgba(244,165,51,.14)}
+.link{position:relative;display:flex;align-items:center;gap:11px;padding:9px 12px;margin:2px 0;border-radius:11px;cursor:pointer;
+  color:var(--ink2);transition:background .16s,color .16s,transform .16s}
+.link:hover{background:var(--panel);color:var(--ink);transform:translateX(2px)}
+.link.on{background:linear-gradient(90deg,rgba(244,165,51,.14),rgba(244,165,51,.03));color:var(--ink)}
+.link.on::before{content:"";position:absolute;left:-12px;top:8px;bottom:8px;width:3px;border-radius:3px;background:var(--amber)}
+.link .tick{width:8px;height:8px;border-radius:2px;flex:none;transform:rotate(45deg)}
+.link .lt{flex:1;min-width:0}
+.link .lt b{display:block;font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.link .lt span{font:400 10px/1.3 var(--mono);color:var(--ink3);letter-spacing:.04em}
+.link .cnt{font:700 11px var(--mono);color:var(--ink3)}
+.link.on .cnt{color:var(--amber)}
+.badge-line{font:700 9px var(--mono);letter-spacing:.1em;padding:2px 6px;border-radius:5px;text-transform:uppercase}
+
+/* ---------- MAIN ---------- */
+.main{overflow-y:auto;padding:0}
+.main::-webkit-scrollbar{width:10px}.main::-webkit-scrollbar-thumb{background:var(--line2);border-radius:10px}
+.top{position:sticky;top:0;z-index:5;backdrop-filter:blur(14px);background:rgba(11,14,20,.82);border-bottom:1px solid var(--line);
+  padding:20px 34px 18px}
+.crumbs{display:flex;align-items:center;gap:10px;font:600 12px var(--mono);color:var(--ink3);letter-spacing:.05em}
+.crumbs .sep{color:var(--line2)}
+.crumbs .cur{color:var(--amber)}
+.top h2{font-family:var(--disp);font-weight:700;font-size:30px;letter-spacing:-.02em;margin-top:8px;display:flex;align-items:baseline;gap:14px}
+.top h2 .lk{font:700 11px var(--mono);letter-spacing:.14em;text-transform:uppercase;padding:5px 10px;border-radius:8px;transform:translateY(-3px)}
+.stats{display:flex;gap:26px;margin-top:16px}
+.stat{display:flex;flex-direction:column;gap:2px}
+.stat b{font-family:var(--mono);font-size:21px;font-weight:700;line-height:1}
+.stat span{font:600 10px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--ink3);margin-top:5px}
+.stat.s b{color:var(--single)} .stat.d b{color:var(--double)} .stat.t b{color:var(--triple)}
+
+.grid{padding:26px 34px 90px;display:flex;flex-direction:column;gap:16px}
+
+/* cycle card */
+.cyc{background:linear-gradient(180deg,var(--panel),var(--bg2));border:1px solid var(--line);border-radius:18px;
+  box-shadow:var(--shadow);opacity:0;transform:translateY(14px);animation:rise .5s cubic-bezier(.2,.7,.2,1) forwards}
+@keyframes rise{to{opacity:1;transform:none}}
+.cyc-head{display:flex;align-items:center;gap:12px;padding:15px 20px 13px;border-bottom:1px solid var(--line)}
+.ctag{display:inline-flex;align-items:center;gap:7px;font:700 10.5px var(--mono);letter-spacing:.14em;text-transform:uppercase;
+  padding:5px 11px 5px 9px;border-radius:20px}
+.ctag .g{width:8px;height:8px;border-radius:50%}
+.ctag.single{background:rgba(90,169,230,.12);color:var(--single)} .ctag.single .g{background:var(--single)}
+.ctag.double{background:rgba(244,165,51,.13);color:var(--double)} .ctag.double .g{background:var(--double)}
+.ctag.triple{background:rgba(229,106,134,.13);color:var(--triple)} .ctag.triple .g{background:var(--triple)}
+.cyc-head .anchor{font:600 12px var(--mono);color:var(--ink3)}
+.cyc-head .spacer{flex:1}
+.cyc-head .span{font:600 12px var(--mono);color:var(--ink2)}
+.cyc-head .span .a{color:var(--ink)}
+
+/* chain of leaves */
+.chain{display:flex;align-items:stretch;gap:0;padding:20px 20px 22px;overflow-x:auto}
+.leaf{flex:1 0 220px;min-width:220px;background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:14px 15px;
+  cursor:pointer;transition:border-color .18s,transform .18s,box-shadow .18s;position:relative}
+.leaf:hover{border-color:var(--line2);transform:translateY(-3px);box-shadow:0 14px 30px -18px rgba(0,0,0,.8)}
+.leaf.open{border-color:var(--amber)}
+.leaf-top{display:flex;align-items:center;justify-content:space-between}
+.dnum{font-family:var(--disp);font-weight:800;font-size:25px;letter-spacing:-.02em}
+.role{font:700 9px var(--mono);letter-spacing:.12em;text-transform:uppercase;padding:3px 8px;border-radius:6px;color:var(--ink3);border:1px solid var(--line2)}
+.route{display:flex;align-items:center;gap:10px;margin:14px 0 4px}
+.tchip{display:flex;flex-direction:column;gap:3px;min-width:0}
+.tchip .t{font-family:var(--mono);font-weight:700;font-size:19px;letter-spacing:.02em;line-height:1;
+  background:linear-gradient(180deg,#0a0d13,#0f141c);border:1px solid var(--line2);border-radius:8px;padding:7px 9px;color:var(--ink)}
+.tchip .p{font:600 10px var(--mono);letter-spacing:.1em;color:var(--ink3);text-transform:uppercase;text-align:center}
+.arrow{flex:1;height:2px;background:repeating-linear-gradient(90deg,var(--line2) 0 7px,transparent 7px 12px);position:relative;min-width:22px}
+.arrow::after{content:"";position:absolute;right:-1px;top:-3px;border:4px solid transparent;border-left-color:var(--line2)}
+.leaf .meta{display:flex;gap:14px;margin-top:13px;padding-top:12px;border-top:1px dashed var(--line2)}
+.leaf .meta div{display:flex;flex-direction:column;gap:3px}
+.leaf .meta b{font:700 13px var(--mono);color:var(--ink)}
+.leaf .meta span{font:600 8.5px var(--mono);letter-spacing:.13em;text-transform:uppercase;color:var(--ink3)}
+
+/* rest connector between leaves */
+.rest{flex:0 0 74px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;position:relative}
+.rest .wire{position:absolute;top:50%;left:0;right:0;height:2px;background:var(--line2)}
+.rest .node{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:3px;
+  background:var(--bg2);padding:6px 4px;border-radius:10px}
+.rest .rv{font-family:var(--mono);font-weight:700;font-size:13px;color:var(--ink)}
+.rest .rl{font:700 7.5px var(--mono);letter-spacing:.1em;color:var(--ink3);text-transform:uppercase}
+.rest.warn .rv{color:var(--triple)}
+.rest.rest-key .node{box-shadow:0 0 0 1px var(--amber-dim);background:linear-gradient(180deg,#1c1608,#12100a)}
+.rest.rest-key .rv{color:var(--amber)}
+
+/* legs drawer */
+.legs{grid-column:1/-1;margin-top:2px;display:none}
+.leaf.open ~ .legs{display:block}
+.legwrap{margin:6px 20px 20px;background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:16px 18px;
+  animation:slide .32s ease}
+@keyframes slide{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+.legwrap h4{font:700 10px var(--mono);letter-spacing:.18em;text-transform:uppercase;color:var(--ink3);margin-bottom:14px;display:flex;gap:9px;align-items:center}
+.legwrap h4 .d{color:var(--amber);font-size:14px;letter-spacing:-.01em}
+.leg{display:grid;grid-template-columns:120px 1fr 150px;align-items:center;gap:14px;padding:9px 0;border-top:1px solid var(--line)}
+.leg:first-of-type{border-top:none}
+.leg .tn{font:700 13px var(--mono);color:var(--ink)}
+.leg .tn.pilot{color:var(--ink3)}
+.leg .seg{display:flex;align-items:center;gap:10px}
+.leg .st{font:600 11px var(--mono);color:var(--ink2);width:52px}
+.leg .bar{flex:1;height:6px;border-radius:6px;background:linear-gradient(90deg,var(--cont),#2f8f6f)}
+.leg .bar.pilot{background:repeating-linear-gradient(90deg,var(--ink3) 0 5px,transparent 5px 9px);height:2px}
+.leg .stn{font:700 11px var(--mono);color:var(--ink);white-space:nowrap}
+.leg .rem{font:600 10px var(--mono);color:var(--amber);text-align:right;opacity:.85}
+.tag2{font:700 8px var(--mono);letter-spacing:.1em;padding:2px 6px;border-radius:5px;text-transform:uppercase;margin-left:8px}
+.tag2.w{background:rgba(79,209,165,.14);color:var(--cont)} .tag2.p{background:rgba(107,118,134,.16);color:var(--ink3)}
+
+.empty{padding:80px 30px;text-align:center;color:var(--ink3)}
+.empty b{font-family:var(--disp);font-size:20px;color:var(--ink2);display:block;margin-bottom:6px}
+.legend{position:fixed;bottom:16px;right:22px;z-index:8;display:flex;gap:16px;background:rgba(20,25,34,.9);
+  border:1px solid var(--line);border-radius:12px;padding:9px 15px;backdrop-filter:blur(10px)}
+.legend div{display:flex;align-items:center;gap:7px;font:600 10px var(--mono);letter-spacing:.08em;color:var(--ink2);text-transform:uppercase}
+.legend i{width:9px;height:9px;border-radius:50%}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <div class="brand">
+      <div class="kick">BB Division · Crew Ops</div>
+      <h1>DETAIL<em>·</em>BOOK</h1>
+      <div class="sub">Motormen / LP duty cycles</div>
+    </div>
+    <nav class="nav" id="nav"></nav>
+  </aside>
+  <main class="main">
+    <div class="top" id="top"></div>
+    <div class="grid" id="grid"></div>
+  </main>
+</div>
+<div class="legend">
+  <div><i style="background:var(--single)"></i>Single</div>
+  <div><i style="background:var(--double)"></i>Double</div>
+  <div><i style="background:var(--triple)"></i>Triple</div>
+</div>
+
+<script>
+const CYCLES = [{"id": "HB87-201", "wm": "3:23", "num": "201", "pil": "0:18", "son": "16:01", "duty": "6:44", "line": "harbour", "link": "continuous", "next": "HB87-202", "soff": "22:45", "sonp": "CSMT", "type": "double", "soffp": "CSMT", "anchor": "HB87-201", "office": "CSMT-SUB"}, {"id": "HB87-202", "wm": "2:21", "num": "202", "pil": "0:18", "son": "04:22", "duty": "4:17", "line": "harbour", "link": "continuous", "next": "HB87-203", "soff": "08:39", "sonp": "CSMT", "type": "double", "soffp": "CSMT", "anchor": "HB87-201", "office": "CSMT-SUB"}, {"id": "HB87-203", "wm": "3:28", "num": "203", "pil": "0:49", "son": "05:46", "duty": "7:55", "line": "harbour", "link": "continuous", "next": "HB87-204", "soff": "13:41", "sonp": "CSMT", "type": "single", "soffp": "CSMT", "anchor": null, "office": "CSMT-SUB"}, {"id": "HB87-204", "wm": "3:40", "num": "204", "pil": "0:00", "son": "10:30", "duty": "7:05", "line": "harbour", "link": "continuous", "next": "HB87-205", "soff": "17:35", "sonp": "CSMT", "type": "single", "soffp": "CSMT", "anchor": null, "office": "CSMT-SUB"}, {"id": "HB87-205", "wm": "3:41", "num": "205", "pil": "0:18", "son": "16:13", "duty": "6:52", "line": "harbour", "link": "continuous", "next": "HB87-206", "soff": "23:05", "sonp": "CSMT", "type": "double", "soffp": "PNVL", "anchor": "HB87-205", "office": "CSMT-SUB"}, {"id": "HB87-206", "wm": "1:53", "num": "206", "pil": "0:37", "son": "05:32", "duty": "5:01", "line": "harbour", "link": "continuous", "next": "HB87-207", "soff": "10:33", "sonp": "PNVL", "type": "double", "soffp": "CSMT", "anchor": "HB87-205", "office": "CSMT-SUB"}, {"id": "HB87-207", "wm": "3:43", "num": "207", "pil": "0:18", "son": "05:46", "duty": "6:33", "line": "harbour", "link": "continuous", "next": "HB87-208", "soff": "12:19", "sonp": "CSMT", "type": "single", "soffp": "CSMT", "anchor": null, "office": "CSMT-SUB"}, {"id": "HB87-208", "wm": "3:40", "num": "208", "pil": "0:00", "son": "14:34", "duty": "7:31", "line": "harbour", "link": "continuous", "next": "HB87-209", "soff": "22:05", "sonp": "CSMT", "type": "single", "soffp": "CSMT", "anchor": null, "office": "CSMT-SUB"}, {"id": "HB87-209", "wm": "3:22", "num": "209", "pil": "0:18", "son": "15:02", "duty": "7:58", "line": "harbour", "link": "continuous", "next": "HB87-210", "soff": "23:00", "sonp": "CSMT", "type": "double", "soffp": "CSMT", "anchor": "HB87-209", "office": "CSMT-SUB"}, {"id": "HB87-210", "wm": "2:43", "num": "210", "pil": "0:57", "son": "04:40", "duty": "5:45", "line": "harbour", "link": "continuous", "next": "HB87-211", "soff": "10:25", "sonp": "CSMT", "type": "double", "soffp": "CSMT", "anchor": "HB87-209", "office": "CSMT-SUB"}, {"id": "HB87-211", "wm": "3:46", "num": "211", "pil": "0:00", "son": "07:59", "duty": "7:08", "line": "harbour", "link": "continuous", "next": "HB87-212", "soff": "15:07", "sonp": "CSMT", "type": "single", "soffp": "CSMT", "anchor": null, "office": "CSMT-SUB"}, {"id": "HB87-212", "wm": "0:00", "num": "212", "pil": "0:00", "son": "10:00", "duty": "8:00", "line": "harbour", "link": "continuous", "next": "HB87-213", "soff": "18:00", "sonp": "CSMT", "type": "single", "soffp": "CSMT", "anchor": null, "office": "CSMT-SUB"}, {"id": "HB87-213", "wm": "3:54", "num": "213", "pil": "0:37", "son": "14:58", "duty": "7:55", "line": "harbour", "link": "continuous", "next": "HB87-214", "soff": "22:53", "sonp": "CSMT", "type": "double", "soffp": "CSMT", "anchor": "HB87-213", "office": "CSMT-SUB"}, {"id": "HB87-214", "wm": "2:22", "num": "214", "pil": "0:18", "son": "04:36", "duty": "4:16", "line": "harbour", "link": "continuous", "next": "HB87-215", "soff": "08:52", "sonp": "CSMT", "type": "double", "soffp": "CSMT", "anchor": "HB87-213", "office": "CSMT-SUB"}, {"id": "HB87-215", "wm": "3:17", "num": "215", "pil": "1:13", "son": "07:54", "duty": "7:49", "line": "harbour", "link": "continuous", "next": "HB87-216", "soff": "15:43", "sonp": "CSMT", "type": "single", "soffp": "CSMT", "anchor": null, "office": "CSMT-SUB"}, {"id": "HB87-216", "wm": "3:40", "num": "216", "pil": "0:00", "son": "14:38", "duty": "7:07", "line": "harbour", "link": "continuous", "next": "HB87-217", "soff": "21:45", "sonp": "CSMT", "type": "single", "soffp": "CSMT", "anchor": null, "office": "CSMT-SUB"}, {"id": "HB87-217", "wm": "4:01", "num": "217", "pil": "0:00", "son": "16:13", "duty": "6:22", "line": "harbour", "link": "continuous", "next": "HB87-218", "soff": "22:35", "sonp": "CSMT", "type": "double", "soffp": "CSMT", "anchor": "HB87-217", "office": "CSMT-SUB"}, {"id": "HB87-218", "wm": "1:49", "num": "218", "pil": "0:00", "son": "04:26", "duty": "2:43", "line": "harbour", "link": "continuous", "next": "HB87-219", "soff": "07:09", "sonp": "CSMT", "type": "double", "soffp": "CSMT", "anchor": "HB87-217", "office": "CSMT-SUB"}, {"id": "HB87-219", "wm": "1:40", "num": "219", "pil": "0:00", "son": "23:16", "duty": "7:11", "line": "harbour", "link": "continuous", "next": "HB87-220", "soff": "06:27", "sonp": "CSMT", "type": "triple", "soffp": "CSMT", "anchor": "HB87-217", "office": "CSMT-SUB"}, {"id": "HB87-220", "wm": "1:39", "num": "220", "pil": "0:00", "son": "22:28", "duty": "7:55", "line": "harbour", "link": "continuous", "next": "HB87-221", "soff": "06:23", "sonp": "CSMT", "type": "triple", "soffp": "CSMT", "anchor": "HB87-217", "office": "CSMT-SUB"}, {"id": "HB87-221", "wm": "2:56", "num": "221", "pil": "1:23", "son": "14:26", "duty": "7:52", "line": "harbour", "link": "continuous", "next": "HB87-222", "soff": "22:18", "sonp": "CSMT", "type": "single", "soffp": "CSMT", "anchor": null, "office": "CSMT-SUB"}, {"id": "HB87-222", "wm": "3:10", "num": "222", "pil": "0:18", "son": "17:23", "duty": "7:24", "line": "harbour", "link": "continuous", "next": "HB87-223", "soff": "00:47", "sonp": "CSMT", "type": "double", "soffp": "SCS", "anchor": "HB87-222", "office": "CSMT-SUB"}, {"id": "HB87-223", "wm": "1:44", "num": "223", "pil": "0:58", "son": "06:22", "duty": "5:00", "line": "harbour", "link": "continuous", "next": "HB87-224", "soff": "11:22", "sonp": "SCS", "type": "double", "soffp": "CSMT", "anchor": "HB87-222", "office": "CSMT-SUB"}, {"id": "HB87-224", "wm": "1:21", "num": "224", "pil": "0:18", "son": "10:15", "duty": "7:33", "line": "harbour", "link": "continuous", "next": "HB87-225", "soff": "17:48", "sonp": "CSMT", "type": "single", "soffp": "CSMT", "anchor": null, "office": "CSMT-SUB"}, {"id": "HB87-225", "wm": "3:36", "num": "225", "pil": "0:55", "son": "13:42", "duty": "7:24", "line": "harbour", "link": "continuous", "next": "HB87-226", "soff": "21:06", "sonp": "CSMT", "type": "single", "soffp": "CSMT", "anchor": null, "office": "CSMT-SUB"}, {"id": "HB87-226", "wm": "3:30", "num": "226", "pil": "0:49", "son": "16:21", "duty": "7:20", "line": "harbour", "link": "continuous", "next": "HB87-227", "soff": "23:41", "sonp": "CSMT", "type": "double", "soffp": "CSMT", "anchor": "HB87-226", "office": "CSMT-SUB"}, {"id": "HB87-227", "wm": "2:21", "num": "227", "pil": "0:18", "son": "05:26", "duty": "4:11", "line": "harbour", "link": "continuous", "next": "HB87-228", "soff": "09:37", "sonp": "CSMT", "type": "double", "soffp": "CSMT", "anchor": "HB87-226", "office": "CSMT-SUB"}, {"id": "HB87-228", "wm": "3:12", "num": "228", "pil": "0:18", "son": "06:29", "duty": "6:07", "line": "harbour", "link": "continuous", "next": "HB87-229", "soff": "12:36", "sonp": "CSMT", "type": "single", "soffp": "CSMT", "anchor": null, "office": "CSMT-SUB"}, {"id": "HB87-229", "wm": "3:19", "num": "229", "pil": "1:13", "son": "12:28", "duty": "7:39", "line": "harbour", "link": "continuous", "next": "HB87-230", "soff": "20:15", "sonp": "CSMT", "type": "single", "soffp": "CSMT", "anchor": null, "office": "CSMT-SUB"}, {"id": "HB87-230", "wm": "3:29", "num": "230", "pil": "0:00", "son": "15:30", "duty": "7:10", "line": "harbour", "link": "continuous", "next": "HB87-231", "soff": "22:40", "sonp": "CSMT", "type": "double", "soffp": "SCS", "anchor": "HB87-230", "office": "CSMT-SUB"}, {"id": "HB87-231", "wm": "1:54", "num": "231", "pil": "1:04", "son": "03:52", "duty": "5:29", "line": "harbour", "link": "continuous", "next": "HB87-232", "soff": "09:21", "sonp": "SCS", "type": "double", "soffp": "CSMT", "anchor": "HB87-230", "office": "CSMT-SUB"}, {"id": "HB87-232", "wm": "3:21", "num": "232", "pil": "0:18", "son": "08:44", "duty": "7:21", "line": "harbour", "link": "continuous", "next": "HB87-233", "soff": "16:05", "sonp": "CSMT", "type": "single", "soffp": "CSMT", "anchor": null, "office": "CSMT-SUB"}, {"id": "HB87-233", "wm": "3:41", "num": "233", "pil": "0:18", "son": "10:22", "duty": "7:09", "line": "harbour", "link": "continuous", "next": "HB87-234", "soff": "17:31", "sonp": "CSMT", "type": "single", "soffp": "CSMT", "anchor": null, "office": "CSMT-SUB"}, {"id": "HB87-234", "wm": "4:00", "num": "234", "pil": "0:00", "son": "18:43", "duty": "6:34", "line": "harbour", "link": "continuous", "next": "HB87-235", "soff": "01:17", "sonp": "CSMT", "type": "double", "soffp": "CSMT", "anchor": "HB87-234", "office": "CSMT-SUB"}, {"id": "HB87-235", "wm": "2:42", "num": "235", "pil": "0:00", "son": "06:29", "duty": "4:04", "line": "harbour", "link": "continuous", "next": "HB87-236", "soff": "10:33", "sonp": "CSMT", "type": "double", "soffp": "CSMT", "anchor": "HB87-234", "office": "CSMT-SUB"}, {"id": "HB87-236", "wm": "3:39", "num": "236", "pil": "0:00", "son": "07:30", "duty": "7:57", "line": "harbour", "link": "continuous", "next": "HB87-237", "soff": "15:27", "sonp": "CSMT", "type": "single", "soffp": "CSMT", "anchor": null, "office": "CSMT-SUB"}, {"id": "HB87-237", "wm": "0:00", "num": "237", "pil": "0:00", "son": "12:00", "duty": "8:00", "line": "harbour", "link": "continuous", "next": "HB87-238", "soff": "20:00", "sonp": "CSMT", "type": "single", "soffp": "CSMT", "anchor": null, "office": "CSMT-SUB"}, {"id": "HB87-238", "wm": "3:32", "num": "238", "pil": "0:00", "son": "15:38", "duty": "6:37", "line": "harbour", "link": "continuous", "next": "HB87-239", "soff": "22:15", "sonp": "CSMT", "type": "double", "soffp": "SCS", "anchor": "HB87-238", "office": "CSMT-SUB"}, {"id": "HB87-239", "wm": "0:49", "num": "239", "pil": "0:00", "son": "03:40", "duty": "1:49", "line": "harbour", "link": "continuous", "next": "HB87-240", "soff": "05:29", "sonp": "SCS", "type": "double", "soffp": "CSMT", "anchor": "HB87-238", "office": "CSMT-SUB"}, {"id": "HB87-240", "wm": "2:40", "num": "240", "pil": "0:00", "son": "21:50", "duty": "7:43", "line": "harbour", "link": "continuous", "next": "HB87-241", "soff": "05:33", "sonp": "CSMT", "type": "triple", "soffp": "CSMT", "anchor": "HB87-238", "office": "CSMT-SUB"}, {"id": "HB87-241", "wm": "1:00", "num": "241", "pil": "0:00", "son": "23:08", "duty": "5:55", "line": "harbour", "link": "continuous", "next": "HB87-242", "soff": "05:03", "sonp": "CSMT", "type": "triple", "soffp": "CSMT", "anchor": "HB87-238", "office": "CSMT-SUB"}, {"id": "HB87-242", "wm": "3:55", "num": "242", "pil": "0:37", "son": "13:18", "duty": "7:59", "line": "harbour", "link": "continuous", "next": "HB87-243", "soff": "21:17", "sonp": "CSMT", "type": "single", "soffp": "CSMT", "anchor": null, "office": "CSMT-SUB"}, {"id": "HB87-243", "wm": "3:28", "num": "243", "pil": "0:00", "son": "18:19", "duty": "5:57", "line": "harbour", "link": "continuous", "next": "HB87-244", "soff": "00:16", "sonp": "CSMT", "type": "double", "soffp": "CSMT", "anchor": "HB87-243", "office": "CSMT-SUB"}, {"id": "HB87-244", "wm": "2:21", "num": "244", "pil": "0:18", "son": "05:34", "duty": "4:26", "line": "harbour", "link": "continuous", "next": "HB87-245", "soff": "10:00", "sonp": "CSMT", "type": "double", "soffp": "CSMT", "anchor": "HB87-243", "office": "CSMT-SUB"}, {"id": "HB87-545", "wm": "2:20", "num": "545", "pil": "0:22", "son": "19:25", "duty": "5:44", "line": "harbour", "link": "fix", "next": "HB87-546", "soff": "01:09", "sonp": "PNVL", "type": "double", "soffp": "PNVL", "anchor": "HB87-545", "office": "PNVL-SUB"}, {"id": "HB87-546", "wm": "2:39", "num": "546", "pil": "0:00", "son": "06:27", "duty": "5:45", "line": "harbour", "link": "fix", "next": null, "soff": "12:12", "sonp": "PNVL", "type": "double", "soffp": "PNVL", "anchor": "HB87-545", "office": "PNVL-SUB"}, {"id": "HB87-547", "wm": "2:13", "num": "547", "pil": "0:30", "son": "14:15", "duty": "8:02", "line": "harbour", "link": "continuous", "next": "HB87-548", "soff": "22:17", "sonp": "PNVL", "type": "single", "soffp": "PNVL", "anchor": null, "office": "PNVL-SUB"}, {"id": "HB87-548", "wm": "2:15", "num": "548", "pil": "0:15", "son": "14:58", "duty": "7:56", "line": "harbour", "link": "continuous", "next": "HB87-549", "soff": "22:54", "sonp": "PNVL", "type": "double", "soffp": "NEU", "anchor": "HB87-548", "office": "PNVL-SUB"}, {"id": "HB87-549", "wm": "1:08", "num": "549", "pil": "0:23", "son": "05:30", "duty": "3:41", "line": "harbour", "link": "continuous", "next": "HB87-550", "soff": "09:11", "sonp": "NEU", "type": "double", "soffp": "PNVL", "anchor": "HB87-548", "office": "PNVL-SUB"}, {"id": "HB87-550", "wm": "1:42", "num": "550", "pil": "0:22", "son": "16:08", "duty": "6:41", "line": "harbour", "link": "continuous", "next": "HB87-551", "soff": "22:49", "sonp": "PNVL", "type": "double", "soffp": "URAN", "anchor": "HB87-550", "office": "PNVL-SUB"}, {"id": "HB87-551", "wm": "1:39", "num": "551", "pil": "0:15", "son": "04:45", "duty": "4:42", "line": "harbour", "link": "continuous", "next": "HB87-552", "soff": "09:27", "sonp": "URAN", "type": "double", "soffp": "PNVL", "anchor": "HB87-550", "office": "PNVL-SUB"}, {"id": "HB87-552", "wm": "1:39", "num": "552", "pil": "0:15", "son": "17:03", "duty": "6:45", "line": "harbour", "link": "continuous", "next": "HB87-553", "soff": "23:48", "sonp": "PNVL", "type": "double", "soffp": "URAN", "anchor": "HB87-552", "office": "PNVL-SUB"}, {"id": "HB87-553", "wm": "1:42", "num": "553", "pil": "0:23", "son": "05:25", "duty": "5:44", "line": "harbour", "link": "continuous", "next": "HB87-451", "soff": "11:09", "sonp": "URAN", "type": "double", "soffp": "PNVL", "anchor": "HB87-552", "office": "PNVL-SUB"}, {"id": "HB87-554", "wm": "1:25", "num": "554", "pil": "1:30", "son": "07:10", "duty": "5:05", "line": "harbour", "link": "memu", "next": null, "soff": "12:15", "sonp": "PNVL", "type": "single", "soffp": "PNVL", "anchor": null, "office": "PNVL-SUB"}, {"id": "HB87-555", "wm": "2:26", "num": "555", "pil": "0:50", "son": "07:10", "duty": "7:53", "line": "harbour", "link": "memu", "next": null, "soff": "15:03", "sonp": "PNVL", "type": "single", "soffp": "PNVL", "anchor": null, "office": "PNVL-SUB"}, {"id": "HB87-556", "wm": "3:10", "num": "556", "pil": "1:20", "son": "10:00", "duty": "8:10", "line": "harbour", "link": "memu", "next": null, "soff": "21:15", "sonp": "PNVL", "type": "single", "soffp": "PNVL", "anchor": null, "office": "PNVL-SUB"}, {"id": "HB87-557", "wm": "2:42", "num": "557", "pil": "0:40", "son": "14:18", "duty": "6:37", "line": "harbour", "link": "memu", "next": null, "soff": "20:55", "sonp": "PNVL", "type": "single", "soffp": "PNVL", "anchor": null, "office": "PNVL-SUB"}, {"id": "ML89A-158", "wm": "1:54", "num": "158", "pil": "0:00", "son": "22:30", "duty": "8:06", "line": "mainline", "link": "fix", "next": null, "soff": "06:36", "sonp": "CSMT", "type": "triple", "soffp": "CSMT", "anchor": null, "office": "CSMT-SUB"}, {"id": "ML89A-159", "wm": "1:18", "num": "159", "pil": "0:30", "son": "22:42", "duty": "6:49", "line": "mainline", "link": "fix", "next": null, "soff": "05:31", "sonp": "CSMT", "type": "triple", "soffp": "CSMT", "anchor": null, "office": "CSMT-SUB"}, {"id": "ML89A-160", "wm": "2:56", "num": "160", "pil": "0:00", "son": "23:00", "duty": "7:53", "line": "mainline", "link": "fix", "next": null, "soff": "06:53", "sonp": "CSMT", "type": "triple", "soffp": "CSMT", "anchor": null, "office": "CSMT-SUB"}, {"id": "ML89A-161", "wm": "1:54", "num": "161", "pil": "0:00", "son": "23:25", "duty": "6:36", "line": "mainline", "link": "fix", "next": null, "soff": "06:01", "sonp": "CSMT", "type": "triple", "soffp": "CSMT", "anchor": null, "office": "CSMT-SUB"}, {"id": "ML89A-162", "wm": "0:58", "num": "162", "pil": "0:00", "son": "23:35", "duty": "5:56", "line": "mainline", "link": "fix", "next": null, "soff": "05:31", "sonp": "CSMT", "type": "triple", "soffp": "CSMT", "anchor": null, "office": "CSMT-SUB"}, {"id": "ML89A-163", "wm": "1:39", "num": "163", "pil": "0:00", "son": "23:54", "duty": "6:13", "line": "mainline", "link": "fix", "next": null, "soff": "06:07", "sonp": "CSMT", "type": "triple", "soffp": "CSMT", "anchor": null, "office": "CSMT-SUB"}, {"id": "ML89A-164", "wm": "2:33", "num": "164", "pil": "0:33", "son": "06:25", "duty": "6:55", "line": "mainline", "link": "fix", "next": null, "soff": "13:20", "sonp": "CSMT", "type": "single", "soffp": "CSMT", "anchor": null, "office": "CSMT-SUB"}, {"id": "ML89A-865", "wm": "2:58", "num": "865", "pil": "0:00", "son": "12:53", "duty": "5:01", "line": "mainline", "link": "fix", "next": null, "soff": "17:54", "sonp": "KYN", "type": "single", "soffp": "KYN", "anchor": null, "office": "KYN-SUB"}, {"id": "ML89A-866", "wm": "2:59", "num": "866", "pil": "0:00", "son": "18:16", "duty": "5:12", "line": "mainline", "link": "fix", "next": null, "soff": "23:28", "sonp": "KYN", "type": "single", "soffp": "KYN", "anchor": null, "office": "KYN-SUB"}, {"id": "ML89A-867", "wm": "2:33", "num": "867", "pil": "0:00", "son": "15:23", "duty": "7:57", "line": "mainline", "link": "fix", "next": null, "soff": "23:20", "sonp": "KYN", "type": "single", "soffp": "CSMT", "anchor": null, "office": "KYN-SUB"}, {"id": "ML89A-868", "wm": "2:01", "num": "868", "pil": "0:00", "son": "05:21", "duty": "2:55", "line": "mainline", "link": "fix", "next": null, "soff": "08:16", "sonp": "CSMT", "type": "single", "soffp": "KYN", "anchor": null, "office": "KYN-SUB"}, {"id": "ML89A-869", "wm": "3:29", "num": "869", "pil": "0:00", "son": "18:59", "duty": "5:00", "line": "mainline", "link": "fix", "next": null, "soff": "23:59", "sonp": "KYN", "type": "single", "soffp": "CSMT", "anchor": null, "office": "KYN-SUB"}, {"id": "ML89A-870", "wm": "1:30", "num": "870", "pil": "0:00", "son": "06:00", "duty": "2:16", "line": "mainline", "link": "fix", "next": null, "soff": "08:16", "sonp": "CSMT", "type": "single", "soffp": "KYN", "anchor": null, "office": "KYN-SUB"}, {"id": "ML89A-871", "wm": "3:53", "num": "871", "pil": "0:00", "son": "17:25", "duty": "6:37", "line": "mainline", "link": "fix", "next": "ML89A-872", "soff": "23:39", "sonp": "KYN", "type": "double", "soffp": "KSRA", "anchor": "ML89A-871", "office": "KYN-SUB"}, {"id": "ML89A-872", "wm": "1:15", "num": "872", "pil": "0:00", "son": "06:22", "duty": "2:07", "line": "mainline", "link": "fix", "next": null, "soff": "08:29", "sonp": "KSRA", "type": "double", "soffp": "KYN", "anchor": "ML89A-871", "office": "KYN-SUB"}];
+const LEGS = [{"es": "PNVL", "et": "18:19", "ss": "VDLR", "st": "17:14", "tn": "PLVD33", "ty": "working", "did": "HB87-201", "rem": ""}, {"es": "CSMT", "et": "20:16", "ss": "PNVL", "st": "18:57", "tn": "PL148", "ty": "working", "did": "HB87-201", "rem": ""}, {"es": "BA", "et": "21:51", "ss": "CSMT", "st": "21:22", "tn": "B75", "ty": "working", "did": "HB87-201", "rem": ""}, {"es": "CSMT", "et": "22:30", "ss": "BA", "st": "22:00", "tn": "B78", "ty": "working", "did": "HB87-201", "rem": ""}, {"es": "VDLR", "et": "16:49", "ss": "CSMT", "st": "16:31", "tn": "P/B55", "ty": "piloting", "did": "HB87-201", "rem": ""}, {"es": "PNVL", "et": "06:12", "ss": "CSMT", "st": "04:52", "tn": "PL9", "ty": "working", "did": "HB87-202", "rem": ""}, {"es": "VDLR", "et": "07:42", "ss": "PNVL", "st": "06:41", "tn": "PLVD2", "ty": "working", "did": "HB87-202", "rem": ""}, {"es": "CSMT", "et": "08:24", "ss": "VDLR", "st": "08:06", "tn": "P/BR18", "ty": "piloting", "did": "HB87-202", "rem": ""}, {"es": "GMN", "et": "17:37", "ss": "CSMT", "st": "16:43", "tn": "GN55", "ty": "working", "did": "HB87-217", "rem": ""}, {"es": "CSMT", "et": "18:49", "ss": "GMN", "st": "17:53", "tn": "GN62", "ty": "working", "did": "HB87-217", "rem": ""}, {"es": "BEPR", "et": "20:59", "ss": "CSMT", "st": "19:52", "tn": "BR51", "ty": "working", "did": "HB87-217", "rem": ""}, {"es": "CSMT", "et": "22:20", "ss": "BEPR", "st": "21:16", "tn": "BR74", "ty": "working", "did": "HB87-217", "rem": ""}, {"es": "GMN", "et": "05:50", "ss": "CSMT", "st": "04:56", "tn": "GN3", "ty": "working", "did": "HB87-218", "rem": ""}, {"es": "CSMT", "et": "06:54", "ss": "GMN", "st": "05:59", "tn": "GN10", "ty": "working", "did": "HB87-218", "rem": ""}, {"es": "GMN", "et": "00:41", "ss": "CSMT", "st": "23:46", "tn": "GN87", "ty": "working", "did": "HB87-219", "rem": ""}, {"es": "CSMT", "et": "06:12", "ss": "GMN", "st": "05:17", "tn": "GN6", "ty": "working", "did": "HB87-219", "rem": ""}, {"es": "PNVL", "et": "00:18", "ss": "CSMT", "st": "22:58", "tn": "PL201", "ty": "working", "did": "HB87-220", "rem": ""}, {"es": "CSMT", "et": "06:08", "ss": "PNVL", "st": "04:49", "tn": "PL8", "ty": "working", "did": "HB87-220", "rem": ""}, {"es": "URAN", "et": "19:03", "ss": "BEPR", "st": "18:30", "tn": "UBR19", "ty": "working", "did": "HB87-552", "rem": null}, {"es": "BEPR", "et": "20:08", "ss": "URAN", "st": "19:35", "tn": "UBR22", "ty": "working", "did": "HB87-552", "rem": "R/B 466"}, {"es": "URAN", "et": "23:03", "ss": "BEPR", "st": "22:30", "tn": "UBR25", "ty": "working", "did": "HB87-552", "rem": "R/T 547 / TO SDG"}, {"es": "BEPR", "et": "17:48", "ss": "PNVL", "st": "17:33", "tn": "P/PL136", "ty": "piloting", "did": "HB87-552", "rem": "R/T 547"}, {"es": "NEU", "et": "06:44", "ss": "URAN", "st": "06:10", "tn": "UNU2", "ty": "working", "did": "HB87-553", "rem": "EX SDG / R/B 503"}, {"es": "URAN", "et": "08:49", "ss": "NEU", "st": "08:15", "tn": "UNU5", "ty": "working", "did": "HB87-553", "rem": "R/T 549"}, {"es": "NEU", "et": "09:49", "ss": "URAN", "st": "09:15", "tn": "UNU8", "ty": "working", "did": "HB87-553", "rem": "R/B 522"}, {"es": "PNVL", "et": "10:54", "ss": "NEU", "st": "10:31", "tn": "P/TPL17", "ty": "piloting", "did": "HB87-553", "rem": null}, {"es": "TNA", "et": "23:57", "ss": "CSMT", "st": "23:00", "tn": "T 133", "ty": "working", "did": "ML89A-158", "rem": ""}, {"es": "CSMT", "et": "06:21", "ss": "TNA", "st": "05:24", "tn": "T 12", "ty": "working", "did": "ML89A-158", "rem": ""}, {"es": "CSMT", "et": "19:10", "ss": "KYN", "st": "17:37", "tn": "K 100", "ty": "working", "did": "ML89A-871", "rem": ""}, {"es": "KSRA", "et": "23:04", "ss": "CSMT", "st": "20:44", "tn": "N 31", "ty": "working", "did": "ML89A-871", "rem": ""}, {"es": "KYN", "et": "08:12", "ss": "KSRA", "st": "06:57", "tn": "N 8", "ty": "working", "did": "ML89A-872", "rem": ""}];
+
+const LINE_C = {continuous:'var(--cont)', fix:'var(--fix)', memu:'var(--memu)'};
+const OFFN = {'CSMT-SUB':'CSMT','KYN-SUB':'KYN','PNVL-SUB':'PNVL'};
+const toMin = t => { if(!t) return 0; const [h,m]=t.split(':').map(Number); return h*60+m; };
+const restBetween = (a,b) => { let d=(toMin(b.son)-toMin(a.soff)+1440)%1440; if(d===0)d=1440; return d; };
+const fmtRest = m => { const h=Math.floor(m/60), mm=m%60; return h+':'+String(mm).padStart(2,'0'); };
+
+// group into blocks present in data
+const blocks = [
+ ['CSMT-SUB','mainline','continuous','CSMT Mainline Continuous',1,157],
+ ['CSMT-SUB','mainline','fix','CSMT Mainline Fix',158,177],
+ ['CSMT-SUB','mainline','memu','CSMT Mainline MEMU',191,193],
+ ['KYN-SUB','mainline','continuous','KYN Mainline Continuous',601,849],
+ ['KYN-SUB','mainline','fix','KYN Mainline Fix',850,872],
+ ['KYN-SUB','mainline','memu','KYN Mainline MEMU',901,912],
+ ['CSMT-SUB','harbour','continuous','CSMT Harbour Continuous',201,384],
+ ['CSMT-SUB','harbour','fix','CSMT Harbour Fix',386,404],
+ ['PNVL-SUB','harbour','continuous','PNVL Harbour Continuous',451,538],
+ ['PNVL-SUB','harbour','fix','PNVL Harbour Fix',539,546],
+ ['PNVL-SUB','harbour','continuous','PNVL Harbour Continuous +',547,553],
+ ['PNVL-SUB','harbour','memu','PNVL Harbour MEMU',554,557],
+];
+const inBlock=(d,b)=> d.line===b[1] && d.link===b[2] && +d.num>=b[4] && +d.num<=b[5];
+const hasData=b=> CYCLES.some(d=>inBlock(d,b));
+
+let active = blocks.find(b=>b[3]==='CSMT Harbour Continuous');
+
+function buildNav(){
+  const nav=document.getElementById('nav'); nav.innerHTML='';
+  const offices=[...new Set(blocks.map(b=>b[0]))];
+  offices.forEach(o=>{
+    const sec=document.createElement('div'); sec.className='office';
+    sec.innerHTML=`<div class="oname"><span class="dot"></span>${OFFN[o]} Suburban</div>`;
+    blocks.filter(b=>b[0]===o).forEach(b=>{
+      const n=CYCLES.filter(d=>inBlock(d,b)).length;
+      const el=document.createElement('div');
+      el.className='link'+(b===active?' on':'')+(hasData(b)?'':' off');
+      el.style.opacity=hasData(b)?1:.4;
+      el.innerHTML=`<span class="tick" style="background:${LINE_C[b[2]]}"></span>
+        <span class="lt"><b>${b[3].replace(OFFN[o]+' ','').replace(' Suburban','')}</b>
+        <span>${b[1]} · ${b[4]}–${b[5]}</span></span>
+        <span class="cnt">${n||'–'}</span>`;
+      if(hasData(b)) el.onclick=()=>{active=b;render()};
+      sec.appendChild(el);
+    });
+    nav.appendChild(sec);
+  });
+}
+
+function cyclesFor(b){
+  const ds=CYCLES.filter(d=>inBlock(d,b)).sort((x,y)=>+x.num-+y.num);
+  const groups=new Map(), order=[];
+  ds.forEach(d=>{
+    const key = d.anchor || d.id;
+    if(!groups.has(key)){groups.set(key,[]);order.push(key);}
+    groups.get(key).push(d);
+  });
+  return order.map(k=>groups.get(k));
+}
+
+function leafHTML(d,i,arr){
+  const role = d.type==='double' ? (d.anchor===d.id?'EVENING':'MORNING')
+             : d.type==='triple' ? 'NIGHT' : 'SHIFT';
+  return `<div class="leaf" data-id="${d.id}" onclick="toggle('${d.id}',this)">
+    <div class="leaf-top"><span class="dnum">${d.num}</span><span class="role">${role}</span></div>
+    <div class="route">
+      <div class="tchip"><span class="t">${d.son}</span><span class="p">${d.sonp}</span></div>
+      <div class="arrow"></div>
+      <div class="tchip"><span class="t">${d.soff}</span><span class="p">${d.soffp}</span></div>
+    </div>
+    <div class="meta">
+      <div><b>${d.duty}</b><span>Duty</span></div>
+      <div><b>${d.wm}</b><span>Wheel</span></div>
+      <div><b>${d.pil}</b><span>Pilot</span></div>
+    </div></div>`;
+}
+
+function toggle(id,el){
+  const wasOpen=el.classList.contains('open');
+  el.closest('.chain').querySelectorAll('.leaf').forEach(l=>l.classList.remove('open'));
+  const draw=el.closest('.cyc').querySelector('.legdraw');
+  if(wasOpen){ draw.innerHTML=''; return; }
+  el.classList.add('open');
+  const legs=LEGS.filter(l=>l.did===id);
+  const d=CYCLES.find(x=>x.id===id);
+  if(!legs.length){ draw.innerHTML=`<div class="legwrap"><h4><span class="d">${d.num}</span> train legs — sample not loaded for this detail</h4></div>`; return; }
+  draw.innerHTML=`<div class="legwrap"><h4><span class="d">${d.num}</span> ${d.son} ${d.sonp} → ${d.soff} ${d.soffp}</h4>
+    ${legs.map(l=>`<div class="leg">
+       <div class="tn ${l.ty==='piloting'?'pilot':''}">${l.tn}<span class="tag2 ${l.ty==='piloting'?'p':'w'}">${l.ty==='piloting'?'PIL':'WKG'}</span></div>
+       <div class="seg"><span class="st">${l.st}</span><span class="stn">${l.ss}</span>
+         <span class="bar ${l.ty==='piloting'?'pilot':''}"></span>
+         <span class="stn">${l.es}</span><span class="st" style="text-align:right">${l.et}</span></div>
+       <div class="rem">${l.rem||''}</div></div>`).join('')}
+    </div>`;
+}
+window.toggle=toggle;
+
+function render(){
+  buildNav();
+  const cys=cyclesFor(active);
+  const flat=CYCLES.filter(d=>inBlock(d,active));
+  const nS=cys.filter(g=>g[0].type==='single').length;
+  const nD=cys.filter(g=>g[0].type==='double').length;
+  const nT=cys.filter(g=>g.some(x=>x.type==='triple')).length;
+  document.getElementById('top').innerHTML=`
+    <div class="crumbs">${OFFN[active[0]]}<span class="sep">/</span>${active[1]}<span class="sep">/</span><span class="cur">${active[2].toUpperCase()}</span></div>
+    <h2>${active[3]}<span class="lk" style="background:${LINE_C[active[2]].replace('var(--','rgba(').replace(')',',.14)').replace('--','')};color:${LINE_C[active[2]]}">${active[2]}</span></h2>
+    <div class="stats">
+      <div class="stat"><b>${flat.length}</b><span>Details</span></div>
+      <div class="stat s"><b>${nS}</b><span>Single</span></div>
+      <div class="stat d"><b>${nD}</b><span>Double</span></div>
+      <div class="stat t"><b>${nT}</b><span>Triple</span></div>
+    </div>`;
+  const grid=document.getElementById('grid');
+  if(!cys.length){ grid.innerHTML='<div class="empty"><b>No sample loaded</b>Pick a link with a count.</div>'; return; }
+  grid.innerHTML=cys.map((g,gi)=>{
+    const type = g.some(x=>x.type==='triple')?'triple':g[0].type;
+    const anchor = g[0];
+    const span = `${anchor.son} <span class="a">${anchor.sonp}</span> → ${g[g.length-1].soff} <span class="a">${g[g.length-1].soffp}</span>`;
+    let chain='';
+    g.forEach((d,i)=>{
+      chain+=leafHTML(d,i,g);
+      if(i<g.length-1){
+        const r=restBetween(d,g[i+1]);
+        const isKey = d.type==='double' && d.anchor===d.id; // the double-detail rest
+        const warn = r<300 || r>16*60;
+        chain+=`<div class="rest ${isKey?'rest-key':''} ${warn&&!isKey?'warn':''}">
+          <div class="wire"></div><div class="node"><span class="rv">${fmtRest(r)}</span><span class="rl">${isKey?'DBL REST':'rest'}</span></div></div>`;
+      }
+    });
+    return `<div class="cyc" data-cyc="c${anchor.num}" style="animation-delay:${gi*55}ms">
+      <div class="cyc-head">
+        <span class="ctag ${type}"><span class="g"></span>${type} · ${g.length}</span>
+        <span class="anchor">cycle ${anchor.num}</span>
+        <span class="spacer"></span>
+        <span class="span">${span}</span>
+      </div>
+      <div class="chain">${chain}</div>
+      <div class="legdraw"></div>
+    </div>`;
+  }).join('');
+  if(location.hash){const el=document.querySelector('[data-cyc="'+location.hash.slice(1)+'"]');
+    if(el) requestAnimationFrame(()=>el.scrollIntoView({block:'start'}));}
+}
+render();
+</script>
+</body>
+</html>
