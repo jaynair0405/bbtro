@@ -1956,6 +1956,9 @@ function syncSchedEditors() {
                 tmp.innerHTML = schedEditorHtml('', '', dis, rear).trim();
                 box = tmp.content.firstElementChild;
                 td.appendChild(box);
+                // Tag the box with the loco its schedule belongs to, so a later
+                // loco-number change can tell "different loco → drop stale dates".
+                box.dataset.loco = firstPartUpper(input.value);
                 const sched = map.get(firstPartUpper(input.value));
                 if (sched) {
                     const ts = box.querySelector('.sched-type');
@@ -1997,16 +2000,48 @@ function setupSchedDelegation() {
     const handler = (e) => {
         const el = e.target;
         if (el && el.classList && (el.classList.contains('sched-type') || el.classList.contains('sched-due'))) {
-            styleSchedBox(el.closest('.sched-edit'));
+            const box = el.closest('.sched-edit');
+            // Anchor a hand-entered schedule to the loco currently in the row, so
+            // it survives styling but is dropped if the loco is later replaced.
+            if (box) box.dataset.loco = rowLocoKey(box.closest('tr'));
+            styleSchedBox(box);
             markSchedRowDirty(el);
         }
     };
     body.addEventListener('change', handler);
     body.addEventListener('input', handler);
 }
+// The loco number this row's Actual-Loco cell currently holds (first part of a
+// coupler, upper-cased) — the loco a shown schedule must belong to.
+function rowLocoKey(tr) {
+    const inp = tr && tr.querySelector('input[data-field="actual_loco_no"], input[data-field="actual_loco_no_rear"]');
+    return firstPartUpper(inp ? inp.value : '');
+}
+// When the LPC replaces the loco number with a DIFFERENT loco, the schedule
+// (type + due date) belongs to the old loco and must not carry over — otherwise
+// the new loco silently inherits the previous loco's dates. Each .sched-edit box
+// is tagged with data-loco = the loco its values belong to; if the number
+// changed, wipe the fields so the new loco starts clean (autofill then refills
+// from that loco's master record). Called at the top of every loco-input blur.
+function resetSchedIfLocoChanged(tr, newLocoNo) {
+    const box = tr && tr.querySelector('.sched-edit');
+    if (!box) return;
+    const key = firstPartUpper(newLocoNo);
+    if ((box.dataset.loco || '') === key) return;   // same loco — keep the schedule
+    const ts = box.querySelector('.sched-type');
+    const ds = box.querySelector('.sched-due');
+    const had = (ts && ts.value) || (ds && ds.value);
+    if (ts) ts.value = '';
+    if (ds) ds.value = '';
+    box.dataset.loco = key;
+    styleSchedBox(box);
+    if (had) markSchedRowDirty(box);   // stale dates cleared → row needs re-saving
+}
 // After an autofill lookup, pre-fill this row's schedule editor from the loco
 // master — but only fields the LPC hasn't already filled, so edits are never
 // clobbered. The LPC can freely change these to add or update the schedule.
+// (Any stale schedule from a prior loco was already cleared in the blur handler
+// by resetSchedIfLocoChanged before the fetch.)
 function prefillSchedFromAutofill(tr, loco) {
     if (!tr || !loco) return;
     const box = tr.querySelector('.sched-edit');
@@ -2015,6 +2050,7 @@ function prefillSchedFromAutofill(tr, loco) {
     const ds = box.querySelector('.sched-due');
     if (ts && !ts.value && loco.schedule_type) ts.value = loco.schedule_type;
     if (ds && !ds.value && loco.schedule_due_date) ds.value = loco.schedule_due_date;
+    box.dataset.loco = rowLocoKey(tr);
     styleSchedBox(box);
 }
 
@@ -2132,6 +2168,7 @@ function attachSpecialRearHandlers(tr) {
     if (locoInput) {
         locoInput.addEventListener('blur', async () => {
             const raw = locoInput.value.trim();
+            resetSchedIfLocoChanged(tr, raw);   // drop a prior loco's schedule on change
             if (!raw) { baseDisplay.textContent = '—'; baseDisplay.classList.add('empty'); return; }
             const lookupNo = raw.includes('+') ? raw.split('+')[0].trim() : raw;
             try {
@@ -3043,6 +3080,10 @@ function attachRowHandlers(tr) {
     if (locoInput) {
         locoInput.addEventListener('blur', async () => {
             const rawValue = locoInput.value.trim();
+            // Loco changed? Drop any schedule left over from the previous loco
+            // before we look up / refill from the new one (runs even when the
+            // number is cleared or the new loco isn't in master).
+            resetSchedIfLocoChanged(tr, rawValue);
             if (!rawValue) {
                 baseDisplay.textContent = '—';
                 baseDisplay.classList.add('empty');
