@@ -33,7 +33,7 @@ const upload = multer({
 async function loadDetails() {
   const [rows] = await pool.query(
     `SELECT detail_id, detail_number, line, sign_on_time, sign_off_time,
-            total_duty_hours, detail_type, cycle_anchor
+            total_duty_hours, detail_type, next_detail_id, cycle_anchor
        FROM details
       WHERE detail_number IS NOT NULL AND detail_number <> ''`
   );
