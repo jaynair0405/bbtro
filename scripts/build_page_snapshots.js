@@ -106,9 +106,14 @@ function splice(file, name, value) {
 
   // ---- train index (same shapes as extract_train_index.js) ----
   const norm = (tn) => (tn.startsWith('P/') ? tn.slice(2) : tn).toUpperCase().replace(/\s+/g, '');
+  // A waiting/standby block is duty time, not a train — it still renders inside the
+  // duty (TLEGS) but must never become an entry in the train index. Some legacy rows
+  // are typed 'working' but named WAITING, so test both.
+  const isTrain = (l) => l.train_type !== 'waiting' && norm(l.train_number) !== 'WAITING';
   const trains = new Map();
   const dByNum = Object.fromEntries(DETAILS.map((d) => [d.id, d]));
   for (const l of rawLegs) {
+    if (!isTrain(l)) continue;
     const k = norm(l.train_number);
     if (!trains.has(k)) {
       trains.set(k, {
