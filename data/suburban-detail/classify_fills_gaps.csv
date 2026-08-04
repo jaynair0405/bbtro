@@ -2,11 +2,11 @@ line,detail_number,detail_id,sign_on,son_place,sign_off,soff_place,duty,sign_on_
 harbour,207,HB87-207,05:46,CSMT,12:19,CSMT,06:33,morning,FALSE,Single,208
 harbour,233,HB87-233,10:22,CSMT,17:31,CSMT,07:09,day,FALSE,Single,234
 harbour,270,HB87-270,06:56,CSMT,14:15,CSMT,07:19,morning,FALSE,Single,271
-harbour,304,HB87-304,23:43,CSMT,07:28,CSMT,07:45,night,TRUE,Triple,301-302-303-304
+harbour,304,HB87-304,23:43,CSMT,07:45,CSMT,08:02,night,TRUE,Triple,301-302-303-304
 harbour,331,HB87-331,07:54,CSMT,14:43,CSMT,07:01,day,FALSE,Single,332
 harbour,339,HB87-339,08:24,CSMT,16:05,CSMT,07:41,day,FALSE,Single,340
 harbour,348,HB87-348,07:42,CSMT,15:23,CSMT,07:41,day,FALSE,Single,349
-harbour,363,HB87-363,23:54,CSMT,07:45,CSMT,07:51,night,TRUE,Triple,361-362-363-364
+harbour,363,HB87-363,23:47,CSMT,07:21,CSMT,07:34,night,TRUE,Triple,361-362-363-364
 harbour,364,HB87-364,00:00,CSMT,08:00,CSMT,08:00,night,FALSE,Triple,361-362-363-364
 harbour,374,HB87-374,09:25,CSMT,15:47,CSMT,06:22,day,FALSE,Single,375
 harbour,384,HB87-384,15:06,CSMT,22:18,CSMT,07:12,evening,FALSE,Single,201
@@ -21,7 +21,7 @@ harbour,396,HB87-396,23:47,CSMT,05:19,CSMT,05:32,night,TRUE,Triple,
 harbour,398,HB87-398,06:24,CSMT,14:07,CSMT,07:43,morning,FALSE,Single,
 harbour,400,HB87-400,17:20,CSMT,22:21,CSMT,05:01,evening,FALSE,Single,
 harbour,401,HB87-401,08:12,CSMT,16:09,CSMT,07:57,day,FALSE,Single,
-harbour,402,HB87-402,18:11,CSMT,01:16,SCS,07:05,evening,TRUE,Double,403
+harbour,402,HB87-402,18:11,CSMT,01:31,SCS,07:20,evening,TRUE,Double,403
 harbour,403,HB87-403,07:11,SCS,09:01,CSMT,01:50,day,FALSE,Double,
 harbour,410,HB87-410,21:05,CSMT,06:15,CSMT,08:00:00,night,TRUE,Triple,departmental train
 harbour,411,HB87-411,21:05,CSMT,06:15,CSMT,08:00:00,night,TRUE,Triple,departmental train
