@@ -54,6 +54,7 @@ function splice(file, name, value) {
   const [rawLegs] = await db.query(`
     SELECT t.detail_id, t.train_number, t.train_type,
            t.start_station, t.start_time, t.end_station, t.end_time, t.remarks,
+           t.rt_detail, t.rb_detail,
            m.service_type, m.car_composition, m.ac_service, m.line_group, m.direction
       FROM trains t
       LEFT JOIN suburban_train_master m
@@ -84,10 +85,13 @@ function splice(file, name, value) {
     ac: l.ac_service, es: l.end_station, et: hhmm(l.end_time), lg: l.line_group,
     ss: l.start_station, st: hhmm(l.start_time), tn: l.train_number, ty: l.train_type,
     car: l.car_composition, did: l.detail_id, dir: l.direction, svc: l.service_type,
+    rt: l.rt_detail, rb: l.rb_detail,
   }));
   const LEGS_BOOK = rawLegs.map((l) => ({
     es: l.end_station, et: hhmm(l.end_time), ss: l.start_station, st: hhmm(l.start_time),
-    tn: l.train_number, ty: l.train_type, did: l.detail_id, rem: l.remarks || '',
+    tn: l.train_number, ty: l.train_type, did: l.detail_id,
+    rem: [l.rt_detail && 'R/T ' + l.rt_detail, l.rb_detail && 'R/B ' + l.rb_detail, l.remarks]
+      .filter(Boolean).join(' \u00b7 '),
   }));
 
   // per-block totals for the dashboard: n = details in block, s/d/t = by type
@@ -142,6 +146,8 @@ function splice(file, name, value) {
       es: l.end_station, et: hhmm(l.end_time), did: l.detail_id };
     if (l.train_number !== k) o.tn = l.train_number;
     if (l.remarks) o.rmk = l.remarks;
+    if (l.rt_detail) o.rt = l.rt_detail;
+    if (l.rb_detail) o.rb = l.rb_detail;
     return o;
   });
 

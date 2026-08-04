@@ -55,6 +55,39 @@ ssh railway@93.127.198.125
 - **Training record update**: Do NOT update `div_training_records` when letter is prepared. Only update when training centre marks staff as "completed".
 - **OTHERS type**: For informal refresher when staff completed training but hasn't worked on certain rakes for a while. Does NOT update `div_training_types` or `div_training_records`. User enters custom subject. Letter history only.
 
+## Relief Markers (R/T and R/B)
+
+`R/T` = **Relief To** — this detail *gives* relief to the named detail: our crew
+takes over at the leg's **start** station.
+`R/B` = **Relieved By** — the named detail takes over from us, at the leg's **end**.
+They are reciprocal: if A carries `R/T B` then B carries `R/B A`.
+
+Stored as columns on `trains` (`rt_detail`, `rb_detail`), not in `remarks` —
+see `sql/2026-08-04_relief_columns.sql`. `remarks` keeps only operational text
+(`TO SDG`, `EX SDG`, `HALT ...`, `LPC WTG ...`).
+
+### Rules (enforced, do not remove)
+- **Only a working leg can carry relief.** A piloting crew are passengers
+  travelling to work a train — they relieve nobody. Enforced by
+  `trg_trains_relief_working_ins` / `_upd`, which **reject** the write
+  (unlike the waiting triggers, which silently correct — a relief marker on a
+  piloting leg means the entry is wrong, not untidy).
+- **One R/T and one R/B per leg**, inherent in single columns.
+- **Must name a real detail** — FK to `details.detail_number` (which is unique
+  across all 767 and now carries `uq_details_detail_number`).
+
+### Gotcha
+The working-leg rule cannot be a CHECK constraint: MySQL rejects a column used
+in CHECK when its FK has a referential action, and the FKs carry
+`ON UPDATE CASCADE` (kept deliberately — details do get renumbered). Hence the
+trigger.
+
+### Coverage
+Only 37 markers exist across 2,653 legs — the old book barely recorded relief.
+The new detail book does, so a backfill is the thing that unblocks the relief
+graph report. 13 of the 19 R/T markers currently have their reciprocal R/B; the
+gaps are the backfill's to-do list.
+
 ## Waiting Details View (Spare Duties)
 
 ### What a "waiting" detail is
