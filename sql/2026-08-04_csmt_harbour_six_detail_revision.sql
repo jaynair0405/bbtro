@@ -97,8 +97,8 @@ UPDATE details
 DELETE FROM trains WHERE detail_id='HB87-363';
 INSERT INTO trains
   (detail_id, line, train_number, start_station, start_time, end_station, end_time, train_type, remarks) VALUES
-  ('HB87-363','harbour','P/B1',  'CSMT','00:17:00','VDLR','00:35:00','piloting','R/T 315'),
-  ('HB87-363','harbour','BRVD1', 'VDLR','00:50:00','BEPR','01:38:00','working', 'TO SDG'),
+  ('HB87-363','harbour','P/B1',  'CSMT','00:17:00','VDLR','00:35:00','piloting',NULL),
+  ('HB87-363','harbour','BRVD1', 'VDLR','00:50:00','BEPR','01:38:00','working', 'R/T 315 TO SDG'),
   ('HB87-363','harbour','BR12',  'BEPR','06:02:00','CSMT','07:06:00','working', 'EX SDG');
 
 -- ---------------------------------------------------------------- 371

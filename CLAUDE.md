@@ -55,6 +55,60 @@ ssh railway@93.127.198.125
 - **Training record update**: Do NOT update `div_training_records` when letter is prepared. Only update when training centre marks staff as "completed".
 - **OTHERS type**: For informal refresher when staff completed training but hasn't worked on certain rakes for a while. Does NOT update `div_training_types` or `div_training_records`. User enters custom subject. Letter history only.
 
+## Waiting Details View (Spare Duties)
+
+### What a "waiting" detail is
+A **spare** duty: a whole detail with no train work — one leg named `WAITING`,
+zero wheel movement, zero piloting, usually 8:00 (some 6:00) on round hours.
+There are 40 (16 harbour, 24 mainline). Not to be confused with a standby
+*gap inside* a working duty (e.g. 382's "LPC WTG UPTO 05:30 HRS"), which is
+recorded as a **remark on the preceding leg**, never as a separate row.
+
+### Migration (August 2026)
+`waiting_details` was a standalone table duplicating sign-on/off/duty from
+`details`, and wheel-movement + duty-hour calculations read it
+(`routes/wheelMovementRoutes.js:153`, `server.js:827` — both read-only).
+Revising a detail updated `details` only, so the calculations would silently
+compute on stale times. Replaced with a **view**. See
+`sql/2026-08-04_waiting_details_to_view.sql`.
+
+- `waiting_details` — **VIEW** (derives from `details` + `trains`)
+- `waiting_details_old` — **TABLE** (backup of original data)
+
+### How a detail is marked spare
+By the `WAITING` leg in `trains` — no `is_spare` column. The marker lives in
+the same table the user edits, so marking a detail spare is just entering the
+leg, not a checkbox that can be forgotten. It is a **positive** marker, so a
+detail whose legs merely haven't been entered yet is not mistaken for spare.
+
+### Enforcement (do not remove)
+Two triggers on `trains` normalise the marker on every write path — UI, API,
+bulk import or hand-written SQL:
+
+```
+trg_trains_waiting_norm_ins / trg_trains_waiting_norm_upd
+  train_number = 'WAITING'  ->  forces train_type = 'waiting'
+  train_type   = 'waiting'  ->  forces train_number = 'WAITING'
+```
+
+Whichever signal is given, the row ends up canonical on both columns. They
+self-correct rather than erroring, so a bulk import is never aborted by one
+row. This is why the view can trust `train_type='waiting'`.
+
+### Gotcha
+`office` is not a column on `details` — the view derives it from the
+`detail_blocks` number ranges and maps `CSMT-SUB` -> `CSMT`. A detail outside
+every block (the departmental dummies 410-412, 558, 999) would get a NULL
+office.
+
+### Rollback
+```sql
+DROP VIEW waiting_details;
+RENAME TABLE waiting_details_old TO waiting_details;
+DROP TRIGGER IF EXISTS trg_trains_waiting_norm_ins;
+DROP TRIGGER IF EXISTS trg_trains_waiting_norm_upd;
+```
+
 ## Motormen View (Suburban Portal)
 
 ### Background
