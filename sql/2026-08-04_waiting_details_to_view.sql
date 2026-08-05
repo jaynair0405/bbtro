@@ -65,14 +65,18 @@ FOR EACH ROW
       NEW.train_number = IF(NEW.train_type = 'waiting', 'WAITING', NEW.train_number);
 
 -- ------------------------------------------------------------ 3. the view
--- Keep the old table as the rollback (same convention as motormen_old).
-RENAME TABLE waiting_details TO waiting_details_old;
-
+-- Build the view under a temporary name FIRST, then swap.
+--
+-- Order matters on a live server: the view reads `detail_blocks`, which ships
+-- in 2026-07-28_detail_blocks.sql. If that table is absent this CREATE fails
+-- here, while `waiting_details` is still the original table and wheel movement
+-- keeps working. Renaming first would leave no waiting_details at all.
+--
 -- office is derived from the detail_blocks number ranges (the same rule the
 -- classifier and the page snapshots use) and mapped CSMT-SUB -> CSMT etc.
 -- The train_number test is kept alongside train_type as belt-and-braces for
 -- any row that predates the triggers.
-CREATE VIEW waiting_details AS
+CREATE VIEW waiting_details_new AS
 SELECT DISTINCT
        d.detail_number,
        d.sign_on_time,
@@ -88,6 +92,24 @@ SELECT DISTINCT
   LEFT JOIN detail_blocks b
     ON b.line = d.line
    AND CAST(d.detail_number AS UNSIGNED) BETWEEN b.start_number AND b.end_number;
+
+-- Prove the view reproduces the table BEFORE the swap. Want 40 / 40 / 0.
+SELECT 'pre-swap comparison (want 40 / 40 / 0)' AS check_;
+SELECT (SELECT COUNT(*) FROM waiting_details_new) AS view_rows,
+       (SELECT COUNT(*) FROM waiting_details)     AS table_rows,
+       (SELECT COUNT(*) FROM waiting_details o
+          WHERE NOT EXISTS (SELECT 1 FROM waiting_details_new v
+                             WHERE v.detail_number = o.detail_number
+                               AND v.line          = o.line
+                               AND v.sign_on_time  = o.sign_on_time
+                               AND v.sign_off_time = o.sign_off_time
+                               AND v.total_duty_hours = o.total_duty_hours
+                               AND v.office        = o.office)) AS rows_that_differ;
+
+-- Atomic swap: one statement, so there is no instant where the name is absent.
+-- Old table kept as the rollback (same convention as motormen_old).
+RENAME TABLE waiting_details     TO waiting_details_old,
+             waiting_details_new TO waiting_details;
 
 -- ------------------------------------------------------------- 4. verify
 SELECT 'row counts (want 40 / 40 / 0)' AS check_;
