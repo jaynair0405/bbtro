@@ -37,7 +37,8 @@ const overwrite = process.argv.includes('--overwrite');
 
 // --- tunable thresholds -----------------------------------------------------
 const MORNING_START = 3 * 60;   // 03:00
-const MORNING_END   = 7 * 60;   // 07:00
+const MORNING_END   = 9 * 60;   // 09:00 — the second leg of a double books on
+                                // as late as 08:04 (ML89A-767); 07:00 stranded 10 of them
 const DAY_END       = 14 * 60;  // 14:00
 const EVENING_END   = 21 * 60;  // 21:00
 const DOUBLE_REST_MIN = 4 * 60;  // 4h
@@ -95,8 +96,12 @@ function classify(rows) {
       const c = line[i + 2];
       const d = line[i + 3];
 
+      // Only Continuous links roll. Unknown link (caller did not supply it, e.g.
+      // chain_details.js) is treated as continuous so behaviour is unchanged.
+      const rolling = (x) => !x || !x._link || x._link === 'continuous';
+
       const isDoubleHead =
-        b &&
+        b && rolling(a) && rolling(b) &&
         a._bucket === 'evening' &&
         b._bucket === 'morning' &&
         placeEq(a.sign_off_place, b.sign_on_place) &&
@@ -115,6 +120,10 @@ function classify(rows) {
         const anchor = a.detail_id;
         setChain(assign, cycles, members, ['double', 'double'], anchor);
         i += 2;
+      } else if (!rolling(a)) {
+        // Fix / MEMU: not a rolling link, so leave it to the manual classification
+        unclassified.push(a);
+        i += 1;
       } else if (!a._crosses && restMinutes(a, b) > SINGLE_REST_MIN) {
         // Single: standalone, same-day, long rest to next (or last in line)
         assign.set(a.detail_id, {
@@ -139,12 +148,21 @@ async function main() {
   require('dotenv').config();
   const pool = require('../config/database');
   try {
+    // _link comes from the detail_blocks number ranges. The rolling
+    // single/double/triple rules apply ONLY to Continuous links — Fix and MEMU
+    // are non-rolling, and their timings are indistinguishable from a double
+    // (compare 867/868, two separate fixed crews, with 871/872, one crew's
+    // out-and-back). The classifier must not guess there; those are hand-filled.
     const [rows] = await pool.query(
-      `SELECT detail_id, detail_number, line,
-              sign_on_time, sign_on_place, sign_off_time, sign_off_place,
-              total_duty_hours
-       FROM details
-       ORDER BY line, CAST(detail_number AS UNSIGNED)`
+      `SELECT d.detail_id, d.detail_number, d.line,
+              d.sign_on_time, d.sign_on_place, d.sign_off_time, d.sign_off_place,
+              d.total_duty_hours,
+              b.link_type AS _link
+       FROM details d
+       LEFT JOIN detail_blocks b
+         ON b.line = d.line
+        AND CAST(d.detail_number AS UNSIGNED) BETWEEN b.start_number AND b.end_number
+       ORDER BY d.line, CAST(d.detail_number AS UNSIGNED)`
     );
 
     const { assign, cycles, unclassified } = classify(rows);
@@ -235,9 +253,11 @@ async function applyToDb(pool, assign) {
       );
       if (!cur) continue;
 
-      const same = cur.detail_type === v.detail_type
-        && cur.next_detail_id === v.next_detail_id
-        && cur.cycle_anchor === v.cycle_anchor;
+      // Compare ONLY detail_type: that is the human-judged field. next_detail_id
+      // belongs to chain_details.js (it holds the rolling link, not the
+      // intra-cycle one this script computes), so a difference there is not a
+      // conflict and must not be written back here.
+      const same = cur.detail_type === v.detail_type && cur.cycle_anchor === v.cycle_anchor;
       if (same) { unchanged.push(detailId); continue; }
 
       // A stored classification that disagrees with the classifier is almost
@@ -245,16 +265,16 @@ async function applyToDb(pool, assign) {
       // (Fix/MEMU blocks, and duties signing on away from the home depot) were
       // filled in by hand. Overwriting them silently destroys that work, so a
       // disagreement is reported and skipped unless --overwrite is explicit.
-      if (cur.detail_type !== null && !overwrite) {
+      if (cur.detail_type !== null && cur.detail_type !== v.detail_type && !overwrite) {
         conflicts.push({ detailId, was: cur.detail_type, proposed: v.detail_type });
         continue;
       }
 
       await conn.query(
         `UPDATE details
-         SET detail_type = ?, next_detail_id = ?, cycle_anchor = ?
+         SET detail_type = ?, cycle_anchor = ?
          WHERE detail_id = ?`,
-        [v.detail_type, v.next_detail_id, v.cycle_anchor, detailId]
+        [v.detail_type, v.cycle_anchor, detailId]
       );
       applied.push(detailId);
     }
