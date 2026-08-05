@@ -17,6 +17,11 @@
  *
  * Dry run (report only, no DB writes):  node scripts/classify_details.js
  * Commit (write DB + emit prod SQL):     node scripts/classify_details.js --commit
+ *
+ * A stored classification that DISAGREES with the classifier is reported and
+ * SKIPPED, not overwritten — those are the ~99 details classified by hand
+ * (Fix/MEMU blocks, duties signing on away from the home depot) that the auto
+ * rules cannot judge. Pass --overwrite only after reviewing the conflict list.
  */
 
 const fs = require('fs');
@@ -28,6 +33,7 @@ const {
 } = require('../utils/helpers');
 
 const commit = process.argv.includes('--commit');
+const overwrite = process.argv.includes('--overwrite');
 
 // --- tunable thresholds -----------------------------------------------------
 const MORNING_START = 3 * 60;   // 03:00
@@ -75,7 +81,10 @@ function classify(rows) {
   const cycles = [];       // { type, members: [row], anchor, links: [{from, to, rest}] }
   const unclassified = []; // rows left NULL
 
-  // Assignments to apply: detail_id -> { detail_type, next_detail_id, rest_after, cycle_anchor }
+  // Assignments to apply: detail_id -> { detail_type, next_detail_id, cycle_anchor }
+  // NOTE: rest_after is computed for the report only and deliberately NOT stored —
+  // the column was dropped because a timetable change makes a stored rest stale.
+  // Rest is derived on the fly from next_detail_id + sign times. See chain_details.js.
   const assign = new Map();
 
   for (const [, line] of byLine) {
@@ -146,9 +155,9 @@ async function main() {
       return;
     }
 
-    await applyToDb(pool, assign);
-    emitSql(assign);
-    console.log(`\nCommitted ${assign.size} detail rows. Emitted prod SQL.`);
+    const { conflicts } = await applyToDb(pool, assign);
+    emitSql(assign, conflicts);
+    console.log('\nDone. See the counts above — "applied" is what actually changed.');
   } finally {
     await pool.end();
   }
@@ -217,18 +226,51 @@ function fmt(t) {
 
 async function applyToDb(pool, assign) {
   const conn = await pool.getConnection();
+  const applied = [], unchanged = [], conflicts = [];
   try {
     for (const [detailId, v] of assign) {
+      const [[cur]] = await conn.query(
+        'SELECT detail_type, next_detail_id, cycle_anchor FROM details WHERE detail_id = ?',
+        [detailId]
+      );
+      if (!cur) continue;
+
+      const same = cur.detail_type === v.detail_type
+        && cur.next_detail_id === v.next_detail_id
+        && cur.cycle_anchor === v.cycle_anchor;
+      if (same) { unchanged.push(detailId); continue; }
+
+      // A stored classification that disagrees with the classifier is almost
+      // always a HUMAN correction — the ~99 details the auto rules cannot judge
+      // (Fix/MEMU blocks, and duties signing on away from the home depot) were
+      // filled in by hand. Overwriting them silently destroys that work, so a
+      // disagreement is reported and skipped unless --overwrite is explicit.
+      if (cur.detail_type !== null && !overwrite) {
+        conflicts.push({ detailId, was: cur.detail_type, proposed: v.detail_type });
+        continue;
+      }
+
       await conn.query(
         `UPDATE details
-         SET detail_type = ?, next_detail_id = ?, rest_after = ?, cycle_anchor = ?
+         SET detail_type = ?, next_detail_id = ?, cycle_anchor = ?
          WHERE detail_id = ?`,
-        [v.detail_type, v.next_detail_id, v.rest_after, v.cycle_anchor, detailId]
+        [v.detail_type, v.next_detail_id, v.cycle_anchor, detailId]
       );
+      applied.push(detailId);
     }
   } finally {
     conn.release();
   }
+
+  console.log(`\nApplied ${applied.length}, unchanged ${unchanged.length}, conflicts ${conflicts.length}`);
+  if (conflicts.length) {
+    console.log('\n----- NOT OVERWRITTEN — stored value disagrees with the classifier -----');
+    console.log('These are very likely hand-classified. Review before using --overwrite.');
+    for (const c of conflicts) {
+      console.log(`   ${c.detailId}  stored=${c.was}  classifier=${c.proposed}`);
+    }
+  }
+  return { applied, conflicts };
 }
 
 function sqlVal(v) {
@@ -236,25 +278,44 @@ function sqlVal(v) {
   return `'${String(v).replace(/'/g, "''")}'`;
 }
 
-function emitSql(assign) {
-  const out = path.join(__dirname, '..', 'sql', '2026-07-27_details_type_classification_data.sql');
+function emitSql(assign, conflicts = []) {
+  // Dated TODAY, not a hard-coded past date: this file is regenerated whenever the
+  // book changes, and a dated sql/ migration must never be silently rewritten.
+  const today = new Date().toISOString().slice(0, 10);
+  const out = path.join(__dirname, '..', 'sql', `${today}_details_classification_data.sql`);
+  if (fs.existsSync(out) && !process.argv.includes('--force')) {
+    throw new Error(`${out} already exists — refusing to overwrite a dated migration. ` +
+                    'Move it aside, or pass --force if you really mean to replace it.');
+  }
   const lines = [
     '-- Suburban detail single/double/triple classification — DATA (generated)',
-    '-- Populates detail_type, next_detail_id, rest_after, cycle_anchor on `details`.',
+    '-- Populates detail_type, next_detail_id, cycle_anchor on `details`.',
     '-- Run AFTER sql/2026-07-27_details_type_classification_schema.sql.',
-    '-- Run: mysql -u jay -p bbtro < sql/2026-07-27_details_type_classification_data.sql',
+    `-- Run: mysql -u jay -p bbtro < sql/${today}_details_classification_data.sql`,
     '',
   ];
+  // Conflicts were NOT applied to the DB, so they must not be in the prod SQL
+  // either — otherwise deploying this file would do exactly what the skip
+  // prevented and wipe the hand-classified details.
+  const skip = new Set(conflicts.map((c) => c.detailId));
+  if (skip.size) {
+    lines.push(`-- ${skip.size} detail(s) omitted: the stored value disagrees with the`);
+    lines.push('-- classifier and is almost certainly a manual classification:');
+    for (const c of conflicts) {
+      lines.push(`--   ${c.detailId}  stored=${c.was}  classifier=${c.proposed}`);
+    }
+    lines.push('');
+  }
   for (const [detailId, v] of assign) {
+    if (skip.has(detailId)) continue;
     lines.push(
       `UPDATE details SET detail_type = ${sqlVal(v.detail_type)}, ` +
       `next_detail_id = ${sqlVal(v.next_detail_id)}, ` +
-      `rest_after = ${sqlVal(v.rest_after)}, ` +
       `cycle_anchor = ${sqlVal(v.cycle_anchor)} ` +
       `WHERE detail_id = ${sqlVal(detailId)};`
     );
   }
-  lines.push('', `SELECT '${assign.size} details classified' AS status;`, '');
+  lines.push('', `SELECT '${assign.size - skip.size} details classified' AS status;`, '');
   fs.writeFileSync(out, lines.join('\n'));
   console.log(`Wrote ${out}`);
 }
