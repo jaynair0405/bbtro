@@ -10,10 +10,10 @@
 --
 -- WHY COLUMNS
 -- 1. The rule "only a working train has R/T or R/B" cannot be enforced on
---    free text. As columns it is a CHECK constraint, so a relief marker on
---    a piloting leg is rejected outright and cannot drift back in.
---    (A piloting crew are passengers travelling to work a train — they
---    relieve nobody.)
+--    free text. As columns it becomes enforceable, so a relief marker on a
+--    piloting leg is rejected outright and cannot drift back in. (A piloting
+--    crew are passengers travelling to work a train — they relieve nobody.)
+--    The enforcement itself ships in 2026-08-04_relief_triggers.sql.
 -- 2. The relief graph becomes a join instead of a regex over prose. That is
 --    the report that has been blocked on this.
 -- 3. Only one R/T and one R/B can exist per leg — inherent in single columns.
@@ -87,40 +87,14 @@ ALTER TABLE trains
 
 COMMIT;
 
--- ...and can only exist on a working leg.
--- NOTE: this cannot be a CHECK constraint. MySQL rejects
---   ERROR 3823: Column 'rb_detail' cannot be used in a check constraint:
---               needed in a foreign key constraint referential action
--- because the FKs above carry ON UPDATE CASCADE. That cascade is worth
--- keeping — details do get renumbered here (see the July 552/553 renumber) —
--- so the rule is enforced by trigger instead. Same guarantee: every write
--- path is covered, and unlike the waiting-normalisation triggers this one
--- REJECTS rather than silently corrects, because a relief marker on a
--- piloting leg means the entry is wrong, not merely untidy.
-DROP TRIGGER IF EXISTS trg_trains_relief_working_ins;
-DROP TRIGGER IF EXISTS trg_trains_relief_working_upd;
-
-DELIMITER $$
-CREATE TRIGGER trg_trains_relief_working_ins BEFORE INSERT ON trains
-FOR EACH ROW
-BEGIN
-  IF NEW.train_type <> 'working'
-     AND (NEW.rt_detail IS NOT NULL OR NEW.rb_detail IS NOT NULL) THEN
-    SIGNAL SQLSTATE '45000'
-      SET MESSAGE_TEXT = 'R/T and R/B are only valid on a working leg - a piloting crew travels as passengers and relieves nobody';
-  END IF;
-END$$
-
-CREATE TRIGGER trg_trains_relief_working_upd BEFORE UPDATE ON trains
-FOR EACH ROW
-BEGIN
-  IF NEW.train_type <> 'working'
-     AND (NEW.rt_detail IS NOT NULL OR NEW.rb_detail IS NOT NULL) THEN
-    SIGNAL SQLSTATE '45000'
-      SET MESSAGE_TEXT = 'R/T and R/B are only valid on a working leg - a piloting crew travels as passengers and relieves nobody';
-  END IF;
-END$$
-DELIMITER ;
+-- ...and can only exist on a working leg. That rule is enforced by triggers
+-- which ship SEPARATELY in 2026-08-04_relief_triggers.sql, because
+-- CREATE TRIGGER needs a privilege the app's DB user lacks on a binlog-enabled
+-- server (ERROR 1419). Everything in THIS file runs as the ordinary user.
+--
+-- Until those triggers are in place the rule is not enforced, but the data is
+-- already correct: this file has just moved every marker onto a working leg
+-- and cleared the rest.
 
 -- -------------------------------------------------------------- verify
 SELECT 'markers migrated (want 19 R/T on working legs, 18 R/B, 0 elsewhere)' AS check_;
@@ -141,7 +115,8 @@ SELECT d.detail_number AS det, t.train_number, t.train_type,
 
 -- =====================================================================
 -- ROLLBACK
---   ALTER TABLE trains DROP CONSTRAINT chk_relief_only_on_working;
+--   DROP TRIGGER IF EXISTS trg_trains_relief_working_ins;
+--   DROP TRIGGER IF EXISTS trg_trains_relief_working_upd;
 --   ALTER TABLE trains DROP FOREIGN KEY fk_trains_rt_detail,
 --                      DROP FOREIGN KEY fk_trains_rb_detail;
 --   ALTER TABLE trains DROP COLUMN rt_detail, DROP COLUMN rb_detail;

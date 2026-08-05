@@ -25,11 +25,11 @@
 -- entered yet is not mistaken for spare.
 --
 -- ENFORCEMENT
--- Step 2 adds triggers so the marker cannot be recorded inconsistently by
--- ANY write path — UI, API, bulk import or hand-written SQL. Whichever
--- signal is given (the number or the type), the row is normalised to both.
--- They self-correct rather than erroring, so a bulk import of many legs is
--- never aborted by one row.
+-- The triggers that keep the marker canonical ship SEPARATELY, in
+-- 2026-08-04_waiting_triggers.sql — CREATE TRIGGER needs a privilege the
+-- app's DB user does not have on a binlog-enabled server. This file needs
+-- no special privilege and can be deployed on its own; the view is correct
+-- without the triggers because it tests the train number as well as the type.
 -- =====================================================================
 
 -- ---------------------------------------------------------------- 1. retype
@@ -48,21 +48,16 @@ UPDATE trains
 -- expect: 35 rows affected
 
 -- ------------------------------------------------------- 2. enforce forever
--- Single-statement triggers (no DELIMITER needed). Multiple assignments in
--- one SET evaluate left to right, so the second sees the first's result:
--- give either signal and the row ends up canonical on both columns.
-DROP TRIGGER IF EXISTS trg_trains_waiting_norm_ins;
-DROP TRIGGER IF EXISTS trg_trains_waiting_norm_upd;
-
-CREATE TRIGGER trg_trains_waiting_norm_ins BEFORE INSERT ON trains
-FOR EACH ROW
-  SET NEW.train_type   = IF(UPPER(REPLACE(NEW.train_number,' ','')) = 'WAITING', 'waiting', NEW.train_type),
-      NEW.train_number = IF(NEW.train_type = 'waiting', 'WAITING', NEW.train_number);
-
-CREATE TRIGGER trg_trains_waiting_norm_upd BEFORE UPDATE ON trains
-FOR EACH ROW
-  SET NEW.train_type   = IF(UPPER(REPLACE(NEW.train_number,' ','')) = 'WAITING', 'waiting', NEW.train_type),
-      NEW.train_number = IF(NEW.train_type = 'waiting', 'WAITING', NEW.train_number);
+-- The triggers that keep the WAITING marker canonical live in a SEPARATE file,
+-- 2026-08-04_waiting_triggers.sql, because CREATE TRIGGER needs a privilege
+-- this file does not: on a server with binary logging enabled it requires
+-- SUPER (or log_bin_trust_function_creators=1), and the app's DB user has
+-- neither. Splitting them means the migration below can be deployed by the
+-- ordinary user and the triggers added whenever the privilege is available.
+--
+-- The view does NOT depend on them: it tests both train_type='waiting' AND
+-- train_number='WAITING', so it is correct either way. The triggers only stop
+-- a future write from recording the marker inconsistently.
 
 -- ------------------------------------------------------------ 3. the view
 -- Build the view under a temporary name FIRST, then swap.
