@@ -3431,15 +3431,26 @@ router.get('/signals/search', async (req, res) => {
         }
 
         const searchPattern = `%${query}%`;
+        // Collapse magnet-linked rows: return ONE canonical row per magnet (the row
+        // whose id == its magnet_id), matching if ANY sibling of that magnet matches
+        // the search text/alias. Prevents the same physical signal from showing twice
+        // in the picker — e.g. CSMT S-26 prints on both UP TH and UP LOC (magnet 233),
+        // and its aliases "CSMT S-26" / "CST S 26" point at the two different rows.
         const [signals] = await pool.query(
-            `SELECT DISTINCT s.id, s.signal_number, s.station_code, s.section, s.line
+            `SELECT s.id, s.signal_number, s.station_code, s.section, s.line
              FROM div_signals s
-             LEFT JOIN div_signal_aliases a ON a.signal_id = s.id
              WHERE s.is_active = 1
-               AND (s.signal_number LIKE ?
-                    OR s.normalized_signal_number LIKE ?
-                    OR a.alias_text LIKE ?
-                    OR a.normalized_alias LIKE ?)
+               AND s.id = COALESCE(s.magnet_id, s.id)
+               AND EXISTS (
+                   SELECT 1 FROM div_signals s2
+                   LEFT JOIN div_signal_aliases a ON a.signal_id = s2.id
+                   WHERE s2.is_active = 1
+                     AND COALESCE(s2.magnet_id, s2.id) = s.id
+                     AND (s2.signal_number LIKE ?
+                          OR s2.normalized_signal_number LIKE ?
+                          OR a.alias_text LIKE ?
+                          OR a.normalized_alias LIKE ?)
+               )
              ORDER BY s.signal_number
              LIMIT 20`,
             [searchPattern, searchPattern.replace(/\s/g, ''), searchPattern, searchPattern.replace(/\s/g, '')]
