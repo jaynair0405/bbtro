@@ -13,7 +13,9 @@
 --   Batch A (14) — supplied by the LPC from an earlier conversion; no
 --   circular on file. 98003 (PL 3) was in the original list and has been
 --   REPLACED by 98573 (V 69) on instruction. Corroborated by the detail book
---   pages for 371 and 402, which mark V 16 and V 71 with "AC".
+--   page for 371, which marks V 16 "AC". (The 402 page also shows an "AC"
+--   mark, but against V 71 — see the note at the foot of this file; that
+--   annotation belongs to V 69, which 402 used to work.)
 --
 -- WHY ac_on_sun_hol
 --   The order states: "Services running on Sundays/nominated holidays will
