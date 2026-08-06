@@ -94,7 +94,11 @@ SELECT COUNT(*) AS unknown_sun_hol FROM suburban_train_master
 --    WHERE train_code IN (the 28 above);
 --   ALTER TABLE suburban_train_master DROP COLUMN ac_on_sun_hol;
 --
--- STILL OPEN
---   98575 (V 71) — the detail book page for 402 marks it AC, but it is on
---   neither list. Add it here once clarified.
+-- 98575 (V 71) — RESOLVED, deliberately NOT AC.
+--   The detail book page for 402 marks it "AC", but that annotation predates
+--   this revision. 402 previously worked V 69 (CSMT 23:42), which IS an AC
+--   conversion; the 2026-08-04 revision swapped V 69 out to 382 (retimed to
+--   00:24) and brought V 71 in. The AC marking stayed on the page with the
+--   slot rather than moving with the train. Confirmed non-AC by the LPC.
+--   Easy to flip later if an order says otherwise.
 -- =====================================================================
