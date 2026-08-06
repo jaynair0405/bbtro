@@ -55,6 +55,56 @@ ssh railway@93.127.198.125
 - **Training record update**: Do NOT update `div_training_records` when letter is prepared. Only update when training centre marks staff as "completed".
 - **OTHERS type**: For informal refresher when staff completed training but hasn't worked on certain rakes for a while. Does NOT update `div_training_types` or `div_training_records`. User enters custom subject. Letter history only.
 
+## Sunday / Holiday: trains.status and AC rakes
+
+### trains.status
+The **Sunday / nominated-holiday position of a leg** — not a general record
+state. Read in exactly one place, `routes/wheelMovementRoutes.js`:
+`else if (isSundayOrHoliday && train.status === 'cancelled')`.
+
+- `cancelled` = this train does not run on Sundays/holidays
+- `active` = it runs
+
+`enum('active','cancelled') NOT NULL DEFAULT 'active'` since
+`sql/2026-08-06_trains_sunday_status_lock.sql`. Before that it was a nullable
+`varchar(20)`, and 87 legs were NULL because the detail-book revision INSERTs
+omitted the column — a NULL counted as RUNNING, so Sunday wheel movement was
+over-counted. **Always include `status` in a trains INSERT**, or rely on the
+default knowing it means "runs on Sundays".
+
+### How it maps to the detail book
+- A train is `cancelled` exactly when the detail's **SUN / HOLIDAY** line names
+  it **`CD`** — e.g. detail 482 `VVD 2/PLVD 1 CD, P/PNVL`.
+- **`DO` means the CREW rests, NOT that the trains stop.** Across every detail
+  whose SUN/HOLIDAY says DO: 234 legs active, **0 cancelled**. Do not infer leg
+  status from a detail being DO.
+- 229 details are MIXED (some legs run, some do not) versus 12 fully cancelled —
+  which is why this is per-leg, not per-detail.
+
+### AC is also day-dependent
+Per BB/T/232/C/TT dated 13.01.2026 (`data/suburban-detail/ALL CONCERNED AC ON
+HBR LINE 26JAN.pdf`): *"Services running on Sundays/nominated holidays will run
+with Non AC Rake."* So AC is not a fixed property of a train:
+
+```
+is it AC today?  =  ac_service='AC' AND (NOT isSunHol OR ac_on_sun_hol=1)
+```
+
+`suburban_train_master.ac_on_sun_hol` is **nullable on purpose** — NULL means
+"no order on file". The 78 pre-existing AC services are NULL because nothing
+documents their Sunday rake; only the 28 covered by an order are set to 0.
+
+### Three separate facts, none substituting for another
+| Fact | Column | Grain |
+|---|---|---|
+| Does it run on Sun/Hol? | `trains.status` | per leg |
+| Is it AC on a normal day? | `suburban_train_master.ac_service` | per train |
+| Is it AC on Sun/Hol? | `suburban_train_master.ac_on_sun_hol` | per train |
+
+Actual dated cancellations are separate again: `cancelled_trains` (train_number,
+date) is an operational log of what happened, only ~72 dates populated, and it
+does NOT encode the schedule — only 18 of 329 scheduled-cancelled trains overlap it.
+
 ## Relief Markers (R/T and R/B)
 
 `R/T` = **Relief To** — this detail *gives* relief to the named detail: our crew

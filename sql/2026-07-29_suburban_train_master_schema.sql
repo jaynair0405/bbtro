@@ -1,0 +1,23 @@
+CREATE TABLE IF NOT EXISTS suburban_train_master (
+    train_code VARCHAR(10) NOT NULL,
+    train_number VARCHAR(20) NOT NULL,
+    normalized_train_number VARCHAR(20) NOT NULL,
+    corridor_type TINYINT NULL,
+    route_code VARCHAR(30) NULL,
+    service_type ENUM('SLOW','FAST','SEMI_FAST','EMPTY_RAKE') NOT NULL,
+    line_group ENUM('MAIN','SE','NE','HARBOUR','TRANS_HARBOUR','PORT','OTHER') NOT NULL DEFAULT 'OTHER',
+    direction ENUM('UP','DN') NULL,
+    from_station VARCHAR(20) NULL,
+    to_station VARCHAR(20) NULL,
+    car_composition ENUM('12_CAR','15_CAR') NOT NULL DEFAULT '12_CAR',
+    ac_service ENUM('NON_AC','AC') NOT NULL DEFAULT 'NON_AC',
+    source_note VARCHAR(255) NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (train_code),
+    KEY idx_stm_normalized_train_number (normalized_train_number),
+    KEY idx_stm_train_number (train_number),
+    KEY idx_stm_service_type (service_type),
+    KEY idx_stm_line_direction (line_group, direction),
+    KEY idx_stm_car_ac (car_composition, ac_service)
+);

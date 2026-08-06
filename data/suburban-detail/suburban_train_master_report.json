@@ -1,0 +1,137 @@
+{
+  "sources": {
+    "corridor_csv": "/Users/neeraja/spm analysis app/train_corridor_map.csv",
+    "fast_csv": "/Users/neeraja/spm analysis app/Fast Locals.csv",
+    "ac_15_car_csv": "/Users/neeraja/bbtro/data/suburban-detail/AC_and_15_Car.csv"
+  },
+  "generated": {
+    "csv": "/Users/neeraja/bbtro/data/suburban-detail/suburban_train_master_seed.csv",
+    "sql": "/Users/neeraja/bbtro/sql/2026-07-29_suburban_train_master_data.sql"
+  },
+  "row_count": 1820,
+  "service_type_counts": {
+    "SLOW": 1547,
+    "FAST": 252,
+    "SEMI_FAST": 21
+  },
+  "line_group_counts": {
+    "HARBOUR": 614,
+    "SE": 242,
+    "NE": 151,
+    "MAIN": 501,
+    "TRANS_HARBOUR": 262,
+    "PORT": 50
+  },
+  "car_composition_counts": {
+    "12_CAR": 1789,
+    "15_CAR": 31
+  },
+  "ac_service_counts": {
+    "NON_AC": 1742,
+    "AC": 78
+  },
+  "semi_fast_trains": [
+    "A 39",
+    "N 12",
+    "N 25",
+    "AN 27",
+    "TL 20",
+    "TL 21",
+    "DK 2",
+    "K 24",
+    "K 30",
+    "K 36",
+    "K 40",
+    "K 46",
+    "K 95",
+    "DK 5",
+    "K 101",
+    "K 109",
+    "DK 7",
+    "K 129",
+    "K 110",
+    "DL 35",
+    "DL 10"
+  ],
+  "duplicate_train_numbers": [],
+  "duplicate_code_aliases": [
+    {
+      "train_code": "98906",
+      "kept_train_number": "GNPL 5",
+      "alternate_train_number": "GNPL 6"
+    },
+    {
+      "train_code": "99026",
+      "kept_train_number": "TPL",
+      "alternate_train_number": "TPL 26"
+    }
+  ],
+  "fast_rows_missing_corridor_map": [
+    {
+      "train_number": "TL 20",
+      "train_code": "95604",
+      "service_type": "SEMI_FAST"
+    },
+    {
+      "train_number": "T 54",
+      "train_code": "95910",
+      "service_type": "FAST"
+    }
+  ],
+  "explicit_overrides": {
+    "by_train_number": [
+      "A59",
+      "A28"
+    ],
+    "by_train_code": [
+      "98832",
+      "98778",
+      "98159",
+      "98602"
+    ],
+    "missing_port_services": [
+      {
+        "train_code": "99721",
+        "train_number": "UBR 21"
+      },
+      {
+        "train_code": "99722",
+        "train_number": "UBR 22"
+      },
+      {
+        "train_code": "99723",
+        "train_number": "UBR 23"
+      },
+      {
+        "train_code": "99724",
+        "train_number": "UBR 24"
+      },
+      {
+        "train_code": "99725",
+        "train_number": "UBR 25"
+      },
+      {
+        "train_code": "99726",
+        "train_number": "UBR 26"
+      },
+      {
+        "train_code": "99621",
+        "train_number": "UNU 21"
+      },
+      {
+        "train_code": "99622",
+        "train_number": "UNU 22"
+      },
+      {
+        "train_code": "99623",
+        "train_number": "UNU 23"
+      },
+      {
+        "train_code": "99624",
+        "train_number": "UNU 24"
+      }
+    ]
+  },
+  "ac_codes_not_in_corridor_map": [],
+  "car15_codes_not_in_corridor_map": []
+}
