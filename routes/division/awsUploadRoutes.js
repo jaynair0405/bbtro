@@ -3367,7 +3367,7 @@ router.post('/link-signal', async (req, res) => {
 
         // Verify signal exists
         const [[signal]] = await pool.query(
-            'SELECT id, signal_number FROM div_signals WHERE id = ?',
+            'SELECT id, signal_number, signal_type, signal_function FROM div_signals WHERE id = ?',
             [signal_id]
         );
 
@@ -3376,6 +3376,21 @@ router.post('/link-signal', async (req, res) => {
         }
 
         const normalized = normalizeForSignalMatch(location_raw);
+
+        // ── Guard: never learn a STATION-LESS alias for an IBS signal ──────────
+        // An IBS number ("IBS S23", "IB S 23") repeats across many stations on the
+        // same section (in-scope KYN-KSRA alone has S-16 at ASO/ATG/KDV/KE). A
+        // station-less alias would then wrongly claim EVERY future occurrence for
+        // the one station picked here. So: still link these events (keeps them in
+        // the transient/cab/signal/chronic analysis — the whole point), but teach
+        // nothing. To learn an alias the reviewer must qualify the text with the
+        // station first (e.g. edit "IBS S23" -> "VSD S-23" on the event card).
+        // IBS is encoded two ways in div_signals: UP copies as signal_type='IBS',
+        // DN copies as signal_type='Manual' with signal_function='IBS'. Check both.
+        const isIbs = signal.signal_type === 'IBS' || signal.signal_function === 'IBS';
+        const stationTok = (String(signal.signal_number).match(/^[A-Z]+/) || [''])[0];
+        const stationLessIbs = isIbs && stationTok && !normalized.includes(stationTok);
+        const effectiveCreateAlias = create_alias && !stationLessIbs;
 
         // Update all events with this location_raw
         const [updateResult] = await pool.query(
@@ -3389,7 +3404,7 @@ router.post('/link-signal', async (req, res) => {
 
         // Create alias if requested
         let aliasCreated = false;
-        if (create_alias && normalized) {
+        if (effectiveCreateAlias && normalized) {
             // Check if alias already exists
             const [[existing]] = await pool.query(
                 'SELECT id FROM div_signal_aliases WHERE normalized_alias = ?',
@@ -3411,6 +3426,7 @@ router.post('/link-signal', async (req, res) => {
             success: true,
             events_updated: updateResult.affectedRows,
             alias_created: aliasCreated,
+            alias_suppressed: stationLessIbs,   // station-less IBS -> linked but no alias learned
             signal_number: signal.signal_number
         });
     } catch (err) {

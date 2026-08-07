@@ -870,6 +870,13 @@
                         data-bs-toggle="dropdown" disabled>Select</button>
                 <ul class="dropdown-menu dropdown-menu-end signal-dropdown"></ul>
               </div>
+              <div class="form-check form-check-inline mt-1" style="font-size:.8rem">
+                <input class="form-check-input learn-alias" type="checkbox" checked
+                       id="alias-${escapeHtml(s.location_raw || '')}">
+                <label class="form-check-label muted" for="alias-${escapeHtml(s.location_raw || '')}">
+                  learn alias (uncheck for station-less IBS / one-off)
+                </label>
+              </div>
             </td>
           </tr>`;
         }
@@ -915,8 +922,11 @@
       }, 300);
     }
 
-    async function linkSignal(locationRaw, signalId, signalNumber) {
-      if (!confirm(`Link "${locationRaw}" to signal "${signalNumber}"?\n\nThis will also create an alias for future auto-matching.`)) {
+    async function linkSignal(locationRaw, signalId, signalNumber, learnAlias) {
+      const aliasMsg = learnAlias
+        ? '\n\nAn alias will be created for future auto-matching.'
+        : '\n\nNo alias will be created (this occurrence only).';
+      if (!confirm(`Link "${locationRaw}" to signal "${signalNumber}"?${aliasMsg}`)) {
         return;
       }
 
@@ -927,13 +937,16 @@
           body: JSON.stringify({
             location_raw: locationRaw,
             signal_id: signalId,
-            create_alias: true
+            create_alias: !!learnAlias
           })
         });
         const data = await resp.json();
 
         if (data.success) {
-          alert(`Linked! ${data.events_updated} event(s) updated.${data.alias_created ? ' Alias created.' : ''}`);
+          let msg = `Linked! ${data.events_updated} event(s) updated.`;
+          if (data.alias_created) msg += ' Alias created.';
+          else if (data.alias_suppressed) msg += ' Alias NOT created — station-less IBS number is ambiguous across stations; qualify it with a station to learn an alias.';
+          alert(msg);
           loadUnmatchedSignals();
         } else {
           alert('Error: ' + (data.error || 'Unknown error'));
@@ -945,7 +958,10 @@
     }
 
     function linkSignalFromOption(el) {
-      linkSignal(el.dataset.location, Number(el.dataset.signalId), el.dataset.signalNumber);
+      const row = el.closest('tr');
+      const cb = row ? row.querySelector('.learn-alias') : null;
+      const learnAlias = cb ? cb.checked : true;
+      linkSignal(el.dataset.location, Number(el.dataset.signalId), el.dataset.signalNumber, learnAlias);
     }
 
     // ── Unmatched Rakes ────────────────────────────────────────────────────────
