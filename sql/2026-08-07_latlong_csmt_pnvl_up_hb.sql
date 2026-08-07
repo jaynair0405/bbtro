@@ -104,5 +104,8 @@ UPDATE div_signals SET latitude=18.95079, longitude=72.8382 WHERE signal_number=
 UPDATE div_signals SET latitude=18.94816, longitude=72.83791 WHERE signal_number='CSMT S-53' AND section='CSMT-PNVL' AND direction='UP' AND (latitude IS NULL OR longitude IS NULL);
 UPDATE div_signals SET latitude=18.94621, longitude=72.83641 WHERE signal_number='CSMT S-46' AND section='CSMT-PNVL' AND direction='UP' AND (latitude IS NULL OR longitude IS NULL);
 UPDATE div_signals SET latitude=18.94469, longitude=72.83531 WHERE signal_number='CSMT S-23' AND section='CSMT-PNVL' AND direction='UP' AND (latitude IS NULL OR longitude IS NULL);
+-- VSH S-21 / S-22 surveyed 2026-08-07 (were absent from the first file)
+UPDATE div_signals SET latitude=19.06254836, longitude=72.99760077 WHERE signal_number='VSH S-21' AND section='CSMT-PNVL' AND direction='UP' AND (latitude IS NULL OR longitude IS NULL);
+UPDATE div_signals SET latitude=19.06240123, longitude=72.99762202 WHERE signal_number='VSH S-22' AND section='CSMT-PNVL' AND direction='UP' AND (latitude IS NULL OR longitude IS NULL);
 
 SELECT COUNT(*) total, SUM(latitude IS NOT NULL AND longitude IS NOT NULL) with_ll FROM div_signals WHERE is_active=1 AND section="CSMT-PNVL" AND line="UP HB" AND direction="UP";
