@@ -351,6 +351,18 @@ app.get('/div/transfer-letter-manual.html', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'div', 'transfer-letter-manual.html'));
 });
 
+app.get('/div/cadre-letter.html', (req, res) => {
+  if (!req.session.user) return res.redirect('/');
+  if (req.session.user.realm !== 'division') return res.redirect('/');
+  res.sendFile(path.join(__dirname, 'public', 'div', 'cadre-letter.html'));
+});
+
+app.get('/div/cadre-letter-manual.html', (req, res) => {
+  if (!req.session.user) return res.redirect('/');
+  if (req.session.user.realm !== 'division') return res.redirect('/');
+  res.sendFile(path.join(__dirname, 'public', 'div', 'cadre-letter-manual.html'));
+});
+
 app.get('/div/decategorized-crew-report.html', (req, res) => {
   if (!req.session.user) return res.redirect('/');
   if (req.session.user.realm !== 'division') return res.redirect('/');
@@ -770,6 +782,7 @@ const awsUploadRoutes = require('./routes/division/awsUploadRoutes');
 const signalBookRoutes = require('./routes/division/signalBookRoutes');
 const documentRoutes = require('./routes/division/documentRoutes');
 const transferLetterRoutes = require('./routes/division/transferLetterRoutes');
+const cadreLetterRoutes = require('./routes/division/cadreLetterRoutes');
 
 // Add division routes with realm protection
 app.use("/api/division/leave", requireRealm("division"), leaveRoutes); // mount early to avoid any catch-alls
@@ -800,6 +813,7 @@ app.use("/api/division/aws", requireRealm('division'), awsUploadRoutes);
 app.use("/api/division/signal-book", requireRealm('division'), signalBookRoutes);
 app.use("/api/division/documents", requireRealm('division'), documentRoutes);
 app.use("/api/division/transfer-letters", requireRealm('division'), transferLetterRoutes);
+app.use("/api/division/cadre-letters", requireRealm('division'), cadreLetterRoutes);
 
 // Session info endpoint
 app.get('/api/session', (req, res) => {

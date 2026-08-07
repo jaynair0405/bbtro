@@ -1,0 +1,480 @@
+/**
+ * cadreLetterRoutes.js — Cadre Management (HQ CLI cadre desk letters)
+ * Mounted at /api/division/cadre-letters
+ *
+ * The cadre desk's inter-departmental correspondence: transfers, postings,
+ * training deputations, panel/vacancy requests and one-off letters, addressed
+ * to Sr.DPO / DRM(P) / ZRTI/BSL / Dy.CEE(OP) / MTC-DTC KYN / "ALL CONCERNED".
+ *
+ * Letter TYPES are seeded data (div_cadre_letter_types), not code — a type
+ * carries the addressee, subject, body template and a JSON column schema, and
+ * every one of those is copied onto the letter so editing a type never
+ * rewrites a letter already written.
+ *
+ * Lifecycle: draft → finalized. Finalizing renders the letter to a complete
+ * A4 HTML page and files it into div_documents as source_type='composed'
+ * (category CADRE_LETTER, folder = family). NOT a pdfkit PDF — pdfkit cannot
+ * render Devanagari and these letters are Devanagari in the letterhead,
+ * addressee and signature. See utils/cadreLetterHtml.js.
+ *
+ * Unlike transferLetterRoutes this module routes NOTHING inside the portal —
+ * no receiver, no div_transfer_requests. Prepare, print, archive.
+ *
+ *   GET    /config             user + the full type catalogue, grouped by family
+ *   GET    /types/:code        one type's defaults + schemas
+ *   GET    /next-number        suggested letter number (editable)
+ *   GET    /search-staff/:q    division-wide staff picker
+ *   GET    /                   letters list (?family=&type_code=&status=&q=&from=&to=)
+ *   GET    /:id                letter + staff rows
+ *   POST   /                   create/update draft
+ *   POST   /:id/finalize       render + file into div_documents, lock
+ *   POST   /:id/unfinalize     admin-only: back to draft, remove filed document
+ *   DELETE /:id                delete draft
+ */
+
+const express = require('express');
+const router = express.Router();
+
+const { renderCadreLetterPage } = require('../../utils/cadreLetterHtml');
+
+// ── Access ─────────────────────────────────────────────────────────────────
+// Cadre letters are an HQ-level function, not a per-lobby one, so unlike
+// transfer letters there is no office lock: any division user may prepare
+// one. Unfinalizing a filed letter stays admin-only.
+
+const requireDivisionAccess = (req, res, next) => {
+    if (!req.session.user || req.session.user.realm !== 'division') {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+    next();
+};
+
+const isAdmin = (req) => req.session.user?.div_role === 'division_admin';
+
+async function getConnection(req) {
+    return await req.app.locals.pool.getConnection();
+}
+
+/* Letter number.
+ * Agreed shape: BB.TRSO.TECH.04 → sub-series (promotion/transfer/misc/…) →
+ * day-wise serial. The exact format is still being settled by the cadre desk,
+ * so it lives HERE, in one place, and the field stays editable on the page.
+ * Change this function and nothing else moves. */
+const LETTER_NO_BASE = 'BB.TRSO.TECH.04';
+
+function buildLetterNo(series, dateStr, serial) {
+    const d = new Date(dateStr);
+    const p = (n) => String(n).padStart(2, '0');
+    const ddmmyy = `${p(d.getDate())}${p(d.getMonth() + 1)}${String(d.getFullYear()).slice(-2)}`;
+    const s = (series || 'MISC').toUpperCase();
+    return `${LETTER_NO_BASE}/${s}/${ddmmyy}/${String(serial).padStart(2, '0')}`;
+}
+
+// JSON columns come back parsed from mysql2; accept strings too so the same
+// helper works on request bodies.
+function asJson(v) {
+    if (v == null) return null;
+    if (typeof v === 'object') return v;
+    try { return JSON.parse(v); } catch (e) { return null; }
+}
+function toJsonCol(v) {
+    if (v == null) return null;
+    return typeof v === 'string' ? v : JSON.stringify(v);
+}
+
+// ── GET /config ────────────────────────────────────────────────────────────
+
+router.get('/config', requireDivisionAccess, async (req, res) => {
+    let conn;
+    try {
+        conn = await getConnection(req);
+        const [types] = await conn.query(
+            `SELECT type_code, type_name, family, doc_kind, letter_series,
+                    banner_text, IF(table_schema IS NULL, 0, 1) AS has_table,
+                    IF(aux_schema IS NULL, 0, 1) AS has_aux, sort_order
+               FROM div_cadre_letter_types
+              WHERE is_active = 1
+              ORDER BY family, sort_order`
+        );
+        const families = {};
+        for (const t of types) (families[t.family] = families[t.family] || []).push(t);
+
+        res.json({
+            user: {
+                username: req.session.user.username,
+                full_name: req.session.user.full_name,
+                div_role: req.session.user.div_role,
+                office_code: req.session.user.div_office_code,
+                is_admin: isAdmin(req),
+            },
+            families,
+            types,
+        });
+    } catch (error) {
+        console.error('cadre-letters /config error:', error);
+        res.status(500).json({ error: 'Failed to load configuration' });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// ── GET /types/:code — full defaults for seeding a new letter ─────────────
+
+router.get('/types/:code', requireDivisionAccess, async (req, res) => {
+    let conn;
+    try {
+        conn = await getConnection(req);
+        const [[type]] = await conn.query(
+            'SELECT * FROM div_cadre_letter_types WHERE type_code = ? AND is_active = 1',
+            [req.params.code]
+        );
+        if (!type) return res.status(404).json({ error: 'Unknown letter type' });
+        type.table_schema = asJson(type.table_schema);
+        type.aux_schema = asJson(type.aux_schema);
+        res.json({ type });
+    } catch (error) {
+        console.error('cadre-letters /types error:', error);
+        res.status(500).json({ error: 'Failed to load letter type' });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// ── GET /next-number ───────────────────────────────────────────────────────
+
+router.get('/next-number', requireDivisionAccess, async (req, res) => {
+    let conn;
+    try {
+        const series = req.query.series || 'misc';
+        const date = req.query.date || new Date().toISOString().slice(0, 10);
+        conn = await getConnection(req);
+        // Day-wise serial: how many letters this series already has on this date.
+        const [[row]] = await conn.query(
+            `SELECT COUNT(*) AS n FROM div_cadre_letters
+              WHERE letter_date = ? AND IFNULL(letter_series,'misc') = ?`,
+            [date, series]
+        );
+        res.json({ letter_no: buildLetterNo(series, date, row.n + 1) });
+    } catch (error) {
+        console.error('cadre-letters /next-number error:', error);
+        res.status(500).json({ error: 'Failed to build a letter number' });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// ── GET /search-staff/:query ───────────────────────────────────────────────
+// Division-wide on purpose: a cadre letter routinely lists staff across
+// CSMT/KYN/PNVL/LNL/IGP in one table. ?office_code= narrows it optionally.
+
+router.get('/search-staff/:query', requireDivisionAccess, async (req, res) => {
+    let conn;
+    try {
+        conn = await getConnection(req);
+        const like = `%${req.params.query}%`;
+        const pre = `${req.params.query}%`;
+        const officeCode = req.query.office_code || null;
+        const [rows] = await conn.query(
+            `SELECT s.hrms_id, s.pf_number, s.name, s.current_cms_id,
+                    s.current_office_code, d.designation_name
+               FROM div_staff_master s
+               LEFT JOIN designations d ON s.designation_id = d.id
+              WHERE s.status = 'Active'
+                AND (? IS NULL OR s.current_office_code = ?)
+                AND (s.name LIKE ? OR s.hrms_id LIKE ? OR s.pf_number LIKE ? OR s.current_cms_id LIKE ?)
+              ORDER BY (s.name LIKE ? OR s.pf_number LIKE ? OR s.current_cms_id LIKE ?) DESC, s.name
+              LIMIT 40`,
+            [officeCode, officeCode, like, like, like, like, pre, pre, pre]
+        );
+        res.json({ staff: rows });
+    } catch (error) {
+        console.error('cadre-letters /search-staff error:', error);
+        res.status(500).json({ error: 'Search failed' });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// ── GET / — letters list ───────────────────────────────────────────────────
+
+router.get('/', requireDivisionAccess, async (req, res) => {
+    let conn;
+    try {
+        conn = await getConnection(req);
+        const where = [];
+        const params = [];
+        if (req.query.family) { where.push('t.family = ?'); params.push(req.query.family); }
+        if (req.query.type_code) { where.push('l.type_code = ?'); params.push(req.query.type_code); }
+        if (req.query.status) { where.push('l.status = ?'); params.push(req.query.status); }
+        if (req.query.from) { where.push('l.letter_date >= ?'); params.push(req.query.from); }
+        if (req.query.to) { where.push('l.letter_date <= ?'); params.push(req.query.to); }
+        if (req.query.q) {
+            // Search the letter itself, and the names/PF numbers on it.
+            where.push(`(l.subject_text LIKE ? OR l.letter_no LIKE ? OR EXISTS (
+                          SELECT 1 FROM div_cadre_letter_staff s
+                           WHERE s.letter_id = l.id
+                             AND (s.name LIKE ? OR s.pf_number LIKE ?)))`);
+            const like = `%${req.query.q}%`;
+            params.push(like, like, like, like);
+        }
+        const limit = Math.min(parseInt(req.query.limit, 10) || 100, 500);
+
+        const [rows] = await conn.query(
+            `SELECT l.id, l.letter_no, l.letter_series,
+                    DATE_FORMAT(l.letter_date, '%Y-%m-%d') AS letter_date,
+                    l.type_code, t.type_name, t.family, l.doc_kind,
+                    l.subject_text, l.total_staff, l.status, l.document_id,
+                    l.created_by, l.created_at
+               FROM div_cadre_letters l
+               JOIN div_cadre_letter_types t ON t.type_code = l.type_code
+             ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
+              ORDER BY l.letter_date DESC, l.id DESC
+              LIMIT ${limit}`,
+            params
+        );
+        res.json({ letters: rows });
+    } catch (error) {
+        console.error('cadre-letters list error:', error);
+        res.status(500).json({ error: 'Failed to load letters' });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// ── GET /:id ───────────────────────────────────────────────────────────────
+
+router.get('/:id', requireDivisionAccess, async (req, res) => {
+    let conn;
+    try {
+        conn = await getConnection(req);
+        const { letter, staff, error } = await loadLetter(conn, req.params.id);
+        if (error) return res.status(404).json({ error });
+        res.json({ letter, staff });
+    } catch (error) {
+        console.error('cadre-letters get error:', error);
+        res.status(500).json({ error: 'Failed to load the letter' });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+async function loadLetter(conn, id) {
+    const [[letter]] = await conn.query(
+        `SELECT l.*, DATE_FORMAT(l.letter_date, '%Y-%m-%d') AS letter_date,
+                t.type_name, t.family
+           FROM div_cadre_letters l
+           JOIN div_cadre_letter_types t ON t.type_code = l.type_code
+          WHERE l.id = ?`, [id]
+    );
+    if (!letter) return { error: 'Letter not found' };
+    letter.table_columns = asJson(letter.table_columns);
+    letter.aux_data = asJson(letter.aux_data);
+    letter.tokens = asJson(letter.tokens) || {};
+    const [staff] = await conn.query(
+        `SELECT id, sr_no, staff_hrms_id, pf_number, name, designation,
+                present_lobby, proposed_lobby, remarks, extra
+           FROM div_cadre_letter_staff WHERE letter_id = ? ORDER BY sr_no, id`, [id]
+    );
+    staff.forEach((s) => { s.extra = asJson(s.extra) || {}; });
+    return { letter, staff };
+}
+
+// ── POST / — create or update a draft ─────────────────────────────────────
+
+const LETTER_FIELDS = [
+    'letter_no', 'letter_series', 'letter_date', 'type_code', 'doc_kind', 'banner_text',
+    'office_header_text', 'addressee_text', 'addressee_text_hi', 'subject_text',
+    'ref_text', 'body_text', 'footer_text', 'encl_text', 'cc_text',
+    'approval_chain_text', 'signing_designation', 'signing_designation_hindi',
+    'signing_place',
+];
+
+router.post('/', requireDivisionAccess, async (req, res) => {
+    let conn;
+    try {
+        const b = req.body || {};
+        if (!b.type_code) return res.status(400).json({ error: 'type_code is required' });
+        if (!b.letter_date) return res.status(400).json({ error: 'letter_date is required' });
+
+        conn = await getConnection(req);
+        const [[type]] = await conn.query(
+            'SELECT type_code, doc_kind, letter_series FROM div_cadre_letter_types WHERE type_code = ?',
+            [b.type_code]
+        );
+        if (!type) return res.status(400).json({ error: 'Unknown letter type' });
+
+        // doc_kind is NOT NULL and decides whether the NOTE approval chain
+        // prints — never trust the client to have sent it. The rest of the
+        // fields are seeded client-side from GET /types/:code and may legitimately
+        // be cleared to empty, so they are NOT backfilled here.
+        b.doc_kind = b.doc_kind || type.doc_kind || 'LETTER';
+        b.letter_series = b.letter_series || type.letter_series || null;
+
+        const staff = Array.isArray(b.staff) ? b.staff : [];
+        const values = LETTER_FIELDS.map((f) => (b[f] === '' ? null : b[f] ?? null));
+        const jsonVals = [toJsonCol(b.table_columns), toJsonCol(b.aux_data), toJsonCol(b.tokens)];
+
+        await conn.beginTransaction();
+        let letterId = b.id ? Number(b.id) : null;
+
+        if (letterId) {
+            const [[existing]] = await conn.query(
+                'SELECT status FROM div_cadre_letters WHERE id = ? FOR UPDATE', [letterId]
+            );
+            if (!existing) { await conn.rollback(); return res.status(404).json({ error: 'Letter not found' }); }
+            if (existing.status !== 'draft') {
+                await conn.rollback();
+                return res.status(409).json({ error: 'This letter is finalized and can no longer be edited.' });
+            }
+            await conn.query(
+                `UPDATE div_cadre_letters SET ${LETTER_FIELDS.map((f) => `${f} = ?`).join(', ')},
+                        table_columns = ?, aux_data = ?, tokens = ?, total_staff = ?
+                  WHERE id = ?`,
+                [...values, ...jsonVals, staff.length, letterId]
+            );
+            await conn.query('DELETE FROM div_cadre_letter_staff WHERE letter_id = ?', [letterId]);
+        } else {
+            const [result] = await conn.query(
+                `INSERT INTO div_cadre_letters
+                   (${LETTER_FIELDS.join(', ')}, table_columns, aux_data, tokens, total_staff, created_by)
+                 VALUES (${LETTER_FIELDS.map(() => '?').join(', ')}, ?, ?, ?, ?, ?)`,
+                [...values, ...jsonVals, staff.length, req.session.user.username]
+            );
+            letterId = result.insertId;
+        }
+
+        if (staff.length) {
+            await conn.query(
+                `INSERT INTO div_cadre_letter_staff
+                   (letter_id, sr_no, staff_hrms_id, pf_number, name, designation,
+                    present_lobby, proposed_lobby, remarks, extra)
+                 VALUES ?`,
+                [staff.map((s, i) => [
+                    letterId, s.sr_no || i + 1, s.staff_hrms_id || null,
+                    s.pf_number || null, s.name || null, s.designation || null,
+                    s.present_lobby || null, s.proposed_lobby || null,
+                    s.remarks || null, toJsonCol(s.extra),
+                ])]
+            );
+        }
+
+        await conn.commit();
+        res.json({ success: true, id: letterId });
+    } catch (error) {
+        if (conn) { try { await conn.rollback(); } catch (e) { /* already rolled back */ } }
+        console.error('cadre-letters save error:', error);
+        res.status(500).json({ error: 'Failed to save the letter' });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// ── POST /:id/finalize ────────────────────────────────────────────────────
+// Renders the letter and files it into the documents repository as a composed
+// document, then locks the letter. Transactional: if filing fails the letter
+// stays a draft.
+
+router.post('/:id/finalize', requireDivisionAccess, async (req, res) => {
+    let conn;
+    try {
+        conn = await getConnection(req);
+        const { letter, staff, error } = await loadLetter(conn, req.params.id);
+        if (error) return res.status(404).json({ error });
+        if (letter.status === 'finalized') {
+            return res.status(409).json({ error: 'This letter is already finalized.' });
+        }
+        if (!letter.letter_no) return res.status(400).json({ error: 'A letter number is required before finalizing.' });
+        if (!letter.subject_text) return res.status(400).json({ error: 'A subject is required before finalizing.' });
+
+        const html = renderCadreLetterPage(letter, staff);
+        const title = letter.letter_no;
+
+        await conn.beginTransaction();
+        const [doc] = await conn.query(
+            `INSERT INTO div_documents
+               (title, category, description, doc_date, folder, body_html,
+                language, source_type, status, header, uploaded_by)
+             VALUES (?, 'CADRE_LETTER', ?, ?, ?, ?, 'both', 'composed', 'final', ?, ?)`,
+            [title, letter.subject_text, letter.letter_date, letter.family, html,
+             JSON.stringify({ ref_no: letter.letter_no, type_code: letter.type_code }),
+             req.session.user.username]
+        );
+        await conn.query(
+            `UPDATE div_cadre_letters
+                SET status = 'finalized', document_id = ?, finalized_at = NOW()
+              WHERE id = ? AND status = 'draft'`,
+            [doc.insertId, letter.id]
+        );
+        await conn.commit();
+
+        res.json({ success: true, document_id: doc.insertId });
+    } catch (error) {
+        if (conn) { try { await conn.rollback(); } catch (e) { /* already rolled back */ } }
+        console.error('cadre-letters finalize error:', error);
+        res.status(500).json({ error: 'Failed to finalize the letter' });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// ── POST /:id/unfinalize — admin only ─────────────────────────────────────
+
+router.post('/:id/unfinalize', requireDivisionAccess, async (req, res) => {
+    if (!isAdmin(req)) return res.status(403).json({ error: 'Only a division admin can reopen a filed letter.' });
+    let conn;
+    try {
+        conn = await getConnection(req);
+        const [[letter]] = await conn.query(
+            'SELECT id, status, document_id FROM div_cadre_letters WHERE id = ?', [req.params.id]
+        );
+        if (!letter) return res.status(404).json({ error: 'Letter not found' });
+        if (letter.status !== 'finalized') return res.status(409).json({ error: 'This letter is not finalized.' });
+
+        await conn.beginTransaction();
+        await conn.query(
+            `UPDATE div_cadre_letters SET status = 'draft', document_id = NULL, finalized_at = NULL
+              WHERE id = ?`, [letter.id]
+        );
+        if (letter.document_id) {
+            // Composed documents have no file on disk — deleting the row is enough.
+            await conn.query('DELETE FROM div_documents WHERE id = ? AND source_type = ?',
+                [letter.document_id, 'composed']);
+        }
+        await conn.commit();
+        res.json({ success: true });
+    } catch (error) {
+        if (conn) { try { await conn.rollback(); } catch (e) { /* already rolled back */ } }
+        console.error('cadre-letters unfinalize error:', error);
+        res.status(500).json({ error: 'Failed to reopen the letter' });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// ── DELETE /:id — drafts only ─────────────────────────────────────────────
+
+router.delete('/:id', requireDivisionAccess, async (req, res) => {
+    let conn;
+    try {
+        conn = await getConnection(req);
+        const [[letter]] = await conn.query(
+            'SELECT id, status, created_by FROM div_cadre_letters WHERE id = ?', [req.params.id]
+        );
+        if (!letter) return res.status(404).json({ error: 'Letter not found' });
+        if (letter.status !== 'draft') {
+            return res.status(409).json({ error: 'A finalized letter cannot be deleted. Reopen it first.' });
+        }
+        if (!isAdmin(req) && letter.created_by !== req.session.user.username) {
+            return res.status(403).json({ error: 'You can only delete your own drafts.' });
+        }
+        await conn.query('DELETE FROM div_cadre_letters WHERE id = ?', [letter.id]);
+        res.json({ success: true });
+    } catch (error) {
+        console.error('cadre-letters delete error:', error);
+        res.status(500).json({ error: 'Failed to delete the letter' });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+module.exports = router;

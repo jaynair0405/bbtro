@@ -1,0 +1,1310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BBTRO | Cadre Management — Letters</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,wght@0,400;0,600;0,700;1,400&family=Archivo:wght@400;500;600;700;800&family=Noto+Sans+Devanagari:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+    --ink: #101c33; --ink-2: #182742; --ink-3: #22345a; --chrome-line: #2c4370;
+    --paper: #fdfbf3; --paper-edge: #e8e2cd;
+    --amber: #f5a524; --amber-deep: #d97706;
+    --green: #2f9e63; --red: #d64545;
+    --text-dim: #93a5c4; --text-mid: #c3cfe4;
+    --ui: 'Archivo', -apple-system, sans-serif;
+    --serif: 'Source Serif 4', 'Times New Roman', serif;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { height: 100%; }
+body { font-family: var(--ui); background: var(--ink); color: var(--text-mid); overflow: hidden; }
+
+/* ── App bar ─────────────────────────────────────────────────────────── */
+.appbar {
+    height: 58px; display: flex; align-items: center; gap: 18px; padding: 0 20px;
+    background: linear-gradient(180deg, #14213c 0%, #101c33 100%);
+    border-bottom: 1px solid var(--chrome-line); position: relative; z-index: 30;
+}
+.appbar .brand { display: flex; align-items: center; gap: 10px; color: #fff; text-decoration: none; }
+.appbar .brand .mark {
+    width: 34px; height: 34px; border-radius: 8px;
+    background: radial-gradient(circle at 35% 30%, #ffca55, var(--amber-deep));
+    display: grid; place-items: center; font-size: 17px;
+    box-shadow: 0 2px 10px rgba(245,165,36,.35);
+}
+.appbar .brand b { font-weight: 800; letter-spacing: .4px; font-size: 15px; }
+.appbar .brand small { display: block; font-size: 10.5px; color: var(--text-dim); font-weight: 500; letter-spacing: 1.4px; text-transform: uppercase; }
+.appbar .spacer { flex: 1; }
+.appbar .who { font-size: 12.5px; color: var(--text-dim); text-align: right; line-height: 1.35; }
+.appbar .who b { color: var(--text-mid); }
+.appbar a.back, .appbar button.linkbtn {
+    color: var(--text-dim); text-decoration: none; font-size: 12.5px; font-weight: 600;
+    padding: 7px 12px; border: 1px solid var(--chrome-line); border-radius: 8px;
+    background: none; cursor: pointer; font-family: var(--ui); transition: all .15s;
+}
+.appbar a.back:hover, .appbar button.linkbtn:hover { color: #fff; border-color: var(--amber); }
+
+/* ── Status strip ────────────────────────────────────────────────────── */
+.statusbar {
+    display: flex; align-items: center; gap: 12px; padding: 0 24px; height: 44px;
+    background: #0c1628; border-bottom: 1px solid var(--chrome-line);
+    position: relative; z-index: 20; font-size: 12.5px; color: var(--text-dim);
+}
+.statusbar .tname { color: #fff; font-weight: 700; }
+.statusbar .fam {
+    font-size: 9.5px; font-weight: 800; letter-spacing: 1.2px; text-transform: uppercase;
+    border-radius: 20px; padding: 3px 9px; background: rgba(245,165,36,.14); color: var(--amber);
+}
+.statusbar .spacer { flex: 1; }
+
+/* ── Layout ──────────────────────────────────────────────────────────── */
+.stage { display: flex; height: calc(100vh - 102px); }
+.desk {
+    width: 470px; min-width: 410px;
+    background: linear-gradient(180deg, var(--ink-2), var(--ink));
+    border-right: 1px solid var(--chrome-line); display: flex; flex-direction: column;
+}
+.desk .scroll { flex: 1; overflow-y: auto; padding: 18px 18px 8px; }
+.desk .scroll::-webkit-scrollbar { width: 9px; }
+.desk .scroll::-webkit-scrollbar-thumb { background: var(--ink-3); border-radius: 5px; }
+
+.panel {
+    background: rgba(255,255,255,.028); border: 1px solid var(--chrome-line);
+    border-radius: 13px; margin-bottom: 14px; overflow: hidden;
+    animation: rise .45s cubic-bezier(.2,.9,.3,1) both;
+}
+@keyframes rise { from { opacity: 0; transform: translateY(14px); } }
+.panel.staff-panel { overflow: visible; }
+.panel > h2 {
+    font-size: 11.5px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase;
+    color: var(--amber); padding: 13px 16px 11px;
+    border-bottom: 1px solid rgba(44,67,112,.6);
+    display: flex; align-items: center; gap: 9px;
+}
+.panel > h2 .n {
+    width: 20px; height: 20px; border-radius: 6px; flex: 0 0 20px;
+    background: rgba(245,165,36,.14); border: 1px solid rgba(245,165,36,.35);
+    display: grid; place-items: center; font-size: 10.5px; color: var(--amber);
+}
+.panel > h2 .tag { margin-left: auto; font-size: 10px; letter-spacing: 1px; color: var(--text-dim); }
+.panel .bd { padding: 14px 16px 16px; }
+
+.row { display: flex; gap: 10px; }
+.row > * { flex: 1; min-width: 0; }
+.fld { margin-bottom: 11px; }
+.fld:last-child { margin-bottom: 0; }
+.fld label {
+    display: block; font-size: 10.5px; font-weight: 700; letter-spacing: 1.1px;
+    text-transform: uppercase; color: var(--text-dim); margin-bottom: 5px;
+}
+.fld input, .fld select, .fld textarea {
+    width: 100%; background: #0d1830; border: 1px solid var(--chrome-line);
+    color: #e8eefb; border-radius: 9px; padding: 9px 11px;
+    font-family: var(--ui); font-size: 13.5px;
+    transition: border-color .15s, box-shadow .15s;
+}
+.fld textarea { resize: vertical; min-height: 58px; line-height: 1.45; }
+.fld textarea.deva, .fld input.deva { font-family: 'Noto Sans Devanagari', var(--ui); }
+.fld input:focus, .fld select:focus, .fld textarea:focus {
+    outline: none; border-color: var(--amber); box-shadow: 0 0 0 3px rgba(245,165,36,.13);
+}
+.fld input::placeholder, .fld textarea::placeholder { color: #4d628c; }
+.fld .hint { font-size: 11px; color: #5a7099; margin-top: 4px; }
+select:disabled, input:disabled, textarea:disabled { opacity: .55; cursor: not-allowed; }
+
+/* token fill-ins — auto-derived from {{…}} in the letter text */
+.tok { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.tok .fld { margin-bottom: 0; }
+.tok .fld label { font-size: 9.5px; letter-spacing: .8px; color: var(--amber); }
+.tok .fld input { padding: 6px 9px; font-size: 12.5px; border-radius: 7px; }
+.tok-empty { font-size: 12px; color: #5a7099; }
+
+/* staff picker */
+.search-wrap { position: relative; }
+.search-drop {
+    position: absolute; left: 0; right: 0; top: calc(100% + 5px); z-index: 50;
+    background: #0e1a33; border: 1px solid var(--chrome-line); border-radius: 10px;
+    max-height: 250px; overflow-y: auto; box-shadow: 0 14px 34px rgba(0,0,0,.5); display: none;
+}
+.search-drop.open { display: block; }
+.search-drop.up { top: auto; bottom: calc(100% + 5px); box-shadow: 0 -14px 34px rgba(0,0,0,.5); }
+.search-drop .opt { padding: 9px 12px; cursor: pointer; border-bottom: 1px solid rgba(44,67,112,.4); }
+.search-drop .opt:last-child { border-bottom: 0; }
+.search-drop .opt:hover { background: rgba(245,165,36,.09); }
+.search-drop .opt b { color: #fff; font-size: 13px; display: block; }
+.search-drop .opt small { color: var(--text-dim); font-size: 11.5px; }
+.search-drop .empty { padding: 12px; color: var(--text-dim); font-size: 12.5px; text-align: center; }
+
+.mini { max-height: 250px; overflow-y: auto; margin-top: 10px; }
+.mini-row {
+    display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 8px;
+    background: #0d1830; border: 1px solid var(--chrome-line);
+    border-left: 3px solid var(--amber); margin-bottom: 6px;
+}
+.mini-row .sr {
+    width: 20px; height: 20px; border-radius: 50%; flex: 0 0 20px;
+    background: rgba(245,165,36,.15); color: var(--amber);
+    display: grid; place-items: center; font-size: 10px; font-weight: 800;
+}
+.mini-row .nm { flex: 1; min-width: 0; }
+.mini-row .nm b { color: #fff; font-size: 12.5px; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mini-row .nm small { color: var(--text-dim); font-size: 10.5px; }
+.mini-row.manual { border-left-color: #6f86b8; }
+.mini-row button.rm {
+    background: none; border: none; color: #5a7099; cursor: pointer; font-size: 15px;
+    padding: 1px 5px; border-radius: 6px;
+}
+.mini-row button.rm:hover { color: var(--red); background: rgba(214,69,69,.12); }
+.nostaff { text-align: center; color: #4d628c; font-size: 12.5px; padding: 14px 0 4px; }
+.tinybar { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+.btn-tiny {
+    font-family: var(--ui); font-size: 11.5px; font-weight: 700; border-radius: 8px;
+    padding: 7px 10px; cursor: pointer; background: transparent;
+    color: var(--text-mid); border: 1px solid var(--chrome-line);
+}
+.btn-tiny:hover { border-color: var(--amber); color: #fff; }
+
+/* action bar */
+.actions {
+    padding: 13px 18px; background: rgba(10,18,36,.92);
+    border-top: 1px solid var(--chrome-line); backdrop-filter: blur(6px);
+    display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+}
+.btn {
+    font-family: var(--ui); font-weight: 700; font-size: 12.5px; letter-spacing: .3px;
+    border-radius: 9px; padding: 10px 15px; border: 1px solid transparent; cursor: pointer;
+    transition: transform .12s, box-shadow .15s, opacity .15s;
+    display: inline-flex; align-items: center; gap: 7px;
+}
+.btn:active { transform: translateY(1px); }
+.btn:disabled { opacity: .38; cursor: not-allowed; transform: none; }
+.btn-ghost { background: transparent; color: var(--text-mid); border-color: var(--chrome-line); }
+.btn-ghost:hover:not(:disabled) { border-color: var(--amber); color: #fff; }
+.btn-amber { background: linear-gradient(180deg, #ffb63c, var(--amber-deep)); color: #241500; box-shadow: 0 3px 12px rgba(245,165,36,.3); }
+.btn-amber:hover:not(:disabled) { box-shadow: 0 5px 18px rgba(245,165,36,.45); }
+.btn-green { background: linear-gradient(180deg, #38b673, #23864f); color: #fff; box-shadow: 0 3px 12px rgba(47,158,99,.3); }
+.btn-red { background: linear-gradient(180deg, #e25f5f, #c23a3a); color: #fff; box-shadow: 0 3px 12px rgba(214,69,69,.3); }
+
+/* ── Right: the paper yard ───────────────────────────────────────────── */
+.yard {
+    flex: 1; overflow-y: auto;
+    background:
+        radial-gradient(1100px 500px at 75% -10%, rgba(245,165,36,.05), transparent 60%),
+        radial-gradient(800px 600px at 20% 110%, rgba(60,110,220,.06), transparent 60%),
+        #0b1425;
+    padding: 34px 30px 60px; display: flex; flex-direction: column; align-items: center;
+}
+.yard::-webkit-scrollbar { width: 10px; }
+.yard::-webkit-scrollbar-thumb { background: var(--ink-3); border-radius: 5px; }
+.yard .preview-tag {
+    font-size: 10.5px; font-weight: 800; letter-spacing: 2.4px; text-transform: uppercase;
+    color: #51678f; margin-bottom: 14px; display: flex; align-items: center; gap: 8px;
+}
+.yard .preview-tag::before, .yard .preview-tag::after { content: ''; width: 46px; height: 1px; background: #33497a; }
+
+/* The A4 sheet. Unlike the transfer letter this one GROWS: cadre letters
+   routinely run to a second page (the 69-name ALP lists), and silently
+   clipping rows in the preview would hide exactly what needs checking. */
+.sheet {
+    width: min(210mm, 94%); min-height: 297mm; flex-shrink: 0;
+    background: radial-gradient(ellipse at top left, rgba(255,255,255,.7), transparent 45%), var(--paper);
+    color: #17181a;
+    box-shadow: 0 1px 2px rgba(0,0,0,.4), 0 14px 44px rgba(0,0,0,.55), 0 34px 90px rgba(0,0,0,.4);
+    border-radius: 3px; padding: 16mm 15mm 18mm; position: relative;
+    animation: paperIn .5s cubic-bezier(.2,.9,.3,1) both;
+}
+@keyframes paperIn { from { opacity: 0; transform: translateY(22px) scale(.985); } }
+.sheet::after {
+    content: ''; position: absolute; inset: 0; border-radius: 3px; pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='.028'/%3E%3C/svg%3E");
+}
+/* page-break guide: where A4 pages will actually split */
+.pagemark {
+    width: min(210mm, 94%); border-top: 1px dashed #33497a; margin: 0 0 -1px;
+    text-align: right; font-size: 9.5px; letter-spacing: 1.4px; text-transform: uppercase;
+    color: #51678f; padding-top: 3px; flex-shrink: 0;
+}
+
+/* ── Type gallery ────────────────────────────────────────────────────── */
+.gallery-veil {
+    position: fixed; inset: 0; z-index: 140; background: rgba(6,12,24,.82);
+    backdrop-filter: blur(6px); display: none; overflow-y: auto; padding: 40px 24px;
+}
+.gallery-veil.open { display: block; }
+.gallery { max-width: 1000px; margin: 0 auto; }
+.gallery > h3 {
+    color: #fff; font-size: 19px; font-weight: 800; letter-spacing: .3px; margin-bottom: 4px;
+}
+.gallery > p { color: var(--text-dim); font-size: 13px; margin-bottom: 24px; }
+.fam-group { margin-bottom: 26px; }
+.fam-group h4 {
+    font-size: 11px; font-weight: 800; letter-spacing: 2.2px; text-transform: uppercase;
+    color: var(--amber); margin-bottom: 10px; display: flex; align-items: center; gap: 9px;
+}
+.fam-group h4::after { content: ''; flex: 1; height: 1px; background: #2c4370; }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; }
+.tcard {
+    background: var(--ink-2); border: 1px solid var(--chrome-line); border-radius: 12px;
+    padding: 13px 15px; cursor: pointer; transition: border-color .15s, transform .12s;
+}
+.tcard:hover { border-color: var(--amber); transform: translateY(-2px); }
+.tcard b { color: #fff; font-size: 13.5px; display: block; margin-bottom: 5px; line-height: 1.35; }
+.tcard .marks { display: flex; gap: 5px; flex-wrap: wrap; }
+.tcard .mk {
+    font-size: 9px; font-weight: 800; letter-spacing: .9px; text-transform: uppercase;
+    border-radius: 20px; padding: 2.5px 7px;
+    background: rgba(147,165,196,.13); color: var(--text-dim);
+}
+.tcard .mk.note { background: rgba(245,165,36,.15); color: var(--amber); }
+.tcard .mk.tbl { background: rgba(47,158,99,.15); color: #4cc98a; }
+.gallery .closebar { text-align: right; margin-bottom: 14px; }
+
+/* ── Grid editor (the table is the heart of these letters) ───────────── */
+.grid-veil {
+    position: fixed; inset: 0; z-index: 130; background: rgba(5,10,22,.72);
+    backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; padding: 30px;
+}
+.grid-veil.open { display: flex; }
+.gridbox {
+    width: 100%; max-width: 1180px; max-height: 88vh; display: flex; flex-direction: column;
+    background: var(--ink-2); border: 1px solid var(--chrome-line); border-radius: 15px;
+    box-shadow: 0 28px 70px rgba(0,0,0,.6); overflow: hidden;
+}
+.gridbox > header {
+    display: flex; align-items: center; gap: 12px; padding: 15px 20px;
+    border-bottom: 1px solid var(--chrome-line);
+}
+.gridbox > header h4 { color: #fff; font-size: 15px; font-weight: 800; }
+.gridbox > header .spacer { flex: 1; }
+.gridbox .gwrap { flex: 1; overflow: auto; padding: 0 8px 8px; }
+table.editor { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 12.5px; }
+table.editor th {
+    position: sticky; top: 0; z-index: 2; background: #16233d;
+    color: var(--amber); font-size: 10px; font-weight: 800; letter-spacing: 1.1px;
+    text-transform: uppercase; padding: 10px 8px; text-align: left; white-space: nowrap;
+    border-bottom: 1px solid var(--chrome-line);
+}
+table.editor td { padding: 3px 4px; border-bottom: 1px solid rgba(44,67,112,.4); }
+table.editor td.srcell { color: var(--text-dim); text-align: center; width: 42px; font-weight: 700; }
+table.editor input {
+    width: 100%; background: #0d1830; border: 1px solid transparent; color: #e8eefb;
+    border-radius: 6px; padding: 6px 8px; font-family: var(--ui); font-size: 12.5px;
+}
+table.editor input:focus { outline: none; border-color: var(--amber); background: #0a1425; }
+table.editor input.linked { border-left: 2px solid var(--green); }
+table.editor td.act { width: 34px; text-align: center; }
+table.editor .rowrm {
+    background: none; border: none; color: #5a7099; cursor: pointer; font-size: 15px;
+    padding: 2px 5px; border-radius: 6px;
+}
+table.editor .rowrm:hover { color: var(--red); background: rgba(214,69,69,.12); }
+.gridbox > footer {
+    display: flex; align-items: center; gap: 8px; padding: 13px 20px;
+    border-top: 1px solid var(--chrome-line); background: rgba(10,18,36,.7);
+}
+.gridbox > footer .count { font-size: 12.5px; color: var(--text-dim); margin-right: auto; }
+
+/* paste */
+.pastebox textarea {
+    width: 100%; min-height: 150px; background: #0d1830; border: 1px solid var(--chrome-line);
+    color: #e8eefb; border-radius: 10px; padding: 11px; font-family: ui-monospace, Menlo, monospace;
+    font-size: 12px; line-height: 1.5; resize: vertical;
+}
+.pastebox textarea:focus { outline: none; border-color: var(--amber); }
+.ppreview { margin-top: 12px; max-height: 230px; overflow: auto; }
+.ppreview table { border-collapse: collapse; width: 100%; font-size: 11.5px; }
+.ppreview th {
+    background: #16233d; color: var(--amber); font-size: 9.5px; letter-spacing: 1px;
+    text-transform: uppercase; padding: 6px; text-align: left; position: sticky; top: 0;
+}
+.ppreview td { padding: 5px 6px; border-bottom: 1px solid rgba(44,67,112,.4); color: var(--text-mid); }
+.ppreview th select {
+    width: 100%; background: #0d1830; border: 1px solid var(--chrome-line); color: #e8eefb;
+    border-radius: 6px; padding: 4px 6px; font-size: 11px; font-family: var(--ui); margin-top: 4px;
+}
+.pnote { font-size: 12px; color: var(--text-dim); margin-top: 9px; }
+.pnote b { color: var(--amber); }
+.chk { display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--text-mid); margin-top: 10px; }
+.chk input { width: 15px; height: 15px; accent-color: var(--amber); }
+
+/* ── History drawer ──────────────────────────────────────────────────── */
+.drawer-veil {
+    position: fixed; inset: 0; background: rgba(5,10,22,.6); backdrop-filter: blur(3px);
+    opacity: 0; pointer-events: none; transition: opacity .25s; z-index: 90;
+}
+.drawer {
+    position: fixed; top: 0; right: -460px; width: 440px; max-width: 92vw; height: 100vh;
+    background: var(--ink-2); border-left: 1px solid var(--chrome-line);
+    z-index: 95; transition: right .3s cubic-bezier(.3,.9,.3,1);
+    display: flex; flex-direction: column; box-shadow: -20px 0 60px rgba(0,0,0,.5);
+}
+body.drawer-open .drawer { right: 0; }
+body.drawer-open .drawer-veil { opacity: 1; pointer-events: auto; }
+.drawer h3 {
+    padding: 17px 20px; color: #fff; font-size: 14px; font-weight: 800; letter-spacing: 1px;
+    text-transform: uppercase; border-bottom: 1px solid var(--chrome-line);
+    display: flex; justify-content: space-between; align-items: center;
+}
+.drawer h3 button { background: none; border: none; color: var(--text-dim); font-size: 20px; cursor: pointer; }
+.drawer .filters { padding: 12px 12px 0; display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+.drawer .filters input, .drawer .filters select {
+    width: 100%; background: #0d1830; border: 1px solid var(--chrome-line); color: #e8eefb;
+    border-radius: 8px; padding: 7px 9px; font-size: 12px; font-family: var(--ui);
+}
+.drawer .filters .wide { grid-column: 1 / -1; }
+.drawer .list { flex: 1; overflow-y: auto; padding: 12px; }
+.hist-card {
+    background: #0d1830; border: 1px solid var(--chrome-line); border-radius: 10px;
+    padding: 11px 13px; margin-bottom: 9px; cursor: pointer; transition: border-color .15s;
+}
+.hist-card:hover { border-color: var(--amber); }
+.hist-card .l1 { display: flex; justify-content: space-between; gap: 8px; align-items: center; margin-bottom: 3px; }
+.hist-card .no { color: #fff; font-weight: 700; font-size: 12.5px; }
+.hist-card .l2 { color: var(--text-dim); font-size: 11.5px; line-height: 1.4; }
+.chip { font-size: 9.5px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; border-radius: 20px; padding: 3px 9px; }
+.chip.draft { background: rgba(147,165,196,.15); color: #93a5c4; }
+.chip.finalized { background: rgba(47,158,99,.16); color: #4cc98a; }
+
+/* ── Modal ───────────────────────────────────────────────────────────── */
+.modal-veil {
+    position: fixed; inset: 0; z-index: 150; background: rgba(5,10,22,.66); backdrop-filter: blur(4px);
+    display: none; align-items: center; justify-content: center; padding: 24px;
+}
+.modal-veil.open { display: flex; }
+.modal {
+    width: 560px; max-width: 92vw; max-height: 86vh; overflow-y: auto;
+    background: var(--ink-2); border: 1px solid var(--chrome-line); border-radius: 15px;
+    padding: 22px; box-shadow: 0 28px 70px rgba(0,0,0,.6); animation: rise .28s both;
+}
+.modal h4 { color: #fff; font-size: 15.5px; font-weight: 800; margin-bottom: 8px; }
+.modal p { font-size: 13px; color: var(--text-mid); line-height: 1.5; margin-bottom: 8px; }
+.modal .btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+
+.toast {
+    position: fixed; bottom: 26px; left: 50%; transform: translateX(-50%) translateY(90px);
+    background: #0e1a33; color: #fff; border: 1px solid var(--chrome-line);
+    border-left: 4px solid var(--amber); border-radius: 11px; padding: 12px 18px;
+    font-size: 13px; font-weight: 600; z-index: 200;
+    transition: transform .3s cubic-bezier(.3,1.3,.4,1); max-width: 80vw;
+    box-shadow: 0 14px 40px rgba(0,0,0,.5);
+}
+.toast.show { transform: translateX(-50%) translateY(0); }
+.toast.err { border-left-color: var(--red); }
+.toast.ok { border-left-color: var(--green); }
+
+/* readonly veil once finalized */
+.desk.readonly .scroll { opacity: .62; pointer-events: none; }
+.ro-note {
+    display: none; margin: 0 18px 10px; padding: 10px 14px; border-radius: 10px;
+    background: rgba(47,158,99,.1); border: 1px solid rgba(47,158,99,.32);
+    color: #4cc98a; font-size: 12px; font-weight: 600;
+}
+.desk.readonly .ro-note { display: block; }
+
+/* ── Print: only the sheet ───────────────────────────────────────────── */
+@media print {
+    @page { size: A4; margin: 14mm 15mm; }
+    body { overflow: visible; background: #fff; }
+    .appbar, .statusbar, .desk, .yard .preview-tag, .pagemark,
+    .drawer, .drawer-veil, .modal-veil, .grid-veil, .gallery-veil, .toast { display: none !important; }
+    .stage, .yard { display: block; height: auto; overflow: visible; padding: 0; background: #fff; }
+    .sheet {
+        width: auto; min-height: auto; height: auto; overflow: visible;
+        box-shadow: none; border-radius: 0; animation: none; margin: 0; padding: 0;
+        background: #fff;
+    }
+    .sheet::after { display: none; }
+    .sheet .ph { visibility: hidden; }
+    /* Long letters legitimately run over — never split a row, orphan the
+       signature/C-/ block, or lose the table header on page 2. */
+    .sheet table.grid { page-break-inside: auto; }
+    .sheet table.grid tr { page-break-inside: avoid; }
+    .sheet table.grid thead { display: table-header-group; }
+    .sheet .sig, .sheet .cc, .sheet .chain, .sheet .encl { page-break-inside: avoid; }
+}
+@media (max-width: 980px) {
+    body { overflow: auto; }
+    .stage { flex-direction: column; height: auto; }
+    .desk { width: 100%; min-width: 0; }
+    .yard { padding: 22px 8px 40px; }
+}
+</style>
+<!-- Paper styles come from the shared renderer so the preview, the printout
+     and the archived copy cannot drift apart. -->
+<style id="sheetCss"></style>
+</head>
+<body>
+
+<header class="appbar">
+    <a class="brand" href="/div/index.html">
+        <span class="mark">🗂</span>
+        <span><b>Cadre Management</b><small>HQ CLI · Letters</small></span>
+    </a>
+    <div class="spacer"></div>
+    <button class="linkbtn" id="btnGallery">＋ New letter</button>
+    <button class="linkbtn" id="btnHistory">🗄 History</button>
+    <a class="back" href="/div/cadre-letter-manual.html">Help</a>
+    <a class="back" href="/div/index.html">← Dashboard</a>
+    <div class="who" id="whoBox"></div>
+</header>
+
+<nav class="statusbar">
+    <span class="fam" id="stFamily">—</span>
+    <span class="tname" id="stType">No letter open</span>
+    <span class="spacer"></span>
+    <span id="stMeta"></span>
+    <span class="chip draft" id="stChip">Draft</span>
+</nav>
+
+<main class="stage">
+    <!-- ══ Left: the desk ══ -->
+    <section class="desk" id="desk">
+        <div class="ro-note" id="roNote">✓ Filed. This letter is finalized and read-only — reopen it to edit.</div>
+        <div class="scroll" id="deskScroll">
+
+            <div class="panel">
+                <h2><span class="n">1</span> Letter &amp; number</h2>
+                <div class="bd">
+                    <div class="row">
+                        <div class="fld">
+                            <label>Sub-series</label>
+                            <select id="fSeries">
+                                <option value="transfer">transfer</option>
+                                <option value="promotion">promotion</option>
+                                <option value="posting">posting</option>
+                                <option value="training">training</option>
+                                <option value="misc">misc</option>
+                            </select>
+                        </div>
+                        <div class="fld">
+                            <label>Date</label>
+                            <input type="date" id="fDate">
+                        </div>
+                    </div>
+                    <div class="fld">
+                        <label>Letter number</label>
+                        <input type="text" id="fNo" placeholder="BB.TRSO.TECH.04/…">
+                        <div class="hint">Suggested from the sub-series and a day-wise serial. Editable.</div>
+                    </div>
+                    <div class="fld">
+                        <label>Office header (right block)</label>
+                        <textarea id="fHeader" class="deva" rows="3"></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2><span class="n">2</span> Addressee &amp; subject</h2>
+                <div class="bd">
+                    <div class="fld">
+                        <label>Addressee — Hindi (used when filled)</label>
+                        <textarea id="fAddrHi" class="deva" rows="2"></textarea>
+                    </div>
+                    <div class="fld">
+                        <label>Addressee — English (fallback)</label>
+                        <textarea id="fAddr" rows="2"></textarea>
+                    </div>
+                    <div class="fld">
+                        <label>Centred banner</label>
+                        <input type="text" id="fBanner" placeholder="NOTE / Reminder – I / *******">
+                    </div>
+                    <div class="fld">
+                        <label>Subject</label>
+                        <textarea id="fSubject" rows="2"></textarea>
+                    </div>
+                    <div class="fld">
+                        <label>Reference (one per line)</label>
+                        <textarea id="fRef" rows="2"></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2><span class="n">3</span> Body</h2>
+                <div class="bd">
+                    <div class="fld">
+                        <label>Opening paragraphs — blank line = new paragraph</label>
+                        <textarea id="fBody" rows="7"></textarea>
+                    </div>
+                    <div class="fld">
+                        <label>Closing paragraphs — printed after the table</label>
+                        <textarea id="fFooter" rows="4"></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel" id="tokPanel">
+                <h2><span class="n">4</span> Fill-ins <span class="tag" id="tokCount"></span></h2>
+                <div class="bd">
+                    <div class="tok" id="tokBox"></div>
+                    <div class="tok-empty" id="tokEmpty">
+                        No fill-ins in this letter. Type <b>{{something}}</b> in the subject, reference or body
+                        and a box for it appears here.
+                    </div>
+                    <div class="hint" style="margin-top:9px">
+                        <b>{{count}}</b> and <b>{{letter_date}}</b> fill themselves — count follows the table.
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel staff-panel" id="staffPanel">
+                <h2><span class="n">5</span> Staff table <span class="tag" id="staffCount"></span></h2>
+                <div class="bd">
+                    <div class="fld search-wrap">
+                        <label>Add from staff records</label>
+                        <input type="text" id="staffSearch" placeholder="Search PF no., name or CMS ID…" autocomplete="off">
+                        <div class="search-drop" id="staffDrop"></div>
+                    </div>
+                    <div class="tinybar">
+                        <button class="btn-tiny" id="btnBlankRow">＋ Blank row</button>
+                        <button class="btn-tiny" id="btnPaste">⇩ Paste from Excel</button>
+                        <button class="btn-tiny" id="btnGrid">⛶ Grid editor</button>
+                    </div>
+                    <div class="mini" id="staffMini"></div>
+                    <div class="nostaff" id="noStaff">No one on this letter yet.</div>
+                </div>
+            </div>
+
+            <div class="panel" id="auxPanel" style="display:none">
+                <h2><span class="n">6</span> Data grid</h2>
+                <div class="bd">
+                    <div class="hint" id="auxHint"></div>
+                    <div class="tinybar">
+                        <button class="btn-tiny" id="btnAuxGrid">⛶ Edit grid</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2><span class="n">7</span> Closing</h2>
+                <div class="bd">
+                    <div class="fld">
+                        <label>Signing designation (Hindi)</label>
+                        <input type="text" id="fSignHi" class="deva">
+                    </div>
+                    <div class="fld">
+                        <label>Signing designation (English fallback)</label>
+                        <input type="text" id="fSign">
+                    </div>
+                    <div class="fld">
+                        <label>Place under the signature</label>
+                        <input type="text" id="fPlace" class="deva">
+                        <div class="hint">Leave blank on an internal NOTE — those sign without a place line.</div>
+                    </div>
+                    <div class="fld">
+                        <label>Encl.</label>
+                        <input type="text" id="fEncl">
+                    </div>
+                    <div class="fld">
+                        <label>C/- distribution (one per line)</label>
+                        <textarea id="fCc" rows="3"></textarea>
+                    </div>
+                    <div class="fld" id="chainFld" style="display:none">
+                        <label>Approval chain (NOTE only, one per line)</label>
+                        <textarea id="fChain" rows="3"></textarea>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+        <div class="actions">
+            <button class="btn btn-ghost" id="btnPrint">🖨 Print</button>
+            <button class="btn btn-ghost" id="btnOpenDoc" style="display:none">📄 Filed copy</button>
+            <button class="btn btn-red" id="btnDelete">🗑</button>
+            <span style="flex:1"></span>
+            <button class="btn btn-ghost" id="btnSave">💾 Save draft</button>
+            <button class="btn btn-green" id="btnFinalize">✓ Finalise &amp; file</button>
+            <button class="btn btn-amber" id="btnReopen" style="display:none">↩ Reopen</button>
+        </div>
+    </section>
+
+    <!-- ══ Right: the paper ══ -->
+    <section class="yard">
+        <div class="preview-tag">Live letter preview</div>
+        <div class="sheet" id="sheet"></div>
+        <div class="pagemark" id="pageMark" style="display:none"></div>
+    </section>
+</main>
+
+<!-- ══ Type gallery ══ -->
+<div class="gallery-veil" id="galleryVeil">
+    <div class="gallery">
+        <div class="closebar"><button class="btn btn-ghost" id="btnCloseGallery">✕ Close</button></div>
+        <h3>Which letter are you writing?</h3>
+        <p>Picking a type fills in the addressee, subject, body and table columns. You can change any of it afterwards.</p>
+        <div id="galleryBody"></div>
+    </div>
+</div>
+
+<!-- ══ Grid editor ══ -->
+<div class="grid-veil" id="gridVeil">
+    <div class="gridbox">
+        <header>
+            <h4 id="gridTitle">Staff table</h4>
+            <span class="spacer"></span>
+            <button class="btn-tiny" id="gAddRow">＋ Row</button>
+            <button class="btn-tiny" id="gPaste">⇩ Paste</button>
+            <button class="btn btn-ghost" id="gClose">✕ Done</button>
+        </header>
+        <div class="gwrap"><table class="editor" id="gridTable"></table></div>
+        <footer>
+            <span class="count" id="gridCount"></span>
+            <button class="btn btn-red" id="gClear">Clear all rows</button>
+        </footer>
+    </div>
+</div>
+
+<!-- ══ Generic modal ══ -->
+<div class="modal-veil" id="modalVeil"><div class="modal" id="modalBox"></div></div>
+
+<div class="drawer-veil" onclick="toggleDrawer(false)"></div>
+<aside class="drawer">
+    <h3>Letters <button onclick="toggleDrawer(false)">×</button></h3>
+    <div class="filters">
+        <input class="wide" type="search" id="hq" placeholder="Search subject, number or a name on it…">
+        <select id="hFamily">
+            <option value="">All families</option>
+            <option value="TRANSFER">Transfer</option>
+            <option value="POSTING">Posting</option>
+            <option value="TRAINING">Training</option>
+            <option value="CADRE">Cadre &amp; vacancy</option>
+            <option value="MISC">Misc</option>
+        </select>
+        <select id="hStatus">
+            <option value="">Any status</option>
+            <option value="draft">Draft</option>
+            <option value="finalized">Finalised</option>
+        </select>
+    </div>
+    <div class="list" id="histList"></div>
+</aside>
+
+<div class="toast" id="toast"></div>
+
+<script src="/div/js/cadre-letter-render.js"></script>
+<script>
+/* ═══════════════════════════════════════════════════════════════════════
+ * Cadre Management — letter editor
+ * The preview is rendered by the SHARED module (CadreLetter.renderSheet),
+ * the same one the server uses to file the letter, so what is on screen is
+ * what prints and what is archived.
+ * ═══════════════════════════════════════════════════════════════════════ */
+const API = '/api/division/cadre-letters';
+const $ = (id) => document.getElementById(id);
+
+let CFG = null;        // /config payload
+let TYPE = null;       // current letter type row
+let L = null;          // the letter being edited
+let STAFF = [];        // rows for the staff table
+let DIRTY = false;
+
+// paper styles from the shared renderer
+$('sheetCss').textContent = CadreLetter.SHEET_CSS;
+
+// ── plumbing ───────────────────────────────────────────────────────────
+async function api(path, opts = {}) {
+    const res = await fetch(API + path, {
+        credentials: 'same-origin',
+        headers: opts.body ? { 'Content-Type': 'application/json' } : {},
+        ...opts,
+    });
+    if (res.status === 401) { location.href = '/'; throw new Error('Unauthorized'); }
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(json.error || 'Request failed');
+    return json;
+}
+
+let toastT;
+function toast(msg, kind = '') {
+    const t = $('toast');
+    t.textContent = msg;
+    t.className = 'toast show ' + kind;
+    clearTimeout(toastT);
+    toastT = setTimeout(() => { t.className = 'toast ' + kind; }, 3200);
+}
+
+function confirmBox(title, html, okLabel = 'Continue', okClass = 'btn-amber') {
+    return new Promise((resolve) => {
+        $('modalBox').innerHTML =
+            `<h4>${title}</h4><div>${html}</div>
+             <div class="btns">
+               <button class="btn btn-ghost" id="mNo">Cancel</button>
+               <button class="btn ${okClass}" id="mYes">${okLabel}</button>
+             </div>`;
+        $('modalVeil').classList.add('open');
+        const done = (v) => { $('modalVeil').classList.remove('open'); resolve(v); };
+        $('mNo').onclick = () => done(false);
+        $('mYes').onclick = () => done(true);
+    });
+}
+function esc(s) { return CadreLetter.escapeHtml(s); }
+
+// ── boot ───────────────────────────────────────────────────────────────
+(async function boot() {
+    try {
+        CFG = await api('/config');
+    } catch (e) { toast(e.message, 'err'); return; }
+
+    $('whoBox').innerHTML = `<b>${esc(CFG.user.full_name || CFG.user.username)}</b><br>${esc(CFG.user.office_code || 'HQ')}`;
+    buildGallery();
+    openGallery();
+    bindDesk();
+    bindStaff();
+    bindActions();
+    bindHistory();
+})();
+
+// ── type gallery ───────────────────────────────────────────────────────
+const FAM_LABEL = {
+    TRANSFER: 'Transfer', POSTING: 'Posting & relieving', TRAINING: 'Training & deputation',
+    CADRE: 'Cadre & vacancy', MISC: 'Miscellaneous',
+};
+
+function buildGallery() {
+    const order = ['TRANSFER', 'POSTING', 'TRAINING', 'CADRE', 'MISC'];
+    $('galleryBody').innerHTML = order.filter((f) => CFG.families[f]).map((f) => `
+        <div class="fam-group">
+          <h4>${FAM_LABEL[f] || f}</h4>
+          <div class="cards">
+            ${CFG.families[f].map((t) => `
+              <div class="tcard" data-code="${esc(t.type_code)}">
+                <b>${esc(t.type_name)}</b>
+                <div class="marks">
+                  ${t.doc_kind === 'NOTE' ? '<span class="mk note">Note</span>' : ''}
+                  ${t.has_table ? '<span class="mk tbl">Staff table</span>' : ''}
+                  ${t.has_aux ? '<span class="mk tbl">Data grid</span>' : ''}
+                  ${t.banner_text ? `<span class="mk">${esc(t.banner_text)}</span>` : ''}
+                </div>
+              </div>`).join('')}
+          </div>
+        </div>`).join('');
+
+    $('galleryBody').addEventListener('click', (e) => {
+        const card = e.target.closest('.tcard');
+        if (card) startLetter(card.dataset.code);
+    });
+}
+function openGallery() { $('galleryVeil').classList.add('open'); }
+function closeGallery() { if (L) $('galleryVeil').classList.remove('open'); }
+$('btnGallery').onclick = openGallery;
+$('btnCloseGallery').onclick = closeGallery;
+
+async function startLetter(code) {
+    if (L && DIRTY && !(await confirmBox('Discard unsaved changes?',
+        '<p>The letter open now has changes that are not saved.</p>', 'Discard', 'btn-red'))) return;
+
+    const { type } = await api('/types/' + encodeURIComponent(code));
+    TYPE = type;
+    const today = new Date().toISOString().slice(0, 10);
+    L = {
+        id: null, type_code: type.type_code, type_name: type.type_name, family: type.family,
+        doc_kind: type.doc_kind, letter_series: type.letter_series || 'misc',
+        letter_date: today, letter_no: '',
+        banner_text: type.banner_text, office_header_text: type.office_header_text,
+        addressee_text: type.addressee_text, addressee_text_hi: type.addressee_text_hi,
+        subject_text: type.subject_tpl, ref_text: type.ref_tpl,
+        body_text: type.body_tpl, footer_text: type.footer_tpl,
+        table_columns: type.table_schema, aux_data: type.aux_schema ? { schema: type.aux_schema, rows: (type.aux_schema.rows || []).map((r) => ({ ...r })) } : null,
+        encl_text: type.encl_text, cc_text: type.cc_text,
+        approval_chain_text: type.approval_chain_text,
+        signing_designation: type.signing_designation,
+        signing_designation_hindi: type.signing_designation_hindi,
+        signing_place: type.signing_place,
+        tokens: {}, status: 'draft', document_id: null,
+    };
+    STAFF = [];
+    try {
+        const { letter_no } = await api(`/next-number?series=${encodeURIComponent(L.letter_series)}&date=${L.letter_date}`);
+        L.letter_no = letter_no;
+    } catch (e) { /* a number can always be typed by hand */ }
+
+    DIRTY = false;
+    $('galleryVeil').classList.remove('open');
+    fillDesk();
+    render();
+}
+
+// ── desk ↔ letter ──────────────────────────────────────────────────────
+const FIELD_MAP = {
+    fSeries: 'letter_series', fDate: 'letter_date', fNo: 'letter_no',
+    fHeader: 'office_header_text', fAddrHi: 'addressee_text_hi', fAddr: 'addressee_text',
+    fBanner: 'banner_text', fSubject: 'subject_text', fRef: 'ref_text',
+    fBody: 'body_text', fFooter: 'footer_text', fSignHi: 'signing_designation_hindi',
+    fSign: 'signing_designation', fPlace: 'signing_place', fEncl: 'encl_text',
+    fCc: 'cc_text', fChain: 'approval_chain_text',
+};
+
+function fillDesk() {
+    for (const [el, key] of Object.entries(FIELD_MAP)) $(el).value = L[key] || '';
+    $('chainFld').style.display = L.doc_kind === 'NOTE' ? '' : 'none';
+    $('staffPanel').style.display = L.table_columns ? '' : 'none';
+    $('auxPanel').style.display = L.aux_data ? '' : 'none';
+    if (L.aux_data) {
+        const sc = L.aux_data.schema || L.aux_data;
+        $('auxHint').textContent = (sc.title || 'Grid') + ' — ' + (sc.columns || []).length +
+            ' columns, ' + (L.aux_data.rows || []).length + ' rows.';
+    }
+    const ro = L.status === 'finalized';
+    $('desk').classList.toggle('readonly', ro);
+    $('btnFinalize').style.display = ro ? 'none' : '';
+    $('btnSave').style.display = ro ? 'none' : '';
+    $('btnReopen').style.display = (ro && CFG.user.is_admin) ? '' : 'none';
+    $('btnOpenDoc').style.display = (ro && L.document_id) ? '' : 'none';
+    $('btnDelete').disabled = ro;
+    $('stFamily').textContent = FAM_LABEL[L.family] || L.family || '—';
+    $('stType').textContent = L.type_name || L.type_code;
+    $('stChip').textContent = ro ? 'Finalised' : 'Draft';
+    $('stChip').className = 'chip ' + (ro ? 'finalized' : 'draft');
+    $('stMeta').textContent = L.id ? `#${L.id}` : 'unsaved';
+    $('btnCloseGallery').style.visibility = L ? '' : 'hidden';
+    renderTokens();
+}
+
+function bindDesk() {
+    for (const [el, key] of Object.entries(FIELD_MAP)) {
+        $(el).addEventListener('input', () => {
+            if (!L) return;
+            L[key] = $(el).value;
+            DIRTY = true;
+            if (['fSubject', 'fRef', 'fBody', 'fFooter', 'fEncl'].includes(el)) renderTokens();
+            render();
+        });
+    }
+    // Changing the series or date re-suggests the number, but never overwrites
+    // one the user has typed themselves.
+    let autoNo = true;
+    $('fNo').addEventListener('input', () => { autoNo = false; });
+    const resuggest = async () => {
+        if (!L || !autoNo || L.status === 'finalized') return;
+        try {
+            const { letter_no } = await api(`/next-number?series=${encodeURIComponent(L.letter_series)}&date=${L.letter_date}`);
+            L.letter_no = letter_no; $('fNo').value = letter_no; render();
+        } catch (e) { /* keep whatever is there */ }
+    };
+    $('fSeries').addEventListener('change', resuggest);
+    $('fDate').addEventListener('change', resuggest);
+}
+
+// ── token fill-ins ─────────────────────────────────────────────────────
+const DERIVED = new Set(['count', 'letter_date']);
+
+function scanTokens() {
+    const text = [L.subject_text, L.ref_text, L.body_text, L.footer_text, L.encl_text]
+        .filter(Boolean).join('\n');
+    const found = new Set();
+    for (const m of text.matchAll(/\{\{\s*([a-z0-9_]+)\s*\}\}/gi)) {
+        if (!DERIVED.has(m[1])) found.add(m[1]);
+    }
+    return [...found];
+}
+
+function renderTokens() {
+    const keys = scanTokens();
+    $('tokCount').textContent = keys.length ? keys.length + ' to fill' : '';
+    $('tokEmpty').style.display = keys.length ? 'none' : '';
+    $('tokBox').innerHTML = keys.map((k) => `
+        <div class="fld">
+          <label>${esc(k.replace(/_/g, ' '))}</label>
+          <input type="text" data-tok="${esc(k)}" value="${esc(L.tokens[k] || '')}">
+        </div>`).join('');
+    $('tokBox').querySelectorAll('input[data-tok]').forEach((inp) => {
+        inp.addEventListener('input', () => {
+            L.tokens[inp.dataset.tok] = inp.value;
+            DIRTY = true;
+            render();
+        });
+    });
+}
+
+// ── preview ────────────────────────────────────────────────────────────
+function render() {
+    if (!L) return;
+    $('sheet').innerHTML = CadreLetter.renderSheet(L, STAFF, { placeholders: true });
+    $('staffCount').textContent = STAFF.length ? STAFF.length + ' on list' : '';
+    renderMini();
+    // Rough page count so a 69-row letter shows where it will break.
+    const h = $('sheet').scrollHeight;
+    const pageH = $('sheet').clientWidth * (297 / 210);
+    const pages = Math.max(1, Math.ceil(h / pageH));
+    $('pageMark').style.display = pages > 1 ? '' : 'none';
+    $('pageMark').textContent = `≈ ${pages} A4 pages`;
+}
+
+function renderMini() {
+    if (!L || !L.table_columns) return;
+    $('noStaff').style.display = STAFF.length ? 'none' : '';
+    $('staffMini').innerHTML = STAFF.map((s, i) => `
+        <div class="mini-row ${s.staff_hrms_id ? '' : 'manual'}">
+          <span class="sr">${i + 1}</span>
+          <span class="nm">
+            <b>${esc(s.name || '—')}</b>
+            <small>${esc(s.pf_number || '')}${s.proposed_lobby ? ' → ' + esc(s.proposed_lobby) : ''}${s.staff_hrms_id ? '' : ' · manual'}</small>
+          </span>
+          <button class="rm" data-i="${i}" title="Remove">✕</button>
+        </div>`).join('');
+    $('staffMini').querySelectorAll('button.rm').forEach((b) => {
+        b.onclick = () => { STAFF.splice(Number(b.dataset.i), 1); DIRTY = true; render(); };
+    });
+}
+
+// ── staff picker ───────────────────────────────────────────────────────
+function bindStaff() {
+    const input = $('staffSearch');
+    const drop = $('staffDrop');
+    let timer;
+
+    input.addEventListener('input', () => {
+        clearTimeout(timer);
+        const q = input.value.trim();
+        if (q.length < 2) { drop.classList.remove('open'); return; }
+        timer = setTimeout(async () => {
+            try {
+                const { staff } = await api('/search-staff/' + encodeURIComponent(q));
+                const taken = new Set(STAFF.map((s) => s.staff_hrms_id).filter(Boolean));
+                const rows = staff.filter((s) => !taken.has(s.hrms_id));
+                drop.innerHTML = rows.length
+                    ? rows.map((s) => `<div class="opt" data-s='${esc(JSON.stringify(s))}'>
+                          <b>${esc(s.name)}</b>
+                          <small>${esc(s.pf_number || '')} · ${esc(s.designation_name || '')} · ${esc(s.current_office_code || '')}</small>
+                       </div>`).join('')
+                    : '<div class="empty">No matching active staff</div>';
+                // flip up when there is no room below
+                const below = window.innerHeight - input.getBoundingClientRect().bottom;
+                drop.classList.toggle('up', below < 265);
+                drop.classList.add('open');
+            } catch (e) { toast(e.message, 'err'); }
+        }, 280);
+    });
+
+    drop.addEventListener('click', (e) => {
+        const opt = e.target.closest('.opt');
+        if (!opt || !opt.dataset.s) return;
+        const s = JSON.parse(opt.dataset.s);
+        addRow({
+            staff_hrms_id: s.hrms_id, pf_number: s.pf_number, name: s.name,
+            designation: CadreLetter.shortDesignation(s.designation_name),
+            present_lobby: s.current_office_code, proposed_lobby: '', extra: {},
+        });
+        input.value = ''; drop.classList.remove('open'); input.focus();
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.search-wrap')) drop.classList.remove('open');
+    });
+
+    $('btnBlankRow').onclick = () => addRow({ staff_hrms_id: null, pf_number: '', name: '', extra: {} });
+    $('btnGrid').onclick = () => openGrid('staff');
+    $('btnAuxGrid').onclick = () => openGrid('aux');
+    $('btnPaste').onclick = () => openPaste();
+}
+
+function addRow(row) {
+    // New rows inherit the proposed lobby of the last one — a posting letter
+    // usually sends a whole batch to the same lobby.
+    const last = STAFF[STAFF.length - 1];
+    if (last && !row.proposed_lobby) row.proposed_lobby = last.proposed_lobby || '';
+    STAFF.push(row);
+    DIRTY = true;
+    render();
+}
+
+// ── grid editor ────────────────────────────────────────────────────────
+let GRID_MODE = 'staff';
+
+function gridColumns() {
+    if (GRID_MODE === 'aux') {
+        const sc = (L.aux_data && (L.aux_data.schema || L.aux_data)) || {};
+        return sc.columns || [];
+    }
+    return (L.table_columns && L.table_columns.columns) || [];
+}
+function gridRows() { return GRID_MODE === 'aux' ? (L.aux_data.rows || []) : STAFF; }
+
+function openGrid(mode) {
+    GRID_MODE = mode;
+    $('gridTitle').textContent = mode === 'aux' ? 'Data grid' : 'Staff table';
+    $('gPaste').style.display = mode === 'aux' ? 'none' : '';
+    $('gridVeil').classList.add('open');
+    drawGrid();
+}
+$('gClose').onclick = () => { $('gridVeil').classList.remove('open'); render(); };
+$('gAddRow').onclick = () => {
+    if (GRID_MODE === 'aux') L.aux_data.rows.push({});
+    else STAFF.push({ staff_hrms_id: null, pf_number: '', name: '', extra: {} });
+    DIRTY = true; drawGrid();
+};
+$('gPaste').onclick = () => openPaste();
+$('gClear').onclick = async () => {
+    if (!(await confirmBox('Clear every row?', '<p>This empties the table. The letter itself is kept.</p>', 'Clear', 'btn-red'))) return;
+    if (GRID_MODE === 'aux') L.aux_data.rows = []; else STAFF = [];
+    DIRTY = true; drawGrid(); render();
+};
+
+function drawGrid() {
+    const cols = gridColumns();
+    const rows = gridRows();
+    const editable = cols.filter((c) => c.auto !== 'index');
+
+    $('gridTable').innerHTML =
+        `<thead><tr><th>#</th>${editable.map((c) =>
+            `<th>${esc(c.label)}${c.group ? ' <span style="opacity:.6">(' + esc(c.group) + ')</span>' : ''}</th>`
+         ).join('')}<th></th></tr></thead>
+         <tbody>${rows.map((r, i) => `
+            <tr data-i="${i}">
+              <td class="srcell">${i + 1}</td>
+              ${editable.map((c) => `<td>
+                 <input value="${esc(cellRead(r, c))}" data-k="${esc(c.key)}"
+                        class="${c.src ? 'linked' : ''}"
+                        placeholder="${esc(c.default || '')}">
+              </td>`).join('')}
+              <td class="act"><button class="rowrm" title="Remove row">✕</button></td>
+            </tr>`).join('')}
+         </tbody>`;
+
+    $('gridCount').textContent = rows.length + (rows.length === 1 ? ' row' : ' rows') +
+        (GRID_MODE === 'staff'
+            ? ` · ${rows.filter((r) => r.staff_hrms_id).length} linked to staff records`
+            : '');
+
+    $('gridTable').querySelectorAll('tbody input').forEach((inp) => {
+        inp.addEventListener('input', () => {
+            const i = Number(inp.closest('tr').dataset.i);
+            const col = editable.find((c) => c.key === inp.dataset.k);
+            cellWrite(gridRows()[i], col, inp.value);
+            DIRTY = true;
+        });
+    });
+    $('gridTable').querySelectorAll('.rowrm').forEach((b) => {
+        b.onclick = () => {
+            const i = Number(b.closest('tr').dataset.i);
+            gridRows().splice(i, 1);
+            DIRTY = true; drawGrid();
+        };
+    });
+}
+
+/* A column with `src` maps to a real staff column (searchable across letters);
+ * one without lives in the row's `extra` JSON. Same rule as the renderer. */
+function cellRead(row, col) {
+    if (GRID_MODE === 'aux') return row[col.key] == null ? '' : row[col.key];
+    if (col.src) return row[col.src] == null ? '' : row[col.src];
+    return (row.extra && row.extra[col.key]) || '';
+}
+function cellWrite(row, col, val) {
+    if (GRID_MODE === 'aux') { row[col.key] = val; return; }
+    if (col.src) { row[col.src] = val; return; }
+    row.extra = row.extra || {};
+    row.extra[col.key] = val;
+}
+
+// ── paste from Excel ───────────────────────────────────────────────────
+function openPaste() {
+    const cols = ((L.table_columns && L.table_columns.columns) || []).filter((c) => c.auto !== 'index');
+    if (!cols.length) { toast('This letter has no staff table.', 'err'); return; }
+
+    $('modalBox').innerHTML = `
+        <h4>Paste rows from Excel</h4>
+        <p>Copy the block of cells in Excel and paste it below. Columns are matched
+           left to right — check the mapping before adding.</p>
+        <div class="pastebox"><textarea id="pTxt" placeholder="Paste here…"></textarea></div>
+        <label class="chk"><input type="checkbox" id="pHdr"> First row is a header — skip it</label>
+        <div class="ppreview" id="pPrev"></div>
+        <div class="pnote" id="pNote"></div>
+        <div class="btns">
+          <button class="btn btn-ghost" id="pCancel">Cancel</button>
+          <button class="btn btn-amber" id="pAdd" disabled>Add rows</button>
+        </div>`;
+    $('modalVeil').classList.add('open');
+
+    let parsed = [];
+    const reparse = () => {
+        const raw = $('pTxt').value;
+        const skip = $('pHdr').checked;
+        parsed = raw.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
+            .map((l) => (l.includes('\t') ? l.split('\t') : l.split(/\s{2,}/)).map((c) => c.trim()));
+        if (skip) parsed = parsed.slice(1);
+
+        const width = parsed.reduce((m, r) => Math.max(m, r.length), 0);
+        if (!parsed.length) { $('pPrev').innerHTML = ''; $('pNote').textContent = ''; $('pAdd').disabled = true; return; }
+
+        // Positional mapping, adjustable per pasted column.
+        const head = Array.from({ length: width }, (_, i) => cols[i] ? cols[i].key : '');
+        $('pPrev').innerHTML = `<table>
+            <thead><tr>${head.map((k, i) => `
+              <th>col ${i + 1}
+                <select data-c="${i}">
+                  <option value="">— skip —</option>
+                  ${cols.map((c) => `<option value="${esc(c.key)}" ${c.key === k ? 'selected' : ''}>${esc(c.label)}</option>`).join('')}
+                </select>
+              </th>`).join('')}</tr></thead>
+            <tbody>${parsed.slice(0, 8).map((r) => `<tr>${
+                Array.from({ length: width }, (_, i) => `<td>${esc(r[i] || '')}</td>`).join('')
+            }</tr>`).join('')}</tbody></table>`;
+        $('pNote').innerHTML = `<b>${parsed.length}</b> rows × ${width} columns detected` +
+            (parsed.length > 8 ? ' — showing the first 8.' : '.');
+        $('pAdd').disabled = false;
+    };
+    $('pTxt').addEventListener('input', reparse);
+    $('pHdr').addEventListener('change', reparse);
+    $('pCancel').onclick = () => $('modalVeil').classList.remove('open');
+    $('pAdd').onclick = () => {
+        const map = {};
+        $('pPrev').querySelectorAll('select[data-c]').forEach((s) => {
+            if (s.value) map[Number(s.dataset.c)] = cols.find((c) => c.key === s.value);
+        });
+        for (const r of parsed) {
+            const row = { staff_hrms_id: null, extra: {} };
+            for (const [idx, col] of Object.entries(map)) cellWriteStaff(row, col, r[idx] || '');
+            STAFF.push(row);
+        }
+        DIRTY = true;
+        $('modalVeil').classList.remove('open');
+        toast(`${parsed.length} rows added.`, 'ok');
+        if ($('gridVeil').classList.contains('open')) drawGrid();
+        render();
+    };
+}
+// paste always targets the staff table, whatever the grid editor is showing
+function cellWriteStaff(row, col, val) {
+    if (col.src) row[col.src] = val;
+    else { row.extra = row.extra || {}; row.extra[col.key] = val; }
+}
+
+// ── actions ────────────────────────────────────────────────────────────
+function payload() {
+    return {
+        id: L.id, type_code: L.type_code, doc_kind: L.doc_kind,
+        letter_series: L.letter_series, letter_date: L.letter_date, letter_no: L.letter_no,
+        banner_text: L.banner_text, office_header_text: L.office_header_text,
+        addressee_text: L.addressee_text, addressee_text_hi: L.addressee_text_hi,
+        subject_text: L.subject_text, ref_text: L.ref_text,
+        body_text: L.body_text, footer_text: L.footer_text,
+        encl_text: L.encl_text, cc_text: L.cc_text, approval_chain_text: L.approval_chain_text,
+        signing_designation: L.signing_designation,
+        signing_designation_hindi: L.signing_designation_hindi,
+        signing_place: L.signing_place,
+        table_columns: L.table_columns, aux_data: L.aux_data, tokens: L.tokens,
+        staff: STAFF.map((s, i) => ({ ...s, sr_no: i + 1 })),
+    };
+}
+
+async function save() {
+    const r = await api('/', { method: 'POST', body: JSON.stringify(payload()) });
+    L.id = r.id;
+    DIRTY = false;
+    $('stMeta').textContent = '#' + L.id;
+    return r.id;
+}
+
+function bindActions() {
+    $('btnPrint').onclick = () => window.print();
+    $('btnOpenDoc').onclick = () => window.open('/api/division/documents/' + L.document_id + '/view', '_blank');
+
+    $('btnSave').onclick = async () => {
+        try { await save(); toast('Draft saved.', 'ok'); }
+        catch (e) { toast(e.message, 'err'); }
+    };
+
+    $('btnFinalize').onclick = async () => {
+        if (!L.letter_no) return toast('A letter number is needed first.', 'err');
+        if (!L.subject_text) return toast('A subject is needed first.', 'err');
+        const unfilled = scanTokens().filter((k) => !L.tokens[k]);
+        const warn = unfilled.length
+            ? `<p style="color:#f5a524">${unfilled.length} fill-in(s) still empty: <b>${unfilled.map(esc).join(', ')}</b>.
+               They will print as ‹placeholders›.</p>` : '';
+        if (!(await confirmBox('Finalise this letter?',
+            `<p>The number is locked and a copy is filed in the Documents repository under
+             <b>Cadre letters → ${esc(L.family)}</b>.</p>${warn}`, 'Finalise & file', 'btn-green'))) return;
+        try {
+            await save();
+            const r = await api(`/${L.id}/finalize`, { method: 'POST' });
+            L.status = 'finalized'; L.document_id = r.document_id;
+            fillDesk();
+            toast('Filed. Print it from here or from the repository.', 'ok');
+        } catch (e) { toast(e.message, 'err'); }
+    };
+
+    $('btnReopen').onclick = async () => {
+        if (!(await confirmBox('Reopen this letter?',
+            '<p>The filed copy is removed from the Documents repository and the letter goes back to draft.</p>',
+            'Reopen', 'btn-amber'))) return;
+        try {
+            await api(`/${L.id}/unfinalize`, { method: 'POST' });
+            L.status = 'draft'; L.document_id = null;
+            fillDesk(); render();
+            toast('Reopened as a draft.', 'ok');
+        } catch (e) { toast(e.message, 'err'); }
+    };
+
+    $('btnDelete').onclick = async () => {
+        if (!L.id) { openGallery(); return; }
+        if (!(await confirmBox('Delete this draft?', '<p>This cannot be undone.</p>', 'Delete', 'btn-red'))) return;
+        try {
+            await api('/' + L.id, { method: 'DELETE' });
+            toast('Draft deleted.', 'ok');
+            L = null; DIRTY = false; openGallery();
+        } catch (e) { toast(e.message, 'err'); }
+    };
+
+    window.addEventListener('beforeunload', (e) => {
+        if (DIRTY) { e.preventDefault(); e.returnValue = ''; }
+    });
+}
+
+// ── history ────────────────────────────────────────────────────────────
+function toggleDrawer(open) {
+    document.body.classList.toggle('drawer-open', open);
+    if (open) loadHistory();
+}
+window.toggleDrawer = toggleDrawer;
+
+function bindHistory() {
+    $('btnHistory').onclick = () => toggleDrawer(true);
+    let t;
+    ['hq', 'hFamily', 'hStatus'].forEach((id) => {
+        $(id).addEventListener('input', () => { clearTimeout(t); t = setTimeout(loadHistory, 250); });
+    });
+}
+
+async function loadHistory() {
+    const p = new URLSearchParams();
+    if ($('hq').value.trim()) p.set('q', $('hq').value.trim());
+    if ($('hFamily').value) p.set('family', $('hFamily').value);
+    if ($('hStatus').value) p.set('status', $('hStatus').value);
+    try {
+        const { letters } = await api('/?' + p.toString());
+        $('histList').innerHTML = letters.length ? letters.map((l) => `
+            <div class="hist-card" data-id="${l.id}">
+              <div class="l1">
+                <span class="no">${esc(l.letter_no || '(no number)')}</span>
+                <span class="chip ${l.status}">${l.status === 'finalized' ? 'Filed' : 'Draft'}</span>
+              </div>
+              <div class="l2">${esc(l.subject_text || l.type_name)}<br>
+                ${esc(CadreLetter.fmtDate(l.letter_date))} · ${esc(l.type_name)}${l.total_staff ? ' · ' + l.total_staff + ' staff' : ''}
+              </div>
+            </div>`).join('') : '<div class="nostaff">Nothing matches.</div>';
+        $('histList').querySelectorAll('.hist-card').forEach((c) => {
+            c.onclick = () => openLetter(Number(c.dataset.id));
+        });
+    } catch (e) { toast(e.message, 'err'); }
+}
+
+async function openLetter(id) {
+    if (L && DIRTY && !(await confirmBox('Discard unsaved changes?',
+        '<p>The letter open now has changes that are not saved.</p>', 'Discard', 'btn-red'))) return;
+    try {
+        const { letter, staff } = await api('/' + id);
+        L = letter;
+        L.tokens = letter.tokens || {};
+        STAFF = staff.map((s) => ({ ...s, extra: s.extra || {} }));
+        DIRTY = false;
+        toggleDrawer(false);
+        $('galleryVeil').classList.remove('open');
+        fillDesk(); render();
+    } catch (e) { toast(e.message, 'err'); }
+}
+</script>
+</body>
+</html>

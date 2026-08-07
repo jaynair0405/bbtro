@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BBTRO | Cadre Management — how it works</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,wght@0,400;0,600;0,700&family=Archivo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+    --ink:#101c33; --ink-2:#182742; --chrome-line:#2c4370;
+    --amber:#f5a524; --amber-deep:#d97706; --green:#2f9e63;
+    --text-dim:#93a5c4; --text-mid:#c3cfe4;
+    --ui:'Archivo',-apple-system,sans-serif; --serif:'Source Serif 4','Times New Roman',serif;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:var(--ui); background:var(--ink); color:var(--text-mid); line-height:1.6; }
+.appbar {
+    height:58px; display:flex; align-items:center; gap:18px; padding:0 20px;
+    background:linear-gradient(180deg,#14213c,#101c33); border-bottom:1px solid var(--chrome-line);
+    position:sticky; top:0; z-index:10;
+}
+.appbar .brand { display:flex; align-items:center; gap:10px; color:#fff; text-decoration:none; }
+.appbar .mark {
+    width:34px; height:34px; border-radius:8px; display:grid; place-items:center; font-size:17px;
+    background:radial-gradient(circle at 35% 30%,#ffca55,var(--amber-deep));
+    box-shadow:0 2px 10px rgba(245,165,36,.35);
+}
+.appbar b { font-weight:800; letter-spacing:.4px; font-size:15px; }
+.appbar small { display:block; font-size:10.5px; color:var(--text-dim); font-weight:500; letter-spacing:1.4px; text-transform:uppercase; }
+.appbar .spacer { flex:1; }
+.appbar a.back {
+    color:var(--text-dim); text-decoration:none; font-size:12.5px; font-weight:600;
+    padding:7px 12px; border:1px solid var(--chrome-line); border-radius:8px;
+}
+.appbar a.back:hover { color:#fff; border-color:var(--amber); }
+main { max-width:860px; margin:0 auto; padding:38px 24px 80px; }
+h1 { color:#fff; font-size:27px; font-weight:800; letter-spacing:-.3px; margin-bottom:8px; }
+.lede { color:var(--text-dim); font-size:15px; margin-bottom:34px; }
+h2 {
+    color:var(--amber); font-size:11.5px; font-weight:800; letter-spacing:2.2px;
+    text-transform:uppercase; margin:34px 0 12px; display:flex; align-items:center; gap:10px;
+}
+h2::after { content:''; flex:1; height:1px; background:var(--chrome-line); }
+p { margin-bottom:12px; font-size:14.5px; }
+b, strong { color:#fff; font-weight:700; }
+ol, ul { margin:0 0 14px 22px; font-size:14.5px; }
+li { margin-bottom:7px; }
+code {
+    background:#0d1830; border:1px solid var(--chrome-line); border-radius:5px;
+    padding:1px 6px; font-size:13px; color:#ffd68a;
+}
+.card {
+    background:var(--ink-2); border:1px solid var(--chrome-line); border-radius:13px;
+    padding:18px 20px; margin-bottom:14px;
+}
+.card h3 { color:#fff; font-size:15px; font-weight:800; margin-bottom:7px; }
+.note {
+    border-left:3px solid var(--amber); background:rgba(245,165,36,.07);
+    padding:13px 17px; border-radius:0 11px 11px 0; margin:16px 0; font-size:14px;
+}
+.note.good { border-left-color:var(--green); background:rgba(47,158,99,.07); }
+table { width:100%; border-collapse:collapse; margin-bottom:16px; font-size:13.5px; }
+th, td { text-align:left; padding:9px 11px; border-bottom:1px solid var(--chrome-line); vertical-align:top; }
+th { color:var(--amber); font-size:10.5px; letter-spacing:1.2px; text-transform:uppercase; font-weight:800; }
+</style>
+</head>
+<body>
+<header class="appbar">
+    <a class="brand" href="/div/cadre-letter.html">
+        <span class="mark">🗂</span>
+        <span><b>Cadre Management</b><small>HQ CLI · Letters</small></span>
+    </a>
+    <div class="spacer"></div>
+    <a class="back" href="/div/cadre-letter.html">← Back to letters</a>
+</header>
+
+<main>
+    <h1>Writing a cadre letter</h1>
+    <p class="lede">
+        This replaces the Word file on the office share. The letterhead, signature block and
+        table layouts are built in, so what you write is the content — not the formatting.
+    </p>
+
+    <h2>The five minutes version</h2>
+    <ol>
+        <li>Press <b>＋ New letter</b> and pick the type. That fills in the addressee, subject,
+            body and the right table columns.</li>
+        <li>Fill the boxes in <b>Fill-ins</b> — they are the blanks in the letter text.</li>
+        <li>Add the staff: search by PF number or name, add a blank row, or paste a block from Excel.</li>
+        <li>Check the paper on the right. It is exactly what will print.</li>
+        <li><b>Finalise &amp; file</b>, then <b>Print</b>.</li>
+    </ol>
+
+    <h2>Fill-ins</h2>
+    <p>
+        Anywhere the letter text contains <code>{{something}}</code>, a box for it appears in the
+        <b>Fill-ins</b> panel. Type a value and it drops into the letter everywhere it is used.
+        You can add your own — type <code>{{lobby}}</code> in the body and a "lobby" box appears.
+    </p>
+    <div class="note">
+        Two fill themselves and have no box: <code>{{count}}</code> follows the number of rows in the
+        table, and <code>{{letter_date}}</code> follows the date. So a letter that reads
+        "transfer <b>35</b> Sr. Assistant Loco Pilots" stays right when you add or remove a name.
+    </div>
+    <p>
+        Anything you leave empty prints as <b>‹name›</b> in angle brackets — deliberately visible,
+        so a half-finished letter can never be signed by mistake. You get a warning listing them
+        when you finalise.
+    </p>
+
+    <h2>The staff table</h2>
+    <div class="card">
+        <h3>Three ways to add rows</h3>
+        <table>
+            <tr>
+                <th style="width:26%">Search</th>
+                <td>Type at least 2 characters of a PF number, name or CMS ID. Picks up any
+                    active staff member, in any lobby. Their PF number, name, designation and
+                    present lobby fill themselves.</td>
+            </tr>
+            <tr>
+                <th>＋ Blank row</th>
+                <td>For people not on the staff records yet — trainee ALPs arriving from ZRTI,
+                    for instance. Type everything by hand.</td>
+            </tr>
+            <tr>
+                <th>⇩ Paste from Excel</th>
+                <td>Copy the block of cells in Excel, paste, check the column mapping, add.
+                    This is how a 69-name relieving letter takes ten seconds.</td>
+            </tr>
+        </table>
+    </div>
+    <p>
+        Use <b>⛶ Grid editor</b> for the wide view — every column of the table, editable in place.
+        Rows picked from the staff records show a <span style="color:#4cc98a">green</span> edge;
+        those are linked, so the letter can be found later by searching for that person's name.
+    </p>
+
+    <h2>Notes vs letters</h2>
+    <p>
+        A few types are internal <b>NOTES</b> rather than letters — the refresher exemption, for
+        example. They print with a centred <code>NOTE</code> heading, are signed without a place
+        line, and carry the approval chain (ADEE → DEE → Sr.DEE) at the foot. The Closing panel
+        shows the approval-chain box only for those.
+    </p>
+
+    <h2>Numbering</h2>
+    <p>
+        The number is suggested from the sub-series you pick and a day-wise serial, and stays
+        editable — type over it whenever the file demands something else. Changing the sub-series
+        or date re-suggests it, but never overwrites a number you typed yourself.
+    </p>
+
+    <h2>Finalising</h2>
+    <p>
+        Finalising locks the letter and files a copy into the <b>Documents repository</b> under
+        Cadre letters, in a folder named after the family. From there anyone in the division can
+        find and reprint it.
+    </p>
+    <div class="note good">
+        Made a mistake after filing? A division admin can <b>Reopen</b> the letter. That pulls the
+        filed copy back out of the repository and returns the letter to draft.
+    </div>
+
+    <h2>Printing</h2>
+    <p>
+        <b>Print</b> uses the browser's print dialog — choose <i>Save as PDF</i> for a file, or
+        your printer for paper. Set paper size to <b>A4</b> and leave headers and footers off.
+        The preview shows an estimated page count when a letter runs past one page; table headings
+        repeat on every page and no row is ever split across a page break.
+    </p>
+</main>
+</body>
+</html>
