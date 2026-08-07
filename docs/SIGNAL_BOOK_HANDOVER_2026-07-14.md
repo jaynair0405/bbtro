@@ -241,3 +241,27 @@ CSMT_SUB_ML, KYN_GOODS, KYN_SUB.
 established AWS is suburban-only. They are harmless there (AWS ignores them) and
 signal-book will need them anyway — but they arrived on prod **without `magnet_id`**, so
 the §5 backfill should be applied to prod as well as local.
+
+---
+
+## 9. PENDING when the remaining sections' signals load to prod
+
+Prod currently has signals for the suburban sections + the ghats only. The
+non-suburban sections (IGP-MMR, KOPAR-BSR, MMR-BSL, PNVL-ROHA, …) are still
+**local-only** — that's why the page renders fewer signals on prod, and why
+prod has just 16 IBS (KYN-KSRA 8 UP + 8 DN) versus 60 locally.
+
+**After you load those remaining sections' signals to prod, re-run these dated
+scripts on prod (both idempotent, safe to re-run anytime):**
+
+1. `sql/2026-08-07_ibs_signal_type_uniform.sql` — IBS is a *function*
+   (`signal_function='IBS'` on all IBS), but some rows carry
+   `signal_type='Manual'` instead of `'IBS'`. This flattens them so every IBS
+   reads `type=IBS AND function=IBS`. On prod today it fixed the 8 KYN-KSRA DN
+   rows (→ 16 uniform); when the other ~44 IBS load, re-run it so they are
+   uniform too. (Local already at 60 uniform.)
+2. `sql/2026-07-31_magnet_id_backfill_full.sql` (the §5 backfill) — the ghat +
+   any newly loaded duplicate signals need `magnet_id`.
+
+Neither affects AWS (suburban-only, already correct); both are signal-book /
+data-hygiene for the wider signal set.
