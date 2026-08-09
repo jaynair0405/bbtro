@@ -166,6 +166,49 @@ SET @sql := IF(@have_cat = 0,
   "SELECT 'div_documents.category already has CADRE_LETTER' AS note");
 PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 
+-- ---------------------------------------------------------------------------
+-- 4b. Where does this letter's staff list come from?
+--
+-- Most cadre letters are about people already on the division roll, so the
+-- staff picker searches div_staff_master. The initial-ALP letters are NOT:
+-- they are about trainees who have just finished at ZRTI/BSL and whose
+-- posting order does not exist yet — this letter is what ASKS the DPO to
+-- issue it. They only reach div_staff_master after that order. Searching
+-- staff records for them can only ever return nothing, so for those types the
+-- picker is hidden and Excel paste is the primary entry mode.
+--
+--   ROLL     - on the division roll; picker is the primary entry mode (default)
+--   EXTERNAL - not on roll yet; picker hidden, paste/manual only
+--   BOTH     - a mixed list; picker offered alongside paste
+--
+-- This is why div_cadre_letter_staff.staff_hrms_id is nullable.
+-- ---------------------------------------------------------------------------
+SET @sql := IF(
+  (SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'div_cadre_letter_types'
+      AND COLUMN_NAME = 'staff_source') = 0,
+  "ALTER TABLE div_cadre_letter_types
+     ADD COLUMN staff_source ENUM('ROLL','EXTERNAL','BOTH')
+     NOT NULL DEFAULT 'ROLL' AFTER doc_kind",
+  "SELECT 'div_cadre_letter_types.staff_source already present' AS note");
+PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+
+SET @sql := IF(
+  (SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'div_cadre_letters'
+      AND COLUMN_NAME = 'staff_source') = 0,
+  "ALTER TABLE div_cadre_letters
+     ADD COLUMN staff_source ENUM('ROLL','EXTERNAL','BOTH')
+     NOT NULL DEFAULT 'ROLL' AFTER doc_kind",
+  "SELECT 'div_cadre_letters.staff_source already present' AS note");
+PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+
+-- The two initial-ALP types. Applied as an UPDATE (not left to the seed
+-- INSERTs) so an existing install picks it up when this file is re-run.
+UPDATE div_cadre_letter_types
+   SET staff_source = 'EXTERNAL'
+ WHERE type_code IN ('POSTING_INITIAL_ALP', 'RELIEVING_INITIAL_ALP');
+
 -- ============================================================================
 -- 5. Seed the type catalogue
 --    INSERT IGNORE: re-running never clobbers a type the CLI has edited.

@@ -89,7 +89,7 @@ router.get('/config', requireDivisionAccess, async (req, res) => {
     try {
         conn = await getConnection(req);
         const [types] = await conn.query(
-            `SELECT type_code, type_name, family, doc_kind, letter_series,
+            `SELECT type_code, type_name, family, doc_kind, staff_source, letter_series,
                     banner_text, IF(table_schema IS NULL, 0, 1) AS has_table,
                     IF(aux_schema IS NULL, 0, 1) AS has_aux, sort_order
                FROM div_cadre_letter_types
@@ -282,7 +282,8 @@ async function loadLetter(conn, id) {
 // ── POST / — create or update a draft ─────────────────────────────────────
 
 const LETTER_FIELDS = [
-    'letter_no', 'letter_series', 'letter_date', 'type_code', 'doc_kind', 'banner_text',
+    'letter_no', 'letter_series', 'letter_date', 'type_code', 'doc_kind',
+    'staff_source', 'banner_text',
     'office_header_text', 'addressee_text', 'addressee_text_hi', 'subject_text',
     'ref_text', 'body_text', 'footer_text', 'encl_text', 'cc_text',
     'approval_chain_text', 'signing_designation', 'signing_designation_hindi',
@@ -298,16 +299,18 @@ router.post('/', requireDivisionAccess, async (req, res) => {
 
         conn = await getConnection(req);
         const [[type]] = await conn.query(
-            'SELECT type_code, doc_kind, letter_series FROM div_cadre_letter_types WHERE type_code = ?',
+            'SELECT type_code, doc_kind, staff_source, letter_series FROM div_cadre_letter_types WHERE type_code = ?',
             [b.type_code]
         );
         if (!type) return res.status(400).json({ error: 'Unknown letter type' });
 
         // doc_kind is NOT NULL and decides whether the NOTE approval chain
-        // prints — never trust the client to have sent it. The rest of the
-        // fields are seeded client-side from GET /types/:code and may legitimately
-        // be cleared to empty, so they are NOT backfilled here.
+        // prints; staff_source is NOT NULL and decides whether the staff picker
+        // is offered at all — never trust the client to have sent either. The
+        // rest of the fields are seeded client-side from GET /types/:code and
+        // may legitimately be cleared to empty, so they are NOT backfilled here.
         b.doc_kind = b.doc_kind || type.doc_kind || 'LETTER';
+        b.staff_source = b.staff_source || type.staff_source || 'ROLL';
         b.letter_series = b.letter_series || type.letter_series || null;
 
         const staff = Array.isArray(b.staff) ? b.staff : [];

@@ -158,6 +158,10 @@ select:disabled, input:disabled, textarea:disabled { opacity: .55; cursor: not-a
 }
 .mini-row button.rm:hover { color: var(--red); background: rgba(214,69,69,.12); }
 .nostaff { text-align: center; color: #4d628c; font-size: 12.5px; padding: 14px 0 4px; }
+.notonroll { font-size: 12px; line-height: 1.5; color: #6b4d12; background: #fdf5e2;
+             border: 1px solid #f0d99a; border-left: 3px solid var(--amber);
+             border-radius: 5px; padding: 9px 11px; margin-bottom: 10px; }
+.notonroll b { display: block; color: #7a4a00; margin-bottom: 2px; }
 .tinybar { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
 .btn-tiny {
     font-family: var(--ui); font-size: 11.5px; font-weight: 700; border-radius: 8px;
@@ -554,14 +558,22 @@ body.drawer-open .drawer-veil { opacity: 1; pointer-events: auto; }
             <div class="panel staff-panel" id="staffPanel">
                 <h2><span class="n">5</span> Staff table <span class="tag" id="staffCount"></span></h2>
                 <div class="bd">
-                    <div class="fld search-wrap">
+                    <div class="fld search-wrap" id="staffSearchWrap">
                         <label>Add from staff records</label>
                         <input type="text" id="staffSearch" placeholder="Search PF no., name or CMS ID…" autocomplete="off">
                         <div class="search-drop" id="staffDrop"></div>
                     </div>
+                    <!-- Shown for staff_source='EXTERNAL' (the initial-ALP letters),
+                         where the people named are not on the division roll yet. -->
+                    <div class="notonroll" id="staffOffRoll" style="display:none">
+                        <b>Not on the division roll yet.</b>
+                        These names come from the ZRTI/BSL list — their posting order is
+                        what this letter asks for, so there is nothing to search.
+                        Paste the list from Excel.
+                    </div>
                     <div class="tinybar">
-                        <button class="btn-tiny" id="btnBlankRow">＋ Blank row</button>
                         <button class="btn-tiny" id="btnPaste">⇩ Paste from Excel</button>
+                        <button class="btn-tiny" id="btnBlankRow">＋ Blank row</button>
                         <button class="btn-tiny" id="btnGrid">⛶ Grid editor</button>
                     </div>
                     <div class="mini" id="staffMini"></div>
@@ -802,7 +814,8 @@ async function startLetter(code) {
     const today = new Date().toISOString().slice(0, 10);
     L = {
         id: null, type_code: type.type_code, type_name: type.type_name, family: type.family,
-        doc_kind: type.doc_kind, letter_series: type.letter_series || 'misc',
+        doc_kind: type.doc_kind, staff_source: type.staff_source || 'ROLL',
+        letter_series: type.letter_series || 'misc',
         letter_date: today, letter_no: '',
         banner_text: type.banner_text, office_header_text: type.office_header_text,
         addressee_text: type.addressee_text, addressee_text_hi: type.addressee_text_hi,
@@ -842,6 +855,12 @@ function fillDesk() {
     for (const [el, key] of Object.entries(FIELD_MAP)) $(el).value = L[key] || '';
     $('chainFld').style.display = L.doc_kind === 'NOTE' ? '' : 'none';
     $('staffPanel').style.display = L.table_columns ? '' : 'none';
+    // An EXTERNAL letter names people who are not on the division roll yet (the
+    // initial-ALP trainees), so the picker would always come back empty — hide
+    // it and say why, rather than leaving a search box that cannot work.
+    const offRoll = L.staff_source === 'EXTERNAL';
+    $('staffSearchWrap').style.display = offRoll ? 'none' : '';
+    $('staffOffRoll').style.display = offRoll ? '' : 'none';
     $('auxPanel').style.display = L.aux_data ? '' : 'none';
     if (L.aux_data) {
         const sc = L.aux_data.schema || L.aux_data;
@@ -1177,7 +1196,7 @@ function cellWriteStaff(row, col, val) {
 // ── actions ────────────────────────────────────────────────────────────
 function payload() {
     return {
-        id: L.id, type_code: L.type_code, doc_kind: L.doc_kind,
+        id: L.id, type_code: L.type_code, doc_kind: L.doc_kind, staff_source: L.staff_source,
         letter_series: L.letter_series, letter_date: L.letter_date, letter_no: L.letter_no,
         banner_text: L.banner_text, office_header_text: L.office_header_text,
         addressee_text: L.addressee_text, addressee_text_hi: L.addressee_text_hi,
