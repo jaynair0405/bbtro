@@ -13,7 +13,17 @@
 
 const CadreLetter = require('../public/div/js/cadre-letter-render.js');
 
-const { renderSheet, SHEET_CSS, escapeHtml, fmtDate } = CadreLetter;
+const { renderSheet, SHEET_CSS, escapeHtml, fmtDate, applyTokens } = CadreLetter;
+
+/**
+ * The letter's subject with its {{tokens}} resolved — what a human should see
+ * naming this letter. The stored subject is a template ("Transfer of
+ * {{designation}}."), so anything user-facing must resolve it or the archive
+ * fills up with documents literally titled "Transfer of {{designation}}.".
+ */
+function letterSubject(letter, staff) {
+    return applyTokens(letter.subject_text, letter, staff);
+}
 
 /**
  * Full A4 HTML page for a cadre letter — what gets stored in
@@ -24,7 +34,7 @@ const { renderSheet, SHEET_CSS, escapeHtml, fmtDate } = CadreLetter;
  * @returns {string} a complete <!doctype html> document
  */
 function renderCadreLetterPage(letter, staff) {
-    const title = [letter.letter_no, letter.subject_text].filter(Boolean).join(' — ')
+    const title = [letter.letter_no, letterSubject(letter, staff)].filter(Boolean).join(' — ')
         || 'Cadre letter';
 
     return `<!doctype html><html lang="en"><head>
@@ -52,8 +62,12 @@ ${SHEET_CSS}
     .sheet .ph{visibility:hidden;}
     table.grid{page-break-inside:auto;}
     table.grid tr{page-break-inside:avoid;}
-    /* the 69-row ALP letters run to page 2 — repeat the header there */
-    table.grid thead{display:table-header-group;}
+    /* Deliberately NOT display:table-header-group. The 69-row ALP letter runs
+     * onto page 2 and the Word original does NOT repeat the column header there
+     * (cadre-management/Document 3.pdf p2 continues straight from row 33) —
+     * repeating it both breaks fidelity with what Personnel expect and costs
+     * ~20mm, which is enough to push the letter onto a third page. */
+    table.grid thead{display:table-row-group;}
     .sheet .sig,.sheet .cc,.sheet .chain,.sheet .encl{page-break-inside:avoid;}
   }
 </style></head>
@@ -68,6 +82,7 @@ ${SHEET_CSS}
 
 module.exports = {
     renderCadreLetterPage,
+    letterSubject,
     renderSheet,
     SHEET_CSS,
     shortDesignation: CadreLetter.shortDesignation,

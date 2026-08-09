@@ -35,7 +35,7 @@
 const express = require('express');
 const router = express.Router();
 
-const { renderCadreLetterPage } = require('../../utils/cadreLetterHtml');
+const { renderCadreLetterPage, letterSubject } = require('../../utils/cadreLetterHtml');
 
 // ── Access ─────────────────────────────────────────────────────────────────
 // Cadre letters are an HQ-level function, not a per-lobby one, so unlike
@@ -388,6 +388,9 @@ router.post('/:id/finalize', requireDivisionAccess, async (req, res) => {
 
         const html = renderCadreLetterPage(letter, staff);
         const title = letter.letter_no;
+        // Resolve {{tokens}} — the stored subject is still a template, and this
+        // string is what the Documents repository lists the letter under.
+        const description = letterSubject(letter, staff);
 
         await conn.beginTransaction();
         const [doc] = await conn.query(
@@ -395,7 +398,7 @@ router.post('/:id/finalize', requireDivisionAccess, async (req, res) => {
                (title, category, description, doc_date, folder, body_html,
                 language, source_type, status, header, uploaded_by)
              VALUES (?, 'CADRE_LETTER', ?, ?, ?, ?, 'both', 'composed', 'final', ?, ?)`,
-            [title, letter.subject_text, letter.letter_date, letter.family, html,
+            [title, description, letter.letter_date, letter.family, html,
              JSON.stringify({ ref_no: letter.letter_no, type_code: letter.type_code }),
              req.session.user.username]
         );

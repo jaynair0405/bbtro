@@ -298,10 +298,20 @@
          * the schema actually apply. Under the default `auto`, a long heading
          * ("PROPOSED LOBBY OF POSTING") widens its own column and squeezes NAME
          * until every name wraps to two lines — which nearly doubles the height
-         * of a 69-row letter and pushes it from 2 printed pages to 4. */
-        '.sheet table.grid{border-collapse:collapse;table-layout:fixed;width:92%;margin:4mm auto 5mm;font-size:10.5pt;line-height:1.2;}',
-        '.sheet table.grid th,.sheet table.grid td{border:1px solid #000;padding:0.8mm 1.4mm;text-align:center;vertical-align:middle;word-wrap:break-word;}',
-        '.sheet table.grid th{font-weight:400;font-size:9.8pt;line-height:1.15;}',
+         * of a 69-row letter and pushes it from 2 printed pages to 4.
+         *
+         * The row metrics below are measured, not guessed: the 69-row ALP letter
+         * (cadre-management/Document 3.pdf) fits 32 rows on page 1 and 37 on
+         * page 2. That needs a ~5.5mm row, which is padding 0.5mm x2 + one
+         * 4.0mm line. Loosening either sends the letter onto a third page. */
+        '.sheet table.grid{border-collapse:collapse;table-layout:fixed;width:92%;margin:4mm auto 5mm;font-size:10.5pt;line-height:1.1;}',
+        '.sheet table.grid th,.sheet table.grid td{border:1px solid #000;padding:0.5mm 1.2mm;text-align:center;vertical-align:middle;word-wrap:break-word;}',
+        /* Headers are smaller and more tightly padded than the data cells so a
+         * long label fits its narrow column WITHOUT word-wrap:break-word
+         * snapping it mid-word — at 9.8pt the ALP letter printed "PROPOSE/D
+         * LOBBY" and "REMA/RK". Check header labels still break only at spaces
+         * if you narrow a column. */
+        '.sheet table.grid th{font-weight:400;font-size:8.5pt;line-height:1.15;padding:0.5mm 0.8mm;}',
         '.sheet table.grid td.l{text-align:left;}',
         '.sheet table.grid td.c{text-align:center;font-weight:600;}',
         '.sheet .sig{margin:12mm 0 0 auto;width:70mm;text-align:center;line-height:1.4;}',

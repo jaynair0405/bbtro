@@ -232,14 +232,24 @@ VALUES
  'M.T.C/KYN/5 Dated: {{ref_date}}',
  'With reference to the above subject, following trainee ALPs who have completed their training at ZRTI/BSL, are proposed to be posted as under.',
  'Kindly issue necessary posting order as per their seniority.',
+ -- Widths measured in a browser against the real 69-row letter
+ -- (cadre-management/Document 3.pdf), not guessed. With these the letter prints
+ -- on 2 pages and wraps exactly rows 5, 7, 37 and 62 — the same four the Word
+ -- original wraps. Every column is tight, so do not shave one to make room:
+ --   * zrti_dsl at 13% left "ADAD-0089" 0.3mm short of fitting, which wrapped
+ --     ALL 69 rows and cost a whole printed page. It needs 14%.
+ --   * name must hold "RAJEEVRANJAN NARENDRA KUMAR YADAV";
+ --     zrti_ac must hold the two-code case "IAIA-0102 / IAIA-0103";
+ --     pf must hold an 11-digit number ("33329810870");
+ --     remark needs 9% or the word "REMARK" itself will not fit its header.
  '{"columns":[
     {"key":"sr","label":"SR NO","w":"6%","auto":"index"},
-    {"key":"pf","label":"PF NO","w":"17%","src":"pf_number"},
-    {"key":"name","label":"NAME","w":"29%","src":"name"},
+    {"key":"pf","label":"PF NO","w":"14%","src":"pf_number"},
+    {"key":"name","label":"NAME","w":"32%","src":"name"},
     {"key":"zrti_ac","label":"ZRTI BSL (AC+TFC)","w":"14%"},
-    {"key":"zrti_dsl","label":"ZRTI BSL (DSL)","w":"13%"},
+    {"key":"zrti_dsl","label":"ZRTI BSL (DSL)","w":"14%"},
     {"key":"remark","label":"REMARK","w":"9%","default":"PASS"},
-    {"key":"proposed_lobby","label":"PROPOSED LOBBY OF POSTING","w":"12%","src":"proposed_lobby"}]}',
+    {"key":"proposed_lobby","label":"PROPOSED LOBBY OF POSTING","w":"11%","src":"proposed_lobby"}]}',
  NULL, @SIGN, @SIGN, @PLACE, @HDR, 40),
 
 ('RELIEVING_INITIAL_ALP', 'Relieving of Initial Assistant Loco Pilot', 'POSTING', 'posting',

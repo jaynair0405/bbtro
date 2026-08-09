@@ -417,11 +417,13 @@ body.drawer-open .drawer-veil { opacity: 1; pointer-events: auto; }
     }
     .sheet::after { display: none; }
     .sheet .ph { visibility: hidden; }
-    /* Long letters legitimately run over — never split a row, orphan the
-       signature/C-/ block, or lose the table header on page 2. */
+    /* Long letters legitimately run over — never split a row or orphan the
+       signature/C-/ block. The column header is deliberately NOT repeated on
+       page 2: the Word originals don't repeat it, and it costs a page.
+       Must match the print CSS in utils/cadreLetterHtml.js. */
     .sheet table.grid { page-break-inside: auto; }
     .sheet table.grid tr { page-break-inside: avoid; }
-    .sheet table.grid thead { display: table-header-group; }
+    .sheet table.grid thead { display: table-row-group; }
     .sheet .sig, .sheet .cc, .sheet .chain, .sheet .encl { page-break-inside: avoid; }
 }
 @media (max-width: 980px) {
