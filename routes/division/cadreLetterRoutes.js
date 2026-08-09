@@ -34,8 +34,19 @@
 
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
+const XLSX = require('xlsx');
 
 const { renderCadreLetterPage, letterSubject } = require('../../utils/cadreLetterHtml');
+
+// The ZRTI list arrives as a workbook attachment. Held in memory only — it is
+// parsed into rows and thrown away; nothing is written to disk.
+const sheetUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 5 * 1024 * 1024, files: 1 },
+});
+const SHEET_EXT = /\.(xlsx|xlsm|xls|csv)$/i;
+const MAX_SHEET_ROWS = 500;
 
 // ── Access ─────────────────────────────────────────────────────────────────
 // Cadre letters are an HQ-level function, not a per-lobby one, so unlike
@@ -99,6 +110,26 @@ router.get('/config', requireDivisionAccess, async (req, res) => {
         const families = {};
         for (const t of types) (families[t.family] = families[t.family] || []).push(t);
 
+        // Lobby suggestions for the lobby columns. Letters print the SHORT name
+        // ("CSMT", "KYN", "PNVL"), not the office code ("CSMT-ML", "CSMT-SUB"),
+        // so the -ML/-SUB suffix is dropped and the result deduped. Lobbies
+        // already typed on earlier letters are folded in, which is how a name
+        // no table knows about ("CSMT Layer-1") becomes a suggestion once used.
+        // These are SUGGESTIONS, never a closed list — the field stays free text.
+        const [offices] = await conn.query(
+            `SELECT DISTINCT TRIM(SUBSTRING_INDEX(office_code, '-', 1)) AS lobby
+               FROM offices
+              WHERE is_active = 1 AND office_code <> 'OTHER'`
+        );
+        const [used] = await conn.query(
+            `SELECT DISTINCT lobby FROM (
+                SELECT proposed_lobby AS lobby FROM div_cadre_letter_staff
+                UNION SELECT present_lobby FROM div_cadre_letter_staff
+             ) x WHERE lobby IS NOT NULL AND lobby <> ''`
+        );
+        const lobbies = [...new Set([...offices, ...used].map((r) => r.lobby).filter(Boolean))]
+            .sort((a, b) => a.localeCompare(b));
+
         res.json({
             user: {
                 username: req.session.user.username,
@@ -109,12 +140,54 @@ router.get('/config', requireDivisionAccess, async (req, res) => {
             },
             families,
             types,
+            lobbies,
         });
     } catch (error) {
         console.error('cadre-letters /config error:', error);
         res.status(500).json({ error: 'Failed to load configuration' });
     } finally {
         if (conn) conn.release();
+    }
+});
+
+// ── POST /parse-sheet — read an uploaded .xlsx/.csv into rows ─────────────
+//
+// The ZRTI/BSL list usually arrives as a workbook, so the CLI should be able to
+// drop the file in rather than copy-paste out of it. This returns the raw grid;
+// the client maps columns with the same preview the paste flow uses, so the two
+// entry paths cannot drift apart.
+//
+// Cells are read FORMATTED, not raw: a PF number like "0350100" is text on the
+// sheet and must not come back as the number 350100 with its leading zero lost.
+
+router.post('/parse-sheet', requireDivisionAccess, sheetUpload.single('file'), (req, res) => {
+    if (!req.file) return res.status(400).json({ error: 'No file was received.' });
+    if (!SHEET_EXT.test(req.file.originalname || '')) {
+        return res.status(400).json({ error: 'Only .xlsx, .xls, .xlsm or .csv files can be read.' });
+    }
+    try {
+        const wb = XLSX.read(req.file.buffer, { type: 'buffer', raw: false, cellDates: false });
+        if (!wb.SheetNames.length) return res.status(400).json({ error: 'That workbook has no sheets.' });
+
+        const sheet = wb.SheetNames.includes(req.body.sheet) ? req.body.sheet : wb.SheetNames[0];
+        const rows = XLSX.utils
+            .sheet_to_json(wb.Sheets[sheet], { header: 1, blankrows: false, defval: '', raw: false })
+            .map((r) => r.map((c) => String(c == null ? '' : c).trim()))
+            .filter((r) => r.some((c) => c !== ''));
+
+        if (!rows.length) return res.status(400).json({ error: `Sheet "${sheet}" is empty.` });
+
+        res.json({
+            sheets: wb.SheetNames,
+            sheet,
+            filename: req.file.originalname,
+            rows: rows.slice(0, MAX_SHEET_ROWS),
+            total: rows.length,
+            truncated: rows.length > MAX_SHEET_ROWS,
+        });
+    } catch (error) {
+        console.error('cadre-letters /parse-sheet error:', error);
+        res.status(400).json({ error: 'That file could not be read as a spreadsheet.' });
     }
 });
 

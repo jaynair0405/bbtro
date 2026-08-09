@@ -76,7 +76,34 @@ body { font-family: var(--ui); background: var(--ink); color: var(--text-mid); o
     animation: rise .45s cubic-bezier(.2,.9,.3,1) both;
 }
 @keyframes rise { from { opacity: 0; transform: translateY(14px); } }
-.panel.staff-panel { overflow: visible; }
+/* The staff table is the panel the CLI actually works in — the other six are
+   fill-in-once. Every panel looked identical, so it had to be hunted for on
+   every scroll. It gets its own colour, an accent edge and a header that
+   sticks while you scroll the desk. */
+.panel.staff-panel {
+    overflow: visible;
+    background: linear-gradient(180deg, rgba(245,165,36,.075), rgba(245,165,36,.022) 90px, rgba(255,255,255,.028));
+    border-color: rgba(245,165,36,.42);
+    box-shadow: 0 0 0 1px rgba(245,165,36,.07), 0 6px 22px -12px rgba(245,165,36,.5);
+    position: relative;
+}
+.panel.staff-panel::before {
+    content: ''; position: absolute; left: -1px; top: 14px; bottom: 14px; width: 3px;
+    border-radius: 3px; background: var(--amber); box-shadow: 0 0 12px rgba(245,165,36,.55);
+}
+.panel.staff-panel > h2 {
+    position: sticky; top: 0; z-index: 4;
+    background: #16233d; border-bottom-color: rgba(245,165,36,.34);
+    border-radius: 13px 13px 0 0;
+}
+.panel.staff-panel > h2 .n {
+    background: var(--amber); border-color: var(--amber); color: #10192c; font-weight: 800;
+}
+.panel.staff-panel > h2 .tag {
+    color: #10192c; background: var(--amber); font-weight: 800;
+    padding: 2px 8px; border-radius: 20px; letter-spacing: .6px;
+}
+.panel.staff-panel > h2 .tag:empty { display: none; }
 .panel > h2 {
     font-size: 11.5px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase;
     color: var(--amber); padding: 13px 16px 11px;
@@ -152,6 +179,15 @@ select:disabled, input:disabled, textarea:disabled { opacity: .55; cursor: not-a
 .mini-row .nm b { color: #fff; font-size: 12.5px; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mini-row .nm small { color: var(--text-dim); font-size: 10.5px; }
 .mini-row.manual { border-left-color: #6f86b8; }
+.mini-row { cursor: pointer; transition: background .12s, border-color .12s; }
+.mini-row:hover { background: #142244; border-color: rgba(245,165,36,.5); }
+/* A row added blank has nothing to show yet — make it obviously unfinished
+   rather than an anonymous "—" the user cannot tell apart from a real row. */
+.mini-row.empty { border-left-color: #e0a03a; background: #1b1a10; }
+.mini-row.empty .nm b { color: #f0c46a; font-style: italic; font-weight: 500; }
+/* brief flash on the row the grid just opened on, so it is obvious where you landed */
+@keyframes flashrow { from { background: rgba(245,165,36,.34); } }
+#gridTable tbody tr.justadded td { animation: flashrow 1.1s ease-out; }
 .mini-row button.rm {
     background: none; border: none; color: #5a7099; cursor: pointer; font-size: 15px;
     padding: 1px 5px; border-radius: 6px;
@@ -162,6 +198,8 @@ select:disabled, input:disabled, textarea:disabled { opacity: .55; cursor: not-a
              border: 1px solid #f0d99a; border-left: 3px solid var(--amber);
              border-radius: 5px; padding: 9px 11px; margin-bottom: 10px; }
 .notonroll b { display: block; color: #7a4a00; margin-bottom: 2px; }
+.btn-tiny.primary { background: rgba(245,165,36,.18); border-color: rgba(245,165,36,.6); color: var(--amber); font-weight: 700; }
+.btn-tiny.primary:hover { background: rgba(245,165,36,.3); }
 .tinybar { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
 .btn-tiny {
     font-family: var(--ui); font-size: 11.5px; font-weight: 700; border-radius: 8px;
@@ -309,6 +347,31 @@ table.editor .rowrm:hover { color: var(--red); background: rgba(214,69,69,.12); 
     border-top: 1px solid var(--chrome-line); background: rgba(10,18,36,.7);
 }
 .gridbox > footer .count { font-size: 12.5px; color: var(--text-dim); margin-right: auto; }
+
+/* import: file drop + paste */
+.dropzone {
+    border: 1.5px dashed rgba(245,165,36,.5); border-radius: 11px;
+    background: rgba(245,165,36,.05); padding: 18px 14px; text-align: center;
+    cursor: pointer; transition: background .15s, border-color .15s;
+}
+.dropzone:hover, .dropzone.over { background: rgba(245,165,36,.13); border-color: var(--amber); }
+.dropzone.over { border-style: solid; }
+.dropzone.loaded { border-style: solid; border-color: rgba(74,222,128,.6); background: rgba(74,222,128,.08); }
+.dropzone.busy { opacity: .6; pointer-events: none; }
+.dropzone b { display: block; color: #fff; font-size: 13px; margin-bottom: 3px; }
+.dropzone span { color: var(--text-dim); font-size: 11.5px; }
+.linkbtn {
+    background: none; border: none; padding: 0; font: inherit; cursor: pointer;
+    color: var(--amber); text-decoration: underline;
+}
+.orline { display: flex; align-items: center; gap: 10px; margin: 13px 0 9px; }
+.orline::before, .orline::after { content: ''; flex: 1; height: 1px; background: var(--chrome-line); }
+.orline span { color: var(--text-dim); font-size: 10.5px; letter-spacing: 1.4px; text-transform: uppercase; }
+.sheetpick { margin-top: 9px; font-size: 12px; color: var(--text-dim); }
+.sheetpick select {
+    background: #0d1830; color: #e8eefb; border: 1px solid var(--chrome-line);
+    border-radius: 6px; padding: 4px 8px; font-size: 12px; margin-left: 4px;
+}
 
 /* paste */
 .pastebox textarea {
@@ -572,7 +635,7 @@ body.drawer-open .drawer-veil { opacity: 1; pointer-events: auto; }
                         Paste the list from Excel.
                     </div>
                     <div class="tinybar">
-                        <button class="btn-tiny" id="btnPaste">⇩ Paste from Excel</button>
+                        <button class="btn-tiny primary" id="btnPaste">⇩ Excel file or paste</button>
                         <button class="btn-tiny" id="btnBlankRow">＋ Blank row</button>
                         <button class="btn-tiny" id="btnGrid">⛶ Grid editor</button>
                     </div>
@@ -659,7 +722,7 @@ body.drawer-open .drawer-veil { opacity: 1; pointer-events: auto; }
             <h4 id="gridTitle">Staff table</h4>
             <span class="spacer"></span>
             <button class="btn-tiny" id="gAddRow">＋ Row</button>
-            <button class="btn-tiny" id="gPaste">⇩ Paste</button>
+            <button class="btn-tiny" id="gPaste">⇩ Excel / paste</button>
             <button class="btn btn-ghost" id="gClose">✕ Done</button>
         </header>
         <div class="gwrap"><table class="editor" id="gridTable"></table></div>
@@ -696,6 +759,8 @@ body.drawer-open .drawer-veil { opacity: 1; pointer-events: auto; }
 </aside>
 
 <div class="toast" id="toast"></div>
+<!-- Lobby suggestions, shared by every lobby input (see isLobbyCol). -->
+<datalist id="dlLobby"></datalist>
 
 <script src="/div/js/cadre-letter-render.js"></script>
 <script>
@@ -762,6 +827,8 @@ function esc(s) { return CadreLetter.escapeHtml(s); }
     } catch (e) { toast(e.message, 'err'); return; }
 
     $('whoBox').innerHTML = `<b>${esc(CFG.user.full_name || CFG.user.username)}</b><br>${esc(CFG.user.office_code || 'HQ')}`;
+    $('dlLobby').innerHTML = (CFG.lobbies || [])
+        .map((l) => `<option value="${esc(l)}">`).join('');
     buildGallery();
     openGallery();
     bindDesk();
@@ -957,16 +1024,25 @@ function renderMini() {
     if (!L || !L.table_columns) return;
     $('noStaff').style.display = STAFF.length ? 'none' : '';
     $('staffMini').innerHTML = STAFF.map((s, i) => `
-        <div class="mini-row ${s.staff_hrms_id ? '' : 'manual'}">
+        <div class="mini-row ${s.staff_hrms_id ? '' : 'manual'}${s.name ? '' : ' empty'}"
+             data-i="${i}" title="Click to edit this row">
           <span class="sr">${i + 1}</span>
           <span class="nm">
-            <b>${esc(s.name || '—')}</b>
+            <b>${esc(s.name || 'Blank row — click to fill in')}</b>
             <small>${esc(s.pf_number || '')}${s.proposed_lobby ? ' → ' + esc(s.proposed_lobby) : ''}${s.staff_hrms_id ? '' : ' · manual'}</small>
           </span>
           <button class="rm" data-i="${i}" title="Remove">✕</button>
         </div>`).join('');
     $('staffMini').querySelectorAll('button.rm').forEach((b) => {
-        b.onclick = () => { STAFF.splice(Number(b.dataset.i), 1); DIRTY = true; render(); };
+        b.onclick = (ev) => {
+            ev.stopPropagation();   // don't also open the editor on this row
+            STAFF.splice(Number(b.dataset.i), 1); DIRTY = true; render();
+        };
+    });
+    // The list is a summary; editing happens in the grid. Clicking a row opens
+    // it there rather than leaving the user hunting for the Grid editor button.
+    $('staffMini').querySelectorAll('.mini-row').forEach((r) => {
+        r.onclick = () => openGrid('staff', Number(r.dataset.i));
     });
 }
 
@@ -1015,7 +1091,11 @@ function bindStaff() {
         if (!e.target.closest('.search-wrap')) drop.classList.remove('open');
     });
 
-    $('btnBlankRow').onclick = () => addRow({ staff_hrms_id: null, pf_number: '', name: '', extra: {} });
+    // Add the row AND open the grid on it — the desk list cannot be typed into.
+    $('btnBlankRow').onclick = () => {
+        addRow({ staff_hrms_id: null, pf_number: '', name: '', extra: {} });
+        openGrid('staff', STAFF.length - 1);
+    };
     $('btnGrid').onclick = () => openGrid('staff');
     $('btnAuxGrid').onclick = () => openGrid('aux');
     $('btnPaste').onclick = () => openPaste();
@@ -1043,12 +1123,23 @@ function gridColumns() {
 }
 function gridRows() { return GRID_MODE === 'aux' ? (L.aux_data.rows || []) : STAFF; }
 
-function openGrid(mode) {
+/* focusRow: scroll that row into view and put the caret in its first cell.
+ * The compact list on the desk is a summary, not an editor, so every path that
+ * creates or selects a row has to land the user somewhere they can actually
+ * type — otherwise "+ Blank row" just adds an unreachable empty line. */
+function openGrid(mode, focusRow) {
     GRID_MODE = mode;
     $('gridTitle').textContent = mode === 'aux' ? 'Data grid' : 'Staff table';
     $('gPaste').style.display = mode === 'aux' ? 'none' : '';
     $('gridVeil').classList.add('open');
     drawGrid();
+    if (focusRow == null) return;
+    const tr = $('gridTable').querySelector(`tbody tr[data-i="${focusRow}"]`);
+    if (!tr) return;
+    tr.scrollIntoView({ block: 'center' });
+    tr.classList.add('justadded');
+    const first = tr.querySelector('input');
+    if (first) first.focus();
 }
 $('gClose').onclick = () => { $('gridVeil').classList.remove('open'); render(); };
 $('gAddRow').onclick = () => {
@@ -1062,6 +1153,16 @@ $('gClear').onclick = async () => {
     if (GRID_MODE === 'aux') L.aux_data.rows = []; else STAFF = [];
     DIRTY = true; drawGrid(); render();
 };
+
+/* A lobby column offers the division's offices as SUGGESTIONS via a datalist —
+ * never a locked <select>. Letters print short names ("CSMT", "KYN") which the
+ * offices table stores suffixed ("CSMT-ML"), and some letters legitimately name
+ * a lobby no table knows ("CSMT Layer-1"), so the field must stay free text.
+ * Recognised by the column's src, so a type added later gets this for free;
+ * "opts":"@lobby" in the schema forces it on a column with no src. */
+function isLobbyCol(c) {
+    return c.opts === '@lobby' || c.src === 'proposed_lobby' || c.src === 'present_lobby';
+}
 
 function drawGrid() {
     const cols = gridColumns();
@@ -1078,6 +1179,7 @@ function drawGrid() {
               ${editable.map((c) => `<td>
                  <input value="${esc(cellRead(r, c))}" data-k="${esc(c.key)}"
                         class="${c.src ? 'linked' : ''}"
+                        ${isLobbyCol(c) ? 'list="dlLobby"' : ''}
                         placeholder="${esc(c.default || '')}">
               </td>`).join('')}
               <td class="act"><button class="rowrm" title="Remove row">✕</button></td>
@@ -1126,11 +1228,20 @@ function openPaste() {
     if (!cols.length) { toast('This letter has no staff table.', 'err'); return; }
 
     $('modalBox').innerHTML = `
-        <h4>Paste rows from Excel</h4>
-        <p>Copy the block of cells in Excel and paste it below. Columns are matched
-           left to right — check the mapping before adding.</p>
+        <h4>Bring in rows from Excel</h4>
+        <p>Drop the ZRTI list in as a file, or copy the block of cells and paste it.
+           Columns are matched left to right — check the mapping before adding.</p>
+        <div class="dropzone" id="pDrop">
+          <b>Drop an Excel file here</b>
+          <span>.xlsx, .xls or .csv — or <button type="button" class="linkbtn" id="pBrowse">choose a file</button></span>
+          <input type="file" id="pFile" accept=".xlsx,.xlsm,.xls,.csv" hidden>
+        </div>
+        <div class="orline"><span>or paste</span></div>
         <div class="pastebox"><textarea id="pTxt" placeholder="Paste here…"></textarea></div>
         <label class="chk"><input type="checkbox" id="pHdr"> First row is a header — skip it</label>
+        <div class="sheetpick" id="pSheetWrap" style="display:none">
+          Sheet: <select id="pSheet"></select>
+        </div>
         <div class="ppreview" id="pPrev"></div>
         <div class="pnote" id="pNote"></div>
         <div class="btns">
@@ -1140,18 +1251,31 @@ function openPaste() {
     $('modalVeil').classList.add('open');
 
     let parsed = [];
-    const reparse = () => {
-        const raw = $('pTxt').value;
+    let fileRows = null;    // rows from an uploaded workbook; null when pasting
+    let lastFile = null;
+
+    // Both entry paths converge here, so the mapping preview, the header-skip
+    // and the commit behave identically whether the rows came from a file or
+    // the clipboard.
+    const preview = () => {
         const skip = $('pHdr').checked;
-        parsed = raw.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
-            .map((l) => (l.includes('\t') ? l.split('\t') : l.split(/\s{2,}/)).map((c) => c.trim()));
+        parsed = (fileRows || pastedRows()).map((r) => r.slice());
         if (skip) parsed = parsed.slice(1);
 
         const width = parsed.reduce((m, r) => Math.max(m, r.length), 0);
         if (!parsed.length) { $('pPrev').innerHTML = ''; $('pNote').textContent = ''; $('pAdd').disabled = true; return; }
 
-        // Positional mapping, adjustable per pasted column.
-        const head = Array.from({ length: width }, (_, i) => cols[i] ? cols[i].key : '');
+        // Mapping guess, adjustable per column. When a header row is present we
+        // match on its text, so a ZRTI file whose columns are in a different
+        // order still lands correctly; otherwise fall back to left-to-right.
+        const hdrRow = $('pHdr').checked ? (fileRows || pastedRows())[0] || [] : null;
+        const head = Array.from({ length: width }, (_, i) => {
+            if (hdrRow) {
+                const m = matchColumn(hdrRow[i], cols);
+                if (m) return m.key;
+            }
+            return cols[i] ? cols[i].key : '';
+        });
         $('pPrev').innerHTML = `<table>
             <thead><tr>${head.map((k, i) => `
               <th>col ${i + 1}
@@ -1167,8 +1291,64 @@ function openPaste() {
             (parsed.length > 8 ? ' — showing the first 8.' : '.');
         $('pAdd').disabled = false;
     };
-    $('pTxt').addEventListener('input', reparse);
-    $('pHdr').addEventListener('change', reparse);
+    // Pasting replaces any loaded file, and vice versa — one source at a time,
+    // so it is always unambiguous what the preview is showing.
+    $('pTxt').addEventListener('input', () => {
+        if ($('pTxt').value.trim()) { fileRows = null; $('pDrop').classList.remove('loaded'); }
+        preview();
+    });
+    $('pHdr').addEventListener('change', preview);
+
+    async function loadFile(file) {
+        if (!file) return;
+        lastFile = file;
+        $('pDrop').classList.add('busy');
+        try {
+            const fd = new FormData();
+            fd.append('file', file);
+            if ($('pSheet').value) fd.append('sheet', $('pSheet').value);
+            const r = await fetch(API + '/parse-sheet', { method: 'POST', body: fd, credentials: 'same-origin' });
+            const d = await r.json();
+            if (!r.ok) throw new Error(d.error || 'Could not read that file.');
+
+            fileRows = d.rows;
+            $('pTxt').value = '';
+            $('pDrop').classList.add('loaded');
+            $('pDrop').querySelector('b').textContent = '📄 ' + d.filename;
+            $('pDrop').querySelector('span').innerHTML =
+                `${d.total} rows${d.truncated ? ' (first ' + d.rows.length + ' loaded)' : ''} · ` +
+                `<button type="button" class="linkbtn" id="pBrowse2">choose another</button>`;
+            $('pBrowse2').onclick = () => $('pFile').click();
+
+            // Only offer the sheet picker when the choice is real.
+            $('pSheetWrap').style.display = d.sheets.length > 1 ? '' : 'none';
+            $('pSheet').innerHTML = d.sheets
+                .map((s) => `<option ${s === d.sheet ? 'selected' : ''}>${esc(s)}</option>`).join('');
+
+            // A workbook almost always leads with a header row; tick it by
+            // default so the preview is right first time, but leave it editable.
+            if (looksLikeHeader(d.rows[0], cols)) $('pHdr').checked = true;
+            preview();
+        } catch (e) {
+            toast(e.message, 'err');
+        } finally {
+            $('pDrop').classList.remove('busy');
+        }
+    }
+
+    $('pBrowse').onclick = () => $('pFile').click();
+    $('pFile').onchange = () => loadFile($('pFile').files[0]);
+    $('pSheet').onchange = () => loadFile(lastFile);
+    const dz = $('pDrop');
+    dz.onclick = (e) => { if (e.target === dz || e.target.tagName === 'B') $('pFile').click(); };
+    ['dragenter', 'dragover'].forEach((ev) => dz.addEventListener(ev, (e) => {
+        e.preventDefault(); dz.classList.add('over');
+    }));
+    ['dragleave', 'drop'].forEach((ev) => dz.addEventListener(ev, (e) => {
+        e.preventDefault(); dz.classList.remove('over');
+    }));
+    dz.addEventListener('drop', (e) => loadFile(e.dataTransfer.files[0]));
+
     $('pCancel').onclick = () => $('modalVeil').classList.remove('open');
     $('pAdd').onclick = () => {
         const map = {};
@@ -1187,6 +1367,36 @@ function openPaste() {
         render();
     };
 }
+/* Clipboard text → grid. Excel copies tab-separated; a plain-text list pasted
+ * from elsewhere is usually aligned with runs of spaces, so that is the fallback. */
+function pastedRows() {
+    return ($('pTxt') ? $('pTxt').value : '')
+        .split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
+        .map((l) => (l.includes('\t') ? l.split('\t') : l.split(/\s{2,}/)).map((c) => c.trim()));
+}
+
+/* Match a sheet's header cell to a schema column. Compares on letters and
+ * digits only, so "ZRTI BSL (AC+TFC)" matches "ZRTI BSL AC TFC" and
+ * "PF NO." matches "PF NO". Falls back to a containment test either way,
+ * which is what catches "EMPLOYEE NAME" against "NAME". */
+function matchColumn(text, cols) {
+    const norm = (s) => String(s == null ? '' : s).toUpperCase().replace(/[^A-Z0-9]+/g, '');
+    const t = norm(text);
+    if (!t) return null;
+    return cols.find((c) => norm(c.label) === t || norm(c.key) === t)
+        || cols.find((c) => { const n = norm(c.label); return n.length > 2 && (t.includes(n) || n.includes(t)); })
+        || null;
+}
+
+/* Does this row look like column headings rather than data? True when most of
+ * its cells match a schema column and none of them look like a PF number. */
+function looksLikeHeader(row, cols) {
+    if (!row || !row.length) return false;
+    if (row.some((c) => /^\d{6,}$/.test(String(c).trim()))) return false;
+    const hits = row.filter((c) => matchColumn(c, cols)).length;
+    return hits >= Math.max(2, Math.ceil(row.length / 2));
+}
+
 // paste always targets the staff table, whatever the grid editor is showing
 function cellWriteStaff(row, col, val) {
     if (col.src) row[col.src] = val;
