@@ -354,12 +354,17 @@ app.get('/div/transfer-letter-manual.html', (req, res) => {
 app.get('/div/cadre-letter.html', (req, res) => {
   if (!req.session.user) return res.redirect('/');
   if (req.session.user.realm !== 'division') return res.redirect('/');
+  // The page carries its own JS, so a heuristically-cached copy leaves the CLI
+  // running the previous deploy's code with no clue why a fix "didn't work".
+  // must-revalidate still allows a 304, so this costs a conditional request.
+  res.set('Cache-Control', 'no-cache, must-revalidate');
   res.sendFile(path.join(__dirname, 'public', 'div', 'cadre-letter.html'));
 });
 
 app.get('/div/cadre-letter-manual.html', (req, res) => {
   if (!req.session.user) return res.redirect('/');
   if (req.session.user.realm !== 'division') return res.redirect('/');
+  res.set('Cache-Control', 'no-cache, must-revalidate');
   res.sendFile(path.join(__dirname, 'public', 'div', 'cadre-letter-manual.html'));
 });
 

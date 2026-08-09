@@ -393,6 +393,7 @@ table.editor .rowrm:hover { color: var(--red); background: rgba(214,69,69,.12); 
 }
 .pnote { font-size: 12px; color: var(--text-dim); margin-top: 9px; }
 .pnote b { color: var(--amber); }
+.pnote .warn { color: #f7b955; display: inline-block; margin-top: 5px; line-height: 1.5; }
 .chk { display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--text-mid); margin-top: 10px; }
 .chk input { width: 15px; height: 15px; accent-color: var(--amber); }
 
@@ -1269,10 +1270,19 @@ function openPaste() {
         // match on its text, so a ZRTI file whose columns are in a different
         // order still lands correctly; otherwise fall back to left-to-right.
         const hdrRow = $('pHdr').checked ? (fileRows || pastedRows())[0] || [] : null;
+        // With a header row, go PURELY by name — never fall back to position for
+        // a heading we don't recognise. Mixing the two made a real ZRTI sheet map
+        // both "SR NO" and "PF NO" onto pf: the sheet carries its own SR column,
+        // but the schema's SR is auto-numbered and excluded from `cols`, so
+        // everything positional sits one column to the left. An unrecognised
+        // heading is left on "— skip —". A column is claimed once, so two
+        // headings can never both win it.
+        const taken = new Set();
         const head = Array.from({ length: width }, (_, i) => {
             if (hdrRow) {
                 const m = matchColumn(hdrRow[i], cols);
-                if (m) return m.key;
+                if (m && !taken.has(m.key)) { taken.add(m.key); return m.key; }
+                return '';
             }
             return cols[i] ? cols[i].key : '';
         });
@@ -1287,8 +1297,15 @@ function openPaste() {
             <tbody>${parsed.slice(0, 8).map((r) => `<tr>${
                 Array.from({ length: width }, (_, i) => `<td>${esc(r[i] || '')}</td>`).join('')
             }</tr>`).join('')}</tbody></table>`;
+        const skipped = hdrRow ? head.map((k, i) => (k ? null : hdrRow[i])).filter((h) => h && h.trim()) : [];
         $('pNote').innerHTML = `<b>${parsed.length}</b> rows × ${width} columns detected` +
-            (parsed.length > 8 ? ' — showing the first 8.' : '.');
+            (parsed.length > 8 ? ' — showing the first 8.' : '.') +
+            // Name the skipped headings — a silently dropped column is the one
+            // mistake the user would not spot until the letter is printed.
+            (skipped.length
+                ? `<br><span class="warn">Not matched, so being skipped: ${skipped.map(esc).join(', ')}.
+                   Set them above if they should go somewhere.</span>`
+                : '');
         $('pAdd').disabled = false;
     };
     // Pasting replaces any loaded file, and vice versa — one source at a time,
