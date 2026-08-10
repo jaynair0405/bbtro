@@ -282,21 +282,21 @@
         var out = '';
 
         // Letterhead — no logo and no rules; these letters have neither.
-        out += '<div class="lh">' +
-                 '<div class="l"><div class="hi">मध्य रेल</div></div>' +
-                 '<div class="r deva">' + nl2br(letter.office_header_text) + '</div>' +
-               '</div>';
+        out += '<table class="lh"><tr>' +
+                 '<td class="l"><div class="hi">मध्य रेल</div></td>' +
+                 '<td class="r deva">' + nl2br(letter.office_header_text) + '</td>' +
+               '</tr></table>';
         /* A NOTE labels itself ON the number line — "No. …   NOTE   Date : …"
          * (cadre-management/Exemption of Refersher.pdf). Every other banner
          * ("Reminder – I") is a centred line of its own further
          * down, below the addressee — see reminder.pdf. */
         var bannerInline = letter.doc_kind === 'NOTE' && has(letter.banner_text);
-        out += '<div class="noline">' +
-                 '<div class="no">' + (has(letter.letter_no) ? 'No. ' + esc(letter.letter_no)
-                       : (opts.placeholders ? '<span class="ph">No. …</span>' : '')) + '</div>' +
-                 (bannerInline ? '<div class="mid">' + esc(String(letter.banner_text).trim()) + '</div>' : '') +
-                 '<div class="dt">Date : ' + esc(fmtDate(letter.letter_date)) + '</div>' +
-               '</div>';
+        out += '<table class="noline"><tr>' +
+                 '<td class="no">' + (has(letter.letter_no) ? 'No. ' + esc(letter.letter_no)
+                       : (opts.placeholders ? '<span class="ph">No. …</span>' : '')) + '</td>' +
+                 (bannerInline ? '<td class="mid">' + esc(String(letter.banner_text).trim()) + '</td>' : '') +
+                 '<td class="dt">Date : ' + esc(fmtDate(letter.letter_date)) + '</td>' +
+               '</tr></table>';
 
         // A NOTE is internal and has no addressee at all — don't leave an empty
         // block holding its margin open.
@@ -310,12 +310,12 @@
         }
 
         if (has(subject) || opts.placeholders || refLines.length) {
-            out += '<div class="subref">';
-            out += '<div class="sub"><span class="lbl">Sub:</span> <span>' + ph(subject, 'Subject of the letter') + '</span></div>';
+            out += '<table class="subref">';
+            out += '<tr><td class="lbl">Sub:</td><td>' + ph(subject, 'Subject of the letter') + '</td></tr>';
             refLines.forEach(function (r, i) {
-                out += '<div class="ref"><span class="lbl">' + (i === 0 ? 'Ref:' : '') + '</span> <span>' + nl2br(r) + '</span></div>';
+                out += '<tr><td class="lbl">' + (i === 0 ? 'Ref:' : '') + '</td><td>' + nl2br(r) + '</td></tr>';
             });
-            out += '</div>';
+            out += '</table>';
         }
 
         var bodyHtml = paragraphs(applyTokens(letter.body_text, letter, staff));
@@ -382,25 +382,37 @@
          * chain on page 1, as the original does. */
         '.sheet{font-family:"Times New Roman",Times,serif;font-size:12pt;line-height:1.15;color:#000;}',
         '.sheet .deva{font-family:"Noto Sans Devanagari","Times New Roman",serif;}',
-        '.sheet .lh{display:flex;justify-content:space-between;align-items:flex-start;gap:10mm;}',
-        '.sheet .lh .l .hi{font-family:"Noto Sans Devanagari","Times New Roman",serif;font-size:12pt;}',
-        '.sheet .lh .r{text-align:left;font-size:11.5pt;line-height:1.5;white-space:nowrap;}',
+        /* Tables, not flexbox, for the three side-by-side rows (letterhead,
+         * No./Date, Sub/Ref). Word's HTML engine does not support flexbox: the
+         * exported .doc stacked the office block under "मध्य रेल" and dropped
+         * the date onto its own left-aligned line. Tables render the same in
+         * the browser and survive Word. */
+        '.sheet table.lh{width:100%;border-collapse:collapse;}',
+        '.sheet table.lh td{border:none;padding:0;vertical-align:top;}',
+        /* The office block hugs the right edge, as flex space-between did:
+         * a 1% width plus nowrap shrink-wraps the cell to its content and
+         * lets the left cell take the rest. A fixed percentage instead
+         * parked it mid-page. */
+        '.sheet table.lh td.l{width:auto;}',
+        '.sheet table.lh td.r{width:1%;}',
+        '.sheet table.lh .hi{font-family:"Noto Sans Devanagari","Times New Roman",serif;font-size:12pt;}',
+        '.sheet table.lh td.r{text-align:left;font-size:11.5pt;line-height:1.5;white-space:nowrap;}',
         /* Preamble spacing is deliberately tight. The 28-row LP-Shunter letter
          * (cadre-management/trf of lps.pdf) is ONE page in Word; with looser
          * gaps it ended at 276.5mm against 269mm printable and threw just the
          * signature onto a second, near-empty page. The slack was spread across
          * these gaps, not in any one of them — measure the whole preamble
          * (table top should land near 68mm) before loosening any of them. */
-        '.sheet .noline{display:flex;justify-content:space-between;align-items:baseline;margin:1mm 0 4mm;}',
-        '.sheet .noline .dt{white-space:nowrap;}',
+        '.sheet table.noline{width:100%;border-collapse:collapse;margin:1mm 0 4mm;}',
+        '.sheet table.noline td{border:none;padding:0;vertical-align:baseline;}',
+        '.sheet table.noline td.dt{width:1%;text-align:right;white-space:nowrap;}',
         // the NOTE label, centred between the number and the date
-        '.sheet .noline .mid{flex:1;text-align:center;font-weight:400;}',
+        '.sheet table.noline td.mid{text-align:center;font-weight:400;}',
         '.sheet .addr{margin:0 0 4mm;line-height:1.4;}',
         '.sheet .banner{text-align:center;font-weight:700;margin:0 0 3mm;}',
-        '.sheet .subref{margin:0 0 4mm;padding-left:12mm;}',
-        '.sheet .subref .sub,.sheet .subref .ref{display:flex;gap:2mm;align-items:flex-start;}',
-        '.sheet .subref .lbl{flex:0 0 11mm;font-weight:400;}',
-        '.sheet .subref .sub{font-weight:400;}',
+        '.sheet table.subref{margin:0 0 4mm 12mm;border-collapse:collapse;}',
+        '.sheet table.subref td{border:none;padding:0;vertical-align:top;}',
+        '.sheet table.subref td.lbl{width:11mm;white-space:nowrap;}',
         '.sheet .body{text-align:justify;}',
         '.sheet .body p{margin:0 0 3mm;text-indent:12mm;}',
         '.sheet .body.flush p{text-indent:0;}',

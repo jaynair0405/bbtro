@@ -219,7 +219,11 @@ router.get('/:id/word', requireDivisionAccess, async (req, res) => {
         res.setHeader('Content-Type', 'application/msword; charset=utf-8');
         res.setHeader('Content-Disposition',
             `attachment; filename="${base}.doc"; filename*=UTF-8''${encodeURIComponent(base)}.doc`);
-        res.send('\ufeff' + renderCadreLetterWord(letter, staff));   // BOM: Word needs it to read UTF-8
+        // No UTF-8 BOM. It is not needed — the meta charset and the
+        // Content-Type both declare the encoding — and it actively hurts:
+        // a leading BOM makes HTML sniffing fail, so the file opens as
+        // plain text showing raw markup instead of as a document.
+        res.send(renderCadreLetterWord(letter, staff));
     } catch (error) {
         console.error('cadre-letters /:id/word error:', error);
         res.status(500).json({ error: 'Failed to build the Word file' });
