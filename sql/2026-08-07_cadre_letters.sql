@@ -209,6 +209,57 @@ UPDATE div_cadre_letter_types
    SET staff_source = 'EXTERNAL'
  WHERE type_code IN ('POSTING_INITIAL_ALP', 'RELIEVING_INITIAL_ALP');
 
+-- ---------------------------------------------------------------------------
+-- 4c. First-line indent of body paragraphs
+--
+-- Most letters indent the first line of each body paragraph. The footplate-km
+-- letter (cadre-management/mis1.pdf) sets them flush left instead. Default 1
+-- keeps existing behaviour.
+-- ---------------------------------------------------------------------------
+SET @sql := IF(
+  (SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'div_cadre_letter_types'
+      AND COLUMN_NAME = 'body_indent') = 0,
+  "ALTER TABLE div_cadre_letter_types
+     ADD COLUMN body_indent TINYINT(1) NOT NULL DEFAULT 1 AFTER body_tpl",
+  "SELECT 'div_cadre_letter_types.body_indent already present' AS note");
+PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+
+SET @sql := IF(
+  (SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'div_cadre_letters'
+      AND COLUMN_NAME = 'body_indent') = 0,
+  "ALTER TABLE div_cadre_letters
+     ADD COLUMN body_indent TINYINT(1) NOT NULL DEFAULT 1 AFTER body_text",
+  "SELECT 'div_cadre_letters.body_indent already present' AS note");
+PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+
+UPDATE div_cadre_letter_types SET body_indent = 0
+ WHERE type_code = 'FOOTPLATE_KM_EVIDENCE';
+
+-- The footplate-km letter is signed with the designation ALONE — no place line
+-- under it, unlike the transfer and posting letters. Same as the NOTE types.
+UPDATE div_cadre_letter_types SET signing_place = NULL
+ WHERE type_code = 'FOOTPLATE_KM_EVIDENCE';
+
+-- Its body bolds the cut-off date and both mentions of the kilometre
+-- threshold (see the **markers** the renderer understands).
+UPDATE div_cadre_letter_types
+   SET body_tpl = REPLACE(body_tpl, '{{as_on_date}}', '**{{as_on_date}}**')
+ WHERE type_code = 'FOOTPLATE_KM_EVIDENCE' AND body_tpl NOT LIKE '%**{{as_on_date}}**%';
+UPDATE div_cadre_letter_types
+   SET body_tpl = REPLACE(body_tpl,
+        'not completed the prescribed {{prescribed_km}} footplate kilometres',
+        '**not completed the prescribed {{prescribed_km}} footplate kilometres**')
+ WHERE type_code = 'FOOTPLATE_KM_EVIDENCE'
+   AND body_tpl NOT LIKE '%**not completed the prescribed%';
+UPDATE div_cadre_letter_types
+   SET body_tpl = REPLACE(body_tpl,
+        'more than {{prescribed_km}} footplate kilometres',
+        '**more than {{prescribed_km}} footplate kilometres**')
+ WHERE type_code = 'FOOTPLATE_KM_EVIDENCE'
+   AND body_tpl NOT LIKE '%**more than {{prescribed_km}}%';
+
 -- ============================================================================
 -- 5. Seed the type catalogue
 --    INSERT IGNORE: re-running never clobbers a type the CLI has edited.
@@ -477,12 +528,12 @@ As per the records made available by the Sr. Crew Controllers, the following emp
 Accordingly, the following employees are hereby advised to submit their representations along with supporting documentary evidence in support of their claimed footplate kilometres.',
  'The representations received along with the supporting documentary evidence will be examined while finalizing the eligibility of the above employees. In the absence of documentary evidence, footplate kilometres of the employee shall be considered based on the official records available with the Administration.',
  '{"columns":[
-    {"key":"sr","label":"Sr No.","w":"8%","auto":"index"},
-    {"key":"pf","label":"PF NO","w":"22%","src":"pf_number"},
-    {"key":"name","label":"NAME","w":"32%","src":"name"},
-    {"key":"designation","label":"Desig","w":"14%","src":"designation"},
-    {"key":"km_lobby","label":"As per Lobby","w":"12%","group":"TOTAL KM"},
-    {"key":"km_employee","label":"As per Employee","w":"12%","group":"TOTAL KM"}]}',
+    {"key":"sr","label":"Sr No.","w":"6%","auto":"index"},
+    {"key":"pf","label":"PF NO","w":"16%","src":"pf_number"},
+    {"key":"name","label":"NAME","w":"27%","src":"name"},
+    {"key":"designation","label":"Desig","w":"18%","src":"designation"},
+    {"key":"km_lobby","label":"As per Lobby","w":"16%","group":"TOTAL KM"},
+    {"key":"km_employee","label":"As per Employee","w":"17%","group":"TOTAL KM"}]}',
  NULL, NULL, NULL, @SIGN, @SIGN, @PLACE, @HDR, 140),
 
 ('REFRESHER_EXEMPTION', 'Exemption of Refresher on account of promotion (NOTE)', 'CADRE', 'NOTE', 'promotion', 'NOTE',

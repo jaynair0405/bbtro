@@ -87,13 +87,22 @@
         });
     }
 
-    // Body: blank line = new paragraph, single newline = line break inside one.
+    /* Body: blank line = new paragraph, single newline = line break inside one.
+     *
+     * **double asterisks** emphasise a run in bold. The reference letters rely
+     * on this: the footplate-km letter (cadre-management/mis1.pdf) bolds the
+     * cut-off date and both mentions of the 60,000-kilometre threshold, which
+     * are the whole point of the letter. Markers are applied AFTER escaping, so
+     * the text itself can never inject markup. */
+    function inlineMarks(escaped) {
+        return escaped.replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>');
+    }
     function paragraphs(text) {
         if (!has(text)) return '';
         return String(text).split(/\r?\n\s*\r?\n/)
             .map(function (p) { return p.trim(); })
             .filter(Boolean)
-            .map(function (p) { return '<p>' + nl2br(p) + '</p>'; })
+            .map(function (p) { return '<p>' + inlineMarks(nl2br(p)) + '</p>'; })
             .join('');
     }
 
@@ -108,7 +117,14 @@
     // extra[key]. Adjacent columns sharing `group` render a merged header
     // (the footplate-km letter's TOTAL KM → As per Lobby / As per Employee).
     function cellValue(col, row, index) {
-        if (col.auto === 'index') return String(index + 1);
+        // An auto-numbered column normally just counts, but a stored sr_no wins
+        // when there is one. The footplate-km letter's list runs 1,2,3,4,6,7…
+        // — it references an earlier list that row 5 dropped out of, and
+        // renumbering it to 1-10 would quietly change what the letter says.
+        if (col.auto === 'index') {
+            var n = Number(row.sr_no);
+            return (isFinite(n) && n > 0) ? String(n) : String(index + 1);
+        }
         var extra = parseJson(row.extra, {}) || {};
         var v = col.src ? row[col.src] : extra[col.key];
         if ((v == null || v === '') && extra[col.key] != null) v = extra[col.key];
@@ -237,8 +253,12 @@
         }
 
         var bodyHtml = paragraphs(applyTokens(letter.body_text, letter, staff));
-        if (bodyHtml) out += '<div class="body">' + bodyHtml + '</div>';
-        else if (opts.placeholders) out += '<div class="body"><p class="ph">Body of the letter…</p></div>';
+        /* Most letters indent the first line of each paragraph; the
+         * footplate-km letter sets them flush left. body_indent=0 on the type
+         * (copied onto the letter) selects that. Default stays indented. */
+        var bodyCls = 'body' + (Number(letter.body_indent) === 0 ? ' flush' : '');
+        if (bodyHtml) out += '<div class="' + bodyCls + '">' + bodyHtml + '</div>';
+        else if (opts.placeholders) out += '<div class="' + bodyCls + '"><p class="ph">Body of the letter…</p></div>';
 
         out += renderStaffTable(letter, staff);
         out += renderAuxTable(letter);
@@ -281,7 +301,12 @@
      * archived page are the same document. Sizes are in pt/mm because this is
      * a physical A4 page, not a web layout. */
     var SHEET_CSS = [
-        '.sheet{font-family:"Times New Roman",Times,serif;font-size:12pt;line-height:1.45;color:#000;}',
+        /* line-height follows Word's single spacing (~1.15-1.2 for 12pt Times), not
+         * a web default. At 1.45 the text-heavy footplate-km letter
+         * (cadre-management/mis1.pdf) ran its body to 77.5mm where the original
+         * uses ~55mm, and spilled onto a second page. Table-dominated letters
+         * hid this because their height is mostly rows. */
+        '.sheet{font-family:"Times New Roman",Times,serif;font-size:12pt;line-height:1.35;color:#000;}',
         '.sheet .deva{font-family:"Noto Sans Devanagari","Times New Roman",serif;}',
         '.sheet .lh{display:flex;justify-content:space-between;align-items:flex-start;gap:10mm;}',
         '.sheet .lh .l .hi{font-family:"Noto Sans Devanagari","Times New Roman",serif;font-size:12pt;}',
@@ -303,6 +328,7 @@
         '.sheet .subref .sub{font-weight:400;}',
         '.sheet .body{text-align:justify;}',
         '.sheet .body p{margin:0 0 3mm;text-indent:12mm;}',
+        '.sheet .body.flush p{text-indent:0;}',
         '.sheet .foot-para{margin-top:3mm;}',
         /* table-layout:fixed is load-bearing: it makes the per-column widths in
          * the schema actually apply. Under the default `auto`, a long heading
