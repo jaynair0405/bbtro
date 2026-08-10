@@ -37,7 +37,7 @@ const router = express.Router();
 const multer = require('multer');
 const XLSX = require('xlsx');
 
-const { renderCadreLetterPage, letterSubject } = require('../../utils/cadreLetterHtml');
+const { renderCadreLetterPage, letterSubject, shortDesignation } = require('../../utils/cadreLetterHtml');
 
 // The ZRTI list arrives as a workbook attachment. Held in memory only — it is
 // parsed into rows and thrown away; nothing is written to disk.
@@ -188,6 +188,63 @@ router.post('/parse-sheet', requireDivisionAccess, sheetUpload.single('file'), (
     } catch (error) {
         console.error('cadre-letters /parse-sheet error:', error);
         res.status(400).json({ error: 'That file could not be read as a spreadsheet.' });
+    }
+});
+
+// ── GET /staff-by-pf/:pf — one staff member, for autofill ─────────────────
+//
+// The seniority-verification letter names one employee inline in its body
+// ("received from Shri X, LPG, PF No. 00211047471, working at CSMT Lobby"), and
+// the transfer letters list PF numbers the CLI already has on paper. Typing the
+// PF and having the rest appear beats copying four fields by hand — and it is
+// the division's own record rather than a retyped one.
+//
+// Matched ignoring leading zeros: the letters print "00211047471" but a CLI
+// reading off a list may well type "211047471", and both must find the person.
+// pf_number is effectively unique (3,695 distinct of 3,697 rows) though NOT
+// uniquely indexed, so this deliberately reports how many matched instead of
+// silently taking the first.
+
+router.get('/staff-by-pf/:pf', requireDivisionAccess, async (req, res) => {
+    let conn;
+    try {
+        const pf = String(req.params.pf || '').trim();
+        if (!pf) return res.status(400).json({ error: 'No PF number given.' });
+
+        conn = await getConnection(req);
+        const [rows] = await conn.query(
+            `SELECT s.hrms_id, s.pf_number, s.name, s.current_cms_id,
+                    s.current_office_code, d.designation_name
+               FROM div_staff_master s
+               LEFT JOIN designations d ON d.id = s.designation_id
+              WHERE s.status = 'Active'
+                AND TRIM(LEADING '0' FROM s.pf_number) = TRIM(LEADING '0' FROM ?)
+              LIMIT 5`,
+            [pf]
+        );
+        if (!rows.length) return res.status(404).json({ error: 'No active staff with that PF number.' });
+
+        const s = rows[0];
+        res.json({
+            matches: rows.length,
+            staff: {
+                hrms_id: s.hrms_id,
+                pf_number: s.pf_number,
+                name: s.name,
+                cms_id: s.current_cms_id,
+                designation: s.designation_name || '',
+                // short form, as the letters print it ("LPG", "Sr.ALP")
+                designation_short: shortDesignation(s.designation_name),
+                office_code: s.current_office_code,
+                // letters print the short lobby name: CSMT-ML -> CSMT
+                lobby: String(s.current_office_code || '').split('-')[0],
+            },
+        });
+    } catch (error) {
+        console.error('cadre-letters /staff-by-pf error:', error);
+        res.status(500).json({ error: 'Lookup failed' });
+    } finally {
+        if (conn) conn.release();
     }
 });
 

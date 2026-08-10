@@ -198,6 +198,7 @@ select:disabled, input:disabled, textarea:disabled { opacity: .55; cursor: not-a
              border: 1px solid #f0d99a; border-left: 3px solid var(--amber);
              border-radius: 5px; padding: 9px 11px; margin-bottom: 10px; }
 .notonroll b { display: block; color: #7a4a00; margin-bottom: 2px; }
+.hintlbl { color: var(--text-dim); font-weight: 400; text-transform: none; letter-spacing: 0; }
 #gridTable input.derived { background: #101c33; color: #7fd18c; font-style: italic; cursor: not-allowed; }
 .btn-tiny.primary { background: rgba(245,165,36,.18); border-color: rgba(245,165,36,.6); color: var(--amber); font-weight: 700; }
 .btn-tiny.primary:hover { background: rgba(245,165,36,.3); }
@@ -1001,7 +1002,7 @@ function renderTokens() {
     $('tokEmpty').style.display = keys.length ? 'none' : '';
     $('tokBox').innerHTML = keys.map((k) => `
         <div class="fld">
-          <label>${esc(k.replace(/_/g, ' '))}</label>
+          <label>${esc(k.replace(/_/g, ' '))}${isPfToken(k) ? ' <span class="hintlbl">— fills name, designation and lobby</span>' : ''}</label>
           <input type="text" data-tok="${esc(k)}" value="${esc(L.tokens[k] || '')}">
         </div>`).join('');
     $('tokBox').querySelectorAll('input[data-tok]').forEach((inp) => {
@@ -1010,7 +1011,56 @@ function renderTokens() {
             DIRTY = true;
             render();
         });
+        // A PF fill-in looks the staff up and fills the rest — see fillFromPf.
+        if (isPfToken(inp.dataset.tok)) {
+            let t;
+            const go = () => { clearTimeout(t); t = setTimeout(() => fillFromPf(inp.value), 350); };
+            inp.addEventListener('input', go);
+            inp.addEventListener('change', go);
+        }
     });
+}
+
+/* Which fill-in holds a PF number. The seniority-verification letter names one
+ * employee inline in its body, so its {{pf_number}} is the natural place to
+ * look the person up from. */
+function isPfToken(k) { return /^pf(_?(no|number))?$/i.test(k); }
+
+/* Look a PF number up in div_staff_master and fill the related fill-ins.
+ *
+ * Everything stays editable: this fills the boxes, it does not lock them. The
+ * division record is the better starting point, but the CLI is writing about a
+ * specific person and may know something the master does not (a lobby they are
+ * officiating at, a name spelled as the employee signs it).
+ *
+ * Only EMPTY fill-ins are populated, so a value the CLI has already typed is
+ * never overwritten by a lookup fired from a later keystroke. */
+async function fillFromPf(pf) {
+    pf = String(pf || '').trim();
+    if (pf.replace(/^0+/, '').length < 4) return;      // too short to be a real PF
+    let d;
+    try {
+        d = await api('/staff-by-pf/' + encodeURIComponent(pf));
+    } catch (e) { return; }                             // not found: say nothing, they may still be typing
+    const put = (key, val) => {
+        if (!val) return;
+        const keys = scanTokens();
+        if (!keys.includes(key)) return;
+        if (String(L.tokens[key] || '').trim() !== '') return;
+        L.tokens[key] = val;
+    };
+    put('staff_name', d.staff.name);
+    put('name', d.staff.name);
+    put('designation', d.staff.designation_short || d.staff.designation);
+    put('lobby', d.staff.lobby);
+    put('cms_id', d.staff.cms_id);
+    put('hrms_id', d.staff.hrms_id);
+    DIRTY = true;
+    renderTokens();
+    render();
+    toast(d.matches > 1
+        ? `${d.staff.name} — ${d.matches} staff share this PF, using the first. Check it.`
+        : `Filled from staff records: ${d.staff.name}`, d.matches > 1 ? 'err' : 'ok');
 }
 
 // ── preview ────────────────────────────────────────────────────────────
@@ -1192,6 +1242,35 @@ function sumOf(row, keys) {
     return seen ? String(total) : '';
 }
 
+/* Fill one grid row from the division record, keyed on its PF number.
+ *
+ * Only blank cells are written, so anything the CLI has already typed survives
+ * — the lookup assists, it does not take over. staff_hrms_id is stamped on the
+ * row when it matches, which is what makes a pasted list searchable later
+ * instead of staying an unlinked pile of names. */
+async function fillRowFromPf(i, pf, cols) {
+    pf = String(pf || '').trim();
+    if (pf.replace(/^0+/, '').length < 4) return;
+    let d;
+    try { d = await api('/staff-by-pf/' + encodeURIComponent(pf)); } catch (e) { return; }
+    const row = STAFF[i];
+    if (!row) return;
+    const fill = (key, val) => {
+        if (!val) return;
+        const col = cols.find((c) => c.key === key);
+        if (!col) return;
+        if (String(cellRead(row, col) || '').trim() !== '') return;
+        cellWrite(row, col, val);
+    };
+    fill('name', d.staff.name);
+    fill('designation', d.staff.designation_short || d.staff.designation);
+    fill('present_lobby', d.staff.lobby);
+    if (!row.staff_hrms_id) row.staff_hrms_id = d.staff.hrms_id;
+    DIRTY = true;
+    drawGrid();
+    render();
+}
+
 function drawGrid() {
     const cols = gridColumns();
     const rows = gridRows();
@@ -1236,6 +1315,20 @@ function drawGrid() {
                 if (cell) cell.value = sumOf(gridRows()[i], dc.sum);
             });
         });
+        // Typing a PF in the staff grid fills the rest of that row from the
+        // division record. Skipped for an EXTERNAL letter: the initial-ALP
+        // trainees are not on div_staff_master yet, so every lookup would miss
+        // and the toast would just be noise.
+        if (GRID_MODE === 'staff' && inp.dataset.k === 'pf' && L.staff_source !== 'EXTERNAL') {
+            let t;
+            const go = () => {
+                clearTimeout(t);
+                const i = Number(inp.closest('tr').dataset.i);
+                t = setTimeout(() => fillRowFromPf(i, inp.value, editable), 350);
+            };
+            inp.addEventListener('input', go);
+            inp.addEventListener('change', go);
+        }
     });
     $('gridTable').querySelectorAll('.rowrm').forEach((b) => {
         b.onclick = () => {
