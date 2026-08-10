@@ -356,7 +356,7 @@ async function loadLetter(conn, id) {
 
 const LETTER_FIELDS = [
     'letter_no', 'letter_series', 'letter_date', 'type_code', 'doc_kind',
-    'staff_source', 'body_indent', 'banner_text',
+    'staff_source', 'body_indent', 'page_margin', 'banner_text',
     'office_header_text', 'addressee_text', 'addressee_text_hi', 'subject_text',
     'ref_text', 'body_text', 'footer_text', 'encl_text', 'cc_text',
     'approval_chain_text', 'signing_designation', 'signing_designation_hindi',
@@ -372,7 +372,7 @@ router.post('/', requireDivisionAccess, async (req, res) => {
 
         conn = await getConnection(req);
         const [[type]] = await conn.query(
-            'SELECT type_code, doc_kind, staff_source, body_indent, letter_series FROM div_cadre_letter_types WHERE type_code = ?',
+            'SELECT type_code, doc_kind, staff_source, body_indent, page_margin, letter_series FROM div_cadre_letter_types WHERE type_code = ?',
             [b.type_code]
         );
         if (!type) return res.status(400).json({ error: 'Unknown letter type' });
@@ -386,6 +386,7 @@ router.post('/', requireDivisionAccess, async (req, res) => {
         b.staff_source = b.staff_source || type.staff_source || 'ROLL';
         // body_indent is NOT NULL and 0 is a meaningful value, so ?? not ||.
         b.body_indent = b.body_indent ?? type.body_indent ?? 1;
+        b.page_margin = b.page_margin || type.page_margin || 'NORMAL';
         b.letter_series = b.letter_series || type.letter_series || null;
 
         const staff = Array.isArray(b.staff) ? b.staff : [];

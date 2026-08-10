@@ -237,6 +237,42 @@ PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 UPDATE div_cadre_letter_types SET body_indent = 0
  WHERE type_code = 'FOOTPLATE_KM_EVIDENCE';
 
+-- ---------------------------------------------------------------------------
+-- 4d. Page margins
+--
+-- Measured off the scanned originals (ink extents, their Letter page
+-- normalised to A4). Four of the five sit near 31mm left / 21mm right — the
+-- left is wider because these letters get punched and filed:
+--
+--     LP-Shunter 33.2/32.1   NOTE 31.8/20.5   Reminder 31.0/21.2
+--     Footplate  31.0/22.6   Initial ALP 12.7/13.8  <- deliberately narrow
+--
+-- The initial-ALP letter is the exception on purpose: its seven-column table
+-- needs the width, and at NORMAL margins every name wraps and the letter runs
+-- to three pages instead of two. Hence per type, not one global setting.
+-- ---------------------------------------------------------------------------
+SET @sql := IF(
+  (SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'div_cadre_letter_types'
+      AND COLUMN_NAME = 'page_margin') = 0,
+  "ALTER TABLE div_cadre_letter_types
+     ADD COLUMN page_margin ENUM('NORMAL','WIDE') NOT NULL DEFAULT 'NORMAL' AFTER body_indent",
+  "SELECT 'div_cadre_letter_types.page_margin already present' AS note");
+PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+
+SET @sql := IF(
+  (SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'div_cadre_letters'
+      AND COLUMN_NAME = 'page_margin') = 0,
+  "ALTER TABLE div_cadre_letters
+     ADD COLUMN page_margin ENUM('NORMAL','WIDE') NOT NULL DEFAULT 'NORMAL' AFTER body_indent",
+  "SELECT 'div_cadre_letters.page_margin already present' AS note");
+PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+
+-- The wide-table letters: six or seven columns including names and lobbies.
+UPDATE div_cadre_letter_types SET page_margin = 'WIDE'
+ WHERE type_code IN ('POSTING_INITIAL_ALP', 'RELIEVING_INITIAL_ALP', 'POSTING_GENERIC');
+
 -- The '*******' separator line is not wanted; the banner slot is for the
 -- NOTE label and 'Reminder - I' only.
 UPDATE div_cadre_letter_types SET banner_text = NULL WHERE banner_text = '*******';

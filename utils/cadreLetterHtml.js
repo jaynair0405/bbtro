@@ -13,7 +13,7 @@
 
 const CadreLetter = require('../public/div/js/cadre-letter-render.js');
 
-const { renderSheet, SHEET_CSS, escapeHtml, fmtDate, applyTokens } = CadreLetter;
+const { renderSheet, SHEET_CSS, escapeHtml, fmtDate, applyTokens, pageMargin } = CadreLetter;
 
 /**
  * The letter's subject with its {{tokens}} resolved — what a human should see
@@ -55,7 +55,7 @@ function renderCadreLetterPage(letter, staff) {
          box-shadow:0 8px 30px rgba(0,0,0,.12);}
 ${SHEET_CSS}
   @media print{
-    @page{size:A4;margin:14mm 15mm;}
+    @page{size:A4;margin:${pageMargin(letter)};}
     body{background:#fff;}
     .no-print{display:none !important;}
     .sheet{width:auto;margin:0;padding:0;border:none;box-shadow:none;}

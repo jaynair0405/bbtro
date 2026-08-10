@@ -106,6 +106,33 @@
             .join('');
     }
 
+    /* Page margins, measured off the scanned originals (ink extents, their
+     * Letter page normalised to A4):
+     *
+     *     letter            left   right   text width
+     *     LP-Shunter        33.2   32.1    150.3
+     *     NOTE              31.8   20.5    163.3
+     *     Reminder          31.0   21.2    163.3
+     *     Footplate km      31.0   22.6    161.9
+     *     Initial ALP       12.7   13.8    189.0   <- deliberately narrow
+     *
+     * Four of the five sit near 31mm left / 21mm right — left wider because
+     * these get punched and filed. The initial-ALP letter is the exception on
+     * purpose: its seven-column table needs the width, and at NORMAL margins
+     * every name in it wraps and the letter runs to three pages. So this is a
+     * property of the letter type, not one global setting.
+     *
+     * A keyword, not a free CSS string: the value is interpolated into an
+     * @page rule, and a stored string would be an injection point the day the
+     * type catalogue becomes editable in the UI. */
+    var PAGE_MARGINS = {
+        NORMAL: '16mm 19mm 14mm 28mm',   // top right bottom left
+        WIDE:   '14mm 14mm 12mm 15mm'    // wide tables (initial-ALP family)
+    };
+    function pageMargin(letter) {
+        return PAGE_MARGINS[letter && letter.page_margin] || PAGE_MARGINS.NORMAL;
+    }
+
     function parseJson(v, fallback) {
         if (v == null) return fallback;
         if (typeof v === 'object') return v;
@@ -363,10 +390,14 @@
         '.sheet table.grid th{font-weight:400;font-size:8.5pt;line-height:1.15;padding:0.5mm 0.8mm;}',
         '.sheet table.grid td.l{text-align:left;}',
         '.sheet table.grid td.c{text-align:center;font-weight:600;}',
-        '.sheet .sig{margin:9mm 0 0 auto;width:70mm;text-align:center;line-height:1.4;}',
+        '.sheet .sig{margin:6mm 0 0 auto;width:70mm;text-align:center;line-height:1.4;}',
         '.sheet .encl{margin-top:5mm;}',
         '.sheet .cc{margin-top:8mm;font-size:11pt;line-height:1.45;}',
-        '.sheet .chain{margin-top:10mm;line-height:2.2;}',
+        /* The approval chain is signing space, so its gaps are whitespace rather
+         * than content — which is what gets trimmed when a NOTE is close to the
+         * page edge. At 10mm/2.2 the refresher-exemption NOTE overran by 9.2mm
+         * at the corrected page margins and threw the chain onto page 2. */
+        '.sheet .chain{margin-top:6mm;line-height:2.0;}',
         '.sheet .ph{color:#a09a86;font-style:italic;}',
         /* Provenance line, the counterpart of the Word original's
          * "\\10.31.212.176\mydoc\word\tech 04.doc" footer — which sits at the
@@ -387,6 +418,8 @@
         applyTokens: applyTokens,
         shortDesignation: shortDesignation,
         fmtDate: fmtDate,
-        escapeHtml: esc
+        escapeHtml: esc,
+        pageMargin: pageMargin,
+        PAGE_MARGINS: PAGE_MARGINS
     };
 }));
