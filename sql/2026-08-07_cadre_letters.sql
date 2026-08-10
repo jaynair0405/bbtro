@@ -269,6 +269,35 @@ SET @sql := IF(
   "SELECT 'div_cadre_letters.page_margin already present' AS note");
 PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 
+-- ---------------------------------------------------------------------------
+-- 4e. Blank space above the signature — where the pen goes
+--
+-- Measured on the originals; it varies with how full the page is:
+--   LP-Shunter 28.9mm   Reminder 25.0mm   Footplate 14.5mm   NOTE 13.4mm
+-- Default 18mm. The refresher-exemption NOTE is the densest letter and only
+-- fits on one page with a small gap — its own original also has the tightest
+-- of the five. Raise it and that letter becomes two pages.
+-- ---------------------------------------------------------------------------
+SET @sql := IF(
+  (SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'div_cadre_letter_types'
+      AND COLUMN_NAME = 'sig_gap') = 0,
+  "ALTER TABLE div_cadre_letter_types
+     ADD COLUMN sig_gap TINYINT UNSIGNED NOT NULL DEFAULT 18 AFTER page_margin",
+  "SELECT 'div_cadre_letter_types.sig_gap already present' AS note");
+PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+
+SET @sql := IF(
+  (SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'div_cadre_letters'
+      AND COLUMN_NAME = 'sig_gap') = 0,
+  "ALTER TABLE div_cadre_letters
+     ADD COLUMN sig_gap TINYINT UNSIGNED NOT NULL DEFAULT 18 AFTER page_margin",
+  "SELECT 'div_cadre_letters.sig_gap already present' AS note");
+PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+
+UPDATE div_cadre_letter_types SET sig_gap = 6 WHERE type_code = 'REFRESHER_EXEMPTION';
+
 -- The wide-table letters: six or seven columns including names and lobbies.
 UPDATE div_cadre_letter_types SET page_margin = 'WIDE'
  WHERE type_code IN ('POSTING_INITIAL_ALP', 'RELIEVING_INITIAL_ALP', 'POSTING_GENERIC');

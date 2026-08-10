@@ -37,7 +37,7 @@ const router = express.Router();
 const multer = require('multer');
 const XLSX = require('xlsx');
 
-const { renderCadreLetterPage, letterSubject, shortDesignation } = require('../../utils/cadreLetterHtml');
+const { renderCadreLetterPage, renderCadreLetterWord, letterSubject, shortDesignation } = require('../../utils/cadreLetterHtml');
 
 // The ZRTI list arrives as a workbook attachment. Held in memory only — it is
 // parsed into rows and thrown away; nothing is written to disk.
@@ -188,6 +188,43 @@ router.post('/parse-sheet', requireDivisionAccess, sheetUpload.single('file'), (
     } catch (error) {
         console.error('cadre-letters /parse-sheet error:', error);
         res.status(400).json({ error: 'That file could not be read as a spreadsheet.' });
+    }
+});
+
+// ── GET /:id/word — download the letter as a Word document ───────────────
+//
+// The cadre desk wrote these in Word before this module existed, and will still
+// want to hand-adjust one occasionally. Same renderer as the print and archive
+// paths, wrapped for Word — see renderCadreLetterWord().
+
+router.get('/:id/word', requireDivisionAccess, async (req, res) => {
+    let conn;
+    try {
+        conn = await getConnection(req);
+        const [[letter]] = await conn.query(
+            `SELECT *, DATE_FORMAT(letter_date, '%Y-%m-%d') AS letter_date
+               FROM div_cadre_letters WHERE id = ?`, [req.params.id]);
+        if (!letter) return res.status(404).json({ error: 'Letter not found' });
+        const [staff] = await conn.query(
+            `SELECT * FROM div_cadre_letter_staff WHERE letter_id = ? ORDER BY sr_no`,
+            [req.params.id]);
+
+        letter.table_columns = asJson(letter.table_columns);
+        letter.aux_data = asJson(letter.aux_data);
+        letter.tokens = asJson(letter.tokens) || {};
+
+        // Filename from the letter number, which contains slashes.
+        const base = String(letter.letter_no || ('cadre-letter-' + letter.id))
+            .replace(/[\\/:*?"<>|]+/g, '-').replace(/\s+/g, ' ').trim();
+        res.setHeader('Content-Type', 'application/msword; charset=utf-8');
+        res.setHeader('Content-Disposition',
+            `attachment; filename="${base}.doc"; filename*=UTF-8''${encodeURIComponent(base)}.doc`);
+        res.send('\ufeff' + renderCadreLetterWord(letter, staff));   // BOM: Word needs it to read UTF-8
+    } catch (error) {
+        console.error('cadre-letters /:id/word error:', error);
+        res.status(500).json({ error: 'Failed to build the Word file' });
+    } finally {
+        if (conn) conn.release();
     }
 });
 
@@ -451,7 +488,7 @@ async function loadLetter(conn, id) {
 
 const LETTER_FIELDS = [
     'letter_no', 'letter_series', 'letter_date', 'type_code', 'doc_kind',
-    'staff_source', 'body_indent', 'page_margin', 'banner_text',
+    'staff_source', 'body_indent', 'page_margin', 'sig_gap', 'banner_text',
     'office_header_text', 'addressee_text', 'addressee_text_hi', 'subject_text',
     'ref_text', 'body_text', 'footer_text', 'encl_text', 'cc_text',
     'approval_chain_text', 'signing_designation', 'signing_designation_hindi',
@@ -467,7 +504,7 @@ router.post('/', requireDivisionAccess, async (req, res) => {
 
         conn = await getConnection(req);
         const [[type]] = await conn.query(
-            'SELECT type_code, doc_kind, staff_source, body_indent, page_margin, letter_series FROM div_cadre_letter_types WHERE type_code = ?',
+            'SELECT type_code, doc_kind, staff_source, body_indent, page_margin, sig_gap, letter_series FROM div_cadre_letter_types WHERE type_code = ?',
             [b.type_code]
         );
         if (!type) return res.status(400).json({ error: 'Unknown letter type' });
@@ -482,6 +519,7 @@ router.post('/', requireDivisionAccess, async (req, res) => {
         // body_indent is NOT NULL and 0 is a meaningful value, so ?? not ||.
         b.body_indent = b.body_indent ?? type.body_indent ?? 1;
         b.page_margin = b.page_margin || type.page_margin || 'NORMAL';
+        b.sig_gap = b.sig_gap ?? type.sig_gap ?? 18;
         b.letter_series = b.letter_series || type.letter_series || null;
 
         const staff = Array.isArray(b.staff) ? b.staff : [];

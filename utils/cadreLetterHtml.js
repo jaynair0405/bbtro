@@ -80,8 +80,55 @@ ${SHEET_CSS}
 </body></html>`;
 }
 
+
+/**
+ * The same letter as a Word-openable document.
+ *
+ * This is HTML that Word opens and edits natively (the classic "Save as Web
+ * Page" format), served as .doc — NOT a real .docx zip. That is a deliberate
+ * trade: a true .docx needs a new dependency and a second renderer that would
+ * drift from this one, whereas this reuses renderSheet() verbatim, so the Word
+ * file, the printout and the archived copy are the same document.
+ *
+ * What Word needs that a browser does not:
+ *   • the mso XML block + WordSection1 wrapper, or page size and margins are
+ *     ignored and it opens as one endless page
+ *   • real font names — the Noto Sans Devanagari webfont is not embedded, so
+ *     the Devanagari falls back to what Windows actually has (Nirmala UI,
+ *     Mangal). Naming them keeps the letterhead and signature readable.
+ *   • pt/cm rather than mm in a few places Word rounds oddly; mm is kept here
+ *     because Word 2016+ honours it and the numbers stay comparable to print.
+ */
+function renderCadreLetterWord(letter, staff) {
+    const title = [letter.letter_no, letterSubject(letter, staff)].filter(Boolean).join(' — ')
+        || 'Cadre letter';
+    const margins = pageMargin(letter).split(/\s+/);   // top right bottom left
+    const [mt, mr, mb, ml] = margins.length === 4 ? margins : [margins[0], margins[1], margins[0], margins[1]];
+
+    return `<html xmlns:o="urn:schemas-microsoft-com:office:office"
+      xmlns:w="urn:schemas-microsoft-com:office:word"
+      xmlns="http://www.w3.org/TR/REC-html40"><head>
+<meta charset="utf-8">
+<title>${escapeHtml(title)}</title>
+<!--[if gte mso 9]><xml>
+ <w:WordDocument><w:View>Print</w:View><w:Zoom>100</w:Zoom></w:WordDocument>
+</xml><![endif]-->
+<style>
+@page WordSection1 { size: 210mm 297mm; margin: ${mt} ${mr} ${mb} ${ml}; }
+div.WordSection1 { page: WordSection1; }
+body{font-family:"Times New Roman",Times,serif;}
+.deva,.sheet .deva{font-family:"Nirmala UI","Mangal","Noto Sans Devanagari","Times New Roman",serif;}
+${SHEET_CSS}
+/* Word ignores the screen chrome; the sheet is the page itself here. */
+.sheet{width:auto;margin:0;padding:0;border:none;box-shadow:none;}
+.sheet .ph{color:#888;}
+</style></head>
+<body><div class="WordSection1"><div class="sheet">${renderSheet(letter, staff, { placeholders: false })}</div></div></body></html>`;
+}
+
 module.exports = {
     renderCadreLetterPage,
+    renderCadreLetterWord,
     letterSubject,
     renderSheet,
     SHEET_CSS,

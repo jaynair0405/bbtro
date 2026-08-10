@@ -133,6 +133,12 @@
         return PAGE_MARGINS[letter && letter.page_margin] || PAGE_MARGINS.NORMAL;
     }
 
+    // mm of blank space above the signature; see the comment at its use.
+    function sigGap(letter) {
+        var n = Number(letter && letter.sig_gap);
+        return (isFinite(n) && n >= 0 && n <= 60) ? n : 18;
+    }
+
     function parseJson(v, fallback) {
         if (v == null) return fallback;
         if (typeof v === 'object') return v;
@@ -327,7 +333,12 @@
         if (footHtml) out += '<div class="body foot-para">' + footHtml + '</div>';
 
         // Signature — designation only, no name, right-aligned
-        out += '<div class="sig">';
+        /* Space above the signature is where the pen goes. The originals vary
+         * with how full the page is — 28.9mm on the LP-Shunter letter, 25.0 on
+         * the Reminder, 14.5 on the footplate one, 13.4 on the NOTE — so this
+         * is per type, defaulting to 18mm. Too small and there is nowhere to
+         * sign, which is what 6mm looked like on a half-page posting letter. */
+        out += '<div class="sig" style="margin-top:' + sigGap(letter) + 'mm">';
         if (has(letter.signing_designation_hindi)) {
             out += '<div class="deva">' + nl2br(letter.signing_designation_hindi) + '</div>';
         } else if (has(letter.signing_designation)) {
@@ -414,7 +425,7 @@
         '.sheet table.grid th{font-weight:400;font-size:8.5pt;line-height:1.15;padding:0.5mm 0.8mm;}',
         '.sheet table.grid td.l{text-align:left;}',
         '.sheet table.grid td.c{text-align:center;font-weight:600;}',
-        '.sheet .sig{margin:6mm 0 0 auto;width:70mm;text-align:center;line-height:1.4;}',
+        '.sheet .sig{margin:0 0 0 auto;width:70mm;text-align:center;line-height:1.4;}',
         '.sheet .encl{margin-top:5mm;}',
         '.sheet .cc{margin-top:8mm;font-size:11pt;line-height:1.45;}',
         /* The approval chain is signing space, so its gaps are whitespace rather
@@ -444,6 +455,7 @@
         fmtDate: fmtDate,
         escapeHtml: esc,
         pageMargin: pageMargin,
+        sigGap: sigGap,
         PAGE_MARGINS: PAGE_MARGINS
     };
 }));
