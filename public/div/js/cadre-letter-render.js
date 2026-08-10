@@ -149,7 +149,11 @@
         if (!columns || !columns.length || !staff || !staff.length) return '';
         var body = staff.map(function (row, i) {
             return '<tr>' + columns.map(function (c) {
-                var cls = (c.key === 'name' || c.align === 'left') ? ' class="l"' : '';
+                // Name and PF are left-aligned in every reference letter; SR,
+                // lobbies and codes are centred. `align` overrides either way.
+                var leftByDefault = (c.key === 'name' || c.key === 'pf');
+                var cls = (c.align === 'left' || (leftByDefault && c.align !== 'center'))
+                    ? ' class="l"' : '';
                 return '<td' + cls + '>' + nl2br(cellValue(c, row, i)) + '</td>';
             }).join('') + '</tr>';
         }).join('');
@@ -282,17 +286,23 @@
         '.sheet .lh{display:flex;justify-content:space-between;align-items:flex-start;gap:10mm;}',
         '.sheet .lh .l .hi{font-family:"Noto Sans Devanagari","Times New Roman",serif;font-size:12pt;}',
         '.sheet .lh .r{text-align:left;font-size:11.5pt;line-height:1.5;white-space:nowrap;}',
-        '.sheet .noline{display:flex;justify-content:space-between;align-items:baseline;margin:1mm 0 6mm;}',
+        /* Preamble spacing is deliberately tight. The 28-row LP-Shunter letter
+         * (cadre-management/trf of lps.pdf) is ONE page in Word; with looser
+         * gaps it ended at 276.5mm against 269mm printable and threw just the
+         * signature onto a second, near-empty page. The slack was spread across
+         * these gaps, not in any one of them — measure the whole preamble
+         * (table top should land near 68mm) before loosening any of them. */
+        '.sheet .noline{display:flex;justify-content:space-between;align-items:baseline;margin:1mm 0 4mm;}',
         '.sheet .noline .dt{white-space:nowrap;}',
-        '.sheet .addr{margin:0 0 6mm;line-height:1.5;}',
-        '.sheet .banner{text-align:center;font-weight:700;margin:0 0 4mm;}',
+        '.sheet .addr{margin:0 0 4mm;line-height:1.4;}',
+        '.sheet .banner{text-align:center;font-weight:700;margin:0 0 3mm;}',
         '.sheet .banner.stars{font-weight:400;letter-spacing:2px;}',
-        '.sheet .subref{margin:0 0 5mm;padding-left:12mm;}',
+        '.sheet .subref{margin:0 0 4mm;padding-left:12mm;}',
         '.sheet .subref .sub,.sheet .subref .ref{display:flex;gap:2mm;align-items:flex-start;}',
         '.sheet .subref .lbl{flex:0 0 11mm;font-weight:400;}',
         '.sheet .subref .sub{font-weight:400;}',
         '.sheet .body{text-align:justify;}',
-        '.sheet .body p{margin:0 0 3.5mm;text-indent:12mm;}',
+        '.sheet .body p{margin:0 0 3mm;text-indent:12mm;}',
         '.sheet .foot-para{margin-top:3mm;}',
         /* table-layout:fixed is load-bearing: it makes the per-column widths in
          * the schema actually apply. Under the default `auto`, a long heading
@@ -304,7 +314,7 @@
          * (cadre-management/Document 3.pdf) fits 32 rows on page 1 and 37 on
          * page 2. That needs a ~5.5mm row, which is padding 0.5mm x2 + one
          * 4.0mm line. Loosening either sends the letter onto a third page. */
-        '.sheet table.grid{border-collapse:collapse;table-layout:fixed;width:92%;margin:4mm auto 5mm;font-size:10.5pt;line-height:1.1;}',
+        '.sheet table.grid{border-collapse:collapse;table-layout:fixed;width:92%;margin:3mm auto 4mm;font-size:10.5pt;line-height:1.1;}',
         '.sheet table.grid th,.sheet table.grid td{border:1px solid #000;padding:0.5mm 1.2mm;text-align:center;vertical-align:middle;word-wrap:break-word;}',
         /* Headers are smaller and more tightly padded than the data cells so a
          * long label fits its narrow column WITHOUT word-wrap:break-word
@@ -314,12 +324,22 @@
         '.sheet table.grid th{font-weight:400;font-size:8.5pt;line-height:1.15;padding:0.5mm 0.8mm;}',
         '.sheet table.grid td.l{text-align:left;}',
         '.sheet table.grid td.c{text-align:center;font-weight:600;}',
-        '.sheet .sig{margin:12mm 0 0 auto;width:70mm;text-align:center;line-height:1.4;}',
+        '.sheet .sig{margin:9mm 0 0 auto;width:70mm;text-align:center;line-height:1.4;}',
         '.sheet .encl{margin-top:5mm;}',
         '.sheet .cc{margin-top:8mm;font-size:11pt;line-height:1.45;}',
         '.sheet .chain{margin-top:10mm;line-height:2.2;}',
         '.sheet .ph{color:#a09a86;font-style:italic;}',
-        '.sheet .gen-credit{margin-top:8mm;font-size:6.5pt;color:#c9ced6;letter-spacing:.2px;}'
+        /* Provenance line, the counterpart of the Word original's
+         * "\\10.31.212.176\mydoc\word\tech 04.doc" footer — which sits at the
+         * bottom of EVERY page, not after the signature.
+         *
+         * In print it is taken out of the flow and pinned to the page bottom.
+         * In the flow it added ~11mm after the signature, which is what pushed
+         * the one-page LP-Shunter letter onto a second, near-empty page: the
+         * letter itself ended at 265.6mm, inside the 269mm printable area, and
+         * only this line overran it. */
+        '.sheet .gen-credit{margin-top:8mm;font-size:6.5pt;color:#c9ced6;letter-spacing:.2px;}',
+        '@media print{.sheet .gen-credit{position:fixed;bottom:0;left:0;margin:0;}}'
     ].join('\n');
 
     return {
