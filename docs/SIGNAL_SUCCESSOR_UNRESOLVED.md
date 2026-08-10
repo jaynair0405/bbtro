@@ -151,6 +151,10 @@ Fix: align names / normalize (`LL`→`LOC`, `5TH LINE`→`5TH`, `6TH LINE`→`6T
 | URAN S-22 | UP BSU | 1 |
 | VSH S-22 | UP HB | 2 |
 
+## Update 2026-06-27 — KJT→PDI routes loaded
+The KJT-yard / KHPI Bucket-B references (KJT S-14/16/21/22/28/38/39/42/62/63/64/71/81/82/87/95/105/106/112, PDI S-5/S-16, etc.) are now **resolved on `DN KHPI` / `UP KHPI`** — 28 yard routing signals added via `sql/2026-06-27_kjt_khpi_yard_routing_signals.sql`, and `KJT_KHPI_DN_ROUTES.csv` (45 edges) + `KJT_KHPI_UP_ROUTES.csv` (31 edges) imported (graph 320→396).
+**Still unresolved (~35 SE-line KJT-yard edges, ids 165-200) — PENDING KJT-LNL, do NOT delete.** The old `test_for_platform_parrallel_signals.csv` encoded the whole KJT-yard routing on the **SE line** (`DN SE`/`UP SE`); the granular KHPI-line versions are now loaded (`DN KHPI`/`UP KHPI`). These SE-line edges are NOT simply superseded duplicates: **KJT S-62 is a genuine `DN SE` signal arriving with KJT-LNL** (confirmed by user 2026-06-29; appears only here — `KJT S-38/S-42 → S-62`, `KJT S-62 → PDI S-16`), and `KJT S-63 / S-64 / S-71` may likewise be real DN SE / UP SE signals (boundary-dup like KJT S-132). **Reconcile when KJT-LNL is imported** — the genuinely-SE signals resolve then; any true KHPI-only duplicates can be cleaned at that point with full context. (Earlier "superseded, cleanup candidate" framing retracted.)
+
 ## Notes
 - Bucket A: 79 distinct;  Bucket B: 59 distinct.
 - Fixed 2026-06-22: GMN A-963→A-963 (signal renamed); VSH S-1/11/12/13/16/18 → S-30/3/4/5/8/22 (CSV remapped).
