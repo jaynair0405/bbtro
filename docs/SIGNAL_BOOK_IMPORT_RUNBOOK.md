@@ -5,7 +5,24 @@ TH, HB, THB, SE, NE, BSU, KHPI, …). Follow this so every section goes in
 consistently. The authoritative state + per-section history is in
 `bbtro_signal_aws_master_plan.md` (§0 coverage tracker + decision log).
 
+## ⚠️ Branch policy (read first)
+**All signal-book / signal-AWS work commits to the `signal-book` branch ONLY — never to
+`master`.** `master` is the deployable line (the server runs `git pull origin master`);
+signal-book work must stay off it until the whole effort is complete and explicitly merged.
+This keeps in-progress data, migrations, render tweaks and any new pages from leaking to
+production. When signal-book is done & verified, merge `signal-book` → `master` and only
+then run the SQL migrations + data imports on the server. Workflow:
+`git checkout signal-book` before doing any work here.
+
 ## 0. Tooling
+- Pre-flight: `node scripts/preflight-corridor.js <master.xlsx>` — run FIRST on every
+  master. Reports dups, invalid enums (type/placement/function), orphan station/NS/PSR
+  anchors, PSR-line typos, blank-anchor terminal headers. Also run a cross-section check
+  (number+direction vs existing `div_signals`) before importing a renamed/deduped master.
+- Builder: `node scripts/build-corridor-master.js <master.xlsx> <outDir>` — splits a
+  corridor master into per-line section + signals files the importer eats. Auto-detects
+  both sheet-naming styles (spaces≡hyphens); carries blank-anchor terminals; header-only
+  empty inserts/PSR when a corridor has none.
 - Importer: `node scripts/import-signal-section.js <section.xlsx> --signals <signals.xlsx|csv> [--commit] [--force]`
   - Dry-run without `--commit`. `--force` only to overwrite a `ui`-owned section.
 - Renderer: `node scripts/render-signal-book.js <BEAT_CODE>` → `signal-book-<BEAT>.html`
@@ -88,9 +105,25 @@ DELETE sg FROM div_signals sg
   sections; bind all of them to the beat. Don't duplicate the trunk signals.
   Exception when the user explicitly accepts duplication (VDLR-GMN: RVJ S-6/S-9
   intentionally shared with CSMT-PNVL).
-- **Identity vs display**: `div_signals.signal_number` is the UNIQUE id (qualify
-  repeating distants/gates). Optional `display_signal_no` column on the spine = the
-  short book label (e.g. id `ASO DIST`, label `DIST`). Falls back to signal_number.
+- **One signal, two lines** (distinct from shared trunk): at a junction a single signal
+  is read from BOTH the main and the MID line (or from a suburban and a ghat page), so it
+  must PRINT on both. There is no segment to factor out — the same physical signal
+  genuinely belongs to two lines/sections, so it is held as two+ rows. `id` = display row
+  (one per line/page); `magnet_id` = the ONE physical magnet all copies share.
+- **Identity vs display**: `div_signals.signal_number` is the **book label, NOT a unique
+  key** — 76 names legitimately repeat (per-line/per-section copies; also case-collisions
+  like `GATE-7` KJT-KHPI vs `Gate-7` KYN-KJT = two different gates). The unique PHYSICAL
+  identity is **`magnet_id`**. Optional `display_signal_no` on the spine = the short book
+  label (e.g. id `ASO DIST`, label `DIST`); falls back to signal_number.
+- **magnet_id invariant**: if a signal appears more than once, every copy MUST carry the
+  same `magnet_id` (canonical = lowest id in the group). AWS magnet-counting (JPO Rule 3b,
+  chronic-repeaters) groups by `magnet_id`; NULL/mismatched copies count as separate
+  magnets and never trip a rule. Rendering ignores `magnet_id` — it is an analysis field.
+  Check (must return 0 rows): `SELECT signal_number,section,direction FROM div_signals
+  WHERE is_active=1 GROUP BY signal_number,section,direction HAVING COUNT(*)>1 AND
+  COUNT(DISTINCT magnet_id)<>1;`  Cross-section same-magnet linking (e.g. ghat KJT S-16
+  → its KJT-KHPI copy) is applied when the user confirms it is the same physical signal;
+  see `sql/2026-07-14_ghat_magnet_ids.sql`.
 - **Class badges** (rendered, not typed): `signal_function` contains "Distant" → Ⓟ;
   else `signal_type`/`function` IBS → ⒾⒷ; else `signal_type='Gate'` → Ⓖ.
 - **Tags in description cell**: red `RHS`/`Ext RHS` from is_rhs/is_ext_rhs; blue
@@ -104,6 +137,31 @@ One dated `sql/YYYY-MM-DD_bind_<x>_to_<beat>.sql`, `INSERT IGNORE` into
 `div_signal_beat_sections (beat_id, section_id, display_order)`. Order = book/reading
 order (for merge/diverge: legs then trunk on the merging direction; trunk then legs on
 the diverging direction). Append after the beat's existing max display_order.
+
+## 7a. Book display groups (render split sections as named routes)
+The data is stored finely split (each signal once, for magnet/AWS), which fragments a
+route into many sub-sections. Two binding-level columns reassemble it for the BOOK
+without touching the data:
+
+- **`display_group`** (`div_signal_beat_sections`, VARCHAR(80)) — consecutive bound
+  sections sharing a `display_group` render under ONE heading (= the group text), rows
+  concatenated, so a route reads as one continuous list. NULL = section renders
+  standalone with its own `section_title`.
+- **`lead_in_note`** (VARCHAR(160)) — italic caption under the heading. Used to stub a
+  shared junction: print the junction block once in the full-run route, and start the
+  other leg at its unique signal with a "From … / To … (see <other route>)" pointer —
+  how a real signal book handles a convergence. No signal repeated; `uk_beat_section`
+  intact (a section still binds once per beat).
+
+Worked example — the PNVL-BSR/KYN/DIVA complex (beats PNVL_GOODS, KYN_GOODS,
+CSMT_ML_MMR), see `sql/2026-08-03_pnvl_complex_render_groups.sql`:
+- UP: `PNVL-DCC | Dativali-Diva | DAT-BSR (main) | DIVA-BSR (stub) | DCC-KYN | KYN-BSR CHORD`
+- DN: `BSR-KOPAR | BSR-KYN CHORD | DCC-PNVL (main) | DCC-DIVA (stub)`
+- BSR has two feeders converging (DAT full-run + DIVA stub); DN is a clean split after
+  DI S-6 with DCC S-35/S-19/S-22 as shared junction signals shown once under DCC-PNVL.
+
+Rendering-order across the whole beat is a separate pass (done beat-by-beat later); the
+group/stub wiring above is independent of it.
 
 ## 8. Verify
 `render-signal-book.js <BEAT>` → check section titles, row count, badges, and the
