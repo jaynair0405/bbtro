@@ -493,12 +493,12 @@ As per the letter under reference, the assessed vacancies for {{designation}} as
  'In view of the above, it is requested that a fresh selection panel for the post of {{designation}} may kindly be initiated at the earliest.',
  NULL,
  '{"title":"Cadre position","groupLabel":"LOBBY","columns":[
-    {"key":"sr","label":"SR NO","w":"8%","auto":"index"},
-    {"key":"particulars","label":"PARTICULARS","w":"40%"},
-    {"key":"csmt","label":"CSMT","w":"12%","group":"LOBBY"},
-    {"key":"kyn","label":"KYN","w":"12%","group":"LOBBY"},
-    {"key":"pnvl","label":"PNVL","w":"12%","group":"LOBBY"},
-    {"key":"total","label":"TOTAL","w":"16%"}],
+    {"key":"sr","label":"SR NO","w":"5%","auto":"index"},
+    {"key":"particulars","label":"PARTICULARS","w":"54%"},
+    {"key":"csmt","label":"CSMT","w":"10%","group":"LOBBY"},
+    {"key":"kyn","label":"KYN","w":"10%","group":"LOBBY"},
+    {"key":"pnvl","label":"PNVL","w":"10%","group":"LOBBY"},
+    {"key":"total","label":"TOTAL","w":"11%"}],
   "rows":[
     {"particulars":"SANCTIONED STRENGTH"},
     {"particulars":"WORKING ON DETAILS"},
