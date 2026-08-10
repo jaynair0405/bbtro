@@ -229,15 +229,25 @@
                  '<div class="l"><div class="hi">मध्य रेल</div></div>' +
                  '<div class="r deva">' + nl2br(letter.office_header_text) + '</div>' +
                '</div>';
+        /* A NOTE labels itself ON the number line — "No. …   NOTE   Date : …"
+         * (cadre-management/Exemption of Refersher.pdf). Every other banner
+         * ("Reminder – I", "*******") is a centred line of its own further
+         * down, below the addressee — see reminder.pdf. */
+        var bannerInline = letter.doc_kind === 'NOTE' && has(letter.banner_text);
         out += '<div class="noline">' +
                  '<div class="no">' + (has(letter.letter_no) ? 'No. ' + esc(letter.letter_no)
                        : (opts.placeholders ? '<span class="ph">No. …</span>' : '')) + '</div>' +
+                 (bannerInline ? '<div class="mid">' + esc(String(letter.banner_text).trim()) + '</div>' : '') +
                  '<div class="dt">Date : ' + esc(fmtDate(letter.letter_date)) + '</div>' +
                '</div>';
 
-        out += '<div class="addr' + (addrDeva ? ' deva' : '') + '">' + ph(addressee, 'Addressee') + '</div>';
+        // A NOTE is internal and has no addressee at all — don't leave an empty
+        // block holding its margin open.
+        if (has(addressee) || opts.placeholders) {
+            out += '<div class="addr' + (addrDeva ? ' deva' : '') + '">' + ph(addressee, 'Addressee') + '</div>';
+        }
 
-        if (has(letter.banner_text)) {
+        if (has(letter.banner_text) && !bannerInline) {
             var b = String(letter.banner_text).trim();
             var bcls = b === '*******' ? 'banner stars' : 'banner';
             out += '<div class="' + bcls + '">' + esc(b) + '</div>';
@@ -302,11 +312,14 @@
      * a physical A4 page, not a web layout. */
     var SHEET_CSS = [
         /* line-height follows Word's single spacing (~1.15-1.2 for 12pt Times), not
-         * a web default. At 1.45 the text-heavy footplate-km letter
+         * a web default: these letters ARE Word documents at single spacing.
+         * At 1.45 the text-heavy footplate-km letter
          * (cadre-management/mis1.pdf) ran its body to 77.5mm where the original
          * uses ~55mm, and spilled onto a second page. Table-dominated letters
-         * hid this because their height is mostly rows. */
-        '.sheet{font-family:"Times New Roman",Times,serif;font-size:12pt;line-height:1.35;color:#000;}',
+         * hid this because their height is mostly rows. 1.15 is what finally
+         * let the refresher-exemption NOTE keep its ADEE/DEE/Sr.DEE approval
+         * chain on page 1, as the original does. */
+        '.sheet{font-family:"Times New Roman",Times,serif;font-size:12pt;line-height:1.15;color:#000;}',
         '.sheet .deva{font-family:"Noto Sans Devanagari","Times New Roman",serif;}',
         '.sheet .lh{display:flex;justify-content:space-between;align-items:flex-start;gap:10mm;}',
         '.sheet .lh .l .hi{font-family:"Noto Sans Devanagari","Times New Roman",serif;font-size:12pt;}',
@@ -319,6 +332,8 @@
          * (table top should land near 68mm) before loosening any of them. */
         '.sheet .noline{display:flex;justify-content:space-between;align-items:baseline;margin:1mm 0 4mm;}',
         '.sheet .noline .dt{white-space:nowrap;}',
+        // the NOTE label, centred between the number and the date
+        '.sheet .noline .mid{flex:1;text-align:center;font-weight:400;}',
         '.sheet .addr{margin:0 0 4mm;line-height:1.4;}',
         '.sheet .banner{text-align:center;font-weight:700;margin:0 0 3mm;}',
         '.sheet .banner.stars{font-weight:400;letter-spacing:2px;}',
