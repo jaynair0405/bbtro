@@ -14,7 +14,7 @@
  *   मध्य रेल          | <office block, 3 Devanagari lines>
  *   No. …             | Date : …
  *   <addressee>       (no "To," — these letters don't use it)
- *         <banner>    NOTE | Reminder – I | *******
+ *         <banner>    NOTE | Reminder – I
  *         Sub: / Ref:
  *   <body>  <table>  <footer para>
  *                     <signature>
@@ -231,7 +231,7 @@
                '</div>';
         /* A NOTE labels itself ON the number line — "No. …   NOTE   Date : …"
          * (cadre-management/Exemption of Refersher.pdf). Every other banner
-         * ("Reminder – I", "*******") is a centred line of its own further
+         * ("Reminder – I") is a centred line of its own further
          * down, below the addressee — see reminder.pdf. */
         var bannerInline = letter.doc_kind === 'NOTE' && has(letter.banner_text);
         out += '<div class="noline">' +
@@ -249,8 +249,7 @@
 
         if (has(letter.banner_text) && !bannerInline) {
             var b = String(letter.banner_text).trim();
-            var bcls = b === '*******' ? 'banner stars' : 'banner';
-            out += '<div class="' + bcls + '">' + esc(b) + '</div>';
+            out += '<div class="banner">' + esc(b) + '</div>';
         }
 
         if (has(subject) || opts.placeholders || refLines.length) {
@@ -336,7 +335,6 @@
         '.sheet .noline .mid{flex:1;text-align:center;font-weight:400;}',
         '.sheet .addr{margin:0 0 4mm;line-height:1.4;}',
         '.sheet .banner{text-align:center;font-weight:700;margin:0 0 3mm;}',
-        '.sheet .banner.stars{font-weight:400;letter-spacing:2px;}',
         '.sheet .subref{margin:0 0 4mm;padding-left:12mm;}',
         '.sheet .subref .sub,.sheet .subref .ref{display:flex;gap:2mm;align-items:flex-start;}',
         '.sheet .subref .lbl{flex:0 0 11mm;font-weight:400;}',

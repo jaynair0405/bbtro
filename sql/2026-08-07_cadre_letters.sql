@@ -10,7 +10,7 @@
 --   No. BB.TRSO.TECH.04/0x        Date : dd.mm.yyyy
 --   <addressee>                   Sr.DPO | DRM(P) | Principal ZRTI/BSL |
 --                                 Dy.CEE(OP) | MTC/DTC KYN | ALL CONCERNED
---             <banner>            optional: NOTE | Reminder – I | *******
+--             <banner>            optional: NOTE | Reminder – I
 --       Sub: …   Ref: …
 --   <body paragraphs>
 --   <table>                       columns vary by letter type
@@ -45,7 +45,7 @@ CREATE TABLE IF NOT EXISTS div_cadre_letter_types (
     family              ENUM('TRANSFER','POSTING','TRAINING','CADRE','MISC') NOT NULL,
     doc_kind            ENUM('LETTER','NOTE') NOT NULL DEFAULT 'LETTER',
     letter_series       VARCHAR(20)  DEFAULT NULL,  -- transfer / promotion / posting / training / misc
-    banner_text         VARCHAR(60)  DEFAULT NULL,  -- centred line: 'NOTE', 'Reminder – I', '*******'
+    banner_text         VARCHAR(60)  DEFAULT NULL,  -- centred line: 'NOTE' | 'Reminder – I'
     addressee_text      VARCHAR(255) DEFAULT NULL,  -- newline-separated, English
     addressee_text_hi   VARCHAR(255) DEFAULT NULL,  -- newline-separated, Devanagari (preferred when set)
     subject_tpl         VARCHAR(255) DEFAULT NULL,
@@ -236,6 +236,11 @@ PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 
 UPDATE div_cadre_letter_types SET body_indent = 0
  WHERE type_code = 'FOOTPLATE_KM_EVIDENCE';
+
+-- The '*******' separator line is not wanted; the banner slot is for the
+-- NOTE label and 'Reminder - I' only.
+UPDATE div_cadre_letter_types SET banner_text = NULL WHERE banner_text = '*******';
+UPDATE div_cadre_letters      SET banner_text = NULL WHERE banner_text = '*******';
 
 -- The footplate-km letter is signed with the designation ALONE — no place line
 -- under it, unlike the transfer and posting letters. Same as the NOTE types.
@@ -470,7 +475,7 @@ INSERT IGNORE INTO div_cadre_letter_types
   table_schema, aux_schema, encl_text, approval_chain_text,
   signing_designation, signing_designation_hindi, signing_place, office_header_text, sort_order)
 VALUES
-('FRESH_PANEL', 'Request for fresh promotion panel', 'CADRE', 'LETTER', 'promotion', '*******',
+('FRESH_PANEL', 'Request for fresh promotion panel', 'CADRE', 'LETTER', 'promotion', NULL,
  'The Senior Divisional Personnel Officer,\nMumbai CSMT.', @DPO,
  'Filling up of vacancies of {{designation}} in Mumbai Division.',
  'DRM(P) L.NO.{{ref_no}} dated {{ref_date}}.',
