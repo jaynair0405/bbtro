@@ -1049,6 +1049,14 @@ async function fillFromPf(pf) {
         if (String(L.tokens[key] || '').trim() !== '') return;
         L.tokens[key] = val;
     };
+    // More than one match means the PF is genuinely ambiguous (9 groups of
+    // staff share their last 8 digits). Fill nothing and say so — a wrong name
+    // on a letter to Personnel is worse than an empty box.
+    if (d.matches > 1) {
+        toast(`${d.matches} staff match this PF: ${d.all.map((x) => x.name).join(', ')}. ` +
+              `Not filled — enter the details, or use the full PF number.`, 'err');
+        return;
+    }
     put('staff_name', d.staff.name);
     put('name', d.staff.name);
     put('designation', d.staff.designation_short || d.staff.designation);
@@ -1058,9 +1066,12 @@ async function fillFromPf(pf) {
     DIRTY = true;
     renderTokens();
     render();
-    toast(d.matches > 1
-        ? `${d.staff.name} — ${d.matches} staff share this PF, using the first. Check it.`
-        : `Filled from staff records: ${d.staff.name}`, d.matches > 1 ? 'err' : 'ok');
+    // A partial hit matched on trailing digits only, because the master stores
+    // this PF in a different shape. Worth naming so it can be checked.
+    toast(d.match_type === 'partial'
+        ? `Filled from staff records: ${d.staff.name} — matched on PF ${d.staff.pf_number}, check it is the right person.`
+        : `Filled from staff records: ${d.staff.name}`,
+        d.match_type === 'partial' ? 'err' : 'ok');
 }
 
 // ── preview ────────────────────────────────────────────────────────────
@@ -1253,6 +1264,10 @@ async function fillRowFromPf(i, pf, cols) {
     if (pf.replace(/^0+/, '').length < 4) return;
     let d;
     try { d = await api('/staff-by-pf/' + encodeURIComponent(pf)); } catch (e) { return; }
+    if (d.matches > 1) {                    // ambiguous — never guess into a row
+        toast(`${d.matches} staff match PF ${pf}. Row left as typed.`, 'err');
+        return;
+    }
     const row = STAFF[i];
     if (!row) return;
     const fill = (key, val) => {

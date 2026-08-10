@@ -205,40 +205,78 @@ router.post('/parse-sheet', requireDivisionAccess, sheetUpload.single('file'), (
 // uniquely indexed, so this deliberately reports how many matched instead of
 // silently taking the first.
 
+// ── GET /staff-by-pf/:pf — one staff member, for autofill ─────────────────
+//
+// The seniority-verification letter names one employee inline in its body
+// ("received from Shri X, LPG, PF No. 00211047471, working at CSMT Lobby"), and
+// the transfer letters list PF numbers the CLI already has on paper. Typing the
+// PF and having the rest appear beats copying four fields by hand.
+//
+// Matching has to be forgiving, because div_staff_master does NOT store PF
+// numbers in one shape. Lengths run 6 to 13; most are 11 digits with leading
+// zeros ("00229816985") but 60 are 7 digits, 23 are 8, one carries a hyphen
+// ("0021-11048293") and two contain letters ("207CB0850"). The real case that
+// exposed this: the letter prints 00211047471 and the master stores 11047471
+// for the same person — the "002" prefix is simply absent.
+//
+// So three tiers, reported so the caller knows which one hit:
+//   exact       the string as stored
+//   normalised  digits only, leading zeros dropped, equal
+//   partial     one is a suffix of the other, minimum 8 digits
+//
+// Partial matching is NOT safe on its own: 9 groups of staff share their last
+// 8 digits. Every match is returned with a count so the caller can refuse to
+// guess rather than quietly picking the first.
+
 router.get('/staff-by-pf/:pf', requireDivisionAccess, async (req, res) => {
     let conn;
     try {
-        const pf = String(req.params.pf || '').trim();
-        if (!pf) return res.status(400).json({ error: 'No PF number given.' });
+        const raw = String(req.params.pf || '').trim();
+        if (!raw) return res.status(400).json({ error: 'No PF number given.' });
+        // digits only, leading zeros dropped — the comparable core of a PF
+        const norm = raw.replace(/[^0-9]/g, '').replace(/^0+/, '');
+        if (!norm) return res.status(400).json({ error: 'That is not a PF number.' });
 
         conn = await getConnection(req);
         const [rows] = await conn.query(
             `SELECT s.hrms_id, s.pf_number, s.name, s.current_cms_id,
-                    s.current_office_code, d.designation_name
+                    s.current_office_code, d.designation_name,
+                    CASE
+                      WHEN s.pf_number = ?                       THEN 'exact'
+                      WHEN TRIM(LEADING '0' FROM REGEXP_REPLACE(s.pf_number, '[^0-9]', '')) = ?                           THEN 'normalised'
+                      ELSE 'partial'
+                    END AS match_type
                FROM div_staff_master s
                LEFT JOIN designations d ON d.id = s.designation_id
               WHERE s.status = 'Active'
-                AND TRIM(LEADING '0' FROM s.pf_number) = TRIM(LEADING '0' FROM ?)
+                AND (
+                     s.pf_number = ?
+                  OR TRIM(LEADING '0' FROM REGEXP_REPLACE(s.pf_number, '[^0-9]', '')) = ?
+                  OR (CHAR_LENGTH(?) >= 8 AND TRIM(LEADING '0' FROM REGEXP_REPLACE(s.pf_number, '[^0-9]', '')) <> ''
+                      AND (TRIM(LEADING '0' FROM REGEXP_REPLACE(s.pf_number, '[^0-9]', '')) LIKE CONCAT('%', ?) OR ? LIKE CONCAT('%', TRIM(LEADING '0' FROM REGEXP_REPLACE(s.pf_number, '[^0-9]', '')))))
+                )
+              ORDER BY FIELD(match_type,'exact','normalised','partial'), s.hrms_id
               LIMIT 5`,
-            [pf]
+            [raw, norm, raw, norm, norm, norm, norm]
         );
         if (!rows.length) return res.status(404).json({ error: 'No active staff with that PF number.' });
 
-        const s = rows[0];
+        const shape = (s) => ({
+            hrms_id: s.hrms_id,
+            pf_number: s.pf_number,
+            name: s.name,
+            cms_id: s.current_cms_id,
+            designation: s.designation_name || '',
+            designation_short: shortDesignation(s.designation_name),
+            office_code: s.current_office_code,
+            lobby: String(s.current_office_code || '').split('-')[0],
+            match_type: s.match_type,
+        });
         res.json({
             matches: rows.length,
-            staff: {
-                hrms_id: s.hrms_id,
-                pf_number: s.pf_number,
-                name: s.name,
-                cms_id: s.current_cms_id,
-                designation: s.designation_name || '',
-                // short form, as the letters print it ("LPG", "Sr.ALP")
-                designation_short: shortDesignation(s.designation_name),
-                office_code: s.current_office_code,
-                // letters print the short lobby name: CSMT-ML -> CSMT
-                lobby: String(s.current_office_code || '').split('-')[0],
-            },
+            match_type: rows[0].match_type,
+            staff: shape(rows[0]),
+            all: rows.map(shape),
         });
     } catch (error) {
         console.error('cadre-letters /staff-by-pf error:', error);
