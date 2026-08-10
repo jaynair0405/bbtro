@@ -534,7 +534,7 @@ As per the letter under reference, the assessed vacancies for {{designation}} as
     {"key":"csmt","label":"CSMT","w":"10%","group":"LOBBY"},
     {"key":"kyn","label":"KYN","w":"10%","group":"LOBBY"},
     {"key":"pnvl","label":"PNVL","w":"10%","group":"LOBBY"},
-    {"key":"total","label":"TOTAL","w":"11%"}],
+    {"key":"total","label":"TOTAL","w":"11%","auto":"sum","sum":["csmt","kyn","pnvl"]}],
   "rows":[
     {"particulars":"SANCTIONED STRENGTH"},
     {"particulars":"WORKING ON DETAILS"},

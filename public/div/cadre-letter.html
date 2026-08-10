@@ -198,6 +198,7 @@ select:disabled, input:disabled, textarea:disabled { opacity: .55; cursor: not-a
              border: 1px solid #f0d99a; border-left: 3px solid var(--amber);
              border-radius: 5px; padding: 9px 11px; margin-bottom: 10px; }
 .notonroll b { display: block; color: #7a4a00; margin-bottom: 2px; }
+#gridTable input.derived { background: #101c33; color: #7fd18c; font-style: italic; cursor: not-allowed; }
 .btn-tiny.primary { background: rgba(245,165,36,.18); border-color: rgba(245,165,36,.6); color: var(--amber); font-weight: 700; }
 .btn-tiny.primary:hover { background: rgba(245,165,36,.3); }
 .tinybar { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
@@ -1175,6 +1176,22 @@ function isLobbyCol(c) {
     return c.opts === '@lobby' || c.src === 'proposed_lobby' || c.src === 'present_lobby';
 }
 
+/* Mirror of sumCells() in the renderer: a column declared "auto":"sum" is
+ * derived from its source columns and must never be typed, or the printed
+ * letter and the grid could disagree. Shown read-only so that is obvious. */
+function sumOf(row, keys) {
+    if (!keys || !keys.length) return '';
+    let total = 0, seen = false;
+    for (const k of keys) {
+        const raw = String(row[k] ?? '').replace(/,/g, '').trim();
+        if (raw === '') continue;
+        const n = Number(raw);
+        if (!isFinite(n)) return String(row[k]);
+        total += n; seen = true;
+    }
+    return seen ? String(total) : '';
+}
+
 function drawGrid() {
     const cols = gridColumns();
     const rows = gridRows();
@@ -1187,7 +1204,10 @@ function drawGrid() {
          <tbody>${rows.map((r, i) => `
             <tr data-i="${i}">
               <td class="srcell">${i + 1}</td>
-              ${editable.map((c) => `<td>
+              ${editable.map((c) => c.auto === 'sum' ? `<td>
+                 <input value="${esc(sumOf(r, c.sum))}" class="derived" readonly tabindex="-1"
+                        title="Added up from ${esc((c.sum || []).join(' + '))} — not typed">
+              </td>` : `<td>
                  <input value="${esc(cellRead(r, c))}" data-k="${esc(c.key)}"
                         class="${c.src ? 'linked' : ''}"
                         ${isLobbyCol(c) ? 'list="dlLobby"' : ''}
@@ -1208,6 +1228,13 @@ function drawGrid() {
             const col = editable.find((c) => c.key === inp.dataset.k);
             cellWrite(gridRows()[i], col, inp.value);
             DIRTY = true;
+            // refresh any derived cell on this row (TOTAL follows its parts)
+            const tr = inp.closest('tr');
+            editable.forEach((dc, di) => {
+                if (dc.auto !== 'sum') return;
+                const cell = tr.querySelectorAll('td input')[di];
+                if (cell) cell.value = sumOf(gridRows()[i], dc.sum);
+            });
         });
     });
     $('gridTable').querySelectorAll('.rowrm').forEach((b) => {

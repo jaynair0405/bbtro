@@ -206,6 +206,27 @@
     // Non-staff grids: the Reminder cadre-position table and the MLD day-wise
     // schedule. A row with span:true is a full-width sub-heading (e.g. "DIESEL
     // (DTC KYN)" splitting the electric and diesel halves of the schedule).
+    /* A column declared {"auto":"sum","sum":["csmt","kyn","pnvl"]} is DERIVED,
+     * never typed. The reminder letter's TOTAL is the lobby figures added up
+     * (495+369+151=1015 and so on, in all four rows of the original), so
+     * computing it removes a whole class of arithmetic slip from a letter that
+     * goes to Personnel as a statement of fact.
+     *
+     * Blank if no source cell holds a number — better an empty cell than a
+     * confident 0. Commas are tolerated so "1,015" still adds up. */
+    function sumCells(row, keys) {
+        if (!keys || !keys.length) return '';
+        var total = 0, seen = false;
+        for (var i = 0; i < keys.length; i++) {
+            var raw = String(row[keys[i]] == null ? '' : row[keys[i]]).replace(/,/g, '').trim();
+            if (raw === '') continue;
+            var n = Number(raw);
+            if (!isFinite(n)) return String(row[keys[i]]);   // not numeric — leave it alone
+            total += n; seen = true;
+        }
+        return seen ? String(total) : '';
+    }
+
     function renderAuxTable(letter) {
         var aux = parseJson(letter.aux_data, null);
         if (!aux) return '';
@@ -218,7 +239,10 @@
                 return '<tr><td class="c" colspan="' + columns.length + '">' + nl2br(row.activity || row.label || '') + '</td></tr>';
             }
             return '<tr>' + columns.map(function (c) {
-                var v = c.auto === 'index' ? String(i + 1) : (row[c.key] == null ? '' : row[c.key]);
+                var v;
+                if (c.auto === 'index') v = String(i + 1);
+                else if (c.auto === 'sum') v = sumCells(row, c.sum);
+                else v = (row[c.key] == null ? '' : row[c.key]);
                 var cls = c.align === 'left' || c.key === 'particulars' ? ' class="l"' : '';
                 return '<td' + cls + '>' + nl2br(v) + '</td>';
             }).join('') + '</tr>';
