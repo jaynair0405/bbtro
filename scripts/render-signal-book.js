@@ -50,7 +50,7 @@ async function loadBook(beatCode, providedConn) {
 
     const [sections] = await conn.execute(
       `SELECT s.id, s.section_code, s.section_title, s.direction, s.line,
-              bs.display_order, bs.start_page_no, bs.end_page_no
+              bs.display_order, bs.display_group, bs.lead_in_note, bs.start_page_no, bs.end_page_no
          FROM div_signal_beat_sections bs
          JOIN div_signal_book_sections s ON s.id = bs.section_id
         WHERE bs.beat_id = ? AND bs.is_active = 1 AND s.is_active = 1
@@ -151,6 +151,7 @@ function riGlyphSvg(spec) {
   svg += '</svg>';
   return svg;
 }
+
 
 // Signal-class badge shown next to the number, matching the printed book:
 //   Ⓟ = distant signal, ⒾⒷ = IBS, Ⓖ = gate signal.
@@ -270,11 +271,34 @@ function stationLine(row) {
 }
 
 function renderHtml({ beat, sections }) {
-  const sectionsHtml = sections.map((section) => {
-    const rowsHtml = section.rows.map(renderRow).join('\n');
+  // Consolidate consecutive bound sections that share a display_group into ONE
+  // rendered block (one heading = the display_group, rows concatenated) so a route
+  // reads as a single continuous list. A NULL display_group renders standalone with
+  // its own section_title (each in its own group).
+  const groups = [];
+  for (const section of sections) {
+    const key = section.display_group && String(section.display_group).trim();
+    const prev = groups[groups.length - 1];
+    if (key && prev && prev.key === key) {
+      prev.sections.push(section);
+    } else {
+      groups.push({ key: key || null, title: key || section.section_title, sections: [section] });
+    }
+  }
+
+  const sectionsHtml = groups.map((group) => {
+    const rowsHtml = group.sections.flatMap((s) => s.rows).map(renderRow).join('\n');
+    // Lead-in / cross-reference captions ("From DCC S-3", "To DI S-5 for BSR")
+    // carried on each binding, shown under the heading in book order.
+    const notesHtml = group.sections
+      .map((s) => s.lead_in_note && String(s.lead_in_note).trim())
+      .filter(Boolean)
+      .map((n) => `  <div class="section-note">${esc(n)}</div>`)
+      .join('\n');
     return `
 <section class="book-section">
-  <h2 class="section-title">${esc(section.section_title)}</h2>
+  <h2 class="section-title">${esc(group.title)}</h2>
+${notesHtml}
   <div class="section-table-header">
     <div class="cell hd-no">SIGNAL NO.</div>
     <div class="cell hd-loc">LOCATION</div>
@@ -336,6 +360,16 @@ ${rowsHtml}
     text-transform: uppercase;
   }
 
+  .section-note {
+    column-span: all;
+    -webkit-column-span: all;
+    text-align: center;
+    font-style: italic;
+    font-size: 8.5pt;
+    color: #b45309;
+    margin: 0 0 4px 0;
+  }
+
   .section-table-header {
     column-span: all;
     -webkit-column-span: all;
@@ -343,9 +377,6 @@ ${rowsHtml}
     grid-template-columns: repeat(2, 1fr);
     gap: 6mm;
     margin-bottom: 4px;
-  }
-  .section-table-header::before, .section-table-header::after {
-    /* span header text across both columns: render the 3-col head twice */
   }
   .section-table-header .cell { font-weight: 600; font-size: 8.5pt; }
   .section-table-header { display: none; } /* simpler: skip extra header, columns repeat title only */
