@@ -84,3 +84,31 @@ prod), so their AWS links are untouched. **Only ABH S-9's AWS match is redone** 
 ## Rollback
 Restore from `~/backup_signalbook_predeploy_20260810.sql`. Steps 3–11 are one-DB, reversible from backup.
 Code (D1) reverts via `git checkout` + restart.
+
+---
+
+## Post-deploy: branch retirement — DEFERRED (decided 2026-08-10)
+Everything unique to `signal-book` is preserved elsewhere, so the branch is now only a
+**safety blanket** — kept intentionally for a couple of weeks, then retired.
+
+**Already preserved (nothing is stranded on the branch):**
+- Renderer → master `d6d639c`. SQL (33 files) + pipeline scripts (`build-corridor-master.js`,
+  `preflight-corridor.js`) + docs → master `c491d0f`; successor notes → master `3f65b0b`.
+- Source Excel masters + build files (18 masters, 9.5 MB) → **archived OUTSIDE the repo** at
+  `/Users/neeraja/signal-book-source-data-files/`.
+- Only remaining branch-unique content = the `data/` files (all archived). The 43 "differing"
+  files are just STALE copies (branch is 108 commits behind master) — not wanted.
+
+**Why kept for now:** still to upload for many remaining sections — **lat/long** coordinates and
+**`km_from_csmt`** values. Those are additive UPDATEs to `div_signals` (local → prod, dated `sql/`
+on master, like the coord syncs already done). Do them on **master**; `signal-book` just sits idle
+as backup.
+
+**Retire after that (target: ~late Aug 2026):**
+```bash
+git worktree remove --force /Users/neeraja/bbtro-signal-book
+git branch -D signal-book
+git push origin --delete signal-book
+```
+After retiring, future sections/data go straight on master (import via the on-master scripts →
+dated `sql/` → deploy — the pattern proven in this deployment).
