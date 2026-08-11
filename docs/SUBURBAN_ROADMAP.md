@@ -104,27 +104,81 @@ corrupts rows is worse than no button.
 
 ## Todo 2a — KMS / mileage
 
-**Have: nothing on the suburban side.** `grep -iE "km|distance|mileage|chainage"`
-over `bbtro_schema.sql` returns **zero hits for the entire file**. Nothing on
-`details`, `trains` or `suburban_train_master`. `total_wheel_movement` is a
-`varchar(10)` **duration**, not distance.
+**Source of truth found: `data/detail_book/suburban_mileage.xlsx`** — a
+motorman's own kilometreage/pay workbook. It settles both the data and the rules,
+and it invalidates the plan that was here before.
 
-Two `km_from_csmt` columns exist elsewhere:
+### It is an ALLOWANCE, not a distance
 
-| Column | Where | State |
-|---|---|---|
-| `div_stations.km_from_csmt DECIMAL(6,2)` | `sql/2026-05-19_wtt_tables.sql:15` | **Right shape, completely empty** — no migration populates it. |
-| `div_signals.km_from_csmt DECIMAL(8,3)` | `sql/phase1_migration.sql:28` | **Well populated**, actively used for ordering. But signal-post km, per signal, only for loaded sections. |
+The first plan was to populate `div_stations.km_from_csmt` and compute
+`|km(end) − km(start)|` per leg. **That would have been wrong.** In the workbook:
 
-**Build:** populate `div_stations.km_from_csmt` — signals give a usable first
-pass (signals carry `station_code`), but it is signal-post km, not station-centre
-km, so it needs checking against the WTT or the book. Then per-leg
-km = `|km(end_station) − km(start_station)|`, rolled up per detail.
+- **554 of 781 details (71%) are exactly 150 km**
+- details at km = 150 have wheel movement ranging **49 minutes to 8 hours**
+- correlation between km and actual running time is only **0.565**
 
-**Decision needed:** store km on the leg, or derive it every time? Derived stays
-correct when a station km is corrected; stored survives a station being renamed
-or a leg pointing at a station with no km. Given the roster/mileage use is
-financial-adjacent, stored-with-recompute is probably right.
+Km here is the **kilometreage allowance** — a booked figure set by rule, not a
+measured distance. So no station-distance table is needed for what was asked.
+`div_stations.km_from_csmt` (empty) and `div_signals.km_from_csmt` (populated,
+signal-post km) stay irrelevant to this feature.
+
+### The rules, extracted from the formulas
+
+No macros — plain `.xlsx` formulas. The live rule is `MILEAGE!AG13`
+(and `MSP!AG13`, identical), where `AE13` is hours on duty in H.MM decimal:
+
+```
+IF(AE13>4.59, 150, IF(AND(AE13>3.59, AE13<5), 130, 120))
+```
+
+`DTL!Y1` shows the floor only ever raises, never lowers:
+
+> **credited km = MAX(detail's base km, duty-hour floor)**
+
+`DTL!T4` applies duty-type overrides *before* any of that:
+
+| Duty type | Km |
+|---|---|
+| `TRG.`, `LRD` | 120 |
+| Outstation — `PME OS`, `TRG OS`, `MTC OS`, `SPLCL`, `ENQ OS`, `DC`, `POLICE ENQ`, suffix `" OS"` | 160 |
+| `APL`, `CL`, `SL`, `REST`, `A/O`, `PME HQ`, `ENQ HQ`, `SICK`, suffix `" HQ"` | none (blank) |
+| Manual entry in the Km column | wins over everything |
+| otherwise | detail base km, then the floor |
+
+### The data
+
+`DATA` sheet = per-detail base km, 781 rows, all three offices:
+
+| | |
+|---|---|
+| DB details | 767 |
+| Excel details with km | 781 |
+| match on detail number | **763** |
+| sign-on/off places agree | **750 of 763 (98.3%)** |
+
+Base km values: 90–242, clustered at 150. 27 details carry 200/206/242 — the
+long runs, mostly KYN. **Open:** the user quotes CSMT-KSRA-CSMT as 243; the sheet
+says 242 (ten details). Confirm which before loading.
+
+### It also has details the book is missing
+
+18 in Excel and not in `details`:
+
+- **901–910** — block 6 "KYN Mainline MEMU" (901-912) is **empty in our DB**
+  (0 rows) but has 10 real details here, including KYN→PEN and KYN→ROHA.
+  This is the block the Detail Book page renders dimmed with a dash.
+- **1001–1007** — seven PNVL details (incl. PNVL→BEPR) falling in **no**
+  `detail_blocks` range at all.
+- **385** — sits in the gap between CSMT Harbour Continuous (201-384) and
+  Fix (386-404).
+
+### Build
+
+`details.km SMALLINT` loaded from the 763 matched rows, plus the rule applied at
+daily-entry time (todo 3) against actual duty hours. Store the base on the
+detail; compute the credited figure per day, because it depends on that day's
+hours and duty type. Decide what to do about the 18 unknown details and the
+4 in the DB with no km (412, 556, 558, 999).
 
 ---
 
@@ -167,6 +221,23 @@ The division side has the shape worth copying: `div_detail_book_log`
 (`sql/2026-02-24_digital_slate_schema.sql:12`) records a real sign-on/sign-off
 with rest calculation, and `div_daily_slate` records live status. Both are
 mainline and HRMS-keyed, so they are a **model, not a table to reuse**.
+
+**The form is already designed.** `suburban_mileage.xlsx`, sheet `MILEAGE`, is
+the T.432-B claim the motormen already fill, and its per-day columns are exactly
+this feature's fields:
+
+> Date · Detail No · On duty (time + station) · Off duty (time + station) ·
+> Actual Details · R/Room Allowance Kms · Total Kms · NDA Hrs · Total Hrs on
+> duty · N.D.A · N.H.P · Remarks
+
+Two things fall out of that:
+
+- **"Actual Details"** is a column, i.e. the motorman already records that he
+  worked something other than his rostered detail — which is todo 5's case,
+  captured after the fact rather than as a request.
+- Duty codes are defined on the `DATA` sheet: `M` morning, `E` evening,
+  `T` night, `D1`/`D2` double first/second part, with the note *"D2 entry is
+  mandatory to assign RR in detail book"*.
 
 **Build:** a new actuals table (motorman × date × detail, with actual sign-on/off,
 computed km, and a confirmed flag), plus a phone-shaped page. Note (b) is a pure
