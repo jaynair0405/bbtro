@@ -199,6 +199,12 @@ select:disabled, input:disabled, textarea:disabled { opacity: .55; cursor: not-a
              border-radius: 5px; padding: 9px 11px; margin-bottom: 10px; }
 .notonroll b { display: block; color: #7a4a00; margin-bottom: 2px; }
 .hintlbl { color: var(--text-dim); font-weight: 400; text-transform: none; letter-spacing: 0; }
+#gridTable th .filldown {
+    margin-left: 5px; padding: 0 4px; border-radius: 4px; cursor: pointer;
+    background: rgba(245,165,36,.14); border: 1px solid rgba(245,165,36,.4);
+    color: var(--amber); font-size: 11px; line-height: 1.3;
+}
+#gridTable th .filldown:hover { background: var(--amber); color: #10192c; }
 #gridTable input.derived { background: #101c33; color: #7fd18c; font-style: italic; cursor: not-allowed; }
 .btn-tiny.primary { background: rgba(245,165,36,.18); border-color: rgba(245,165,36,.6); color: var(--amber); font-weight: 700; }
 .btn-tiny.primary:hover { background: rgba(245,165,36,.3); }
@@ -1287,6 +1293,43 @@ async function fillRowFromPf(i, pf, cols) {
     render();
 }
 
+/* Copy one cell's value down the column — "PASS" in all 69 rows of an ALP
+ * letter, one lobby for a whole batch, one remark for every day of a schedule.
+ *
+ * Confirms first when it would overwrite values that are already there and
+ * differ, because on a 69-row letter an accidental fill is expensive to undo
+ * by hand. Filling only blanks needs no confirmation.
+ *
+ * Works on whichever grid is open — staff table or aux grid — because it goes
+ * through gridRows()/cellRead()/cellWrite() like everything else here. */
+async function fillDown(key, fromIndex, cols) {
+    const col = cols.find((c) => c.key === key);
+    if (!col || col.auto === 'sum') return;          // derived columns are not typed
+    const rows = gridRows();
+    const src = rows[fromIndex];
+    if (!src) return;
+    const value = String(cellRead(src, col) ?? '').trim();
+    if (value === '') { toast('Type a value in that row first, then fill down.', 'err'); return; }
+
+    const targets = rows.slice(fromIndex + 1);
+    if (!targets.length) { toast('Nothing below this row to fill.', 'err'); return; }
+    const clashes = targets.filter((r) => {
+        const v = String(cellRead(r, col) ?? '').trim();
+        return v !== '' && v !== value;
+    }).length;
+    if (clashes && !(await confirmBox(
+        'Overwrite ' + clashes + (clashes === 1 ? ' value?' : ' values?'),
+        '<p>' + clashes + ' row' + (clashes === 1 ? '' : 's') + ' below already have a different ' +
+        esc(col.label) + '. Filling down replaces them with <b>' + esc(value) + '</b>.</p>',
+        'Fill down'))) return;
+
+    targets.forEach((r) => cellWrite(r, col, value));
+    DIRTY = true;
+    drawGrid();
+    render();
+    toast('Filled ' + targets.length + ' row' + (targets.length === 1 ? '' : 's') + ' with "' + value + '".', 'ok');
+}
+
 function drawGrid() {
     const cols = gridColumns();
     const rows = gridRows();
@@ -1294,7 +1337,11 @@ function drawGrid() {
 
     $('gridTable').innerHTML =
         `<thead><tr><th>#</th>${editable.map((c) =>
-            `<th>${esc(c.label)}${c.group ? ' <span style="opacity:.6">(' + esc(c.group) + ')</span>' : ''}</th>`
+            `<th>${esc(c.label)}${c.group ? ' <span style="opacity:.6">(' + esc(c.group) + ')</span>' : ''}${
+              c.auto === 'sum' ? '' :
+              `<button class="filldown" data-k="${esc(c.key)}"
+                       title="Copy the first row's value down every row (or Ctrl+D from any cell)">⤓</button>`
+            }</th>`
          ).join('')}<th></th></tr></thead>
          <tbody>${rows.map((r, i) => `
             <tr data-i="${i}">
@@ -1345,6 +1392,18 @@ function drawGrid() {
             inp.addEventListener('input', go);
             inp.addEventListener('change', go);
         }
+    });
+    $('gridTable').querySelectorAll('.filldown').forEach((b) => {
+        b.onclick = () => fillDown(b.dataset.k, 0, editable);
+    });
+    // Ctrl/Cmd+D from a cell fills that value down — the spreadsheet reflex.
+    $('gridTable').querySelectorAll('tbody input[data-k]').forEach((inp) => {
+        inp.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && (e.key === 'd' || e.key === 'D')) {
+                e.preventDefault();
+                fillDown(inp.dataset.k, Number(inp.closest('tr').dataset.i), editable);
+            }
+        });
     });
     $('gridTable').querySelectorAll('.rowrm').forEach((b) => {
         b.onclick = () => {
