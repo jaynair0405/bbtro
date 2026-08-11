@@ -991,14 +991,28 @@ function bindDesk() {
 }
 
 // ── token fill-ins ─────────────────────────────────────────────────────
-const DERIVED = new Set(['count', 'letter_date']);
+/* Which tokens the renderer works out for itself, and so must NOT be offered
+ * as fill-ins — offering them would invite a number that contradicts the list
+ * printed underneath it.
+ *
+ * {{count}} is the subtle one: it counts the staff table's rows, but only when
+ * the letter HAS a staff table. A narrative letter states the number in prose
+ * with no list behind it — the MLD nomination says "additional batch of 65
+ * eligible Sr. ALPs" twice, and the transfer proposal likewise — so there it
+ * has to be typed. Treating it as derived everywhere left those letters with
+ * a ‹count› nobody could fill. */
+function isDerivedToken(key) {
+    if (key === 'letter_date') return true;
+    if (key === 'count') return !!(L.table_columns && (L.table_columns.columns || []).length);
+    return false;
+}
 
 function scanTokens() {
     const text = [L.subject_text, L.ref_text, L.body_text, L.footer_text, L.encl_text]
         .filter(Boolean).join('\n');
     const found = new Set();
     for (const m of text.matchAll(/\{\{\s*([a-z0-9_]+)\s*\}\}/gi)) {
-        if (!DERIVED.has(m[1])) found.add(m[1]);
+        if (!isDerivedToken(m[1])) found.add(m[1]);
     }
     return [...found];
 }
