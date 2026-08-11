@@ -195,7 +195,7 @@ and live in their own schema, built Aug 2025:
 
 | Table | Rows | Grain |
 |---|---|---|
-| `memu_details` | 11 | 901-904, 906-912 — **905 is absent** |
+| `memu_details` | 11 | 901-904, 906-912 — 905 correctly absent, it does not exist (the workbook's `905 = 120` is stale) |
 | `memu_day_patterns` | 27 | per detail × day type, each with its own sign-on/off, duty hours, wheel movement, piloting |
 | `memu_trains` | 66 | legs, per pattern |
 
@@ -238,10 +238,16 @@ of mileage that is.
   range. A new block is needed if they are current.
 - **385** — sits in the gap between CSMT Harbour Continuous (201-384) and
   Fix (386-404).
-- **556** — needs a book re-check. The user recalls it now working an **Uran**
-  train at 130 km; the DB has it on the **Pen** line —
-  `P/61018 PNVL→DW`, `DWPEN61019 DW→PEN`, `PENDW61026 PEN→DW`, `P/61013 DW→PNVL`.
-  Uran services are the `UBR`/`UNU` codes, and none appear on 556.
+- **556** — resolved: it is the **MEMU Pen–DW** detail, km **130**. The DB legs
+  are right (`P/61018 PNVL→DW`, `DWPEN61019 DW→PEN`, `PENDW61026 PEN→DW`,
+  `P/61013 DW→PNVL`); the earlier "Uran" recollection was mistaken.
+  **But it contradicts the floor rule** and needs settling before load: 556
+  carries duty **8:10** in `details`, and >4h59m should floor to 150, not 130.
+  Either the book prints the raw base and the floor is applied only at claim
+  time, or MEMU/branch details are floored differently. Note 872 cuts the other
+  way — its book value is 120 (actual 68), i.e. already floored.
+- **911, 912** — present in `memu_details` but not in the workbook; the user
+  recalls them from an earlier printed book. To confirm.
 
 ### Build
 
