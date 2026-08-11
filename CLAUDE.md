@@ -267,6 +267,56 @@ DROP VIEW motormen;
 RENAME TABLE motormen_new TO motormen;
 ```
 
+## Suburban Crew Ops (`/div/suburban/`)
+
+The motormen detail-book module: Overview, Detail Book, Train Index, Reports.
+**Not** `/div/detail-book.html` — that is the unrelated mainline goods Digital
+Slate Jr-CC arrivals board, and the "Crew Operations" menu section belongs to it.
+Suburban has its own menu section and is open to any division user.
+
+### One dataset, derived twice from one file
+```
+GET /api/division/suburban/dataset   { blocks, details, legs, master, counts, warnings }
+GET /api/division/suburban/summary   Overview only — no details, no legs
+POST /api/division/suburban/refresh  drop the cache (division_admin)
+```
+Every page fetches the same payload and filters/sorts it in the browser — that is
+what keeps search over 2,653 legs instant. `public/div/suburban/js/sub-derive.js`
+is `require()`d by the server **and** `<script>`-loaded by the pages: block totals
+are derived server-side, the train index client-side, and sharing one file is what
+stops them drifting. It replaced `scripts/extract_train_index.js`, which had
+already drifted.
+
+### The cache is operational, not an optimisation
+`lib/subCrew/cache.js` builds once (~25 ms), pre-gzips (782 KB → 71 KB) and serves
+the buffer: 0 ms per request instead of ~20 ms re-compressing an identical body,
+and no `compression` dependency. Single-flight, so four pages opened at once cause
+one build. ETag hashes content with `generatedAt` excluded, so a TTL rebuild of
+unchanged data keeps the browser's copy valid.
+
+`server.js` does `app.disable('etag')` — **the route must set ETag itself** or
+`req.fresh` is never true and 304 never fires.
+
+### After any detail-book change
+```
+node scripts/classify_details.js --commit
+node scripts/chain_details.js    --commit
+POST /api/division/suburban/refresh      # or restart; TTL is 10 min
+```
+`cache.invalidate()` is the hook every future write endpoint must call. The TTL is
+only a safety net for hand-run SQL, which the app cannot observe.
+
+### Gotchas
+- `express.static` runs `{index:false}`, so `/div/suburban/` needs the explicit
+  redirect in `server.js` (placed after the `/div` guard, so it is session-gated).
+- `suburban_train_master.normalized_train_number` is a **non-unique KEY**. `SQL_LEGS`
+  joins via a `MIN(train_code)` subquery — without it one duplicate master row would
+  fan out every leg of that train, silently inflating leg counts and wheel movement.
+- Details in no block (410-412, 558, 999) have `office = null` and appear in no
+  office report. That is by design but surfaces as a `warnings[]` banner rather
+  than vanishing.
+- Adding a page = one `SubShell.NAV` entry + one HTML file + one `page-*.js`.
+
 ## Git Workflow (branch-per-module)
 
 `master` is the always-deployable trunk (it deploys to the server). Several modules
