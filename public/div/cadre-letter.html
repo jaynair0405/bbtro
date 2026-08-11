@@ -309,7 +309,12 @@ select:disabled, input:disabled, textarea:disabled { opacity: .55; cursor: not-a
 }
 .tcard .mk.note { background: rgba(245,165,36,.15); color: var(--amber); }
 .tcard .mk.tbl { background: rgba(47,158,99,.15); color: #4cc98a; }
-.gallery .closebar { text-align: right; margin-bottom: 14px; }
+/* Dashboard on the left, Close on the right. The gallery is a sealed modal
+   when no letter is open — no Escape, no backdrop click, Close hidden — so
+   without the Dashboard link it has no visible exit at all. */
+.gallery .closebar { display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; margin-bottom: 14px; }
+.gallery .closebar .toportal { text-decoration: none; }
 
 /* ── Grid editor (the table is the heart of these letters) ───────────── */
 .grid-veil {
@@ -722,7 +727,10 @@ body.drawer-open .drawer-veil { opacity: 1; pointer-events: auto; }
 <!-- ══ Type gallery ══ -->
 <div class="gallery-veil" id="galleryVeil">
     <div class="gallery">
-        <div class="closebar"><button class="btn btn-ghost" id="btnCloseGallery">✕ Close</button></div>
+        <div class="closebar">
+            <a class="btn btn-ghost toportal" href="/div/index.html">← Dashboard</a>
+            <button class="btn btn-ghost" id="btnCloseGallery">✕ Close</button>
+        </div>
         <h3>Which letter are you writing?</h3>
         <p>Picking a type fills in the addressee, subject, body and table columns. You can change any of it afterwards.</p>
         <div id="galleryBody"></div>
