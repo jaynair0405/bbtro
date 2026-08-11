@@ -328,8 +328,13 @@ SET @sql := IF(
   "SELECT 'div_cadre_letters.font_pt already present' AS note");
 PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 
+-- Letters whose originals are visibly set smaller so they hold their page
+-- count. FIELD_TRAINING_SCHEDULE: a 16-row grid plus five closing blocks
+-- needs a second page at 12pt. RELIEVING_INITIAL_ALP: 69 rows, a signature
+-- AND an eight-line C/- block; at 12pt the C/- is orphaned onto a third
+-- page, and its original fits 39 rows on page 1 against 32 at 12pt.
 UPDATE div_cadre_letter_types SET font_pt = 11.0
- WHERE type_code = 'FIELD_TRAINING_SCHEDULE';   -- 12pt runs to a second page
+ WHERE type_code IN ('FIELD_TRAINING_SCHEDULE', 'RELIEVING_INITIAL_ALP');
 
 -- The wide-table letters: six or seven columns including names and lobbies.
 UPDATE div_cadre_letter_types SET page_margin = 'WIDE'
