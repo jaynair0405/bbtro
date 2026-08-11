@@ -788,6 +788,7 @@ const signalBookRoutes = require('./routes/division/signalBookRoutes');
 const documentRoutes = require('./routes/division/documentRoutes');
 const transferLetterRoutes = require('./routes/division/transferLetterRoutes');
 const cadreLetterRoutes = require('./routes/division/cadreLetterRoutes');
+const subCrewRoutes = require('./routes/division/subCrewRoutes');
 
 // Add division routes with realm protection
 app.use("/api/division/leave", requireRealm("division"), leaveRoutes); // mount early to avoid any catch-alls
@@ -819,6 +820,7 @@ app.use("/api/division/signal-book", requireRealm('division'), signalBookRoutes)
 app.use("/api/division/documents", requireRealm('division'), documentRoutes);
 app.use("/api/division/transfer-letters", requireRealm('division'), transferLetterRoutes);
 app.use("/api/division/cadre-letters", requireRealm('division'), cadreLetterRoutes);
+app.use("/api/division/suburban", requireRealm('division'), subCrewRoutes);
 
 // Session info endpoint
 app.get('/api/session', (req, res) => {
