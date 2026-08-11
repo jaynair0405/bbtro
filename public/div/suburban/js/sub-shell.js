@@ -59,7 +59,12 @@
     var el = document.querySelector('[data-sub-nav]');
     if (!el) return;
 
-    var html = '<a class="brand" href="' + BASE + 'index.html">'
+    // Back to the portal, FIRST thing in the sidebar. It used to sit at the
+    // bottom in dim 11px grey, which is the same as not being there.
+    var html = '<a class="back" href="/div/index.html">'
+      + '<svg viewBox="0 0 24 24"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>'
+      + 'Dashboard</a>'
+      + '<a class="brand" href="' + BASE + 'index.html">'
       + '<div class="kick">BB Division</div>'
       + '<h1>CREW<em>·</em>OPS</h1>'
       + '<div class="sub">Suburban motormen / LP</div></a><nav class="nav">';
@@ -78,9 +83,6 @@
     });
 
     html += '</nav>'
-      + '<a class="back" href="/div/index.html">'
-      + '<svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2">'
-      + '<path d="M19 12H5M11 18l-6-6 6-6"/></svg>Division Portal</a>'
       + '<div class="who"><div class="av" id="subAv">··</div>'
       + '<div><div class="n" id="subWho">Loading…</div><div class="r" id="subRole"></div></div></div>';
 

@@ -60,8 +60,16 @@ body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opac
   font-family:var(--disp);font-weight:800;color:#1a1206;font-size:14px}
 .side .who .n{font-size:12.5px;font-weight:600}
 .side .who .r{font:600 10px var(--mono);color:var(--ink3)}
-.side .back{margin:0 12px 10px;font:600 11px var(--mono);color:var(--ink3);text-decoration:none;display:flex;align-items:center;gap:7px;padding:8px 13px;border-radius:10px}
-.side .back:hover{color:var(--ink2);background:var(--panel)}
+/* Back to the division portal. First element in the sidebar and styled as a
+   real control — the earlier version was dim grey 11px text at the bottom,
+   which nobody could find. */
+.side .back{display:flex;align-items:center;gap:9px;margin:14px 14px 0;padding:10px 14px;
+  font:700 11.5px var(--mono);letter-spacing:.13em;text-transform:uppercase;
+  color:var(--amber);text-decoration:none;background:rgba(244,165,51,.09);
+  border:1px solid rgba(244,165,51,.35);border-radius:10px;transition:.16s}
+.side .back:hover{background:rgba(244,165,51,.17);border-color:var(--amber);transform:translateX(-2px)}
+.side .back svg{width:15px;height:15px;flex:none;stroke:currentColor;fill:none;stroke-width:2.2}
+.brand{padding-top:16px}
 
 /* ── main ────────────────────────────────────────────────────────────── */
 .main{overflow-y:auto;position:relative}
