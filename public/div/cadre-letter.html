@@ -199,6 +199,13 @@ select:disabled, input:disabled, textarea:disabled { opacity: .55; cursor: not-a
              border-radius: 5px; padding: 9px 11px; margin-bottom: 10px; }
 .notonroll b { display: block; color: #7a4a00; margin-bottom: 2px; }
 .hintlbl { color: var(--text-dim); font-weight: 400; text-transform: none; letter-spacing: 0; }
+.bootfail { max-width: 560px; margin: 40px auto; padding: 22px 26px; border-radius: 12px;
+            background: #fff6f5; border: 1px solid #f3c2bd; border-left: 4px solid #c0221b;
+            color: #4a1512; font-size: 14px; line-height: 1.6; }
+.bootfail h3 { margin: 0 0 8px; color: #a01813; font-size: 17px; }
+.bootfail .why { font-family: ui-monospace, Menlo, monospace; font-size: 12.5px;
+                 background: #fff; border: 1px solid #f0d0cc; border-radius: 6px; padding: 8px 10px; }
+.bootfail code { background: #fff; border: 1px solid #f0d0cc; border-radius: 4px; padding: 1px 5px; }
 #gridTable th .filldown {
     margin-left: 5px; padding: 0 4px; border-radius: 4px; cursor: pointer;
     background: rgba(245,165,36,.14); border: 1px solid rgba(245,165,36,.4);
@@ -846,7 +853,25 @@ function esc(s) { return CadreLetter.escapeHtml(s); }
 (async function boot() {
     try {
         CFG = await api('/config');
-    } catch (e) { toast(e.message, 'err'); return; }
+    } catch (e) {
+        /* A toast here was wrong: it fades, and the page is then left blank with
+         * no gallery and no explanation — indistinguishable from "the module is
+         * broken". The commonest cause is deploying the code without running
+         * sql/2026-08-07_cadre_letters.sql, so the type catalogue does not
+         * exist yet. Say so, on the page, and stay there. */
+        $('sheet').innerHTML =
+            '<div class="bootfail">' +
+            '<h3>Cadre Management could not start</h3>' +
+            '<p>The letter-type catalogue could not be read.</p>' +
+            '<p class="why">' + esc(e.message || 'Unknown error') + '</p>' +
+            '<p>If this server was just updated, the database step is probably still' +
+            ' pending — run <code>sql/2026-08-07_cadre_letters.sql</code> against it,' +
+            ' then reload. It is safe to re-run.</p>' +
+            '</div>';
+        $('galleryVeil').classList.remove('open');
+        toast(e.message, 'err');
+        return;
+    }
 
     $('whoBox').innerHTML = `<b>${esc(CFG.user.full_name || CFG.user.username)}</b><br>${esc(CFG.user.office_code || 'HQ')}`;
     $('dlLobby').innerHTML = (CFG.lobbies || [])
