@@ -46,11 +46,14 @@
     return el;
   }
 
-  function body() { return document.querySelector('[data-sub-body]'); }
+  /** A page may have several regions to hide — train-index has two columns. */
+  function bodies() { return document.querySelectorAll('[data-sub-body]'); }
+  function setBodies(hidden) {
+    Array.prototype.forEach.call(bodies(), function (b) { b.hidden = hidden; });
+  }
 
   function showState(html) {
-    var b = body();
-    if (b) b.hidden = true;
+    setBodies(true);
     var h = host();
     h.hidden = false;
     h.innerHTML = html;
@@ -59,8 +62,7 @@
   function showReady() {
     var h = document.querySelector('[data-sub-host]');
     if (h) { h.hidden = true; h.innerHTML = ''; }
-    var b = body();
-    if (b) b.hidden = false;
+    setBodies(false);
   }
 
   function showLoading(msg) {

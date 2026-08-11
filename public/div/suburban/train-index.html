@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Train Index — Suburban Crew Ops</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Hanken+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/div/suburban/css/suburban.css">
+<style>
+/* Train-Index only. Shell tokens, sidebar and states come from suburban.css. */
+:root{--fast:#e56a86;--semi:#f4a533;--slow:#5aa9e6}
+.app{grid-template-columns:272px 330px 1fr}
+[data-sub-host]{grid-column:2 / 4}
+
+/* ---------- search column ---------- */
+.pick{background:var(--bg2);border-right:1px solid var(--line);display:flex;flex-direction:column;overflow:hidden}
+.pickhead{padding:18px 16px 14px;border-bottom:1px solid var(--line)}
+.pickhead h2{font-family:var(--disp);font-weight:700;font-size:20px}
+.pickhead .pd{font-size:12px;color:var(--ink3);margin-top:3px}
+
+.seg{display:flex;margin-top:14px;background:var(--panel);border:1px solid var(--line2);border-radius:11px;padding:3px}
+.seg button{flex:1;font:700 10.5px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);background:none;border:0;padding:8px 6px;border-radius:8px;cursor:pointer;transition:.15s}
+.seg button.on{background:linear-gradient(180deg,rgba(244,165,51,.2),rgba(244,165,51,.08));color:var(--amber)}
+.seg button:not(.on):hover{color:var(--ink)}
+
+.sbox{position:relative;margin-top:12px}
+.sbox svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);width:15px;height:15px;stroke:var(--ink3);fill:none;stroke-width:2}
+.sbox input{width:100%;font:700 14px var(--mono);color:var(--ink);background:var(--panel);border:1px solid var(--line2);border-radius:11px;padding:11px 12px 11px 36px;outline:none;transition:.16s}
+.sbox input:focus{border-color:var(--amber);box-shadow:0 0 0 3px rgba(244,165,51,.1)}
+.sbox input::placeholder{color:var(--ink3);font-weight:400;letter-spacing:0}
+
+.filts{display:flex;flex-wrap:wrap;gap:6px;margin-top:11px}
+.filts select{font:600 10.5px var(--mono);color:var(--ink2);background:var(--panel);border:1px solid var(--line2);border-radius:8px;padding:6px 8px;cursor:pointer;outline:none}
+.filts select:focus{border-color:var(--amber)}
+.chk{display:flex;align-items:center;gap:6px;font:600 10.5px var(--mono);letter-spacing:.04em;color:var(--ink3);cursor:pointer;padding:6px 9px;border:1px solid var(--line2);border-radius:8px;user-select:none;transition:.15s}
+.chk.on{border-color:var(--amber);color:var(--amber);background:rgba(244,165,51,.08)}
+
+.cnt{padding:9px 18px;font:700 9.5px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--ink3);border-bottom:1px solid var(--line)}
+.cnt b{color:var(--amber)}
+.list{flex:1;overflow-y:auto;padding:8px 10px 30px}
+.list::-webkit-scrollbar{width:8px}.list::-webkit-scrollbar-thumb{background:var(--line2);border-radius:8px}
+.row{display:flex;align-items:center;gap:9px;padding:9px 11px;margin:2px 0;border-radius:10px;border:1px solid transparent;cursor:pointer;transition:.14s}
+.row:hover{background:var(--panel)}
+.row.on{background:var(--panel);border-color:var(--line2);box-shadow:inset 3px 0 0 var(--amber)}
+.row .rn{font-family:var(--disp);font-weight:800;font-size:15px;letter-spacing:-.01em;min-width:66px}
+.row .rm{flex:1;min-width:0;font:400 10.5px/1.35 var(--body);color:var(--ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .rc{font:700 10px var(--mono);color:var(--ink3);padding:2px 6px;border:1px solid var(--line2);border-radius:20px;flex:none}
+.row .rc.multi{color:var(--amber);border-color:rgba(244,165,51,.4)}
+.empty{padding:40px 20px;text-align:center;color:var(--ink3);font-size:12.5px;line-height:1.6}
+
+/* ---------- main ---------- */
+.body{overflow-y:auto}
+.body::-webkit-scrollbar{width:10px}.body::-webkit-scrollbar-thumb{background:var(--line2);border-radius:10px}
+.thead{position:sticky;top:0;z-index:6;backdrop-filter:blur(14px);background:rgba(11,14,20,.85);border-bottom:1px solid var(--line);padding:22px 32px 18px}
+.crumbs{display:flex;align-items:center;gap:9px;font:600 11.5px var(--mono);color:var(--ink3);letter-spacing:.05em}
+.crumbs .cur{color:var(--amber)}
+.thead h3{font-family:var(--disp);font-weight:800;font-size:34px;letter-spacing:-.025em;margin-top:9px;display:flex;align-items:center;gap:13px;flex-wrap:wrap}
+.route{display:flex;align-items:center;gap:10px;margin-top:11px;font:700 13px var(--mono);color:var(--ink2)}
+.route .ar{color:var(--line2)}
+.route .un{color:var(--ink3);font-weight:400;font-family:var(--body);font-size:12.5px}
+.tags{display:flex;gap:7px;margin-top:14px;flex-wrap:wrap}
+.pill{font:700 9px var(--mono);letter-spacing:.08em;padding:4px 9px;border-radius:20px;text-transform:uppercase}
+.pill.FAST{background:rgba(229,106,134,.14);color:var(--fast)}
+.pill.SEMI_FAST{background:rgba(244,165,51,.14);color:var(--semi)}
+.pill.SLOW{background:rgba(90,169,230,.14);color:var(--slow)}
+.pill.EMPTY_RAKE{background:rgba(107,118,134,.16);color:var(--ink3)}
+.pill.AC{background:rgba(87,182,255,.14);color:var(--memu)}
+.pill.car{background:rgba(232,237,244,.07);color:var(--ink2)}
+.pill.lg{background:rgba(79,209,165,.11);color:var(--cont)}
+.pill.dir{background:rgba(244,165,51,.12);color:var(--amber)}
+.pill.single{background:rgba(90,169,230,.13);color:var(--single)}
+.pill.double{background:rgba(244,165,51,.13);color:var(--double)}
+.pill.triple{background:rgba(229,106,134,.13);color:var(--triple)}
+.pill.continuous{background:rgba(79,209,165,.13);color:var(--cont)}
+.pill.fix{background:rgba(185,140,255,.13);color:var(--fix)}
+.pill.memu{background:rgba(87,182,255,.13);color:var(--memu)}
+.pill.unm{background:rgba(107,118,134,.14);color:var(--ink3)}
+
+.sect{padding:24px 32px 0}
+.sect h4{font:700 10px var(--mono);letter-spacing:.22em;text-transform:uppercase;color:var(--ink3);display:flex;align-items:center;gap:11px;margin-bottom:14px}
+.sect h4::after{content:"";flex:1;height:1px;background:var(--line)}
+.sect h4 .n{color:var(--amber)}
+
+/* the binding cards: which details work this train */
+.cards{display:flex;flex-direction:column;gap:12px;padding-bottom:24px}
+.card{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--line);border-radius:15px;overflow:hidden;box-shadow:var(--shadow);transition:.16s}
+.card:hover{border-color:var(--line2)}
+.chead{display:flex;align-items:center;gap:13px;padding:15px 18px;border-bottom:1px solid var(--line);cursor:pointer}
+.chead .dnum{font-family:var(--disp);font-weight:800;font-size:26px;letter-spacing:-.02em;line-height:1;min-width:58px}
+.chead .dmeta{flex:1;min-width:0}
+.chead .dmeta .r1{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.chead .dmeta .r2{font:400 11.5px var(--body);color:var(--ink3);margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chead .sig{text-align:right;font-family:var(--mono);flex:none}
+.chead .sig b{display:block;font-size:14px;font-weight:700;color:var(--ink)}
+.chead .sig span{font:600 9px var(--mono);letter-spacing:.13em;text-transform:uppercase;color:var(--ink3)}
+.chead .caret{width:15px;height:15px;stroke:var(--ink3);fill:none;stroke-width:2.2;transition:transform .18s;flex:none}
+.card.open .caret{transform:rotate(180deg)}
+
+/* the leg strip — this train's leg(s) inside that detail */
+.legs{padding:4px 0}
+.leg{display:grid;grid-template-columns:14px 1fr;gap:13px;padding:11px 18px;align-items:start}
+.leg .rail{position:relative;height:100%;display:flex;justify-content:center;padding-top:5px}
+.leg .rail .d{width:9px;height:9px;border-radius:50%;background:var(--line2);border:2px solid var(--bg2);z-index:1}
+.leg.hit .rail .d{background:var(--amber);box-shadow:0 0 0 4px rgba(244,165,51,.16)}
+.leg .rail::before{content:"";position:absolute;top:0;bottom:-11px;width:2px;background:var(--line);left:50%;transform:translateX(-50%)}
+.leg:last-child .rail::before{display:none}
+.leg .lc{min-width:0}
+.leg .l1{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.leg .tno{font-family:var(--mono);font-weight:700;font-size:13.5px;color:var(--ink2)}
+.leg.hit .tno{color:var(--amber)}
+.leg .path{font:600 12.5px var(--body);color:var(--ink3)}
+.leg .path b{color:var(--ink2);font-weight:600}
+.leg .tm{font-family:var(--mono);font-weight:700;font-size:12px;color:var(--ink3);margin-left:auto;white-space:nowrap}
+.leg .tag{font:700 8.5px var(--mono);letter-spacing:.1em;text-transform:uppercase;padding:2px 6px;border-radius:5px}
+.leg .tag.piloting{background:rgba(185,140,255,.14);color:var(--fix)}
+.leg .tag.rt,.leg .tag.rb{cursor:pointer;border:1px solid transparent}
+.leg .tag.rt{background:rgba(79,209,165,.14);color:var(--cont)}
+.leg .tag.rb{background:rgba(244,165,51,.14);color:var(--amber)}
+.leg .tag.rt:hover,.leg .tag.rb:hover{border-color:currentColor}
+.leg .tag.waiting{background:rgba(107,118,134,.16);color:var(--ink3)}
+.legs .more{padding:9px 18px 13px 45px;font:600 11px var(--mono);color:var(--ink3);cursor:pointer}
+.legs .more:hover{color:var(--amber)}
+
+/* placeholder */
+.ph{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;color:var(--ink3);text-align:center;padding:40px}
+.ph svg{width:54px;height:54px;stroke:var(--line2);fill:none;stroke-width:1.4}
+.ph h3{font-family:var(--disp);font-weight:700;font-size:23px;color:var(--ink2)}
+.ph p{font-size:13px;max-width:400px;line-height:1.65}
+.ph .hint{font:600 11px var(--mono);color:var(--ink3);margin-top:4px}
+.ph .hint b{color:var(--amber)}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="side" data-sub-nav="train-index"></aside>
+
+  <div data-sub-host></div>
+
+  <aside class="pick" data-sub-body hidden>
+    <div class="pickhead">
+      <h2>Train Index</h2>
+      <div class="pd">Which detail works which train — both ways.</div>
+      <div class="seg">
+        <button id="mT" class="on">By Train</button>
+        <button id="mD">By Detail</button>
+      </div>
+      <div class="sbox">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
+        <input id="q" autocomplete="off" spellcheck="false">
+      </div>
+      <div class="filts" id="filts"></div>
+    </div>
+    <div class="cnt" id="cnt"></div>
+    <div class="list" id="list"></div>
+  </aside>
+
+  <main class="body" id="main" data-sub-body hidden></main>
+</div>
+
+<script src="/div/js/division-auth.js"></script>
+<script src="/div/suburban/js/sub-derive.js"></script>
+<script src="/div/suburban/js/sub-data.js"></script>
+<script src="/div/suburban/js/sub-shell.js"></script>
+<script src="/div/suburban/js/page-train-index.js"></script>
+</body>
+</html>
