@@ -186,31 +186,77 @@ Base km values: 90–242, clustered at 150. 27 details carry 200/206/242 — the
 long runs, mostly KYN. **242 is correct** for CSMT-KSRA-CSMT (121 × 2); the 243
 quoted earlier was a typo.
 
-### It also has details the book is missing
+### Three kinds of detail the `details` table does not hold
 
-18 in Excel and not in `details`:
+**1. MEMU (901-912) — they exist, in a parallel subsystem.**
 
-- **901–910** — block 6 "KYN Mainline MEMU" (901-912) is **empty in our DB**
-  (0 rows) but has 10 real details here, including KYN→PEN and KYN→ROHA.
-  This is the block the Detail Book page renders dimmed with a dash.
-- **1001–1007** — seven PNVL details (incl. PNVL→BEPR) falling in **no**
-  `detail_blocks` range at all.
+Block 6 "KYN Mainline MEMU" shows 0 rows in `details`, but the details are real
+and live in their own schema, built Aug 2025:
+
+| Table | Rows | Grain |
+|---|---|---|
+| `memu_details` | 11 | 901-904, 906-912 — **905 is absent** |
+| `memu_day_patterns` | 27 | per detail × day type, each with its own sign-on/off, duty hours, wheel movement, piloting |
+| `memu_trains` | 66 | legs, per pattern |
+
+The separation is justified: `day_type` is an ENUM of
+`monday_friday / monday_thursday / friday / saturday / sunday / saturday_sunday /
+monday_saturday`, and the times, legs and duty hours genuinely differ per day.
+`details` has **no day dimension** — one row is one fixed duty — so these cannot
+be folded in as they stand.
+
+**Consequence for km: MEMU mileage is per DAY PATTERN, not per detail**, because
+the hours floor is driven by that day's duty hours. Applying the rule to
+`memu_day_patterns.total_duty_hours` reproduces the user's figures exactly:
+
+| Detail | Pattern | Duty | Floor |
+|---|---|---|---|
+| 901-907, 911, 912 | Mon-Sat / Mon-Fri | 5:00 – 10:17 | 150 |
+| **910** | Mon-Fri | **04:12** | **130** |
+| 908 | Sunday | 04:00 | 130 |
+| 909 | Sunday | 04:25 | 130 |
+| 908, 909, 910 | Saturday (no duty) | 00:00 | 120 |
+
+That also reconciles the workbook: its `908 = 130` is the **Sunday** value, not a
+mistake. So km belongs on `memu_day_patterns`, not on a single detail row. No
+`memu_*` table has a km column today.
+
+**2. Departmental (412, 558, 999) — not in the official book at all.**
+
+Their own rule, per the user:
+
+> **20 km per hour of duty.** If no work is performed (not booked) → 120.
+> If worked → minimum 150.
+
+All three carry duty 08:00 and wheel movement 03:00 in `details`, so they are
+"worked": 20 × 8 = **160**. This rule is computed, not authored — the only part
+of mileage that is.
+
+**3. Genuinely unaccounted for.**
+
+- **1001–1007** — seven PNVL details (incl. PNVL→BEPR) in **no** `detail_blocks`
+  range. A new block is needed if they are current.
 - **385** — sits in the gap between CSMT Harbour Continuous (201-384) and
   Fix (386-404).
+- **556** — needs a book re-check. The user recalls it now working an **Uran**
+  train at 130 km; the DB has it on the **Pen** line —
+  `P/61018 PNVL→DW`, `DWPEN61019 DW→PEN`, `PENDW61026 PEN→DW`, `P/61013 DW→PNVL`.
+  Uran services are the `UBR`/`UNU` codes, and none appear on 556.
 
 ### Build
 
-1. `details.km SMALLINT NULL` — a new column in a dated `sql/` file, loaded with
-   the 763 matched values from the book.
-2. Expose it in the todo-1 editor, beside duty / wheel / piloting, so a book
-   revision updates it the same way those are updated.
-3. Apply the duty-type overrides and the hours floor at **daily-entry** time
-   (todo 3) — that part is per-day, because it depends on the hours actually
-   worked and the duty type, not on the detail.
+Km lands in **three** places, because there are three kinds of detail:
 
-Decide what to do about the 4 details in the DB with no km in the book
-(412, 556, 558, 999 — the departmental dummies, which sit in no block either)
-and the 18 the book has that we do not (see below).
+1. `details.km SMALLINT NULL` — loaded with the 763 values that match the book.
+2. `memu_day_patterns.km SMALLINT NULL` — per day pattern, because MEMU hours
+   and therefore the floor vary by day (see below).
+3. Departmental details (412, 558, 999) — **computed**, `20 × duty hours`, with
+   the 120 / 150 rule. Not stored as a book value because there is no book page.
+
+Then expose 1 and 2 in the todo-1 editor beside duty / wheel / piloting, so a
+book revision updates km the same way it updates those. The duty-type overrides
+and the hours floor are applied at **daily-entry** time (todo 3) against the
+hours actually worked.
 
 ---
 
