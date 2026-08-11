@@ -469,6 +469,12 @@ app.use("/div", (req, res, next) => {
   next();
 });
 
+// Suburban Crew Ops lives in a folder, and express.static runs with
+// {index:false}, so the bare directory URL would 404. Placed after the /div
+// guard above so the redirect is session-gated like every other page.
+app.get(["/div/suburban", "/div/suburban/"], (req, res) =>
+  res.redirect("/div/suburban/index.html"));
+
 // ✅ Protect all /spm/rtis/* (Division realm only) — must be ABOVE proxy
 app.use("/spm/rtis", (req, res, next) => {
   console.log("[RTIS GUARD HIT]", req.method, req.originalUrl, "session?", !!req.session?.user);

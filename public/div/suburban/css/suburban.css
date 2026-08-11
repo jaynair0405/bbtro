@@ -1,0 +1,102 @@
+/**
+ * Suburban Crew Ops — shared app shell.
+ *
+ * Everything every page in the module needs: design tokens, the page ground,
+ * the sidebar, the main scroll area, and the load/error/warning states that
+ * exist because these pages now fetch their data instead of carrying it.
+ *
+ * Page-specific rules stay in a small <style> block on the page itself. Adding
+ * a page to this module should mean writing only what is genuinely new.
+ */
+
+:root{
+  --bg:#0b0e14; --bg2:#0e1219; --panel:#141922; --panel2:#1a2029;
+  --line:#232b37; --line2:#2c3745;
+  --ink:#e8edf4; --ink2:#aeb9c8; --ink3:#6b7686;
+  --amber:#f4a533; --amber-dim:#3a2c15;
+  --single:#5aa9e6; --double:#f4a533; --triple:#e56a86;
+  --cont:#4fd1a5; --fix:#b98cff; --memu:#57b6ff;
+  --warn:#e56a86;
+  --shadow:0 18px 50px -20px rgba(0,0,0,.75);
+  --mono:'Space Mono',ui-monospace,monospace;
+  --disp:'Bricolage Grotesque',sans-serif;
+  --body:'Hanken Grotesk',system-ui,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:var(--body);color:var(--ink);background:var(--bg);-webkit-font-smoothing:antialiased;overflow:hidden;
+  background-image:radial-gradient(1200px 640px at 80% -12%,rgba(244,165,51,.11),transparent 60%),
+    radial-gradient(1000px 760px at 4% 112%,rgba(87,182,255,.08),transparent 55%);}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:46px 46px;opacity:.13;mask-image:radial-gradient(circle at 55% 30%,#000 25%,transparent 82%);}
+body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.03;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");}
+.app{position:relative;z-index:1;display:grid;grid-template-columns:272px 1fr;height:100vh}
+
+/* ── sidebar ─────────────────────────────────────────────────────────── */
+.side{background:linear-gradient(180deg,var(--bg2),var(--bg));border-right:1px solid var(--line);display:flex;flex-direction:column;overflow:hidden}
+.brand{padding:22px 22px 18px;border-bottom:1px solid var(--line);text-decoration:none;color:inherit;display:block}
+.brand .kick{font:700 10px/1 var(--mono);letter-spacing:.3em;color:var(--amber);text-transform:uppercase}
+.brand h1{font-family:var(--disp);font-weight:800;font-size:26px;letter-spacing:-.02em;margin-top:9px;line-height:.95}
+.brand h1 em{font-style:normal;color:var(--amber)}
+.brand .sub{color:var(--ink3);font-size:12px;margin-top:6px;font-weight:500}
+.nav{flex:1;overflow-y:auto;padding:16px 12px}
+.nav::-webkit-scrollbar{width:8px}.nav::-webkit-scrollbar-thumb{background:var(--line2);border-radius:8px}
+.ngroup{font:700 10px var(--mono);letter-spacing:.2em;color:var(--ink3);text-transform:uppercase;margin:18px 12px 8px}
+.item{position:relative;display:flex;align-items:center;gap:12px;padding:10px 13px;margin:2px 0;border-radius:12px;cursor:pointer;
+  color:var(--ink2);text-decoration:none;transition:background .16s,color .16s,transform .16s}
+.item:hover{background:var(--panel);color:var(--ink);transform:translateX(2px)}
+.item.on{background:linear-gradient(90deg,rgba(244,165,51,.15),rgba(244,165,51,.02));color:var(--ink)}
+.item.on::before{content:"";position:absolute;left:-12px;top:9px;bottom:9px;width:3px;border-radius:3px;background:var(--amber)}
+.item svg{width:18px;height:18px;flex:none;stroke:currentColor;fill:none;stroke-width:1.7}
+.item.on svg{stroke:var(--amber)}
+.item b{flex:1;font-size:14px;font-weight:600}
+.item .b{font:700 10px var(--mono);color:var(--ink3);padding:2px 7px;border:1px solid var(--line2);border-radius:20px}
+.item.soon{opacity:.5;cursor:default}.item.soon:hover{transform:none;background:none;color:var(--ink2)}
+.item.soon .b{color:var(--ink3);border-color:var(--line)}
+.side .who{margin:8px 12px 16px;padding:11px 13px;border:1px solid var(--line);border-radius:12px;display:flex;align-items:center;gap:11px}
+.side .who .av{width:32px;height:32px;border-radius:9px;background:linear-gradient(135deg,var(--amber),#c97a17);display:grid;place-items:center;
+  font-family:var(--disp);font-weight:800;color:#1a1206;font-size:14px}
+.side .who .n{font-size:12.5px;font-weight:600}
+.side .who .r{font:600 10px var(--mono);color:var(--ink3)}
+.side .back{margin:0 12px 10px;font:600 11px var(--mono);color:var(--ink3);text-decoration:none;display:flex;align-items:center;gap:7px;padding:8px 13px;border-radius:10px}
+.side .back:hover{color:var(--ink2);background:var(--panel)}
+
+/* ── main ────────────────────────────────────────────────────────────── */
+.main{overflow-y:auto;position:relative}
+.main::-webkit-scrollbar{width:10px}.main::-webkit-scrollbar-thumb{background:var(--line2);border-radius:10px}
+.wrap{padding:30px 40px 80px;max-width:1240px}
+
+/* ── load / error / warning ──────────────────────────────────────────── */
+.sub-state{display:grid;place-items:center;min-height:70vh;text-align:center;padding:40px}
+.sub-state .ic{width:52px;height:52px;border-radius:14px;border:1px solid var(--line2);background:var(--panel);
+  display:grid;place-items:center;margin:0 auto 18px}
+.sub-state .ic svg{width:24px;height:24px;stroke:var(--amber);fill:none;stroke-width:1.7}
+.sub-state h4{font-family:var(--disp);font-weight:700;font-size:19px;letter-spacing:-.01em}
+.sub-state p{color:var(--ink3);font-size:13px;margin-top:8px;max-width:460px;line-height:1.6}
+.sub-state code{font:400 12px var(--mono);color:var(--ink2);background:var(--bg2);border:1px solid var(--line);
+  border-radius:6px;padding:2px 6px}
+.sub-state button{margin-top:20px;font:700 12px var(--mono);letter-spacing:.08em;text-transform:uppercase;
+  color:#151006;background:var(--amber);border:0;border-radius:10px;padding:11px 20px;cursor:pointer}
+.sub-state button:hover{filter:brightness(1.08)}
+.sub-state.err .ic svg{stroke:var(--warn)}
+
+/* the loading bar: a train pulling across the track */
+.sub-track{width:220px;height:4px;border-radius:4px;background:var(--line);overflow:hidden;margin:22px auto 0}
+.sub-track i{display:block;height:100%;width:40%;border-radius:4px;background:var(--amber);
+  animation:sub-run 1.15s cubic-bezier(.5,0,.5,1) infinite}
+@keyframes sub-run{0%{transform:translateX(-105%)}100%{transform:translateX(255%)}}
+
+/* data-quality banner — warnings from the dataset, not exceptions */
+.sub-warn{margin:0 0 20px;border:1px solid #46313a;background:linear-gradient(180deg,#1d1519,var(--bg2));
+  border-radius:14px;padding:14px 18px;display:flex;gap:13px;align-items:flex-start}
+.sub-warn svg{width:17px;height:17px;flex:none;stroke:var(--warn);fill:none;stroke-width:1.8;margin-top:1px}
+.sub-warn .t{font:700 10px var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--warn)}
+.sub-warn ul{margin:7px 0 0 0;padding:0;list-style:none}
+.sub-warn li{color:var(--ink2);font-size:12.5px;line-height:1.65}
+.sub-warn li::before{content:"—";color:var(--ink3);margin-right:8px}
+
+/* freshness stamp */
+.sub-built{position:fixed;right:16px;bottom:12px;z-index:5;font:400 10px var(--mono);color:var(--ink3);
+  background:rgba(11,14,20,.82);border:1px solid var(--line);border-radius:20px;padding:5px 11px;pointer-events:none}

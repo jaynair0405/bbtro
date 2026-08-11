@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Suburban Crew Ops — BB Division</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Hanken+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/div/suburban/css/suburban.css">
+<style>
+/* Overview-only */
+.hello{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap}
+.hello .l .greet{font:600 12px var(--mono);letter-spacing:.06em;color:var(--amber)}
+.hello .l h2{font-family:var(--disp);font-weight:700;font-size:34px;letter-spacing:-.025em;margin-top:6px}
+.hello .l p{color:var(--ink3);margin-top:5px;font-size:13.5px}
+.hello .search{display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:11px 15px;min-width:280px;color:var(--ink3);text-decoration:none;transition:border-color .2s,color .2s}
+.hello .search:hover{border-color:var(--line2);color:var(--ink2)}
+.hello .search svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8}
+.hello .search span{font:400 13px var(--mono)}
+
+.band{margin-top:26px;background:linear-gradient(180deg,var(--panel),var(--bg2));border:1px solid var(--line);border-radius:20px;
+  box-shadow:var(--shadow);padding:22px 26px;display:grid;grid-template-columns:auto 1fr;gap:30px;align-items:center}
+.band .big{display:flex;flex-direction:column;gap:2px;border-right:1px solid var(--line);padding-right:30px}
+.band .big .num{font-family:var(--disp);font-weight:800;font-size:52px;line-height:.9;letter-spacing:-.03em}
+.band .big .lab{font:700 11px var(--mono);letter-spacing:.18em;color:var(--ink3);text-transform:uppercase;margin-top:8px}
+.segwrap{display:flex;flex-direction:column;gap:14px}
+.seg{height:16px;border-radius:8px;overflow:hidden;display:flex;background:var(--bg)}
+.seg i{height:100%;display:block;position:relative;transition:filter .2s}
+.seg i:hover{filter:brightness(1.15)}
+.seglabels{display:flex;gap:26px}
+.slab{display:flex;align-items:center;gap:9px}
+.slab .dot{width:10px;height:10px;border-radius:50%}
+.slab .t{font:700 15px var(--mono);color:var(--ink)}
+.slab .s{font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--ink3);margin-left:2px}
+
+.sect{margin-top:34px}
+.sect h3{font:700 11px var(--mono);letter-spacing:.2em;text-transform:uppercase;color:var(--ink3);margin-bottom:16px;display:flex;align-items:center;gap:12px}
+.sect h3::after{content:"";flex:1;height:1px;background:var(--line)}
+
+.mods{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.mod{position:relative;background:linear-gradient(180deg,var(--panel),var(--bg2));border:1px solid var(--line);border-radius:18px;
+  padding:22px;text-decoration:none;color:var(--ink);overflow:hidden;transition:border-color .2s,transform .2s,box-shadow .2s;display:flex;flex-direction:column;gap:14px;min-height:168px}
+.mod:hover{border-color:var(--line2);transform:translateY(-4px);box-shadow:var(--shadow)}
+.mod::after{content:"";position:absolute;inset:0;background:radial-gradient(340px 160px at 100% 0,var(--gl,rgba(244,165,51,.10)),transparent 60%);opacity:.7;pointer-events:none}
+.mod .ic{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;border:1px solid var(--line2);background:var(--bg)}
+.mod .ic svg{width:22px;height:22px;stroke:var(--ac,var(--amber));fill:none;stroke-width:1.7}
+.mod h4{font-family:var(--disp);font-weight:700;font-size:19px;letter-spacing:-.01em}
+.mod p{color:var(--ink3);font-size:12.5px;line-height:1.5;margin-top:-6px}
+.mod .foot{margin-top:auto;display:flex;align-items:center;justify-content:space-between}
+.mod .stat{font:700 13px var(--mono);color:var(--ac,var(--amber))}
+.mod .stat b{font-family:var(--disp);font-size:22px;margin-right:6px}
+.mod .go{width:30px;height:30px;border-radius:9px;border:1px solid var(--line2);display:grid;place-items:center;transition:.2s}
+.mod:hover .go{background:var(--ac,var(--amber));border-color:transparent}
+.mod .go svg{width:15px;height:15px;stroke:var(--ink2);fill:none;stroke-width:2}
+.mod:hover .go svg{stroke:#151006}
+.mod .soonpill{position:absolute;top:16px;right:16px;font:700 9px var(--mono);letter-spacing:.1em;color:var(--ink3);border:1px solid var(--line2);padding:3px 8px;border-radius:20px}
+.mod.soon{opacity:.62}.mod.soon:hover{transform:none;border-color:var(--line)}
+
+.offs{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.off{background:linear-gradient(180deg,var(--panel),var(--bg2));border:1px solid var(--line);border-radius:18px;padding:20px}
+.off .oh{display:flex;align-items:center;justify-content:space-between}
+.off .oh .nm{font-family:var(--disp);font-weight:800;font-size:22px}
+.off .oh .tot{font:700 12px var(--mono);color:var(--ink3)}
+.off .oh .tot b{font-family:var(--disp);font-size:20px;color:var(--ink);margin-right:4px}
+.off .types{display:flex;gap:8px;margin:16px 0 14px}
+.off .types .tp{flex:1;background:var(--bg);border:1px solid var(--line);border-radius:11px;padding:10px 0;text-align:center}
+.off .types .tp b{display:block;font:700 17px var(--mono)}
+.off .types .tp span{font:600 8.5px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--ink3)}
+.off .links{display:flex;flex-direction:column;gap:9px}
+.off .lrow{display:flex;align-items:center;gap:10px;font:600 11px var(--mono);color:var(--ink2)}
+.off .lrow .k{width:74px;color:var(--ink3);letter-spacing:.06em;text-transform:uppercase;font-size:9.5px}
+.off .lrow .track{flex:1;height:7px;border-radius:6px;background:var(--bg);overflow:hidden}
+.off .lrow .track i{display:block;height:100%;border-radius:6px}
+.off .lrow .v{width:34px;text-align:right;color:var(--ink)}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="side" data-sub-nav="overview"></aside>
+
+  <main class="main">
+    <div data-sub-host></div>
+    <div class="wrap" data-sub-body hidden>
+      <div data-sub-warn></div>
+
+      <div class="hello">
+        <div class="l">
+          <div class="greet" id="greet">&nbsp;</div>
+          <h2>Suburban Crew Operations</h2>
+          <p>Detail-book cycles across CSMT, KYN &amp; Panvel — classified &amp; chained.</p>
+        </div>
+        <a class="search" href="/div/suburban/train-index.html">
+          <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
+          <span>Jump to a train or detail…</span>
+        </a>
+      </div>
+
+      <div class="band">
+        <div class="big"><span class="num" id="k-total">·</span><span class="lab">Total Details</span></div>
+        <div class="segwrap">
+          <div class="seg" id="seg"></div>
+          <div class="seglabels">
+            <div class="slab"><span class="dot" style="background:var(--single)"></span><span class="t" id="k-single">·</span><span class="s">Single</span></div>
+            <div class="slab"><span class="dot" style="background:var(--double)"></span><span class="t" id="k-double">·</span><span class="s">Double</span></div>
+            <div class="slab"><span class="dot" style="background:var(--triple)"></span><span class="t" id="k-triple">·</span><span class="s">Triple</span></div>
+            <div class="slab" style="margin-left:auto"><span class="t" id="k-offices" style="color:var(--cont)">·</span><span class="s">Offices</span></div>
+            <div class="slab"><span class="t" id="k-blocks" style="color:var(--memu)">·</span><span class="s">Link Blocks</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sect"><h3>Modules</h3>
+        <div class="mods" id="mods"></div>
+      </div>
+
+      <div class="sect"><h3>By Office</h3>
+        <div class="offs" id="offs"></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="/div/js/division-auth.js"></script>
+<script src="/div/suburban/js/sub-derive.js"></script>
+<script src="/div/suburban/js/sub-data.js"></script>
+<script src="/div/suburban/js/sub-shell.js"></script>
+<script src="/div/suburban/js/page-overview.js"></script>
+</body>
+</html>
