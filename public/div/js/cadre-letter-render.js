@@ -95,7 +95,18 @@
      * are the whole point of the letter. Markers are applied AFTER escaping, so
      * the text itself can never inject markup. */
     function inlineMarks(escaped) {
-        return escaped.replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>');
+        return markTokens(escaped.replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>'));
+    }
+
+    /* An unfilled {{token}} renders as ‹name›. Wrap those so the preview can
+     * shout about them — a placeholder that reaches a signed letter is the
+     * worst kind of mistake, because it looks deliberate.
+     *
+     * Applied to text that is ALREADY escaped: ‹ and › are not HTML-special
+     * and pass through esc() untouched, so the markers can be found afterwards
+     * without the letter's own text ever being able to inject markup. */
+    function markTokens(escaped) {
+        return escaped.replace(/‹([a-z0-9_]+)›/gi, '<span class="tok">‹$1›</span>');
     }
     function paragraphs(text) {
         if (!has(text)) return '';
@@ -280,7 +291,7 @@
         staff = staff || [];
         opts = opts || {};
         var ph = function (val, hint) {
-            if (has(val)) return nl2br(val);
+            if (has(val)) return inlineMarks(nl2br(val));
             return opts.placeholders ? '<span class="ph">' + esc(hint) + '</span>' : '';
         };
 
@@ -330,7 +341,7 @@
             out += '<table class="subref">';
             out += '<tr><td class="lbl">Sub:</td><td>' + ph(subject, 'Subject of the letter') + '</td></tr>';
             refLines.forEach(function (r, i) {
-                out += '<tr><td class="lbl">' + (i === 0 ? 'Ref:' : '') + '</td><td>' + nl2br(r) + '</td></tr>';
+                out += '<tr><td class="lbl">' + (i === 0 ? 'Ref:' : '') + '</td><td>' + inlineMarks(nl2br(r)) + '</td></tr>';
             });
             out += '</table>';
         }
@@ -368,7 +379,7 @@
         out += '</div>';
 
         if (has(letter.encl_text)) {
-            out += '<div class="encl"><b>Encl.:</b> ' + nl2br(applyTokens(letter.encl_text, letter, staff)) + '</div>';
+            out += '<div class="encl"><b>Encl.:</b> ' + inlineMarks(nl2br(applyTokens(letter.encl_text, letter, staff))) + '</div>';
         }
         if (has(letter.cc_text)) {
             out += '<div class="cc">' + lines(letter.cc_text).map(function (l) {
@@ -474,6 +485,12 @@
          * the one-page LP-Shunter letter onto a second, near-empty page: the
          * letter itself ended at 265.6mm, inside the 269mm printable area, and
          * only this line overran it. */
+        /* Unfilled placeholder — loud on screen so it cannot be missed, plain
+         * black on paper. Red ink on an official letter would be worse than
+         * the omission it is flagging, and the letter should not be printed
+         * with one of these in it at all. */
+        '.sheet .tok{color:#c0221b;font-weight:700;}',
+        '@media print{.sheet .tok{color:#000;font-weight:400;}}',
         '.sheet .gen-credit{margin-top:8mm;font-size:6.5pt;color:#c9ced6;letter-spacing:.2px;}',
         '@media print{.sheet .gen-credit{position:fixed;bottom:0;left:0;margin:0;}}'
     ].join('\n');
