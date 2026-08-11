@@ -298,6 +298,33 @@ PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 
 UPDATE div_cadre_letter_types SET sig_gap = 6 WHERE type_code = 'REFRESHER_EXEMPTION';
 
+-- ---------------------------------------------------------------------------
+-- 4f. One signature format across every letter
+--
+-- The scanned originals are not consistent — the MLD and seniority-verification
+-- letters sign "व.मं.वि. इंजि. (क.च.परि)" over "छ.शि.म.ट.,मुंबई." while the rest
+-- use "वरि.मं.वि.इं.(क.च.परि)" over "मुंबई छ.शि.म.ट", and the footplate-km letter
+-- carries no place line at all. That is typing variation across Word files, not
+-- three different conventions, so the module standardises on the majority form.
+--
+-- NOT touched, because it is not formatting:
+--   * (क.च.परि) vs (क.च.स्टाक/परि) — two genuinely different posts. The letters
+--     using the stock form carry the matching stock letterhead, in the originals
+--     as well as here, so collapsing them would be wrong.
+--   * REFRESHER_EXEMPTION signs "CLI (Cader ) CSMT" with no place line. That is
+--     an internal NOTE signed by the CLI, not by the Sr.DEE — a different
+--     officer, not a different format.
+-- ---------------------------------------------------------------------------
+UPDATE div_cadre_letter_types
+   SET signing_designation       = 'वरि.मं.वि.इं.(क.च.परि)',
+       signing_designation_hindi = 'वरि.मं.वि.इं.(क.च.परि)'
+ WHERE signing_designation_hindi = 'व.मं.वि. इंजि. (क.च.परि)';
+
+UPDATE div_cadre_letter_types
+   SET signing_place = 'मुंबई छ.शि.म.ट'
+ WHERE signing_place IS NULL
+   AND signing_designation_hindi IS NOT NULL;   -- leaves the CLI-signed NOTE alone
+
 -- The wide-table letters: six or seven columns including names and lobbies.
 UPDATE div_cadre_letter_types SET page_margin = 'WIDE'
  WHERE type_code IN ('POSTING_INITIAL_ALP', 'RELIEVING_INITIAL_ALP', 'POSTING_GENERIC');
@@ -307,10 +334,9 @@ UPDATE div_cadre_letter_types SET page_margin = 'WIDE'
 UPDATE div_cadre_letter_types SET banner_text = NULL WHERE banner_text = '*******';
 UPDATE div_cadre_letters      SET banner_text = NULL WHERE banner_text = '*******';
 
--- The footplate-km letter is signed with the designation ALONE — no place line
--- under it, unlike the transfer and posting letters. Same as the NOTE types.
-UPDATE div_cadre_letter_types SET signing_place = NULL
- WHERE type_code = 'FOOTPLATE_KM_EVIDENCE';
+-- (The footplate-km letter's original is signed with the designation alone, no
+-- place line. Superseded by the one-format rule in 4f below, which gives every
+-- Sr.DEE-signed letter the same block.)
 
 -- Its body bolds the cut-off date and both mentions of the kilometre
 -- threshold (see the **markers** the renderer understands).
