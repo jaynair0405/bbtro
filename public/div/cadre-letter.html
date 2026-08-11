@@ -890,7 +890,7 @@ async function startLetter(code) {
     L = {
         id: null, type_code: type.type_code, type_name: type.type_name, family: type.family,
         doc_kind: type.doc_kind, staff_source: type.staff_source || 'ROLL',
-        body_indent: type.body_indent ?? 1, page_margin: type.page_margin || 'NORMAL', sig_gap: type.sig_gap ?? 18,
+        body_indent: type.body_indent ?? 1, page_margin: type.page_margin || 'NORMAL', sig_gap: type.sig_gap ?? 18, font_pt: type.font_pt ?? 12,
         letter_series: type.letter_series || 'misc',
         letter_date: today, letter_no: '',
         banner_text: type.banner_text, office_header_text: type.office_header_text,
@@ -1570,7 +1570,7 @@ function cellWriteStaff(row, col, val) {
 function payload() {
     return {
         id: L.id, type_code: L.type_code, doc_kind: L.doc_kind, staff_source: L.staff_source,
-        body_indent: L.body_indent, page_margin: L.page_margin, sig_gap: L.sig_gap,
+        body_indent: L.body_indent, page_margin: L.page_margin, sig_gap: L.sig_gap, font_pt: L.font_pt,
         letter_series: L.letter_series, letter_date: L.letter_date, letter_no: L.letter_no,
         banner_text: L.banner_text, office_header_text: L.office_header_text,
         addressee_text: L.addressee_text, addressee_text_hi: L.addressee_text_hi,

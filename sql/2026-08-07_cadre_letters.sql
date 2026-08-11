@@ -298,6 +298,39 @@ PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 
 UPDATE div_cadre_letter_types SET sig_gap = 6 WHERE type_code = 'REFRESHER_EXEMPTION';
 
+-- ---------------------------------------------------------------------------
+-- 4g. Body font size, per type
+--
+-- Most letters are 12pt. The field-training schedule is not: with a 16-row
+-- day grid and five closing blocks it does not fit a page at 12pt, and its
+-- original is visibly set smaller (table rows measure 4.4mm against 5.3mm at
+-- 12pt, and the same closing text runs ~15mm shorter). Making it fit is what
+-- the Word author did too.
+--
+-- The table and its headers are sized in em, so this one number scales the
+-- whole sheet; 12pt reproduces the previous fixed 10.5pt / 8.5pt exactly.
+-- ---------------------------------------------------------------------------
+SET @sql := IF(
+  (SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'div_cadre_letter_types'
+      AND COLUMN_NAME = 'font_pt') = 0,
+  "ALTER TABLE div_cadre_letter_types
+     ADD COLUMN font_pt DECIMAL(3,1) NOT NULL DEFAULT 12.0 AFTER sig_gap",
+  "SELECT 'div_cadre_letter_types.font_pt already present' AS note");
+PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+
+SET @sql := IF(
+  (SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'div_cadre_letters'
+      AND COLUMN_NAME = 'font_pt') = 0,
+  "ALTER TABLE div_cadre_letters
+     ADD COLUMN font_pt DECIMAL(3,1) NOT NULL DEFAULT 12.0 AFTER sig_gap",
+  "SELECT 'div_cadre_letters.font_pt already present' AS note");
+PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+
+UPDATE div_cadre_letter_types SET font_pt = 11.0
+ WHERE type_code = 'FIELD_TRAINING_SCHEDULE';   -- 12pt runs to a second page
+
 -- The wide-table letters: six or seven columns including names and lobbies.
 UPDATE div_cadre_letter_types SET page_margin = 'WIDE'
  WHERE type_code IN ('POSTING_INITIAL_ALP', 'RELIEVING_INITIAL_ALP', 'POSTING_GENERIC');
@@ -521,7 +554,7 @@ NOTE- Nodal Divisinol training institute for LPS training with be MTC KYN. All p
     {"field":"DAY-4","activity":"FIELD TRAINING/HANDLING"},
     {"field":"DAY-5","activity":"FIELD TRAINING/HANDLING"},
     {"field":"DAY-6","activity":"REPORTING AND RELIVING"},
-    {"field":"","activity":"DIESEL (DTC KYN)","span":true},
+    {"field":"","activity":"DIESEL (DTC KYN)","span":true,"spanCols":2},
     {"field":"DAY-1","activity":"REPORTING AND TRAINING AT DTC"},
     {"field":"DAY-2","activity":"TRAINING AT DTC"},
     {"field":"DAY-3","activity":"FIELD TRAINING/HANDLING"},

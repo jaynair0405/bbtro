@@ -241,8 +241,18 @@
         var rows = aux.rows || schema.rows;
         if (!columns || !columns.length || !rows || !rows.length) return '';
         var body = rows.map(function (row, i) {
+            /* A divider row inside the grid — the field-training schedule splits
+             * its days with a "DIESEL (DTC KYN)" band. It spans the first two
+             * columns only; REMARK stays a cell of its own so that column's
+             * ruling runs unbroken down the table, as in the original.
+             * spanCols defaults to every column when not given. */
             if (row.span) {
-                return '<tr><td class="c" colspan="' + columns.length + '">' + nl2br(row.activity || row.label || '') + '</td></tr>';
+                var n = Number(row.spanCols) || columns.length;
+                n = Math.max(1, Math.min(n, columns.length));
+                var band = '<tr><td class="c" colspan="' + n + '">' +
+                           nl2br(row.activity || row.label || '') + '</td>';
+                for (var k = n; k < columns.length; k++) band += '<td></td>';
+                return band + '</tr>';
             }
             return '<tr>' + columns.map(function (c) {
                 var v;
@@ -280,6 +290,13 @@
         var refLines = lines(applyTokens(letter.ref_text, letter, staff));
 
         var out = '';
+        /* Body font size is per type. Most letters are 12pt, but a long one —
+         * the field-training schedule, with a 16-row grid and five closing
+         * blocks — is set smaller in Word so it still fits one page. The table
+         * and its headers are sized in em, so one number scales the whole
+         * sheet and 12pt reproduces the previous 10.5pt / 8.5pt exactly. */
+        var fontPt = Number(letter.font_pt);
+        if (!isFinite(fontPt) || fontPt < 7 || fontPt > 14) fontPt = 12;
 
         // Letterhead — no logo and no rules; these letters have neither.
         out += '<table class="lh"><tr>' +
@@ -365,7 +382,9 @@
         }
 
         out += '<div class="gen-credit">Prepared from crtms.in</div>';
-        return out;
+        // Wrapped so the per-type font size cascades to everything, including
+        // the tables, which are sized in em.
+        return '<div class="sheet-body" style="font-size:' + fontPt + 'pt">' + out + '</div>';
     }
 
     /* Paper styles. Shared so the editor preview, the print output and the
@@ -427,14 +446,14 @@
          * (cadre-management/Document 3.pdf) fits 32 rows on page 1 and 37 on
          * page 2. That needs a ~5.5mm row, which is padding 0.5mm x2 + one
          * 4.0mm line. Loosening either sends the letter onto a third page. */
-        '.sheet table.grid{border-collapse:collapse;table-layout:fixed;width:92%;margin:3mm auto 4mm;font-size:10.5pt;line-height:1.1;}',
+        '.sheet table.grid{border-collapse:collapse;table-layout:fixed;width:92%;margin:3mm auto 4mm;font-size:0.875em;line-height:1.1;}',
         '.sheet table.grid th,.sheet table.grid td{border:1px solid #000;padding:0.5mm 1.2mm;text-align:center;vertical-align:middle;word-wrap:break-word;}',
         /* Headers are smaller and more tightly padded than the data cells so a
          * long label fits its narrow column WITHOUT word-wrap:break-word
          * snapping it mid-word — at 9.8pt the ALP letter printed "PROPOSE/D
          * LOBBY" and "REMA/RK". Check header labels still break only at spaces
          * if you narrow a column. */
-        '.sheet table.grid th{font-weight:400;font-size:8.5pt;line-height:1.15;padding:0.5mm 0.8mm;}',
+        '.sheet table.grid th{font-weight:400;font-size:0.708em;line-height:1.15;padding:0.5mm 0.8mm;}',
         '.sheet table.grid td.l{text-align:left;}',
         '.sheet table.grid td.c{text-align:center;font-weight:600;}',
         '.sheet .sig{margin:0 0 0 auto;width:70mm;text-align:center;line-height:1.4;}',
