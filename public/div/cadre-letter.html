@@ -881,7 +881,13 @@ function buildGallery() {
         if (card) startLetter(card.dataset.code);
     });
 }
-function openGallery() { $('galleryVeil').classList.add('open'); }
+// The gallery is mandatory when no letter is open — there is nothing behind it
+// to go back to — and dismissible once there is one. Decide that HERE, at the
+// one place the gallery is opened, so the button is never shown inert.
+function openGallery() {
+    $('galleryVeil').classList.add('open');
+    $('btnCloseGallery').style.visibility = L ? '' : 'hidden';
+}
 function closeGallery() { if (L) $('galleryVeil').classList.remove('open'); }
 $('btnGallery').onclick = openGallery;
 $('btnCloseGallery').onclick = closeGallery;
@@ -961,7 +967,6 @@ function fillDesk() {
     $('stChip').textContent = ro ? 'Finalised' : 'Draft';
     $('stChip').className = 'chip ' + (ro ? 'finalized' : 'draft');
     $('stMeta').textContent = L.id ? `#${L.id}` : 'unsaved';
-    $('btnCloseGallery').style.visibility = L ? '' : 'hidden';
     renderTokens();
 }
 
