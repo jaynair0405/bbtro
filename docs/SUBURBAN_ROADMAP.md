@@ -108,19 +108,45 @@ corrupts rows is worse than no button.
 motorman's own kilometreage/pay workbook. It settles both the data and the rules,
 and it invalidates the plan that was here before.
 
-### It is an ALLOWANCE, not a distance
+### It is real distance, floored — not a flat allowance
 
-The first plan was to populate `div_stations.km_from_csmt` and compute
-`|km(end) − km(start)|` per leg. **That would have been wrong.** In the workbook:
+Two corrections, in order, because the first read of the data was misleading.
 
-- **554 of 781 details (71%) are exactly 150 km**
-- details at km = 150 have wheel movement ranging **49 minutes to 8 hours**
-- correlation between km and actual running time is only **0.565**
+**The raw numbers look like an allowance:** 554 of 781 details (71%) are exactly
+150 km, details at km = 150 range from 49 minutes to 8 hours of wheel movement,
+and km correlates with running time at only 0.565.
 
-Km here is the **kilometreage allowance** — a booked figure set by rule, not a
-measured distance. So no station-distance table is needed for what was asked.
-`div_stations.km_from_csmt` (empty) and `div_signals.km_from_csmt` (populated,
-signal-post km) stay irrelevant to this feature.
+**But the base really is distance.** Confirmed against the DB on two details the
+user worked through:
+
+| Detail | Working legs | Actual | Sheet |
+|---|---|---|---|
+| 871 | K 100 KYN→CSMT (53) + N 31 CSMT→KSRA (121) | 174 | 174 |
+| 872 | N 8 KSRA→KYN (68) — under the minimum | 120 | 120 |
+
+So:
+
+> **base km = MAX( Σ km over WORKING legs , floor )**
+
+Piloting legs do not count — a piloting crew are passengers. The 71%-at-150 is
+the floor showing through: most suburban details run under 150 km with a duty
+over 4h59m, so 150 is what gets credited.
+
+`DATA.km` is therefore the **credited km for a normal day**, already floored.
+The daily rules re-apply the floor against the hours *actually* worked, which can
+differ (lateness, a detail cut short).
+
+**We do not compute any of this.** Per the user: the km is printed in the
+official detail book, exactly like duty / wheel / piloting. It is authored data —
+loaded once from the book (the Excel `DATA` sheet mirrors it), and re-entered by
+hand from the new page whenever the book is revised. The arithmetic above is
+recorded only so the loaded values can be sanity-checked, and so the daily
+floor rule can be applied to actual hours at entry time.
+
+So **no station-distance table is needed**. `div_stations.km_from_csmt` (empty)
+and `div_signals.km_from_csmt` (populated, signal-post km) stay out of this
+feature. The known chain — CSMT 0 · KYN 53 · KSRA 121 — is useful only as a
+spot-check.
 
 ### The rules, extracted from the formulas
 
@@ -157,8 +183,8 @@ IF(AE13>4.59, 150, IF(AND(AE13>3.59, AE13<5), 130, 120))
 | sign-on/off places agree | **750 of 763 (98.3%)** |
 
 Base km values: 90–242, clustered at 150. 27 details carry 200/206/242 — the
-long runs, mostly KYN. **Open:** the user quotes CSMT-KSRA-CSMT as 243; the sheet
-says 242 (ten details). Confirm which before loading.
+long runs, mostly KYN. **242 is correct** for CSMT-KSRA-CSMT (121 × 2); the 243
+quoted earlier was a typo.
 
 ### It also has details the book is missing
 
@@ -174,11 +200,17 @@ says 242 (ten details). Confirm which before loading.
 
 ### Build
 
-`details.km SMALLINT` loaded from the 763 matched rows, plus the rule applied at
-daily-entry time (todo 3) against actual duty hours. Store the base on the
-detail; compute the credited figure per day, because it depends on that day's
-hours and duty type. Decide what to do about the 18 unknown details and the
-4 in the DB with no km (412, 556, 558, 999).
+1. `details.km SMALLINT NULL` — a new column in a dated `sql/` file, loaded with
+   the 763 matched values from the book.
+2. Expose it in the todo-1 editor, beside duty / wheel / piloting, so a book
+   revision updates it the same way those are updated.
+3. Apply the duty-type overrides and the hours floor at **daily-entry** time
+   (todo 3) — that part is per-day, because it depends on the hours actually
+   worked and the duty type, not on the detail.
+
+Decide what to do about the 4 details in the DB with no km in the book
+(412, 556, 558, 999 — the departmental dummies, which sit in no block either)
+and the 18 the book has that we do not (see below).
 
 ---
 
