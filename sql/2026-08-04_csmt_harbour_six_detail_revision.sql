@@ -50,7 +50,11 @@
 -- AFTER RUNNING THIS, re-derive and refresh:
 --   node scripts/classify_details.js --commit
 --   node scripts/chain_details.js    --commit
---   node scripts/build_page_snapshots.js --commit
+-- Then drop the Suburban Crew Ops cache so the pages pick the change up
+-- without waiting out its TTL (or restart the app):
+--   POST /api/division/suburban/refresh          (division_admin)
+-- (build_page_snapshots.js used to be the third step; the pages are live
+--  off /api/division/suburban/dataset now and it has been removed.)
 -- =====================================================================
 
 START TRANSACTION;

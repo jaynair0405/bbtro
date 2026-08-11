@@ -200,7 +200,7 @@ This is documents-only — filing such an order does not touch
 `div_staff_master.designation_id` or `div_promotion_history`.
 
 **Look.** The page was restyled at the same time onto the ops-console design system
-shared by `crew-dashboard-mockup.html` / `detail-book-mockup.html` (ink `#0b0e14`, amber
+shared by Suburban Crew Ops, `/div/suburban/css/suburban.css` (ink `#0b0e14`, amber
 `#f4a533`, gradient panels, blueprint grid + grain, mono micro-labels). It no longer
 overrides `division-main.css` back to a light theme. The two sub-folders are colour-coded
 by CSS keyed off `data-folder`, which `folderNode()` now sets — rose `#e56a86` for

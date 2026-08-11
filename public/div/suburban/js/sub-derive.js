@@ -3,12 +3,12 @@
  *
  * WHY THIS FILE LIVES UNDER public/
  *   The server requires() it (lib/subCrew/dataset.js) and the pages <script>-load
- *   it. That is deliberate: the train index and the block totals are derived on
- *   the CLIENT from the dataset payload, and the offline snapshot builder derives
- *   them on the SERVER. Sharing one file is what guarantees the two agree — if
- *   they were separate copies they would drift, and the parity gate that lets us
- *   delete the mockups would be meaningless. It also killed the old duplicate,
- *   scripts/extract_train_index.js.
+ *   it. That is deliberate: block totals and the counts are derived on the SERVER
+ *   when the dataset is built, and the train index is derived on the CLIENT from
+ *   that same payload. One shared file is what guarantees the two agree — as
+ *   separate copies they would drift, which is precisely what happened before
+ *   (scripts/extract_train_index.js was a second, independently maintained copy
+ *   of the train-index derivation; it is gone).
  *
  * Everything here is pure: no DB, no DOM, no I/O. Keep it that way.
  *
