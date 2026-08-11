@@ -317,6 +317,9 @@ const CAT_META = {
     TRAINING_LETTER:    { label: 'Training Letters',    icon: '🎓', mode: 'date' },
     INITIAL_APPOINTMENT:{ label: 'Initial Appointments', icon: '📝', mode: 'date' },
     TRANSFER_LETTER:    { label: 'Transfer Letters',    icon: '📨', mode: 'folderdate' },
+    // Filed by the cadre module. In DATE_TREE_CATEGORIES and FOLDER_CONFIG
+    // server-side (folder = the letter family), so folderdate like transfers.
+    CADRE_LETTER:       { label: 'Cadre Letters',       icon: '🗂', mode: 'folderdate' },
     PROMOTION_ORDER:    { label: 'Promotion / Demotion Orders', icon: '📈', mode: 'promotion' },
     SR_DEE_INSTRUCTION: { label: 'Sr.DEE Instructions', icon: '📋', mode: 'date' },
     CEE_OP_INSTRUCTION: { label: 'CEE-OP Instructions', icon: '📋', mode: 'date' },
@@ -342,7 +345,7 @@ const DEFAULT_PERMS = {
     success: true, role: null, canUpload: [], canUploadAny: false,
     dateTreeCategories: ['TRAINING_LETTER','INITIAL_APPOINTMENT','PROMOTION_ORDER',
                          'SR_DEE_INSTRUCTION','CEE_OP_INSTRUCTION','SAFETY_CIRCULAR','NEWS_LETTER',
-                         'E_CASE_STUDY','TRANSFER_LETTER'],
+                         'E_CASE_STUDY','TRANSFER_LETTER','CADRE_LETTER'],
     folderConfig: {
         STUDY_MATERIAL:  { required: ['Main Line', 'Suburban'] },
         NEWS_LETTER:     { required: ['Main Line', 'Sub Urban'] },
@@ -356,7 +359,13 @@ const DEFAULT_PERMS = {
                  'STUDY_MATERIAL','MANUAL','PRESENTATION','BROCHURE','MISC'],
 };
 let perms = { ...DEFAULT_PERMS };
-let current = 'TRAINING_LETTER';
+/* Opening category. A ?category= in the URL wins when it names a real one, so
+ * other pages can link straight to their own filing drawer — the cadre letters
+ * link here rather than growing an archive screen of their own. */
+let current = (() => {
+    const want = new URLSearchParams(location.search).get('category');
+    return want && Object.prototype.hasOwnProperty.call(CAT_META, want) ? want : 'TRAINING_LETTER';
+})();
 
 function fmtSize(b) {
     if (!b) return '';
