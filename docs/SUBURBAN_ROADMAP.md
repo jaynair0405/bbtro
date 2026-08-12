@@ -161,6 +161,10 @@ IF(AE13>4.59, 150, IF(AND(AE13>3.59, AE13<5), 130, 120))
 
 > **credited km = MAX(detail's base km, duty-hour floor)**
 
+Confirmed on three short D2 halves — 138 (duty 2:43), 635 (3:14) and 147 (3:54)
+all sit at 120, the under-4h band. **But the floor applies only to duties that
+work trains**; spare and departmental duties use a rate per hour instead (below).
+
 `DTL!T4` applies duty-type overrides *before* any of that:
 
 | Duty type | Km |
@@ -221,16 +225,26 @@ That also reconciles the workbook: its `908 = 130` is the **Sunday** value, not 
 mistake. So km belongs on `memu_day_patterns`, not on a single detail row. No
 `memu_*` table has a km column today.
 
-**2. Departmental (412, 558, 999) — not in the official book at all.**
+**2. Duties that work no trains — a rate per hour, not a book value.**
 
-Their own rule, per the user:
+Two classes, both computed rather than authored, and the duty-hour floor does
+**not** apply to either.
 
-> **20 km per hour of duty.** If no work is performed (not booked) → 120.
-> If worked → minimum 150.
+*Spare / WAITING duties — 15 km per hour.* Verified exhaustively: all 40 waiting
+details in `details` split exactly by duty hours, with no exceptions.
 
-All three carry duty 08:00 and wheel movement 03:00 in `details`, so they are
-"worked": 20 × 8 = **160**. This rule is computed, not authored — the only part
-of mileage that is.
+| Duty | Count | Km | |
+|---|---|---|---|
+| 6:00 | 8 | **90** | 47, 114, 298, 337, 457, 655, 690, 743 |
+| 8:00 | 32 | **120** | the rest |
+
+6 × 15 = 90, 8 × 15 = 120. Detail 114 is the proof the floor is inapplicable: 6
+hours of duty is well over 4h59m, yet it draws 90, not 150.
+
+*Departmental (412, 558, 999) — 20 km per hour.* Not in the official book at all.
+Per the user: 20 km per hour of duty; **120** if no work is performed (not
+booked), minimum **150** if worked. All three carry duty 08:00 and wheel movement
+03:00, so they are worked: 20 × 8 = **160**.
 
 **3. Genuinely unaccounted for.**
 
@@ -251,18 +265,19 @@ of mileage that is.
 
 ### Build
 
-Km lands in **three** places, because there are three kinds of detail:
+Km is **authored for duties that work trains, computed for those that do not**:
 
-1. `details.km SMALLINT NULL` — loaded with the 763 values that match the book.
-2. `memu_day_patterns.km SMALLINT NULL` — per day pattern, because MEMU hours
-   and therefore the floor vary by day (see below).
-3. Departmental details (412, 558, 999) — **computed**, `20 × duty hours`, with
-   the 120 / 150 rule. Not stored as a book value because there is no book page.
+| Class | Where km comes from |
+|---|---|
+| Ordinary details | `details.km SMALLINT NULL`, loaded with the 763 book values |
+| MEMU 901-912 | `memu_day_patterns.km SMALLINT NULL` — per day pattern, since hours and therefore the floor vary by day |
+| Spare / WAITING (40) | computed: **15 × duty hours** (90 @ 6h, 120 @ 8h) |
+| Departmental (412, 558, 999) | computed: **20 × duty hours**, 120 unbooked / min 150 worked |
 
-Then expose 1 and 2 in the todo-1 editor beside duty / wheel / piloting, so a
-book revision updates km the same way it updates those. The duty-type overrides
-and the hours floor are applied at **daily-entry** time (todo 3) against the
-hours actually worked.
+Expose the two authored columns in the todo-1 editor beside duty / wheel /
+piloting, so a book revision updates km the same way it updates those. Apply the
+duty-type overrides and the hours floor at **daily-entry** time (todo 3) against
+the hours actually worked — and skip the floor for the two computed classes.
 
 ---
 
