@@ -1000,10 +1000,8 @@
                         // full ctlc authorisation server-side; just surface the link.
                         const co = document.getElementById('control-office-link');
                         if (co) co.style.display = '';
-                    }
-                    // Signal Book Editor — division_admin or clihqml (CLI HQ ML).
-                    // clihqml is a future role; the check is forward-compatible.
-                    if (user.div_role === 'division_admin' || user.div_role === 'clihqml') {
+                        // Signal Book Editor — division_admin, which includes the
+                        // CLI-HQ logins clihqmlbb / clihqsubbb (CSMT-HQ, role division_admin).
                         const ed = document.getElementById('signal-book-editor-link');
                         if (ed) ed.style.display = '';
                     }
