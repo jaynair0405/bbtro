@@ -243,6 +243,29 @@
                     </nav>
                 </div>
 
+                <!-- Signalling — Signal Book viewer (all division users), the book
+                     editor (division_admin / clihqml only, revealed by JS), and later
+                     Signal Sighting (added when that module deploys; per-CLI access via
+                     div_signal_sighting_cli_users). -->
+                <div class="sidebar-section">
+                    <div class="sidebar-section-title">Signalling</div>
+                    <nav class="sidebar-nav">
+                        <li class="sidebar-nav-item">
+                            <a href="/div/signal-book.html" class="sidebar-nav-link">
+                                <span class="icon">📖</span>
+                                Signal Book
+                                <span class="badge green">New</span>
+                            </a>
+                        </li>
+                        <li class="sidebar-nav-item" id="signal-book-editor-link" style="display:none;">
+                            <a href="/div/signal-book-editor.html" class="sidebar-nav-link">
+                                <span class="icon">✎</span>
+                                Signal Book Editor
+                            </a>
+                        </li>
+                    </nav>
+                </div>
+
                 <!-- Suburban Crew Ops — the motormen detail book (CSMT / KYN / PNVL
                      suburban). Distinct from the mainline goods "Crew Operations"
                      section below, which is Slate / Jr-CC / TW and PNVL-ML gated. -->
@@ -977,6 +1000,12 @@
                         // full ctlc authorisation server-side; just surface the link.
                         const co = document.getElementById('control-office-link');
                         if (co) co.style.display = '';
+                    }
+                    // Signal Book Editor — division_admin or clihqml (CLI HQ ML).
+                    // clihqml is a future role; the check is forward-compatible.
+                    if (user.div_role === 'division_admin' || user.div_role === 'clihqml') {
+                        const ed = document.getElementById('signal-book-editor-link');
+                        if (ed) ed.style.display = '';
                     }
                 }
             } catch (e) {}
