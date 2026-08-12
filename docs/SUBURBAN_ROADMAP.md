@@ -161,9 +161,27 @@ IF(AE13>4.59, 150, IF(AND(AE13>3.59, AE13<5), 130, 120))
 
 > **credited km = MAX(detail's base km, duty-hour floor)**
 
-Confirmed on three short D2 halves — 138 (duty 2:43), 635 (3:14) and 147 (3:54)
-all sit at 120, the under-4h band. **But the floor applies only to duties that
-work trains**; spare and departmental duties use a rate per hour instead (below).
+**The book value is the CREDITED figure — already floored.** Settled by two
+details whose actual distance is well under what they draw:
+
+| Detail | Duty | Actual over working legs | Book |
+|---|---|---|---|
+| 859 | 5:10 | KYN→CSMT 53 + CSMT→KYN 53 = **106** | **150** |
+| 872 | 2:07 | KSRA→KYN = **68** | **120** |
+
+Both are floored, at the >4h59m and <3h59m bands respectively. Also confirmed on
+three short D2 halves — 138 (2:43), 635 (3:14), 147 (3:54) — all at 120.
+
+**The workbook is authoritative.** Staff fill it in and submit their monthly
+mileage from it, so its `DATA` values are the figures actually being claimed.
+
+Consequence for daily entry: since the stored value is already floored for a
+normal day, re-applying the floor is a no-op on a normal day and only ever
+*raises* — when the hours actually worked exceed the rostered ones. It can never
+reduce a motorman below his book value.
+
+**But the floor applies only to duties that work trains**; spare and
+departmental duties use a rate per hour instead (below).
 
 `DTL!T4` applies duty-type overrides *before* any of that:
 
@@ -252,14 +270,18 @@ booked), minimum **150** if worked. All three carry duty 08:00 and wheel movemen
   range. A new block is needed if they are current.
 - **385** — sits in the gap between CSMT Harbour Continuous (201-384) and
   Fix (386-404).
-- **556** — resolved: it is the **MEMU Pen–DW** detail, km **130**. The DB legs
-  are right (`P/61018 PNVL→DW`, `DWPEN61019 DW→PEN`, `PENDW61026 PEN→DW`,
-  `P/61013 DW→PNVL`); the earlier "Uran" recollection was mistaken.
-  **But it contradicts the floor rule** and needs settling before load: 556
-  carries duty **8:10** in `details`, and >4h59m should floor to 150, not 130.
-  Either the book prints the raw base and the floor is applied only at claim
-  time, or MEMU/branch details are floored differently. Note 872 cuts the other
-  way — its book value is 120 (actual 68), i.e. already floored.
+- **556 — DEFERRED, needs its own inspection.** It is the MEMU Pen–DW detail and
+  the DB legs are right (`P/61018 PNVL→DW`, `DWPEN61019 DW→PEN`,
+  `PENDW61026 PEN→DW`, `P/61013 DW→PNVL`). The apparent contradiction with the
+  floor rule — 130 km against a duty of 8:10 — is not a rule problem at all:
+  **556 has two sign-on/sign-off pairs inside one detail**, and the two parts are
+  split between the PNVL and KYN lobbies and worked by **two different staff**,
+  each drawing 130. So the 8:10 is the whole detail while 130 is one part's
+  mileage.
+
+  This is a shape `details` cannot represent — one row, one sign-on, one
+  sign-off, one crew. Worth its own look later, together with whether any other
+  detail is split this way.
 - **911, 912** — present in `memu_details` but not in the workbook; the user
   recalls them from an earlier printed book. To confirm.
 
