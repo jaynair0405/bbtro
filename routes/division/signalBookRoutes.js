@@ -390,8 +390,22 @@ router.post('/section/:code/publish', async (req, res) => {
              r.signal_id]
           );
           if (old) {
-            if (old.signal_number !== sigFields.signal_number)
+            if (old.signal_number !== sigFields.signal_number) {
               historyEntries.push([r.signal_id, 'Renumbered', old.signal_number, sigFields.signal_number, userId]);
+              // Keep AWS defect-matching + successor resolution working across a renumber:
+              // alias the NEW number (so it is matchable) and keep the OLD number as an alias
+              // (so old references still resolve) — same as the manual ATG/VSH fixes.
+              // INSERT IGNORE: a normalized_alias already taken (e.g. a reused number that
+              // belongs to another signal) is left for manual handling rather than moved.
+              await conn.execute(
+                `INSERT IGNORE INTO div_signal_aliases
+                   (signal_id, alias_text, normalized_alias, source, confidence, remarks)
+                 VALUES (?, ?, ?, 'manual', 'HIGH', 'New number (editor renumber)'),
+                        (?, ?, ?, 'manual', 'HIGH', 'Old number kept (editor renumber)')`,
+                [r.signal_id, sigFields.signal_number, sigFields.normalized_signal_number,
+                 r.signal_id, old.signal_number, normalizeSignalNumber(old.signal_number)]
+              );
+            }
             if (old.placement !== sigFields.placement)
               historyEntries.push([r.signal_id, 'Placement Changed', old.placement, sigFields.placement, userId]);
             if ((old.location_text || '') !== (sigFields.location_text || '') || (old.km_text || '') !== (sigFields.km_text || ''))
