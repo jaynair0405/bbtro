@@ -6,6 +6,73 @@ what has to be built. Written 2026-08-11.
 
 ---
 
+## Detail-book data correction — DONE 2026-08-17, both databases
+
+Building reports surfaced a class of errors in the book itself, so the reports
+were held until the data was right. 34 details corrected, verified on prod as
+well as local.
+
+| Check | Before | After |
+|---|---|---|
+| Wheel-movement drift > 15 min | 33 | **1** (999 only) |
+| Working-vs-working overlaps | 13 | **0** |
+| Wheel movement > duty (impossible) | 1 | **0** |
+| Leg starts after sign-off | 1 | **0** |
+| R/T · R/B markers | 19 · 18 | **59 · 62** |
+| Markers on non-working legs | 0 | **0** |
+
+Five migrations, run in order because 4 depends on 1:
+`sql/2026-08-14_plgn_gnpl_handover_correction` · `_wheel_movement_header_fixes` ·
+`_pnvl_trans_harbour_correction` · `_gnpl10_detail_400` ·
+`sql/2026-08-17_drift_tail_corrections`.
+
+**The main fault.** The Panvel–Goregaon services (`PLGN*` down, `GNPL*` up) run
+via VDLR and the crew changes there. One side of each handover was recorded as
+the *whole train run*, almost always ending "CSMT" — a station those trains never
+reach. 22 legs across 16 details.
+
+**Six fault types**, which matter for todo 1 — the editor should make each hard
+to create:
+
+1. untrimmed handovers (22 legs) · 2. transposed headers (309/310's wheel
+movements swapped) · 3. hours-digit typos (220, 286, 276, 491) · 4. compressed
+leg times (453's four legs all cut to ~18 min) · 5. piloting typed as working
+(461's `P/TPL50`) · 6. single wrong arrival (79, 88, 500)
+
+**Why the verification is trustworthy.** The book prints SIGN ON/OFF, DUTY, KMS
+and NDH — **not** wheel movement. `total_wheel_movement` is derived, which is
+exactly what makes it a good check: every corrected detail's legs now sum to its
+stored figure to the minute, and piloting matched too wherever it applied. 400's
+fix was *predicted* from the arithmetic before its book page was read, and the
+book then gave exactly that.
+
+**Two things only prod could show:**
+
+- The **`TPL50` overlap** between 461 and 523 was invisible locally, because
+  local's copy was corrupted to `T/TPL50` and the overlap query only normalises
+  a `P/` prefix. A local corruption was masking a real conflict.
+- **999 is the last divergence** — prod holds a real 180-minute leg where local
+  holds a `MUCK SPL` placeholder at 00:00. Needs the book page.
+
+**Audit false positives — keep excluding these**, all of which cost a wrong
+conclusion first time round:
+
+- `train_type='waiting'` and `start_time = end_time` — 43 placeholder legs.
+  Detail 513's −480 min was entirely this.
+- `ER%` and `MUCK SPL` are generic labels, not train numbers. `ER KYN` is 12 legs
+  at 12 different times over 3 routes.
+- Piloting-vs-working overlaps are normal — that is what piloting *is*. Only
+  working-vs-working counts.
+- Contiguous handovers are correct: `A13` CSMT→KYN then KYN→ABH is two crews on
+  one train.
+
+**Still open:** the relief backlog (99 of 2,064 working legs carry a marker;
+36 R/T and 39 R/B lack their reciprocal), 23 triples with no `cycle_anchor`,
+177→191 chained across a block boundary, 867-870 classified `single` when they
+are doubles, and 999.
+
+---
+
 ## The finding that reorders the list
 
 **There is no motorman login, anywhere, in either realm.**
