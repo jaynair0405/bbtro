@@ -108,23 +108,24 @@ function descToHtml(text) {
 // the book's diversion-hand diagrams. The stem starts at the circle and ends
 // just below the lowest arm — no bare overshoot above the topmost hand.
 function riGlyphSvg(spec) {
-  const ARM_STEP = 7;   // vertical gap between stacked arms
-  const ARM_DX = 9;     // arm horizontal reach
-  const ARM_DY = 6;     // arm vertical rise (tip sits above its attach point)
-  const HEAD_R = 2.4;   // circle head radius
-  const TAIL = 3;       // short stem tail below the lowest arm
-  const CHAR_W = 3.6;   // crude label width estimate at 5.5px font
+  const ARM_STEP = 10;  // vertical gap between stacked arms
+  const ARM_DX = 13;    // arm horizontal reach
+  const ARM_DY = 9;     // arm vertical rise (tip sits above its attach point)
+  const HEAD_R = 3.4;   // circle head radius
+  const TAIL = 4;       // short stem tail below the lowest arm
+  const CHAR_W = 5.4;   // crude label width estimate at 8.5px font
+  const TOP_PAD = 7;    // headroom: the topmost arm's label rises above y=0
 
   const nMax = Math.max(spec.left.length, spec.right.length, 1);
 
   // Vertical layout (y grows downward).
-  const mainTop = spec.main ? 8 : 1;        // space reserved for the main label
+  const mainTop = 1;                        // main label now sits at the BOTTOM (below the stem)
   const headCy = mainTop + HEAD_R + 0.5;    // circle centre
   const stemTop = headCy + HEAD_R;          // stem begins at bottom of circle
   const firstAttach = stemTop + 3;          // first arm attaches just below head
   const lastAttach = firstAttach + (nMax - 1) * ARM_STEP;
   const stemBottom = lastAttach + TAIL;
-  const H = Math.max(stemBottom + 2, headCy + HEAD_R + 4);
+  const H = Math.max(stemBottom + (spec.main ? 13 : 2), headCy + HEAD_R + 4);
 
   const wL = Math.max(0, ...spec.left.map((s) => s.length)) * CHAR_W;
   const wR = Math.max(0, ...spec.right.map((s) => s.length)) * CHAR_W;
@@ -132,10 +133,12 @@ function riGlyphSvg(spec) {
   const cx = 4 + wL + ARM_DX + 2;
   const W = Math.max(cx + ARM_DX + 2 + wR + 4, cx + wM / 2 + 4, 30);
 
-  let svg = `<svg class="ri-glyph" width="${Math.round(W)}" height="${Math.round(H)}" viewBox="0 0 ${Math.round(W)} ${Math.round(H)}">`;
+  let svg = `<svg class="ri-glyph" width="${Math.round(W)}" height="${Math.round(H + TOP_PAD)}" viewBox="0 ${-TOP_PAD} ${Math.round(W)} ${Math.round(H + TOP_PAD)}">`;
   svg += `<line x1="${cx}" y1="${stemTop.toFixed(1)}" x2="${cx}" y2="${stemBottom.toFixed(1)}"/>`;
   svg += `<circle class="ri-head" cx="${cx}" cy="${headCy.toFixed(1)}" r="${HEAD_R}"/>`;
-  if (spec.main) svg += `<text x="${cx}" y="${(mainTop + 2).toFixed(1)}" text-anchor="middle">${esc(spec.main)}</text>`;
+  // Main / "Y=" route label at the BOTTOM of the stem (straight-ahead route) — clear of
+  // the diverging hands, which is where it used to overlap.
+  if (spec.main) svg += `<text x="${cx}" y="${(stemBottom + 10).toFixed(1)}" text-anchor="middle">${esc(spec.main)}</text>`;
   spec.left.forEach((label, i) => {
     const attach = firstAttach + i * ARM_STEP;
     const tipY = attach - ARM_DY;
@@ -167,12 +170,12 @@ function classBadge(row) {
 
 // Small semaphore-style flag for cross-references (e.g. "DN TH K-009").
 function flagGlyphSvg(label) {
-  const CHAR_W = 3.6;
-  const W = 14 + label.length * CHAR_W + 4;
-  return `<svg class="ri-glyph" width="${Math.round(W)}" height="16" viewBox="0 0 ${Math.round(W)} 16">` +
-    `<line x1="5" y1="3" x2="5" y2="14"/>` +
-    `<line x1="5" y1="6" x2="11" y2="3"/>` +
-    `<text x="13" y="10">${esc(label)}</text></svg>`;
+  const CHAR_W = 5.4;
+  const W = 20 + label.length * CHAR_W + 5;
+  return `<svg class="ri-glyph" width="${Math.round(W)}" height="22" viewBox="0 0 ${Math.round(W)} 22">` +
+    `<line x1="7" y1="4" x2="7" y2="20"/>` +
+    `<line x1="7" y1="8" x2="16" y2="4"/>` +
+    `<text x="19" y="14">${esc(label)}</text></svg>`;
 }
 
 // DESCRIPTION cell for SIGNAL rows: curve arrow + glyph/text + RHS tag,
@@ -240,12 +243,18 @@ function renderRow(row) {
       return `<div class="row blank">&nbsp;</div>`;
 
     case 'SIGNAL':
-    default:
-      return `<div class="row signal ${textCls}">
+    default: {
+      // Rows carrying a route-indicator diversion glyph need more vertical room so
+      // the multi-arm hands aren't cramped. Taller when there are more arms.
+      const isRi = /^RI:/i.test((row.display_description || '').trim());
+      const arms = Math.max(Number(row.ri_left_arms) || 0, Number(row.ri_right_arms) || 0);
+      const riCls = isRi ? (arms >= 3 ? 'has-ri ri-tall' : 'has-ri') : '';
+      return `<div class="row signal ${textCls} ${riCls}">
         <div class="cell signal-no">${esc(row.display_signal_no || '')}${clsBadge}${iconBadge}</div>
         <div class="cell signal-loc">${esc(row.display_location || '')}</div>
         <div class="cell signal-desc">${descCellHtml(row)}</div>
       </div>`;
+    }
   }
 }
 
@@ -391,25 +400,31 @@ ${rowsHtml}
     break-inside: avoid;
     page-break-inside: avoid;
     border-bottom: 1px solid #e5e7eb;
-    padding: 2px 0;
+    padding: 4px 0;
   }
 
-  /* SIGNAL — 3 columns within a row */
+  /* SIGNAL — 3 columns within a row. min-height keeps ~37-40 rows/page so the
+     larger fonts breathe (was ~50). */
   .row.signal {
     display: grid;
     grid-template-columns: 30% 28% 42%;
     gap: 4px;
-    align-items: start;
+    align-items: center;
+    min-height: 20px;
   }
-  .row.signal .signal-no  { font-weight: 700; font-family: "Courier New", monospace; }
+  .row.signal .signal-no  { font-weight: 700; font-family: "Courier New", monospace; font-size: 11pt; }
   .sig-badge { display: inline-block; border: 1.2px solid #111; border-radius: 50%;
     width: 13px; height: 13px; line-height: 11px; text-align: center;
     font-size: 8px; font-weight: 700; font-family: Arial, sans-serif;
     margin-left: 3px; vertical-align: middle; }
   .sig-badge.ibs { border-radius: 7px; width: auto; min-width: 13px; padding: 0 3px; }
   .row.signal.red .sig-badge { border-color: #c2410c; color: #c2410c; }
-  .row.signal .signal-loc { font-family: "Courier New", monospace; }
+  .row.signal .signal-loc { font-family: "Courier New", monospace; color: #111; font-weight: 600; font-size: 10pt; }
   .row.signal .signal-desc{ font-size: 8.5pt; color: #444; }
+  /* Diversion rows: extra height + vertical-centre so the route-indicator hands
+     have room. ri-tall (3+ arms) gets more. */
+  .row.signal.has-ri  { padding: 8px 0; align-items: center; min-height: 40px; }
+  .row.signal.ri-tall { padding: 12px 0; min-height: 56px; }
   .row.signal.red   .signal-no, .row.signal.red .signal-loc { color: #c2410c; }
   .row.signal.blue  .signal-no, .row.signal.blue .signal-loc { color: #1d4ed8; }
 
@@ -484,9 +499,9 @@ ${rowsHtml}
 
   /* Route-indicator glyphs (diversion hands) */
   .ri-glyph { vertical-align: middle; }
-  .ri-glyph line { stroke: #111; stroke-width: 1.3; stroke-linecap: round; }
+  .ri-glyph line { stroke: #111; stroke-width: 1.6; stroke-linecap: round; }
   .ri-glyph .ri-head { fill: #111; stroke: #111; stroke-width: 1; }
-  .ri-glyph text { font-size: 5.5px; font-family: Arial, sans-serif; fill: #111; }
+  .ri-glyph text { font-size: 8.5px; font-family: Arial, sans-serif; fill: #111; }
   .row.signal.red .ri-glyph line { stroke: #c2410c; }
   .row.signal.red .ri-glyph .ri-head { fill: #c2410c; stroke: #c2410c; }
   .row.signal.red .ri-glyph text { fill: #c2410c; }
@@ -502,7 +517,8 @@ ${rowsHtml}
     font-size: 7.5pt;
     white-space: nowrap;
   }
-  .curve-mark { font-size: 11pt; line-height: 1; vertical-align: middle; }
+  .curve-mark { font-size: 15pt; font-weight: 900; color: #111; line-height: 1; vertical-align: middle;
+    -webkit-text-stroke: 0.8px #111; text-stroke: 0.8px #111; }
 
   .cover {
     text-align: center;
