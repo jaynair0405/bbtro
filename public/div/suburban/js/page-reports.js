@@ -161,6 +161,68 @@
                      {k:'inTn',l:'Rides back on',m:1},{k:'inFrom',l:'From',m:1},
                      {k:'soff',l:'Signs off',m:1},{k:'pil',l:'Pilot time',r:1,num:1,hm:1}],rows,
           sum:`<span>details <b>${rows.length}</b></span><span>after sign-on <b>${nS}</b></span><span>before sign-off <b>${nE}</b></span>`};}},
+
+     // The relief backfill worklist.
+     //
+     // A reciprocal is only owed when the TRAIN CONTINUES — crew A hands the
+     // same train to crew B, who works it onward, and both pages record it.
+     // That happens at VDLR on the PLGN/GNPL services and occasionally at KYN.
+     //
+     // It is NOT owed at a terminal. At PNVL, TNA, CSMT, GMN the rake reverses:
+     // the arriving crew walks off and the next crew — already there off another
+     // train — takes charge at the OTHER END and works it out under a new
+     // number. The two crews never meet, so the marker records where the rake
+     // goes, not a relief, and the far side has no reason to print anything.
+     // 58 of the original 75 "gaps" were this, which made the report 92% noise.
+     // Some relinks do carry both sides (774 T 45 / 36 T 72 at TNA) — allowed,
+     // not required.
+     {id:'relief_gaps',group:'Crew Movement',name:'Relief gaps',desc:'Relief markers that genuinely lack their reciprocal — the train continues but the other detail records nothing. Terminal rake relinks are excluded; they are one-sided by nature.',filters:['office','reliefKind'],dsort:['det','asc'],
+      build(f){
+        const byNum=new Map(ALL_BLOCKED.map(d=>[String(d.num),d]));
+        const legsBy={}; for(const l of ALL_LEGS){ (legsBy[l.did]=legsBy[l.did]||[]).push(l); }
+        const N=t=>String(t||'').toUpperCase().replace(/\s|^P\//g,'');
+        const rows=[]; let relink=0;
+        for(const l of LEGS){
+          const d=byId.get(l.did); if(!d||!d.office) continue;
+          if(f.office&&d.office!==f.office) continue;
+          for(const kind of ['rt','rb']){
+            const names=l[kind]; if(!names) continue;
+            const other=byNum.get(String(names));
+            const want=kind==='rt'?'rb':'rt';
+            if(other&&(legsBy[other.id]||[]).some(x=>x[want]===String(d.num))) continue;
+            // R/T applies at the leg's START, R/B at its END — that is where
+            // and when the other crew must be
+            const stn=kind==='rt'?l.ss:l.es, at=kind==='rt'?l.st:l.et;
+            let best=null;
+            if(other) for(const x of (legsBy[other.id]||[])){
+              if(x.ty!=='working') continue;
+              if(kind==='rt'? x.es!==stn : x.ss!==stn) continue;
+              // Direction matters: for R/T the counterpart ARRIVED before we
+              // take over, for R/B it DEPARTS after we hand over. Wrapping the
+              // difference the wrong way turns 11 minutes into 1429.
+              const g=kind==='rt' ? ((toMin(at)-toMin(x.et)+1440)%1440)
+                                  : ((toMin(x.st)-toMin(at)+1440)%1440);
+              if(g<=30&&(!best||g<best.g)) best={x,g};
+            }
+            if(best&&N(best.x.tn)!==N(l.tn)){ relink++; continue; }   // rake relink, not relief
+            rows.push({det:+d.num,office:short(d.office),tn:l.tn,
+                       mark:kind==='rt'?'R/T':'R/B',names:+names,
+                       stn,at:toMin(at),
+                       needs:(kind==='rt'?'R/B ':'R/T ')+d.num,
+                       on:best?best.x.tn:'',gap:best?best.g:null,
+                       kindOf:best?'continues':'unresolved'});
+          }
+        }
+        const out=rows.filter(r=>!f.reliefKind||r.mark===f.reliefKind);
+        const nC=out.filter(r=>r.kindOf==='continues').length;
+        return{cols:[{k:'det',l:'Detail',dn:1,num:1},{k:'office',l:'Office'},{k:'tn',l:'On train',m:1},
+                     {k:'mark',l:'Marker',pill:1},{k:'names',l:'Names',dn:1,num:1},
+                     {k:'stn',l:'Relief at',m:1},{k:'at',l:'Time',r:1,num:1,hm:1},
+                     {k:'needs',l:'Counterpart needs',m:1},
+                     {k:'on',l:'On its leg',m:1},{k:'gap',l:'Gap',r:1,num:1},
+                     {k:'kindOf',l:'Status',pill:1}],rows:out,
+          sum:`<span>real gaps <b>${out.length}</b></span><span>train continues <b>${nC}</b></span>`+
+              `<span>unresolved <b>${out.length-nC}</b></span><span>rake relinks excluded <b>${relink}</b></span>`};}},
     ];
 
     const FILTER_OPTS={
@@ -170,6 +232,7 @@
       service:[['','All services'],['FAST','Fast'],['SEMI_FAST','Semi-fast'],['SLOW','Slow']],
       terminal:[...new Set(LEGS.flatMap(l=>[l.ss,l.es]).filter(Boolean))].sort().map(s=>[s,s]),
       position:[['','Either end'],['start','After sign-on'],['end','Before sign-off'],['both','Both ends only']],
+      reliefKind:[['','R/T and R/B'],['R/T','R/T only'],['R/B','R/B only']],
       // A function, not a list: the stations offered must be the ones crews are
       // actually piloted TO or FROM in the CURRENT view, so picking an office
       // narrows the dropdown with it. A fixed list of all 30 stations offered
@@ -189,7 +252,7 @@
             .map(([st,n])=>[st,st+' ('+n+')']));
       },
     };
-    const FL_LABEL={office:'Office',link:'Link',type:'Type',service:'Service',terminal:'Terminal',position:'Piloting at',pilotTo:'Station',memu:'MEMU'};
+    const FL_LABEL={office:'Office',link:'Link',type:'Type',service:'Service',terminal:'Terminal',position:'Piloting at',pilotTo:'Station',reliefKind:'Marker',memu:'MEMU'};
     // filters rendered as a checkbox rather than a <select>
     const CHECKBOX_FILTERS = new Set(['memu']);
 
