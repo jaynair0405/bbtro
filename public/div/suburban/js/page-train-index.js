@@ -30,7 +30,10 @@
       if (!byDetail.has(l.did)) byDetail.set(l.did, []);
       byDetail.get(l.did).push(l);
     }
-    for (const legs of byDetail.values()) legs.sort((a, b) => (a.st || '').localeCompare(b.st || ''));
+    // NOT re-sorted by start time. The payload already arrives in DUTY order
+    // (minutes since that detail's sign-on), and sorting by clock time would
+    // put a 04:49 leg before a 22:58 one on the 133 duties that cross midnight
+    // — detail 220 reads backwards that way. See lib/subCrew/queries.js.
 
     const trainOf = new Map(TRAINS.map(t => [t.t, t]));
     const didByNum = {};
