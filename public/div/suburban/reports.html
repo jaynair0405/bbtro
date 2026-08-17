@@ -11,7 +11,18 @@
 <style>
 /* Reports only. Shell tokens, sidebar and states come from suburban.css. */
 :root{--fast:#e56a86;--semi:#f4a533;--slow:#5aa9e6}
-.app{grid-template-columns:272px 300px 1fr}
+.app{grid-template-columns:272px 300px 1fr;transition:grid-template-columns .18s ease}
+.app.picker-hidden{grid-template-columns:272px 0 1fr}
+.app.picker-hidden .picker>*:not(.pickertoggle){display:none}
+.app.picker-hidden .picker{overflow:visible;border-right:0}
+.pickertoggle{position:absolute;top:50%;right:-13px;transform:translateY(-50%);z-index:20;
+  width:26px;height:52px;display:grid;place-items:center;cursor:pointer;
+  border-radius:8px;background:rgba(244,165,51,.12);
+  border:1px solid rgba(244,165,51,.45);color:var(--amber);
+  font:700 14px var(--mono);line-height:1;padding:0;transition:.15s}
+.pickertoggle:hover{background:rgba(244,165,51,.24);border-color:var(--amber)}
+.app.picker-hidden .pickertoggle{right:-27px}
+.picker{position:relative}
 [data-sub-host]{grid-column:2 / 4}
 
 /* report picker column */
@@ -35,6 +46,10 @@
 .fl{display:flex;align-items:center;gap:7px}
 .fl label{font:700 9px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--ink3)}
 .fl select{font:600 12px var(--mono);color:var(--ink);background:var(--panel);border:1px solid var(--line2);border-radius:9px;padding:7px 10px;cursor:pointer}
+.fl input.q{font:600 12px var(--mono);color:var(--ink);background:var(--panel);border:1px solid var(--line2);
+  border-radius:9px;padding:7px 10px;outline:none;width:150px;transition:.15s}
+.fl input.q:focus{border-color:var(--amber);box-shadow:0 0 0 3px rgba(244,165,51,.1)}
+.fl input.q::placeholder{color:var(--ink3);font-weight:400}
 .spacer{flex:1}
 .sum{font:600 11px var(--mono);color:var(--ink2);display:flex;gap:16px}
 .sum b{color:var(--amber)}
@@ -60,6 +75,9 @@ td.mono,.m{font-family:var(--mono);font-weight:700}
 .pill.FAST{background:rgba(229,106,134,.14);color:var(--fast)}.pill.SEMI_FAST{background:rgba(244,165,51,.14);color:var(--semi)}.pill.SLOW{background:rgba(90,169,230,.14);color:var(--slow)}.pill.EMPTY_RAKE{background:rgba(107,118,134,.16);color:var(--ink3)}
 .pill.continuous{background:rgba(79,209,165,.13);color:var(--cont)}.pill.fix{background:rgba(185,140,255,.13);color:var(--fix)}.pill.memu{background:rgba(87,182,255,.13);color:var(--memu)}
 .pill.AC{background:rgba(87,182,255,.14);color:var(--memu)}
+.pill.start{background:rgba(79,209,165,.13);color:var(--cont)}
+.pill.end{background:rgba(244,165,51,.13);color:var(--amber)}
+.pill.both{background:rgba(229,106,134,.13);color:var(--triple)}
 .restcell{font-family:var(--mono);font-weight:700}
 .restcell.warn{color:var(--triple)}.restcell.key{color:var(--amber)}
 .bararr{display:inline-flex;align-items:center;gap:6px;color:var(--ink3);font-family:var(--mono);font-size:11px}
@@ -75,7 +93,8 @@ td.mono,.m{font-family:var(--mono);font-weight:700}
 
   <div data-sub-host></div>
 
-  <aside class="picker" data-sub-body hidden>
+  <aside class="picker" id="picker-col" data-sub-body hidden>
+    <button class="pickertoggle" id="pickerToggle" title="Hide the report list">&#8592;</button>
     <h2>Reports</h2>
     <div class="pd">Live from the detail book &amp; train master.</div>
     <div id="picker"></div>
