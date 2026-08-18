@@ -223,7 +223,73 @@
                      {k:'kindOf',l:'Status',pill:1}],rows:out,
           sum:`<span>real gaps <b>${out.length}</b></span><span>train continues <b>${nC}</b></span>`+
               `<span>unresolved <b>${out.length-nC}</b></span><span>rake relinks excluded <b>${relink}</b></span>`};}},
+
+     // The rake's onward path at a terminal — see RAKE_LINKS above. These are
+     // NOT relief gaps: the crews never meet, so neither owes the other a
+     // reciprocal marker.
+     {id:'rake_links',group:'Terminals',name:'Rake links',desc:'Where a rake goes when it terminates — which detail brings it in, which takes it out, and under what number.',filters:['office','linkTerm'],dsort:['inAt','asc'],
+      build(f){
+        const rows=RAKE_LINKS()
+          .filter(r=>!f.office||r.office===f.office)
+          .filter(r=>!f.linkTerm||r.stn===f.linkTerm)
+          .filter(r=>filters.memu||r.link!=='memu')
+          .map(r=>({stn:r.stn,inD:r.inD,inT:r.inT,inAt:toMin(r.inAt),
+                    outD:r.outD,outT:r.outT,outAt:toMin(r.outAt),g:r.g}));
+        const terms=new Set(rows.map(r=>r.stn));
+        const avg=rows.length?Math.round(rows.reduce((a,r)=>a+r.g,0)/rows.length):0;
+        return{cols:[{k:'stn',l:'Terminal',m:1},
+                     {k:'inD',l:'In by',dn:1,num:1},{k:'inT',l:'As',m:1},{k:'inAt',l:'Arr',r:1,num:1,hm:1},
+                     {k:'outD',l:'Out by',dn:1,num:1},{k:'outT',l:'As',m:1},{k:'outAt',l:'Dep',r:1,num:1,hm:1},
+                     {k:'g',l:'Turnaround',r:1,num:1}],rows,
+          sum:`<span>links <b>${rows.length}</b></span><span>terminals <b>${terms.size}</b></span>`+
+              `<span>avg turnaround <b>${avg}m</b></span>`};}},
     ];
+
+    // ------------------------------------------------------------------
+    // Marker-backed rake links.
+    //
+    // At a terminal the rake reverses: the arriving crew walks off and the
+    // next crew — already there off another train — takes charge at the OTHER
+    // END and works it out under a NEW number. The relief marker is the only
+    // record in the book of where that rake goes; nothing else in the system
+    // captures it.
+    //
+    // Both crews may mark it (one R/B, one R/T) so the same physical link can
+    // surface twice — collapsed on terminal + the two detail/train pairs.
+    // Same train number = mid-journey relief, not a relink, and is excluded.
+    // ------------------------------------------------------------------
+    let _links=null;
+    const RAKE_LINKS=()=>{
+      if(_links) return _links;
+      const byNum=new Map(ALL_BLOCKED.map(d=>[String(d.num),d]));
+      const legsBy={}; for(const l of ALL_LEGS){ (legsBy[l.did]=legsBy[l.did]||[]).push(l); }
+      const N=t=>String(t||'').toUpperCase().replace(/\s|^P\//g,'');
+      const out=new Map();
+      for(const l of ALL_LEGS){
+        const d=byId.get(l.did); if(!d||!d.office) continue;
+        for(const kind of ['rt','rb']){
+          const names=l[kind]; if(!names) continue;
+          const other=byNum.get(String(names)); if(!other) continue;
+          const stn=kind==='rt'?l.ss:l.es, at=kind==='rt'?l.st:l.et;
+          let best=null;
+          for(const x of (legsBy[other.id]||[])){
+            if(x.ty!=='working') continue;
+            if(kind==='rt'? x.es!==stn : x.ss!==stn) continue;
+            const g=kind==='rt' ? ((toMin(at)-toMin(x.et)+1440)%1440)
+                                : ((toMin(x.st)-toMin(at)+1440)%1440);
+            if(g<=30&&(!best||g<best.g)) best={x,g};
+          }
+          if(!best||N(best.x.tn)===N(l.tn)) continue;
+          const r = kind==='rb'
+            ? {stn,inD:+d.num,inT:l.tn,inAt:l.et,outD:+names,outT:best.x.tn,outAt:best.x.st,
+               g:best.g,office:d.office,link:d.link}
+            : {stn,inD:+names,inT:best.x.tn,inAt:best.x.et,outD:+d.num,outT:l.tn,outAt:l.st,
+               g:best.g,office:other.office,link:other.link};
+          out.set([r.stn,r.inD,r.inT,r.outD,r.outT].join('|'), r);
+        }
+      }
+      return (_links=[...out.values()]);
+    };
 
     const FILTER_OPTS={
       office:[['','All offices'],['CSMT-SUB','CSMT'],['KYN-SUB','KYN'],['PNVL-SUB','PNVL']],
@@ -237,6 +303,16 @@
       // actually piloted TO or FROM in the CURRENT view, so picking an office
       // narrows the dropdown with it. A fixed list of all 30 stations offered
       // choices that return nothing.
+      // Only terminals that actually carry a marker-backed rake link — eight of
+      // them, against thirty-odd stations in the full list.
+      linkTerm:(f)=>{
+        const seen=new Map();
+        for(const r of RAKE_LINKS()) if(!f.office||r.office===f.office)
+          seen.set(r.stn,(seen.get(r.stn)||0)+1);
+        return [['','All terminals']].concat(
+          [...seen.entries()].sort((x,y)=>y[1]-x[1]||x[0].localeCompare(y[0]))
+            .map(([st,n])=>[st,st+' ('+n+')']));
+      },
       pilotTo:(f)=>{
         const first={},last={};
         for(const l of LEGS){ if(!first[l.did])first[l.did]=l; last[l.did]=l; }
@@ -252,7 +328,7 @@
             .map(([st,n])=>[st,st+' ('+n+')']));
       },
     };
-    const FL_LABEL={office:'Office',link:'Link',type:'Type',service:'Service',terminal:'Terminal',position:'Piloting at',pilotTo:'Station',reliefKind:'Marker',memu:'MEMU'};
+    const FL_LABEL={office:'Office',link:'Link',type:'Type',service:'Service',terminal:'Terminal',position:'Piloting at',pilotTo:'Station',reliefKind:'Marker',linkTerm:'Terminal',memu:'MEMU'};
     // filters rendered as a checkbox rather than a <select>
     const CHECKBOX_FILTERS = new Set(['memu']);
 
