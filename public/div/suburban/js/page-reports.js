@@ -243,6 +243,43 @@
                      {k:'g',l:'Turnaround',r:1,num:1}],rows,
           sum:`<span>links <b>${rows.length}</b></span><span>terminals <b>${terms.size}</b></span>`+
               `<span>avg turnaround <b>${avg}m</b></span>`};}},
+
+     // Spare cover across the clock.
+     //
+     // A spare (waiting) detail is a whole duty with no train work — the slack
+     // the lobby draws on when someone books sick or a duty runs over. There
+     // are 40, marked by a WAITING leg in `trains` rather than a flag on the
+     // detail, so a duty whose legs merely haven't been entered is never
+     // mistaken for spare.
+     //
+     // Rows are HOURS, not details, because the operational question is not
+     // "which details are spare" but "at 03:00, is there anyone". Occupancy is
+     // sampled mid-hour and wraps midnight — 8 of the 40 sign on before
+     // midnight and off after it, and clamping instead of wrapping would erase
+     // exactly the night cover this is meant to show.
+     {id:'spare_cover',group:'Rest & Duty',name:'Spare cover',desc:'How many spare crews are on duty each hour, and when cover is thinnest.',filters:['office'],dsort:['hr','asc'],
+      build(f){
+        const legsBy={}; for(const l of ALL_LEGS){ (legsBy[l.did]=legsBy[l.did]||[]).push(l); }
+        const spare=blocked.filter(d=>(legsBy[d.id]||[]).some(l=>l.ty==='waiting'))
+                           .filter(d=>!f.office||d.office===f.office);
+        const covers=(d,m)=>{const a=toMin(d.son),b=toMin(d.soff);
+                             return a<b ? (m>=a&&m<b) : (m>=a||m<b);};
+        const rows=[];
+        for(let h=0;h<24;h++){
+          const m=h*60+30;
+          const cur=spare.filter(d=>covers(d,m));
+          rows.push({hr:h*60,on:cur.length,
+                     son:spare.filter(d=>Math.floor(toMin(d.son)/60)===h).length,
+                     soff:spare.filter(d=>Math.floor(toMin(d.soff)/60)===h).length,
+                     dets:cur.map(d=>d.num).join(', ')});
+        }
+        const lo=Math.min(...rows.map(r=>r.on)), hi=Math.max(...rows.map(r=>r.on));
+        const thin=rows.filter(r=>r.on===lo).map(r=>fmtHM(r.hr)).join(', ');
+        return{cols:[{k:'hr',l:'Hour',r:1,num:1,hm:1},{k:'on',l:'Spare on duty',r:1,num:1},
+                     {k:'son',l:'Sign on',r:1,num:1},{k:'soff',l:'Sign off',r:1,num:1},
+                     {k:'dets',l:'Details',m:1}],rows,
+          sum:`<span>spare details <b>${spare.length}</b></span><span>thinnest <b>${lo}</b> at ${thin}</span>`+
+              `<span>peak <b>${hi}</b></span>`};}},
     ];
 
     // ------------------------------------------------------------------
