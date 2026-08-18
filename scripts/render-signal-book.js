@@ -169,13 +169,20 @@ function classBadge(row) {
 }
 
 // Small semaphore-style flag for cross-references (e.g. "DN TH K-009").
-function flagGlyphSvg(label) {
+function flagGlyphSvg(label, side) {
   const CHAR_W = 5.4;
-  const W = 20 + label.length * CHAR_W + 5;
-  return `<svg class="ri-glyph" width="${Math.round(W)}" height="22" viewBox="0 0 ${Math.round(W)} 22">` +
-    `<line x1="7" y1="4" x2="7" y2="20"/>` +
-    `<line x1="7" y1="8" x2="16" y2="4"/>` +
-    `<text x="19" y="14">${esc(label)}</text></svg>`;
+  const HEAD_R = 3;
+  const W = Math.round(20 + label.length * CHAR_W + 5);
+  const dir = side === 'left' ? -1 : 1;         // flag/label direction
+  const sx = side === 'left' ? W - 8 : 8;        // stem/head x
+  const armX = sx + dir * 9;                      // flag tip
+  const labelX = sx + dir * 12;
+  const anchor = side === 'left' ? 'end' : 'start';
+  return `<svg class="ri-glyph" width="${W}" height="22" viewBox="0 0 ${W} 22">` +
+    `<circle class="ri-head" cx="${sx}" cy="4" r="${HEAD_R}"/>` +      // signal head at top
+    `<line x1="${sx}" y1="7" x2="${sx}" y2="20"/>` +                   // post/stem
+    `<line x1="${sx}" y1="11" x2="${armX}" y2="7"/>` +                 // flag arm
+    `<text x="${labelX}" y="13" text-anchor="${anchor}">${esc(label)}</text></svg>`;
 }
 
 // DESCRIPTION cell for SIGNAL rows: curve arrow + glyph/text + RHS tag,
@@ -190,7 +197,9 @@ function descCellHtml(row) {
   if (/^RI:/i.test(text)) {
     parts.push(riGlyphSvg(parseRiSpec(text, row.ri_left_arms, row.ri_right_arms)));
   } else if (text && isFlag) {
-    parts.push(flagGlyphSvg(text));
+    // Flag side comes from the arm counts: left when ri_left_arms leads (else right).
+    const flagSide = (Number(row.ri_left_arms) || 0) > (Number(row.ri_right_arms) || 0) ? 'left' : 'right';
+    parts.push(flagGlyphSvg(text, flagSide));
   } else if (text) {
     parts.push(descToHtml(text));
   }
@@ -222,9 +231,10 @@ function renderRow(row) {
       </div>`;
 
     case 'NEUTRAL_SECTION':
+      // First column = the actual marker (500M / 250M / N/S), second = location/km.
       return `<div class="row ns">
-        <div class="ns-label">N/S</div>
-        <div class="ns-loc">${esc(row.display_location || row.display_description || '')}</div>
+        <div class="ns-label">${esc(row.display_description || 'N/S')}</div>
+        <div class="ns-loc">${esc(row.display_location || '')}</div>
       </div>`;
 
     case 'BOARD':
@@ -443,24 +453,26 @@ ${rowsHtml}
 
   /* PSR — yellow band */
   .row.psr {
-    background: #fef3c7;
+    background: #fde047;
+    color: #451a03;
     display: grid;
     grid-template-columns: 30% auto;
     gap: 4px;
     padding: 3px 6px;
-    border-left: 4px solid #f59e0b;
+    border-left: 5px solid #a16207;
     margin: 2px 0;
   }
   .row.psr .psr-speed { font-weight: 700; }
 
   /* NEUTRAL_SECTION — light grey w/ N/S badge */
   .row.ns {
-    background: #f3f4f6;
+    background: #bae6fd;
+    color: #082f49;
     display: grid;
     grid-template-columns: 30% auto;
     gap: 4px;
     padding: 3px 6px;
-    border-left: 4px solid #6b7280;
+    border-left: 5px solid #0369a1;
     margin: 2px 0;
   }
   .row.ns .ns-label { font-weight: 700; }
