@@ -28,7 +28,7 @@ const sanitizeHtml = require('sanitize-html');
 const CATEGORIES = [
   'TRAINING_LETTER', 'INITIAL_APPOINTMENT', 'PROMOTION_ORDER', 'SR_DEE_INSTRUCTION',
   'CEE_OP_INSTRUCTION', 'SAFETY_CIRCULAR', 'NEWS_LETTER', 'E_CASE_STUDY', 'STUDY_MATERIAL', 'MANUAL',
-  'PRESENTATION', 'BROCHURE', 'MISC', 'TRANSFER_LETTER', 'CADRE_LETTER',
+  'PRESENTATION', 'BROCHURE', 'MISC', 'TRANSFER_LETTER', 'CADRE_LETTER', 'SSE_HQ_REPORT',
 ];
 
 // Who may upload/delete each category. Everyone logged-in can view/download.
@@ -49,6 +49,7 @@ const CATEGORY_UPLOAD_ROLES = {
   MISC:               ['division_admin'],
   TRANSFER_LETTER:    ['office_hr', 'division_admin'],
   CADRE_LETTER:       ['office_hr', 'division_admin'],
+  SSE_HQ_REPORT:       ['ssehq', 'division_admin'],
 };
 
 // Categories whose documents are organised by date (Year → Month tree).
@@ -56,7 +57,7 @@ const CATEGORY_UPLOAD_ROLES = {
 const DATE_TREE_CATEGORIES = new Set([
   'TRAINING_LETTER', 'INITIAL_APPOINTMENT', 'PROMOTION_ORDER',
   'SR_DEE_INSTRUCTION', 'CEE_OP_INSTRUCTION', 'SAFETY_CIRCULAR', 'NEWS_LETTER', 'E_CASE_STUDY',
-  'TRANSFER_LETTER', 'CADRE_LETTER',
+  'TRANSFER_LETTER', 'CADRE_LETTER', 'SSE_HQ_REPORT',
 ]);
 
 // Folder ("section") config per category, used for upload validation and to
@@ -79,6 +80,7 @@ const FOLDER_CONFIG = {
   // Cadre letters (HQ CLI cadre desk): one folder per letter family, so the
   // repo groups them the way the desk thinks about them.
   CADRE_LETTER: { required: ['TRANSFER', 'POSTING', 'TRAINING', 'CADRE', 'MISC'] },
+  SSE_HQ_REPORT: { optional: ['OPR', 'DELOGGING_NOTE'] },
 };
 
 // Validate/normalise a folder value for a category. Returns
@@ -124,6 +126,7 @@ function uploadableCategories(role) {
 const CATEGORY_DELETE_ROLES = {
   TRANSFER_LETTER: ['division_admin'],
   CADRE_LETTER:    ['division_admin'],
+  SSE_HQ_REPORT:   ['ssehq', 'division_admin'],
 };
 
 function canDeleteCategory(role, category) {
@@ -685,11 +688,14 @@ router.get('/:id/view', async (req, res) => {
         return res.status(403).json({ success: false, error: 'This draft is not yours to view.' });
       }
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
-      // Cadre letters are filed as a COMPLETE page (their own letterhead,
-      // tables and print CSS, rendered by utils/cadreLetterHtml.js) — serve it
+      // Cadre letters and SSE-HQ reports are filed as COMPLETE pages (their own
+      // letterhead/proforma, tables and print CSS, rendered by
+      // utils/cadreLetterHtml.js and utils/ssehqReportHtml.js) — serve them
       // as-is. renderInstructionPage() is the Sr.DEE/CEE-OP instruction format
       // and would wrap them in the wrong document.
-      if (row.category === 'CADRE_LETTER') return res.send(row.body_html || '');
+      if (row.category === 'CADRE_LETTER' || row.category === 'SSE_HQ_REPORT') {
+        return res.send(row.body_html || '');
+      }
       return res.send(renderInstructionPage(row));
     }
 
