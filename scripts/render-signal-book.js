@@ -108,17 +108,25 @@ async function loadRoute(routeDef, providedConn) {
         );
         if (sigs.length === 0) throw new Error(`bridge signal not found: ${spec.signal}`);
         const s = sigs[0];
+        const sigRows = [];
+        // Optional station header rendered ABOVE the bridge signal (e.g. THANE above
+        // the PF-10 starter, with the segment's own header dropped to avoid a dup).
+        if (spec.stationHeader) {
+          sigRows.push({ row_order: 0, row_type: 'STATION_HEADER', display_description: spec.stationHeader });
+        }
+        sigRows.push({
+          row_order: 1, row_type: 'SIGNAL', signal_id: s.id,
+          display_signal_no: s.signal_number, display_location: s.location_text,
+          // Prefer book_description (holds the "RI: ..." spec that drives the diversion
+          // hand) over route_indicator_notes (which is a prose sighting note).
+          display_description: s.book_description || s.route_indicator_notes || '',
+          ri_left_arms: s.ri_left_arms, ri_right_arms: s.ri_right_arms,
+          route_indicator_notes: s.route_indicator_notes,
+          is_rhs: s.is_rhs, is_ext_rhs: s.is_ext_rhs, is_ext_lhs: s.is_ext_lhs,
+          on_curve: s.on_curve, signal_type: s.signal_type, signal_function: s.signal_function,
+        });
         sections.push({
-          section_code: `SIG:${spec.signal}`, display_group: routeTitle, lead_in_note: null,
-          rows: [{
-            row_order: 1, row_type: 'SIGNAL', signal_id: s.id,
-            display_signal_no: s.signal_number, display_location: s.location_text,
-            display_description: s.route_indicator_notes || s.book_description || '',
-            ri_left_arms: s.ri_left_arms, ri_right_arms: s.ri_right_arms,
-            route_indicator_notes: s.route_indicator_notes,
-            is_rhs: s.is_rhs, is_ext_rhs: s.is_ext_rhs, is_ext_lhs: s.is_ext_lhs,
-            on_curve: s.on_curve, signal_type: s.signal_type, signal_function: s.signal_function,
-          }],
+          section_code: `SIG:${spec.signal}`, display_group: routeTitle, lead_in_note: null, rows: sigRows,
         });
         continue;
       }
@@ -174,6 +182,11 @@ async function loadRoute(routeDef, providedConn) {
       if (spec.exclude && spec.exclude.length) {
         const ex = new Set(spec.exclude.map(norm));
         kept = kept.filter((r) => !ex.has(norm(r.display_signal_no)));
+      }
+      // Drop a STATION_HEADER already rendered elsewhere (e.g. moved above a bridge signal).
+      if (spec.dropStationHeader) {
+        const key = norm(spec.dropStationHeader);
+        kept = kept.filter((r) => !(r.row_type === 'STATION_HEADER' && norm(r.display_description).includes(key)));
       }
       // A branch DN segment authored junction->terminal is read terminal->junction
       // in a full "terminal -> PNVL" route. reverse:true flips the row order.

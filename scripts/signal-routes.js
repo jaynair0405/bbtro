@@ -70,6 +70,43 @@ module.exports = {
     ],
   },
 
+  // Trans-harbour (THB): TNA -> TUH, then TUH branches to NEU(->PNVL) or VSH.
+  'TNA-PNVL DN': {
+    title: 'TNA-PNVL DN LINE',
+    segments: [
+      { code: 'TNA_TUH_DN_THB', to: 'TNA S-62' },          // THANE hdr + PF-9 (TNA S-62)
+      { signal: 'TNA S-61' },                             // PF-10 (TNA S-61) after PF-9
+      { code: 'TNA_TUH_DN_THB', from: 'TN-01' },           // rest -> TUH S-2
+      'TUH_NEU_DN_THB',                                    // TUH S-11 -> ... -> NEU S-31 (PF-1 starter)
+      { signal: 'NEU S-32' },                             // PF-2 starter (added missing) -> RI to NEU S-41
+      { code: 'CSMT_PNVL_DN_HB', from: 'NEU S-41', to: 'PNVL S-403' }, // NEU S-41 -> ... -> Panvel (NEU S-33 URAN branch skipped)
+    ],
+  },
+  'PNVL-TNA UP': {
+    title: 'PNVL-TNA UP LINE',
+    segments: [
+      { code: 'CSMT_PNVL_UP_HB', from: 'PNVL S-421', to: 'NEU S-42' }, // Panvel -> ... -> Nerul arrival (NEU S-42)
+      'TUH_NEU_UP_THB',                                    // NEU S-25 -> ... -> TUH S-5
+      'TNA_TUH_UP_THB',                                    // TN-24 -> ... -> TNA S-54
+    ],
+  },
+  'TNA-VSH DN': {
+    title: 'TNA-VSH DN LINE',
+    segments: [
+      { code: 'TNA_TUH_DN_THB', to: 'TNA S-62' },          // THANE hdr + PF-9 (TNA S-62)
+      { signal: 'TNA S-61' },                             // PF-10 (TNA S-61) after PF-9
+      { code: 'TNA_TUH_DN_THB', from: 'TN-01' },           // rest -> TUH S-2
+      'TUH_VSH_DN_THB',                                    // TUH S-12 -> ... -> VSH S-19
+    ],
+  },
+  'VSH-TNA UP': {
+    title: 'VSH-TNA UP LINE',
+    segments: [
+      'TUH_VSH_UP_THB',                                    // VSH S-3 -> ... -> TUH S-6
+      'TNA_TUH_UP_THB',                                    // TN-24 -> ... -> TNA S-54
+    ],
+  },
+
   'KYN-BSR UP': {
     title: 'KYN-BSR UP LINE',
     segments: [
