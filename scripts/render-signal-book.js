@@ -83,6 +83,113 @@ async function loadBook(beatCode, providedConn) {
   }
 }
 
+// Approach-A "full route" view: assemble an ordered list of existing segment
+// section_codes into ONE continuous section under a single route header. No data
+// is duplicated — shared segments (e.g. the PNVL->DCC trunk) are simply referenced
+// by every route that passes through them. All segments are forced into one
+// display_group (= routeTitle) so renderHtml consolidates them into one block.
+async function loadRoute(routeDef, providedConn) {
+  const conn = providedConn || await getConnection();
+  const ownConn = !providedConn;
+  const routeTitle = routeDef.title;
+  try {
+    const sections = [];
+    for (const rawSpec of routeDef.segments) {
+      const spec = typeof rawSpec === 'string' ? { code: rawSpec } : rawSpec;
+      // Standalone bridge signal: a route may reference a single div_signals row that
+      // belongs to no shared segment (e.g. DCC S-5, the DW->PNVL diverging signal).
+      if (spec.signal) {
+        const [sigs] = await conn.execute(
+          `SELECT id, signal_number, location_text, book_description, route_indicator_notes,
+                  ri_left_arms, ri_right_arms, is_rhs, is_ext_rhs, is_ext_lhs,
+                  on_curve, signal_type, signal_function
+             FROM div_signals WHERE signal_number = ? AND is_active = 1`,
+          [spec.signal]
+        );
+        if (sigs.length === 0) throw new Error(`bridge signal not found: ${spec.signal}`);
+        const s = sigs[0];
+        sections.push({
+          section_code: `SIG:${spec.signal}`, display_group: routeTitle, lead_in_note: null,
+          rows: [{
+            row_order: 1, row_type: 'SIGNAL', signal_id: s.id,
+            display_signal_no: s.signal_number, display_location: s.location_text,
+            display_description: s.route_indicator_notes || s.book_description || '',
+            ri_left_arms: s.ri_left_arms, ri_right_arms: s.ri_right_arms,
+            route_indicator_notes: s.route_indicator_notes,
+            is_rhs: s.is_rhs, is_ext_rhs: s.is_ext_rhs, is_ext_lhs: s.is_ext_lhs,
+            on_curve: s.on_curve, signal_type: s.signal_type, signal_function: s.signal_function,
+          }],
+        });
+        continue;
+      }
+      // Standalone neutral-section (OHE dead section) between segments — rendered as
+      // the full approach board group 500M / 250M / N/S (matching the stored ones).
+      if (spec.neutral) {
+        const nsText = spec.neutral === true ? 'N/S' : spec.neutral;
+        const nsRows = spec.boards === false
+          ? [{ label: nsText }]
+          : [{ label: '500M' }, { label: '250M' }, { label: nsText }];
+        sections.push({
+          section_code: `NS:${routeTitle}:${sections.length}`, display_group: routeTitle, lead_in_note: null,
+          rows: nsRows.map((n, i) => ({
+            row_order: i + 1, row_type: 'NEUTRAL_SECTION',
+            display_description: n.label, display_location: spec.location || '',
+          })),
+        });
+        continue;
+      }
+      const [secs] = await conn.execute(
+        `SELECT id, section_code, section_title, direction, line
+           FROM div_signal_book_sections WHERE section_code = ? AND is_active = 1`,
+        [spec.code]
+      );
+      if (secs.length === 0) throw new Error(`Section not found: ${spec.code}`);
+      const section = secs[0];
+      const [rows] = await conn.execute(
+        `SELECT r.row_order, r.row_type, r.signal_id, r.psr_id, r.neutral_section_id,
+                r.display_signal_no, r.display_location, r.display_description,
+                r.speed_kmph, r.km_range_text,
+                r.station_code, r.station_name, r.station_km_text,
+                r.highlight_color, r.text_color, r.icon_type, r.remarks,
+                sg.ri_left_arms, sg.ri_right_arms, sg.route_indicator_notes,
+                sg.is_rhs, sg.is_ext_rhs, sg.is_ext_lhs, sg.on_curve,
+                sg.signal_type, sg.signal_function
+           FROM div_signal_book_rows r
+           LEFT JOIN div_signals sg ON sg.id = r.signal_id
+          WHERE r.book_section_id = ? AND r.is_active = 1
+          ORDER BY r.row_order`,
+        [section.id]
+      );
+      // Signal-level trimming so a shared segment can diverge partway through.
+      let kept = rows;
+      const norm = (s) => String(s || '').trim().toUpperCase();
+      if (spec.from || spec.to) {
+        const idx = (sig) => kept.findIndex((r) => norm(r.display_signal_no) === norm(sig));
+        const start = spec.from ? idx(spec.from) : 0;
+        const endRaw = spec.to ? idx(spec.to) : kept.length - 1;
+        const end = endRaw === -1 ? kept.length - 1 : endRaw;
+        if (start === -1) throw new Error(`from-signal '${spec.from}' not in ${spec.code}`);
+        kept = kept.slice(start, end + 1);
+      }
+      if (spec.exclude && spec.exclude.length) {
+        const ex = new Set(spec.exclude.map(norm));
+        kept = kept.filter((r) => !ex.has(norm(r.display_signal_no)));
+      }
+      // A branch DN segment authored junction->terminal is read terminal->junction
+      // in a full "terminal -> PNVL" route. reverse:true flips the row order.
+      if (spec.reverse) kept = kept.slice().reverse();
+      section.rows = kept;
+      section.display_group = routeTitle;   // force one heading for the whole route
+      section.lead_in_note = null;          // drop split-view cross-references
+      sections.push(section);
+    }
+    const beat = { beat_name: routeTitle, office_code: null, beat_category: null };
+    return { beat, sections };
+  } finally {
+    if (ownConn) await conn.end();
+  }
+}
+
 function esc(value) {
   if (value === null || value === undefined) return '';
   return String(value)
@@ -558,21 +665,31 @@ ${rowsHtml}
 </html>`;
 }
 
-module.exports = { loadBook, renderHtml };
+module.exports = { loadBook, loadRoute, renderHtml };
 
 // Allow running directly as a CLI script.
 if (require.main === module) {
-  const beatCode = process.argv[2];
   const outIdx = process.argv.indexOf('--out');
-  const outPath = outIdx > -1 ? process.argv[outIdx + 1] : `signal-book-${beatCode}.html`;
+  const routeIdx = process.argv.indexOf('--route');
+  const isRoute = routeIdx > -1;
+  const routeName = isRoute ? process.argv[routeIdx + 1] : null;
+  const beatCode = isRoute ? null : process.argv[2];
+  const routeDef = isRoute ? require('./signal-routes')[routeName] : null;
+  const outPath = outIdx > -1 ? process.argv[outIdx + 1]
+    : (isRoute ? 'signal-book-route.html' : `signal-book-${beatCode}.html`);
 
-  if (!beatCode) {
+  if (!isRoute && !beatCode) {
     console.error('Usage: node scripts/render-signal-book.js <BEAT_CODE> [--out <path>]');
+    console.error('   or: node scripts/render-signal-book.js --route "<ROUTE NAME>" [--out <path>]  (names from scripts/signal-routes.js)');
+    process.exit(1);
+  }
+  if (isRoute && !routeDef) {
+    console.error(`Route '${routeName}' not defined in scripts/signal-routes.js. Known: ${Object.keys(require('./signal-routes')).join(', ')}`);
     process.exit(1);
   }
 
   (async () => {
-    const book = await loadBook(beatCode);
+    const book = isRoute ? await loadRoute(routeDef) : await loadBook(beatCode);
 
     if (book.sections.length === 0) {
       console.error(`Beat ${beatCode} has no sections bound yet. Insert rows in div_signal_beat_sections first.`);
