@@ -97,6 +97,15 @@
             var el = document.querySelector('[name="' + name + '"]');
             if (el) el.value = el.dataset.default || '';
         });
+        /* The forwarding chain is the same three officers on every note, so a
+         * blank box is pure retyping. It comes from the server rather than the
+         * markup because the renderer holds the canonical list — the note
+         * arriving prefilled from an OPR already carried it, and a note
+         * started from scratch should not be the odd one out. */
+        if (CFG.forwardingField && CFG.forwardingDefault) {
+            var fwd = document.querySelector('[name="' + CFG.forwardingField + '"]');
+            if (fwd && !fwd.value) fwd.value = CFG.forwardingDefault;
+        }
     }
 
     // ── Live preview ────────────────────────────────────────────────────────
