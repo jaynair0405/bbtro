@@ -529,11 +529,16 @@ function mount(kindKey, base) {
         } finally { if (conn) conn.release(); }
     });
 
-    // reopen — admin only
+    /* reopen — the SSE-HQ desk may reopen its own filed reports.
+     *
+     * Cadre letters keep this admin-only, but these are the desk's own working
+     * documents and a correction should not require finding an admin: a wrong
+     * loco number on a detention report is noticed by the person who typed it,
+     * usually minutes later. Reopening still removes the filed copy from the
+     * repository, so nobody is left reading a version that no longer matches.
+     * Role-based rather than created_by, because SSE-HQ is a shared desk and a
+     * report must stay correctable if the account that wrote it changes. */
     router.post(`${base}/:id/unfinalize`, async (req, res) => {
-        if (!isAdmin(req)) {
-            return res.status(403).json({ error: 'Only a division admin can reopen a filed report.' });
-        }
         let conn;
         try {
             conn = await getConnection(req);

@@ -307,20 +307,17 @@
         $('desk').classList.toggle('readonly', filed);
         $('btnSave').style.display = filed ? 'none' : '';
         $('btnFile').style.display = filed ? 'none' : '';
-        $('btnReopen').style.display = (filed && USER.is_admin) ? '' : 'none';
+        // The desk may reopen its own filed reports, so this is no longer
+        // admin-only — see the unfinalize route for why.
+        $('btnReopen').style.display = filed ? '' : 'none';
         $('btnFiled').style.display = (filed && DOCUMENT_ID) ? '' : 'none';
         $('btnDelete').disabled = filed;
         var chip = $('stChip');
         chip.textContent = filed ? 'Filed' : 'Draft';
         chip.className = 'chip ' + (filed ? 'final' : 'draft');
         $('stRef').textContent = readForm()[CFG.numberCol] || 'unsaved';
-        if (filed && !USER.is_admin) {
-            $('roNote').textContent = '✓ Filed. This ' + CFG.label +
-                ' is read-only — a division admin can reopen it for editing.';
-        } else {
-            $('roNote').textContent = '✓ Filed. This ' + CFG.label +
-                ' is read-only — reopen it to edit.';
-        }
+        $('roNote').textContent = '✓ Filed. This ' + CFG.label +
+            ' is read-only — reopen it to edit.';
     }
 
     function load(id) {
