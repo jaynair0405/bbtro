@@ -879,7 +879,12 @@ function escapeHtml(s) {
 (async function init() {
     await loadPerms();
     buildRail();
-    selectCategory('TRAINING_LETTER');
+    // Open what `current` resolved to, not a hardcoded category: `current`
+    // already honours ?category= (see its definition), and hardcoding here
+    // silently threw that away. Every page linking to its own filing drawer —
+    // the cadre letters, the SSE-HQ reports — landed the user in Training
+    // Letters instead, looking at someone else's documents.
+    selectCategory(current);
 })();
 </script>
 </body>
