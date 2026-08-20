@@ -405,6 +405,13 @@
     <section class="dashboard-section">
         <div class="section-title">Daily Loco Link Entry</div>
         <div class="quick-links">
+            <a class="link-card" id="ssehqLink" href="/div/ssehq-opr.html" style="display:none">
+                <i class="fa-solid fa-file-circle-check icn" style="color:var(--warning)"></i>
+                <div>
+                    <div class="ttl">SSE-HQ Reports</div>
+                    <div class="desc">OPR and DElogging Notes</div>
+                </div>
+            </a>
             <a class="link-card" href="/control-office/daily-entry.html?sheet_source=CSMT-DN" data-segment="CSMT-DN">
                 <i class="fa-solid fa-arrow-down icn"></i>
                 <div>
@@ -585,6 +592,10 @@ async function loadMe() {
         if (['division_admin', 'ctlc', 'ctlc_view'].includes(u.div_role)) {
             const consolidated = $('#consolidatedLink');
             if (consolidated) consolidated.style.display = '';
+        }
+        if (['division_admin', 'ssehq'].includes(u.div_role)) {
+            const ssehq = $('#ssehqLink');
+            if (ssehq) ssehq.style.display = '';
         }
         // Settings tile — writers only (it is an edit page)
         if (['division_admin', 'ctlc'].includes(u.div_role)) {

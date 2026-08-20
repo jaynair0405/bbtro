@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BBTRO | SSE-HQ — DElogging Note</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,wght@0,400;0,600;0,700;1,400&family=Archivo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/div/css/ssehq-shell.css">
+</head>
+<body>
+
+<header class="appbar">
+    <a class="brand" href="/div/"><span class="mark">&#128221;</span>
+        <span><b>SSE-HQ Reports</b><small>Delogging note</small></span></a>
+    <span class="spacer"></span>
+    <a class="back" href="/div/ssehq-opr.html">OPR</a>
+    <a class="back on" href="/div/ssehq-note.html">DElogging Note</a>
+    <a class="back" href="#" id="btnHistory">Note history</a>
+    <a class="back" href="/div/documents.html?category=SSE_HQ_REPORT">Filed reports</a>
+    <a class="back" href="/div/">&larr; Dashboard</a>
+    <span class="who" id="who"></span>
+</header>
+
+<nav class="statusbar">
+    <span class="fam">Delogging</span>
+    <span class="tname" id="stRef">unsaved</span>
+    <span class="chip draft" id="stChip">Draft</span>
+    <span class="spacer"></span>
+    <span id="evCount"></span>
+</nav>
+
+<main class="stage">
+    <section class="desk" id="desk">
+        <div class="ro-note" id="roNote"></div>
+        <div class="scroll">
+
+            <div class="panel"><h2><span class="n">1</span>Note</h2><div class="bd">
+                <div class="row">
+                    <div class="fld"><label>Note No.</label><input name="note_no" placeholder="BB/Tech/2"></div>
+                    <div class="fld"><label>Note date</label><input type="date" name="note_date"></div>
+                </div>
+                <div class="fld"><label>Subject</label>
+                    <textarea name="subject_text" placeholder="Delogging of Train No. 11057 UP of dated 01.08.2026 (DELC, HQ)."></textarea></div>
+            </div></div>
+
+            <div class="panel"><h2><span class="n">2</span>Train &amp; loco</h2><div class="bd">
+                <div class="row">
+                    <div class="fld"><label>Train No.</label><input name="train_no" placeholder="20111 DN"></div>
+                    <div class="fld"><label>Train date</label><input type="date" name="train_date"></div>
+                </div>
+                <div class="fld search-wrap">
+                    <label>Loco No.</label>
+                    <input name="loco_number" data-picker="1" placeholder="30699 — type or press Enter to look up" autocomplete="off">
+                    <div class="search-drop" id="locoDrop"></div>
+                    <div class="hint">Type, base and DOC fill in from the loco master.</div>
+                </div>
+                <div class="row">
+                    <div class="fld"><label>Loco type</label><input name="loco_type" placeholder="WAP-7"></div>
+                    <div class="fld"><label>Loco base</label><input name="loco_base" placeholder="SRCE"></div>
+                </div>
+                <div class="fld"><label>DOC — date of commissioning</label>
+                    <input type="date" name="loco_commission_date"></div>
+                <div class="dueflag none" id="dueFlag"></div>
+            </div></div>
+
+            <div class="panel"><h2><span class="n">3</span>Staff</h2><div class="bd">
+                <div class="fld search-wrap">
+                    <label>Staff</label>
+                    <input name="staff_name" data-picker="1" autocomplete="off" placeholder="name, HRMS or PF">
+                    <input type="hidden" name="staff_hrms_id">
+                    <div class="search-drop" id="staffDrop"></div>
+                </div>
+            </div></div>
+
+            <div class="panel"><h2><span class="n">4</span>Opening paragraph</h2><div class="bd">
+                <div class="fld"><label>Details</label>
+                    <textarea name="body_text" style="min-height:110px"
+                        placeholder="On dated 01.08.2026, Train No. 20111DN with Loco No-30699/WAP-7/SRCE taken extra time of 07&quot; for departure from CSMT platform-15. The details of detention are as under:-"></textarea>
+                    <div class="hint">A blank line starts a new paragraph.</div></div>
+            </div></div>
+
+            <div class="panel events-panel"><h2><span class="n">5</span>Chronological events</h2><div class="bd">
+                <table class="evgrid"><thead><tr>
+                    <th></th><th>Time</th><th>Event description</th><th></th>
+                </tr></thead><tbody id="evRows"></tbody></table>
+                <div class="tinybar"><button type="button" class="btn-tiny primary" id="addEvent">+ Add event</button></div>
+            </div></div>
+
+            <div class="panel"><h2><span class="n">6</span>Punctuality &amp; repercussion</h2><div class="bd">
+                <div class="fld"><label>Punctuality</label>
+                    <textarea name="punctuality_text" placeholder='20111 DN&#10;CSMT-07", TNA-16"/10" Late'></textarea></div>
+                <div class="fld"><label>Repercussion</label>
+                    <textarea name="repercussion_text" placeholder='11057 DN (HQ LOST-IELC-16")&#10;CSMT- 16", KYN-14"/19"'></textarea></div>
+            </div></div>
+
+            <div class="panel"><h2><span class="n">7</span>Statements &amp; conclusion</h2><div class="bd">
+                <div class="fld"><label>Statements / observations</label>
+                    <textarea name="statements_text" style="min-height:120px"
+                        placeholder="As per STR …&#10;&#10;As per CLI …"></textarea></div>
+                <div class="fld"><label>Conclusion — the delogging asked for</label>
+                    <textarea name="conclusion_text" style="min-height:90px"
+                        placeholder="In view of above, punctuality loss of Train No. … is to be delogged from Electric Loco and to be booked on suitable head."></textarea></div>
+            </div></div>
+
+            <div class="panel"><h2><span class="n">8</span>Signing &amp; forwarding</h2><div class="bd">
+                <div class="fld"><label>Signing</label>
+                    <input name="signing_text" value="DEE(TRO)BB" data-default="DEE(TRO)BB"></div>
+                <div class="fld"><label>Forwarding chain</label>
+                    <textarea name="forwarding_text" style="min-height:76px"></textarea></div>
+            </div></div>
+
+        </div>
+        <div class="actions">
+            <button class="btn btn-ghost" id="btnNew">&#65291; New</button>
+            <button class="btn btn-ghost" id="btnPrint">&#128424; Print</button>
+            <button class="btn btn-ghost" id="btnWord">&#11015; Word</button>
+            <button class="btn btn-ghost" id="btnFiled" style="display:none">&#128196; Filed copy</button>
+            <button class="btn btn-red" id="btnDelete">Delete</button>
+            <span class="spacer" style="flex:1"></span>
+            <button class="btn btn-ghost" id="btnReopen" style="display:none">&#8617; Reopen</button>
+            <button class="btn btn-amber" id="btnSave">Save draft</button>
+            <button class="btn btn-green" id="btnFile">&#10003; File it</button>
+        </div>
+    </section>
+
+    <section class="yard">
+        <div class="preview-tag">Live note preview</div>
+        <div class="sheet" id="sheet"></div>
+    </section>
+</main>
+
+<div class="drawer-veil" id="drawerVeil"></div>
+<aside class="drawer">
+    <h3>Note history <button type="button" id="drawerClose">&times;</button></h3>
+    <div class="filters">
+        <input class="wide" id="hSearch" placeholder="Note no. / train / loco">
+        <select id="hStatus" class="wide">
+            <option value="">All notes</option>
+            <option value="draft">Drafts only</option>
+            <option value="final">Filed only</option>
+        </select>
+    </div>
+    <div class="list" id="hList"></div>
+</aside>
+
+<div class="modal-veil" id="modalVeil"><div class="modal">
+    <h4 id="mTitle"></h4><div id="mBody"></div>
+    <div class="btns"><button class="btn btn-ghost" id="mCancel">Cancel</button>
+        <button class="btn btn-amber" id="mOk">Confirm</button></div>
+</div></div>
+
+<div class="toast" id="toast"></div>
+
+<script src="/div/js/ssehq-report-render.js"></script>
+<script src="/div/js/ssehq-editor.js"></script>
+<script>
+document.getElementById('drawerClose').onclick = function () { document.body.classList.remove('drawer-open'); };
+document.getElementById('drawerVeil').onclick = function () { document.body.classList.remove('drawer-open'); };
+
+SsehqEditor.init({
+    kind: 'note',
+    api: '/api/division/ssehq/delogging',
+    label: 'DElogging Note',
+    dateCol: 'note_date',
+    numberCol: 'note_no',
+    fields: [
+        'note_no', 'note_date', 'subject_text',
+        'train_no', 'train_date',
+        'loco_number', 'loco_type', 'loco_base', 'loco_commission_date',
+        'staff_name', 'staff_hrms_id',
+        'body_text', 'punctuality_text', 'repercussion_text',
+        'statements_text', 'conclusion_text', 'signing_text', 'forwarding_text',
+    ],
+    staffPickers: [
+        { name: 'staff_name', hrms: 'staff_hrms_id', drop: 'staffDrop' },
+    ],
+    render: function (record, events, opts) { return SsehqReport.renderNoteSheet(record, events, opts); },
+
+    /* Arrived from "Make note" on an OPR. The server builds the note from the
+       report — including the whole chronology, which is the part that was
+       being retyped — and hands it back UNSAVED, so nothing is written until
+       the desk has read it and pressed Save. */
+    prefillFrom: function (oprId) {
+        return SsehqEditor.api('/api/division/ssehq/opr/' + oprId + '/as-note')
+            .then(function (data) {
+                SsehqEditor.writeForm(data.note);
+                SsehqEditor.setEvents(data.events);
+                SsehqEditor.renderEvents();
+                SsehqEditor.render();
+                SsehqEditor.applyStatus();
+                SsehqEditor.setDirty(true);
+                SsehqEditor.toast('Prefilled from OPR ' +
+                    (data.from_opr.report_no || '#' + data.from_opr.id) +
+                    ' — review it, then Save.', 'ok');
+            })
+            .catch(SsehqEditor.fail);
+    },
+});
+</script>
+</body>
+</html>

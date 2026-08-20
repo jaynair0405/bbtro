@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BBTRO | SSE-HQ — One Page Report</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,wght@0,400;0,600;0,700;1,400&family=Archivo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/div/css/ssehq-shell.css">
+</head>
+<body>
+
+<header class="appbar">
+    <a class="brand" href="/div/"><span class="mark">&#128421;</span>
+        <span><b>SSE-HQ Reports</b><small>One page report of detention</small></span></a>
+    <span class="spacer"></span>
+    <a class="back on" href="/div/ssehq-opr.html">OPR</a>
+    <a class="back" href="/div/ssehq-note.html">DElogging Note</a>
+    <a class="back" href="#" id="btnHistory">Report history</a>
+    <a class="back" href="/div/documents.html?category=SSE_HQ_REPORT">Filed reports</a>
+    <a class="back" href="/div/">&larr; Dashboard</a>
+    <span class="who" id="who"></span>
+</header>
+
+<nav class="statusbar">
+    <span class="fam">OPR</span>
+    <span class="tname" id="stRef">unsaved</span>
+    <span class="chip draft" id="stChip">Draft</span>
+    <span class="spacer"></span>
+    <span id="evCount"></span>
+</nav>
+
+<main class="stage">
+    <section class="desk" id="desk">
+        <div class="ro-note" id="roNote"></div>
+        <div class="scroll">
+
+            <div class="panel"><h2><span class="n">1</span>Report</h2><div class="bd">
+                <div class="row">
+                    <div class="fld"><label>Report No.</label><input name="report_no" placeholder="BB/Tech/2"></div>
+                    <div class="fld"><label>Report date</label><input type="date" name="report_date"></div>
+                </div>
+                <div class="row">
+                    <div class="fld"><label>Date of failure</label><input type="date" name="failure_date"></div>
+                    <div class="fld"><label>Division / Railway</label>
+                        <input name="division_railway" value="Mumbai/CR" data-default="Mumbai/CR"></div>
+                </div>
+            </div></div>
+
+            <div class="panel"><h2><span class="n">2</span>Train &amp; loco</h2><div class="bd">
+                <div class="fld"><label>Train No.</label><input name="train_no" placeholder="20111 DN"></div>
+                <div class="fld search-wrap">
+                    <label>Loco No.</label>
+                    <input name="loco_number" data-picker="1" placeholder="30699 — type or press Enter to look up" autocomplete="off">
+                    <div class="search-drop" id="locoDrop"></div>
+                    <div class="hint">Type, base and DOC fill in from the loco master.</div>
+                </div>
+                <div class="row">
+                    <div class="fld"><label>Loco type</label><input name="loco_type" placeholder="WAP-7"></div>
+                    <div class="fld"><label>Loco base</label><input name="loco_base" placeholder="SRCE"></div>
+                </div>
+                <!-- DOC is the Date Of Commissioning. The proforma's Schedule row
+                     writes it as "DOC:- ", and this is the only box for it — the
+                     page this replaced had a separate free-text "DOC" field beside
+                     this date, and the two never agreed. -->
+                <div class="fld"><label>DOC — date of commissioning</label>
+                    <input type="date" name="loco_commission_date"></div>
+            </div></div>
+
+            <div class="panel"><h2><span class="n">3</span>Schedule<span class="tag">manual</span></h2><div class="bd">
+                <div class="row">
+                    <div class="fld"><label>Major schedule</label><input name="last_schedule_type" placeholder="IOH"></div>
+                    <div class="fld"><label>Major schedule date</label><input type="date" name="last_schedule_date"></div>
+                </div>
+                <div class="row">
+                    <div class="fld"><label>Last inspection</label><input name="last_inspection_type" placeholder="IB"></div>
+                    <div class="fld"><label>Inspection date</label><input type="date" name="last_inspection_date"></div>
+                </div>
+                <div class="dueflag none" id="dueFlag"></div>
+            </div></div>
+
+            <div class="panel"><h2><span class="n">4</span>Crew &amp; section</h2><div class="bd">
+                <div class="fld"><label>Load</label><input name="load_text" placeholder="22 coaches"></div>
+                <div class="fld search-wrap">
+                    <label>Loco Pilot</label>
+                    <input name="lp_name" data-picker="1" autocomplete="off" placeholder="name, HRMS or PF">
+                    <input type="hidden" name="lp_staff_hrms_id">
+                    <div class="search-drop" id="lpDrop"></div>
+                </div>
+                <div class="fld search-wrap">
+                    <label>ALP</label>
+                    <input name="alp_name" data-picker="1" autocomplete="off" placeholder="name, HRMS or PF">
+                    <input type="hidden" name="alp_staff_hrms_id">
+                    <div class="search-drop" id="alpDrop"></div>
+                </div>
+                <div class="fld"><label>Section</label><input name="section_text" placeholder="CSMT-PNVL"></div>
+                <div class="row">
+                    <div class="fld"><label>Major</label><input name="major_text"></div>
+                    <div class="fld"><label>Minor</label><input name="minor_text" placeholder="OMB-KSRA"></div>
+                </div>
+            </div></div>
+
+            <div class="panel"><h2><span class="n">5</span>Detention</h2><div class="bd">
+                <div class="fld"><label>Detention</label>
+                    <textarea name="detention_text" placeholder="What was detained, and for how long."></textarea></div>
+            </div></div>
+
+            <div class="panel events-panel"><h2><span class="n">6</span>Chronological sequence of events</h2><div class="bd">
+                <table class="evgrid"><thead><tr>
+                    <th></th><th>Time</th><th>Event description</th><th></th>
+                </tr></thead><tbody id="evRows"></tbody></table>
+                <div class="tinybar"><button type="button" class="btn-tiny primary" id="addEvent">+ Add event</button></div>
+            </div></div>
+
+            <!-- Two boxes, one cell on paper: the proforma merges them under a
+                 single "Repercussion & Punctuality" heading. -->
+            <div class="panel"><h2><span class="n">7</span>Repercussion &amp; punctuality<span class="tag">one cell on paper</span></h2><div class="bd">
+                <div class="fld"><label>Repercussion</label>
+                    <textarea name="repercussion_text" placeholder='11057 DN (HQ LOST-IELC-16")&#10;CSMT- 16", KYN-14"/19"'></textarea></div>
+                <div class="fld"><label>Punctuality</label>
+                    <textarea name="punctuality_text" placeholder='20111 DN&#10;CSMT-07", TNA-16"/10" Late'></textarea></div>
+            </div></div>
+
+            <div class="panel"><h2><span class="n">8</span>Reported / reason / responsibility</h2><div class="bd">
+                <div class="fld"><label>Reported</label><textarea name="reported_text"></textarea></div>
+                <div class="fld"><label>Reason</label><textarea name="reason_text"></textarea></div>
+                <div class="fld"><label>Responsibility</label><textarea name="responsibility_text"></textarea></div>
+            </div></div>
+
+        </div>
+        <div class="actions">
+            <button class="btn btn-ghost" id="btnNew">&#65291; New</button>
+            <button class="btn btn-ghost" id="btnPrint">&#128424; Print</button>
+            <button class="btn btn-ghost" id="btnWord">&#11015; Word</button>
+            <button class="btn btn-ghost" id="btnFiled" style="display:none">&#128196; Filed copy</button>
+            <button class="btn btn-ghost" id="btnNote">&#128221; Make note</button>
+            <button class="btn btn-red" id="btnDelete">Delete</button>
+            <span class="spacer" style="flex:1"></span>
+            <button class="btn btn-ghost" id="btnReopen" style="display:none">&#8617; Reopen</button>
+            <button class="btn btn-amber" id="btnSave">Save draft</button>
+            <button class="btn btn-green" id="btnFile">&#10003; File it</button>
+        </div>
+    </section>
+
+    <section class="yard">
+        <div class="preview-tag">Live report preview</div>
+        <div class="sheet" id="sheet"></div>
+    </section>
+</main>
+
+<div class="drawer-veil" id="drawerVeil"></div>
+<aside class="drawer">
+    <h3>Report history <button type="button" id="drawerClose">&times;</button></h3>
+    <div class="filters">
+        <input class="wide" id="hSearch" placeholder="Report no. / train / loco">
+        <select id="hStatus" class="wide">
+            <option value="">All reports</option>
+            <option value="draft">Drafts only</option>
+            <option value="final">Filed only</option>
+        </select>
+    </div>
+    <div class="list" id="hList"></div>
+</aside>
+
+<div class="modal-veil" id="modalVeil"><div class="modal">
+    <h4 id="mTitle"></h4><div id="mBody"></div>
+    <div class="btns"><button class="btn btn-ghost" id="mCancel">Cancel</button>
+        <button class="btn btn-amber" id="mOk">Confirm</button></div>
+</div></div>
+
+<div class="toast" id="toast"></div>
+
+<script src="/div/js/ssehq-report-render.js"></script>
+<script src="/div/js/ssehq-editor.js"></script>
+<script>
+document.getElementById('drawerClose').onclick = function () { document.body.classList.remove('drawer-open'); };
+document.getElementById('drawerVeil').onclick = function () { document.body.classList.remove('drawer-open'); };
+
+SsehqEditor.init({
+    kind: 'opr',
+    api: '/api/division/ssehq/opr',
+    label: 'OPR',
+    dateCol: 'report_date',
+    numberCol: 'report_no',
+    fields: [
+        'report_no', 'report_date', 'failure_date', 'division_railway',
+        'train_no', 'loco_number', 'loco_type', 'loco_base', 'loco_commission_date',
+        'last_schedule_type', 'last_schedule_date', 'last_inspection_type', 'last_inspection_date',
+        'load_text', 'lp_name', 'lp_staff_hrms_id', 'alp_name', 'alp_staff_hrms_id',
+        'section_text', 'major_text', 'minor_text', 'detention_text',
+        'repercussion_text', 'punctuality_text',
+        'reported_text', 'reason_text', 'responsibility_text',
+    ],
+    staffPickers: [
+        { name: 'lp_name',  hrms: 'lp_staff_hrms_id',  drop: 'lpDrop' },
+        { name: 'alp_name', hrms: 'alp_staff_hrms_id', drop: 'alpDrop' },
+    ],
+    render: function (record, events, opts) { return SsehqReport.renderOprSheet(record, events, opts); },
+});
+
+/* The note describing the same incident. Handing the OPR's id to the note page
+   rather than copying fields here keeps the prefill server-side, where the
+   event rows already are. */
+document.getElementById('btnNote').onclick = function () {
+    SsehqEditor.needSaved(function (id) {
+        window.location = '/div/ssehq-note.html?fromOpr=' + id;
+    });
+};
+</script>
+</body>
+</html>

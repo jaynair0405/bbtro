@@ -350,6 +350,18 @@
                                 Prepare Transfer Letter
                             </a>
                         </li>
+                        <li class="sidebar-nav-item ssehq-link" style="display:none;">
+                            <a href="/div/ssehq-opr.html" class="sidebar-nav-link">
+                                <span class="icon">🛠️</span>
+                                SSE-HQ — One Page Report
+                            </a>
+                        </li>
+                        <li class="sidebar-nav-item ssehq-link" style="display:none;">
+                            <a href="/div/ssehq-note.html" class="sidebar-nav-link">
+                                <span class="icon">📝</span>
+                                SSE-HQ — DElogging Note
+                            </a>
+                        </li>
                         <li class="sidebar-nav-item">
                             <a href="#" class="sidebar-nav-link">
                                 <span class="icon">🎓</span>
@@ -1004,6 +1016,10 @@
                         // CLI-HQ logins clihqmlbb / clihqsubbb (CSMT-HQ, role division_admin).
                         const ed = document.getElementById('signal-book-editor-link');
                         if (ed) ed.style.display = '';
+                    }
+                    if (['ssehq', 'division_admin'].includes(user.div_role)) {
+                        document.querySelectorAll('.ssehq-link')
+                            .forEach(el => { el.style.display = ''; });
                     }
                 }
             } catch (e) {}

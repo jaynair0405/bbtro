@@ -320,6 +320,7 @@ const CAT_META = {
     // Filed by the cadre module. In DATE_TREE_CATEGORIES and FOLDER_CONFIG
     // server-side (folder = the letter family), so folderdate like transfers.
     CADRE_LETTER:       { label: 'Cadre Letters',       icon: '🗂', mode: 'folderdate' },
+    SSE_HQ_REPORT:      { label: 'SSE-HQ Reports',       icon: '🛠️', mode: 'folderdate' },
     PROMOTION_ORDER:    { label: 'Promotion / Demotion Orders', icon: '📈', mode: 'promotion' },
     SR_DEE_INSTRUCTION: { label: 'Sr.DEE Instructions', icon: '📋', mode: 'date' },
     CEE_OP_INSTRUCTION: { label: 'CEE-OP Instructions', icon: '📋', mode: 'date' },
@@ -345,7 +346,7 @@ const DEFAULT_PERMS = {
     success: true, role: null, canUpload: [], canUploadAny: false,
     dateTreeCategories: ['TRAINING_LETTER','INITIAL_APPOINTMENT','PROMOTION_ORDER',
                          'SR_DEE_INSTRUCTION','CEE_OP_INSTRUCTION','SAFETY_CIRCULAR','NEWS_LETTER',
-                         'E_CASE_STUDY','TRANSFER_LETTER','CADRE_LETTER'],
+                         'E_CASE_STUDY','TRANSFER_LETTER','CADRE_LETTER','SSE_HQ_REPORT'],
     folderConfig: {
         STUDY_MATERIAL:  { required: ['Main Line', 'Suburban'] },
         NEWS_LETTER:     { required: ['Main Line', 'Sub Urban'] },
@@ -353,10 +354,11 @@ const DEFAULT_PERMS = {
         PROMOTION_ORDER: { optional: ['Demotions', 'Reinstatements'] },
         TRANSFER_LETTER: { required: ['CSMT-SUB','KYN-SUB','PNVL-SUB','CSMT-ML','KYN-ML','PNVL-ML',
                                       'IGP','CLA','LNL','NRL','KCS','NCS','SCS','MTN','VVH'] },
+        SSE_HQ_REPORT:   { optional: ['OPR','DELOGGING_NOTE'] },
     },
     categories: ['TRAINING_LETTER','INITIAL_APPOINTMENT','TRANSFER_LETTER','PROMOTION_ORDER',
                  'SR_DEE_INSTRUCTION','CEE_OP_INSTRUCTION','SAFETY_CIRCULAR','NEWS_LETTER','E_CASE_STUDY',
-                 'STUDY_MATERIAL','MANUAL','PRESENTATION','BROCHURE','MISC'],
+                 'STUDY_MATERIAL','MANUAL','PRESENTATION','BROCHURE','MISC','SSE_HQ_REPORT'],
 };
 let perms = { ...DEFAULT_PERMS };
 /* Opening category. A ?category= in the URL wins when it names a real one, so

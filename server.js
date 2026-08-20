@@ -142,6 +142,8 @@ app.get('/index.html', (req, res) => {
 
 // ✅ CTLC (and view-only ctlc_view) users are scoped to the Control Office portal only.
 //    Any /div/* request from such an account is redirected to /control-office/.
+//    SSE-HQ is NOT in that list: its reports live at /div/ssehq-*.html alongside
+//    the transfer and cadre letter modules, so the account needs the dashboard.
 app.use('/div', (req, res, next) => {
   if (['ctlc', 'ctlc_view'].includes(req.session?.user?.div_role)) {
     return res.redirect('/control-office/');
@@ -203,9 +205,10 @@ function requireControlOffice(req, res, next) {
   if (!req.session.user) return res.redirect('/');
   if (req.session.user.realm !== 'division') return res.redirect('/');
   const role = req.session.user.div_role;
-  if (!['lpc', 'division_admin', 'ctlc', 'ctlc_view'].includes(role)) return res.redirect('/div');
+  if (!['lpc', 'division_admin', 'ctlc', 'ctlc_view', 'ssehq'].includes(role)) return res.redirect('/div');
   next();
 }
+
 app.get('/control-office/', requireControlOffice, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'control-office', 'index.html'));
 });
@@ -794,6 +797,7 @@ const signalBookRoutes = require('./routes/division/signalBookRoutes');
 const documentRoutes = require('./routes/division/documentRoutes');
 const transferLetterRoutes = require('./routes/division/transferLetterRoutes');
 const cadreLetterRoutes = require('./routes/division/cadreLetterRoutes');
+const ssehqRoutes = require('./routes/division/ssehqRoutes');
 const subCrewRoutes = require('./routes/division/subCrewRoutes');
 
 // Add division routes with realm protection
@@ -826,6 +830,7 @@ app.use("/api/division/signal-book", requireRealm('division'), signalBookRoutes)
 app.use("/api/division/documents", requireRealm('division'), documentRoutes);
 app.use("/api/division/transfer-letters", requireRealm('division'), transferLetterRoutes);
 app.use("/api/division/cadre-letters", requireRealm('division'), cadreLetterRoutes);
+app.use("/api/division/ssehq", requireRealm('division'), ssehqRoutes);
 app.use("/api/division/suburban", requireRealm('division'), subCrewRoutes);
 
 // Session info endpoint
