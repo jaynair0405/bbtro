@@ -19,8 +19,19 @@
     <a class="back on" href="/div/ssehq-note.html">DElogging Note</a>
     <a class="back" href="#" id="btnHistory">Note history</a>
     <a class="back" href="/div/documents.html?category=SSE_HQ_REPORT">Filed reports</a>
-    <a class="back" href="/div/">&larr; Dashboard</a>
+    <!-- Control Office is read-only for this desk but it is the only other
+         portal it holds, and with the division dashboard closed to ssehq
+         there is no other way to reach it. Both roles that can open these
+         pages (ssehq, division_admin) have Control Office access. -->
+    <a class="back" href="/control-office/">Control Office</a>
+    <!-- Dashboard bounces ssehq straight back here, so it is shown only to
+         the roles that actually have one. -->
+    <a class="back" href="/div/" id="dashLink" style="display:none">&larr; Dashboard</a>
     <span class="who" id="who"></span>
+    <!-- Without this the desk has no way to sign out at all: its pages are
+         the whole portal it sees, and the dashboard that carries logout for
+         everyone else is closed to it. -->
+    <a class="back" href="/api/logout">Sign out</a>
 </header>
 
 <nav class="statusbar">

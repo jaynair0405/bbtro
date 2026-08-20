@@ -542,6 +542,10 @@
             CFG.forwardingDefault = data.forwarding_default;
             $('who').innerHTML = '<b>' + escapeText(USER.full_name || USER.username) + '</b><br>' +
                 escapeText(USER.div_role);
+            // ssehq is scoped out of the division dashboard, so the link would
+            // only bounce it back to this page. Everyone else gets it.
+            var dash = $('dashLink');
+            if (dash && USER.div_role !== 'ssehq') dash.style.display = '';
             wire();
 
             /* Corridor suggestions for Section / Major / Minor. Failure is not
