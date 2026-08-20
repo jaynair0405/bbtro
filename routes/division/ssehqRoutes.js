@@ -243,6 +243,35 @@ router.get('/next-number', async (req, res) => {
     }
 });
 
+// ── GET /sections ──────────────────────────────────────────────────────────
+/* Corridor names for the Section / Major / Minor boxes, offered as
+ * suggestions rather than a closed list — the desk still has to be able to
+ * write a section the signal book has not been loaded with yet, and Minor in
+ * the sample carries "OMB-KSRA", a station pair rather than a whole corridor.
+ *
+ * Derived from div_signal_book_sections rather than div_lrd_sections: that
+ * table's section_name is a mix of styles ("CSMT to Kalyan", "PNVL-PEN",
+ * "DTVL to KOPR (BSR branch head)"), while the signal book's section_code
+ * carries the corridor as its first two parts (CSMT_KYN_DN_TH -> CSMT-KYN)
+ * in exactly the form the proforma uses. Both directions of a corridor
+ * collapse to the same entry, which is what the Section box wants. */
+router.get('/sections', async (req, res) => {
+  try {
+    const [rows] = await req.app.locals.pool.query(
+      `SELECT DISTINCT REPLACE(SUBSTRING_INDEX(section_code, '_', 2), '_', '-') AS section
+         FROM div_signal_book_sections
+        WHERE is_active = 1 AND section_code LIKE '%\\_%'
+        ORDER BY section`
+    );
+    res.json({ sections: rows.map((r) => r.section).filter(Boolean) });
+  } catch (e) {
+    console.error('ssehq sections:', e);
+    // A missing list must not stop a report being written — the boxes are
+    // free text and simply lose their suggestions.
+    res.json({ sections: [] });
+  }
+});
+
 // ── Pickers ────────────────────────────────────────────────────────────────
 
 router.get('/search-staff/:query', async (req, res) => {

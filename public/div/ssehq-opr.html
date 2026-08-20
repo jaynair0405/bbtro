@@ -49,7 +49,7 @@
             </div></div>
 
             <div class="panel"><h2><span class="n">2</span>Train &amp; loco</h2><div class="bd">
-                <div class="fld"><label>Train No.</label><input name="train_no" placeholder="20111 DN"></div>
+                <div class="fld"><label>Train No.</label><input name="train_no" data-upper placeholder="20111 DN"></div>
                 <div class="fld search-wrap">
                     <label>Loco No.</label>
                     <input name="loco_number" data-picker="1" placeholder="30699 — type or press Enter to look up" autocomplete="off">
@@ -57,8 +57,8 @@
                     <div class="hint">Type, base and DOC fill in from the loco master.</div>
                 </div>
                 <div class="row">
-                    <div class="fld"><label>Loco type</label><input name="loco_type" placeholder="WAP-7"></div>
-                    <div class="fld"><label>Loco base</label><input name="loco_base" placeholder="SRCE"></div>
+                    <div class="fld"><label>Loco type</label><input name="loco_type" data-upper placeholder="WAP-7"></div>
+                    <div class="fld"><label>Loco base</label><input name="loco_base" data-upper placeholder="SRCE"></div>
                 </div>
                 <!-- DOC is the Date Of Commissioning. The proforma's Schedule row
                      writes it as "DOC:- ", and this is the only box for it — the
@@ -70,11 +70,11 @@
 
             <div class="panel"><h2><span class="n">3</span>Schedule<span class="tag">manual</span></h2><div class="bd">
                 <div class="row">
-                    <div class="fld"><label>Major schedule</label><input name="last_schedule_type" placeholder="IOH"></div>
+                    <div class="fld"><label>Major schedule</label><input name="last_schedule_type" data-upper placeholder="IOH"></div>
                     <div class="fld"><label>Major schedule date</label><input type="date" name="last_schedule_date"></div>
                 </div>
                 <div class="row">
-                    <div class="fld"><label>Last inspection</label><input name="last_inspection_type" placeholder="IB"></div>
+                    <div class="fld"><label>Last inspection</label><input name="last_inspection_type" data-upper placeholder="IB"></div>
                     <div class="fld"><label>Inspection date</label><input type="date" name="last_inspection_date"></div>
                 </div>
                 <div class="dueflag none" id="dueFlag"></div>
@@ -94,10 +94,10 @@
                     <input type="hidden" name="alp_staff_hrms_id">
                     <div class="search-drop" id="alpDrop"></div>
                 </div>
-                <div class="fld"><label>Section</label><input name="section_text" placeholder="CSMT-PNVL"></div>
+                <div class="fld"><label>Section</label><input name="section_text" data-upper list="sectionList" placeholder="CSMT-PNVL"></div>
                 <div class="row">
-                    <div class="fld"><label>Major</label><input name="major_text"></div>
-                    <div class="fld"><label>Minor</label><input name="minor_text" placeholder="OMB-KSRA"></div>
+                    <div class="fld"><label>Major</label><input name="major_text" data-upper list="sectionList"></div>
+                    <div class="fld"><label>Minor</label><input name="minor_text" data-upper list="sectionList" placeholder="OMB-KSRA"></div>
                 </div>
             </div></div>
 
@@ -168,6 +168,8 @@
     <div class="btns"><button class="btn btn-ghost" id="mCancel">Cancel</button>
         <button class="btn btn-amber" id="mOk">Confirm</button></div>
 </div></div>
+
+<datalist id="sectionList"></datalist>
 
 <div class="toast" id="toast"></div>
 

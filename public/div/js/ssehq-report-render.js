@@ -120,20 +120,25 @@
                '<div>Last inspection- ' + val(insp, opts, 'IB / date') + '</div>';
     }
 
+    /* The header is a real <thead> so that a chronology running past the foot
+     * of page one repeats "Event time | Event description" at the top of page
+     * two instead of starting mid-table with bare rows. */
+    var EV_HEAD = '<thead><tr><th class="t">Event time</th><th>Event description</th></tr></thead>';
+
     function eventsTable(events, opts) {
         var rows = (events || []).filter(function (e) {
             return has(e.event_time) || has(e.description);
         });
         if (!rows.length) {
             return (opts && opts.placeholders)
-                ? '<table class="ev"><tr><th class="t">Event time</th><th>Event description</th></tr>' +
-                  '<tr><td class="t"><span class="ph">—</span></td><td><span class="ph">no events entered yet</span></td></tr></table>'
+                ? '<table class="ev">' + EV_HEAD + '<tbody><tr><td class="t"><span class="ph">—</span></td>' +
+                  '<td><span class="ph">no events entered yet</span></td></tr></tbody></table>'
                 : '';
         }
-        return '<table class="ev"><tr><th class="t">Event time</th><th>Event description</th></tr>' +
+        return '<table class="ev">' + EV_HEAD + '<tbody>' +
             rows.map(function (e) {
                 return '<tr><td class="t">' + esc(e.event_time) + '</td><td>' + nl2br(e.description) + '</td></tr>';
-            }).join('') + '</table>';
+            }).join('') + '</tbody></table>';
     }
 
     // ── OPR ─────────────────────────────────────────────────────────────────
@@ -174,7 +179,8 @@
           '<tr><td class="k">Reason</td><td colspan="3">' + (paras(r.reason_text) || val('', opts)) + '</td></tr>' +
           '<tr><td class="k">Responsibility</td><td colspan="3">' + (paras(r.responsibility_text) || val('', opts)) + '</td></tr>' +
         '</table>' +
-        '<div class="sign">' + esc(r.signing_text || 'DEE/TRO/BB') + '</div>';
+        '<div class="sign">' + esc(r.signing_text || 'DEE/TRO/BB') + '</div>' +
+        CREDIT;
     }
 
     // ── DElogging Note ──────────────────────────────────────────────────────
@@ -216,13 +222,19 @@
         '<div class="sign">' + esc(n.signing_text || 'DEE(TRO)BB') + '</div>' +
         (has(n.forwarding_text)
             ? '<div class="fwd">' + nl2br(n.forwarding_text) + '</div>'
-            : (opts.placeholders ? '<div class="fwd"><span class="ph">forwarding chain</span></div>' : ''));
+            : (opts.placeholders ? '<div class="fwd"><span class="ph">forwarding chain</span></div>' : '')) +
+        CREDIT;
     }
 
     /* The default forwarding chain from the sample. Offered by the editor as a
      * starting value rather than hard-coded into the renderer — a note that
      * goes somewhere else must be able to say so. */
     var DEFAULT_FORWARDING = 'Sr.DEE(TRO)BB :\nSr.DOM(COG)BB:\nADRM (O&S) BB:';
+
+    /* The same quiet provenance line the cadre letters carry
+     * (cadre-letter-render.js:395), so a report circulating as a printout can
+     * be traced back to the portal it came from. */
+    var CREDIT = '<div class="gen-credit">Prepared from crtms.in</div>';
 
     // ── paper styles ────────────────────────────────────────────────────────
     /* Times New Roman at 12pt, single spacing: these ARE Word documents, and
@@ -268,8 +280,14 @@
         /* Standalone events table on the note (not nested in the proforma). */
         '.sheet>table.ev{margin:0 0 3.5mm;}',
 
-        '.sheet .sign{margin-top:12mm;text-align:right;font-weight:700;}',
-        '.sheet .fwd{margin-top:8mm;line-height:1.9;}',
+        /* Signature sits well clear of the last block: these go out on paper
+         * and are signed by hand, and 12mm left barely a pen's width between
+         * the final row and the name. Kept together with the name so a page
+         * break cannot strand the signing line on its own sheet. */
+        '.sheet .sign{margin-top:26mm;text-align:right;font-weight:700;page-break-inside:avoid;}',
+        '.sheet .fwd{margin-top:14mm;line-height:2.4;page-break-inside:avoid;}',
+        '.sheet .gen-credit{margin-top:8mm;font-size:6.5pt;color:#c9ced6;letter-spacing:.2px;}',
+        '@media print{.sheet .gen-credit{position:fixed;bottom:0;left:0;margin:0;}}',
 
         /* Unfilled placeholder — loud on screen so it cannot be missed, plain
          * black on paper. Red ink on a report going to ADRM would be worse
@@ -277,8 +295,19 @@
          * one of these in it at all. */
         '.sheet .ph{color:#c0221b;font-weight:700;}',
         '@media print{.sheet .ph{color:#000;font-weight:400;}}',
-        /* Keep a row's label with its content across a page break. */
-        '@media print{.sheet table.pf>tbody>tr{page-break-inside:avoid;}}'
+        /* ── Running past one page ──────────────────────────────────────
+         * A long detention narrative or a 30-row chronology will not fit on
+         * one sheet, and the report has to stay readable when it does not:
+         *   • the events header repeats at the top of each new page
+         *   • no row is split down the middle by the break
+         *   • a break never lands straight after a heading
+         * The OPR is meant to be one page, but "meant to" is not "always". */
+        '@media print{',
+        '  .sheet table.ev thead{display:table-header-group;}',
+        '  .sheet table.ev tr, .sheet table.pf>tbody>tr{page-break-inside:avoid;}',
+        '  .sheet .hd, .sheet .sub, .sheet .title{page-break-after:avoid;}',
+        '  .sheet table.pf{page-break-inside:auto;}',
+        '}'
     ].join('\n');
 
     return {

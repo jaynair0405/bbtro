@@ -463,6 +463,22 @@
             if (e.key === 'Escape') { closeModal(); drawer(false); }
         });
 
+        /* Fields the shed and the proforma always write in capitals — loco
+         * type and base, schedule and inspection codes, section names. Forced
+         * on the value rather than only with text-transform, so what is stored
+         * and what is printed match what the box shows; the caret is put back
+         * where it was or typing mid-word would jump to the end. */
+        document.querySelectorAll('[data-upper]').forEach(function (el) {
+            el.addEventListener('input', function () {
+                var up = el.value.toUpperCase();
+                if (up !== el.value) {
+                    var at = el.selectionStart;
+                    el.value = up;
+                    if (at != null) { try { el.setSelectionRange(at, at); } catch (e) { /* not a text input */ } }
+                }
+            });
+        });
+
         // any field edit repaints the sheet
         CFG.fields.forEach(function (name) {
             var el = document.querySelector('[name="' + name + '"]');
@@ -518,6 +534,17 @@
             $('who').innerHTML = '<b>' + escapeText(USER.full_name || USER.username) + '</b><br>' +
                 escapeText(USER.div_role);
             wire();
+
+            /* Corridor suggestions for Section / Major / Minor. Failure is not
+             * fatal: the endpoint answers with an empty list rather than an
+             * error, and the boxes stay free text either way. */
+            api(CFG.locoApi + '/sections').then(function (d) {
+                var list = $('sectionList');
+                if (!list) return;
+                list.innerHTML = (d.sections || []).map(function (sec) {
+                    return '<option value="' + escapeAttr(sec) + '">';
+                }).join('');
+            }).catch(function () { /* suggestions are a convenience */ });
 
             var params = new URLSearchParams(window.location.search);
             if (params.get('id')) return load(params.get('id'));

@@ -47,7 +47,7 @@
 
             <div class="panel"><h2><span class="n">2</span>Train &amp; loco</h2><div class="bd">
                 <div class="row">
-                    <div class="fld"><label>Train No.</label><input name="train_no" placeholder="20111 DN"></div>
+                    <div class="fld"><label>Train No.</label><input name="train_no" data-upper placeholder="20111 DN"></div>
                     <div class="fld"><label>Train date</label><input type="date" name="train_date"></div>
                 </div>
                 <div class="fld search-wrap">
@@ -57,8 +57,8 @@
                     <div class="hint">Type, base and DOC fill in from the loco master.</div>
                 </div>
                 <div class="row">
-                    <div class="fld"><label>Loco type</label><input name="loco_type" placeholder="WAP-7"></div>
-                    <div class="fld"><label>Loco base</label><input name="loco_base" placeholder="SRCE"></div>
+                    <div class="fld"><label>Loco type</label><input name="loco_type" data-upper placeholder="WAP-7"></div>
+                    <div class="fld"><label>Loco base</label><input name="loco_base" data-upper placeholder="SRCE"></div>
                 </div>
                 <div class="fld"><label>DOC — date of commissioning</label>
                     <input type="date" name="loco_commission_date"></div>
@@ -150,6 +150,8 @@
     <div class="btns"><button class="btn btn-ghost" id="mCancel">Cancel</button>
         <button class="btn btn-amber" id="mOk">Confirm</button></div>
 </div></div>
+
+<datalist id="sectionList"></datalist>
 
 <div class="toast" id="toast"></div>
 
