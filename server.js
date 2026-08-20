@@ -142,11 +142,33 @@ app.get('/index.html', (req, res) => {
 
 // ✅ CTLC (and view-only ctlc_view) users are scoped to the Control Office portal only.
 //    Any /div/* request from such an account is redirected to /control-office/.
-//    SSE-HQ is NOT in that list: its reports live at /div/ssehq-*.html alongside
-//    the transfer and cadre letter modules, so the account needs the dashboard.
+//
+// ✅ SSE-HQ is scoped to its own two report pages plus the Documents repository
+//    it files into. It cannot be fenced off with a redirect the way CTLC is,
+//    because its pages LIVE under /div — hence an allowlist rather than a
+//    blocklist, so a page added to the division portal later is closed to this
+//    desk by default rather than open to it.
+//
+//    Staff and loco LOOKUPS still work: the pickers call the module's own
+//    /api/division/ssehq/search-staff and /search-loco, which return just what
+//    a report needs. What is closed is the biodata, promotion and personnel
+//    screens — an SSE-HQ clerk writing a detention report has no business in a
+//    loco pilot's service record.
+const SSEHQ_PAGES = new Set([
+  '/ssehq-opr.html', '/ssehq-note.html', '/ssehq-manual.html',
+  '/documents.html',
+]);
+// Stylesheets, scripts and images the allowed pages pull in.
+const DIV_ASSET = /^\/(css|js|img|images|fonts|assets|vendor)\//i;
+
 app.use('/div', (req, res, next) => {
-  if (['ctlc', 'ctlc_view'].includes(req.session?.user?.div_role)) {
+  const role = req.session?.user?.div_role;
+  if (['ctlc', 'ctlc_view'].includes(role)) {
     return res.redirect('/control-office/');
+  }
+  if (role === 'ssehq') {
+    if (DIV_ASSET.test(req.path) || SSEHQ_PAGES.has(req.path)) return next();
+    return res.redirect('/div/ssehq-opr.html');
   }
   next();
 });
@@ -801,6 +823,19 @@ const ssehqRoutes = require('./routes/division/ssehqRoutes');
 const subCrewRoutes = require('./routes/division/subCrewRoutes');
 
 // Add division routes with realm protection
+// ✅ SSE-HQ's API surface, matching the page allowlist above. Every division
+//    API is mounted with requireRealm('division'), which checks the REALM and
+//    not the role, so without this an ssehq login could read the whole staff
+//    master, biodata and promotion history straight from the endpoints even
+//    with the pages closed. Allowed: its own module, the documents repository
+//    it files into, and the RTIS lookups.
+const SSEHQ_API = [/^\/ssehq(\/|$)/, /^\/documents(\/|$)/, /^\/rtis(\/|$)/];
+app.use('/api/division', (req, res, next) => {
+  if (req.session?.user?.div_role !== 'ssehq') return next();
+  if (SSEHQ_API.some((re) => re.test(req.path))) return next();
+  return res.status(403).json({ error: 'Not available to the SSE-HQ desk' });
+});
+
 app.use("/api/division/leave", requireRealm("division"), leaveRoutes); // mount early to avoid any catch-alls
 app.use("/api/division", requireRealm('division'), divisionDashboardRoutes);
 app.use("/api/division/training-types", requireRealm('division'), trainingTypesRoutes);
