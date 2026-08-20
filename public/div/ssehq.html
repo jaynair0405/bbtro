@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BBTRO | SSE-HQ — Shed Desk</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,wght@0,400;0,600;0,700&family=Archivo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/div/css/ssehq-shell.css">
+</head>
+<body>
+
+<header class="appbar">
+    <a class="brand" href="/div/ssehq.html"><span class="mark">&#128421;</span>
+        <span><b>SSE-HQ</b><small>Shed desk</small></span></a>
+    <span class="spacer"></span>
+    <span class="who" id="who"></span>
+    <a class="back" href="/div/" id="dashLink" style="display:none">&larr; Division dashboard</a>
+    <a class="back" href="/api/logout">Sign out</a>
+</header>
+
+<main class="stage home">
+    <nav class="sidebar">
+        <h4>Reports</h4>
+        <a class="on" href="/div/ssehq.html"><span class="ic">&#9632;</span>Dashboard</a>
+        <a href="/div/ssehq-opr.html"><span class="ic">&#128203;</span>One Page Report</a>
+        <a href="/div/ssehq-note.html"><span class="ic">&#128221;</span>DElogging Note</a>
+        <a href="/div/documents.html?category=SSE_HQ_REPORT"><span class="ic">&#128193;</span>Filed reports</a>
+
+        <h4>Shed</h4>
+        <a href="/control-office/sick-locos.html"><span class="ic">&#127973;</span>Sick locos</a>
+        <a href="/control-office/defect-reports.html"><span class="ic">&#9888;</span>Defect reports</a>
+        <a href="/control-office/hog-position.html"><span class="ic">&#9889;</span>HOG position</a>
+        <!-- Announced but not built. Shown greyed so the desk can see what is
+             coming rather than wonder whether it is missing something. -->
+        <span class="soon"><span class="ic">&#128337;</span>Trip schedule<span class="tagx">soon</span></span>
+
+        <h4>Control Office</h4>
+        <a href="/control-office/"><span class="ic">&#128506;</span>Control Office
+            <span class="tagx" style="margin-left:auto;font-size:8.5px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#46587d;border:1px solid #2c4370;border-radius:20px;padding:2px 6px">read only</span></a>
+        <a href="/control-office/daily-entry.html"><span class="ic">&#128197;</span>Daily loco link</a>
+        <a href="/control-office/loco-assign.html"><span class="ic">&#128668;</span>Loco assignment</a>
+    </nav>
+
+    <section class="board">
+        <h1>Shed desk</h1>
+        <div class="sub" id="sub">Loading&hellip;</div>
+
+        <div class="tiles" id="tiles"></div>
+
+        <div class="cols">
+            <div class="card2">
+                <h3>Sick locos
+                    <a class="more" href="/control-office/sick-locos.html">All &rarr;</a></h3>
+                <div class="bd2" id="sick"><div class="none2">Loading&hellip;</div></div>
+            </div>
+            <div class="card2">
+                <h3>Schedules overdue
+                    <a class="more" href="/control-office/">By shed &rarr;</a></h3>
+                <div class="bd2" id="sched"><div class="none2">Loading&hellip;</div></div>
+            </div>
+            <div class="card2">
+                <h3>Open defects
+                    <a class="more" href="/control-office/defect-reports.html">All &rarr;</a></h3>
+                <div class="bd2" id="defects"><div class="none2">Loading&hellip;</div></div>
+            </div>
+            <div class="card2">
+                <h3>Recent one page reports
+                    <a class="more" href="/div/ssehq-opr.html">New &rarr;</a></h3>
+                <div class="bd2" id="oprs"><div class="none2">Loading&hellip;</div></div>
+            </div>
+            <div class="card2">
+                <h3>Recent delogging notes
+                    <a class="more" href="/div/ssehq-note.html">New &rarr;</a></h3>
+                <div class="bd2" id="notes"><div class="none2">Loading&hellip;</div></div>
+            </div>
+        </div>
+    </section>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* The dashboard reads only. Shed figures come from /api/division/loco-link,
+   which already owns them and which this role may read but never write; the
+   report figures come from the SSE-HQ module's own /dashboard. Nothing is
+   re-derived here, so a number on this page always matches the page it
+   links to. */
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+const fmtDate = (v) => {
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(v || ''));
+    return m ? `${m[3]}.${m[2]}.${m[1]}` : '';
+};
+
+function toast(msg, kind) {
+    const el = $('toast');
+    el.textContent = msg;
+    el.className = 'toast show' + (kind ? ' ' + kind : '');
+    setTimeout(() => { el.className = 'toast'; }, 4200);
+}
+
+/* Each panel loads on its own. One failing endpoint leaves its card saying so
+   while the rest of the board still works — a dashboard that blanks entirely
+   because one query broke is worse than one honest empty card. */
+async function get(path) {
+    const res = await fetch(path, { credentials: 'same-origin' });
+    if (res.status === 401) { window.location = '/'; throw new Error('Session expired'); }
+    if (!res.ok) throw new Error(`${path} → ${res.status}`);
+    return res.json();
+}
+function panelFail(id, err) {
+    $(id).innerHTML = `<div class="none2">Could not load — ${esc(err.message)}</div>`;
+}
+
+const LL = '/api/division/loco-link';
+const SS = '/api/division/ssehq';
+
+let stats = {};
+
+function renderTiles() {
+    const t = [
+        { n: stats.sick ?? '—',      l: 'Sick locos',      x: 'currently on shed',   cls: stats.sick ? 'bad' : 'good',  href: '/control-office/sick-locos.html' },
+        { n: stats.defects ?? '—',   l: 'Open defects',    x: 'awaiting attention',  cls: stats.defects ? 'warn' : 'good', href: '/control-office/defect-reports.html' },
+        { n: stats.overdue ?? '—',   l: 'Schedules overdue', x: 'past due date',     cls: stats.overdue ? 'warn' : 'good' },
+        { n: stats.oprMonth ?? '—',  l: 'OPRs this month', x: `${stats.oprDraft ?? 0} still draft`, cls: '', href: '/div/ssehq-opr.html' },
+        { n: stats.noteMonth ?? '—', l: 'Notes this month', x: `${stats.noteDraft ?? 0} still draft`, cls: '', href: '/div/ssehq-note.html' },
+    ];
+    $('tiles').innerHTML = t.map((x) => {
+        const inner = `<div class="n">${esc(x.n)}</div><div class="l">${esc(x.l)}</div><div class="x">${esc(x.x)}</div>`;
+        return x.href
+            ? `<a class="tile ${x.cls}" href="${x.href}">${inner}</a>`
+            : `<div class="tile ${x.cls}">${inner}</div>`;
+    }).join('');
+}
+
+async function loadSick() {
+    try {
+        const d = await get(`${LL}/sick`);
+        stats.sick = d.total; renderTiles();
+        $('sick').innerHTML = d.rows.length ? d.rows.slice(0, 8).map((r) => `
+            <div class="line">
+                <span class="k">${esc(r.loco_number)}</span>
+                <span class="d">${esc([r.loco_type, r.home_shed, r.sick_reason || r.remarks].filter(Boolean).join(' · '))}</span>
+                <span class="pill ${r.days_sick > 7 ? 'red' : 'amber'}">${esc(r.days_sick)}d</span>
+            </div>`).join('') : '<div class="none2">No loco is sick today.</div>';
+    } catch (e) { panelFail('sick', e); }
+}
+
+async function loadSchedules() {
+    try {
+        const d = await get(`${LL}/schedule-due?filter=overdue`);
+        const rows = d.rows || d.locos || [];
+        stats.overdue = rows.length; renderTiles();
+        // Grouped by shed: the desk owns sheds, so "which shed is behind" is the
+        // question, not "which loco" — that is what the full page is for.
+        // The endpoint reshapes the row and calls the shed `base`, not
+        // `home_shed` as div_locos does; both are read so a future change to
+        // either name still lands somewhere.
+        const shedOf = (r) => r.base || r.home_shed || '—';
+        const byShed = {};
+        rows.forEach((r) => { byShed[shedOf(r)] = (byShed[shedOf(r)] || 0) + 1; });
+        const top = Object.entries(byShed).sort((a, b) => b[1] - a[1]).slice(0, 8);
+        $('sched').innerHTML = top.length ? top.map(([shed, n]) => `
+            <div class="line">
+                <span class="k">${esc(shed)}</span>
+                <span class="d">${n} loco${n === 1 ? '' : 's'} past due</span>
+                <span class="pill ${n > 20 ? 'red' : 'amber'}">${n}</span>
+            </div>`).join('') : '<div class="none2">Nothing overdue.</div>';
+    } catch (e) { panelFail('sched', e); }
+}
+
+async function loadDefects() {
+    try {
+        const d = await get(`${LL}/defects?status=OPEN`);
+        const rows = d.rows || d.defects || [];
+        stats.defects = rows.length; renderTiles();
+        $('defects').innerHTML = rows.length ? rows.slice(0, 8).map((r) => `
+            <div class="line">
+                <span class="k">${esc(r.loco_number || r.loco_no)}</span>
+                <span class="d">${esc([r.defect_category, r.description, r.home_shed].filter(Boolean).join(' · '))}</span>
+                <span class="pill ${String(r.severity).toUpperCase() === 'HIGH' ? 'red' : 'amber'}">${esc(r.severity || 'open')}</span>
+            </div>`).join('') : '<div class="none2">No open defects.</div>';
+    } catch (e) { panelFail('defects', e); }
+}
+
+function reportLines(list, page) {
+    if (!list.length) return '<div class="none2">Nothing yet.</div>';
+    return list.map((r) => `
+        <a class="line" href="${page}?id=${r.id}">
+            <span class="k">${esc(r.number || '#' + r.id)}</span>
+            <span class="d">${esc([r.train_no && 'Train ' + r.train_no, r.loco_number && 'Loco ' + r.loco_number].filter(Boolean).join(' · '))}</span>
+            <span class="pill ${r.status === 'final' ? 'green' : 'grey'}">${r.status === 'final' ? 'Filed' : 'Draft'}</span>
+            <span class="r">${esc(fmtDate(r.report_date))}</span>
+        </a>`).join('');
+}
+
+async function loadReports() {
+    try {
+        const d = await get(`${SS}/dashboard`);
+        stats.oprMonth = d.opr.this_month; stats.oprDraft = d.opr.draft;
+        stats.noteMonth = d.note.this_month; stats.noteDraft = d.note.draft;
+        renderTiles();
+        $('oprs').innerHTML = reportLines(d.opr.recent, '/div/ssehq-opr.html');
+        $('notes').innerHTML = reportLines(d.note.recent, '/div/ssehq-note.html');
+    } catch (e) { panelFail('oprs', e); panelFail('notes', e); }
+}
+
+(async function boot() {
+    renderTiles();
+    try {
+        const cfg = await get(`${SS}/config`);
+        const u = cfg.user;
+        $('who').innerHTML = `<b>${esc(u.full_name || u.username)}</b><br>${esc(u.div_role)}`;
+        // ssehq is scoped out of the division dashboard, so that link would only
+        // bounce it straight back here.
+        if (u.div_role !== 'ssehq') $('dashLink').style.display = '';
+        $('sub').textContent = new Date().toLocaleDateString('en-GB',
+            { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    } catch (e) {
+        document.body.innerHTML = `<div class="bootfail"><h3>SSE-HQ could not start</h3>
+            <p>The portal could not confirm your access.</p>
+            <div class="why">${esc(e.message)}</div></div>`;
+        return;
+    }
+    loadSick(); loadSchedules(); loadDefects(); loadReports();
+}());
+</script>
+</body>
+</html>

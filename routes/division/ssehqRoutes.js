@@ -243,6 +243,48 @@ router.get('/next-number', async (req, res) => {
     }
 });
 
+// ── GET /dashboard ─────────────────────────────────────────────────────────
+/* The desk's own numbers for the landing page. Shed figures (sick locos,
+ * defects, schedules due) are NOT duplicated here — they come from
+ * /api/division/loco-link, which already owns them and which this role may
+ * read. Re-deriving them would be a second version of the same truth. */
+router.get('/dashboard', async (req, res) => {
+  try {
+    const pool = req.app.locals.pool;
+    const counts = async (table, dateCol) => {
+      const [[c]] = await pool.query(
+        `SELECT SUM(status = 'draft') AS draft,
+                SUM(status = 'final') AS final,
+                SUM(${dateCol} >= DATE_FORMAT(CURDATE(), '%Y-%m-01')) AS this_month,
+                COUNT(*) AS total
+           FROM ${table}`);
+      return { draft: Number(c.draft || 0), final: Number(c.final || 0),
+               this_month: Number(c.this_month || 0), total: Number(c.total || 0) };
+    };
+    const recent = async (table, numberCol, dateCol) => {
+      const [rows] = await pool.query(
+        `SELECT id, ${numberCol} AS number,
+                DATE_FORMAT(${dateCol}, '%Y-%m-%d') AS report_date,
+                train_no, loco_number, status, document_id
+           FROM ${table} ORDER BY ${dateCol} DESC, id DESC LIMIT 6`);
+      return rows;
+    };
+    const [oprCounts, noteCounts, oprRecent, noteRecent] = await Promise.all([
+      counts('div_ssehq_opr_reports', 'report_date'),
+      counts('div_ssehq_delogging_notes', 'note_date'),
+      recent('div_ssehq_opr_reports', 'report_no', 'report_date'),
+      recent('div_ssehq_delogging_notes', 'note_no', 'note_date'),
+    ]);
+    res.json({
+      opr: { ...oprCounts, recent: oprRecent },
+      note: { ...noteCounts, recent: noteRecent },
+    });
+  } catch (e) {
+    console.error('ssehq dashboard:', e);
+    res.status(500).json({ error: 'Failed to load the dashboard' });
+  }
+});
+
 // ── GET /sections ──────────────────────────────────────────────────────────
 /* Corridor names for the Section / Major / Minor boxes, offered as
  * suggestions rather than a closed list — the desk still has to be able to

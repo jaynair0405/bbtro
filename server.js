@@ -155,9 +155,13 @@ app.get('/index.html', (req, res) => {
 //    screens — an SSE-HQ clerk writing a detention report has no business in a
 //    loco pilot's service record.
 const SSEHQ_PAGES = new Set([
-  '/ssehq-opr.html', '/ssehq-note.html', '/ssehq-manual.html',
+  '/ssehq.html', '/ssehq-opr.html', '/ssehq-note.html', '/ssehq-manual.html',
   '/documents.html',
 ]);
+// Where this desk lands: its own dashboard, not the OPR form. Landing straight
+// in a form gave it no view of the shed it is in charge of, and no home to
+// come back to once the division dashboard was closed to it.
+const SSEHQ_HOME = '/div/ssehq.html';
 // Stylesheets, scripts and images the allowed pages pull in.
 const DIV_ASSET = /^\/(css|js|img|images|fonts|assets|vendor)\//i;
 
@@ -168,7 +172,7 @@ app.use('/div', (req, res, next) => {
   }
   if (role === 'ssehq') {
     if (DIV_ASSET.test(req.path) || SSEHQ_PAGES.has(req.path)) return next();
-    return res.redirect('/div/ssehq-opr.html');
+    return res.redirect(SSEHQ_HOME);
   }
   next();
 });
