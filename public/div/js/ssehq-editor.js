@@ -217,32 +217,57 @@
      * commission_date is populated for every loco, so DOC fills reliably —
      * that is the field the desk was retyping off a printout.
      *
-     * The proforma's Schedule row wants the LAST major schedule.
-     * div_locos.last_sched_type/date is populated for no loco at all, and
-     * schedule_due_date (the only schedule column with data) is the NEXT one
-     * DUE. Writing a future date into a box headed "last" would be worse than
-     * leaving it blank, so it is shown beside the manual boxes as a note. */
+     * The Schedule row is harder. The proforma wants the LAST major schedule.
+     * div_locos.last_sched_type/date is populated for no loco at all, and the
+     * only schedule column carrying data is schedule_due_date — a DUE date
+     * the LPC enters, which for 178 of the 305 locos that have one is already
+     * in the past. A due date that has passed is the schedule the loco has by
+     * now had, so it is filled in as the Major schedule and marked derived;
+     * one still ahead is not, because it has not happened yet. Either way the
+     * box stays editable and the note says which case this loco is, so the
+     * desk can correct it against the shed record. */
+    function isPast(iso) {
+        if (!iso) return false;
+        return String(iso).slice(0, 10) < new Date().toISOString().slice(0, 10);
+    }
+
     function applyLoco(loco) {
         if (!loco) return;
         markDerived(document.querySelector('[name="loco_type"]'), loco.loco_type);
         markDerived(document.querySelector('[name="loco_base"]'), loco.home_shed);
         markDerived(document.querySelector('[name="loco_commission_date"]'), loco.commission_date);
+
+        var schedType = document.querySelector('[name="last_schedule_type"]');
+        var schedDate = document.querySelector('[name="last_schedule_date"]');
         var flag = $('dueFlag');
-        if (!flag) return;
         var bits = [];
+
         if (loco.last_sched_type || loco.last_sched_date) {
-            bits.push('Last schedule on record: <b>' +
-                escapeText([loco.last_sched_type, loco.last_sched_date].filter(Boolean).join(' ')) + '</b>');
-        }
-        if (loco.schedule_due_date || loco.schedule_type) {
-            bits.push('Next schedule <b>due</b>: <b>' +
+            // The column that actually means "last done". Empty across the
+            // whole master today, but if it is ever backfilled it wins.
+            markDerived(schedType, loco.last_sched_type);
+            markDerived(schedDate, loco.last_sched_date);
+            bits.push('Major schedule filled from the loco master&rsquo;s <b>last schedule</b> record.');
+        } else if (isPast(loco.schedule_due_date)) {
+            markDerived(schedType, loco.schedule_type);
+            markDerived(schedDate, loco.schedule_due_date);
+            bits.push('Major schedule filled from the loco master: <b>' +
                 escapeText([loco.schedule_type, loco.schedule_due_date].filter(Boolean).join(' ')) +
-                '</b> — this is the schedule ahead, not the last one done, so enter Major yourself.');
-        }
-        if (!bits.length) {
-            bits.push('The loco master holds no schedule history for this loco — ' +
+                '</b> was due and that date has passed. Correct it if the shed record differs.');
+        } else if (loco.schedule_due_date || loco.schedule_type) {
+            markDerived(schedType, '');
+            markDerived(schedDate, '');
+            bits.push('The loco master shows <b>' +
+                escapeText([loco.schedule_type, loco.schedule_due_date].filter(Boolean).join(' ')) +
+                '</b> still <b>due</b> — it has not happened yet, so enter the last schedule done yourself.');
+        } else {
+            markDerived(schedType, '');
+            markDerived(schedDate, '');
+            bits.push('The loco master holds no schedule for this loco — ' +
                 'enter Major and Last inspection from the shed record.');
         }
+
+        if (!flag) { DIRTY = true; render(); return; }
         flag.innerHTML = bits.join('<br>');
         flag.classList.remove('none');
         // The boxes were filled programmatically, so no input event fired —
