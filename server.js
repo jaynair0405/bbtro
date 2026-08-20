@@ -506,6 +506,11 @@ app.use("/spm/rtis", (req, res, next) => {
   const user = req.session?.user;
   if (!user) return res.redirect("/");
   if (user.realm !== "division") return res.redirect("/");
+  // The SSE-HQ desk is scoped to its own reports. This guard checks the realm
+  // and not the role, so without this line an ssehq login would reach RTIS by
+  // typing the URL even with no link to it. Deferred, not refused — see
+  // docs/SSEHQ_RTIS_PENDING.md.
+  if (user.div_role === "ssehq") return res.status(403).send("RTIS access denied");
   next();
 });
 // Guard for Sub-SPM (division only)
@@ -828,8 +833,16 @@ const subCrewRoutes = require('./routes/division/subCrewRoutes');
 //    not the role, so without this an ssehq login could read the whole staff
 //    master, biodata and promotion history straight from the endpoints even
 //    with the pages closed. Allowed: its own module, the documents repository
-//    it files into, and the RTIS lookups.
-const SSEHQ_API = [/^\/ssehq(\/|$)/, /^\/documents(\/|$)/, /^\/rtis(\/|$)/];
+//    it files into, and loco-link — which backs the Control Office portal the
+//    account has always had, and which enforces ssehq as VIEW-ONLY itself
+//    (routes/division/locoLinkRoutes.js:28), so reads pass and writes are
+//    refused there rather than here.
+//
+//    RTIS is deliberately NOT here — see docs/SSEHQ_RTIS_PENDING.md. Giving
+//    this desk RTIS is wanted but deferred, and it needs more than an entry
+//    in this list: /spm/rtis is a proxy to a separate app, guarded on realm
+//    alone, so the block for it lives at that guard too.
+const SSEHQ_API = [/^\/ssehq(\/|$)/, /^\/documents(\/|$)/, /^\/loco-link(\/|$)/];
 app.use('/api/division', (req, res, next) => {
   if (req.session?.user?.div_role !== 'ssehq') return next();
   if (SSEHQ_API.some((re) => re.test(req.path))) return next();
