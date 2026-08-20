@@ -123,3 +123,67 @@ module.exports = {
     ],
   },
 };
+
+// Beat membership: which beats' "full-route book" each route appears in. A route
+// can belong to several beats (the DIVA/BSR trunk is in PNVL_GOODS + KYN_GOODS;
+// trans-harbour is in PNVL_SUB_HB). FIRST-CUT — adjust per the officer's grouping.
+// Which beats' full-route book each route appears in. KYN-BSR / BSR-KYN are KYN
+// goods only (excluded from PNVL per the officer); the rest of the DIVA/BSR routes
+// serve both goods beats.
+const BOTH_GOODS = ['PNVL_GOODS', 'KYN_GOODS'];
+const BEAT_MEMBERSHIP = {
+  'PNVL-BSR UP': BOTH_GOODS,
+  'BSR-PNVL DN': BOTH_GOODS,
+  'PNVL-KYN UP': BOTH_GOODS,
+  'KYN-PNVL DN': BOTH_GOODS,
+  'PNVL-DW UP':  ['PNVL_GOODS'],   // DW routes are PNVL only; KYN shows the dw-dcc connector instead
+  'DW-PNVL DN':  ['PNVL_GOODS'],
+  'KYN-BSR UP':  ['KYN_GOODS'],
+  'BSR-KYN DN':  ['KYN_GOODS'],
+  'TNA-PNVL DN': ['PNVL_SUB_HB'],
+  'PNVL-TNA UP': ['PNVL_SUB_HB'],
+  'TNA-VSH DN':  ['PNVL_SUB_HB'],
+  'VSH-TNA UP':  ['PNVL_SUB_HB'],
+};
+Object.entries(BEAT_MEMBERSHIP).forEach(([name, beats]) => {
+  if (module.exports[name]) module.exports[name].beats = beats;
+});
+
+// Explicit render order for a beat's full-route book: an ordered mix of full
+// routes ({route}) and plain sections ({section}), each corridor with both
+// directions. Beats without an entry fall back to auto (book order, split
+// segments replaced by their routes).
+const BEAT_ROUTE_ORDER = {
+  PNVL_GOODS: [
+    { route: 'PNVL-BSR UP' }, { route: 'BSR-PNVL DN' },
+    { section: 'PNVL_JNPT_JNPT_DN' }, { section: 'PNVL_JNPT_JNPT_UP' },
+    { route: 'PNVL-KYN UP' }, { route: 'KYN-PNVL DN' },
+    { section: 'PNVL_KJT_DN_KJT' }, { section: 'PNVL_KJT_UP_KJT' },
+    { section: 'KJT_LNL_DN_SE' }, { section: 'KJT_LNL_UP_SE' },
+    { section: 'KJT_LNL_DN_SE_MID' }, { section: 'KJT_LNL_UP_SE_MID' },
+    { section: 'PNVL_ROHA_DN_KR' }, { section: 'PNVL_ROHA_UP_KR' },
+    { section: 'PEN_TVSG_DN_TVSG' }, { section: 'PEN_TVSG_UP_TVSG' },
+    { route: 'PNVL-DW UP' }, { route: 'DW-PNVL DN' },
+    { section: 'DCC_DIVA_DIVA_DN', label: 'DCC-DIVA' }, // into Diva
+    { section: 'DW_DCC_BSR_UP', label: 'DIVA-DCC' },    // reverse: Diva -> DCC S-8 -> S-28/S-27
+  ],
+  KYN_GOODS: [
+    { section: 'CSMT_KYN_DN_TH' }, { section: 'CSMT_KYN_UP_TH' },
+    { section: 'CSMT_KYN_DN_LOC' }, { section: 'CSMT_KYN_UP_LOC' },
+    { section: 'CLA_KYN_5TH' }, { section: 'CLA_KYN_6TH' },
+    { section: 'KYN_KSRA_DN_NE' }, { section: 'KYN_KSRA_UP_NE' },
+    { section: 'KSRA_IGP_DN_NE' }, { section: 'KSRA_IGP_UP_NE' },
+    { section: 'KSRA_IGP_DN_NE_MID' }, { section: 'KSRA_IGP_UP_NE_MID' },
+    { section: 'KYN_KJT_DN_SE' }, { section: 'KYN_KJT_UP_SE' },
+    { section: 'KJT_LNL_DN_SE' }, { section: 'KJT_LNL_UP_SE' },
+    { section: 'KJT_LNL_DN_SE_MID' }, { section: 'KJT_LNL_UP_SE_MID' },
+    { route: 'KYN-PNVL DN' }, { route: 'PNVL-KYN UP' },
+    { route: 'KYN-BSR UP' }, { route: 'BSR-KYN DN' },
+    { route: 'BSR-PNVL DN' }, { route: 'PNVL-BSR UP' },
+    { section: 'CLA_TMBY_DN_TMBY' }, { section: 'CLA_TMBY_UP_TMBY' },
+    { section: 'CLA_VDLR_BPT_DN' }, { section: 'CLA_VDLR_BPT_UP' },
+    { section: 'DCC_DIVA_DIVA_DN', label: 'DCC-DIVA' }, // into Diva
+    { section: 'DW_DCC_BSR_UP', label: 'DIVA-DCC' },    // reverse: Diva -> DCC S-8 -> S-28/S-27
+  ],
+};
+Object.defineProperty(module.exports, '__beatOrder', { value: BEAT_ROUTE_ORDER, enumerable: false });

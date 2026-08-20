@@ -203,6 +203,79 @@ async function loadRoute(routeDef, providedConn) {
   }
 }
 
+// Full-route BOOK for a beat: render every route assigned to the beat as
+// consecutive sections (one heading per route), so a beat reads as a book of its
+// full routes rather than the split segments. Each route keeps its own header
+// because loadRoute gives every route a distinct display_group (= its title).
+async function loadBeatRoutes(beatCode, beatName, providedConn) {
+  const conn = providedConn || await getConnection();
+  const ownConn = !providedConn;
+  try {
+    const book = await loadBook(beatCode, conn);
+    const routeDefs = require('./signal-routes');
+
+    // Explicit order takes precedence: render exactly the listed routes/sections,
+    // in the given corridor order, each with both directions.
+    const order = (routeDefs.__beatOrder || {})[beatCode];
+    if (order) {
+      const sectionMap = {};
+      book.sections.forEach((s) => { sectionMap[s.section_code] = s; });
+      const sections = [];
+      for (const item of order) {
+        if (item.route) {
+          const rd = routeDefs[item.route];
+          if (!rd) throw new Error(`route not defined: ${item.route}`);
+          const r = await loadRoute(rd, conn);
+          sections.push(...r.sections);
+        } else if (item.section) {
+          const s = sectionMap[item.section];
+          // item.label overrides the heading (display_group is used as the title).
+          if (s) { s.display_group = item.label || null; s.lead_in_note = null; sections.push(s); }
+        }
+      }
+      return { beat: { beat_name: beatName || `${beatCode} — Full Routes` }, sections };
+    }
+
+    // Fallback (auto): start from the FULL beat book, replacing only the split
+    // segments the beat's routes assemble — every other section stays in place.
+    const routeNames = Object.keys(routeDefs).filter(
+      (n) => Array.isArray(routeDefs[n].beats) && routeDefs[n].beats.includes(beatCode)
+    );
+
+    // section_codes consumed by the beat's routes — these get replaced by the routes.
+    const covered = new Set();
+    for (const n of routeNames) {
+      for (const seg of routeDefs[n].segments) {
+        const code = typeof seg === 'string' ? seg : seg.code;
+        if (code) covered.add(code);
+      }
+    }
+
+    const routeSections = [];
+    for (const n of routeNames) {
+      const r = await loadRoute(routeDefs[n], conn);
+      routeSections.push(...r.sections);
+    }
+
+    // Rebuild the book: keep non-covered sections in place; where the covered
+    // (split) segments sit, drop them in favour of the assembled full routes (once).
+    const sections = [];
+    let inserted = false;
+    for (const s of book.sections) {
+      if (covered.has(s.section_code)) {
+        if (!inserted) { sections.push(...routeSections); inserted = true; }
+      } else {
+        sections.push(s);
+      }
+    }
+    if (!inserted && routeSections.length) sections.push(...routeSections);
+
+    return { beat: { beat_name: beatName || `${beatCode} — Full Routes` }, sections };
+  } finally {
+    if (ownConn) await conn.end();
+  }
+}
+
 function esc(value) {
   if (value === null || value === undefined) return '';
   return String(value)
@@ -678,7 +751,7 @@ ${rowsHtml}
 </html>`;
 }
 
-module.exports = { loadBook, loadRoute, renderHtml };
+module.exports = { loadBook, loadRoute, loadBeatRoutes, renderHtml };
 
 // Allow running directly as a CLI script.
 if (require.main === module) {

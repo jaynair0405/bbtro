@@ -13,8 +13,9 @@
 
 const express = require('express');
 const router = express.Router();
-const { loadBook, renderHtml } = require('../../scripts/render-signal-book');
+const { loadBook, loadRoute, loadBeatRoutes, renderHtml } = require('../../scripts/render-signal-book');
 const { parseRiSpec, serializeRiSpec, armCounts } = require('../../scripts/ri-spec');
+const signalRoutes = require('../../scripts/signal-routes');
 
 // ---------------------------------------------------------------------------
 // Editor helpers
@@ -137,6 +138,68 @@ router.get('/beat/:beatCode/preview', async (req, res) => {
     res.type('text/html').send(html);
   } catch (err) {
     console.error(`signal-book preview failed for ${beatCode}:`, err);
+    res.status(500).type('text/html').send(`<h2>Render failed</h2><pre>${err.message}</pre>`);
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Full-route view (Approach A): end-to-end corridors assembled from shared
+// segments, defined in scripts/signal-routes.js. No DB tables — the definitions
+// ARE the seed; the composer references existing segments (no data duplicated).
+// ---------------------------------------------------------------------------
+
+// GET /routes — list the available full routes (with beat membership) for the picker.
+router.get('/routes', (req, res) => {
+  const routes = Object.entries(signalRoutes).map(([name, def]) => {
+    const dir = /\bUP\b/i.test(name) ? 'UP' : (/\bDN\b/i.test(name) ? 'DN' : 'NA');
+    return { name, title: def.title || name, direction: dir, beats: def.beats || [] };
+  });
+  res.json({ routes });
+});
+
+// GET /beat/:beatCode/routes/preview — a BOOK of all the beat's full routes,
+// each route rendered as its own section (one heading per route).
+router.get('/beat/:beatCode/routes/preview', async (req, res) => {
+  const beatCode = req.params.beatCode;
+  let conn;
+  try {
+    conn = await req.app.locals.pool.getConnection();
+    const [b] = await conn.execute('SELECT beat_name FROM div_signal_beats WHERE beat_code = ?', [beatCode]);
+    const beatName = `${(b[0] && b[0].beat_name) || beatCode} — Full Routes`;
+    const book = await loadBeatRoutes(beatCode, beatName, conn);
+    if (book.sections.length === 0) {
+      return res.status(404).type('text/html').send(
+        `<h2>${beatCode}: no full routes defined for this beat.</h2>`
+      );
+    }
+    res.type('text/html').send(renderHtml(book));
+  } catch (err) {
+    console.error(`signal-book beat-routes preview failed for ${beatCode}:`, err);
+    res.status(500).type('text/html').send(`<h2>Render failed</h2><pre>${err.message}</pre>`);
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+// GET /route/:name/preview — rendered HTML page for a full route.
+router.get('/route/:name/preview', async (req, res) => {
+  const name = req.params.name;
+  const routeDef = signalRoutes[name];
+  if (!routeDef) {
+    return res.status(404).type('text/html').send(
+      `<h2>Route not found: ${name}</h2><p>Known: ${Object.keys(signalRoutes).join(', ')}</p>`
+    );
+  }
+  let conn;
+  try {
+    conn = await req.app.locals.pool.getConnection();
+    const book = await loadRoute(routeDef, conn);
+    const html = renderHtml(book);
+    res.type('text/html').send(html);
+  } catch (err) {
+    console.error(`signal-book route preview failed for ${name}:`, err);
     res.status(500).type('text/html').send(`<h2>Render failed</h2><pre>${err.message}</pre>`);
   } finally {
     if (conn) conn.release();

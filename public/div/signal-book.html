@@ -82,12 +82,31 @@
       pointer-events: none;
     }
     .actions a:hover { background: #d97706; }
+    .actions a.route-btn {
+      background: #1e3a8a; color: #fff; margin-left: 8px;
+    }
+    .actions a.route-btn:hover { background: #1e40af; }
     .empty {
       padding: 40px;
       text-align: center;
       color: #6b7280;
       background: #fff;
     }
+    h2.section-h {
+      font-size: 15px;
+      color: #1e3a8a;
+      margin: 28px 0 10px;
+      border-bottom: 2px solid #e5e7eb;
+      padding-bottom: 6px;
+    }
+    h2.section-h:first-of-type { margin-top: 0; }
+    .dir-badge {
+      display: inline-block; min-width: 26px; padding: 2px 8px; border-radius: 10px;
+      font-size: 11px; font-weight: 700; text-align: center;
+    }
+    .dir-badge.up { background: #ecfdf5; color: #047857; }
+    .dir-badge.dn { background: #eff6ff; color: #1d4ed8; }
+    .route-name { font-weight: 600; }
   </style>
 </head>
 <body>
@@ -104,9 +123,9 @@
 
   <main>
     <div class="info">
-      Pick a beat below to open its full signal book in a new tab. From the preview tab, press
+      Pick a beat or a full route below to open its signal book in a new tab. From the preview tab, press
       <strong>Cmd+P</strong> (or Ctrl+P on Windows) and choose <strong>Save as PDF</strong> to export.
-      Section content is shared across beats — editing one signal updates every beat that includes that section.
+      Section content is shared — editing one signal updates every beat and route that includes it.
     </div>
 
     <table id="beats-table">
@@ -127,6 +146,21 @@
   </main>
 
   <script>
+    var routeCountByBeat = {};
+
+    async function loadRoutes() {
+      try {
+        const res = await fetch('/api/division/signal-book/routes', { credentials: 'include' });
+        if (!res.ok) return;
+        const data = await res.json();
+        (data.routes || []).forEach(function(r) {
+          (r.beats || []).forEach(function(bc) {
+            routeCountByBeat[bc] = (routeCountByBeat[bc] || 0) + 1;
+          });
+        });
+      } catch (err) { /* routes are optional; beats still render */ }
+    }
+
     async function loadBeats() {
       try {
         const res = await fetch('/api/division/signal-book/beats', { credentials: 'include' });
@@ -152,6 +186,10 @@
         var btnCls = hasData ? '' : 'disabled';
         var btnTxt = hasData ? 'Open preview' : 'No data';
         var href = '/api/division/signal-book/beat/' + encodeURIComponent(b.beat_code) + '/preview';
+        var nRoutes = routeCountByBeat[b.beat_code] || 0;
+        var routeBtn = nRoutes > 0
+          ? '<a class="route-btn" href="/api/division/signal-book/beat/' + encodeURIComponent(b.beat_code) + '/routes/preview" target="_blank">Full-route book (' + nRoutes + ')</a>'
+          : '';
         return (
           '<tr>' +
           '  <td><span class="beat-code">' + b.beat_code + '</span><br><span style="color:#6b7280;font-size:12px;">' + b.beat_name + '</span></td>' +
@@ -159,13 +197,14 @@
           '  <td>' + (b.beat_category || '—') + '</td>' +
           '  <td><span class="' + sectionsCls + '">' + (b.section_count || 0) + '</span></td>' +
           '  <td><span class="' + rowsCls + '">' + (b.row_count || 0) + '</span></td>' +
-          '  <td class="actions"><a class="' + btnCls + '" href="' + href + '" target="_blank">' + btnTxt + '</a></td>' +
+          '  <td class="actions"><a class="' + btnCls + '" href="' + href + '" target="_blank">' + btnTxt + '</a>' + routeBtn + '</td>' +
           '</tr>'
         );
       }).join('');
     }
 
-    loadBeats();
+    // Load routes first so beat rows know their full-route counts, then beats.
+    loadRoutes().then(loadBeats);
   </script>
 </body>
 </html>
