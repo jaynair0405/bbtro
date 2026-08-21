@@ -71,8 +71,9 @@ async function loadBook(beatCode, providedConn) {
            FROM div_signal_book_rows r
            LEFT JOIN div_signals sg ON sg.id = r.signal_id
           WHERE r.book_section_id = ? AND r.is_active = 1
+            AND (r.exclude_beats IS NULL OR FIND_IN_SET(?, r.exclude_beats) = 0)
           ORDER BY r.row_order`,
-        [section.id]
+        [section.id, beat.beat_code]
       );
       section.rows = rows;
     }
