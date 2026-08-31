@@ -612,7 +612,9 @@
                         <option value="">—</option>
                         <option value="LHB">LHB</option>
                         <option value="ICF">ICF</option>
-                        <option value="Vande">Vande</option>
+                        <option value="VNDB">VNDB — Vande Bharat</option>
+                        <option value="AMTB">AMTB — Amrit Bharat</option>
+                        <option value="LVPH">LVPH — Parcel</option>
                         <option value="Other">Other</option>
                     </select>
                 </div>
@@ -814,7 +816,9 @@
                             <option value="">—</option>
                             <option value="LHB">LHB</option>
                             <option value="ICF">ICF</option>
-                            <option value="Vande">Vande</option>
+                            <option value="VNDB">VNDB — Vande Bharat</option>
+                            <option value="AMTB">AMTB — Amrit Bharat</option>
+                            <option value="LVPH">LVPH — Parcel</option>
                             <option value="Other">Other</option>
                         </select>
                     </div>
@@ -943,7 +947,9 @@
                         <option value="">—</option>
                         <option value="LHB">LHB</option>
                         <option value="ICF">ICF</option>
-                        <option value="Vande">Vande</option>
+                        <option value="VNDB">VNDB — Vande Bharat</option>
+                        <option value="AMTB">AMTB — Amrit Bharat</option>
+                        <option value="LVPH">LVPH — Parcel</option>
                         <option value="Other">Other</option>
                     </select>
                 </div>
@@ -1036,7 +1042,9 @@
                         <option value="">—</option>
                         <option value="LHB">LHB</option>
                         <option value="ICF">ICF</option>
-                        <option value="Vande">Vande</option>
+                        <option value="VNDB">VNDB — Vande Bharat</option>
+                        <option value="AMTB">AMTB — Amrit Bharat</option>
+                        <option value="LVPH">LVPH — Parcel</option>
                         <option value="Other">Other</option>
                     </select>
                 </div>
@@ -1838,7 +1846,16 @@ async function saveTrain() {
         }
         closeTrainModal();
         await loadTrains();
-        showToast(wasEdit ? 'Train updated' : 'Train added');
+        // sheet_rows_changed is only present when the Active/Inactive field moved;
+        // say so, because the sheet is what LPC checks after the edit.
+        let msg = wasEdit ? 'Train updated' : 'Train added';
+        if (data && data.sheet_rows_changed) {
+            const n = data.sheet_rows_changed;
+            msg += data.closed_from
+                ? ` — ${n} sheet row${n === 1 ? '' : 's'} closed after ${data.closed_from}`
+                : ` — ${n} sheet row${n === 1 ? '' : 's'} reopened`;
+        }
+        showToast(msg);
 
         // If a brand-new train was created and no loco link was attached,
         // chain straight into the Add Link modal so LPC doesn't have to
@@ -1912,15 +1929,35 @@ async function confirmRenumber() {
 
 async function confirmDeleteTrain(train) {
     if (!train) return;
-    if (!confirm(`Deactivate train ${train.train_no} (${train.train_name || ''})?\nSoft delete — sets is_active=0. Renumber instead if you only need to rename.`)) return;
-    const r = await fetch(`${API}/trains/${encodeURIComponent(train.train_no)}`, { method: 'DELETE' });
+    // The last running date drives div_loco_link_master.effective_until, which is
+    // what actually takes the train off the daily sheet. Sheets for earlier dates
+    // keep showing it, so the working history stays intact.
+    const lastDate = prompt(
+        `Deactivate train ${train.train_no} (${train.train_name || ''}).\n`
+        + `Last date it ran — it drops off the sheet from the next day.\n`
+        + `Leave as-is for today. Renumber instead if you only need to rename.`,
+        todayISO()
+    );
+    if (lastDate === null) return;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(lastDate.trim())) {
+        showToast('Date must be YYYY-MM-DD', 'error');
+        return;
+    }
+    const r = await fetch(`${API}/trains/${encodeURIComponent(train.train_no)}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ close_date: lastDate.trim() }),
+    });
+    const data = await r.json().catch(() => ({}));
     if (!r.ok) {
-        const data = await r.json().catch(() => ({}));
         showToast(data.error || 'Delete failed', 'error');
         return;
     }
     await loadTrains();
-    showToast('Train deactivated');
+    const n = data.sheet_rows_changed || 0;
+    showToast(n
+        ? `Train deactivated — ${n} sheet row${n === 1 ? '' : 's'} closed after ${data.closed_from}`
+        : 'Train deactivated (not on any sheet)');
 }
 
 // Debounced search (avoid hammering on every keystroke)

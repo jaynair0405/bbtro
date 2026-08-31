@@ -4706,6 +4706,40 @@ router.delete('/scheduled-specials/:id', requireSettingsRole, async (req, res) =
     }
 });
 
+// ── Sheet write-through for the is_active flag ─────────────────────────────
+// div_trains.is_active is a REGISTRY flag; the daily sheet, consolidated sheet
+// and loco-assign board all read div_loco_link_master (active + the
+// effective_from/until window) and only LEFT JOIN div_trains for the name. So
+// deactivating a train in Settings used to leave it on the sheet forever —
+// exactly what happened to the 02187/02188 and 01079/01080 specials.
+//
+// Closing is done with effective_until, not active = 0, so sheets for dates the
+// train actually ran still render it and its logged locos. Only today onward
+// drops it.
+async function closeMasterRowsForTrain(pool, trainNo, closeDate) {
+    // Default computed in IST (todayISO), not MySQL's CURDATE() — the server
+    // clock is UTC, which would close a day early between 00:00 and 05:30 IST.
+    const until = closeDate || todayISO();
+    const [r] = await pool.query(
+        `UPDATE div_loco_link_master SET effective_until = ?
+          WHERE train_no = ? AND active = 1
+            AND (effective_until IS NULL OR effective_until > ?)`,
+        [until, trainNo, until]
+    );
+    return r.affectedRows;
+}
+
+// Reopening clears the end date on every closed-but-live row, so reactivating a
+// train in Settings puts it back on the sheet instead of silently doing nothing.
+async function reopenMasterRowsForTrain(pool, trainNo) {
+    const [r] = await pool.query(
+        `UPDATE div_loco_link_master SET effective_until = NULL
+          WHERE train_no = ? AND active = 1 AND effective_until IS NOT NULL`,
+        [trainNo]
+    );
+    return r.affectedRows;
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // Trains management (Settings → manage div_trains + div_train_aliases)
 // Reads require login; mutations require division_admin or ctlc.
@@ -4888,6 +4922,9 @@ router.put('/trains/:train_no', requireSettingsRole, async (req, res) => {
     }
     if ('is_regular' in fields) fields.is_regular = fields.is_regular ? 1 : 0;
     if ('is_active'  in fields) fields.is_active  = fields.is_active  ? 1 : 0;
+    // Last date the train actually ran; defaults to today (CURDATE()) when the
+    // caller does not say. Only meaningful alongside is_active = 0.
+    const closeDate = /^\d{4}-\d{2}-\d{2}$/.test(String(b.close_date || '')) ? b.close_date : null;
 
     try {
         const pool = req.app.locals.pool;
@@ -4921,8 +4958,20 @@ router.put('/trains/:train_no', requireSettingsRole, async (req, res) => {
             mirrored = mr.affectedRows;
         }
 
+        // is_active is not a plain mirror — it maps onto the sheet's date window.
+        let sheetRows = null;
+        if ('is_active' in fields) {
+            sheetRows = fields.is_active
+                ? await reopenMasterRowsForTrain(pool, trainNo)
+                : await closeMasterRowsForTrain(pool, trainNo, closeDate);
+        }
+
         const [updated] = await pool.query('SELECT * FROM div_trains WHERE train_no = ?', [trainNo]);
-        res.json({ ok: true, train: updated[0], mirrored_master_rows: mirrored });
+        res.json({
+            ok: true, train: updated[0], mirrored_master_rows: mirrored,
+            sheet_rows_changed: sheetRows,
+            closed_from: (sheetRows !== null && !fields.is_active) ? (closeDate || todayISO()) : null,
+        });
     } catch (err) {
         console.error('[loco-link PUT /trains/:no]', err);
         res.status(500).json({ error: 'Failed to update train' });
@@ -4930,9 +4979,14 @@ router.put('/trains/:train_no', requireSettingsRole, async (req, res) => {
 });
 
 // ── DELETE /trains/:train_no — soft delete (is_active = 0) ──────────────
+//   Body/query: { close_date }  last date the train ran; defaults to today.
+// Also closes the train's div_loco_link_master rows, otherwise the sheet keeps
+// showing a train that Settings says is inactive.
 router.delete('/trains/:train_no', requireSettingsRole, async (req, res) => {
     const trainNo = String(req.params.train_no || '').trim();
     if (!trainNo) return res.status(400).json({ error: 'train_no required' });
+    const raw = String((req.body && req.body.close_date) || req.query.close_date || '');
+    const closeDate = /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : null;
     try {
         const pool = req.app.locals.pool;
         const [r] = await pool.query(
@@ -4940,7 +4994,11 @@ router.delete('/trains/:train_no', requireSettingsRole, async (req, res) => {
             [trainNo]
         );
         if (!r.affectedRows) return res.status(404).json({ error: 'train not found' });
-        res.json({ ok: true, train_no: trainNo, deactivated: true });
+        const sheetRows = await closeMasterRowsForTrain(pool, trainNo, closeDate);
+        res.json({
+            ok: true, train_no: trainNo, deactivated: true,
+            sheet_rows_changed: sheetRows, closed_from: closeDate || todayISO(),
+        });
     } catch (err) {
         console.error('[loco-link DELETE /trains/:no]', err);
         res.status(500).json({ error: 'Failed to delete train' });
