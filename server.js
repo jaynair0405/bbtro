@@ -350,6 +350,12 @@ app.get('/div/aws-review.html', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'div', 'aws-review.html'));
 });
 
+app.get('/div/aws-recurrence.html', (req, res) => {
+  if (!req.session.user) return res.redirect('/');
+  if (req.session.user.realm !== 'division') return res.redirect('/');
+  res.sendFile(path.join(__dirname, 'public', 'div', 'aws-recurrence.html'));
+});
+
 app.get('/div/signal-book.html', (req, res) => {
   if (!req.session.user) return res.redirect('/');
   if (req.session.user.realm !== 'division') return res.redirect('/');

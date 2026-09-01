@@ -2373,6 +2373,323 @@ router.get('/chronic-cases', async (req, res) => {
     }
 });
 
+// ── GET /recurrence-report ─────────────────────────────────────────────────
+// The officer's management summary of recurring AWS defects over a fixed
+// trailing window (14 / 30 / 90 days). Unlike /chronic-cases (which HIDES
+// anything a JPO rule already caught, to surface the blind spot), this report
+// INCLUDES every recurring magnet/cab — the officer wants the full picture.
+//
+// Why 14 and not 7: the JPO weekly rules (3a >3/week on a cab, 3b >=3/week on a
+// magnet) evaluate a 7-DAY window. A calendar-week report can split a
+// qualifying run across two reports (e.g. Thu-Sat in one, Sun-Mon in the next)
+// so neither shows the rule tripping. A 14-day window guarantees any real
+// 7-consecutive-day run of acts lands fully inside one report. The headline
+// metric is therefore peak_7day: the MAX acts inside any trailing-6-day sub-
+// window (MySQL 8 temporal RANGE frame), which is exactly what 3a/3b measure —
+// so "did this ever hit 3-in-a-week" is answered regardless of calendar edges.
+//
+// The window is anchored to the LATEST data date, not today, so it is never
+// silently empty when uploads lag. Scope is the same as everywhere else:
+// needs_manual_review = 0 (matched events only, which are suburban-only since
+// f137cc7). Cabs are NOT folded into their rake — each driving cab carries its
+// own AWS equipment.
+router.get('/recurrence-report', async (req, res) => {
+    const pool = req.app.locals.pool;
+    let conn;
+    try {
+        const allowed = [14, 30, 90];
+        let windowDays = parseInt(req.query.window, 10);
+        if (!allowed.includes(windowDays)) windowDays = 14;
+        const minActs = Math.max(2, parseInt(req.query.min_acts, 10) || 2);
+
+        conn = await pool.getConnection();
+        // A very active magnet over 90 days can blow past the 1024-byte default
+        // and truncate event_ids, breaking drill-down. Widen it on THIS
+        // connection (which also runs the queries below).
+        await conn.query('SET SESSION group_concat_max_len = 1000000');
+
+        const [[range]] = await conn.query(
+            `SELECT MIN(abn_date) AS min_date, MAX(abn_date) AS max_date
+               FROM div_aws_events WHERE needs_manual_review = 0`
+        );
+
+        if (!range.max_date) {
+            return res.json({
+                signals: [], cabs: [],
+                window_days: windowDays,
+                period: { from: null, to: null },
+                available_range: range,
+            });
+        }
+
+        const toDate = range.max_date;
+        // window_days inclusive of the end date, so subtract (n-1).
+        const [[fromRow]] = await conn.query(
+            'SELECT DATE_SUB(?, INTERVAL ? DAY) AS from_date',
+            [toDate, windowDays - 1]
+        );
+        const fromDate = fromRow.from_date;
+
+        // Signals keyed by magnet_id so the per-section copies of one physical
+        // magnet count as one; the +1000000 offset keeps the fallback ids from
+        // colliding with real magnet ids.
+        const [signals] = await conn.query(
+            `WITH acts AS (
+                SELECT COALESCE(s.magnet_id, s.id + 1000000) AS magnet_key,
+                       s.signal_number, s.section, s.line,
+                       e.id, e.abn_date, e.aws_code, e.responsibility, e.loco_raw,
+                       COUNT(*) OVER (
+                           PARTITION BY COALESCE(s.magnet_id, s.id + 1000000)
+                           ORDER BY e.abn_date
+                           RANGE BETWEEN INTERVAL 6 DAY PRECEDING AND CURRENT ROW
+                       ) AS roll7
+                  FROM div_aws_events e
+                  JOIN div_signals s ON s.id = e.signal_id
+                 WHERE e.needs_manual_review = 0
+                   AND e.abn_date BETWEEN ? AND ?
+             )
+             SELECT MIN(signal_number) AS signal_number,
+                    GROUP_CONCAT(DISTINCT section ORDER BY section) AS sections,
+                    MIN(line) AS line,
+                    COUNT(*) AS total_acts,
+                    COUNT(DISTINCT abn_date) AS distinct_days,
+                    COUNT(DISTINCT loco_raw) AS distinct_cabs,
+                    MAX(roll7) AS peak_7day,
+                    SUM(responsibility = 'S&T') AS st_acts,
+                    GROUP_CONCAT(DISTINCT aws_code ORDER BY aws_code) AS codes,
+                    GROUP_CONCAT(id ORDER BY abn_date) AS event_ids,
+                    MAX(abn_date) AS last_date
+               FROM acts
+              GROUP BY magnet_key
+             HAVING total_acts >= ?
+              ORDER BY peak_7day DESC, total_acts DESC
+              LIMIT 200`,
+            [fromDate, toDate, minActs]
+        );
+
+        const [cabs] = await conn.query(
+            `WITH acts AS (
+                SELECT e.loco_raw, e.id, e.abn_date, e.aws_code,
+                       e.responsibility, e.matched_rake_id,
+                       COUNT(*) OVER (
+                           PARTITION BY e.loco_raw
+                           ORDER BY e.abn_date
+                           RANGE BETWEEN INTERVAL 6 DAY PRECEDING AND CURRENT ROW
+                       ) AS roll7
+                  FROM div_aws_events e
+                 WHERE e.needs_manual_review = 0
+                   AND e.loco_raw IS NOT NULL AND e.loco_raw <> ''
+                   AND e.abn_date BETWEEN ? AND ?
+             )
+             SELECT a.loco_raw AS cab_number,
+                    COUNT(*) AS total_acts,
+                    COUNT(DISTINCT a.abn_date) AS distinct_days,
+                    MAX(a.roll7) AS peak_7day,
+                    SUM(a.responsibility = 'CAB_SIDE') AS cab_acts,
+                    GROUP_CONCAT(DISTINCT a.aws_code ORDER BY a.aws_code) AS codes,
+                    GROUP_CONCAT(a.id ORDER BY a.abn_date) AS event_ids,
+                    MAX(a.abn_date) AS last_date,
+                    MAX(f.unit_no) AS unit_no,
+                    MAX(f.shed_code) AS shed_code
+               FROM acts a
+               LEFT JOIN rake_formations f ON f.id = a.matched_rake_id
+              GROUP BY a.loco_raw
+             HAVING total_acts >= ?
+              ORDER BY peak_7day DESC, total_acts DESC
+              LIMIT 200`,
+            [fromDate, toDate, minActs]
+        );
+
+        res.json({
+            signals,
+            cabs,
+            window_days: windowDays,
+            period: { from: fromDate, to: toDate },
+            min_acts: minActs,
+            available_range: range,
+        });
+    } catch (err) {
+        console.error('[AWS /recurrence-report] Error:', err);
+        res.status(500).json({ error: 'Failed to load recurrence report' });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// ── GET /recurrence-full ───────────────────────────────────────────────────
+// The printable version of /recurrence-report. The three windows are NESTED
+// (90d contains 30d contains 14d), so instead of three repeating sections this
+// returns ONE 90-day report and tags each incident with the band it falls in:
+//   '14d' = last 14 days   '30d' = 15-30 days ago   '90d' = 31-90 days ago
+// The page colour-codes by band, so 14d/30d/90d are all visible in one pass
+// with no incident printed twice. Each recurring signal/cab carries its full
+// incident list inline (not just last-seen) plus cumulative n14 / n30 counts.
+router.get('/recurrence-full', async (req, res) => {
+    const pool = req.app.locals.pool;
+    let conn;
+    try {
+        const minActs = Math.max(2, parseInt(req.query.min_acts, 10) || 2);
+        const allowedWin = [14, 30, 90];
+        let windowDays = parseInt(req.query.window, 10);
+        if (!allowedWin.includes(windowDays)) windowDays = 90;
+        conn = await pool.getConnection();
+
+        const [[range]] = await conn.query(
+            `SELECT MIN(abn_date) AS min_date, MAX(abn_date) AS max_date
+               FROM div_aws_events WHERE needs_manual_review = 0`
+        );
+        if (!range.max_date) {
+            return res.json({ signals: [], cabs: [], window_days: windowDays, period: { from: null, to: null }, available_range: range });
+        }
+
+        const toDate = range.max_date;
+        const [[fromRow]] = await conn.query(
+            'SELECT DATE_SUB(?, INTERVAL ? DAY) AS from_date', [toDate, windowDays - 1]
+        );
+        const fromDate = fromRow.from_date;
+        const [[cutRow]] = await conn.query(
+            `SELECT DATE_SUB(?, INTERVAL 13 DAY) AS c14, DATE_SUB(?, INTERVAL 29 DAY) AS c30`,
+            [toDate, toDate]
+        );
+
+        // Age band for an incident date. Shared shape for both queries.
+        const BAND = `CASE WHEN e.abn_date >= DATE_SUB(?, INTERVAL 13 DAY) THEN '14d'
+                          WHEN e.abn_date >= DATE_SUB(?, INTERVAL 29 DAY) THEN '30d'
+                          ELSE '90d' END`;
+
+        // ---- signals: aggregate (qualifying magnets) ----
+        const [sigAgg] = await conn.query(
+            `WITH acts AS (
+                SELECT COALESCE(s.magnet_id, s.id + 1000000) AS magnet_key,
+                       s.signal_number, s.section, s.line,
+                       e.abn_date, e.aws_code, e.responsibility, e.loco_raw,
+                       COUNT(*) OVER (
+                           PARTITION BY COALESCE(s.magnet_id, s.id + 1000000)
+                           ORDER BY e.abn_date
+                           RANGE BETWEEN INTERVAL 6 DAY PRECEDING AND CURRENT ROW
+                       ) AS roll7
+                  FROM div_aws_events e
+                  JOIN div_signals s ON s.id = e.signal_id
+                 WHERE e.needs_manual_review = 0 AND e.abn_date BETWEEN ? AND ?
+             )
+             SELECT magnet_key,
+                    MIN(signal_number) AS signal_number,
+                    GROUP_CONCAT(DISTINCT section ORDER BY section) AS sections,
+                    MIN(line) AS line,
+                    COUNT(*) AS total_acts,
+                    SUM(abn_date >= DATE_SUB(?, INTERVAL 13 DAY)) AS n14,
+                    SUM(abn_date >= DATE_SUB(?, INTERVAL 29 DAY)) AS n30,
+                    COUNT(DISTINCT abn_date) AS distinct_days,
+                    COUNT(DISTINCT loco_raw) AS distinct_cabs,
+                    MAX(roll7) AS peak_7day,
+                    SUM(responsibility = 'S&T') AS st_acts,
+                    GROUP_CONCAT(DISTINCT aws_code ORDER BY aws_code) AS codes,
+                    MAX(abn_date) AS last_date
+               FROM acts
+              GROUP BY magnet_key
+             HAVING total_acts >= ?
+              ORDER BY peak_7day DESC, total_acts DESC
+              LIMIT 200`,
+            [fromDate, toDate, toDate, toDate, minActs]
+        );
+
+        // ---- signals: every incident in the 90d window, banded ----
+        const [sigInc] = await conn.query(
+            `SELECT COALESCE(s.magnet_id, s.id + 1000000) AS magnet_key,
+                    e.id, e.abn_date, e.abn_time, e.aws_code, e.location_raw,
+                    e.loco_raw, e.train_number, e.crew_id, e.crew_name,
+                    e.responsibility, r.detail, ${BAND} AS band
+               FROM div_aws_events e
+               JOIN div_signals s ON s.id = e.signal_id
+               LEFT JOIN div_aws_cms_raw r ON r.id = e.raw_id
+              WHERE e.needs_manual_review = 0 AND e.abn_date BETWEEN ? AND ?
+              ORDER BY e.abn_date DESC, e.abn_time DESC`,
+            [toDate, toDate, fromDate, toDate]
+        );
+
+        // ---- cabs: aggregate ----
+        const [cabAgg] = await conn.query(
+            `WITH acts AS (
+                SELECT e.loco_raw, e.abn_date, e.aws_code, e.responsibility, e.matched_rake_id,
+                       COUNT(*) OVER (
+                           PARTITION BY e.loco_raw
+                           ORDER BY e.abn_date
+                           RANGE BETWEEN INTERVAL 6 DAY PRECEDING AND CURRENT ROW
+                       ) AS roll7
+                  FROM div_aws_events e
+                 WHERE e.needs_manual_review = 0
+                   AND e.loco_raw IS NOT NULL AND e.loco_raw <> ''
+                   AND e.abn_date BETWEEN ? AND ?
+             )
+             SELECT a.loco_raw AS cab_number,
+                    COUNT(*) AS total_acts,
+                    SUM(a.abn_date >= DATE_SUB(?, INTERVAL 13 DAY)) AS n14,
+                    SUM(a.abn_date >= DATE_SUB(?, INTERVAL 29 DAY)) AS n30,
+                    COUNT(DISTINCT a.abn_date) AS distinct_days,
+                    MAX(a.roll7) AS peak_7day,
+                    SUM(a.responsibility = 'CAB_SIDE') AS cab_acts,
+                    GROUP_CONCAT(DISTINCT a.aws_code ORDER BY a.aws_code) AS codes,
+                    MAX(a.abn_date) AS last_date,
+                    MAX(f.unit_no) AS unit_no,
+                    MAX(f.shed_code) AS shed_code
+               FROM acts a
+               LEFT JOIN rake_formations f ON f.id = a.matched_rake_id
+              GROUP BY a.loco_raw
+             HAVING total_acts >= ?
+              ORDER BY peak_7day DESC, total_acts DESC
+              LIMIT 200`,
+            [fromDate, toDate, toDate, toDate, minActs]
+        );
+
+        // ---- cabs: every incident, banded (with the signal it acted at) ----
+        const [cabInc] = await conn.query(
+            `SELECT e.loco_raw, e.id, e.abn_date, e.abn_time, e.aws_code,
+                    e.location_raw, s.signal_number, e.train_number,
+                    e.crew_id, e.crew_name, e.responsibility, r.detail, ${BAND} AS band
+               FROM div_aws_events e
+               LEFT JOIN div_signals s ON s.id = e.signal_id
+               LEFT JOIN div_aws_cms_raw r ON r.id = e.raw_id
+              WHERE e.needs_manual_review = 0
+                AND e.loco_raw IS NOT NULL AND e.loco_raw <> ''
+                AND e.abn_date BETWEEN ? AND ?
+              ORDER BY e.abn_date DESC, e.abn_time DESC`,
+            [toDate, toDate, fromDate, toDate]
+        );
+
+        // stitch incidents onto their aggregate rows
+        const sigMap = new Map();
+        for (const r of sigInc) {
+            const k = String(r.magnet_key);
+            if (!sigMap.has(k)) sigMap.set(k, []);
+            sigMap.get(k).push(r);
+        }
+        const signals = sigAgg.map(s => ({ ...s, incidents: sigMap.get(String(s.magnet_key)) || [] }));
+
+        const cabMap = new Map();
+        for (const r of cabInc) {
+            const k = String(r.loco_raw);
+            if (!cabMap.has(k)) cabMap.set(k, []);
+            cabMap.get(k).push(r);
+        }
+        const cabs = cabAgg.map(c => ({ ...c, incidents: cabMap.get(String(c.cab_number)) || [] }));
+
+        res.json({
+            signals,
+            cabs,
+            window_days: windowDays,
+            period: { from: fromDate, to: toDate },
+            bands: { c14: cutRow.c14, c30: cutRow.c30, from: fromDate },
+            min_acts: minActs,
+            available_range: range,
+        });
+    } catch (err) {
+        console.error('[AWS /recurrence-full] Error:', err);
+        res.status(500).json({ error: 'Failed to load full recurrence report' });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
 // ── GET /cab-cross-check ───────────────────────────────────────────────────
 // "Was it the cab, or the signal?" — the corroboration step for a chronic cab.
 //

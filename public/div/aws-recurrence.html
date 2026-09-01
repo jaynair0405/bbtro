@@ -1,0 +1,715 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>AWS Recurring Defects Report</title>
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+  <style>
+    :root{
+      --bg:#0b1220; --card:rgba(255,255,255,.06); --stroke:rgba(255,255,255,.12);
+      --text:rgba(255,255,255,.92); --muted:rgba(255,255,255,.68);
+      --accent:#6ee7ff; --accent2:#a78bfa; --danger:#ff6b6b; --ok:#52ffa8;
+      --warn:#ffcf6b;
+      --shadow:0 12px 30px rgba(0,0,0,.35); --radius:18px;
+    }
+    body{
+      background:
+        radial-gradient(900px 500px at 15% -10%, rgba(110,231,255,.16), transparent 60%),
+        radial-gradient(900px 500px at 90% 0%, rgba(167,139,250,.14), transparent 55%),
+        var(--bg);
+      color:var(--text); min-height:100vh;
+    }
+    .page-wrap{ max-width:1180px; margin:0 auto; padding:22px 14px 56px; }
+    .topbar{
+      position:sticky; top:0; z-index:50; backdrop-filter:blur(10px);
+      background:linear-gradient(to bottom, rgba(11,18,32,.82), rgba(11,18,32,.55));
+      border:1px solid var(--stroke); border-radius:var(--radius);
+      box-shadow:var(--shadow); padding:14px; margin-bottom:18px;
+    }
+    .brand{ display:flex; gap:10px; align-items:center; }
+    .badge-dot{ width:10px; height:10px; border-radius:999px;
+      background:linear-gradient(135deg, var(--accent), var(--accent2));
+      box-shadow:0 0 0 4px rgba(110,231,255,.12); }
+    .title{ font-weight:750; margin:0; font-size:1.05rem; line-height:1.2; }
+    .subtitle{ margin:0; color:var(--muted); font-size:.86rem; }
+    .glass-card{ background:linear-gradient(180deg, var(--card), rgba(255,255,255,.04));
+      border:1px solid var(--stroke); border-radius:var(--radius); box-shadow:var(--shadow); }
+    .section-title{ font-weight:800; margin:0 0 10px; font-size:1rem; }
+    .muted{ color:var(--muted); }
+    .chip{ display:inline-flex; align-items:center; gap:8px; padding:7px 10px;
+      border-radius:999px; border:1px solid var(--stroke); background:rgba(255,255,255,.05);
+      color:var(--muted); font-size:.82rem; white-space:nowrap; }
+    .btn-neo{ border-radius:12px; border:1px solid var(--stroke);
+      background:rgba(255,255,255,.06); color:var(--text); }
+    .btn-neo:hover{ background:rgba(255,255,255,.10); color:var(--text); }
+    .btn-accent{ border-radius:12px; border:none; color:#08101f; font-weight:700;
+      background:linear-gradient(135deg,var(--accent),var(--accent2)); }
+    .btn-accent:hover{ color:#08101f; filter:brightness(1.05); }
+
+    /* full report */
+    #fullReport{ display:none; }
+    .fr-legend{ display:flex; gap:16px; flex-wrap:wrap; font-size:.82rem; }
+    .fr-key{ display:inline-flex; align-items:center; gap:7px; }
+    .fr-swatch{ width:14px; height:14px; border-radius:4px; display:inline-block; }
+    .sw-14d{ background:var(--danger); }
+    .sw-30d{ background:var(--warn); }
+    .sw-90d{ background:rgba(255,255,255,.4); }
+    .fr-entry{ border:1px solid var(--stroke); border-radius:14px; padding:12px 14px;
+      margin-bottom:14px; break-inside:avoid; }
+    .fr-head{ display:flex; flex-wrap:wrap; align-items:center; gap:10px;
+      justify-content:space-between; margin-bottom:8px; }
+    .fr-title{ font-weight:800; font-size:1rem; }
+    .fr-counts{ display:flex; gap:6px; flex-wrap:wrap; }
+    .cnt{ font-size:.74rem; font-weight:700; padding:2px 8px; border-radius:999px;
+      border:1px solid var(--stroke); background:rgba(255,255,255,.05); }
+    .cnt-14d{ border-color:rgba(255,107,107,.45); color:#ffb3b3; background:rgba(255,107,107,.12); }
+    .cnt-30d{ border-color:rgba(255,207,107,.4); color:var(--warn); background:rgba(255,207,107,.10); }
+    .cnt-90d{ color:var(--muted); }
+    .band-lbl{ font-size:.68rem; font-weight:800; padding:1px 5px; border-radius:5px; }
+    .lbl-14d{ background:rgba(255,107,107,.16); color:#ffb3b3; border:1px solid rgba(255,107,107,.4); }
+    .lbl-30d{ background:rgba(255,207,107,.14); color:var(--warn); border:1px solid rgba(255,207,107,.35); }
+    .lbl-90d{ background:rgba(255,255,255,.06); color:var(--muted); border:1px solid var(--stroke); }
+    tr.band-14d td:first-child{ border-left:3px solid var(--danger); }
+    tr.band-30d td:first-child{ border-left:3px solid var(--warn); }
+    tr.band-90d td:first-child{ border-left:3px solid rgba(255,255,255,.35); }
+
+    /* summary section */
+    .fr-summary-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
+    @media(max-width:800px){ .fr-summary-grid{ grid-template-columns:repeat(2,1fr); } }
+    .fr-tile{ border:1px solid var(--stroke); border-radius:12px; padding:10px 12px;
+      background:rgba(255,255,255,.03); }
+    .fr-tile .k{ font-size:.7rem; color:var(--muted); text-transform:uppercase; letter-spacing:.4px; }
+    .fr-tile .v{ font-size:1.4rem; font-weight:850; }
+    .fr-tile .v small{ font-size:.78rem; font-weight:600; color:var(--muted); }
+    .fr-sub{ font-weight:800; margin:16px 0 8px; font-size:.85rem; letter-spacing:.4px;
+      text-transform:uppercase; color:var(--muted); }
+    .fr-top{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+    @media(max-width:900px){ .fr-top{ grid-template-columns:1fr; } }
+    .fr-section{ break-inside:auto; }
+    @media print{ .fr-break{ break-before:page; page-break-before:always; } }
+    .stat{ padding:14px; height:100%; }
+    .stat .k{ color:var(--muted); font-size:.82rem; }
+    .stat .v{ font-size:1.55rem; font-weight:850; }
+
+    /* window toggle pills */
+    .win-toggle{ display:inline-flex; gap:6px; padding:4px;
+      border:1px solid var(--stroke); border-radius:999px; background:rgba(255,255,255,.04); }
+    .win-pill{ border:none; background:transparent; color:var(--muted);
+      padding:7px 16px; border-radius:999px; font-weight:700; font-size:.85rem; cursor:pointer; }
+    .win-pill.active{ background:linear-gradient(135deg,var(--accent),var(--accent2));
+      color:#08101f; }
+
+    table.table{ --bs-table-bg:transparent; --bs-table-color:var(--text); }
+    .table thead th{ color:var(--muted); border-bottom:1px solid var(--stroke);
+      font-size:.8rem; text-transform:uppercase; letter-spacing:.4px; }
+    .table td, .table th{ border-top:1px solid rgba(255,255,255,.08); vertical-align:middle; }
+    .peak{ display:inline-block; min-width:34px; text-align:center; font-weight:800;
+      border-radius:8px; padding:2px 8px; }
+    .peak-hi{ background:rgba(255,107,107,.16); border:1px solid rgba(255,107,107,.4); color:#ffb3b3; }
+    .peak-mid{ background:rgba(255,207,107,.14); border:1px solid rgba(255,207,107,.35); color:var(--warn); }
+    .peak-lo{ background:rgba(255,255,255,.05); border:1px solid var(--stroke); color:var(--muted); }
+    .rule-tag{ font-size:.7rem; font-weight:800; padding:2px 6px; border-radius:6px;
+      background:rgba(255,107,107,.16); border:1px solid rgba(255,107,107,.4); color:#ffb3b3; }
+    .flagged-tag{ font-size:.68rem; padding:1px 6px; border-radius:6px;
+      background:rgba(82,255,168,.12); border:1px solid rgba(82,255,168,.3); color:var(--ok); }
+
+    @media print{
+      body{ background:white !important; color:black !important; }
+      .topbar, .btn, .dropdown, .win-toggle, #frToolbar{ display:none !important; }
+      .glass-card, .fr-entry{ background:white !important; border:1px solid #ddd !important; box-shadow:none !important; }
+      /* every heading/label element that is muted on-screen must go dark on paper */
+      .fr-title, h1, h2, td, th, .muted, .fr-sub,
+      .fr-tile .k, .fr-tile .v, .fr-tile .v small, .cnt-90d, .lbl-90d{ color:#000 !important; }
+      .fr-tile{ background:#fff !important; border:1px solid #ccc !important; }
+      .cnt{ border:1px solid #bbb !important; }
+      .peak-hi,.rule-tag,.lbl-14d,.cnt-14d{ border:1px solid #999 !important; color:#000 !important; background:#fdd !important; }
+      .lbl-30d,.cnt-30d{ border:1px solid #999 !important; color:#000 !important; background:#fff3d6 !important; }
+      /* keep the band left-border cue in B/W print */
+      tr.band-14d td:first-child{ border-left:3px solid #d33 !important; }
+      tr.band-30d td:first-child{ border-left:3px solid #e0a021 !important; }
+      tr.band-90d td:first-child{ border-left:3px solid #999 !important; }
+
+      /* compact typography → fewer pages */
+      #frDoc{ font-size:10px; }
+      #frDoc h1{ font-size:15px !important; margin-bottom:2px; }
+      #frDoc h2, #frDoc .section-title{ font-size:12px !important; margin-bottom:6px; }
+      #frDoc .fr-title{ font-size:11.5px; }
+      #frDoc .table{ font-size:9px; }
+      #frDoc .table td, #frDoc .table th{ padding:2px 5px !important; }
+      #frDoc .fr-entry{ padding:6px 9px; margin-bottom:8px; }
+      #frDoc .fr-sub{ font-size:9.5px !important; margin:9px 0 5px; }
+      #frDoc .fr-tile{ padding:6px 9px; }
+      #frDoc .fr-tile .v{ font-size:14px; }
+      #frDoc .fr-summary-grid{ gap:6px; }
+      #frDoc .badge{ font-size:8px; }
+      #frDoc .cnt, #frDoc .band-lbl{ font-size:8px; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="page-wrap">
+
+    <div class="topbar">
+      <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+        <div class="brand">
+          <div class="badge-dot"></div>
+          <div>
+            <p class="title mb-0">AWS Recurring Defects — Signals &amp; Cabs</p>
+            <p class="subtitle">Rolling window report • peak 7-day = JPO Rule 3a/3b indicator • CRTMS</p>
+          </div>
+        </div>
+
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+          <div class="win-toggle" id="winToggle">
+            <button class="win-pill active" data-win="14">14 days</button>
+            <button class="win-pill" data-win="30">30 days</button>
+            <button class="win-pill" data-win="90">90 days</button>
+          </div>
+          <a href="/div/aws.html" class="btn btn-neo px-3"><i class="bi bi-arrow-left me-1"></i>Weekly Report</a>
+          <button class="btn btn-accent px-3" id="btnFullReport"><i class="bi bi-file-earmark-text me-1"></i>Full Report</button>
+          <div class="dropdown">
+            <button class="btn btn-neo px-3 dropdown-toggle" type="button" data-bs-toggle="dropdown">
+              <i class="bi bi-download me-1"></i>Export
+            </button>
+            <ul class="dropdown-menu dropdown-menu-dark">
+              <li><a class="dropdown-item" href="#" id="btnExportPdf"><i class="bi bi-file-pdf me-2"></i>Export PDF</a></li>
+              <li><a class="dropdown-item" href="#" id="btnExportExcel"><i class="bi bi-file-excel me-2"></i>Export CSV</a></li>
+              <li><hr class="dropdown-divider"></li>
+              <li><a class="dropdown-item" href="#" id="btnPrint"><i class="bi bi-printer me-2"></i>Print</a></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- summary stats -->
+    <div class="row g-3 mb-3" id="statsRow">
+      <div class="col-6 col-md-3"><div class="glass-card stat"><div class="k">Report period</div><div class="v" id="stPeriod" style="font-size:1rem">—</div></div></div>
+      <div class="col-6 col-md-3"><div class="glass-card stat"><div class="k">Recurring signals</div><div class="v" id="stSig">—</div></div></div>
+      <div class="col-6 col-md-3"><div class="glass-card stat"><div class="k">Recurring cabs</div><div class="v" id="stCab">—</div></div></div>
+      <div class="col-6 col-md-3"><div class="glass-card stat"><div class="k">Hit weekly rule (3a/3b)</div><div class="v" id="stRule">—</div></div></div>
+    </div>
+
+    <div class="glass-card p-3 p-md-4 mb-3" id="reportBody">
+
+      <div class="d-flex align-items-center justify-content-between mb-2">
+        <h2 class="section-title mb-0"><i class="bi bi-signpost-2 me-2"></i>Recurring Signals / Magnets</h2>
+        <span class="chip">min 2 acts • by physical magnet</span>
+      </div>
+      <p class="muted mb-2" style="font-size:.82rem">
+        <span class="peak peak-hi">n</span> peak 7-day ≥ 3 → tripped <strong>Rule 3b</strong> (S&amp;T, ≥3/week on a magnet) at some point in the window.
+      </p>
+      <div class="table-responsive mb-4">
+        <table class="table table-sm align-middle">
+          <thead><tr>
+            <th>Signal</th><th>Section</th><th class="text-center">Total</th>
+            <th class="text-center">Days</th><th class="text-center">Peak / 7d</th>
+            <th class="text-center">Cabs</th><th>Codes</th><th>Last seen</th><th></th>
+          </tr></thead>
+          <tbody id="sigTbody"><tr><td colspan="9" class="text-center py-4 muted">Loading…</td></tr></tbody>
+        </table>
+      </div>
+
+      <div class="d-flex align-items-center justify-content-between mb-2">
+        <h2 class="section-title mb-0"><i class="bi bi-train-front me-2"></i>Recurring Cabs</h2>
+        <span class="chip">min 2 acts • cab not folded into rake</span>
+      </div>
+      <p class="muted mb-2" style="font-size:.82rem">
+        <span class="peak peak-hi">n</span> peak 7-day ≥ 4 → tripped <strong>Rule 3a</strong> (cab side, &gt;3/week on a cab).
+      </p>
+      <div class="table-responsive">
+        <table class="table table-sm align-middle">
+          <thead><tr>
+            <th>Cab</th><th>Unit / Shed</th><th class="text-center">Total</th>
+            <th class="text-center">Days</th><th class="text-center">Peak / 7d</th>
+            <th>Codes</th><th>Last seen</th><th></th>
+          </tr></thead>
+          <tbody id="cabTbody"><tr><td colspan="8" class="text-center py-4 muted">Loading…</td></tr></tbody>
+        </table>
+      </div>
+
+    </div>
+
+    <!-- ===== Full printable report (unified 90-day, banded) ===== -->
+    <div id="fullReport">
+      <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3" id="frToolbar">
+        <div class="d-flex align-items-center gap-3 flex-wrap">
+          <div class="win-toggle" id="frWinToggle">
+            <button class="win-pill" data-win="14">14 days</button>
+            <button class="win-pill" data-win="30">30 days</button>
+            <button class="win-pill active" data-win="90">90 days</button>
+          </div>
+          <div class="fr-legend">
+            <span class="fr-key"><span class="fr-swatch sw-14d"></span> ≤14 days</span>
+            <span class="fr-key"><span class="fr-swatch sw-30d"></span> 15–30 days</span>
+            <span class="fr-key"><span class="fr-swatch sw-90d"></span> 31–90 days</span>
+          </div>
+        </div>
+        <div class="d-flex gap-2">
+          <button class="btn btn-neo btn-sm px-3" id="btnBackBrowse"><i class="bi bi-arrow-left me-1"></i>Back</button>
+          <button class="btn btn-neo btn-sm px-3" id="btnReportCsv"><i class="bi bi-file-excel me-1"></i>CSV</button>
+          <button class="btn btn-accent btn-sm px-3" id="btnPrintReport"><i class="bi bi-printer me-1"></i>Print / Save PDF</button>
+        </div>
+      </div>
+
+      <div class="glass-card p-3 p-md-4" id="frDoc">
+        <div id="frHeader" class="mb-3"></div>
+
+        <div id="frSummary" class="mb-2"></div>
+
+        <section class="fr-section fr-break" id="frSignalsSection">
+          <h2 class="section-title"><i class="bi bi-signpost-2 me-2"></i>Recurring Signals / Magnets</h2>
+          <div id="frSignals" class="mb-4"></div>
+        </section>
+
+        <section class="fr-section fr-break" id="frCabsSection">
+          <h2 class="section-title"><i class="bi bi-train-front me-2"></i>Recurring Cabs</h2>
+          <div id="frCabs"></div>
+        </section>
+
+        <section class="fr-section fr-break" id="frRulesSection">
+          <h2 class="section-title"><i class="bi bi-journal-text me-2"></i>JPO Rules — Reference (BB.TRSO.EMU.16)</h2>
+          <p class="muted" style="font-size:.82rem">Responsibility for a repeated AWS act is fixed by the first rule it satisfies. Weeks are counted <strong>Friday to Thursday</strong>.</p>
+          <div class="table-responsive">
+            <table class="table table-sm">
+              <thead><tr><th style="width:90px">Rule</th><th style="width:110px">Window</th><th>Condition</th><th style="width:130px">Responsibility</th></tr></thead>
+              <tbody>
+                <tr><td><strong>Rule 1</strong></td><td>Per trip</td><td>In one trip AWS acts <strong>≥3 times</strong> AND <strong>≥2</strong> of them fall on <strong>consecutive signals</strong>.</td><td>Cab side</td></tr>
+                <tr><td><strong>Rule 2</strong></td><td>Per day</td><td><strong>&gt;2 acts</strong> on the <strong>same signal (magnet)</strong> in the same day.</td><td>S&amp;T</td></tr>
+                <tr><td><strong>Rule 3a</strong></td><td>Per week</td><td><strong>&gt;3 acts</strong> on the <strong>same cab</strong> in one Fri–Thu week.</td><td>Cab side</td></tr>
+                <tr><td><strong>Rule 3b</strong></td><td>Per week</td><td><strong>≥3 acts</strong> on the <strong>same magnet</strong> in one Fri–Thu week.</td><td>S&amp;T</td></tr>
+                <tr><td><strong>Rule 4</strong></td><td>—</td><td>Any act matching none of the above.</td><td>Transient</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="muted" style="font-size:.8rem;margin-top:8px">
+            <strong>Peak / 7d</strong> in this report is the maximum number of acts on a magnet/cab within any rolling 7-day window over the period.
+            It is the escape-proof indicator for the weekly rules: <strong>peak ≥3 on a magnet → Rule 3b</strong>, <strong>peak ≥4 on a cab → Rule 3a</strong>,
+            caught even when the run straddles a calendar-week boundary (the reason this report uses a 14-day floor, not 7).
+          </p>
+        </section>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- drill-down modal (same shape as aws.html) -->
+  <div class="modal fade" id="eventModal" tabindex="-1">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+      <div class="modal-content" style="background:var(--bg);border:1px solid var(--stroke);">
+        <div class="modal-header" style="border-color:var(--stroke);">
+          <h5 class="modal-title" id="eventModalTitle">Event Details</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body" id="eventModalBody"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const state = { window: 14, data: null };
+
+    function escapeHtml(v){
+      if (v === null || v === undefined) return '';
+      return String(v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+    function fmtDate(d){
+      if (!d) return '';
+      const x = new Date(d);
+      if (isNaN(x)) return escapeHtml(d);
+      return `${String(x.getDate()).padStart(2,'0')}-${String(x.getMonth()+1).padStart(2,'0')}-${x.getFullYear()}`;
+    }
+    function peakCell(n, threshold){
+      n = Number(n) || 0;
+      const cls = n >= threshold ? 'peak-hi' : (n >= Math.max(2, threshold-1) ? 'peak-mid' : 'peak-lo');
+      return `<span class="peak ${cls}">${n}</span>`;
+    }
+
+    async function load(){
+      document.getElementById('sigTbody').innerHTML = '<tr><td colspan="9" class="text-center py-4 muted">Loading…</td></tr>';
+      document.getElementById('cabTbody').innerHTML = '<tr><td colspan="8" class="text-center py-4 muted">Loading…</td></tr>';
+      try{
+        const resp = await fetch(`/api/division/aws/recurrence-report?window=${state.window}`);
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        state.data = await resp.json();
+        render(state.data);
+      }catch(err){
+        console.error(err);
+        document.getElementById('sigTbody').innerHTML = `<tr><td colspan="9" class="text-center py-4" style="color:var(--danger)">Failed to load: ${escapeHtml(err.message)}</td></tr>`;
+        document.getElementById('cabTbody').innerHTML = '';
+      }
+    }
+
+    function render(d){
+      const p = d.period || {};
+      document.getElementById('stPeriod').textContent = p.from ? `${fmtDate(p.from)} → ${fmtDate(p.to)}` : 'No data';
+      document.getElementById('stSig').textContent = d.signals.length;
+      document.getElementById('stCab').textContent = d.cabs.length;
+      const ruleSig = d.signals.filter(s => Number(s.peak_7day) >= 3).length;
+      const ruleCab = d.cabs.filter(c => Number(c.peak_7day) >= 4).length;
+      document.getElementById('stRule').textContent = `${ruleSig} + ${ruleCab}`;
+
+      // signals
+      const sigT = document.getElementById('sigTbody');
+      if (!d.signals.length){
+        sigT.innerHTML = '<tr><td colspan="9" class="text-center py-4 muted">No recurring signals in this window.</td></tr>';
+      } else {
+        sigT.innerHTML = d.signals.map(s => {
+          const ruleTag = Number(s.peak_7day) >= 3 ? ' <span class="rule-tag">3b</span>' : '';
+          const flagged = Number(s.st_acts) > 0 ? ' <span class="flagged-tag">S&amp;T set</span>' : '';
+          const view = s.event_ids
+            ? `<button class="btn btn-sm btn-neo view-events-btn" data-ids="${escapeHtml(String(s.event_ids))}" data-title="Signal ${escapeHtml(s.signal_number)}"><i class="bi bi-eye"></i></button>` : '';
+          return `<tr>
+            <td><strong>${escapeHtml(s.signal_number)}</strong>${ruleTag}</td>
+            <td><small class="muted">${escapeHtml(s.sections || '')}${s.line ? ' · ' + escapeHtml(s.line) : ''}</small></td>
+            <td class="text-center">${s.total_acts}</td>
+            <td class="text-center">${s.distinct_days}</td>
+            <td class="text-center">${peakCell(s.peak_7day, 3)}</td>
+            <td class="text-center">${s.distinct_cabs}${flagged}</td>
+            <td><small>${escapeHtml(s.codes || '')}</small></td>
+            <td><small>${fmtDate(s.last_date)}</small></td>
+            <td class="text-end">${view}</td>
+          </tr>`;
+        }).join('');
+      }
+
+      // cabs
+      const cabT = document.getElementById('cabTbody');
+      if (!d.cabs.length){
+        cabT.innerHTML = '<tr><td colspan="8" class="text-center py-4 muted">No recurring cabs in this window.</td></tr>';
+      } else {
+        cabT.innerHTML = d.cabs.map(c => {
+          const ruleTag = Number(c.peak_7day) >= 4 ? ' <span class="rule-tag">3a</span>' : '';
+          const flagged = Number(c.cab_acts) > 0 ? ' <span class="flagged-tag">cab set</span>' : '';
+          const unit = c.unit_no ? `${escapeHtml(c.unit_no)}${c.shed_code ? ' / ' + escapeHtml(c.shed_code) : ''}` : '<span class="muted">—</span>';
+          const view = c.event_ids
+            ? `<button class="btn btn-sm btn-neo view-events-btn" data-ids="${escapeHtml(String(c.event_ids))}" data-title="Cab ${escapeHtml(c.cab_number)}"><i class="bi bi-eye"></i></button>` : '';
+          return `<tr>
+            <td><strong>${escapeHtml(c.cab_number)}</strong>${ruleTag}${flagged}</td>
+            <td><small class="muted">${unit}</small></td>
+            <td class="text-center">${c.total_acts}</td>
+            <td class="text-center">${c.distinct_days}</td>
+            <td class="text-center">${peakCell(c.peak_7day, 4)}</td>
+            <td><small>${escapeHtml(c.codes || '')}</small></td>
+            <td><small>${fmtDate(c.last_date)}</small></td>
+            <td class="text-end">${view}</td>
+          </tr>`;
+        }).join('');
+      }
+    }
+
+    // window toggle
+    document.getElementById('winToggle').addEventListener('click', (e) => {
+      const btn = e.target.closest('.win-pill');
+      if (!btn) return;
+      state.window = parseInt(btn.dataset.win, 10);
+      document.querySelectorAll('.win-pill').forEach(b => b.classList.toggle('active', b === btn));
+      load();
+    });
+
+    // drill-down (same wiring as aws.html)
+    document.addEventListener('click', async (e) => {
+      const btn = e.target.closest('.view-events-btn');
+      if (!btn) return;
+      const ids = btn.dataset.ids;
+      const title = btn.dataset.title || 'Event Details';
+      if (!ids) return;
+      document.getElementById('eventModalTitle').textContent = title;
+      document.getElementById('eventModalBody').innerHTML = '<div class="text-center py-4">Loading…</div>';
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('eventModal')).show();
+      try{
+        const resp = await fetch(`/api/division/aws/events-by-ids?ids=${ids}`);
+        if (!resp.ok) throw new Error('Failed to fetch');
+        const data = await resp.json();
+        if (!data.events || !data.events.length){
+          document.getElementById('eventModalBody').innerHTML = '<div class="text-center py-4 muted">No events found</div>';
+          return;
+        }
+        let html = `<table class="table table-sm"><thead><tr>
+          <th>Date</th><th>Time</th><th>Code</th><th>Location</th><th>D/Cab</th>
+          <th>Train</th><th>Crew</th><th>Detail</th></tr></thead><tbody>`;
+        data.events.forEach(ev => {
+          const detailShort = (ev.detail || '').substring(0,80) + ((ev.detail || '').length > 80 ? '…' : '');
+          const timeStr = ev.abn_time ? ev.abn_time.toString().substring(0,5) : '';
+          html += `<tr>
+            <td>${fmtDate(ev.abn_date)}</td>
+            <td>${escapeHtml(timeStr)}</td>
+            <td><span class="badge bg-info">${escapeHtml(ev.aws_code || '?')}</span></td>
+            <td>${escapeHtml(ev.location_raw)}</td>
+            <td>${escapeHtml(ev.loco_raw)}${ev.unit_no ? `<br><small class="muted">${escapeHtml(ev.unit_no)}</small>` : ''}</td>
+            <td>${escapeHtml(ev.train_number)}</td>
+            <td>${escapeHtml(ev.crew_name)}<br><small class="muted">${escapeHtml(ev.crew_id)}</small></td>
+            <td><small>${escapeHtml(detailShort)}</small></td>
+          </tr>`;
+        });
+        html += '</tbody></table>';
+        document.getElementById('eventModalBody').innerHTML = html;
+      }catch(err){
+        document.getElementById('eventModalBody').innerHTML = `<div class="text-center py-4" style="color:var(--danger)">${escapeHtml(err.message)}</div>`;
+      }
+    });
+
+    // exports
+    document.getElementById('btnPrint').addEventListener('click', (e) => { e.preventDefault(); window.print(); });
+
+    document.getElementById('btnExportExcel').addEventListener('click', (e) => {
+      e.preventDefault();
+      if (!state.data) return;
+      const rows = [];
+      rows.push(['AWS Recurring Defects', `${fmtDate(state.data.period.from)} to ${fmtDate(state.data.period.to)}`, `${state.window} days`]);
+      rows.push([]);
+      rows.push(['RECURRING SIGNALS']);
+      rows.push(['Signal','Section','Line','Total acts','Distinct days','Peak 7-day','Distinct cabs','Rule 3b','Codes','Last seen']);
+      state.data.signals.forEach(s => rows.push([s.signal_number, s.sections, s.line || '', s.total_acts, s.distinct_days, s.peak_7day, s.distinct_cabs, Number(s.peak_7day)>=3?'YES':'', s.codes, fmtDate(s.last_date)]));
+      rows.push([]);
+      rows.push(['RECURRING CABS']);
+      rows.push(['Cab','Unit','Shed','Total acts','Distinct days','Peak 7-day','Rule 3a','Codes','Last seen']);
+      state.data.cabs.forEach(c => rows.push([c.cab_number, c.unit_no || '', c.shed_code || '', c.total_acts, c.distinct_days, c.peak_7day, Number(c.peak_7day)>=4?'YES':'', c.codes, fmtDate(c.last_date)]));
+      const csv = rows.map(r => r.map(v => {
+        const s = (v === null || v === undefined) ? '' : String(v);
+        return /[",\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s;
+      }).join(',')).join('\n');
+      const blob = new Blob([csv], {type:'text/csv'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `aws_recurring_${state.window}d.csv`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
+
+    document.getElementById('btnExportPdf').addEventListener('click', async (e) => {
+      e.preventDefault();
+      const el = document.getElementById('reportBody');
+      const canvas = await html2canvas(el, { backgroundColor:'#0b1220', scale:2 });
+      const img = canvas.toDataURL('image/png');
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF('p','mm','a4');
+      const w = 210, h = canvas.height * w / canvas.width;
+      let left = h, pos = 0;
+      pdf.addImage(img, 'PNG', 0, pos, w, h);
+      left -= 297;
+      while (left > 0){ pos = left - h; pdf.addPage(); pdf.addImage(img,'PNG',0,pos,w,h); left -= 297; }
+      pdf.save(`aws_recurring_${state.window}d.pdf`);
+    });
+
+    // ===== Full printable report (unified 90-day, banded) =====
+    function peakBadge(n, thr, rule){
+      n = Number(n) || 0;
+      const cls = n >= thr ? 'peak-hi' : (n >= Math.max(2, thr-1) ? 'peak-mid' : 'peak-lo');
+      const tag = n >= thr ? ` <span class="rule-tag">${rule}</span>` : '';
+      return `<span class="peak ${cls}">${n}</span>${tag}`;
+    }
+    function bandLabel(b){ return `<span class="band-lbl lbl-${b}">${b}</span>`; }
+    function incTime(t){ return t ? String(t).substring(0,5) : ''; }
+    function crewCell(i){
+      return `${escapeHtml(i.crew_name || '')}${i.crew_id ? '<br><small class="muted">'+escapeHtml(i.crew_id)+'</small>' : ''}`;
+    }
+
+    function frSignalEntry(s){
+      const counts = `<span class="cnt cnt-14d">14d: ${s.n14}</span>`
+        + `<span class="cnt cnt-30d">30d: ${s.n30}</span>`
+        + `<span class="cnt cnt-90d">90d: ${s.total_acts}</span>`;
+      const flagged = Number(s.st_acts) > 0 ? ' <span class="flagged-tag">S&amp;T set</span>' : '';
+      const rows = (s.incidents || []).map(i => `<tr class="band-${i.band}">
+        <td>${bandLabel(i.band)}</td>
+        <td>${fmtDate(i.abn_date)}</td>
+        <td>${escapeHtml(incTime(i.abn_time))}</td>
+        <td><span class="badge bg-info">${escapeHtml(i.aws_code || '?')}</span></td>
+        <td>${escapeHtml(i.loco_raw || '')}</td>
+        <td>${escapeHtml(i.train_number || '')}</td>
+        <td>${crewCell(i)}</td>
+        <td><small>${escapeHtml((i.detail || '').substring(0,70))}</small></td>
+      </tr>`).join('');
+      return `<div class="fr-entry">
+        <div class="fr-head">
+          <div><span class="fr-title">${escapeHtml(s.signal_number)}</span>
+            <small class="muted ms-2">${escapeHtml(s.sections || '')}${s.line ? ' · ' + escapeHtml(s.line) : ''}</small>${flagged}</div>
+          <div class="d-flex align-items-center gap-2">
+            <small class="muted">peak/7d</small> ${peakBadge(s.peak_7day, 3, '3b')}
+            <div class="fr-counts">${counts}</div>
+          </div>
+        </div>
+        <div class="table-responsive"><table class="table table-sm mb-0">
+          <thead><tr><th>Band</th><th>Date</th><th>Time</th><th>Code</th><th>Cab</th><th>Train</th><th>Crew</th><th>Detail</th></tr></thead>
+          <tbody>${rows}</tbody></table></div>
+      </div>`;
+    }
+
+    function frCabEntry(c){
+      const counts = `<span class="cnt cnt-14d">14d: ${c.n14}</span>`
+        + `<span class="cnt cnt-30d">30d: ${c.n30}</span>`
+        + `<span class="cnt cnt-90d">90d: ${c.total_acts}</span>`;
+      const unit = c.unit_no ? `${escapeHtml(c.unit_no)}${c.shed_code ? ' / ' + escapeHtml(c.shed_code) : ''}` : '';
+      const flagged = Number(c.cab_acts) > 0 ? ' <span class="flagged-tag">cab set</span>' : '';
+      const rows = (c.incidents || []).map(i => `<tr class="band-${i.band}">
+        <td>${bandLabel(i.band)}</td>
+        <td>${fmtDate(i.abn_date)}</td>
+        <td>${escapeHtml(incTime(i.abn_time))}</td>
+        <td><span class="badge bg-info">${escapeHtml(i.aws_code || '?')}</span></td>
+        <td>${escapeHtml(i.signal_number || i.location_raw || '')}</td>
+        <td>${escapeHtml(i.train_number || '')}</td>
+        <td>${crewCell(i)}</td>
+        <td><small>${escapeHtml((i.detail || '').substring(0,70))}</small></td>
+      </tr>`).join('');
+      return `<div class="fr-entry">
+        <div class="fr-head">
+          <div><span class="fr-title">Cab ${escapeHtml(c.cab_number)}</span>
+            ${unit ? `<small class="muted ms-2">${unit}</small>` : ''}${flagged}</div>
+          <div class="d-flex align-items-center gap-2">
+            <small class="muted">peak/7d</small> ${peakBadge(c.peak_7day, 4, '3a')}
+            <div class="fr-counts">${counts}</div>
+          </div>
+        </div>
+        <div class="table-responsive"><table class="table table-sm mb-0">
+          <thead><tr><th>Band</th><th>Date</th><th>Time</th><th>Code</th><th>Signal</th><th>Train</th><th>Crew</th><th>Detail</th></tr></thead>
+          <tbody>${rows}</tbody></table></div>
+      </div>`;
+    }
+
+    function frHeaderHtml(d){
+      const p = d.period || {};
+      const g = new Date();
+      const gs = `${String(g.getDate()).padStart(2,'0')}-${String(g.getMonth()+1).padStart(2,'0')}-${g.getFullYear()} ${String(g.getHours()).padStart(2,'0')}:${String(g.getMinutes()).padStart(2,'0')}`;
+      const w = d.window_days || 90;
+      return `<h1 style="font-size:1.3rem;font-weight:850;margin:0 0 4px">AWS Recurring Defects — ${w}-day Report</h1>
+        <div class="muted" style="font-size:.9rem">Period <strong>${fmtDate(p.from)} → ${fmtDate(p.to)}</strong> · ${d.signals.length} recurring signals · ${d.cabs.length} recurring cabs · min ${d.min_acts} acts · generated ${gs}</div>
+        <div class="muted" style="font-size:.8rem;margin-top:4px">Peak/7d = max acts in any rolling 7-day window. ≥3 on a magnet → JPO Rule 3b (S&amp;T); ≥4 on a cab → Rule 3a (cab side). Bands are nested: totals include the shorter windows. See the JPO Rules reference on the last page.</div>`;
+    }
+
+    function frSummaryHtml(d){
+      const sig = d.signals, cab = d.cabs;
+      const cnt = (arr, f) => arr.filter(f).length;
+      const sig3b = cnt(sig, s => Number(s.peak_7day) >= 3);
+      const cab3a = cnt(cab, c => Number(c.peak_7day) >= 4);
+      const sigA14 = cnt(sig, s => Number(s.n14) > 0), sigA30 = cnt(sig, s => Number(s.n30) > 0);
+      const cabA14 = cnt(cab, c => Number(c.n14) > 0), cabA30 = cnt(cab, c => Number(c.n30) > 0);
+      const tile = (k, v, sub) => `<div class="fr-tile"><div class="k">${k}</div><div class="v">${v}${sub ? ` <small>${sub}</small>` : ''}</div></div>`;
+
+      const topSig = sig.slice(0,5).map(s => `<tr>
+        <td><strong>${escapeHtml(s.signal_number)}</strong> <small class="muted">${escapeHtml(s.sections || '')}</small></td>
+        <td class="text-center">${peakBadge(s.peak_7day, 3, '3b')}</td>
+        <td class="text-center"><span class="cnt cnt-14d">${s.n14}</span></td>
+        <td class="text-center"><span class="cnt cnt-30d">${s.n30}</span></td>
+        <td class="text-center">${s.total_acts}</td></tr>`).join('') || '<tr><td colspan="5" class="muted">None</td></tr>';
+      const topCab = cab.slice(0,5).map(c => `<tr>
+        <td><strong>${escapeHtml(c.cab_number)}</strong>${c.unit_no ? ` <small class="muted">${escapeHtml(c.unit_no)}</small>` : ''}</td>
+        <td class="text-center">${peakBadge(c.peak_7day, 4, '3a')}</td>
+        <td class="text-center"><span class="cnt cnt-14d">${c.n14}</span></td>
+        <td class="text-center"><span class="cnt cnt-30d">${c.n30}</span></td>
+        <td class="text-center">${c.total_acts}</td></tr>`).join('') || '<tr><td colspan="5" class="muted">None</td></tr>';
+      const topHead = `<thead><tr><th>Signal / Cab</th><th class="text-center">Peak/7d</th><th class="text-center">14d</th><th class="text-center">30d</th><th class="text-center">90d</th></tr></thead>`;
+
+      return `
+        <div class="fr-sub">Signals summary</div>
+        <div class="fr-summary-grid">
+          ${tile('Recurring signals', sig.length)}
+          ${tile('Rule 3b hits', sig3b, 'peak ≥3')}
+          ${tile('Active last 14d', sigA14)}
+          ${tile('Active last 30d', sigA30)}
+        </div>
+        <div class="fr-sub">Cabs summary</div>
+        <div class="fr-summary-grid">
+          ${tile('Recurring cabs', cab.length)}
+          ${tile('Rule 3a hits', cab3a, 'peak ≥4')}
+          ${tile('Active last 14d', cabA14)}
+          ${tile('Active last 30d', cabA30)}
+        </div>
+        <div class="fr-sub">Top repeaters</div>
+        <div class="fr-top">
+          <div><div class="muted mb-1" style="font-size:.8rem"><i class="bi bi-signpost-2 me-1"></i>Signals</div>
+            <div class="table-responsive"><table class="table table-sm mb-0">${topHead}<tbody>${topSig}</tbody></table></div></div>
+          <div><div class="muted mb-1" style="font-size:.8rem"><i class="bi bi-train-front me-1"></i>Cabs</div>
+            <div class="table-responsive"><table class="table table-sm mb-0">${topHead}<tbody>${topCab}</tbody></table></div></div>
+        </div>`;
+    }
+
+    let reportData = null;
+    let reportWindow = 90;
+
+    async function showFullReport(win){
+      if (win) reportWindow = win;
+      const btn = document.getElementById('btnFullReport');
+      const old = btn.innerHTML;
+      btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Building…';
+      try{
+        const resp = await fetch(`/api/division/aws/recurrence-full?window=${reportWindow}`);
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        const d = await resp.json();
+        reportData = d;
+        document.querySelectorAll('#frWinToggle .win-pill').forEach(b =>
+          b.classList.toggle('active', parseInt(b.dataset.win,10) === reportWindow));
+        document.getElementById('frHeader').innerHTML = frHeaderHtml(d);
+        document.getElementById('frSummary').innerHTML = frSummaryHtml(d);
+        document.getElementById('frSignals').innerHTML = d.signals.length
+          ? d.signals.map(frSignalEntry).join('') : '<p class="muted">None.</p>';
+        document.getElementById('frCabs').innerHTML = d.cabs.length
+          ? d.cabs.map(frCabEntry).join('') : '<p class="muted">None.</p>';
+        document.getElementById('statsRow').style.display = 'none';
+        document.getElementById('reportBody').style.display = 'none';
+        document.getElementById('fullReport').style.display = 'block';
+        window.scrollTo(0, 0);
+      }catch(err){
+        alert('Failed to build report: ' + err.message);
+      }finally{
+        btn.disabled = false; btn.innerHTML = old;
+      }
+    }
+    function backToBrowse(){
+      document.getElementById('fullReport').style.display = 'none';
+      document.getElementById('statsRow').style.display = '';
+      document.getElementById('reportBody').style.display = '';
+    }
+    document.getElementById('btnFullReport').addEventListener('click', () => showFullReport(90));
+    document.getElementById('btnBackBrowse').addEventListener('click', backToBrowse);
+    document.getElementById('btnPrintReport').addEventListener('click', () => window.print());
+    document.getElementById('frWinToggle').addEventListener('click', (e) => {
+      const b = e.target.closest('.win-pill');
+      if (b) showFullReport(parseInt(b.dataset.win, 10));
+    });
+
+    // CSV of the report's incidents, scoped to the current window
+    document.getElementById('btnReportCsv').addEventListener('click', () => {
+      if (!reportData) return;
+      const d = reportData;
+      const rows = [];
+      rows.push([`AWS Recurring Defects — ${d.window_days}-day incident report`, `${fmtDate(d.period.from)} to ${fmtDate(d.period.to)}`]);
+      rows.push([]);
+      rows.push(['SIGNALS — incidents']);
+      rows.push(['Signal','Sections','Peak/7d','14d','30d','90d total','Band','Date','Time','Code','Cab','Train','Crew ID','Crew','Detail']);
+      d.signals.forEach(s => (s.incidents || []).forEach(i => rows.push([
+        s.signal_number, s.sections || '', s.peak_7day, s.n14, s.n30, s.total_acts,
+        i.band, fmtDate(i.abn_date), incTime(i.abn_time), i.aws_code, i.loco_raw || '',
+        i.train_number || '', i.crew_id || '', i.crew_name || '', (i.detail || '')
+      ])));
+      rows.push([]);
+      rows.push(['CABS — incidents']);
+      rows.push(['Cab','Unit','Shed','Peak/7d','14d','30d','90d total','Band','Date','Time','Code','Signal','Train','Crew ID','Crew','Detail']);
+      d.cabs.forEach(c => (c.incidents || []).forEach(i => rows.push([
+        c.cab_number, c.unit_no || '', c.shed_code || '', c.peak_7day, c.n14, c.n30, c.total_acts,
+        i.band, fmtDate(i.abn_date), incTime(i.abn_time), i.aws_code, i.signal_number || i.location_raw || '',
+        i.train_number || '', i.crew_id || '', i.crew_name || '', (i.detail || '')
+      ])));
+      const csv = rows.map(r => r.map(v => {
+        const s = (v === null || v === undefined) ? '' : String(v);
+        return /[",\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s;
+      }).join(',')).join('\n');
+      const blob = new Blob([csv], {type:'text/csv'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `aws_recurring_${d.window_days}d_incidents.csv`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
+
+    load();
+  </script>
+</body>
+</html>
