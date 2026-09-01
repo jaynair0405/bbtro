@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>My Sessions · CLI</title>
+<link rel="manifest" href="/cli/manifest.json">
+<meta name="theme-color" content="#0d2a52">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="CLI">
+<link rel="apple-touch-icon" href="/cli/img/icon-192.png">
+<link rel="icon" href="/cli/img/icon-192.png">
+<link rel="stylesheet" href="/cli/css/cli.css?v2">
+</head>
+<body>
+<div class="scrim" data-cli-scrim></div>
+<div class="app">
+  <aside class="side" data-cli-nav></aside>
+  <div class="main">
+    <header class="topbar no-print">
+      <button class="icon-btn" data-cli-burger aria-label="Menu">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+      </button>
+      <h1>My Sessions</h1>
+      <span data-cli-status></span>
+    </header>
+    <div data-cli-host></div>
+    <div class="wrap" data-cli-body hidden>
+      <div class="banner" data-cli-toast style="display:none"></div>
+      <div class="page-head no-print">
+        <div><h2>My Sessions</h2><div class="sub">Everything recorded at your lobby.</div></div>
+        <div class="spacer"></div>
+        <div data-cli-actions style="display:flex;gap:10px;flex-wrap:wrap"></div>
+      </div>
+      <div data-cli-main></div>
+    </div>
+  </div>
+</div>
+<nav class="tabbar no-print" data-cli-tabs></nav>
+<script src="/cli/js/cli-derive.js?v2"></script>
+<script src="/cli/js/cli-shell.js?v2"></script>
+<script src="/cli/js/cli-data.js?v2"></script>
+<script src="/cli/js/page-history.js?v2"></script>
+</body>
+</html>

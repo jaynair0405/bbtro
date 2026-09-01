@@ -119,6 +119,22 @@ app.use(session({
 // 🔒 Confine the single-purpose 'clicms' (HQ-CLI) account to /clicms only.
 //    Its realm is 'division', so without this it could reach /div and /api/division
 //    (those gate on realm, not div_role). Allowlist: /clicms/* + auth endpoints.
+// 🔒 Confine the ~145 (soon ~175) lobby-CLI accounts to the CLI PWA.
+//    Same reasoning as the 'clicms' block below: their realm is 'division', so
+//    without this a lobby CLI could reach the whole division portal — biodata,
+//    promotions, personnel — which a counselling app has no business opening.
+//    Allowlist: /cli/* + its own API + auth. Widening it later is one line here;
+//    the app itself does not change.
+app.use((req, res, next) => {
+  if (req.session.user?.div_role !== 'cli') return next();
+  const p = req.path;
+  const authOk = new Set(['/api/current-user', '/api/logout', '/api/login', '/api/status', '/api/change-password']);
+  if (p.startsWith('/cli') || p.startsWith('/api/division/counselling') ||
+      p === '/favicon.ico' || authOk.has(p)) return next();
+  if (p.startsWith('/api/')) return res.status(403).json({ error: 'Access restricted to the CLI app' });
+  return res.redirect('/cli/');
+});
+
 app.use((req, res, next) => {
   if (req.session.user?.div_role !== 'clicms') return next();
   const p = req.path;
@@ -169,6 +185,9 @@ app.use('/div', (req, res, next) => {
   const role = req.session?.user?.div_role;
   if (['ctlc', 'ctlc_view'].includes(role)) {
     return res.redirect('/control-office/');
+  }
+  if (role === 'cli') {
+    return res.redirect('/cli/');
   }
   if (role === 'ssehq') {
     if (DIV_ASSET.test(req.path) || SSEHQ_PAGES.has(req.path)) return next();
@@ -660,6 +679,27 @@ app.use('/clicms', express.static(path.join(__dirname, 'public', 'clicms')));
 // Data endpoints (/upload, /export/*) stay gated to division-realm clicms/division_admin.
 app.use('/clicms', requireClicms, express.json({ limit: '15mb' }), clicmsRouter);
 
+// ---- CLI PWA (SPAD prevention counselling) ----
+// Mounted BEFORE the open public/ static below so /cli/ resolves here.
+//
+// The app SHELL is served without a session, exactly as /clicms is: a service
+// worker and manifest must be fetchable for the browser to offer "Install", and
+// these files hold no data — every figure on every screen comes from
+// /api/division/counselling, which is gated. Serving the shell behind the
+// session gate instead would make the PWA uninstallable.
+app.use('/cli', express.static(path.join(__dirname, 'public', 'cli'), { index: false }));
+const requireCliApp = (req, res, next) => {
+  if (!req.session.user) return res.redirect('/');
+  if (req.session.user.realm !== 'division') return res.redirect('/');
+  const role = req.session.user.div_role;
+  if (role !== 'cli' && role !== 'division_admin') return res.redirect('/div');
+  next();
+};
+// express.static above runs { index: false }, so the bare folder needs this.
+app.get(['/cli', '/cli/'], requireCliApp, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'cli', 'index.html'));
+});
+
 app.use(express.static(path.join(__dirname, "public"), { index: false }));
 
 // Add realm-based authentication middleware
@@ -835,6 +875,7 @@ const documentRoutes = require('./routes/division/documentRoutes');
 const transferLetterRoutes = require('./routes/division/transferLetterRoutes');
 const cadreLetterRoutes = require('./routes/division/cadreLetterRoutes');
 const ssehqRoutes = require('./routes/division/ssehqRoutes');
+const counsellingRoutes = require('./routes/division/counsellingRoutes');
 const subCrewRoutes = require('./routes/division/subCrewRoutes');
 
 // Add division routes with realm protection
@@ -889,6 +930,7 @@ app.use("/api/division/documents", requireRealm('division'), documentRoutes);
 app.use("/api/division/transfer-letters", requireRealm('division'), transferLetterRoutes);
 app.use("/api/division/cadre-letters", requireRealm('division'), cadreLetterRoutes);
 app.use("/api/division/ssehq", requireRealm('division'), ssehqRoutes);
+app.use("/api/division/counselling", requireRealm('division'), counsellingRoutes);
 app.use("/api/division/suburban", requireRealm('division'), subCrewRoutes);
 
 // Session info endpoint

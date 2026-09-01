@@ -1,0 +1,292 @@
+/* ============================================================================
+ * CLI app — design tokens and shell.
+ *
+ * Deliberately NOT the crtms dark theme. This is used on a phone, in a lobby,
+ * often in daylight, by someone standing up: light ground, big type, big tap
+ * targets. Railway blue carries identity and every primary action; RED IS
+ * RESERVED for overdue and alert, so a warning still reads as one.
+ * ==========================================================================*/
+
+:root {
+  --blue-900:#0d2a52; --blue-700:#164a8a; --blue-600:#1b5bab; --blue-500:#2472ce;
+  --blue-100:#dbe9fb; --blue-50:#f0f6fe;
+
+  --red-600:#c62828; --red-500:#e03131; --red-100:#fde5e5; --red-50:#fff5f5;
+  --green-600:#1b7f4d; --green-100:#dcf3e7;
+  --amber-600:#a35b06; --amber-100:#fdefd4;
+
+  --ink:#101828; --ink-2:#41506b; --ink-3:#75839e;
+  --line:#dfe4ee; --line-2:#eef1f7;
+  --bg:#f4f6fa; --card:#ffffff;
+
+  --radius:14px;
+  --shadow:0 1px 2px rgba(16,24,40,.06), 0 8px 24px -12px rgba(16,24,40,.18);
+  --shadow-lg:0 2px 4px rgba(16,24,40,.06), 0 20px 44px -20px rgba(16,24,40,.28);
+
+  --rail:264px;
+  --tap:48px;            /* nothing interactive is smaller than a thumb */
+  --safe-b:env(safe-area-inset-bottom, 0px);
+
+  --font:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --mono:ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+}
+
+*,*::before,*::after{box-sizing:border-box}
+
+/* Inline SVGs carry a viewBox but no width/height, so inside a flex container
+   they stretch to the full width and drag the element's height with them.
+   Size them once, here, rather than per component. */
+.ico{width:18px;height:18px;flex:none}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:var(--font); font-size:15px; line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+  /* iOS standalone: stop the rubber-band bounce revealing the void */
+  overscroll-behavior-y:none;
+}
+h1,h2,h3,p,figure{margin:0}
+button,input,select,textarea{font:inherit;color:inherit}
+a{color:var(--blue-600)}
+
+/* Digits must line up in every table and stat. */
+.num,table td,table th,.stat-value{font-variant-numeric:tabular-nums}
+
+/* ── App frame ─────────────────────────────────────────────────────────── */
+
+.app{display:grid;grid-template-columns:var(--rail) 1fr;min-height:100vh}
+
+.side{
+  background:var(--blue-900); color:#fff;
+  display:flex; flex-direction:column;
+  position:sticky; top:0; height:100vh; overflow-y:auto;
+}
+.brand{padding:20px 18px 16px;border-bottom:1px solid rgba(255,255,255,.12)}
+.brand-mark{display:flex;align-items:center;gap:10px}
+.brand-dot{width:10px;height:24px;border-radius:3px;background:var(--blue-500);flex:none}
+.brand-name{font-size:15px;font-weight:700;letter-spacing:.02em;line-height:1.2}
+.brand-sub{font-size:11px;color:#9db7db;letter-spacing:.14em;text-transform:uppercase;margin-top:2px}
+
+/* The division motto. It is the reason the app exists, so it is given its own
+   rule rather than being tucked in as small print. Amber, because the palette
+   keeps red strictly for overdue and alert — a standing motto is neither. */
+.motto{display:flex;align-items:center;gap:8px;margin-top:12px;
+  font-size:10px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;
+  color:#ffc46b}
+.motto::before{content:'';width:16px;height:2px;border-radius:2px;background:#ffc46b;flex:none}
+.motto.on-light{color:var(--amber-600);margin-top:8px}
+.motto.on-light::before{background:var(--amber-600)}
+
+.nav{padding:12px 10px;flex:1}
+.nav-group{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:#7f9dc7;padding:14px 10px 6px}
+.nav a,.nav span.nav-item{
+  display:flex;align-items:center;gap:11px;
+  padding:11px 12px;margin-bottom:2px;border-radius:10px;
+  color:#cfe0f5;text-decoration:none;font-size:14px;font-weight:500;
+  min-height:var(--tap);
+}
+.nav a:hover{background:rgba(255,255,255,.08);color:#fff}
+.nav a.active{background:var(--blue-600);color:#fff;font-weight:600}
+.nav .ico{width:18px;height:18px;flex:none;opacity:.9}
+.nav .nav-item.soon{opacity:.42;cursor:default}
+.nav .pill{
+  margin-left:auto;font-size:9px;letter-spacing:.1em;text-transform:uppercase;
+  background:rgba(255,255,255,.16);padding:3px 7px;border-radius:20px;
+}
+.nav .count{margin-left:auto;font-size:12px;font-weight:700;color:#fff;
+  background:var(--red-500);padding:2px 8px;border-radius:20px}
+
+.side-foot{padding:14px 16px;border-top:1px solid rgba(255,255,255,.12);font-size:12px}
+.side-foot .who{color:#fff;font-weight:600}
+.side-foot .where{color:#9db7db;font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin-top:2px}
+.side-foot a{display:inline-block;margin-top:10px;color:#9db7db;font-size:12px}
+
+/* ── Top bar (mobile) ──────────────────────────────────────────────────── */
+
+.topbar{display:none;position:sticky;top:0;z-index:30;
+  background:var(--blue-900);color:#fff;align-items:center;gap:10px;
+  padding:10px 12px;padding-top:calc(10px + env(safe-area-inset-top,0px))}
+.topbar h1{font-size:15px;font-weight:600;flex:1;min-width:0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.icon-btn{background:transparent;border:0;color:inherit;width:var(--tap);height:var(--tap);
+  border-radius:10px;display:grid;place-items:center;cursor:pointer}
+.icon-btn:active{background:rgba(255,255,255,.14)}
+
+.scrim{display:none;position:fixed;inset:0;background:rgba(9,17,32,.5);z-index:39}
+.scrim.on{display:block}
+
+/* ── Main ──────────────────────────────────────────────────────────────── */
+
+.main{min-width:0;display:flex;flex-direction:column}
+.wrap{padding:24px 28px 60px;max-width:1080px;width:100%;margin:0 auto;flex:1}
+
+.page-head{display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:20px}
+.page-head h2{font-size:22px;font-weight:700;letter-spacing:-.01em}
+.page-head .sub{color:var(--ink-3);font-size:13px;margin-top:3px}
+.page-head .spacer{flex:1}
+
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+.card + .card{margin-top:16px}
+.card-head{padding:14px 18px;border-bottom:1px solid var(--line-2);
+  display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.card-head h3{font-size:14px;font-weight:600}
+.card-body{padding:18px}
+.card-body.tight{padding:0}
+
+/* ── Coverage hero ─────────────────────────────────────────────────────── */
+
+.hero{background:linear-gradient(135deg,var(--blue-700),var(--blue-900));
+  color:#fff;border-radius:var(--radius);padding:22px;box-shadow:var(--shadow-lg)}
+.hero .label{font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:#a8c6ec}
+.hero-stats{display:flex;gap:34px;margin-top:14px;flex-wrap:wrap}
+.hero-stat .stat-value{font-size:42px;font-weight:800;line-height:1;letter-spacing:-.03em}
+.hero-stat .stat-label{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#a8c6ec;margin-top:6px}
+.hero-stat.alert .stat-value{color:#ff9d9d}
+.bar{height:9px;border-radius:20px;background:rgba(255,255,255,.18);overflow:hidden;margin-top:20px}
+.bar > i{display:block;height:100%;border-radius:20px;background:#5fd39a;transition:width .4s ease}
+.bar-note{display:flex;justify-content:space-between;font-size:11px;color:#a8c6ec;margin-top:8px}
+
+/* ── Staff rows ────────────────────────────────────────────────────────── */
+
+.rows{list-style:none;margin:0;padding:0}
+.rows li{display:flex;align-items:center;gap:12px;padding:12px 18px;
+  border-bottom:1px solid var(--line-2);min-height:var(--tap)}
+.rows li:last-child{border-bottom:0}
+.rows .who,.check .who{flex:1;min-width:0}
+/* .nm / .meta are spans in the staff picker and divs in the list rows, so
+   force the stacking here rather than relying on the tag. */
+.nm,.meta{display:block}
+.nm{font-weight:600;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.meta{font-size:12px;color:var(--ink-3);margin-top:2px}
+
+.tag{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.08em;
+  text-transform:uppercase;padding:3px 8px;border-radius:6px;
+  background:var(--blue-50);color:var(--blue-700);border:1px solid var(--blue-100)}
+.tag.warn{background:var(--red-50);color:var(--red-600);border-color:var(--red-100)}
+.tag.ok{background:var(--green-100);color:var(--green-600);border-color:transparent}
+.tag.mute{background:var(--line-2);color:var(--ink-3);border-color:transparent}
+.tag.mine{background:var(--amber-100);color:var(--amber-600);border-color:transparent}
+
+/* ── Buttons ───────────────────────────────────────────────────────────── */
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  min-height:var(--tap);padding:0 18px;border-radius:10px;border:1px solid var(--line);
+  background:var(--card);color:var(--ink);font-size:14px;font-weight:600;cursor:pointer;
+  text-decoration:none;transition:background .12s,border-color .12s}
+.btn:hover{background:var(--blue-50);border-color:var(--blue-100)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn.primary{background:var(--blue-600);border-color:var(--blue-600);color:#fff}
+.btn.primary:hover{background:var(--blue-700);border-color:var(--blue-700)}
+.btn.danger{background:var(--card);border-color:var(--red-100);color:var(--red-600)}
+.btn.danger:hover{background:var(--red-50)}
+.btn.block{width:100%}
+.btn.big{min-height:56px;font-size:16px}
+.btn.sm{min-height:36px;padding:0 12px;font-size:13px;font-weight:500}
+
+/* ── Forms ─────────────────────────────────────────────────────────────── */
+
+.field{margin-bottom:16px}
+.field > label{display:block;font-size:12px;font-weight:600;color:var(--ink-2);
+  letter-spacing:.04em;text-transform:uppercase;margin-bottom:6px}
+.field .hint{font-size:12px;color:var(--ink-3);margin-top:5px}
+.input,select.input,textarea.input{
+  width:100%;min-height:var(--tap);padding:11px 13px;border-radius:10px;
+  border:1px solid var(--line);background:var(--card);
+  font-size:16px;  /* < 16px makes iOS zoom the page on focus */
+}
+.input:focus{outline:2px solid var(--blue-500);outline-offset:-1px;border-color:var(--blue-500)}
+textarea.input{min-height:84px;resize:vertical;line-height:1.5}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+
+.check{display:flex;align-items:center;gap:12px;padding:11px 18px;
+  border-bottom:1px solid var(--line-2);cursor:pointer;min-height:var(--tap)}
+.check:hover{background:var(--blue-50)}
+.check input[type=checkbox]{width:22px;height:22px;accent-color:var(--blue-600);flex:none;margin:0}
+.check.on{background:var(--blue-50)}
+
+/* ── Tables (the consolidated sheet) ───────────────────────────────────── */
+
+.table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table.sheet{width:100%;border-collapse:collapse;font-size:14px;min-width:640px}
+table.sheet th,table.sheet td{padding:11px 12px;text-align:center;border-bottom:1px solid var(--line-2)}
+table.sheet thead th{background:var(--blue-50);color:var(--blue-900);
+  font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+  border-bottom:2px solid var(--blue-100);position:sticky;top:0;z-index:1}
+table.sheet th:first-child,table.sheet td:first-child{text-align:left;font-weight:600}
+table.sheet td.zero{color:var(--ink-3);opacity:.45}
+table.sheet td.hit{cursor:pointer}
+table.sheet td.hit:hover{background:var(--blue-50);color:var(--blue-700);font-weight:700}
+table.sheet tr.total-row td{background:var(--blue-900);color:#fff;font-weight:700;border-bottom:0}
+table.sheet td.col-total,table.sheet th.col-total{background:var(--blue-50);font-weight:700}
+table.sheet tr.total-row td.col-total{background:var(--blue-700)}
+
+/* ── Banners, chips, states ────────────────────────────────────────────── */
+
+.banner{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;
+  border-radius:10px;font-size:13px;margin-bottom:16px}
+.banner.warn{background:var(--amber-100);color:var(--amber-600)}
+.banner.alert{background:var(--red-50);color:var(--red-600);border:1px solid var(--red-100)}
+.banner.info{background:var(--blue-50);color:var(--blue-700)}
+
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;
+  padding:6px 11px;border-radius:20px;background:var(--line-2);color:var(--ink-2)}
+.chip.sync{background:var(--amber-100);color:var(--amber-600)}
+.chip.off{background:var(--red-100);color:var(--red-600)}
+.chip.lock{background:var(--ink);color:#fff}
+
+.state{padding:56px 20px;text-align:center;color:var(--ink-3)}
+.state h3{font-size:16px;color:var(--ink);margin-bottom:6px}
+.spinner{width:26px;height:26px;margin:0 auto 14px;border-radius:50%;
+  border:3px solid var(--line);border-top-color:var(--blue-600);animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.sticky-foot{position:sticky;bottom:0;background:var(--card);
+  border-top:1px solid var(--line);padding:12px 18px;
+  padding-bottom:calc(12px + var(--safe-b));
+  display:flex;gap:12px;align-items:center;box-shadow:0 -8px 24px -18px rgba(16,24,40,.5)}
+
+/* ── Bottom bar (mobile only) ──────────────────────────────────────────── */
+
+.tabbar{display:none}
+
+@media (max-width:900px){
+  .app{grid-template-columns:1fr}
+  .topbar{display:flex}
+  .side{position:fixed;left:0;top:0;bottom:0;width:min(84vw,300px);z-index:40;
+    transform:translateX(-101%);transition:transform .22s ease}
+  .side.open{transform:none}
+  .wrap{padding:16px 14px calc(84px + var(--safe-b))}
+  .grid-2{grid-template-columns:1fr}
+  .hero-stats{gap:26px}
+
+  .tabbar{display:grid;grid-template-columns:repeat(3,1fr);
+    position:fixed;left:0;right:0;bottom:0;z-index:35;
+    background:var(--card);border-top:1px solid var(--line);
+    padding-bottom:var(--safe-b)}
+  .tabbar a{display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:3px;min-height:58px;text-decoration:none;color:var(--ink-3);
+    font-size:11px;font-weight:600}
+  .tabbar a.active{color:var(--blue-600)}
+  .tabbar .ico{width:21px;height:21px}
+}
+
+/* ── Print — the sheet is what goes before the officers ────────────────── */
+
+@media print{
+  .side,.topbar,.tabbar,.no-print,.sticky-foot,.scrim{display:none!important}
+  .app{display:block}
+  body{background:#fff;font-size:12px}
+  .wrap{padding:0;max-width:none}
+  .card{border:0;box-shadow:none}
+  .card-head{border-bottom:1px solid #000}
+  .table-scroll{overflow:visible}
+  table.sheet{min-width:0}
+  table.sheet th,table.sheet td{border:1px solid #999;padding:6px 8px}
+  table.sheet thead th{background:#eee!important;color:#000!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  table.sheet tr.total-row td{background:#ddd!important;color:#000!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  table.sheet td.zero{opacity:1;color:#000}
+  .print-title{display:block!important}
+  .motto{display:flex!important;color:#000!important}
+  .motto::before{background:#000!important}
+}
+.print-title{display:none}

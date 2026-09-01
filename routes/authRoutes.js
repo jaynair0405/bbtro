@@ -38,7 +38,7 @@ router.post('/login', async (req, res) => {
 
     // Look up user in the specified realm
     const [rows] = await conn.query(
-      'SELECT id, username, password, role, full_name, office, realm, div_role, div_office_code, can_access_sub_spm, training_center_id FROM users WHERE username = ? AND realm = ? LIMIT 1',
+      'SELECT id, username, password, role, full_name, office, realm, div_role, div_office_code, can_access_sub_spm, training_center_id, cli_id, must_change_password FROM users WHERE username = ? AND realm = ? LIMIT 1',
 
       [username, realm]
     );
@@ -84,7 +84,11 @@ router.post('/login', async (req, res) => {
       div_role: user.div_role,
       div_office_code: user.div_office_code,
       can_access_sub_spm: !!user.can_access_sub_spm,
-      training_center_id: user.training_center_id || null
+      training_center_id: user.training_center_id || null,
+      // Which CLI this login IS. Bulk-generated lobby-CLI accounts carry it, so
+      // "counselled by" needs no typing and cannot be mistyped.
+      cli_id: user.cli_id || null,
+      must_change_password: !!user.must_change_password
     };
 
     // Redirect target by realm
@@ -101,6 +105,10 @@ router.post('/login', async (req, res) => {
       } else if (user.div_role === 'clicms') {
         // HQ-CLI (CMS Due List) user → straight to the tool (PWA landing)
         redirectUrl = '/clicms/';
+      } else if (user.div_role === 'cli') {
+        // Lobby CLI → the CLI PWA (its only destination; see the confinement
+        // block in server.js).
+        redirectUrl = '/cli/';
       } else {
         redirectUrl = '/div';
       }
@@ -116,6 +124,7 @@ router.post('/login', async (req, res) => {
       div_role: user.div_role,
       div_office_code: user.div_office_code,
       training_center_id: user.training_center_id || null,
+      must_change_password: !!user.must_change_password,
       redirect: redirectUrl
     });
 
@@ -212,11 +221,14 @@ router.post('/change-password', async (req, res) => {
     // Hash new password
     const newPasswordHash = await bcrypt.hash(newPassword, 12);
 
-    // Update password in database
+    // Update password in database. Clearing must_change_password here is what
+    // lets a bulk-generated CLI account out of the first-login gate — the flag
+    // is set by scripts/create_cli_users.js and cleared only by an actual change.
     await conn.query(
-      'UPDATE users SET password = ? WHERE id = ? LIMIT 1',
+      'UPDATE users SET password = ?, must_change_password = 0 WHERE id = ? LIMIT 1',
       [newPasswordHash, userId]
     );
+    if (req.session.user) req.session.user.must_change_password = false;
 
     return res.json({
       success: true,

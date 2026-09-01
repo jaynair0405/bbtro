@@ -37,3 +37,6 @@ Thumbs.db
 # One-time staff import artifacts (bulk data + PII, not schema) — never commit
 sql/*new_pnvl_alp*.sql
 csv/new_pnvl_alp*
+
+# Bulk-generated CLI login passwords — distribute then delete, never commit
+cli_user_passwords_*.csv
