@@ -14,7 +14,7 @@
  *   fresh page can pair with stale cached JS — the failure documented in
  *   public/clicms/clicms-sw.js and worth not repeating.
  * ==========================================================================*/
-const CACHE_VERSION = 'cli-v2';
+const CACHE_VERSION = 'cli-v5';
 
 const SHELL = [
   '/cli/',
@@ -22,14 +22,18 @@ const SHELL = [
   '/cli/session.html',
   '/cli/history.html',
   '/cli/sheet.html',
-  '/cli/css/cli.css?v2',
-  '/cli/js/cli-derive.js?v2',
-  '/cli/js/cli-shell.js?v2',
-  '/cli/js/cli-data.js?v2',
-  '/cli/js/page-home.js?v2',
-  '/cli/js/page-session.js?v2',
-  '/cli/js/page-history.js?v2',
-  '/cli/js/page-sheet.js?v2',
+  '/cli/password.html',
+  '/cli/accounts.html',
+  '/cli/css/cli.css?v5',
+  '/cli/js/cli-derive.js?v5',
+  '/cli/js/cli-shell.js?v5',
+  '/cli/js/cli-data.js?v5',
+  '/cli/js/page-home.js?v5',
+  '/cli/js/page-session.js?v5',
+  '/cli/js/page-history.js?v5',
+  '/cli/js/page-sheet.js?v5',
+  '/cli/js/page-password.js?v5',
+  '/cli/js/page-accounts.js?v5',
   '/cli/manifest.json',
   '/cli/img/icon-192.png',
   '/cli/img/icon-512.png',

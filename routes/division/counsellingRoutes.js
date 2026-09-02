@@ -31,11 +31,34 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const ExcelJS = require('exceljs');
+const bcrypt = require('bcrypt');
 
 // The SAME file the browser loads. See its header for why this is shared.
 const D = require('../../public/cli/js/cli-derive.js');
 
 const SPAD = 'SPAD';
+
+/* "Not Assigned" is a PLACEHOLDER row in div_cli_master, not a person — staff are
+   parked under it while on long training or under punishment. It is the only CLI
+   with no CMS ID, which is also why it can never have a login. Everywhere the app
+   offers a CLI to a human, this excludes it. */
+const REAL_CLI = `c.cmsid IS NOT NULL AND c.cmsid <> ''`;
+
+/**
+ * What the counselling was about.
+ *
+ * The default is the standing topic; the other three are the instruction being
+ * counselled against, and each needs its number typed in — which is why they
+ * carry a `numbered` flag rather than being plain strings. Storing the number
+ * inside the subject text keeps it visible on the officers' sheet without a
+ * further column.
+ */
+const SUBJECT_OPTIONS = [
+  { key: 'SIGNAL_VIGILANCE', label: 'Signal Vigilance and SPAD Awareness', numbered: false },
+  { key: 'SR_DEE',           label: 'Sr DEE Instruction',                  numbered: true },
+  { key: 'CEE_OP',           label: 'CEE OP Instruction',                  numbered: true },
+  { key: 'SAFETY_CIRCULAR',  label: 'Safety Circular',                     numbered: true },
+];
 const UPLOAD_DIR = path.join(__dirname, '..', '..', 'uploads', 'counselling');
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
@@ -75,6 +98,19 @@ function access(req, res, next) {
   next();
 }
 router.use(access);
+
+/* A bulk-generated account is on a password HQ read out over the phone. Until it
+   is replaced, the account may look around but may not write — otherwise the
+   "counselled by" on a permanent record could be anyone who overheard it.
+   Reads stay open so the redirect target can load and explain itself. */
+router.use((req, res, next) => {
+  if (!req.session.user?.must_change_password) return next();
+  if (req.method === 'GET') return next();
+  return res.status(403).json({
+    error: 'Change your password before recording anything.',
+    must_change_password: true,
+  });
+});
 
 /**
  * The per-lobby scope, in ONE place.
@@ -150,6 +186,11 @@ async function isLocked(conn, date, topicId, office) {
   return !!row;
 }
 
+function hqOnly(req, res, next) {
+  if (!req.isHQ) return res.status(403).json({ error: 'HQ access required' });
+  next();
+}
+
 // ── Bootstrap ─────────────────────────────────────────────────────────────
 
 router.get('/bootstrap', async (req, res) => {
@@ -174,16 +215,26 @@ router.get('/bootstrap', async (req, res) => {
 
     // The "on behalf of" list: any active CLI in the same lobby. HQ sees all.
     const scope = req.isHQ ? { sql: '', params: [] }
-      : { sql: ' AND current_office_code = ? ', params: [u.div_office_code] };
+      : { sql: ' AND c.current_office_code = ? ', params: [u.div_office_code] };
     const [clis] = await conn.query(
-      `SELECT cli_id, cli_name, current_office_code
-         FROM div_cli_master
-        WHERE is_active = 1 ${scope.sql}
-        ORDER BY cli_name`, scope.params
+      `SELECT c.cli_id, c.cli_name, c.current_office_code
+         FROM div_cli_master c
+        WHERE c.is_active = 1 AND ${REAL_CLI} ${scope.sql}
+        ORDER BY c.cli_name`, scope.params
+    );
+
+    // Lobbies, for the venue picker. Every active CLI but one carries a
+    // current_office_code, so the venue prefills from it and is only ever
+    // changed when counselling happened somewhere else.
+    const [offices] = await conn.query(
+      `SELECT office_code, office_name FROM offices
+        WHERE is_active = 1 AND office_code <> 'OTHER' ORDER BY office_name`
     );
 
     conn.release();
     res.json({
+      offices,
+      subjects: SUBJECT_OPTIONS,
       me: {
         user_id: u.id,
         username: u.username,
@@ -193,6 +244,7 @@ router.get('/bootstrap', async (req, res) => {
         cli_id: cli ? cli.cli_id : null,
         cli_name: cli ? cli.cli_name : null,
         is_hq: req.isHQ,
+        must_change_password: !!u.must_change_password,
       },
       topics,
       clis,
@@ -225,7 +277,15 @@ function rosterSql(extraWhere) {
            (SELECT MAX(cs.session_date)
               FROM div_counselling_attendees ca
               JOIN div_counselling_sessions  cs ON cs.session_id = ca.session_id
-             WHERE ca.staff_hrms_id = s.hrms_id AND cs.topic_id = ?) AS last_counselled
+             WHERE ca.staff_hrms_id = s.hrms_id AND cs.topic_id = ?) AS last_counselled,
+           -- How often this person has been counselled recently. A staff member
+           -- counselled four times in a quarter and one counselled once both read
+           -- as "done" against the cycle; this is what tells them apart.
+           (SELECT COUNT(DISTINCT cs2.session_id)
+              FROM div_counselling_attendees ca2
+              JOIN div_counselling_sessions  cs2 ON cs2.session_id = ca2.session_id
+             WHERE ca2.staff_hrms_id = s.hrms_id AND cs2.topic_id = ?
+               AND cs2.session_date >= DATE_SUB(CURDATE(), INTERVAL 90 DAY)) AS count_90d
       FROM div_staff_master s
       JOIN designations dg ON dg.id = s.designation_id
      WHERE s.status = 'Active'
@@ -265,17 +325,69 @@ router.get('/roster', async (req, res) => {
 
     const [rows] = await conn.query(
       rosterSql(' AND s.current_cli_id = ? ') + ' ORDER BY s.name',
-      [topic.topic_id, cliId]
+      [topic.topic_id, topic.topic_id, cliId]
+    );
+
+    // Where this CLI actually sits, so we can tell which nominees they can reach.
+    const [[cliRow]] = await conn.query(
+      `SELECT current_office_code FROM div_cli_master WHERE cli_id = ?`, [cliId]
+    );
+    const cliOffice = cliRow ? cliRow.current_office_code : null;
+
+    /* What this CLI has personally counselled lately, split by whether the staff
+       are their own nominees. Coverage answers "is my patch up to date"; this
+       answers "what have I been doing" — a CLI who counsels 40 people a month,
+       none of them nominated to them, looks idle on coverage alone. */
+    const [[act]] = await conn.query(
+      `SELECT COUNT(DISTINCT cs.session_id) AS sessions,
+              COUNT(DISTINCT a.staff_hrms_id) AS staff_total,
+              COUNT(DISTINCT CASE WHEN sm.current_cli_id = ? THEN a.staff_hrms_id END) AS staff_mine
+         FROM div_counselling_sessions cs
+         JOIN div_counselling_attendees a ON a.session_id = cs.session_id
+         JOIN div_staff_master sm ON sm.hrms_id = a.staff_hrms_id
+        WHERE cs.cli_id = ? AND cs.topic_id = ?
+          AND cs.session_date >= DATE_SUB(CURDATE(), INTERVAL ? DAY)`,
+      [cliId, cliId, topic.topic_id, topic.cycle_days || 90]
     );
     conn.release();
 
-    const staff = decorate(rows, topic.cycle_days);
-    const pending = staff.filter((s) => s.pending).length;
+    const depot = D.depotOf(cliOffice);
+    const scope = D.staffScopeFor(cliOffice);
+    const staff = decorate(rows, topic.cycle_days).map((r) => {
+      // Two ways a nominee can be unreachable: they sit at another depot, or
+      // their designation falls outside this CLI's half of the lobby (an LPG
+      // promoted to motorman under a mainline CLI). Both are shown rather than
+      // hidden — silently dropping them would make coverage look complete when
+      // it is not.
+      const offLobby = !!depot && D.depotOf(r.current_office_code) !== depot;
+      const offScope = !offLobby && !D.inScope(scope, r.designation_id);
+      return { ...r, off_lobby: offLobby, off_scope: offScope };
+    });
+
+    // Coverage counts EVERY nominee. Cross-lobby nomination is legitimate, and
+    // the picker now lets a CLI select any of their own nominees, so there is no
+    // such thing as a nominee who cannot be counselled. off_lobby / off_scope
+    // remain as information — worth noticing, not worth excluding.
+    const pending = staff.filter((x) => x.pending).length;
     res.json({
       topic,
       cli_id: cliId,
+      cli_office: cliOffice,
       staff,
-      counts: { total: staff.length, done: staff.length - pending, pending },
+      counts: {
+        total: staff.length,
+        done: staff.length - pending,
+        pending,
+        off_lobby: staff.filter((x) => x.off_lobby).length,
+        off_scope: staff.filter((x) => x.off_scope).length,
+      },
+      activity: {
+        window_days: topic.cycle_days || 90,
+        sessions: Number(act.sessions || 0),
+        staff_total: Number(act.staff_total || 0),
+        staff_mine: Number(act.staff_mine || 0),
+        staff_others: Number(act.staff_total || 0) - Number(act.staff_mine || 0),
+      },
     });
   } catch (e) {
     if (conn) conn.release();
@@ -307,14 +419,44 @@ router.get('/lobby-roster', async (req, res) => {
       ? (req.query.office ? D.depotOf(req.query.office) : null)
       : D.depotOf(mineOffice);
 
-    const params = [topic.topic_id];
+    // A mainline CLI does not counsel motormen and a suburban CLI counsels only
+    // motormen — but at IGP / LNL / NRL, which are not split into -ML and -SUB,
+    // motormen genuinely work alongside everyone else, so no filter applies.
+    // See staffScopeFor() in cli-derive.js.
+    const scope = req.isHQ && req.query.office ? D.staffScopeFor(req.query.office)
+                : req.isHQ ? 'all'
+                : D.staffScopeFor(mineOffice);
+
+    const params = [topic.topic_id, topic.topic_id];
     let where = '';
     if (depot) {
       // CSMT → CSMT-ML + CSMT-SUB + a bare CSMT row should one ever exist.
-      where += ` AND (s.current_office_code = ? OR s.current_office_code = ? OR s.current_office_code = ?) `;
+      // Plus this CLI's own nominees at any depot — cross-lobby nomination is
+      // routine in suburban, and those staff are still theirs to counsel.
+      const mine = req.session.user.cli_id || null;
+      where += ` AND (s.current_office_code = ? OR s.current_office_code = ? OR s.current_office_code = ?` +
+               (mine ? ` OR s.current_cli_id = ?` : ``) + `) `;
       params.push(depot, `${depot}-ML`, `${depot}-SUB`);
+      if (mine) params.push(mine);
     } else if (!req.isHQ) {
       where += ' AND 1=0 ';
+    }
+
+    /* The designation rule governs BROWSING the lobby: a mainline CLI should not
+       wade through 381 motormen. It must not govern the CLI's OWN nominees.
+       Cross-lobby nomination is normal in suburban, and a nominee who has been
+       transferred or promoted is still that CLI's to counsel — excluding them
+       would leave staff nobody could reach. So the scope filter is OR-ed with
+       "is nominated to me". */
+    const myCliId = req.session.user.cli_id || null;
+    if (scope === 'motorman' || scope === 'non-motorman') {
+      const op = scope === 'motorman' ? '=' : '<>';
+      if (myCliId) {
+        where += ` AND (s.designation_id ${op} ${D.MOTORMAN_ID} OR s.current_cli_id = ?) `;
+        params.push(myCliId);
+      } else {
+        where += ` AND s.designation_id ${op} ${D.MOTORMAN_ID} `;
+      }
     }
 
     const q = (req.query.q || '').trim();
@@ -327,10 +469,24 @@ router.get('/lobby-roster', async (req, res) => {
     conn.release();
 
     const myCli = req.session.user.cli_id || null;
+    const staff = decorate(rows, topic.cycle_days)
+      .map((r) => ({ ...r, is_mine: !!myCli && r.current_cli_id === myCli }));
     res.json({
       topic,
       depot,
-      staff: decorate(rows, topic.cycle_days).map((r) => ({ ...r, is_mine: !!myCli && r.current_cli_id === myCli })),
+      scope,
+      staff,
+      // The designation filter's options come from what is actually in this
+      // lobby, so a mainline CLI is never offered an empty "M/Man" chip.
+      designations: D.DESIGNATION_COLUMNS
+        .filter((c) => staff.some((s2) => c.ids.indexOf(Number(s2.designation_id)) >= 0))
+        .map((c) => ({ key: c.key, label: c.label, ids: c.ids,
+                       n: staff.filter((s2) => c.ids.indexOf(Number(s2.designation_id)) >= 0).length })),
+      counts: {
+        total: staff.length,
+        mine: staff.filter((s2) => s2.is_mine).length,
+        others: staff.filter((s2) => !s2.is_mine).length,
+      },
     });
   } catch (e) {
     if (conn) conn.release();
@@ -486,16 +642,31 @@ router.post('/sessions', async (req, res) => {
 
     // Snapshot designation + office from the master AS AT NOW. See the sql
     // migration for why these are copied rather than joined at read time.
+    //
+    // status='Active' is checked HERE, not just in the picker. A phone can hold a
+    // cached roster for days and flush it from the outbox later, so the staff it
+    // names may since have been drafted out or medically decategorised. The
+    // picker never offers them; this is what stops a stale queue slipping one in.
     const [staffRows] = await conn.query(
       `SELECT hrms_id, designation_id, current_office_code FROM div_staff_master
-        WHERE hrms_id IN (?) AND designation_id IN (${RUNNING_IDS.join(',')})`, [hrmsIds]
+        WHERE hrms_id IN (?) AND status = 'Active'
+          AND designation_id IN (${RUNNING_IDS.join(',')})`, [hrmsIds]
     );
     if (staffRows.length !== hrmsIds.length) {
       const found = new Set(staffRows.map((r) => r.hrms_id));
+      // Name them. This can surface days later when an offline queue flushes,
+      // by which time "some staff were rejected" would be useless to the CLI.
+      const missing = hrmsIds.filter((h) => !found.has(h));
+      const [why] = await conn.query(
+        `SELECT hrms_id, name, status FROM div_staff_master WHERE hrms_id IN (?)`, [missing]
+      );
       conn.release();
       return res.status(400).json({
-        error: 'Some staff are not running staff or do not exist',
-        details: hrmsIds.filter((h) => !found.has(h)).join(', '),
+        error: 'Some staff are no longer on the running roster',
+        details: missing.map((h) => {
+          const w = why.find((x) => x.hrms_id === h);
+          return w ? `${w.name} (${w.status})` : `${h} (not found)`;
+        }).join(', '),
       });
     }
     const remarkBy = {};
@@ -564,7 +735,8 @@ router.put('/sessions/:id', async (req, res) => {
       }
       const [staffRows] = await conn.query(
         `SELECT hrms_id, designation_id, current_office_code FROM div_staff_master
-          WHERE hrms_id IN (?) AND designation_id IN (${RUNNING_IDS.join(',')})`, [hrmsIds]
+          WHERE hrms_id IN (?) AND status = 'Active'
+            AND designation_id IN (${RUNNING_IDS.join(',')})`, [hrmsIds]
       );
       const remarkBy = {};
       b.staff.forEach((x) => { if (x && x.hrms_id && x.remarks) remarkBy[x.hrms_id] = String(x.remarks).slice(0, 500); });
@@ -794,11 +966,6 @@ router.get('/sheet/export', async (req, res) => {
 
 // ── Locks ─────────────────────────────────────────────────────────────────
 
-function hqOnly(req, res, next) {
-  if (!req.isHQ) return res.status(403).json({ error: 'HQ access required' });
-  next();
-}
-
 router.post('/locks', hqOnly, async (req, res) => {
   let conn;
   try {
@@ -863,6 +1030,105 @@ router.delete('/locks', hqOnly, async (req, res) => {
   } catch (e) {
     if (conn) conn.release();
     console.error('counselling/unlock:', e);
+    res.status(500).json({ error: 'Database error', details: e.message });
+  }
+});
+
+// ── CLI accounts (HQ) ─────────────────────────────────────────────────────
+// Answers "what if a CLI forgets their password?". There is no email or SMS on
+// these accounts, so the only workable reset is HQ issuing a new one and reading
+// it out — which is exactly how the first password was distributed.
+
+const PW_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789'; // no O/0, l/1/I
+function makePassword(len = 10) {
+  const bytes = crypto.randomBytes(len);
+  let out = '';
+  for (let i = 0; i < len; i++) out += PW_ALPHABET[bytes[i] % PW_ALPHABET.length];
+  return out;
+}
+
+router.get('/cli-users', hqOnly, async (req, res) => {
+  let conn;
+  try {
+    conn = await req.app.locals.pool.getConnection();
+    const [rows] = await conn.query(
+      `SELECT c.cli_id, c.cli_name, c.cmsid, c.current_office_code, c.cli_mobile,
+              u.id AS user_id, u.username, u.must_change_password,
+              (SELECT COUNT(*) FROM div_staff_master s
+                WHERE s.current_cli_id = c.cli_id AND s.status = 'Active') AS nominees,
+              (SELECT MAX(cs.session_date) FROM div_counselling_sessions cs
+                WHERE cs.cli_id = c.cli_id) AS last_session
+         FROM div_cli_master c
+         LEFT JOIN users u ON u.cli_id = c.cli_id AND u.div_role = 'cli'
+        WHERE c.is_active = 1 AND ${REAL_CLI}
+        ORDER BY c.current_office_code, c.cli_name`
+    );
+    conn.release();
+    res.json({
+      clis: rows.map((r) => ({
+        ...r,
+        last_session: isoDate(r.last_session),
+        has_login: !!r.user_id,
+        must_change_password: !!r.must_change_password,
+      })),
+    });
+  } catch (e) {
+    if (conn) conn.release();
+    console.error('counselling/cli-users:', e);
+    res.status(500).json({ error: 'Database error', details: e.message });
+  }
+});
+
+/**
+ * Reset (or first-time issue) a CLI's password.
+ * The new password is returned ONCE and never stored in the clear — HQ reads it
+ * out, and must_change_password forces the CLI to replace it at first use.
+ */
+router.post('/cli-users/:cliId/reset-password', hqOnly, async (req, res) => {
+  let conn;
+  try {
+    conn = await req.app.locals.pool.getConnection();
+    const [[cli]] = await conn.query(
+      `SELECT cli_id, cli_name, cmsid, current_office_code
+         FROM div_cli_master WHERE cli_id = ? AND is_active = 1`, [req.params.cliId]
+    );
+    if (!cli) { conn.release(); return res.status(404).json({ error: 'Unknown or inactive CLI' }); }
+    if (!cli.cmsid) {
+      conn.release();
+      return res.status(400).json({ error: 'This CLI has no CMS ID in the master, so no username can be made.' });
+    }
+
+    const password = makePassword();
+    const hash = await bcrypt.hash(password, 12);
+    const username = String(cli.cmsid).trim().toLowerCase();
+
+    const [[existing]] = await conn.query(
+      `SELECT id FROM users WHERE cli_id = ? AND div_role = 'cli'`, [cli.cli_id]
+    );
+    if (existing) {
+      await conn.query(
+        `UPDATE users SET password = ?, must_change_password = 1 WHERE id = ?`, [hash, existing.id]
+      );
+    } else {
+      const [[clash]] = await conn.query(`SELECT id FROM users WHERE username = ?`, [username]);
+      if (clash) {
+        conn.release();
+        return res.status(409).json({ error: `Username "${username}" already belongs to another account.` });
+      }
+      await conn.query(
+        `INSERT INTO users (username, password, role, full_name, realm, div_role, div_office_code, cli_id, must_change_password)
+         VALUES (?, ?, 'user', ?, 'division', 'cli', ?, ?, 1)`,
+        [username, hash, cli.cli_name, cli.current_office_code, cli.cli_id]
+      );
+    }
+    // The password itself is never audited — only that a reset happened.
+    await audit(conn, req, null, existing ? 'password_reset' : 'account_created',
+      { cli_id: cli.cli_id, cli_name: cli.cli_name, username });
+    conn.release();
+    res.json({ success: true, username, password, created: !existing });
+  } catch (e) {
+    if (conn) conn.release();
+    console.error('counselling/reset-password:', e);
     res.status(500).json({ error: 'Database error', details: e.message });
   }
 });

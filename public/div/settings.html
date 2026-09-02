@@ -464,6 +464,39 @@
                 </div>
             </div>
 
+            <!-- CLI Logins Card -->
+            <!-- Distinct from CLI Management (which edits the CLI record itself)
+                 and from User Accounts (all portal users, every role). This one
+                 covers only the ~135 lobby-CLI logins for the Signal Vigilance
+                 app, which is where the reset actually lives. -->
+            <div class="settings-card admin-only" onclick="location.href='/cli/accounts.html'">
+                <div class="card-header">
+                    <div class="card-icon admin">🔑</div>
+                    <div class="card-title">
+                        <h3>CLI Logins</h3>
+                        <span class="badge">Admin Only</span>
+                    </div>
+                </div>
+                <div class="card-description">
+                    Sign-in accounts for the Signal Vigilance app. See who has a login,
+                    who has never signed in, and reset a forgotten password.
+                </div>
+                <div class="card-stats">
+                    <div class="stat-item">
+                        <div class="stat-value" id="cliLoginCount">—</div>
+                        <div class="stat-label">With a Login</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="cliUnusedCount">—</div>
+                        <div class="stat-label">Never Signed In</div>
+                    </div>
+                </div>
+                <div class="card-action">
+                    Manage Logins
+                    <span>→</span>
+                </div>
+            </div>
+
             <!-- CLI Management Card -->
             <div class="settings-card admin-only" onclick="location.href='/div/cli-management.html'">
                 <div class="card-header">
@@ -536,5 +569,20 @@
             </div>
         </div>
     </div>
+<script>
+// The neighbouring cards carry hardcoded counts that have already gone stale
+// (144 CLIs, 11 users). These two read the real numbers, and fail quietly to
+// the em-dash placeholder if the endpoint is not reachable.
+fetch('/api/division/counselling/cli-users', { credentials: 'same-origin' })
+  .then(function (r) { return r.ok ? r.json() : null; })
+  .then(function (d) {
+    if (!d) return;
+    var withLogin = d.clis.filter(function (c) { return c.has_login; }).length;
+    var unused = d.clis.filter(function (c) { return c.has_login && c.must_change_password; }).length;
+    var a = document.getElementById('cliLoginCount'); if (a) a.textContent = withLogin;
+    var b = document.getElementById('cliUnusedCount'); if (b) b.textContent = unused;
+  })
+  .catch(function () {});
+</script>
 </body>
 </html>

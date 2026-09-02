@@ -16,7 +16,9 @@
     sheet:  'M3 4h18v16H3zM3 9h18M9 9v11M15 9v11',
     ambush: 'M12 3l8 4v5c0 4.5-3.2 7.9-8 9-4.8-1.1-8-4.5-8-9V7z',
     chart:  'M4 20V10M10 20V4M16 20v-7M22 20H2',
-    boot:   'M4 4v10a4 4 0 0 0 4 4h5l4 2h3v-3l-3-2v-3a4 4 0 0 0-4-4H8V4z'
+    boot:   'M4 4v10a4 4 0 0 0 4 4h5l4 2h3v-3l-3-2v-3a4 4 0 0 0-4-4H8V4z',
+    key:    'M14 7a4 4 0 1 1-3.9 5H7v3H4v-3l6.1 0A4 4 0 0 1 14 7z',
+    users:  'M16 19v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6M22 19v-2a4 4 0 0 0-3-3.9'
   };
 
   var NAV = [
@@ -31,7 +33,11 @@
     { id: 'foot',    label: 'CLI Footplate',     icon: I.boot,   soon: true },
 
     { group: 'HQ', hq: true },
-    { id: 'sheet',   label: 'Consolidated Sheet', href: '/cli/sheet.html', icon: I.sheet, hq: true }
+    { id: 'sheet',    label: 'Consolidated Sheet', href: '/cli/sheet.html',    icon: I.sheet, hq: true },
+    { id: 'accounts', label: 'CLI Logins',         href: '/cli/accounts.html', icon: I.users, hq: true },
+
+    { group: 'Account' },
+    { id: 'password', label: 'Change Password', href: '/cli/password.html', icon: I.key }
   ];
 
   // The three the thumb reaches for. Kept short on purpose — a bottom bar with

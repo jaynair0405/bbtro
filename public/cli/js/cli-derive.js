@@ -57,6 +57,35 @@
     return String(officeCode).replace(/-(ML|SUB)$/i, '').toUpperCase();
   }
 
+  var MOTORMAN_ID = 8;
+
+  /* Which staff belong in a given CLI's picker.
+   *
+   *   CSMT-ML  -> everyone EXCEPT motormen
+   *   CSMT-SUB -> ONLY motormen
+   *   IGP / LNL / NRL / CLA -> everyone
+   *
+   * The last case is the one that cannot be dropped. Those lobbies are not split
+   * into -ML and -SUB, and motormen genuinely work there — 9 at LNL, 5 at IGP.
+   * Applying the mainline rule to them would hide those staff from every CLI who
+   * could counsel them.
+   *
+   * The 2 motormen sitting on CSMT-ML are the mirror case: the mainline CLI does
+   * not see them, but the suburban CLI does, because the picker searches the
+   * whole depot and then filters by designation rather than by office. Nobody
+   * falls through. */
+  function staffScopeFor(officeCode) {
+    var m = /-(ML|SUB)$/i.exec(officeCode || '');
+    if (!m) return 'all';
+    return m[1].toUpperCase() === 'SUB' ? 'motorman' : 'non-motorman';
+  }
+
+  function inScope(scope, designationId) {
+    if (scope === 'motorman') return Number(designationId) === MOTORMAN_ID;
+    if (scope === 'non-motorman') return Number(designationId) !== MOTORMAN_ID;
+    return true;
+  }
+
   function columnOf(designationId) {
     return DESIGNATION_TO_COLUMN[Number(designationId)] || null;
   }
@@ -152,6 +181,9 @@
     RUNNING_DESIGNATION_IDS: RUNNING_DESIGNATION_IDS,
     DEPOT_ORDER: DEPOT_ORDER,
     depotOf: depotOf,
+    MOTORMAN_ID: MOTORMAN_ID,
+    staffScopeFor: staffScopeFor,
+    inScope: inScope,
     columnOf: columnOf,
     emptyCounts: emptyCounts,
     buildSheet: buildSheet,

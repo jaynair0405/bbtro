@@ -5,7 +5,10 @@
 
   var S = {
     boot: null, topic: null, roster: [], selected: {}, remarks: {},
-    editId: null, locked: false, photo: null, q: '', onlyPending: false
+    editId: null, locked: false, photo: null, q: '', onlyPending: false,
+    desig: null,        // designation filter key, null = all
+    onlyMine: false,    // the Nominated chip
+    designations: [], counts: {}
   };
 
   var qs = new URLSearchParams(location.search);
@@ -14,21 +17,31 @@
 
   function staffLine(r) {
     var on = !!S.selected[r.hrms_id];
-    var tags = '';
-    if (r.is_mine) tags += '<span class="tag mine">Mine</span> ';
-    tags += '<span class="tag ' + (r.pending ? 'warn' : 'mute') + '">' +
-            (r.last_counselled ? (r.pending ? r.days_since + 'd' : '✓') : 'never') + '</span>';
-    return '<label class="check' + (on ? ' on' : '') + '" data-hrms="' + esc(r.hrms_id) + '">' +
+    // How many times in the last 90 days. Zero is left blank rather than shown
+    // as "0" — an empty circle beside every uncounselled name is noise, and the
+    // "never / Nd" tag already says it.
+    var n = Number(r.count_90d || 0);
+    var circle = n ? '<span class="circle' + (n > 1 ? ' many' : '') + '" ' +
+                     'title="' + n + ' counselling' + (n === 1 ? '' : 's') + ' in the last 90 days">' +
+                     n + '</span>' : '';
+    var tags = '<span class="tag ' + (r.pending ? 'warn' : 'mute') + '">' +
+               (r.last_counselled ? (r.pending ? r.days_since + 'd' : '✓') : 'never') + '</span>';
+    return '<label class="check' + (on ? ' on' : '') + (r.is_mine ? ' mine' : '') +
+      '" data-hrms="' + esc(r.hrms_id) + '">' +
       '<input type="checkbox"' + (on ? ' checked' : '') + '>' +
-      '<span class="who"><span class="nm">' + esc(r.name) + '</span>' +
+      '<span class="who"><span class="nm">' + esc(r.name) +
+        (r.is_mine ? '<span class="tag mine">Mine</span>' : '') + '</span>' +
       '<span class="meta">' + esc(r.current_cms_id || r.hrms_id) + ' · ' + esc(r.designation_code) +
-      ' · ' + esc(r.current_office_code) + '</span></span>' + tags + '</label>';
+      ' · ' + esc(r.current_office_code) + '</span></span>' + circle + tags + '</label>';
   }
 
   function visible() {
     var q = S.q.trim().toLowerCase();
+    var col = S.desig && S.designations.filter(function (d) { return d.key === S.desig; })[0];
     return S.roster.filter(function (r) {
+      if (S.onlyMine && !r.is_mine) return false;
       if (S.onlyPending && !r.pending) return false;
+      if (col && col.ids.indexOf(Number(r.designation_id)) < 0) return false;
       if (!q) return true;
       return (r.name || '').toLowerCase().indexOf(q) >= 0 ||
              (r.current_cms_id || '').toLowerCase().indexOf(q) >= 0 ||
@@ -41,14 +54,53 @@
     });
   }
 
+  /* Selected, split by whether they are this CLI's own nominees. Only the
+     nominated half moves the coverage figures on the Home screen, so showing one
+     combined number would make the two look interchangeable when they are not. */
+  function selectedSplit() {
+    var mine = 0, others = 0;
+    S.roster.forEach(function (r) {
+      if (!S.selected[r.hrms_id]) return;
+      if (r.is_mine) mine++; else others++;
+    });
+    return { mine: mine, others: others, total: mine + others };
+  }
+
+  function paintCounts() {
+    var sp = selectedSplit();
+    var rows = visible();
+    document.querySelector('[data-count]').innerHTML =
+      sp.total + ' selected' +
+      (sp.total ? ' <span class="sub-count">(' + sp.mine + ' mine · ' + sp.others + ' other)</span>' : '') +
+      (rows.length !== S.roster.length ? ' · showing ' + rows.length : '');
+    document.querySelector('[data-submit]').disabled = sp.total === 0;
+  }
+
+  function paintChips() {
+    var host = document.querySelector('[data-desig]');
+    if (!host) return;
+    var mineN = (S.counts && S.counts.mine) || 0;
+    host.innerHTML =
+      '<button class="btn sm chip-mine' + (S.onlyMine ? ' primary' : '') + '" data-mine>' +
+        '★ Nominated ' + mineN + '</button>' +
+      '<span class="chip-div"></span>' +
+      '<button class="btn sm' + (S.desig ? '' : ' primary') + '" data-d="">All ' +
+        S.roster.length + '</button>' +
+      S.designations.map(function (d) {
+        return '<button class="btn sm' + (S.desig === d.key ? ' primary' : '') +
+               '" data-d="' + esc(d.key) + '">' + esc(d.label) + ' ' + d.n + '</button>';
+      }).join('');
+  }
+
   function paintList() {
     var rows = visible();
     document.querySelector('[data-list]').innerHTML =
       rows.length ? rows.map(staffLine).join('')
-                  : '<div class="state"><h3>No match</h3><p>Nobody in this lobby matches “' + esc(S.q) + '”.</p></div>';
-    document.querySelector('[data-count]').textContent =
-      selectedCount() + ' selected' + (rows.length !== S.roster.length ? ' · showing ' + rows.length : '');
-    document.querySelector('[data-submit]').disabled = selectedCount() === 0;
+                  : '<div class="state"><h3>No match</h3><p>' +
+                    (S.onlyMine ? 'None of your nominated staff match that filter.'
+                                : 'Nobody in this lobby matches that filter.') + '</p></div>';
+    paintChips();
+    paintCounts();
   }
 
   function form() {
@@ -66,13 +118,32 @@
                        esc(c.cli_name) + ' · ' + esc(c.current_office_code) + '</option>';
               }).join('') +
             '</select>' +
-            '<div class="hint">Defaults to you. Change it only when recording on a colleague’s behalf.</div></div>' +
+            '<div class="hint">Defaults to you. Change it only when recording on another CLI’s behalf.</div></div>' +
         '</div>' +
         '<div class="field"><label for="f-subject">Subject</label>' +
-          '<input class="input" id="f-subject" maxlength="255" placeholder="' + esc(t.topic_name || 'SPAD Prevention') + '"></div>' +
+          '<select class="input" id="f-subject">' +
+            (b.subjects || []).map(function (o, i) {
+              return '<option value="' + esc(o.key) + '" data-numbered="' + (o.numbered ? '1' : '') + '"' +
+                     (i === 0 ? ' selected' : '') + '>' + esc(o.label) + (o.numbered ? ' — …' : '') + '</option>';
+            }).join('') +
+          '</select>' +
+          // Only appears for the three numbered instruction types. Kept as its own
+          // input rather than making the CLI type the whole subject line, so the
+          // wording on the officers' sheet stays identical across every lobby.
+          '<div data-num-wrap hidden style="margin-top:10px">' +
+            '<input class="input" id="f-subject-no" maxlength="30" placeholder="Instruction / circular number">' +
+          '</div>' +
+        '</div>' +
         '<div class="grid-2">' +
           '<div class="field"><label for="f-venue">Venue</label>' +
-            '<input class="input" id="f-venue" maxlength="100" placeholder="Lobby / crew booking"></div>' +
+            '<select class="input" id="f-venue">' +
+              (b.offices || []).map(function (o) {
+                return '<option value="' + esc(o.office_code) + '"' +
+                       (o.office_code === me.office_code ? ' selected' : '') + '>' +
+                       esc(o.office_name) + ' (' + esc(o.office_code) + ')</option>';
+              }).join('') +
+            '</select>' +
+            '<div class="hint">Prefilled with your own lobby.</div></div>' +
           '<div class="field"><label for="f-photo">Register photo</label>' +
             '<input class="input" type="file" id="f-photo" accept="image/*" capture="environment">' +
             '<div class="hint">Optional. Uploads after the entry is saved.</div></div>' +
@@ -86,6 +157,7 @@
           '<span class="tag" data-count>0 selected</span></div>' +
         '<div class="card-body" style="padding-bottom:10px">' +
           '<input class="input" data-q placeholder="Search name, CMS id or PF number…">' +
+          '<div class="chips" data-desig></div>' +
           '<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">' +
             '<button class="btn sm" data-only-pending>Only pending</button>' +
             '<button class="btn sm" data-select-visible>Select all shown</button>' +
@@ -109,8 +181,7 @@
       var id = lab.dataset.hrms;
       if (e.target.checked) S.selected[id] = true; else delete S.selected[id];
       lab.classList.toggle('on', e.target.checked);
-      document.querySelector('[data-count]').textContent = selectedCount() + ' selected';
-      document.querySelector('[data-submit]').disabled = selectedCount() === 0;
+      paintCounts();
     });
 
     var q = document.querySelector('[data-q]');
@@ -133,6 +204,32 @@
       S.selected = {}; paintList();
     });
     document.querySelector('[data-submit]').addEventListener('click', submit);
+
+    var subj = document.getElementById('f-subject');
+    function syncSubject() {
+      var numbered = !!subj.selectedOptions[0].dataset.numbered;
+      document.querySelector('[data-num-wrap]').hidden = !numbered;
+      if (!numbered) document.getElementById('f-subject-no').value = '';
+    }
+    subj.addEventListener('change', syncSubject);
+    syncSubject();
+
+    document.querySelector('[data-desig]').addEventListener('click', function (e) {
+      if (e.target.closest('[data-mine]')) { S.onlyMine = !S.onlyMine; return paintList(); }
+      var b2 = e.target.closest('[data-d]');
+      if (!b2) return;
+      S.desig = b2.dataset.d || null;
+      paintList();
+    });
+  }
+
+  /* The stored subject string. A numbered instruction becomes
+     "Sr DEE Instruction-14", which is what the officers' sheet should read. */
+  function subjectText() {
+    var sel = document.getElementById('f-subject').selectedOptions[0];
+    var label = sel.text.replace(/ — …$/, '');
+    var no = (document.getElementById('f-subject-no').value || '').trim();
+    return sel.dataset.numbered && no ? label + '-' + no : label;
   }
 
   function submit() {
@@ -142,11 +239,17 @@
       topic_code: (S.boot.topics[0] || {}).topic_code || 'SPAD',
       session_date: document.getElementById('f-date').value,
       cli_id: Number(document.getElementById('f-cli').value),
-      subject: document.getElementById('f-subject').value,
+      subject: subjectText(),
       venue: document.getElementById('f-venue').value,
       remarks: document.getElementById('f-remarks').value,
       staff: Object.keys(S.selected).map(function (h) { return { hrms_id: h }; })
     };
+    var sel = document.getElementById('f-subject').selectedOptions[0];
+    if (sel.dataset.numbered && !document.getElementById('f-subject-no').value.trim()) {
+      Cli.toast('Enter the ' + sel.text.replace(/ — …$/, '') + ' number.', 'alert');
+      document.getElementById('f-subject-no').focus();
+      return;
+    }
     btn.disabled = true; btn.textContent = 'Saving…';
 
     Cli.submitSession(payload).then(function (res) {
@@ -176,13 +279,17 @@
     S.boot = boot;
     var topic = (boot.topics[0] || {}).topic_code || 'SPAD';
     document.querySelector('[data-cli-main]').innerHTML = form();
+    var scopeNote = { 'motorman': ' · motormen', 'non-motorman': ' · excl. motormen', 'all': '' };
     document.querySelector('[data-foot-note]').textContent =
-      boot.me.office_code ? boot.me.office_code + ' lobby' : '';
+      (boot.me.office_code || '') + (scopeNote[CliDerive.staffScopeFor(boot.me.office_code)] || '');
     wire();
 
     return Cli.api('/lobby-roster?topic=' + encodeURIComponent(topic)).then(function (d) {
       S.roster = d.staff;
+      S.designations = d.designations || [];
+      S.counts = d.counts || {};
       Cli.cachePut('roster:' + topic, d.staff);   // so the picker survives a dead spot
+      Cli.cachePut('rosterMeta:' + topic, { designations: S.designations, counts: S.counts });
       if (qs.get('pending') === '1') {
         S.onlyPending = true;
         document.querySelector('[data-only-pending]').classList.add('primary');
@@ -193,8 +300,12 @@
       return Cli.cacheGet('roster:' + topic).then(function (cached) {
         if (!cached || !cached.length) throw new Error('No staff list available offline yet. Connect once and reopen.');
         S.roster = cached;
-        Cli.toast('Showing the staff list saved on this phone — it may be a few days old.', 'warn');
-        paintList();
+        return Cli.cacheGet('rosterMeta:' + topic).then(function (meta) {
+          S.designations = (meta && meta.designations) || [];
+          S.counts = (meta && meta.counts) || {};
+          Cli.toast('Showing the staff list saved on this phone — it may be a few days old.', 'warn');
+          paintList();
+        });
       });
     });
   }

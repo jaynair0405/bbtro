@@ -64,10 +64,14 @@ function makePassword(len = 10) {
 
     const create = [];
     const skipped = [];
+    const placeholders = [];
 
     for (const c of clis) {
       if (byCli.has(c.cli_id)) { skipped.push([c.cli_name, 'already has an account: ' + byCli.get(c.cli_id).username]); continue; }
-      if (!c.cmsid) { skipped.push([c.cli_name, 'no CMS id in div_cli_master — cannot make a username']); continue; }
+      // A CLI with no CMS ID is not a person: "Not Assigned" is a placeholder row
+      // that staff are parked under while on long training or under punishment.
+      // It is not skipped as a problem — it is simply not a CLI.
+      if (!c.cmsid) { placeholders.push(c.cli_name); continue; }
       if (!c.current_office_code) { skipped.push([c.cli_name, 'no lobby in div_cli_master — the app would show them no staff']); continue; }
       const username = String(c.cmsid).trim().toLowerCase();
       if (takenNames.has(username)) { skipped.push([c.cli_name, `username "${username}" is already taken by another account`]); continue; }
@@ -78,6 +82,9 @@ function makePassword(len = 10) {
     console.log(`Active CLIs in master : ${clis.length}`);
     console.log(`Accounts to create    : ${create.length}`);
     console.log(`Skipped               : ${skipped.length}`);
+    if (placeholders.length) {
+      console.log(`Placeholder rows      : ${placeholders.length} (${placeholders.join(', ')}) — not real CLIs, ignored`);
+    }
     if (skipped.length) {
       console.log('\n-- skipped --');
       skipped.forEach(([n, why]) => console.log(`  ${String(n).padEnd(28)} ${why}`));

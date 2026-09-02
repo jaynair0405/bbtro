@@ -11,10 +11,15 @@
   }
 
   function staffRow(r) {
+    var n = Number(r.count_90d || 0);
+    var circle = n ? '<span class="circle' + (n > 1 ? ' many' : '') + '" title="' + n +
+                     ' counselling' + (n === 1 ? '' : 's') + ' in the last 90 days">' + n + '</span>' : '';
     return '<li>' +
       '<div class="who"><div class="nm">' + esc(r.name) + '</div>' +
       '<div class="meta">' + esc(r.current_cms_id || r.hrms_id) + ' · ' + esc(r.designation_code) +
-      ' · ' + esc(ago(r)) + '</div></div>' +
+      ' · ' + esc(ago(r)) +
+      ((r.off_lobby || r.off_scope) ? ' · <span class="away">' + esc(r.current_office_code) + '</span>' : '') +
+      '</div></div>' + circle +
       '<span class="tag ' + (r.pending ? 'warn' : 'ok') + '">' + (r.pending ? 'Due' : 'Done') + '</span>' +
       '</li>';
   }
@@ -42,7 +47,9 @@
       }
 
       var pending = d.staff.filter(function (s) { return s.pending; });
+      var outside = d.staff.filter(function (s) { return s.off_lobby || s.off_scope; });
       var cycle = d.topic.cycle_days;
+      var a = d.activity || {};
 
       main.innerHTML =
         '<section class="hero">' +
@@ -63,6 +70,39 @@
 
         '<a class="btn primary big block" style="margin-top:16px" href="/cli/session.html">' +
           CliShell.icon('M12 5v14M5 12h14') + 'New counselling</a>' +
+
+        // What this CLI has actually done, split by nominated vs not. Coverage
+        // above only moves for nominated staff, so without this a CLI who spends
+        // the month counselling other people's staff appears to have done nothing.
+        '<div class="card" style="margin-top:16px">' +
+          '<div class="card-head"><h3>Counselled by me · last ' + (a.window_days || 90) + ' days</h3></div>' +
+          '<div class="card-body">' +
+            '<div class="split">' +
+              '<div class="split-stat"><div class="sv">' + (a.staff_total || 0) + '</div>' +
+                '<div class="sl">staff</div></div>' +
+              '<div class="split-stat mine"><div class="sv">' + (a.staff_mine || 0) + '</div>' +
+                '<div class="sl">nominated to me</div></div>' +
+              '<div class="split-stat"><div class="sv">' + (a.staff_others || 0) + '</div>' +
+                '<div class="sl">other CLIs’ staff</div></div>' +
+              '<div class="split-stat"><div class="sv">' + (a.sessions || 0) + '</div>' +
+                '<div class="sl">sessions</div></div>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+
+        // Nominees this CLI cannot reach. Not hidden: they are the reason a
+        // roster of 46 shows "my staff 41", and only HQ can re-nominate them.
+        // Informational only. Cross-lobby nomination is normal in suburban, so
+        // these staff are still counsellable and still count toward coverage —
+        // the note just says where they are, and the picker keeps them selectable.
+        (outside.length
+          ? '<div class="banner info" style="margin-top:16px">' +
+            '<div><strong>' + outside.length + ' of your nominated staff are outside your own lobby.</strong> ' +
+            (c.off_lobby ? c.off_lobby + ' at another depot' : '') +
+            (c.off_lobby && c.off_scope ? ', ' : '') +
+            (c.off_scope ? c.off_scope + ' on the other side of the mainline/suburban split' : '') +
+            '. They remain yours to counsel and are included in your figures.</div></div>'
+          : '') +
 
         '<div class="card" style="margin-top:16px">' +
           '<div class="card-head"><h3>Pending</h3>' +

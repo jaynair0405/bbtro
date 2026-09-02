@@ -167,6 +167,13 @@
                                 <span class="badge green">New</span>
                             </a>
                         </li>
+                        <li class="sidebar-nav-item" id="cli-app-link" style="display:none;">
+                            <a href="/cli/" class="sidebar-nav-link">
+                                <span class="icon">🎯</span>
+                                Signal Vigilance (CLI App)
+                                <span class="badge green">New</span>
+                            </a>
+                        </li>
                         <li class="sidebar-nav-item" id="clicms-link" style="display:none;">
                             <a href="/clicms/" class="sidebar-nav-link">
                                 <span class="icon">📋</span>
@@ -1002,6 +1009,11 @@
                         if (el) el.style.display = '';
                         const cl = document.getElementById('clicms-link');
                         if (cl) cl.style.display = '';
+                        // CLI PWA (Signal Vigilance counselling). HQ reviews and
+                        // locks the consolidated sheet there; lobby CLIs never see
+                        // this portal at all, they are confined to /cli.
+                        const ca = document.getElementById('cli-app-link');
+                        if (ca) ca.style.display = '';
                         // Control Office (Loco Link) — division_admin already has
                         // full ctlc authorisation server-side; just surface the link.
                         const co = document.getElementById('control-office-link');

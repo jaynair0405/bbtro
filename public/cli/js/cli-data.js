@@ -160,6 +160,13 @@
 
     return api('/bootstrap').then(function (b) {
       Cli.boot_ = b;
+      // A bulk-generated account starts on a password HQ read out over the
+      // phone. Send it to change that before anything else — the server refuses
+      // writes until it is done, so landing anywhere else would only confuse.
+      if (b.me.must_change_password && !/\/password\.html$/.test(location.pathname)) {
+        location.replace('/cli/password.html');
+        return;
+      }
       window.CliShell.setUser(b.me);
       if (host) host.innerHTML = '';
       if (body) body.hidden = false;
