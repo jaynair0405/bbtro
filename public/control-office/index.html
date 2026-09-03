@@ -551,6 +551,13 @@
                     <div class="desc">Defects by shed, category</div>
                 </div>
             </a>
+            <a class="link-card" id="tripShedLink" href="/div/trip-shed.html" style="display:none">
+                <i class="fa-solid fa-screwdriver-wrench icn" style="color:var(--brand)"></i>
+                <div>
+                    <div class="ttl">Trip Shed — VVH</div>
+                    <div class="desc">Read-only inspection and attention visibility</div>
+                </div>
+            </a>
             <a class="link-card" id="settingsLink" href="/control-office/settings.html" style="display:none">
                 <i class="fa-solid fa-sliders icn" style="color:var(--brand)"></i>
                 <div>
@@ -596,6 +603,10 @@ async function loadMe() {
         if (['division_admin', 'ssehq'].includes(u.div_role)) {
             const ssehq = $('#ssehqLink');
             if (ssehq) ssehq.style.display = '';
+        }
+        if (['division_admin', 'ctlc', 'ctlc_view', 'ssehq', 'trip_shed_operator', 'trip_shed_supervisor'].includes(u.div_role)) {
+            const tripShed = $('#tripShedLink');
+            if (tripShed) tripShed.style.display = '';
         }
         // Settings tile — writers only (it is an edit page)
         if (['division_admin', 'ctlc'].includes(u.div_role)) {

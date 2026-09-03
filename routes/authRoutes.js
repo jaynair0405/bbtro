@@ -96,8 +96,10 @@ router.post('/login', async (req, res) => {
       if (user.div_role === 'trgcentre_admin') {
         redirectUrl = '/div/training-centre.html';
       } else if (['lpc', 'ctlc', 'ctlc_view'].includes(user.div_role)) {
-        // LPC + CTLC (Chief Traction Loco Controller) + ctlc_view (read-only) → Control Office portal
+        // LPC + CTLC + ctlc_view (read-only) → Control Office portal
         redirectUrl = '/control-office/';
+      } else if (['trip_shed_operator', 'trip_shed_supervisor'].includes(user.div_role)) {
+        redirectUrl = '/div/trip-shed.html';
       } else if (user.div_role === 'clicms') {
         // HQ-CLI (CMS Due List) user → straight to the tool (PWA landing)
         redirectUrl = '/clicms/';

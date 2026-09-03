@@ -356,6 +356,13 @@
                                 SSE-HQ — Shed Desk
                             </a>
                         </li>
+                        <li class="sidebar-nav-item trip-shed-link" style="display:none;">
+                            <a href="/div/trip-shed.html" class="sidebar-nav-link">
+                                <span class="icon">🔧</span>
+                                Trip Shed — VVH
+                                <span class="badge green">New</span>
+                            </a>
+                        </li>
                         <li class="sidebar-nav-item">
                             <a href="#" class="sidebar-nav-link">
                                 <span class="icon">🎓</span>
@@ -1013,6 +1020,10 @@
                     }
                     if (['ssehq', 'division_admin'].includes(user.div_role)) {
                         document.querySelectorAll('.ssehq-link')
+                            .forEach(el => { el.style.display = ''; });
+                    }
+                    if (['trip_shed_operator', 'trip_shed_supervisor', 'division_admin'].includes(user.div_role)) {
+                        document.querySelectorAll('.trip-shed-link')
                             .forEach(el => { el.style.display = ''; });
                     }
                 }

@@ -162,6 +162,8 @@ const SSEHQ_PAGES = new Set([
 // in a form gave it no view of the shed it is in charge of, and no home to
 // come back to once the division dashboard was closed to it.
 const SSEHQ_HOME = '/div/ssehq.html';
+const TRIP_SHED_PAGES = new Set(['/trip-shed.html', '/trip-shed-inspection.html']);
+const TRIP_SHED_HOME = '/div/trip-shed.html';
 // Stylesheets, scripts and images the allowed pages pull in.
 const DIV_ASSET = /^\/(css|js|img|images|fonts|assets|vendor)\//i;
 
@@ -173,6 +175,10 @@ app.use('/div', (req, res, next) => {
   if (role === 'ssehq') {
     if (DIV_ASSET.test(req.path) || SSEHQ_PAGES.has(req.path)) return next();
     return res.redirect(SSEHQ_HOME);
+  }
+  if (['trip_shed_operator', 'trip_shed_supervisor'].includes(role)) {
+    if (DIV_ASSET.test(req.path) || TRIP_SHED_PAGES.has(req.path)) return next();
+    return res.redirect(TRIP_SHED_HOME);
   }
   next();
 });
@@ -231,7 +237,7 @@ function requireControlOffice(req, res, next) {
   if (!req.session.user) return res.redirect('/');
   if (req.session.user.realm !== 'division') return res.redirect('/');
   const role = req.session.user.div_role;
-  if (!['lpc', 'division_admin', 'ctlc', 'ctlc_view', 'ssehq'].includes(role)) return res.redirect('/div');
+  if (!['lpc', 'division_admin', 'ctlc', 'ctlc_view', 'ssehq', 'trip_shed_operator', 'trip_shed_supervisor'].includes(role)) return res.redirect('/div');
   next();
 }
 
@@ -835,6 +841,7 @@ const documentRoutes = require('./routes/division/documentRoutes');
 const transferLetterRoutes = require('./routes/division/transferLetterRoutes');
 const cadreLetterRoutes = require('./routes/division/cadreLetterRoutes');
 const ssehqRoutes = require('./routes/division/ssehqRoutes');
+const tripShedRoutes = require('./routes/division/tripShedRoutes');
 const subCrewRoutes = require('./routes/division/subCrewRoutes');
 
 // Add division routes with realm protection
@@ -857,6 +864,13 @@ app.use('/api/division', (req, res, next) => {
   if (req.session?.user?.div_role !== 'ssehq') return next();
   if (SSEHQ_API.some((re) => re.test(req.path))) return next();
   return res.status(403).json({ error: 'Not available to the SSE-HQ desk' });
+});
+
+const TRIP_SHED_API = [/^\/trip-shed(\/|$)/, /^\/loco-link(\/|$)/];
+app.use('/api/division', (req, res, next) => {
+  if (!['trip_shed_operator', 'trip_shed_supervisor'].includes(req.session?.user?.div_role)) return next();
+  if (TRIP_SHED_API.some((re) => re.test(req.path))) return next();
+  return res.status(403).json({ error: 'Not available to the Trip Shed desk' });
 });
 
 app.use("/api/division/leave", requireRealm("division"), leaveRoutes); // mount early to avoid any catch-alls
@@ -889,6 +903,7 @@ app.use("/api/division/documents", requireRealm('division'), documentRoutes);
 app.use("/api/division/transfer-letters", requireRealm('division'), transferLetterRoutes);
 app.use("/api/division/cadre-letters", requireRealm('division'), cadreLetterRoutes);
 app.use("/api/division/ssehq", requireRealm('division'), ssehqRoutes);
+app.use("/api/division/trip-shed", requireRealm('division'), tripShedRoutes);
 app.use("/api/division/suburban", requireRealm('division'), subCrewRoutes);
 
 // Session info endpoint
