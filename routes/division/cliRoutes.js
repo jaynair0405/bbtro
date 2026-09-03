@@ -1675,6 +1675,60 @@ router.post('/', requireDivisionAdmin, async (req, res) => {
 });
 
 // PUT /api/division/cli/:id - Update CLI
+/**
+ * Keep a CLI's office change honest, wherever it is made.
+ *
+ * Two things used to be missed. The Edit CLI form wrote current_office_code
+ * straight to div_cli_master and recorded NOTHING, which is why the history
+ * table held only a handful of rows -- the path everyone actually uses did not
+ * feed it. And users.div_office_code, which scopes a CLI's login, was never
+ * updated by anything at all.
+ *
+ * Call this instead of updating current_office_code by hand. It is a no-op when
+ * the office has not actually changed, so it is safe on every save.
+ */
+async function moveCliOffice(conn, cliId, newOffice, username, remarks) {
+    if (!newOffice) return { changed: false };
+
+    const [[cur]] = await conn.query(
+        'SELECT current_office_code FROM div_cli_master WHERE cli_id = ?', [cliId]
+    );
+    const oldOffice = cur ? cur.current_office_code : null;
+    if (oldOffice === newOffice) return { changed: false, office: newOffice };
+
+    // Close the posting that is open, if any.
+    //
+    // GREATEST guards the same-day case. Closing at "yesterday" is right for a
+    // posting that began earlier, but a posting created today and corrected
+    // today would otherwise end the day before it started.
+    await conn.query(
+        `UPDATE div_cli_office_history
+            SET is_current = 0,
+                to_date = COALESCE(
+                    to_date,
+                    GREATEST(COALESCE(from_date, CURDATE()), DATE_SUB(CURDATE(), INTERVAL 1 DAY))
+                )
+          WHERE cli_id = ? AND is_current = 1`, [cliId]
+    );
+    await conn.query(
+        `INSERT INTO div_cli_office_history
+            (cli_id, office_code, from_date, is_current, remarks, created_by)
+         VALUES (?, ?, CURDATE(), 1, ?, ?)`,
+        [cliId, newOffice, remarks || (oldOffice ? `Moved from ${oldOffice}` : 'Initial posting'), username || null]
+    );
+    await conn.query(
+        'UPDATE div_cli_master SET current_office_code = ? WHERE cli_id = ?', [newOffice, cliId]
+    );
+    // The login is scoped by this column for accounts that have no CLI of their
+    // own; the counselling module derives a CLI's lobby from the CLI record, but
+    // leaving a stale value here is a lie that someone will eventually read.
+    await conn.query(
+        `UPDATE users SET div_office_code = ? WHERE cli_id = ? AND div_role = 'cli'`,
+        [newOffice, cliId]
+    );
+    return { changed: true, from: oldOffice, to: newOffice };
+}
+
 router.put('/:id', requireDivisionAdmin, async (req, res) => {
     const conn = await getConnection(req);
     try {
@@ -1694,21 +1748,29 @@ router.put('/:id', requireDivisionAdmin, async (req, res) => {
             return res.status(400).json({ error: 'CMSID already exists for another CLI' });
         }
 
+        // Office is handled separately so the move is recorded. Everything else
+        // is a plain edit.
         await conn.query(`
             UPDATE div_cli_master
             SET cmsid = ?,
                 cli_name = ?,
-                current_office_code = ?,
                 cli_dob = ?,
                 cli_doa = ?,
                 date_promoted_to_cli = ?,
                 cli_mobile = ?
             WHERE cli_id = ?
-        `, [cmsid, cli_name, current_office_code, cli_dob, cli_doa, date_promoted_to_cli, cli_mobile, req.params.id]);
+        `, [cmsid, cli_name, cli_dob, cli_doa, date_promoted_to_cli, cli_mobile, req.params.id]);
+
+        const move = await moveCliOffice(
+            conn, req.params.id, current_office_code, req.session.user?.username, null
+        );
 
         res.json({
             success: true,
-            message: 'CLI updated successfully'
+            message: move.changed
+                ? `CLI updated. Office moved ${move.from || '(none)'} \u2192 ${move.to}, recorded in office history.`
+                : 'CLI updated successfully',
+            office_changed: !!move.changed
         });
 
     } catch (error) {
@@ -1903,9 +1965,14 @@ router.post('/:id/office-history', requireDivisionAdmin, async (req, res) => {
                 );
             }
 
-            // Also update current_office_code in cli_master
+            // Also update current_office_code in cli_master, and the login that
+            // is scoped by it.
             await conn.query(
                 'UPDATE div_cli_master SET current_office_code = ? WHERE cli_id = ?',
+                [office_code, cliId]
+            );
+            await conn.query(
+                `UPDATE users SET div_office_code = ? WHERE cli_id = ? AND div_role = 'cli'`,
                 [office_code, cliId]
             );
         }
@@ -1962,6 +2029,10 @@ router.put('/office-history/:historyId', requireDivisionAdmin, async (req, res) 
             // Update current_office_code in cli_master
             await conn.query(
                 'UPDATE div_cli_master SET current_office_code = ? WHERE cli_id = ?',
+                [office_code, cliId]
+            );
+            await conn.query(
+                `UPDATE users SET div_office_code = ? WHERE cli_id = ? AND div_role = 'cli'`,
                 [office_code, cliId]
             );
         }
