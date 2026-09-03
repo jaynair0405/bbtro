@@ -85,7 +85,7 @@ const upload = multer({
 const HQ_ROLES = new Set(['division_admin']);
 const ENTRY_ROLES = new Set(['cli', 'division_admin']);
 
-function access(req, res, next) {
+async function access(req, res, next) {
   const u = req.session?.user;
   if (!u || u.realm !== 'division') {
     return res.status(401).json({ error: 'Authentication required' });
@@ -95,6 +95,36 @@ function access(req, res, next) {
     return res.status(403).json({ error: 'CLI counselling access required' });
   }
   req.isHQ = HQ_ROLES.has(role);
+
+  /* A CLI's lobby is a property of the CLI, not of their login.
+   *
+   * users.div_office_code and div_cli_master.current_office_code were two
+   * copies of the same fact with nothing keeping them in step: CLI Management
+   * updates the CLI record in three places and NOTHING in the codebase has ever
+   * updated the users row. Move a CLI through the UI and their login stayed
+   * pointed at the old lobby -- wrong staff in the picker, sessions filed
+   * against the wrong lobby, and naming themselves as counsellor rejected
+   * outright with "That CLI belongs to another lobby".
+   *
+   * So the CLI record wins, resolved per request rather than at login, which
+   * also means a transfer takes effect without waiting out an 8-hour session.
+   * users.div_office_code stays as the fallback for accounts with no CLI. */
+  req.myOffice = u.div_office_code || null;
+  if (u.cli_id) {
+    let conn;
+    try {
+      conn = await req.app.locals.pool.getConnection();
+      const [[row]] = await conn.query(
+        `SELECT current_office_code FROM div_cli_master WHERE cli_id = ?`, [u.cli_id]
+      );
+      conn.release();
+      if (row && row.current_office_code) req.myOffice = row.current_office_code;
+    } catch (e) {
+      if (conn) conn.release();
+      // Fall back to the session value rather than locking the CLI out.
+      console.error('counselling/access: could not resolve CLI office:', e.message);
+    }
+  }
   next();
 }
 router.use(access);
@@ -124,7 +154,7 @@ router.use((req, res, next) => {
  * lobby with ?office=; a lobby CLI is pinned to their own.
  */
 function scopeOffice(req, column, cliColumn) {
-  const mine = req.session.user?.div_office_code || null;
+  const mine = req.myOffice || null;
   const myCli = req.session.user?.cli_id || null;
   if (!req.isHQ) {
     if (!mine) return { sql: ` AND 1=0 `, params: [] }; // no lobby → no data, never all data
@@ -222,7 +252,7 @@ router.get('/bootstrap', async (req, res) => {
 
     // The "on behalf of" list: any active CLI in the same lobby. HQ sees all.
     const scope = req.isHQ ? { sql: '', params: [] }
-      : { sql: ' AND c.current_office_code = ? ', params: [u.div_office_code] };
+      : { sql: ' AND c.current_office_code = ? ', params: [req.myOffice] };
     const [clis] = await conn.query(
       `SELECT c.cli_id, c.cli_name, c.current_office_code
          FROM div_cli_master c
@@ -247,7 +277,7 @@ router.get('/bootstrap', async (req, res) => {
         username: u.username,
         full_name: u.full_name,
         div_role: u.div_role,
-        office_code: u.div_office_code,
+        office_code: req.myOffice,
         cli_id: cli ? cli.cli_id : null,
         cli_name: cli ? cli.cli_name : null,
         is_hq: req.isHQ,
@@ -423,7 +453,7 @@ router.get('/lobby-roster', async (req, res) => {
 
     // Any CLI may name a lobby; theirs is only the default. A CSMT CLI standing
     // at PNVL for the day needs PNVL's staff in front of them.
-    const mineOffice = req.session.user.div_office_code || '';
+    const mineOffice = req.myOffice || '';
     const askedOffice = (req.query.office || '').trim();
     const workingOffice = askedOffice || (req.isHQ ? '' : mineOffice);
     const depot = workingOffice ? D.depotOf(workingOffice) : null;
@@ -646,13 +676,13 @@ router.post('/sessions', async (req, res) => {
     // that must still be themselves or a colleague from their own lobby, which
     // is all the bootstrap offers them.
     let office = (b.office_code || '').trim() ||
-                 (req.isHQ ? cli.current_office_code : req.session.user.div_office_code);
+                 (req.isHQ ? cli.current_office_code : req.myOffice);
     if (!office) { conn.release(); return res.status(400).json({ error: 'No lobby on your account' }); }
     const [[offRow]] = await conn.query(
       `SELECT office_code FROM offices WHERE office_code = ? AND is_active = 1`, [office]
     );
     if (!offRow) { conn.release(); return res.status(400).json({ error: `Unknown lobby: ${office}` }); }
-    if (!req.isHQ && D.depotOf(cli.current_office_code) !== D.depotOf(req.session.user.div_office_code)) {
+    if (!req.isHQ && D.depotOf(cli.current_office_code) !== D.depotOf(req.myOffice)) {
       conn.release(); return res.status(403).json({ error: 'That CLI belongs to another lobby' });
     }
 
