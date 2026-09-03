@@ -2037,6 +2037,21 @@ router.put('/office-history/:historyId', requireDivisionAdmin, async (req, res) 
             );
         }
 
+        // Editing the OFFICE of a posting that is already current used to change
+        // the history row and leave div_cli_master behind, because the block
+        // above only fires when a posting BECOMES current. The card then showed
+        // one lobby and the office-history modal another.
+        if (is_current && current[0].was_current) {
+            await conn.query(
+                'UPDATE div_cli_master SET current_office_code = ? WHERE cli_id = ?',
+                [office_code, cliId]
+            );
+            await conn.query(
+                `UPDATE users SET div_office_code = ? WHERE cli_id = ? AND div_role = 'cli'`,
+                [office_code, cliId]
+            );
+        }
+
         await conn.query(
             `UPDATE div_cli_office_history
              SET office_code = ?, from_date = ?, to_date = ?, is_current = ?, remarks = ?
@@ -2061,7 +2076,37 @@ router.put('/office-history/:historyId', requireDivisionAdmin, async (req, res) 
 router.delete('/office-history/:historyId', requireDivisionAdmin, async (req, res) => {
     const conn = await getConnection(req);
     try {
+        // If the posting being removed is the current one, the master would be
+        // left naming an office that no posting claims. Fall back to the most
+        // recent remaining posting, and promote it.
+        const [[gone]] = await conn.query(
+            'SELECT cli_id, is_current FROM div_cli_office_history WHERE id = ?', [req.params.historyId]
+        );
         await conn.query('DELETE FROM div_cli_office_history WHERE id = ?', [req.params.historyId]);
+
+        if (gone && gone.is_current) {
+            const [[prev]] = await conn.query(
+                `SELECT id, office_code FROM div_cli_office_history
+                  WHERE cli_id = ? ORDER BY COALESCE(from_date, '1900-01-01') DESC, id DESC LIMIT 1`,
+                [gone.cli_id]
+            );
+            if (prev) {
+                await conn.query(
+                    'UPDATE div_cli_office_history SET is_current = 1, to_date = NULL WHERE id = ?', [prev.id]
+                );
+                await conn.query(
+                    'UPDATE div_cli_master SET current_office_code = ? WHERE cli_id = ?',
+                    [prev.office_code, gone.cli_id]
+                );
+                await conn.query(
+                    `UPDATE users SET div_office_code = ? WHERE cli_id = ? AND div_role = 'cli'`,
+                    [prev.office_code, gone.cli_id]
+                );
+            }
+            // No postings left: div_cli_master keeps whatever it had. Better a
+            // stale office than none -- a NULL would drop the CLI out of every
+            // lobby-scoped query at once.
+        }
 
         res.json({
             success: true,
