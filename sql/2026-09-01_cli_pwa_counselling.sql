@@ -148,11 +148,24 @@ CREATE TABLE IF NOT EXISTS div_counselling_audit (
 -- ----------------------------------------------------------------------------
 -- 'cli' is the ~145 (soon ~175) lobby CLIs. Confined in server.js to /cli*
 -- exactly the way 'clicms' is confined to /clicms.
-ALTER TABLE users
-  MODIFY div_role ENUM(
-    'division_admin','office_hr','trgcentre_admin','lpc','ctlc','clicms',
-    'ctlc_view','ssehq','trip_shed_operator','trip_shed_supervisor','cli'
-  ) DEFAULT NULL;
+--
+-- APPENDED to whatever the enum already holds, rather than restated as a fixed
+-- list. Two reasons, both learned the hard way:
+--   * a hardcoded list DROPS any role this file does not know about, and the
+--     MODIFY then fails against existing rows;
+--   * databases are at different points. Local carried trip_shed_operator and
+--     trip_shed_supervisor from an undeployed module; restating the list would
+--     have installed another module's roles on production as a side effect.
+-- Reading the current type and appending keeps this file's business to its own.
+SET @cur := (SELECT COLUMN_TYPE FROM information_schema.COLUMNS
+              WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users'
+                AND COLUMN_NAME = 'div_role');
+-- "'cli'" with its quotes, so 'clicms' is not mistaken for a match.
+SET @s := IF(@cur IS NULL OR LOCATE("'cli'", @cur) > 0, 'DO 0',
+             CONCAT('ALTER TABLE users MODIFY div_role ',
+                    INSERT(@cur, LENGTH(@cur), 1, ",'cli')"),
+                    ' DEFAULT NULL'));
+PREPARE st FROM @s; EXECUTE st; DEALLOCATE PREPARE st;
 
 -- users.cli_id, not a join table: div_signal_sighting_cli_users set the
 -- precedent for tying a login to a cli_id, but putting it on users means every
