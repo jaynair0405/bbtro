@@ -146,7 +146,7 @@
           '</div>' +
         '</div>' +
         '<div class="grid-2">' +
-          '<div class="field"><label for="f-venue">Venue</label>' +
+          '<div class="field"><label for="f-venue">Lobby</label>' +
             '<select class="input" id="f-venue">' +
               (b.offices || []).map(function (o) {
                 return '<option value="' + esc(o.office_code) + '"' +
@@ -154,7 +154,8 @@
                        esc(o.office_name) + ' (' + esc(o.office_code) + ')</option>';
               }).join('') +
             '</select>' +
-            '<div class="hint">Prefilled with your own lobby.</div></div>' +
+            '<div class="hint">Where the counselling took place. Defaults to your own; ' +
+              'changing it loads that lobby\u2019s staff.</div></div>' +
           '<div class="field"><label for="f-photo">Register photo</label>' +
             '<input class="input" type="file" id="f-photo" accept="image/*" capture="environment">' +
             '<div class="hint">Optional. Uploads after the entry is saved.</div></div>' +
@@ -225,19 +226,25 @@
     subj.addEventListener('change', syncSubject);
     syncSubject();
 
+    var venSel = document.getElementById('f-venue');
+    venSel.addEventListener('change', function () {
+      var office = venSel.value;
+      if (!office) return;
+      var scopeNote = { motorman: ' \u00b7 motormen', 'non-motorman': ' \u00b7 excl. motormen', all: '' };
+      document.querySelector('[data-foot-note]').textContent =
+        office + (scopeNote[CliDerive.staffScopeFor(office)] || '');
+      loadRoster((S.boot.topics[0] || {}).topic_code || 'SPAD', office);
+    });
+
     var cliSel = document.getElementById('f-cli');
     cliSel.addEventListener('change', function () {
       var opt = cliSel.selectedOptions[0];
       var office = opt && opt.dataset.office;
       if (!office) return;
       // Keep the venue with the CLI, and reload the picker for their lobby.
-      var ven = document.getElementById('f-venue');
-      if (ven && !S.boot.me.cli_id) ven.value = office;
       if (!S.boot.me.cli_id) {
-        var scopeNote = { motorman: ' \u00b7 motormen', 'non-motorman': ' \u00b7 excl. motormen', all: '' };
-        document.querySelector('[data-foot-note]').textContent =
-          office + (scopeNote[CliDerive.staffScopeFor(office)] || '');
-        loadRoster((S.boot.topics[0] || {}).topic_code || 'SPAD', office);
+        var ven = document.getElementById('f-venue');
+        if (ven) { ven.value = office; ven.dispatchEvent(new Event('change')); }
       }
     });
 
@@ -268,6 +275,7 @@
       cli_id: Number(document.getElementById('f-cli').value),
       subject: subjectText(),
       venue: document.getElementById('f-venue').value,
+      office_code: document.getElementById('f-venue').value,
       remarks: document.getElementById('f-remarks').value,
       staff: Object.keys(S.selected).map(function (h) { return { hrms_id: h }; })
     };
@@ -325,7 +333,7 @@
         '<p>Pick who did the counselling above, and their lobby\u2019s staff will load here.</p></div>';
       return;
     }
-    return loadRoster(topic);
+    return loadRoster(topic, document.getElementById('f-venue').value || undefined);
   }
 
   function loadRoster(topic, office) {

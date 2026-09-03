@@ -123,10 +123,17 @@ router.use((req, res, next) => {
  * Returns { sql, params } to AND into a WHERE clause. HQ may narrow to one
  * lobby with ?office=; a lobby CLI is pinned to their own.
  */
-function scopeOffice(req, column) {
+function scopeOffice(req, column, cliColumn) {
   const mine = req.session.user?.div_office_code || null;
+  const myCli = req.session.user?.cli_id || null;
   if (!req.isHQ) {
     if (!mine) return { sql: ` AND 1=0 `, params: [] }; // no lobby → no data, never all data
+    // Their own lobby, OR anything they filed themselves. A CLI who counsels at
+    // another lobby must still be able to open and correct that session —
+    // scoping on lobby alone would hide their own work from them.
+    if (cliColumn && myCli) {
+      return { sql: ` AND (${column} = ? OR ${cliColumn} = ?) `, params: [mine, myCli] };
+    }
     return { sql: ` AND ${column} = ? `, params: [mine] };
   }
   const want = (req.query.office || '').trim();
@@ -414,30 +421,36 @@ router.get('/lobby-roster', async (req, res) => {
     const topic = await topicByCode(conn, req.query.topic);
     if (!topic) { conn.release(); return res.status(400).json({ error: 'Unknown topic' }); }
 
+    // Any CLI may name a lobby; theirs is only the default. A CSMT CLI standing
+    // at PNVL for the day needs PNVL's staff in front of them.
     const mineOffice = req.session.user.div_office_code || '';
-    const depot = req.isHQ
-      ? (req.query.office ? D.depotOf(req.query.office) : null)
-      : D.depotOf(mineOffice);
+    const askedOffice = (req.query.office || '').trim();
+    const workingOffice = askedOffice || (req.isHQ ? '' : mineOffice);
+    const depot = workingOffice ? D.depotOf(workingOffice) : null;
 
     // A mainline CLI does not counsel motormen and a suburban CLI counsels only
     // motormen — but at IGP / LNL / NRL, which are not split into -ML and -SUB,
     // motormen genuinely work alongside everyone else, so no filter applies.
     // See staffScopeFor() in cli-derive.js.
-    const scope = req.isHQ && req.query.office ? D.staffScopeFor(req.query.office)
-                : req.isHQ ? 'all'
-                : D.staffScopeFor(mineOffice);
+    const scope = workingOffice ? D.staffScopeFor(workingOffice) : 'all';
+
+    // Own nominees are folded in only when looking at YOUR OWN lobby. There the
+    // point is that cross-lobby nominees stay reachable. When a CLI deliberately
+    // asks for another lobby they want that lobby, and mixing their own CSMT
+    // staff into a PNVL list is noise -- it turned a 107-motorman roster into
+    // 136 mixed rows in testing.
+    const ownLobbyView = !askedOffice ||
+      (!!mineOffice && D.depotOf(askedOffice) === D.depotOf(mineOffice));
+    const myCliId = ownLobbyView ? (req.session.user.cli_id || null) : null;
 
     const params = [topic.topic_id, topic.topic_id];
     let where = '';
     if (depot) {
       // CSMT → CSMT-ML + CSMT-SUB + a bare CSMT row should one ever exist.
-      // Plus this CLI's own nominees at any depot — cross-lobby nomination is
-      // routine in suburban, and those staff are still theirs to counsel.
-      const mine = req.session.user.cli_id || null;
       where += ` AND (s.current_office_code = ? OR s.current_office_code = ? OR s.current_office_code = ?` +
-               (mine ? ` OR s.current_cli_id = ?` : ``) + `) `;
+               (myCliId ? ` OR s.current_cli_id = ?` : ``) + `) `;
       params.push(depot, `${depot}-ML`, `${depot}-SUB`);
-      if (mine) params.push(mine);
+      if (myCliId) params.push(myCliId);
     } else {
       // No lobby resolved -> no staff. Previously HQ fell through to no
       // restriction at all and got 3,000 people from 16 lobbies, with an
@@ -452,7 +465,6 @@ router.get('/lobby-roster', async (req, res) => {
        transferred or promoted is still that CLI's to counsel — excluding them
        would leave staff nobody could reach. So the scope filter is OR-ed with
        "is nominated to me". */
-    const myCliId = req.session.user.cli_id || null;
     if (scope === 'motorman' || scope === 'non-motorman') {
       const op = scope === 'motorman' ? '=' : '<>';
       if (myCliId) {
@@ -514,7 +526,7 @@ router.get('/sessions', async (req, res) => {
     if (from) { where += ' AND cs.session_date >= ? '; params.push(from); }
     if (to) { where += ' AND cs.session_date <= ? '; params.push(to); }
 
-    const scope = scopeOffice(req, 'cs.office_code');
+    const scope = scopeOffice(req, 'cs.office_code', 'cs.cli_id');
     where += scope.sql; params.push(...scope.params);
 
     // A lobby CLI sees the whole lobby's sessions (they cover for each other),
@@ -552,7 +564,7 @@ router.get('/sessions/:id', async (req, res) => {
   let conn;
   try {
     conn = await req.app.locals.pool.getConnection();
-    const scope = scopeOffice(req, 'cs.office_code');
+    const scope = scopeOffice(req, 'cs.office_code', 'cs.cli_id');
     const [[s]] = await conn.query(
       `SELECT cs.*, cm.cli_name
          FROM div_counselling_sessions cs
@@ -628,12 +640,19 @@ router.post('/sessions', async (req, res) => {
     );
     if (!cli) { conn.release(); return res.status(400).json({ error: 'Unknown or inactive CLI' }); }
 
-    // A lobby CLI may only file against their own lobby, whoever they name as
-    // the counsellor. HQ may file anywhere.
-    const office = req.isHQ ? (b.office_code || cli.current_office_code)
-                            : req.session.user.div_office_code;
+    // The lobby the counselling HAPPENED at. Any CLI may name one -- their own
+    // is only the default -- because a CSMT CLI may spend the day at PNVL.
+    // What stays constrained is WHO is named as the counsellor: for a lobby CLI
+    // that must still be themselves or a colleague from their own lobby, which
+    // is all the bootstrap offers them.
+    let office = (b.office_code || '').trim() ||
+                 (req.isHQ ? cli.current_office_code : req.session.user.div_office_code);
     if (!office) { conn.release(); return res.status(400).json({ error: 'No lobby on your account' }); }
-    if (!req.isHQ && D.depotOf(cli.current_office_code) !== D.depotOf(office)) {
+    const [[offRow]] = await conn.query(
+      `SELECT office_code FROM offices WHERE office_code = ? AND is_active = 1`, [office]
+    );
+    if (!offRow) { conn.release(); return res.status(400).json({ error: `Unknown lobby: ${office}` }); }
+    if (!req.isHQ && D.depotOf(cli.current_office_code) !== D.depotOf(req.session.user.div_office_code)) {
       conn.release(); return res.status(403).json({ error: 'That CLI belongs to another lobby' });
     }
 
@@ -710,7 +729,7 @@ router.put('/sessions/:id', async (req, res) => {
   let conn;
   try {
     conn = await req.app.locals.pool.getConnection();
-    const scope = scopeOffice(req, 'office_code');
+    const scope = scopeOffice(req, 'office_code', 'cli_id');
     const [[s]] = await conn.query(
       `SELECT * FROM div_counselling_sessions WHERE session_id = ? ${scope.sql}`,
       [req.params.id, ...scope.params]
@@ -765,7 +784,7 @@ router.delete('/sessions/:id', async (req, res) => {
   let conn;
   try {
     conn = await req.app.locals.pool.getConnection();
-    const scope = scopeOffice(req, 'office_code');
+    const scope = scopeOffice(req, 'office_code', 'cli_id');
     const [[s]] = await conn.query(
       `SELECT * FROM div_counselling_sessions WHERE session_id = ? ${scope.sql}`,
       [req.params.id, ...scope.params]
@@ -797,7 +816,7 @@ router.post('/sessions/:id/photo', upload.single('photo'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No image received' });
     conn = await req.app.locals.pool.getConnection();
-    const scope = scopeOffice(req, 'office_code');
+    const scope = scopeOffice(req, 'office_code', 'cli_id');
     const [[s]] = await conn.query(
       `SELECT session_id, register_photo_path FROM div_counselling_sessions WHERE session_id = ? ${scope.sql}`,
       [req.params.id, ...scope.params]
@@ -822,7 +841,7 @@ router.get('/sessions/:id/photo', async (req, res) => {
   let conn;
   try {
     conn = await req.app.locals.pool.getConnection();
-    const scope = scopeOffice(req, 'office_code');
+    const scope = scopeOffice(req, 'office_code', 'cli_id');
     const [[s]] = await conn.query(
       `SELECT register_photo_path FROM div_counselling_sessions WHERE session_id = ? ${scope.sql}`,
       [req.params.id, ...scope.params]
