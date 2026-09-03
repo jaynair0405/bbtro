@@ -438,7 +438,11 @@ router.get('/lobby-roster', async (req, res) => {
                (mine ? ` OR s.current_cli_id = ?` : ``) + `) `;
       params.push(depot, `${depot}-ML`, `${depot}-SUB`);
       if (mine) params.push(mine);
-    } else if (!req.isHQ) {
+    } else {
+      // No lobby resolved -> no staff. Previously HQ fell through to no
+      // restriction at all and got 3,000 people from 16 lobbies, with an
+      // arbitrary CLI preselected beside them. A picker that wide is not a
+      // convenience, it is a way to file a session against the wrong person.
       where += ' AND 1=0 ';
     }
 
@@ -1030,6 +1034,96 @@ router.delete('/locks', hqOnly, async (req, res) => {
   } catch (e) {
     if (conn) conn.release();
     console.error('counselling/unlock:', e);
+    res.status(500).json({ error: 'Database error', details: e.message });
+  }
+});
+
+// ── Unassigned staff (HQ) ─────────────────────────────────────────────────
+/**
+ * Active running staff who belong to no CLI, and are therefore in nobody's
+ * coverage and on nobody's pending list. They are still counsellable — the
+ * picker is scoped by lobby, not by nomination — but no CLI is accountable for
+ * them, so on paper they were simply invisible.
+ *
+ * Two populations, deliberately kept apart because they mean different things:
+ *   no_cli  — never nominated. Nobody chose this; it is an omission.
+ *   parked  — deliberately held under the "Not Assigned" placeholder while on
+ *             long training or under punishment. Expected, and self-limiting.
+ *
+ * This view lists them. It does NOT nominate — that belongs to the existing
+ * nomination workflow in /div/cli-management.html, which writes the dated
+ * div_cli_nominations record and the letter alongside it.
+ */
+router.get('/unassigned', hqOnly, async (req, res) => {
+  let conn;
+  try {
+    conn = await req.app.locals.pool.getConnection();
+    const [[na]] = await conn.query(
+      `SELECT cli_id FROM div_cli_master WHERE cmsid IS NULL OR cmsid = '' LIMIT 1`
+    );
+    const naId = na ? na.cli_id : null;
+
+    const base = `
+      SELECT s.hrms_id, s.current_cms_id, s.name, s.designation_id,
+             dg.designation_code, s.current_office_code, s.reporting_date,
+             TIMESTAMPDIFF(MONTH, s.reporting_date, CURDATE()) AS months_since_reporting
+        FROM div_staff_master s
+        JOIN designations dg ON dg.id = s.designation_id
+       WHERE s.status = 'Active'
+         AND s.designation_id IN (${RUNNING_IDS.join(',')})`;
+
+    const [noCli] = await conn.query(base + ` AND s.current_cli_id IS NULL ORDER BY s.current_office_code, s.name`);
+
+    let parked = [];
+    if (naId) {
+      // The nomination row carries WHY and WHEN, which is the whole value here:
+      // a training batch from last month reads very differently from a staff
+      // member parked a year ago and forgotten.
+      const [rows] = await conn.query(
+        base.replace('FROM div_staff_master s', 'FROM div_staff_master s') +
+        ` AND s.current_cli_id = ? ORDER BY s.current_office_code, s.name`, [naId]
+      );
+      const ids = rows.map((r) => r.hrms_id);
+      let why = [];
+      if (ids.length) {
+        [why] = await conn.query(
+          `SELECT staff_hrms_id, remarks, created_by, created_at, nominated_from_date
+             FROM div_cli_nominations
+            WHERE cli_id = ? AND status = 'Active' AND staff_hrms_id IN (?)`, [naId, ids]
+        );
+      }
+      const byId = new Map(why.map((w) => [w.staff_hrms_id, w]));
+      parked = rows.map((r) => {
+        const w = byId.get(r.hrms_id);
+        return {
+          ...r,
+          parked_reason: (w && w.remarks) || null,
+          parked_by: (w && w.created_by) || null,
+          parked_on: w ? isoDate(w.created_at) : null,
+          days_parked: w && w.created_at
+            ? D.daysBetween(isoDate(w.created_at), today()) : null,
+        };
+      });
+    }
+
+    const [[cov]] = await conn.query(
+      `SELECT COUNT(*) AS covered FROM div_staff_master s
+        WHERE s.status = 'Active' AND s.designation_id IN (${RUNNING_IDS.join(',')})
+          AND s.current_cli_id IS NOT NULL ${naId ? 'AND s.current_cli_id <> ?' : ''}`,
+      naId ? [naId] : []
+    );
+    conn.release();
+
+    const fmt = (r) => ({ ...r, reporting_date: isoDate(r.reporting_date) });
+    res.json({
+      covered: Number(cov.covered || 0),
+      no_cli: noCli.map(fmt),
+      parked: parked.map(fmt),
+      placeholder_cli_id: naId,
+    });
+  } catch (e) {
+    if (conn) conn.release();
+    console.error('counselling/unassigned:', e);
     res.status(500).json({ error: 'Database error', details: e.message });
   }
 });

@@ -80,10 +80,14 @@
     var host = document.querySelector('[data-desig]');
     if (!host) return;
     var mineN = (S.counts && S.counts.mine) || 0;
+    // An account with no CLI of its own has no nominees, so this chip could only
+    // ever read 0. A filter that can never match is worse than no filter.
+    var showMine = !!(S.boot && S.boot.me && S.boot.me.cli_id);
     host.innerHTML =
-      '<button class="btn sm chip-mine' + (S.onlyMine ? ' primary' : '') + '" data-mine>' +
-        '★ Nominated ' + mineN + '</button>' +
-      '<span class="chip-div"></span>' +
+      (showMine
+        ? '<button class="btn sm chip-mine' + (S.onlyMine ? ' primary' : '') + '" data-mine>' +
+          '★ Nominated ' + mineN + '</button><span class="chip-div"></span>'
+        : '') +
       '<button class="btn sm' + (S.desig ? '' : ' primary') + '" data-d="">All ' +
         S.roster.length + '</button>' +
       S.designations.map(function (d) {
@@ -113,12 +117,19 @@
             '<input class="input" type="date" id="f-date" max="' + b.today + '" value="' + b.today + '"></div>' +
           '<div class="field"><label for="f-cli">Counselled by</label>' +
             '<select class="input" id="f-cli">' +
+              // An account with no CLI of its own (HQ) must pick one. Without
+              // this placeholder the select silently lands on whoever is first
+              // alphabetically, and the session is filed against them.
+              (me.cli_id ? '' : '<option value="" selected>— choose the CLI who counselled —</option>') +
               b.clis.map(function (c) {
-                return '<option value="' + c.cli_id + '"' + (c.cli_id === me.cli_id ? ' selected' : '') + '>' +
+                return '<option value="' + c.cli_id + '" data-office="' + esc(c.current_office_code) + '"' +
+                       (c.cli_id === me.cli_id ? ' selected' : '') + '>' +
                        esc(c.cli_name) + ' · ' + esc(c.current_office_code) + '</option>';
               }).join('') +
             '</select>' +
-            '<div class="hint">Defaults to you. Change it only when recording on another CLI’s behalf.</div></div>' +
+            '<div class="hint">' + (me.cli_id
+              ? 'Defaults to you. Change it only when recording on another CLI\u2019s behalf.'
+              : 'Their lobby decides which staff you can pick.') + '</div></div>' +
         '</div>' +
         '<div class="field"><label for="f-subject">Subject</label>' +
           '<select class="input" id="f-subject">' +
@@ -214,6 +225,22 @@
     subj.addEventListener('change', syncSubject);
     syncSubject();
 
+    var cliSel = document.getElementById('f-cli');
+    cliSel.addEventListener('change', function () {
+      var opt = cliSel.selectedOptions[0];
+      var office = opt && opt.dataset.office;
+      if (!office) return;
+      // Keep the venue with the CLI, and reload the picker for their lobby.
+      var ven = document.getElementById('f-venue');
+      if (ven && !S.boot.me.cli_id) ven.value = office;
+      if (!S.boot.me.cli_id) {
+        var scopeNote = { motorman: ' \u00b7 motormen', 'non-motorman': ' \u00b7 excl. motormen', all: '' };
+        document.querySelector('[data-foot-note]').textContent =
+          office + (scopeNote[CliDerive.staffScopeFor(office)] || '');
+        loadRoster((S.boot.topics[0] || {}).topic_code || 'SPAD', office);
+      }
+    });
+
     document.querySelector('[data-desig]').addEventListener('click', function (e) {
       if (e.target.closest('[data-mine]')) { S.onlyMine = !S.onlyMine; return paintList(); }
       var b2 = e.target.closest('[data-d]');
@@ -244,6 +271,11 @@
       remarks: document.getElementById('f-remarks').value,
       staff: Object.keys(S.selected).map(function (h) { return { hrms_id: h }; })
     };
+    if (!document.getElementById('f-cli').value) {
+      Cli.toast('Choose the CLI who did the counselling.', 'alert');
+      document.getElementById('f-cli').focus();
+      return;
+    }
     var sel = document.getElementById('f-subject').selectedOptions[0];
     if (sel.dataset.numbered && !document.getElementById('f-subject-no').value.trim()) {
       Cli.toast('Enter the ' + sel.text.replace(/ — …$/, '') + ' number.', 'alert');
@@ -280,11 +312,27 @@
     var topic = (boot.topics[0] || {}).topic_code || 'SPAD';
     document.querySelector('[data-cli-main]').innerHTML = form();
     var scopeNote = { 'motorman': ' · motormen', 'non-motorman': ' · excl. motormen', 'all': '' };
-    document.querySelector('[data-foot-note]').textContent =
-      (boot.me.office_code || '') + (scopeNote[CliDerive.staffScopeFor(boot.me.office_code)] || '');
+    document.querySelector('[data-foot-note]').textContent = boot.me.cli_id
+      ? (boot.me.office_code || '') + (scopeNote[CliDerive.staffScopeFor(boot.me.office_code)] || '')
+      : 'No CLI chosen yet';
     wire();
 
-    return Cli.api('/lobby-roster?topic=' + encodeURIComponent(topic)).then(function (d) {
+    // An account with its own CLI loads its own lobby straight away. HQ waits
+    // until it has said whose session this is.
+    if (!boot.me.cli_id) {
+      document.querySelector('[data-list]').innerHTML =
+        '<div class="state"><h3>Choose a CLI first</h3>' +
+        '<p>Pick who did the counselling above, and their lobby\u2019s staff will load here.</p></div>';
+      return;
+    }
+    return loadRoster(topic);
+  }
+
+  function loadRoster(topic, office) {
+    document.querySelector('[data-list]').innerHTML =
+      '<div class="state"><div class="spinner"></div>Loading staff\u2026</div>';
+    return Cli.api('/lobby-roster?topic=' + encodeURIComponent(topic) +
+                   (office ? '&office=' + encodeURIComponent(office) : '')).then(function (d) {
       S.roster = d.staff;
       S.designations = d.designations || [];
       S.counts = d.counts || {};
@@ -292,8 +340,10 @@
       Cli.cachePut('rosterMeta:' + topic, { designations: S.designations, counts: S.counts });
       if (qs.get('pending') === '1') {
         S.onlyPending = true;
-        document.querySelector('[data-only-pending]').classList.add('primary');
+        var op = document.querySelector('[data-only-pending]');
+        if (op) op.classList.add('primary');
       }
+      S.selected = {};
       paintList();
     }).catch(function () {
       // Offline: fall back to whatever the last successful load left behind.

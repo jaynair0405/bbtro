@@ -18,7 +18,8 @@
     chart:  'M4 20V10M10 20V4M16 20v-7M22 20H2',
     boot:   'M4 4v10a4 4 0 0 0 4 4h5l4 2h3v-3l-3-2v-3a4 4 0 0 0-4-4H8V4z',
     key:    'M14 7a4 4 0 1 1-3.9 5H7v3H4v-3l6.1 0A4 4 0 0 1 14 7z',
-    users:  'M16 19v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6M22 19v-2a4 4 0 0 0-3-3.9'
+    users:  'M16 19v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6M22 19v-2a4 4 0 0 0-3-3.9',
+    orphan: 'M12 3a4 4 0 1 1-4 4M4 21v-2a5 5 0 0 1 5-5h1M17 14v7M20.5 17.5h-7'
   };
 
   var NAV = [
@@ -35,6 +36,7 @@
     { group: 'HQ', hq: true },
     { id: 'sheet',    label: 'Consolidated Sheet', href: '/cli/sheet.html',    icon: I.sheet, hq: true },
     { id: 'accounts', label: 'CLI Logins',         href: '/cli/accounts.html', icon: I.users, hq: true },
+    { id: 'unassigned', label: 'Unassigned Staff', href: '/cli/unassigned.html', icon: I.orphan, hq: true },
 
     { group: 'Account' },
     { id: 'password', label: 'Change Password', href: '/cli/password.html', icon: I.key }
@@ -61,7 +63,13 @@
 
   var state = { active: null, isHQ: false, counts: {} };
 
+  /* A couple of labels read differently for HQ, who has no CLI of their own:
+     "My Sessions" is the whole division to them. Kept here rather than in the
+     page so the sidebar and the page never disagree. */
+  var HQ_LABEL = { history: 'All Sessions' };
+
   function itemHtml(n) {
+    if (state.isHQ && HQ_LABEL[n.id]) n = Object.assign({}, n, { label: HQ_LABEL[n.id] });
     var cnt = n.countKey && state.counts[n.countKey];
     var badge = cnt ? '<span class="count">' + esc(cnt) + '</span>' : '';
     if (n.soon) {
