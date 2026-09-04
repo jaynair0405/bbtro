@@ -37,6 +37,7 @@
     { id: 'sheet',    label: 'Consolidated Sheet', href: '/cli/sheet.html',    icon: I.sheet, hq: true },
     { id: 'accounts', label: 'CLI Logins',         href: '/cli/accounts.html', icon: I.users, hq: true },
     { id: 'unassigned', label: 'Unassigned Staff', href: '/cli/unassigned.html', icon: I.orphan, hq: true },
+    { id: 'subjects',   label: 'Subjects',         href: '/cli/subjects.html',   icon: I.list,   hq: true },
 
     { group: 'Account' },
     { id: 'password', label: 'Change Password', href: '/cli/password.html', icon: I.key }

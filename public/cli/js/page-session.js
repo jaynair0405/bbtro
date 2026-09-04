@@ -131,19 +131,24 @@
               ? 'Defaults to you. Change it only when recording on another CLI\u2019s behalf.'
               : 'Their lobby decides which staff you can pick.') + '</div></div>' +
         '</div>' +
-        '<div class="field"><label for="f-subject">Subject</label>' +
-          '<select class="input" id="f-subject">' +
-            (b.subjects || []).map(function (o, i) {
-              return '<option value="' + esc(o.key) + '" data-numbered="' + (o.numbered ? '1' : '') + '"' +
-                     (i === 0 ? ' selected' : '') + '>' + esc(o.label) + (o.numbered ? ' — …' : '') + '</option>';
+        '<div class="field"><label>Subjects counselled</label>' +
+          // Checkboxes, not a dropdown. Counselling is often given on more than
+          // one subject at once, and recording the same staff twice to say so
+          // was the busywork HQ asked us to remove.
+          '<div class="subject-list">' +
+            (b.subjects || []).map(function (o) {
+              return '<label class="subject-row" data-subject="' + o.subject_id + '">' +
+                '<input type="checkbox" value="' + o.subject_id + '"' +
+                  (o.subject_code === 'SIGNAL_VIGILANCE' ? ' checked' : '') + '>' +
+                '<span class="sn">' + esc(o.subject_name) + '</span>' +
+                (o.needs_number
+                  ? '<input class="input sub-no" placeholder="No." maxlength="30" ' +
+                    'data-no="' + o.subject_id + '" disabled>'
+                  : '') +
+              '</label>';
             }).join('') +
-          '</select>' +
-          // Only appears for the three numbered instruction types. Kept as its own
-          // input rather than making the CLI type the whole subject line, so the
-          // wording on the officers' sheet stays identical across every lobby.
-          '<div data-num-wrap hidden style="margin-top:10px">' +
-            '<input class="input" id="f-subject-no" maxlength="30" placeholder="Instruction / circular number">' +
           '</div>' +
+          '<div class="hint" data-subject-hint>The standing topic is ticked. Add others as needed.</div>' +
         '</div>' +
         '<div class="grid-2">' +
           '<div class="field"><label for="f-venue">Lobby</label>' +
@@ -219,14 +224,24 @@
     });
     document.querySelector('[data-submit]').addEventListener('click', submit);
 
-    var subj = document.getElementById('f-subject');
-    function syncSubject() {
-      var numbered = !!subj.selectedOptions[0].dataset.numbered;
-      document.querySelector('[data-num-wrap]').hidden = !numbered;
-      if (!numbered) document.getElementById('f-subject-no').value = '';
-    }
-    subj.addEventListener('change', syncSubject);
-    syncSubject();
+    // A numbered subject cannot be saved without its number, so the box is
+    // enabled only while that subject is ticked, and cleared when it is not.
+    var subjList = document.querySelector('.subject-list');
+    subjList.addEventListener('change', function (e) {
+      var row = e.target.closest('.subject-row');
+      if (!row || e.target.type !== 'checkbox') return;
+      row.classList.toggle('on', e.target.checked);
+      var no = row.querySelector('.sub-no');
+      if (no) {
+        no.disabled = !e.target.checked;
+        if (!e.target.checked) no.value = ''; else no.focus();
+      }
+      var n = subjList.querySelectorAll('input[type=checkbox]:checked').length;
+      document.querySelector('[data-subject-hint]').textContent =
+        n ? n + ' subject' + (n === 1 ? '' : 's') + ' selected' : 'Choose at least one subject';
+    });
+    Array.prototype.forEach.call(subjList.querySelectorAll('input[type=checkbox]:checked'),
+      function (c) { c.closest('.subject-row').classList.add('on'); });
 
     var venSel = document.getElementById('f-venue');
     venSel.addEventListener('change', function () {
@@ -259,13 +274,17 @@
     });
   }
 
-  /* The stored subject string. A numbered instruction becomes
-     "Sr DEE Instruction-14", which is what the officers' sheet should read. */
-  function subjectText() {
-    var sel = document.getElementById('f-subject').selectedOptions[0];
-    var label = sel.text.replace(/ — …$/, '');
-    var no = (document.getElementById('f-subject-no').value || '').trim();
-    return sel.dataset.numbered && no ? label + '-' + no : label;
+  /* What the server needs: ids and, where the subject demands one, a number.
+     The readable line on the officers' sheet is composed server-side so every
+     lobby's wording is identical. */
+  function chosenSubjects() {
+    return Array.prototype.map.call(
+      document.querySelectorAll('.subject-row input[type=checkbox]:checked'),
+      function (c) {
+        var row = c.closest('.subject-row');
+        var no = row.querySelector('.sub-no');
+        return { subject_id: Number(c.value), number: no ? no.value.trim() : null };
+      });
   }
 
   function submit() {
@@ -275,7 +294,7 @@
       topic_code: (S.boot.topics[0] || {}).topic_code || 'SPAD',
       session_date: document.getElementById('f-date').value,
       cli_id: Number(document.getElementById('f-cli').value),
-      subject: subjectText(),
+      subjects: chosenSubjects(),
       venue: document.getElementById('f-venue').value,
       office_code: document.getElementById('f-venue').value,
       remarks: document.getElementById('f-remarks').value,
@@ -286,10 +305,16 @@
       document.getElementById('f-cli').focus();
       return;
     }
-    var sel = document.getElementById('f-subject').selectedOptions[0];
-    if (sel.dataset.numbered && !document.getElementById('f-subject-no').value.trim()) {
-      Cli.toast('Enter the ' + sel.text.replace(/ — …$/, '') + ' number.', 'alert');
-      document.getElementById('f-subject-no').focus();
+    var subs = chosenSubjects();
+    if (!subs.length) { Cli.toast('Choose at least one subject.', 'alert'); return; }
+    var missing = subs.filter(function (x) {
+      var row = document.querySelector('.subject-row[data-subject="' + x.subject_id + '"]');
+      return row.querySelector('.sub-no') && !x.number;
+    });
+    if (missing.length) {
+      var mrow = document.querySelector('.subject-row[data-subject="' + missing[0].subject_id + '"]');
+      Cli.toast('Enter the number for ' + mrow.querySelector('.sn').textContent + '.', 'alert');
+      mrow.querySelector('.sub-no').focus();
       return;
     }
     btn.disabled = true; btn.textContent = 'Saving…';

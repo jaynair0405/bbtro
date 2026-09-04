@@ -46,21 +46,54 @@ const SPAD = 'SPAD';
 const REAL_CLI = `c.cmsid IS NOT NULL AND c.cmsid <> ''`;
 
 /**
- * What the counselling was about.
+ * Subjects live in div_counselling_subjects, not in this file.
  *
- * The default is the standing topic; the other three are the instruction being
- * counselled against, and each needs its number typed in — which is why they
- * carry a `numbered` flag rather than being plain strings. Storing the number
- * inside the subject text keeps it visible on the officers' sheet without a
- * further column.
+ * They were a hardcoded array until HQ asked what happens when a new circular
+ * type comes along -- and the honest answer was "a code change and a deploy".
+ * A session can now carry several: counselling is often given on more than one
+ * subject at once, and recording the same staff twice to say so was busywork.
+ *
+ * Subjects are NOT topics. A topic carries cycle_days and decides who is due;
+ * a subject is what was talked about. Counselling on Signal Vigilance or on a
+ * Sr DEE Instruction both count as SPAD counselling for coverage, and merging
+ * the two would make a safety-circular briefing read as SPAD counselling done.
  */
-const SUBJECT_OPTIONS = [
-  { key: 'SIGNAL_VIGILANCE', label: 'Signal Vigilance and SPAD Awareness', numbered: false },
-  { key: 'SR_DEE',           label: 'Sr DEE Instruction',                  numbered: true },
-  { key: 'CEE_OP',           label: 'CEE OP Instruction',                  numbered: true },
-  { key: 'SAFETY_CIRCULAR',  label: 'Safety Circular',                     numbered: true },
-];
-const UPLOAD_DIR = path.join(__dirname, '..', '..', 'uploads', 'counselling');
+
+/** The one-line rendering stored on the session, for the sheet and the export. */
+function renderSubjects(rows) {
+  return rows.map(function (r) {
+    return r.number ? r.subject_name + '-' + r.number : r.subject_name;
+  }).join('; ');
+}
+
+/**
+ * Validate the chosen subjects against the database and return them resolved.
+ * Throws a plain Error whose message is safe to show the CLI.
+ */
+async function resolveSubjects(conn, topicId, chosen) {
+  const list = Array.isArray(chosen) ? chosen : [];
+  if (!list.length) throw new Error('Choose at least one subject');
+  const ids = Array.from(new Set(list.map((x) => Number(x.subject_id)).filter(Boolean)));
+  if (!ids.length) throw new Error('Choose at least one subject');
+
+  // sort_order, so the line on the officers' sheet reads in the order HQ lists
+  // the subjects rather than whatever order the ids arrived in.
+  const [rows] = await conn.query(
+    `SELECT subject_id, subject_name, needs_number FROM div_counselling_subjects
+      WHERE topic_id = ? AND is_active = 1 AND subject_id IN (?)
+      ORDER BY sort_order, subject_name`, [topicId, ids]
+  );
+  if (rows.length !== ids.length) throw new Error('One of those subjects is unknown or no longer in use');
+
+  const numById = {};
+  list.forEach((x) => { if (x && x.subject_id) numById[Number(x.subject_id)] = String(x.number || '').trim(); });
+
+  return rows.map((r) => {
+    const num = numById[r.subject_id] || null;
+    if (r.needs_number && !num) throw new Error(`Enter the number for ${r.subject_name}`);
+    return { subject_id: r.subject_id, subject_name: r.subject_name, number: r.needs_number ? num : null };
+  });
+}const UPLOAD_DIR = path.join(__dirname, '..', '..', 'uploads', 'counselling');
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
 const MAX_PHOTO = 8 * 1024 * 1024; // 8 MB — a phone camera shot of a register
@@ -251,6 +284,14 @@ router.get('/bootstrap', async (req, res) => {
          FROM div_counselling_topics WHERE is_active = 1 ORDER BY sort_order, topic_name`
     );
 
+    const [subjects] = await conn.query(
+      `SELECT s.subject_id, s.topic_id, s.subject_code, s.subject_name, s.needs_number
+         FROM div_counselling_subjects s
+         JOIN div_counselling_topics t ON t.topic_id = s.topic_id
+        WHERE s.is_active = 1 AND t.is_active = 1
+        ORDER BY s.sort_order, s.subject_name`
+    );
+
     // The "on behalf of" list: any active CLI in the same lobby. HQ sees all.
     const scope = req.isHQ ? { sql: '', params: [] }
       : { sql: ' AND c.current_office_code = ? ', params: [req.myOffice] };
@@ -272,7 +313,7 @@ router.get('/bootstrap', async (req, res) => {
     conn.release();
     res.json({
       offices,
-      subjects: SUBJECT_OPTIONS,
+      subjects: subjects.map((x) => ({ ...x, needs_number: !!x.needs_number })),
       me: {
         user_id: u.id,
         username: u.username,
@@ -614,10 +655,18 @@ router.get('/sessions/:id', async (req, res) => {
         WHERE a.session_id = ?
         ORDER BY s.name`, [req.params.id]
     );
+    const [subjects] = await conn.query(
+      `SELECT ss.subject_id, ss.number, sub.subject_name, sub.needs_number
+         FROM div_counselling_session_subjects ss
+         JOIN div_counselling_subjects sub ON sub.subject_id = ss.subject_id
+        WHERE ss.session_id = ?
+        ORDER BY sub.sort_order`, [req.params.id]
+    );
     const locked = await isLocked(conn, isoDate(s.session_date), s.topic_id, s.office_code);
     conn.release();
     res.json({
       session: { ...s, session_date: isoDate(s.session_date), has_photo: !!s.register_photo_path },
+      subjects: subjects.map((x) => ({ ...x, needs_number: !!x.needs_number })),
       attendees,
       locked,
       can_edit: req.isHQ || !locked,
@@ -726,22 +775,37 @@ router.post('/sessions', async (req, res) => {
     const remarkBy = {};
     (b.staff || []).forEach((s) => { if (s && s.hrms_id && s.remarks) remarkBy[s.hrms_id] = String(s.remarks).slice(0, 500); });
 
+    // Subjects are validated BEFORE the transaction opens, so a bad number or
+    // a retired subject fails with a readable message rather than a rollback.
+    let subjects;
+    try {
+      subjects = await resolveSubjects(conn, topic.topic_id, b.subjects);
+    } catch (e) {
+      conn.release();
+      return res.status(400).json({ error: e.message });
+    }
+
     await conn.beginTransaction();
     const [ins] = await conn.query(
       `INSERT INTO div_counselling_sessions
          (client_uuid, session_date, topic_id, cli_id, office_code, subject, venue, remarks, entered_by_user_id)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [clientUuid, date, topic.topic_id, cliId, office,
-       (b.subject || '').trim() || null, (b.venue || '').trim() || null,
+       renderSubjects(subjects), (b.venue || '').trim() || null,
        (b.remarks || '').trim() || null, req.session.user.id || null]
     );
     const sessionId = ins.insertId;
+    await conn.query(
+      `INSERT INTO div_counselling_session_subjects (session_id, subject_id, number) VALUES ?`,
+      [subjects.map((x) => [sessionId, x.subject_id, x.number])]
+    );
     await conn.query(
       `INSERT INTO div_counselling_attendees (session_id, staff_hrms_id, designation_id, office_code, remarks)
        VALUES ?`,
       [staffRows.map((r) => [sessionId, r.hrms_id, r.designation_id, r.current_office_code, remarkBy[r.hrms_id] || null])]
     );
-    await audit(conn, req, sessionId, 'create', { date, office, cli_id: cliId, staff: staffRows.length });
+    await audit(conn, req, sessionId, 'create',
+      { date, office, cli_id: cliId, staff: staffRows.length, subjects: subjects.map((x) => x.subject_name) });
     await conn.commit();
     conn.release();
     res.json({ success: true, session_id: sessionId, staff_count: staffRows.length });
@@ -772,14 +836,34 @@ router.put('/sessions/:id', async (req, res) => {
       conn.release(); return res.status(409).json({ error: 'That date has been locked by HQ.' });
     }
 
+    // Subjects are only touched when the caller sends them, so an edit that
+    // only fixes a venue leaves them alone.
+    let subjects = null;
+    if (b.subjects) {
+      try {
+        subjects = await resolveSubjects(conn, s.topic_id, b.subjects);
+      } catch (err) {
+        conn.release();
+        return res.status(400).json({ error: err.message });
+      }
+    }
+
     await conn.beginTransaction();
     await conn.query(
       `UPDATE div_counselling_sessions
           SET session_date = ?, cli_id = ?, subject = ?, venue = ?, remarks = ?
         WHERE session_id = ?`,
-      [date, Number(b.cli_id || s.cli_id), (b.subject ?? s.subject) || null,
+      [date, Number(b.cli_id || s.cli_id),
+       subjects ? renderSubjects(subjects) : ((b.subject ?? s.subject) || null),
        (b.venue ?? s.venue) || null, (b.remarks ?? s.remarks) || null, s.session_id]
     );
+    if (subjects) {
+      await conn.query(`DELETE FROM div_counselling_session_subjects WHERE session_id = ?`, [s.session_id]);
+      await conn.query(
+        `INSERT INTO div_counselling_session_subjects (session_id, subject_id, number) VALUES ?`,
+        [subjects.map((x) => [s.session_id, x.subject_id, x.number])]
+      );
+    }
 
     if (Array.isArray(b.staff)) {
       const hrmsIds = Array.from(new Set(b.staff.map((x) => String(x.hrms_id || x).trim()).filter(Boolean)));
@@ -1338,6 +1422,111 @@ router.post('/cli-users/:cliId/transfer', hqOnly, async (req, res) => {
   } catch (e) {
     if (conn) { try { await conn.rollback(); } catch (_) {} conn.release(); }
     console.error('counselling/cli-transfer:', e);
+    res.status(500).json({ error: 'Database error', details: e.message });
+  }
+});
+
+// ── Subjects (HQ) ─────────────────────────────────────────────────────────
+// The answer to "what if a new subject is to be added?". A new circular type
+// used to mean editing an array in this file and deploying; now HQ adds a row.
+
+router.get('/subjects', hqOnly, async (req, res) => {
+  let conn;
+  try {
+    conn = await req.app.locals.pool.getConnection();
+    const [rows] = await conn.query(
+      `SELECT s.*, t.topic_code, t.topic_name,
+              (SELECT COUNT(*) FROM div_counselling_session_subjects ss
+                WHERE ss.subject_id = s.subject_id) AS times_used
+         FROM div_counselling_subjects s
+         JOIN div_counselling_topics t ON t.topic_id = s.topic_id
+        ORDER BY s.sort_order, s.subject_name`
+    );
+    const [topics] = await conn.query(
+      `SELECT topic_id, topic_code, topic_name FROM div_counselling_topics WHERE is_active = 1`
+    );
+    conn.release();
+    res.json({
+      subjects: rows.map((r) => ({ ...r, needs_number: !!r.needs_number, is_active: !!r.is_active })),
+      topics,
+    });
+  } catch (e) {
+    if (conn) conn.release();
+    res.status(500).json({ error: 'Database error', details: e.message });
+  }
+});
+
+router.post('/subjects', hqOnly, async (req, res) => {
+  let conn;
+  try {
+    const name = (req.body?.subject_name || '').trim();
+    if (!name) return res.status(400).json({ error: 'Give the subject a name' });
+    conn = await req.app.locals.pool.getConnection();
+
+    const topicId = Number(req.body?.topic_id) ||
+      (await conn.query(`SELECT topic_id FROM div_counselling_topics WHERE topic_code = ?`, [SPAD]))[0][0]?.topic_id;
+    if (!topicId) { conn.release(); return res.status(400).json({ error: 'No topic to attach this to' }); }
+
+    // A code is derived from the name so HQ never has to think about one, and
+    // uniqueness is per topic.
+    const base = name.toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 24) || 'SUBJECT';
+    let code = base;
+    for (let i = 2; i < 50; i++) {
+      const [[clash]] = await conn.query(
+        `SELECT subject_id FROM div_counselling_subjects WHERE topic_id = ? AND subject_code = ?`, [topicId, code]
+      );
+      if (!clash) break;
+      code = base.slice(0, 22) + '_' + i;
+    }
+    const [[mx]] = await conn.query(
+      `SELECT COALESCE(MAX(sort_order), 0) + 1 AS nxt FROM div_counselling_subjects WHERE topic_id = ?`, [topicId]
+    );
+    const [ins] = await conn.query(
+      `INSERT INTO div_counselling_subjects (topic_id, subject_code, subject_name, needs_number, sort_order)
+       VALUES (?, ?, ?, ?, ?)`,
+      [topicId, code, name, req.body?.needs_number ? 1 : 0, mx.nxt]
+    );
+    await audit(conn, req, null, 'subject_add', { subject_id: ins.insertId, name, code });
+    conn.release();
+    res.json({ success: true, subject_id: ins.insertId, subject_code: code });
+  } catch (e) {
+    if (conn) conn.release();
+    console.error('counselling/subject-add:', e);
+    res.status(500).json({ error: 'Database error', details: e.message });
+  }
+});
+
+router.put('/subjects/:id', hqOnly, async (req, res) => {
+  let conn;
+  try {
+    conn = await req.app.locals.pool.getConnection();
+    const [[cur]] = await conn.query(
+      `SELECT * FROM div_counselling_subjects WHERE subject_id = ?`, [req.params.id]
+    );
+    if (!cur) { conn.release(); return res.status(404).json({ error: 'Unknown subject' }); }
+
+    const name = req.body?.subject_name !== undefined
+      ? String(req.body.subject_name).trim() : cur.subject_name;
+    if (!name) { conn.release(); return res.status(400).json({ error: 'Give the subject a name' }); }
+
+    await conn.query(
+      `UPDATE div_counselling_subjects
+          SET subject_name = ?, needs_number = ?, is_active = ?, sort_order = ?
+        WHERE subject_id = ?`,
+      [name,
+       req.body?.needs_number !== undefined ? (req.body.needs_number ? 1 : 0) : cur.needs_number,
+       req.body?.is_active   !== undefined ? (req.body.is_active   ? 1 : 0) : cur.is_active,
+       req.body?.sort_order  !== undefined ? Number(req.body.sort_order)    : cur.sort_order,
+       cur.subject_id]
+    );
+    await audit(conn, req, null, 'subject_edit', { subject_id: cur.subject_id, name });
+    conn.release();
+    // Retiring, not deleting: sessions already recorded against a subject must
+    // keep naming it, so is_active only hides it from the entry form.
+    res.json({ success: true });
+  } catch (e) {
+    if (conn) conn.release();
+    console.error('counselling/subject-edit:', e);
     res.status(500).json({ error: 'Database error', details: e.message });
   }
 });

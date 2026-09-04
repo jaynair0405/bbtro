@@ -238,6 +238,20 @@ textarea.input{min-height:84px;resize:vertical;line-height:1.5}
 
 .sub-count{font-weight:500;opacity:.75}
 .photo-box{margin-top:12px;display:flex;align-items:center;flex-wrap:wrap;gap:6px}
+
+/* Subject checkboxes. Each row can carry its own instruction number, enabled
+   only while that subject is ticked -- a number against an unticked subject
+   would be saved by nobody and confuse everybody. */
+.subject-list{border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.subject-row{display:flex;align-items:center;gap:11px;padding:11px 13px;
+  border-bottom:1px solid var(--line-2);cursor:pointer;min-height:var(--tap)}
+.subject-row:last-child{border-bottom:0}
+.subject-row:hover{background:var(--blue-50)}
+.subject-row.on{background:var(--blue-50)}
+.subject-row input[type=checkbox]{width:20px;height:20px;accent-color:var(--blue-600);flex:none;margin:0}
+.subject-row .sn{flex:1;font-size:14px;font-weight:500}
+.subject-row .sub-no{width:96px;flex:none;min-height:38px;font-size:15px;padding:6px 9px}
+.subject-row .sub-no:disabled{background:var(--line-2);opacity:.55}
 .photo-box label.btn{cursor:pointer}
 /* Where a nominee actually sits, when that is not this CLI's own lobby. */
 .away{color:var(--amber-600);font-weight:600}

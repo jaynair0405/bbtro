@@ -14,7 +14,7 @@
  *   fresh page can pair with stale cached JS — the failure documented in
  *   public/clicms/clicms-sw.js and worth not repeating.
  * ==========================================================================*/
-const CACHE_VERSION = 'cli-v17';
+const CACHE_VERSION = 'cli-v18';
 
 const SHELL = [
   '/cli/',
@@ -25,17 +25,19 @@ const SHELL = [
   '/cli/password.html',
   '/cli/accounts.html',
   '/cli/unassigned.html',
-  '/cli/css/cli.css?v17',
-  '/cli/js/cli-derive.js?v17',
-  '/cli/js/cli-shell.js?v17',
-  '/cli/js/cli-data.js?v17',
-  '/cli/js/page-home.js?v17',
-  '/cli/js/page-session.js?v17',
-  '/cli/js/page-history.js?v17',
-  '/cli/js/page-sheet.js?v17',
-  '/cli/js/page-password.js?v17',
-  '/cli/js/page-accounts.js?v17',
-  '/cli/js/page-unassigned.js?v17',
+  '/cli/subjects.html',
+  '/cli/css/cli.css?v18',
+  '/cli/js/cli-derive.js?v18',
+  '/cli/js/cli-shell.js?v18',
+  '/cli/js/cli-data.js?v18',
+  '/cli/js/page-home.js?v18',
+  '/cli/js/page-session.js?v18',
+  '/cli/js/page-history.js?v18',
+  '/cli/js/page-sheet.js?v18',
+  '/cli/js/page-password.js?v18',
+  '/cli/js/page-accounts.js?v18',
+  '/cli/js/page-unassigned.js?v18',
+  '/cli/js/page-subjects.js?v18',
   '/cli/manifest.json',
   '/cli/img/icon-192.png',
   '/cli/img/icon-512.png',
