@@ -89,7 +89,9 @@
     }).join('');
 
     side.innerHTML =
-      '<div class="brand"><div class="brand-mark"><span class="brand-dot"></span>' +
+      '<div class="brand">' +
+      '<button class="rail-toggle" data-rail-hide title="Hide the sidebar">&#10094;</button>' +
+      '<div class="brand-mark"><span class="brand-dot"></span>' +
       '<div><div class="brand-name">CLI Daily Positions</div>' +
       '<div class="brand-sub">BB Division</div></div></div>' +
       '<div class="motto">Mission Zero SPAD</div></div>' +
@@ -105,6 +107,21 @@
       }).join('');
     }
     paintWho();
+
+    // Also in the top bar. On a phone the sidebar footer is behind the burger
+    // and below the whole nav, which is a long way to go to sign out.
+    var bar = document.querySelector('.topbar');
+    if (bar && !bar.querySelector('[data-signout]')) {
+      var out = document.createElement('a');
+      out.className = 'icon-btn';
+      out.href = '/api/logout';
+      out.title = 'Sign out';
+      out.setAttribute('data-signout', '');
+      out.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" ' +
+        'stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">' +
+        '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>';
+      bar.appendChild(out);
+    }
   }
 
   function paintWho() {
@@ -115,6 +132,31 @@
       '<div class="who">' + esc(m.cli_name || m.full_name || m.username) + '</div>' +
       '<div class="where">' + esc(m.is_hq ? 'HQ · all lobbies' : (m.office_code || 'no lobby')) + '</div>' +
       '<a href="/api/logout">Sign out</a>';
+  }
+
+  /* Desktop only: collapse the 272px rail. The consolidated sheet is the widest
+     thing in the app and wants the room. Remembered in localStorage, wrapped
+     because a private window or blocked site data throws on access. */
+  var RAIL_KEY = 'cli.railHidden';
+  function railGet() { try { return localStorage.getItem(RAIL_KEY) === '1'; } catch (e) { return false; } }
+  function railSet(v) { try { localStorage.setItem(RAIL_KEY, v ? '1' : '0'); } catch (e) {} }
+
+  function wireRail() {
+    var app = document.querySelector('.app');
+    if (!app) return;
+    if (!document.querySelector('.rail-show')) {
+      var b = document.createElement('button');
+      b.className = 'rail-show';
+      b.title = 'Show the sidebar';
+      b.innerHTML = '&#9776;';
+      b.addEventListener('click', function () { app.classList.remove('rail-hidden'); railSet(false); });
+      document.body.appendChild(b);
+    }
+    if (railGet()) app.classList.add('rail-hidden');
+    var hide = document.querySelector('[data-rail-hide]');
+    if (hide) hide.addEventListener('click', function () {
+      app.classList.add('rail-hidden'); railSet(true);
+    });
   }
 
   // The drawer must close on navigation-ish gestures, or a mis-tap leaves the
@@ -141,6 +183,7 @@
       state.active = activeId;
       render();
       wireDrawer();
+      wireRail();
     },
     setUser: function (me) { state.me = me; state.isHQ = !!(me && me.is_hq); render(); },
     setCounts: function (c) { state.counts = c || {}; render(); }

@@ -40,6 +40,10 @@
 html{-webkit-text-size-adjust:100%}
 body{
   margin:0; background:var(--bg); color:var(--ink);
+  /* The mobile drawer is a fixed element parked at translateX(-101%); some
+     browsers still count it towards the scroll width. Nothing here is meant to
+     scroll sideways -- wide tables scroll inside their own box. */
+  overflow-x:hidden;
   font-family:var(--font); font-size:15px; line-height:1.5;
   -webkit-font-smoothing:antialiased;
   /* iOS standalone: stop the rubber-band bounce revealing the void */
@@ -55,13 +59,27 @@ a{color:var(--blue-600)}
 /* ── App frame ─────────────────────────────────────────────────────────── */
 
 .app{display:grid;grid-template-columns:var(--rail) 1fr;min-height:100vh}
+/* Collapsing the rail gives the consolidated sheet the full width, which is
+   what it wants -- it is the widest thing in the app. Remembered per browser. */
+.app.rail-hidden{grid-template-columns:0 1fr}
+.app.rail-hidden .side{display:none}
+.app.rail-hidden .sticky-foot{left:0}
+.rail-toggle{position:absolute;top:14px;right:10px;width:30px;height:30px;
+  border:0;border-radius:8px;background:rgba(255,255,255,.10);color:#cfe0f5;
+  cursor:pointer;display:grid;place-items:center;font-size:15px;line-height:1}
+.rail-toggle:hover{background:rgba(255,255,255,.2);color:#fff}
+.rail-show{display:none;position:fixed;left:0;top:14px;z-index:31;border:0;
+  border-top-right-radius:9px;border-bottom-right-radius:9px;
+  background:var(--blue-900);color:#fff;padding:9px 11px;cursor:pointer;font-size:15px;
+  box-shadow:0 6px 18px -8px rgba(16,24,40,.6)}
+.app.rail-hidden .rail-show{display:block}
 
 .side{
   background:var(--blue-900); color:#fff;
   display:flex; flex-direction:column;
   position:sticky; top:0; height:100vh; overflow-y:auto;
 }
-.brand{padding:20px 18px 16px;border-bottom:1px solid rgba(255,255,255,.12)}
+.brand{padding:20px 18px 16px;border-bottom:1px solid rgba(255,255,255,.12);position:relative}
 .brand-mark{display:flex;align-items:center;gap:10px}
 .brand-dot{width:10px;height:24px;border-radius:3px;background:var(--blue-500);flex:none}
 .brand-name{font-size:15px;font-weight:700;letter-spacing:.02em;line-height:1.2}
@@ -109,7 +127,8 @@ a{color:var(--blue-600)}
 .topbar h1{font-size:15px;font-weight:600;flex:1;min-width:0;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .icon-btn{background:transparent;border:0;color:inherit;width:var(--tap);height:var(--tap);
-  border-radius:10px;display:grid;place-items:center;cursor:pointer}
+  border-radius:10px;display:grid;place-items:center;cursor:pointer;
+  text-decoration:none;flex:none}
 .icon-btn:active{background:rgba(255,255,255,.14)}
 
 .scrim{display:none;position:fixed;inset:0;background:rgba(9,17,32,.5);z-index:39}
@@ -218,8 +237,15 @@ textarea.input{min-height:84px;resize:vertical;line-height:1.5}
 .circle.many{background:var(--amber-100);color:var(--amber-600)}
 
 .sub-count{font-weight:500;opacity:.75}
+.photo-box{margin-top:12px;display:flex;align-items:center;flex-wrap:wrap;gap:6px}
+.photo-box label.btn{cursor:pointer}
 /* Where a nominee actually sits, when that is not this CLI's own lobby. */
 .away{color:var(--amber-600);font-weight:600}
+
+/* A session still sitting in the outbox. Marked, and deliberately not
+   tappable -- there is no server record to open yet. */
+.pending-row{background:var(--amber-100);cursor:default}
+.pending-row .nm{color:var(--amber-600)}
 
 /* A password read out over the phone. Monospace and generously spaced, because
    it is transcribed by ear — l vs 1 and O vs 0 have to be unmistakable. The
@@ -287,10 +313,16 @@ table.sheet tr.total-row td.col-total{background:var(--blue-700)}
   border:3px solid var(--line);border-top-color:var(--blue-600);animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 
-.sticky-foot{position:sticky;bottom:0;background:var(--card);
-  border-top:1px solid var(--line);padding:12px 18px;
+/* Pinned to the viewport, NOT sticky.
+   position:sticky on the LAST element in the flow does nothing -- there is no
+   content after it to scroll past, so Save sat at the bottom of the page and
+   had to be scrolled to every time. Fixed keeps it under the thumb. Pages that
+   have one add .has-actionbar to body so the content can clear it. */
+.sticky-foot{position:fixed;left:var(--rail);right:0;bottom:0;z-index:30;
+  background:var(--card);border-top:1px solid var(--line);padding:12px 18px;
   padding-bottom:calc(12px + var(--safe-b));
-  display:flex;gap:12px;align-items:center;box-shadow:0 -8px 24px -18px rgba(16,24,40,.5)}
+  display:flex;gap:12px;align-items:center;box-shadow:0 -8px 30px -14px rgba(16,24,40,.45)}
+body.has-actionbar .wrap{padding-bottom:110px}
 
 /* ── Bottom bar (mobile only) ──────────────────────────────────────────── */
 
@@ -315,6 +347,11 @@ table.sheet tr.total-row td.col-total{background:var(--blue-700)}
     font-size:11px;font-weight:600}
   .tabbar a.active{color:var(--blue-600)}
   .tabbar .ico{width:21px;height:21px}
+
+  /* above the tab bar, not behind it */
+  .sticky-foot{left:0;bottom:calc(58px + var(--safe-b))}
+  body.has-actionbar .wrap{padding-bottom:calc(160px + var(--safe-b))}
+  .rail-toggle,.rail-show{display:none!important}
 }
 
 /* ── Print — the sheet is what goes before the officers ────────────────── */

@@ -54,6 +54,9 @@
     });
   }
 
+  // The action bar is fixed to the viewport; give the page room to clear it.
+  document.body.classList.add('has-actionbar');
+
   CliShell.init('password');
   Cli.boot(render);
 }());

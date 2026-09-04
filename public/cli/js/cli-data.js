@@ -289,7 +289,23 @@
   // page first and an installable one second.
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
-      navigator.serviceWorker.register('/cli/cli-sw.js', { scope: '/cli/' }).catch(function () {});
+      navigator.serviceWorker.register('/cli/cli-sw.js', { scope: '/cli/' })
+        .then(function (reg) { if (reg && reg.update) reg.update(); })
+        .catch(function () {});
+    });
+
+    /* Reload once when a new service worker takes over, so a deployed fix
+       actually reaches the screen. Guarded per version in sessionStorage: a
+       reload loop on a page someone is typing into would be far worse than a
+       stale asset. Wrapped because private windows throw on storage access. */
+    navigator.serviceWorker.addEventListener('message', function (e) {
+      if (!e.data || e.data.type !== 'sw-updated') return;
+      var k = 'cli.swReloaded.' + e.data.version;
+      try {
+        if (sessionStorage.getItem(k)) return;
+        sessionStorage.setItem(k, '1');
+      } catch (err) { return; }        // cannot guard the loop, so do not reload
+      location.reload();
     });
   }
 }());

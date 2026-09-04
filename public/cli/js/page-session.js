@@ -158,7 +158,9 @@
               'changing it loads that lobby\u2019s staff.</div></div>' +
           '<div class="field"><label for="f-photo">Register photo</label>' +
             '<input class="input" type="file" id="f-photo" accept="image/*" capture="environment">' +
-            '<div class="hint">Optional. Uploads after the entry is saved.</div></div>' +
+            '<div class="hint">Optional, and usually left until later \u2014 the register is ' +
+              'photographed once everyone has signed. You can attach it from My Sessions ' +
+              'at any time.</div></div>' +
         '</div>' +
         '<div class="field" style="margin-bottom:0"><label for="f-remarks">Remarks</label>' +
           '<textarea class="input" id="f-remarks" maxlength="2000" placeholder="Anything the officers should see with this session."></textarea></div>' +
@@ -365,6 +367,9 @@
         '</p></div>';
     });
   }
+
+  // The action bar is fixed to the viewport; give the page room to clear it.
+  document.body.classList.add('has-actionbar');
 
   CliShell.init('session');
   Cli.boot(render);

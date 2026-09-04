@@ -14,7 +14,7 @@
  *   fresh page can pair with stale cached JS — the failure documented in
  *   public/clicms/clicms-sw.js and worth not repeating.
  * ==========================================================================*/
-const CACHE_VERSION = 'cli-v13';
+const CACHE_VERSION = 'cli-v16';
 
 const SHELL = [
   '/cli/',
@@ -25,17 +25,17 @@ const SHELL = [
   '/cli/password.html',
   '/cli/accounts.html',
   '/cli/unassigned.html',
-  '/cli/css/cli.css?v13',
-  '/cli/js/cli-derive.js?v13',
-  '/cli/js/cli-shell.js?v13',
-  '/cli/js/cli-data.js?v13',
-  '/cli/js/page-home.js?v13',
-  '/cli/js/page-session.js?v13',
-  '/cli/js/page-history.js?v13',
-  '/cli/js/page-sheet.js?v13',
-  '/cli/js/page-password.js?v13',
-  '/cli/js/page-accounts.js?v13',
-  '/cli/js/page-unassigned.js?v13',
+  '/cli/css/cli.css?v16',
+  '/cli/js/cli-derive.js?v16',
+  '/cli/js/cli-shell.js?v16',
+  '/cli/js/cli-data.js?v16',
+  '/cli/js/page-home.js?v16',
+  '/cli/js/page-session.js?v16',
+  '/cli/js/page-history.js?v16',
+  '/cli/js/page-sheet.js?v16',
+  '/cli/js/page-password.js?v16',
+  '/cli/js/page-accounts.js?v16',
+  '/cli/js/page-unassigned.js?v16',
   '/cli/manifest.json',
   '/cli/img/icon-192.png',
   '/cli/img/icon-512.png',
@@ -56,6 +56,12 @@ self.addEventListener('activate', (e) => {
     caches.keys()
       .then((keys) => Promise.all(keys.filter((k) => k !== CACHE_VERSION).map((k) => caches.delete(k))))
       .then(() => self.clients.claim())
+      // Tell whoever is open that they are now running against a new cache.
+      // Without this a page keeps the assets it started with, and a deployed
+      // fix does not reach anyone until they clear the site data by hand --
+      // which is not a thing to ask of 122 CLIs on a phone.
+      .then(() => self.clients.matchAll({ type: 'window' }))
+      .then((cs) => cs.forEach((c) => c.postMessage({ type: 'sw-updated', version: CACHE_VERSION })))
   );
 });
 
