@@ -76,7 +76,29 @@
         .stat.danger .num { color: var(--danger); }
         .stat.success .num { color: var(--success); }
 
-        .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: auto; }
+        /* Category partition — same colours as sick-locos.html so a COG block
+           looks the same whether LPC is entering or reading back. */
+        .cat-header {
+            display: flex; align-items: center; gap: 12px;
+            background: var(--brand); color: white;
+            padding: 8px 16px; border-radius: 6px 6px 0 0;
+            font-weight: 700; font-size: .9rem; letter-spacing: .5px;
+            margin-top: 16px;
+        }
+        .cat-header:first-of-type { margin-top: 0; }
+        .cat-header.cog { background: var(--brand); }
+        .cat-header.goods { background: #6b21a8; }
+        .cat-header.cog-dsl, .cat-header.goods-dsl { background: #92400e; }
+        .cat-header.other { background: var(--text-light); }
+        .cat-header .count {
+            margin-left: auto; background: rgba(255,255,255,.2);
+            padding: 2px 9px; border-radius: 10px; font-size: .75rem;
+        }
+        .cat-header .sub {
+            font-weight: 400; font-size: .74rem; opacity: .85;
+        }
+
+        .card { background: var(--surface); border: 1px solid var(--border); border-radius: 0 0 8px 8px; overflow: auto; }
         table.report-table { width: 100%; border-collapse: collapse; font-size: .76rem; }
         table.report-table thead th {
             background: #f8fafc; color: var(--text-light); font-size: .66rem;
@@ -113,6 +135,8 @@
             table.report-table thead th { padding: 4px 8px !important; }
             table.report-table tbody td { padding: 3px 8px !important; }
             table.report-table tr { page-break-inside: avoid; }
+            .cat-header { break-after: avoid; page-break-after: avoid; margin-top: 10px !important; }
+            .cat-section { break-inside: auto; }
             .print-header { display: block !important; }
             @page { size: A4 portrait; margin: 8mm 10mm; }
         }
@@ -164,31 +188,8 @@
 
     <div class="summary" id="summary"></div>
 
-    <div class="card">
-        <table class="report-table">
-            <thead>
-                <tr>
-                    <th>Loco</th>
-                    <th>Class</th>
-                    <th>Cat.</th>
-                    <th>Shed</th>
-                    <th>Subject</th>
-                    <th>Ineffective</th>
-                    <th>Sick From</th>
-                    <th>Shed Arr</th>
-                    <th>Sick At</th>
-                    <th>SCH Due</th>
-                    <th>Paired</th>
-                    <th>Status</th>
-                    <th>Fit/H.O.</th>
-                    <th>Days</th>
-                    <th>Remarks</th>
-                </tr>
-            </thead>
-            <tbody id="body">
-                <tr><td colspan="15" class="empty-msg"><i class="fa-solid fa-spinner fa-spin"></i> Loading…</td></tr>
-            </tbody>
-        </table>
+    <div id="reportContent">
+        <div class="card"><div class="empty-msg"><i class="fa-solid fa-spinner fa-spin"></i> Loading…</div></div>
     </div>
 </main>
 
@@ -264,7 +265,7 @@ async function loadReport(){
     if (status) qs.set('status',    status);
     qs.set('limit', '2000');
 
-    $('#body').innerHTML = `<tr><td colspan="15" class="empty-msg"><i class="fa-solid fa-spinner fa-spin"></i> Loading…</td></tr>`;
+    $('#reportContent').innerHTML = `<div class="card"><div class="empty-msg"><i class="fa-solid fa-spinner fa-spin"></i> Loading…</div></div>`;
 
     try {
         const r = await fetch(`/api/division/loco-link/sick/history?${qs}`);
@@ -272,9 +273,9 @@ async function loadReport(){
         const data = await r.json();
         lastReportRows = data.rows || [];
         renderSummary(lastReportRows);
-        renderRows(lastReportRows);
+        renderSections(lastReportRows);
     } catch(e) {
-        $('#body').innerHTML = `<tr><td colspan="15" class="empty-msg" style="color:var(--danger)">Load failed: ${esc(e.message)}</td></tr>`;
+        $('#reportContent').innerHTML = `<div class="card"><div class="empty-msg" style="color:var(--danger)">Load failed: ${esc(e.message)}</div></div>`;
     }
 }
 
@@ -284,8 +285,14 @@ function renderSummary(rows){
     const closed = total - open;
     const ho = rows.filter(r => r.status === 'H/O').length;
     const avgDays = total ? Math.round(rows.reduce((s, r) => s + (r.days_duration || 0), 0) / total) : 0;
+    // Coaching vs goods counted across both tractions, matching the two blocks
+    // the report is partitioned into.
+    const cog   = rows.filter(r => catOf(r) === 'COG'   || catOf(r) === 'COG-DSL').length;
+    const goods = rows.filter(r => catOf(r) === 'GOODS' || catOf(r) === 'GOODS-DSL').length;
     $('#summary').innerHTML = `
         <div class="stat"><div class="num">${total}</div><div class="lbl">Total episodes</div></div>
+        <div class="stat"><div class="num">${cog}</div><div class="lbl">COG (coaching)</div></div>
+        <div class="stat"><div class="num">${goods}</div><div class="lbl">GOODS (freight)</div></div>
         <div class="stat danger"><div class="num">${open}</div><div class="lbl">Still open</div></div>
         <div class="stat success"><div class="num">${closed}</div><div class="lbl">Closed</div></div>
         <div class="stat"><div class="num">${ho}</div><div class="lbl">Handed over</div></div>
@@ -299,13 +306,67 @@ function statusPill(r){
     return `<span class="pill closed">${esc(r.status || 'RDY')}</span>`;
 }
 
-function renderRows(rows){
-    const body = $('#body');
+// Category partition. Same keys, order and labels as sick-locos.html — the
+// report is the read-back of that page, so the two must not disagree about what
+// a COG block contains. category_final is the LPC override when set, else the
+// derived value; anything missing falls into OTHER rather than vanishing.
+const CATEGORIES = [
+    { key: 'COG',       label: 'COG (Passenger)',        sub: 'Coaching — electric', icon: 'bolt',            cls: 'cog' },
+    { key: 'COG-DSL',   label: 'COG (Diesel Passenger)', sub: 'Coaching — diesel',   icon: 'gas-pump',        cls: 'cog-dsl' },
+    { key: 'GOODS',     label: 'GOODS (Freight)',        sub: 'Goods — electric',    icon: 'bolt',            cls: 'goods' },
+    { key: 'GOODS-DSL', label: 'GOODS (Diesel Freight)', sub: 'Goods — diesel',      icon: 'gas-pump',        cls: 'goods-dsl' },
+    { key: 'OTHER',     label: 'OTHER',                  sub: 'Uncategorised',       icon: 'circle-question', cls: 'other' },
+];
+const catOf = r => {
+    const c = r.category_final;
+    return CATEGORIES.some(x => x.key === c) ? c : 'OTHER';
+};
+
+function sectionHeaderHTML(cat, count){
+    return `<div class="cat-header ${cat.cls}">
+        <span><i class="fa-solid fa-${cat.icon}"></i> ${esc(cat.label)}
+            <span class="sub">· ${esc(cat.sub)}</span></span>
+        <span class="count">${count}</span>
+    </div>`;
+}
+
+function tableHeaderHTML(){
+    return `<thead>
+        <tr>
+            <th>Loco</th><th>Class</th><th>Cat.</th><th>Shed</th><th>Subject</th>
+            <th>Ineffective</th><th>Sick From</th><th>Shed Arr</th><th>Sick At</th>
+            <th>SCH Due</th><th>Paired</th><th>Status</th><th>Fit/H.O.</th>
+            <th>Days</th><th>Remarks</th>
+        </tr>
+    </thead>`;
+}
+
+function renderSections(rows){
+    const root = $('#reportContent');
     if (!rows.length){
-        body.innerHTML = `<tr><td colspan="15" class="empty-msg">No sick records match the filter.</td></tr>`;
+        root.innerHTML = `<div class="card"><div class="empty-msg">No sick records match the filter.</div></div>`;
         return;
     }
-    body.innerHTML = rows.map(r => {
+    // An empty category is left out entirely rather than printed as an empty
+    // table — on a 90-day report that would be four wasted blocks.
+    let html = '';
+    for (const cat of CATEGORIES){
+        const catRows = rows.filter(r => catOf(r) === cat.key);
+        if (!catRows.length) continue;
+        html += `<section class="cat-section">
+            ${sectionHeaderHTML(cat, catRows.length)}
+            <div class="card">
+                <table class="report-table">${tableHeaderHTML()}
+                    <tbody>${rowsHTML(catRows)}</tbody>
+                </table>
+            </div>
+        </section>`;
+    }
+    root.innerHTML = html;
+}
+
+function rowsHTML(rows){
+    return rows.map(r => {
         const finalDate = r.status === 'H/O' && r.hoc_date ? r.hoc_date : r.fit_from;
         const finalLabel = r.status === 'H/O' && r.hoc_date ? 'H/O' : (r.fit_from ? 'RDY' : '');
         return `
@@ -353,7 +414,13 @@ function downloadExcel(){
     const headers = ['Loco','Class','Category','Shed','Subject','Ineffective Date','Ineffective Time',
                      'Sick From','Shed Arr Date','Shed Arr Time','Sick At','SCH Due','Paired Loco',
                      'Status','Fit From','Days','Remarks'];
-    const rows = (lastReportRows || []).map(r => [
+    // Sorted into the same COG → GOODS → OTHER order as the on-screen partition,
+    // so the spreadsheet groups the way the printed report reads.
+    const order = Object.fromEntries(CATEGORIES.map((c, i) => [c.key, i]));
+    const sorted = (lastReportRows || []).slice().sort((a, b) =>
+        (order[catOf(a)] - order[catOf(b)])
+        || String(a.loco_number || '').localeCompare(String(b.loco_number || '')));
+    const rows = sorted.map(r => [
         r.loco_number || '',
         r.loco_type || '',
         r.category_final || '',
