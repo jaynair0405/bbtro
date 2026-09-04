@@ -28,7 +28,7 @@
     var main = document.querySelector('[data-cli-main]');
     var topic = (boot.topics[0] || {}).topic_code || 'SPAD';
 
-    return Cli.api('/roster?topic=' + encodeURIComponent(topic)).then(function (d) {
+    return Cli.apiCached('/roster?topic=' + encodeURIComponent(topic), 'roster:' + topic).then(function (d) {
       var c = d.counts;
       var pct = c.total ? Math.round((c.done / c.total) * 100) : 0;
       CliShell.setCounts({ pending: c.pending });
@@ -52,6 +52,11 @@
       var a = d.activity || {};
 
       main.innerHTML =
+        (d._stale
+          ? '<div class="banner warn">Offline. These figures are from ' +
+            (d._cachedAt ? new Date(d._cachedAt).toLocaleString() : 'an earlier visit') +
+            ' and will not include anything recorded since.</div>'
+          : '') +
         '<section class="hero">' +
           '<div class="label">' + esc(d.topic.topic_name) + '</div>' +
           '<div class="motto">Mission Zero SPAD</div>' +

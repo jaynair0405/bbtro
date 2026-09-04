@@ -29,19 +29,47 @@
   var STORE_KV = 'kv', STORE_OUT = 'outbox';
   var dbp = null;
 
+  /**
+   * Opening IndexedDB can hang indefinitely rather than fail: an upgrade blocked
+   * by another tab fires `onblocked` and then simply waits, and a pending
+   * deleteDatabase blocks every subsequent open the same way. Nothing times it
+   * out for you.
+   *
+   * That mattered here because boot() awaits the cache before it can fall back
+   * offline -- a wedged open left the app on "Loading..." for ever, which is
+   * worse than either the data or an honest error. So the open races a timeout,
+   * and a database that will not answer is treated as one that is not there.
+   */
+  var DB_TIMEOUT_MS = 2000;
+
   function db() {
     if (dbp) return dbp;
     dbp = new Promise(function (resolve, reject) {
       if (!window.indexedDB) return reject(new Error('no indexedDB'));
+      var settled = false;
+      var timer = setTimeout(function () {
+        if (settled) return;
+        settled = true;
+        reject(new Error('indexedDB did not open within ' + DB_TIMEOUT_MS + 'ms'));
+      }, DB_TIMEOUT_MS);
+      var done = function (fn, arg) {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        fn(arg);
+      };
       var r = indexedDB.open(DB_NAME, DB_VER);
       r.onupgradeneeded = function () {
         var d = r.result;
         if (!d.objectStoreNames.contains(STORE_KV)) d.createObjectStore(STORE_KV);
         if (!d.objectStoreNames.contains(STORE_OUT)) d.createObjectStore(STORE_OUT, { keyPath: 'client_uuid' });
       };
-      r.onsuccess = function () { resolve(r.result); };
-      r.onerror = function () { reject(r.error); };
-    });
+      r.onsuccess = function () { done(resolve, r.result); };
+      r.onerror = function () { done(reject, r.error || new Error('indexedDB open failed')); };
+      r.onblocked = function () { done(reject, new Error('indexedDB blocked by another tab')); };
+    // A failed open must not be retried on every call, but it must not be
+    // remembered for ever either -- the blocking tab may close.
+    }).catch(function (e) { dbp = null; throw e; });
     return dbp;
   }
 
@@ -87,6 +115,33 @@
           return body;
         });
       });
+  }
+
+  /**
+   * GET that survives a dead network.
+   *
+   * Stores each successful response and falls back to the stored copy when the
+   * request fails at the TRANSPORT level -- no status, i.e. nothing reached the
+   * server. A 401 or a 500 is NOT a fallback case: the server answered, and
+   * showing stale data over a real error would hide it.
+   *
+   * Returns the body with `_stale` and `_cachedAt` set when it came from cache,
+   * so the page can say so rather than quietly presenting old figures as current.
+   */
+  function apiCached(path, key) {
+    return api(path).then(function (body) {
+      kvPut('cache:' + key, { at: Date.now(), body: body });
+      return body;
+    }).catch(function (e) {
+      if (e.status) throw e;                 // the server spoke; do not paper over it
+      return kvGet('cache:' + key).then(function (hit) {
+        if (!hit || !hit.body) throw e;
+        var b = hit.body;
+        b._stale = true;
+        b._cachedAt = hit.at;
+        return b;
+      });
+    });
   }
 
   function post(path, body) {
@@ -158,7 +213,7 @@
 
     show('<div class="state"><div class="spinner"></div>Loading…</div>');
 
-    return api('/bootstrap').then(function (b) {
+    return apiCached('/bootstrap', 'bootstrap').then(function (b) {
       Cli.boot_ = b;
       // A bulk-generated account starts on a password HQ read out over the
       // phone. Send it to change that before anything else — the server refuses
@@ -172,6 +227,11 @@
       if (body) body.hidden = false;
       paintStatus();
       flush();
+      if (b._stale) {
+        Cli.toast('Offline — showing what was saved on this phone' +
+          (b._cachedAt ? ' on ' + new Date(b._cachedAt).toLocaleString() : '') +
+          '. You can still record; entries will sync when you are back online.', 'warn');
+      }
       return Promise.resolve(render(b)).catch(function (e) { throw e; });
     }).catch(function (e) {
       if (body) body.hidden = true;
@@ -204,7 +264,7 @@
   window.addEventListener('offline', paintStatus);
 
   var Cli = window.Cli = {
-    api: api, post: post, boot: boot, toast: toast, uuid: uuid,
+    api: api, apiCached: apiCached, post: post, boot: boot, toast: toast, uuid: uuid,
     flush: flush, outboxAll: outboxAll, paintStatus: paintStatus,
     cacheGet: kvGet, cachePut: kvPut,
 

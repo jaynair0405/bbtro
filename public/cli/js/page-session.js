@@ -339,13 +339,17 @@
   function loadRoster(topic, office) {
     document.querySelector('[data-list]').innerHTML =
       '<div class="state"><div class="spinner"></div>Loading staff\u2026</div>';
-    return Cli.api('/lobby-roster?topic=' + encodeURIComponent(topic) +
-                   (office ? '&office=' + encodeURIComponent(office) : '')).then(function (d) {
+    var path = '/lobby-roster?topic=' + encodeURIComponent(topic) +
+               (office ? '&office=' + encodeURIComponent(office) : '');
+    return Cli.apiCached(path, 'lobby-roster:' + topic + ':' + (office || 'own')).then(function (d) {
       S.roster = d.staff;
       S.designations = d.designations || [];
       S.counts = d.counts || {};
-      Cli.cachePut('roster:' + topic, d.staff);   // so the picker survives a dead spot
-      Cli.cachePut('rosterMeta:' + topic, { designations: S.designations, counts: S.counts });
+      if (d._stale) {
+        Cli.toast('Offline — this staff list was saved on ' +
+          (d._cachedAt ? new Date(d._cachedAt).toLocaleDateString() : 'an earlier visit') +
+          '. Anyone posted since will be missing.', 'warn');
+      }
       if (qs.get('pending') === '1') {
         S.onlyPending = true;
         var op = document.querySelector('[data-only-pending]');
@@ -353,18 +357,12 @@
       }
       S.selected = {};
       paintList();
-    }).catch(function () {
-      // Offline: fall back to whatever the last successful load left behind.
-      return Cli.cacheGet('roster:' + topic).then(function (cached) {
-        if (!cached || !cached.length) throw new Error('No staff list available offline yet. Connect once and reopen.');
-        S.roster = cached;
-        return Cli.cacheGet('rosterMeta:' + topic).then(function (meta) {
-          S.designations = (meta && meta.designations) || [];
-          S.counts = (meta && meta.counts) || {};
-          Cli.toast('Showing the staff list saved on this phone — it may be a few days old.', 'warn');
-          paintList();
-        });
-      });
+    }).catch(function (e) {
+      document.querySelector('[data-list]').innerHTML =
+        '<div class="state"><h3>No staff list</h3><p>' +
+        (e.status ? CliShell.esc(e.message)
+                  : 'This lobby has not been opened on this phone while online, so there is nothing saved to work from.') +
+        '</p></div>';
     });
   }
 
