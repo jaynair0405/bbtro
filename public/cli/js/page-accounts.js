@@ -22,6 +22,7 @@
         ' · ' + c.nominees + ' nominated' +
         (c.last_session ? ' · last session ' + esc(c.last_session) : ' · never counselled') +
       '</div></div>' + status +
+      '<button class="btn sm" data-move="' + c.cli_id + '">Move</button>' +
       '<button class="btn sm" data-reset="' + c.cli_id + '">' +
         (c.has_login ? 'Reset' : 'Create') + '</button>' +
       '</li>';
@@ -53,6 +54,57 @@
 
   function load() {
     return Cli.api('/cli-users').then(function (d) { S.clis = d.clis; paint(); });
+  }
+
+  /* The shortcut the HQ desks asked for: moving a CLI without going through
+     Settings -> CLI Management -> find -> Edit -> office -> save. It posts to
+     the same code that screen uses, so the posting is recorded and the login
+     follows. */
+  function move(cliId) {
+    var c = S.clis.filter(function (x) { return String(x.cli_id) === String(cliId); })[0];
+    if (!c) return;
+    var offices = (Cli.boot_ && Cli.boot_.offices) || [];
+    var host = document.querySelector('[data-issued]');
+    host.innerHTML =
+      '<div class="card-head"><h3>Move ' + esc(c.cli_name) + '</h3>' +
+        '<div style="flex:1"></div><button class="btn sm" data-close>Cancel</button></div>' +
+      '<div class="card-body">' +
+        '<p style="color:var(--ink-3);font-size:13px;margin-bottom:12px">Currently at <strong>' +
+          esc(c.current_office_code || 'no lobby') + '</strong>' +
+          (c.nominees ? ' with ' + c.nominees + ' nominated staff' : '') + '.</p>' +
+        '<div class="field"><label for="mv-office">Move to</label>' +
+          '<select class="input" id="mv-office">' +
+            offices.filter(function (o) { return o.office_code !== c.current_office_code; })
+              .map(function (o) {
+                return '<option value="' + esc(o.office_code) + '">' + esc(o.office_name) +
+                       ' (' + esc(o.office_code) + ')</option>'; }).join('') +
+          '</select></div>' +
+        '<div class="field"><label for="mv-note">Remark</label>' +
+          '<input class="input" id="mv-note" maxlength="200" placeholder="Optional \u2014 shown in the office history"></div>' +
+        '<div class="banner info">Their nominated staff do <strong>not</strong> move. A nomination ' +
+          'follows the staff member\u2019s own posting, so anyone left behind stays with this CLI ' +
+          'until they are re-nominated.</div>' +
+        '<button class="btn primary" data-move-go="' + c.cli_id + '">Move</button>' +
+      '</div>';
+    host.hidden = false;
+    host.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  function doMove(cliId) {
+    var office = document.getElementById('mv-office').value;
+    var note = document.getElementById('mv-note').value;
+    var btn = document.querySelector('[data-move-go]');
+    btn.disabled = true; btn.textContent = 'Moving\u2026';
+    Cli.post('/cli-users/' + cliId + '/transfer', { office_code: office, remarks: note })
+      .then(function (r) {
+        document.querySelector('[data-issued]').hidden = true;
+        Cli.toast(r.message + (r.nominees ? ' ' + r.nominees + ' nominated staff stay with them.' : ''), 'info');
+        load();
+      })
+      .catch(function (e) {
+        btn.disabled = false; btn.textContent = 'Move';
+        Cli.toast(e.message, 'alert');
+      });
   }
 
   function reset(cliId) {
@@ -102,6 +154,10 @@
     main.addEventListener('click', function (e) {
       var b = e.target.closest('[data-reset]');
       if (b) return reset(b.dataset.reset);
+      var m = e.target.closest('[data-move]');
+      if (m) return move(m.dataset.move);
+      var g = e.target.closest('[data-move-go]');
+      if (g) return doMove(g.dataset.moveGo);
       if (e.target.matches('[data-close]')) document.querySelector('[data-issued]').hidden = true;
     });
     return load();

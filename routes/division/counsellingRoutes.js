@@ -32,6 +32,7 @@ const path = require('path');
 const crypto = require('crypto');
 const ExcelJS = require('exceljs');
 const bcrypt = require('bcrypt');
+const { moveCliOffice } = require('../../lib/cliOffice');
 
 // The SAME file the browser loads. See its header for why this is shared.
 const D = require('../../public/cli/js/cli-derive.js');
@@ -1272,6 +1273,71 @@ router.post('/cli-users/:cliId/reset-password', hqOnly, async (req, res) => {
   } catch (e) {
     if (conn) conn.release();
     console.error('counselling/reset-password:', e);
+    res.status(500).json({ error: 'Database error', details: e.message });
+  }
+});
+
+/**
+ * Transfer a CLI to another lobby.
+ *
+ * A shortcut for the HQ desks, who were going Settings -> CLI Management ->
+ * find -> Edit -> change office -> save for something they do often. It calls
+ * the SAME moveCliOffice() as that screen, so the posting is recorded and the
+ * login follows either way -- a second implementation would be a second thing
+ * to keep in step, which is the class of bug this module has already had.
+ */
+router.post('/cli-users/:cliId/transfer', hqOnly, async (req, res) => {
+  let conn;
+  try {
+    const office = (req.body?.office_code || '').trim();
+    if (!office) return res.status(400).json({ error: 'Choose a lobby' });
+
+    conn = await req.app.locals.pool.getConnection();
+    const [[cli]] = await conn.query(
+      `SELECT cli_id, cli_name, cmsid, current_office_code
+         FROM div_cli_master WHERE cli_id = ? AND is_active = 1`, [req.params.cliId]
+    );
+    if (!cli) { conn.release(); return res.status(404).json({ error: 'Unknown or inactive CLI' }); }
+
+    const [[off]] = await conn.query(
+      `SELECT office_code, office_name FROM offices WHERE office_code = ? AND is_active = 1`, [office]
+    );
+    if (!off) { conn.release(); return res.status(400).json({ error: `Unknown lobby: ${office}` }); }
+
+    if (cli.current_office_code === office) {
+      conn.release();
+      return res.json({ success: true, changed: false, message: `${cli.cli_name} is already at ${office}.` });
+    }
+
+    // How many staff nominated to them sit at the lobby they are leaving --
+    // worth reporting, because those nominations do NOT follow the CLI and the
+    // desk should know before it looks like data loss.
+    const [[left]] = await conn.query(
+      `SELECT COUNT(*) AS n FROM div_staff_master
+        WHERE current_cli_id = ? AND status = 'Active'
+          AND designation_id IN (${RUNNING_IDS.join(',')})`, [cli.cli_id]
+    );
+
+    await conn.beginTransaction();
+    const move = await moveCliOffice(
+      conn, cli.cli_id, office, req.session.user?.username, req.body?.remarks || null
+    );
+    await audit(conn, req, null, 'cli_transfer',
+      { cli_id: cli.cli_id, cli_name: cli.cli_name, from: move.from, to: move.to });
+    await conn.commit();
+    conn.release();
+
+    res.json({
+      success: true,
+      changed: !!move.changed,
+      from: move.from,
+      to: move.to,
+      nominees: Number(left.n || 0),
+      message: `${cli.cli_name} moved ${move.from || '(none)'} \u2192 ${move.to}.`,
+    });
+  } catch (e) {
+    if (conn) { try { await conn.rollback(); } catch (_) {} conn.release(); }
+    console.error('counselling/cli-transfer:', e);
     res.status(500).json({ error: 'Database error', details: e.message });
   }
 });
