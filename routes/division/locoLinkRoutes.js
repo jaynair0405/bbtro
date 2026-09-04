@@ -25,7 +25,7 @@ const router = express.Router();
 // mutate one. A single guard here backstops every write endpoint below, including
 // the ones that only check "logged in" — so a view-only account is read-only no
 // matter which route it hits.
-const VIEW_ONLY_DIV_ROLES = ['ctlc_view'];
+const VIEW_ONLY_DIV_ROLES = ['ctlc_view', 'ssehq', 'trip_shed_operator', 'trip_shed_supervisor'];
 router.use((req, res, next) => {
     const u = req.session && req.session.user;
     if (u && VIEW_ONLY_DIV_ROLES.includes(u.div_role) &&
@@ -1273,7 +1273,8 @@ router.get('/today', async (req, res) => {
             `SELECT m.id, m.sheet_source, m.sr_no, m.section, m.direction, m.is_bypass,
                     m.from_station, m.to_station, m.route_label,
                     m.shed_code, m.link_attr, m.expected_hog, m.is_push_pull, m.traction_type,
-                    m.rake_type, m.train_no, t.train_id,
+                    COALESCE(m.rake_type, t.rake_type) AS rake_type,
+                    m.train_no, t.train_id,
                     COALESCE(t.train_name, m.train_name) AS train_name,
                     prev.train_no AS renamed_from,
                     m.event_time, m.via_stations, m.run_days, m.remark
@@ -2937,7 +2938,8 @@ router.get('/assign-board', async (req, res) => {
             `SELECT m.id, m.train_no, COALESCE(t.train_name, m.train_name) AS train_name,
                     m.event_time, m.section, m.sheet_source, m.from_station, m.to_station,
                     m.shed_code AS expected_shed, m.expected_hog, m.link_attr,
-                    m.expected_loco_type, m.rake_type, m.is_push_pull, m.run_days
+                    m.expected_loco_type, COALESCE(m.rake_type, t.rake_type) AS rake_type,
+                    m.is_push_pull, m.run_days
              FROM div_loco_link_master m
              LEFT JOIN div_trains t ON t.train_no = m.train_no
              WHERE m.active = 1 AND m.direction = 'DN' AND m.is_bypass = 0
@@ -4749,7 +4751,7 @@ async function reopenMasterRowsForTrain(pool, trainNo) {
 const TRAIN_FIELDS = [
     'train_no', 'train_name', 'train_type', 'direction',
     'from_station', 'to_station', 'loco_change_station',
-    'run_days', 'traction_type', 'is_regular', 'is_active',
+    'run_days', 'traction_type', 'rake_type', 'is_regular', 'is_active',
 ];
 // Same minus train_no for the PUT path (train_no is the immutable key here;
 // changing it goes through the renumber endpoint)
@@ -4773,7 +4775,8 @@ router.get('/trains', async (req, res) => {
         // carries the current number (the frontend handles its absence).
         let sql = `SELECT t.train_no, t.train_name, t.train_type, t.direction,
                           t.from_station, t.to_station, t.loco_change_station,
-                          t.run_days, t.traction_type, t.is_regular, t.is_active,
+                          t.run_days, t.traction_type, t.rake_type,
+                          t.is_regular, t.is_active,
                           prev.train_no    AS renamed_from,
                           prev.valid_until AS renamed_from_date
                    FROM div_trains t
@@ -4858,7 +4861,10 @@ router.post('/trains', requireSettingsRole, async (req, res) => {
             shed_code: link.shed_code ? String(link.shed_code).trim() : null,
             link_attr: link.link_attr ? String(link.link_attr).trim() : null,
             expected_loco_type: link.expected_loco_type ? String(link.expected_loco_type).trim() : null,
-            rake_type: link.rake_type ? String(link.rake_type).trim() : null,
+            // Falls back to the train's rake type: it is entered on the train now,
+            // so a link created in the same request must inherit it.
+            rake_type: (link.rake_type ? String(link.rake_type).trim() : null)
+                       || fields.rake_type || null,
             expected_hog: link.expected_hog ? 1 : 0,
             is_push_pull: link.is_push_pull ? 1 : 0,
             traction_type: link.traction_type || fields.traction_type || 'Electric',
@@ -4946,7 +4952,11 @@ router.put('/trains/:train_no', requireSettingsRole, async (req, res) => {
         // the reconciled handover values, commit 76013bc) nor direction
         // (train-level here vs per-row UP/DN there). These are train-level
         // attributes, so all active master rows for the train get them.
-        const MIRROR_FIELDS = ['run_days', 'train_name', 'traction_type'];
+        // rake_type is mirrored too: the train is now where it is entered, but the
+        // link rows keep their own copy so the sheet reads one column, and so a
+        // train that genuinely runs different stock per sheet can still be
+        // corrected row-by-row on the Loco Links tab afterwards.
+        const MIRROR_FIELDS = ['run_days', 'train_name', 'traction_type', 'rake_type'];
         const mirror = {};
         for (const f of MIRROR_FIELDS) if (f in fields) mirror[f] = fields[f];
         let mirrored = 0;

@@ -502,6 +502,7 @@
                         <th>From → To</th>
                         <th>Loco-change</th>
                         <th>Run Days</th>
+                        <th>Coach</th>
                         <th>Status</th>
                         <th></th>
                     </tr>
@@ -708,6 +709,25 @@
                     </select>
                 </div>
             </div>
+            <div class="row2">
+                <div>
+                    <!-- Train-level, NOT part of the Loco Link section below: a
+                         self-propelled trainset (VNDB) has a rake type but no loco
+                         link at all. Saved value is mirrored down to the train's
+                         link rows, if it has any. -->
+                    <label>Coach Type</label>
+                    <select id="ft_rake_type">
+                        <option value="">—</option>
+                        <option value="LHB">LHB</option>
+                        <option value="ICF">ICF</option>
+                        <option value="VNDB">VNDB — Vande Bharat</option>
+                        <option value="AMTB">AMTB — Amrit Bharat</option>
+                        <option value="LVPH">LVPH — Parcel</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                <div></div>
+            </div>
             <div class="row3">
                 <div>
                     <label>From Station <span style="font-weight:400;color:var(--muted)">(Mumbai segment start)</span></label>
@@ -809,18 +829,6 @@
                     <div>
                         <label>Loco Type</label>
                         <input type="text" id="ft_link_expected_loco_type" maxlength="20" placeholder="WAP7">
-                    </div>
-                    <div>
-                        <label>Coach Type</label>
-                        <select id="ft_link_rake_type">
-                            <option value="">—</option>
-                            <option value="LHB">LHB</option>
-                            <option value="ICF">ICF</option>
-                            <option value="VNDB">VNDB — Vande Bharat</option>
-                            <option value="AMTB">AMTB — Amrit Bharat</option>
-                            <option value="LVPH">LVPH — Parcel</option>
-                            <option value="Other">Other</option>
-                        </select>
                     </div>
                     <div>
                         <label>HOG?</label>
@@ -1514,7 +1522,7 @@ function trainStatusPill(t) {
 function renderTrains() {
     const body = $('#trainsBody');
     if (!trains.length) {
-        body.innerHTML = `<tr><td colspan="9" class="empty-msg">No trains match the filter.</td></tr>`;
+        body.innerHTML = `<tr><td colspan="10" class="empty-msg">No trains match the filter.</td></tr>`;
         return;
     }
     body.innerHTML = trains.map(t => {
@@ -1536,6 +1544,7 @@ function renderTrains() {
                 <td>${esc(t.from_station || '—')} → ${esc(t.to_station || '—')}</td>
                 <td>${esc(t.loco_change_station || '—')}</td>
                 <td>${esc(t.run_days || '—')}</td>
+                <td>${esc(t.rake_type || '—')}</td>
                 <td>${trainStatusPill(t)}</td>
                 <td>
                     <div class="row-actions">
@@ -1581,6 +1590,7 @@ async function openTrainModal(train) {
     $('#ft_train_type').value           = train ? (train.train_type || 'Express') : 'Express';
     $('#ft_direction').value            = train ? (train.direction || 'UP') : 'UP';
     $('#ft_traction_type').value        = train ? (train.traction_type || 'Electric') : 'Electric';
+    $('#ft_rake_type').value            = train ? (train.rake_type || '') : '';
     $('#ft_from_station').value         = train ? (train.from_station || '') : '';
     $('#ft_to_station').value           = train ? (train.to_station || '') : '';
     $('#ft_loco_change_station').value  = train ? (train.loco_change_station || '') : '';
@@ -1609,7 +1619,6 @@ async function openTrainModal(train) {
     $('#ft_link_shed_code').value = '';
     $('#ft_link_attr').value = '';
     $('#ft_link_expected_loco_type').value = '';
-    $('#ft_link_rake_type').value = '';
     $('#ft_link_expected_hog').value = '0';
     $('#ft_link_is_push_pull').value = '0';
     linkInputs.forEach(el => el.disabled = false);
@@ -1674,7 +1683,6 @@ async function openTrainModal(train) {
                 $('#ft_link_shed_code').value            = lk.shed_code || '';
                 $('#ft_link_attr').value                 = lk.link_attr || '';
                 $('#ft_link_expected_loco_type').value   = lk.expected_loco_type || '';
-                $('#ft_link_rake_type').value            = lk.rake_type || '';
                 $('#ft_link_expected_hog').value         = String(lk.expected_hog ?? 0);
                 $('#ft_link_is_push_pull').value         = String(lk.is_push_pull ?? 0);
                 linkLegend.innerHTML = `Loco Link Details <span style="font-weight:400;color:var(--success)">(editing existing link #${lk.id} on ${esc(lk.sheet_source)})</span>`;
@@ -1703,6 +1711,7 @@ async function saveTrain() {
         train_type: $('#ft_train_type').value,
         direction: $('#ft_direction').value,
         traction_type: $('#ft_traction_type').value,
+        rake_type: $('#ft_rake_type').value || null,
         from_station: $('#ft_from_station').value.trim() || null,
         to_station: $('#ft_to_station').value.trim() || null,
         loco_change_station: $('#ft_loco_change_station').value.trim() || null,
@@ -1726,7 +1735,6 @@ async function saveTrain() {
             $('#ft_link_shed_code').value ||
             $('#ft_link_attr').value.trim() ||
             $('#ft_link_expected_loco_type').value.trim() ||
-            $('#ft_link_rake_type').value ||
             parseInt($('#ft_link_expected_hog').value, 10) ||
             parseInt($('#ft_link_is_push_pull').value, 10)
         );
@@ -1755,7 +1763,6 @@ async function saveTrain() {
                 shed_code: $('#ft_link_shed_code').value || null,
                 link_attr: $('#ft_link_attr').value.trim() || null,
                 expected_loco_type: $('#ft_link_expected_loco_type').value.trim() || null,
-                rake_type: $('#ft_link_rake_type').value || null,
                 expected_hog: parseInt($('#ft_link_expected_hog').value, 10) ? 1 : 0,
                 is_push_pull: parseInt($('#ft_link_is_push_pull').value, 10) ? 1 : 0,
             };
@@ -1828,6 +1835,7 @@ async function saveTrain() {
                     to_station: body.to_station,
                     run_days: body.run_days,
                     traction_type: body.traction_type,
+                    rake_type: body.rake_type,
                 }, linkPayload);
                 // If user left link from_station blank, fall back to train's
                 if (!createBody.from_station) createBody.from_station = body.from_station;
