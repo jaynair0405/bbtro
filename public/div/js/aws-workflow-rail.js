@@ -47,8 +47,16 @@
     '.aws-rail__step--active .aws-rail__num{background:linear-gradient(135deg,#6ee7ff,#a78bfa);' +
       'border-color:#6ee7ff;color:#08101f;box-shadow:0 0 12px rgba(110,231,255,.5);}' +
     '.aws-rail__step--active .aws-rail__label{color:#fff;font-weight:600;}' +
+    // The rail is position:fixed in the viewport's left gutter. On a wide screen
+    // the centered page content leaves enough left margin for it, but on a
+    // narrower monitor that margin shrinks and the rail overlaps the content
+    // (hiding the top-left "Report Period" field). So RESERVE the gutter: offset
+    // the body by the rail's footprint whenever the rail is shown, and drop the
+    // offset once it is hidden. Footprint = left(14) + width + gap.
+    '@media (min-width:1101px){body{padding-left:122px;}}' +
     '@media (max-width:1100px){.aws-rail{width:54px;}.aws-rail__label{display:none;}' +
       '.aws-rail__num{width:30px;height:30px;}}' +
+    '@media (min-width:821px) and (max-width:1100px){body{padding-left:80px;}}' +
     '@media (max-width:820px){.aws-rail{display:none;}}';
 
   var style = document.createElement('style');
