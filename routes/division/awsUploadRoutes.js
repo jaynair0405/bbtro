@@ -361,6 +361,16 @@ function isAwsCandidate(row) {
         return true;
     }
 
+    // Pattern 12: "<CODE> ON <signal>" — code first, then the signal it acted on.
+    // Examples: "A On L4001", "B ON S-18", "AUX on H2212". This is the mirror of
+    // Pattern 6 ("ON <code>" = acted on [code] aspect); here ON is followed by a
+    // signal token (letters and/or a number), not a bare code letter, so the two
+    // do not overlap. Scoped tight (code letter, ON, then a signal-like token
+    // containing a digit) and only reached for already-gated EMU/ST rows.
+    if (/\b[ABCDEPQR]\s+ON\s+[A-Z]{0,4}[-.\s]?\d/i.test(detail)) {
+        return true;
+    }
+
     return false;
 }
 
