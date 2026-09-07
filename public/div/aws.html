@@ -153,6 +153,11 @@
     }
     .btn-neo:hover{ background: rgba(255,255,255,.10); }
 
+    .quick-period.active{
+      background: linear-gradient(135deg, var(--accent), var(--accent2)) !important;
+      color: #08101f !important; border-color: var(--accent) !important; font-weight: 700;
+    }
+
     .btn-accent{
       border-radius: 12px;
       border: none;
@@ -344,6 +349,13 @@
             <option>CSMT</option>
           </select>
         </div>
+      </div>
+
+      <!-- Quick Friday–Thursday periods: one click = set From/To + reload.
+           Recent weeks only; older ranges still via the pickers above. -->
+      <div class="mt-2">
+        <span class="form-label me-2 mb-0">Quick period (Fri–Thu):</span>
+        <span id="quickPeriods" class="d-inline-flex flex-wrap gap-2 align-items-center"></span>
       </div>
     </div>
 
@@ -1275,6 +1287,41 @@
       onChange: function() { loadReportData(); }
     });
     const fpReport = flatpickr('#reportDate', fpConfig);
+
+    // Quick Friday–Thursday period chips. One click sets From/To (in the same
+    // d-m-Y the pickers use) and reloads — same result as choosing the dates by
+    // hand. Only recent weeks are shown; older ranges use the pickers above so
+    // the strip does not eat the screen. Weeks match the JPO Fri–Thu boundary.
+    (function buildQuickPeriods() {
+      const host = document.getElementById('quickPeriods');
+      if (!host) return;
+      const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      const fmtFP = (d) => `${String(d.getDate()).padStart(2,'0')}-${String(d.getMonth()+1).padStart(2,'0')}-${d.getFullYear()}`;
+      const today = new Date(); today.setHours(0,0,0,0);
+      const off = (today.getDay() + 2) % 7;             // days since this week's Friday
+      const curFri = new Date(today); curFri.setDate(today.getDate() - off);
+
+      let html = '';
+      for (let i = 0; i < 6; i++) {
+        const fri = new Date(curFri); fri.setDate(curFri.getDate() - 7 * i);
+        const thu = new Date(fri);    thu.setDate(fri.getDate() + 6);
+        const label = fri.getMonth() === thu.getMonth()
+          ? `${fri.getDate()}–${thu.getDate()} ${MON[thu.getMonth()]}`
+          : `${fri.getDate()} ${MON[fri.getMonth()]}–${thu.getDate()} ${MON[thu.getMonth()]}`;
+        const tag = i === 0 ? 'This wk · ' : (i === 1 ? 'Last wk · ' : '');
+        html += `<button type="button" class="btn btn-neo btn-sm px-2 quick-period" ` +
+                `data-from="${fmtFP(fri)}" data-to="${fmtFP(thu)}" ` +
+                `title="${fri.toDateString()} – ${thu.toDateString()}">${tag}${label}</button>`;
+      }
+      host.innerHTML = html;
+      host.querySelectorAll('.quick-period').forEach(b => b.addEventListener('click', () => {
+        fpFrom.setDate(b.dataset.from, false);   // no per-picker onChange…
+        fpTo.setDate(b.dataset.to, false);
+        host.querySelectorAll('.quick-period').forEach(x => x.classList.remove('active'));
+        b.classList.add('active');
+        loadReportData();                        // …one explicit reload
+      }));
+    })();
 
     // Chronic section: its own pickers, defaulted to the full span of data that
     // actually exists — so it never opens on an empty window the way the report
