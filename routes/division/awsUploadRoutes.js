@@ -2700,6 +2700,67 @@ router.get('/recurrence-full', async (req, res) => {
     }
 });
 
+// ── GET /search ────────────────────────────────────────────────────────────
+// One box, three entities: type a cab (loco_raw), a signal (number / bare
+// number), or a motorman (crew name or CMS id) and get ALL its AWS acts across
+// ALL history — independent of any page's selected period. Read-only; matched
+// and unmatched events alike (a cab/motorman acts even when the location was
+// not recorded). Used by the shared search box on the dashboard and the
+// recurrence pages.
+router.get('/search', async (req, res) => {
+    try {
+        const pool = req.app.locals.pool;
+        const q = String(req.query.q || '').trim();
+        if (q.length < 2) return res.json({ q, acts: [], summary: {}, truncated: false });
+
+        const like = '%' + q + '%';
+        const norm = normalizeForSignalMatch(q);   // "L-4001"/"L4001" -> "L4001"
+
+        // cab = exact (numbers), crew_id = exact, name/location/signal = LIKE,
+        // plus a normalized signal-number equality so "L4001" finds "L-4001".
+        const where = [
+            'e.loco_raw = ?',
+            'e.crew_id = ?',
+            'e.crew_name LIKE ?',
+            'e.location_raw LIKE ?',
+            's.signal_number LIKE ?',
+        ];
+        const params = [q, q, like, like, like];
+        if (norm) { where.push('s.normalized_signal_number = ?'); params.push(norm); }
+
+        const [acts] = await pool.query(
+            `SELECT e.id, e.abn_date, e.abn_time, e.aws_code, e.location_raw,
+                    s.signal_number, s.section,
+                    e.loco_raw, e.train_number, e.crew_id, e.crew_name,
+                    e.responsibility, e.needs_manual_review,
+                    r.from_station, r.to_station, r.detail
+               FROM div_aws_events e
+               LEFT JOIN div_signals s ON s.id = e.signal_id
+               LEFT JOIN div_aws_cms_raw r ON r.id = e.raw_id
+              WHERE ${where.join(' OR ')}
+              ORDER BY e.abn_date DESC, e.abn_time DESC
+              LIMIT 500`,
+            params
+        );
+
+        const uniq = (f) => new Set(acts.map(f).filter(Boolean)).size;
+        res.json({
+            q,
+            acts,
+            summary: {
+                total: acts.length,
+                distinct_cabs: uniq(a => a.loco_raw),
+                distinct_signals: uniq(a => a.signal_number),
+                distinct_crew: uniq(a => a.crew_id || a.crew_name),
+            },
+            truncated: acts.length === 500,
+        });
+    } catch (err) {
+        console.error('[AWS /search] Error:', err);
+        res.status(500).json({ error: 'Search failed' });
+    }
+});
+
 // ── GET /cab-cross-check ───────────────────────────────────────────────────
 // "Was it the cab, or the signal?" — the corroboration step for a chronic cab.
 //
