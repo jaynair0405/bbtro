@@ -92,6 +92,9 @@
       text-transform:uppercase; color:var(--muted); }
     .fr-top{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }
     @media(max-width:900px){ .fr-top{ grid-template-columns:1fr; } }
+    .fr-top-link{ color:var(--accent); text-decoration:none; }
+    .fr-top-link:hover{ text-decoration:underline; }
+    @media print{ .fr-top-link{ color:#000 !important; text-decoration:none !important; } }
     .fr-section{ break-inside:auto; }
     @media print{ .fr-break{ break-before:page; page-break-before:always; } }
     .stat{ padding:14px; height:100%; }
@@ -584,6 +587,43 @@
         <div class="muted" style="font-size:.8rem;margin-top:4px">Peak/7d = max acts in any rolling 7-day window. ≥3 on a magnet → JPO Rule 3b (S&amp;T); ≥4 on a cab → Rule 3a (cab side). Bands are nested: totals include the shorter windows. See the JPO Rules reference on the last page.</div>`;
     }
 
+    // Shared incident-row renderer (used by the modal opened from Top repeaters).
+    function frIncidentRows(incidents, kind){
+      return (incidents || []).map(i => `<tr class="band-${i.band}">
+        <td>${bandLabel(i.band)}</td>
+        <td>${fmtDate(i.abn_date)}</td>
+        <td>${escapeHtml(incTime(i.abn_time))}</td>
+        <td><span class="badge bg-info">${escapeHtml(i.aws_code || '?')}</span></td>
+        <td>${kind === 'sig' ? escapeHtml(i.loco_raw || '') : escapeHtml(i.signal_number || i.location_raw || '')}</td>
+        <td>${escapeHtml(i.train_number || '')}</td>
+        <td>${crewCell(i)}</td>
+        <td><small>${escapeHtml((i.detail || '').substring(0,80))}</small></td>
+      </tr>`).join('');
+    }
+    // Click a Top-repeater name -> show its occurrences in the modal (no scroll).
+    function openReportEntry(kind, key){
+      if (!reportData) return;
+      const entry = kind === 'sig'
+        ? reportData.signals.find(s => String(s.magnet_key) === String(key))
+        : reportData.cabs.find(c => String(c.cab_number) === String(key));
+      if (!entry) return;
+      const name = kind === 'sig' ? entry.signal_number : ('Cab ' + entry.cab_number);
+      const col = kind === 'sig' ? 'Cab' : 'Signal';
+      document.getElementById('eventModalTitle').textContent =
+        `${name} — ${entry.total_acts} acts (14d ${entry.n14} · 30d ${entry.n30} · 90d ${entry.total_acts})`;
+      document.getElementById('eventModalBody').innerHTML =
+        `<div class="table-responsive"><table class="table table-sm">
+          <thead><tr><th>Band</th><th>Date</th><th>Time</th><th>Code</th><th>${col}</th><th>Train</th><th>Crew</th><th>Detail</th></tr></thead>
+          <tbody>${frIncidentRows(entry.incidents, kind)}</tbody></table></div>`;
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('eventModal')).show();
+    }
+    document.addEventListener('click', (e) => {
+      const a = e.target.closest('.fr-top-link');
+      if (!a) return;
+      e.preventDefault();
+      openReportEntry(a.dataset.kind, a.dataset.key);
+    });
+
     function frSummaryHtml(d){
       const sig = d.signals, cab = d.cabs;
       const cnt = (arr, f) => arr.filter(f).length;
@@ -594,13 +634,13 @@
       const tile = (k, v, sub) => `<div class="fr-tile"><div class="k">${k}</div><div class="v">${v}${sub ? ` <small>${sub}</small>` : ''}</div></div>`;
 
       const topSig = sig.slice(0,5).map(s => `<tr>
-        <td><strong>${escapeHtml(s.signal_number)}</strong> <small class="muted">${escapeHtml(s.sections || '')}</small></td>
+        <td><a href="#" class="fr-top-link" data-kind="sig" data-key="${escapeHtml(String(s.magnet_key))}"><strong>${escapeHtml(s.signal_number)}</strong></a> <small class="muted">${escapeHtml(s.sections || '')}</small></td>
         <td class="text-center">${peakBadge(s.peak_7day, 3, '3b')}</td>
         <td class="text-center"><span class="cnt cnt-14d">${s.n14}</span></td>
         <td class="text-center"><span class="cnt cnt-30d">${s.n30}</span></td>
         <td class="text-center">${s.total_acts}</td></tr>`).join('') || '<tr><td colspan="5" class="muted">None</td></tr>';
       const topCab = cab.slice(0,5).map(c => `<tr>
-        <td><strong>${escapeHtml(c.cab_number)}</strong>${c.unit_no ? ` <small class="muted">${escapeHtml(c.unit_no)}</small>` : ''}</td>
+        <td><a href="#" class="fr-top-link" data-kind="cab" data-key="${escapeHtml(String(c.cab_number))}"><strong>${escapeHtml(c.cab_number)}</strong></a>${c.unit_no ? ` <small class="muted">${escapeHtml(c.unit_no)}</small>` : ''}</td>
         <td class="text-center">${peakBadge(c.peak_7day, 4, '3a')}</td>
         <td class="text-center"><span class="cnt cnt-14d">${c.n14}</span></td>
         <td class="text-center"><span class="cnt cnt-30d">${c.n30}</span></td>
@@ -622,7 +662,7 @@
           ${tile('Active last 14d', cabA14)}
           ${tile('Active last 30d', cabA30)}
         </div>
-        <div class="fr-sub">Top repeaters</div>
+        <div class="fr-sub">Top repeaters <span style="text-transform:none;font-weight:500;color:var(--muted)">— click a name to see its occurrences</span></div>
         <div class="fr-top">
           <div><div class="muted mb-1" style="font-size:.8rem"><i class="bi bi-signpost-2 me-1"></i>Signals</div>
             <div class="table-responsive"><table class="table table-sm mb-0">${topHead}<tbody>${topSig}</tbody></table></div></div>
