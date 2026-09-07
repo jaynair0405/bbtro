@@ -24,7 +24,7 @@
 
   var NAV = [
     { group: 'Counselling' },
-    { id: 'home',    label: 'Signal Vigilance', href: '/cli/index.html',   icon: I.home,  countKey: 'pending' },
+    { id: 'home',    label: 'SPAD Prevention', href: '/cli/index.html',   icon: I.home,  countKey: 'pending' },
     { id: 'session', label: 'New Counselling',  href: '/cli/session.html', icon: I.plus },
     { id: 'history', label: 'My Sessions',      href: '/cli/history.html', icon: I.list },
 

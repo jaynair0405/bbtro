@@ -250,7 +250,15 @@ textarea.input{min-height:84px;resize:vertical;line-height:1.5}
 .subject-row.on{background:var(--blue-50)}
 .subject-row input[type=checkbox]{width:20px;height:20px;accent-color:var(--blue-600);flex:none;margin:0}
 .subject-row .sn{flex:1;font-size:14px;font-weight:500}
-.subject-row .sub-no{width:96px;flex:none;min-height:38px;font-size:15px;padding:6px 9px}
+/* Wide enough for "10/11" and for a line of free text -- this box is no longer
+   just a number. It drops under the name on a narrow screen rather than
+   squeezing the subject name into two characters. */
+.subject-row .sub-no{width:190px;flex:none;min-height:38px;font-size:15px;padding:6px 9px}
+@media (max-width:560px){
+  .subject-row{flex-wrap:wrap}
+  .subject-row .sn{flex:1 1 auto}
+  .subject-row .sub-no{width:100%;margin-left:31px}
+}
 .subject-row .sub-no:disabled{background:var(--line-2);opacity:.55}
 .photo-box label.btn{cursor:pointer}
 /* Where a nominee actually sits, when that is not this CLI's own lobby. */

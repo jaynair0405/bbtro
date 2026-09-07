@@ -59,10 +59,13 @@ const REAL_CLI = `c.cmsid IS NOT NULL AND c.cmsid <> ''`;
  * the two would make a safety-circular briefing read as SPAD counselling done.
  */
 
-/** The one-line rendering stored on the session, for the sheet and the export. */
+/** The one-line rendering stored on the session, for the sheet and the export.
+ *  detail_join is what separates the name from its detail, because the two
+ *  cases read differently: "Sr DEE Instruction-10/11" but "Other: Loco drill". */
 function renderSubjects(rows) {
   return rows.map(function (r) {
-    return r.number ? r.subject_name + '-' + r.number : r.subject_name;
+    if (!r.number) return r.subject_name;
+    return r.subject_name + (r.detail_join || '-') + r.number;
   }).join('; ');
 }
 
@@ -79,7 +82,8 @@ async function resolveSubjects(conn, topicId, chosen) {
   // sort_order, so the line on the officers' sheet reads in the order HQ lists
   // the subjects rather than whatever order the ids arrived in.
   const [rows] = await conn.query(
-    `SELECT subject_id, subject_name, needs_number FROM div_counselling_subjects
+    `SELECT subject_id, subject_name, needs_number, detail_label, detail_join
+       FROM div_counselling_subjects
       WHERE topic_id = ? AND is_active = 1 AND subject_id IN (?)
       ORDER BY sort_order, subject_name`, [topicId, ids]
   );
@@ -90,8 +94,18 @@ async function resolveSubjects(conn, topicId, chosen) {
 
   return rows.map((r) => {
     const num = numById[r.subject_id] || null;
-    if (r.needs_number && !num) throw new Error(`Enter the number for ${r.subject_name}`);
-    return { subject_id: r.subject_id, subject_name: r.subject_name, number: r.needs_number ? num : null };
+    if (r.needs_number && !num) {
+      // Quote the label rather than folding it into a sentence. HQ can type
+      // anything here, and "enter the what was counselled" is what happens when
+      // you assume the label is a noun.
+      throw new Error(`Fill in "${r.detail_label || 'detail'}" for ${r.subject_name}`);
+    }
+    return {
+      subject_id: r.subject_id,
+      subject_name: r.subject_name,
+      detail_join: r.detail_join || '-',
+      number: r.needs_number ? num : null,
+    };
   });
 }const UPLOAD_DIR = path.join(__dirname, '..', '..', 'uploads', 'counselling');
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
@@ -285,7 +299,8 @@ router.get('/bootstrap', async (req, res) => {
     );
 
     const [subjects] = await conn.query(
-      `SELECT s.subject_id, s.topic_id, s.subject_code, s.subject_name, s.needs_number
+      `SELECT s.subject_id, s.topic_id, s.subject_code, s.subject_name, s.needs_number,
+              s.detail_label, s.detail_join
          FROM div_counselling_subjects s
          JOIN div_counselling_topics t ON t.topic_id = s.topic_id
         WHERE s.is_active = 1 AND t.is_active = 1
@@ -656,7 +671,8 @@ router.get('/sessions/:id', async (req, res) => {
         ORDER BY s.name`, [req.params.id]
     );
     const [subjects] = await conn.query(
-      `SELECT ss.subject_id, ss.number, sub.subject_name, sub.needs_number
+      `SELECT ss.subject_id, ss.number, sub.subject_name, sub.needs_number,
+              sub.detail_label, sub.detail_join
          FROM div_counselling_session_subjects ss
          JOIN div_counselling_subjects sub ON sub.subject_id = ss.subject_id
         WHERE ss.session_id = ?
@@ -1481,10 +1497,14 @@ router.post('/subjects', hqOnly, async (req, res) => {
     const [[mx]] = await conn.query(
       `SELECT COALESCE(MAX(sort_order), 0) + 1 AS nxt FROM div_counselling_subjects WHERE topic_id = ?`, [topicId]
     );
+    const needs = req.body?.needs_number ? 1 : 0;
     const [ins] = await conn.query(
-      `INSERT INTO div_counselling_subjects (topic_id, subject_code, subject_name, needs_number, sort_order)
-       VALUES (?, ?, ?, ?, ?)`,
-      [topicId, code, name, req.body?.needs_number ? 1 : 0, mx.nxt]
+      `INSERT INTO div_counselling_subjects
+         (topic_id, subject_code, subject_name, needs_number, detail_label, detail_join, sort_order)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [topicId, code, name, needs,
+       needs ? (String(req.body?.detail_label || '').trim() || 'Instruction / circular no.') : null,
+       String(req.body?.detail_join || '-').slice(0, 4), mx.nxt]
     );
     await audit(conn, req, null, 'subject_add', { subject_id: ins.insertId, name, code });
     conn.release();
@@ -1511,10 +1531,12 @@ router.put('/subjects/:id', hqOnly, async (req, res) => {
 
     await conn.query(
       `UPDATE div_counselling_subjects
-          SET subject_name = ?, needs_number = ?, is_active = ?, sort_order = ?
+          SET subject_name = ?, needs_number = ?, detail_label = ?, is_active = ?, sort_order = ?
         WHERE subject_id = ?`,
       [name,
        req.body?.needs_number !== undefined ? (req.body.needs_number ? 1 : 0) : cur.needs_number,
+       req.body?.detail_label !== undefined
+         ? (String(req.body.detail_label).trim() || null) : cur.detail_label,
        req.body?.is_active   !== undefined ? (req.body.is_active   ? 1 : 0) : cur.is_active,
        req.body?.sort_order  !== undefined ? Number(req.body.sort_order)    : cur.sort_order,
        cur.subject_id]

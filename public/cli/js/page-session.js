@@ -142,13 +142,15 @@
                   (o.subject_code === 'SIGNAL_VIGILANCE' ? ' checked' : '') + '>' +
                 '<span class="sn">' + esc(o.subject_name) + '</span>' +
                 (o.needs_number
-                  ? '<input class="input sub-no" placeholder="No." maxlength="30" ' +
+                  ? '<input class="input sub-no" placeholder="' +
+                    esc(o.detail_label || 'Detail') + '" maxlength="30" ' +
                     'data-no="' + o.subject_id + '" disabled>'
                   : '') +
               '</label>';
             }).join('') +
           '</div>' +
-          '<div class="hint" data-subject-hint>The standing topic is ticked. Add others as needed.</div>' +
+          '<div class="hint" data-subject-hint>The standing topic is ticked. Tick as many as apply \u2014 ' +
+            'and where a number is asked for, more than one is fine (10/11).</div>' +
         '</div>' +
         '<div class="grid-2">' +
           '<div class="field"><label for="f-venue">Lobby</label>' +
@@ -313,8 +315,10 @@
     });
     if (missing.length) {
       var mrow = document.querySelector('.subject-row[data-subject="' + missing[0].subject_id + '"]');
-      Cli.toast('Enter the number for ' + mrow.querySelector('.sn').textContent + '.', 'alert');
-      mrow.querySelector('.sub-no').focus();
+      var box = mrow.querySelector('.sub-no');
+      Cli.toast('Fill in \u201c' + (box.placeholder || 'detail') + '\u201d for ' +
+        mrow.querySelector('.sn').textContent + '.', 'alert');
+      box.focus();
       return;
     }
     btn.disabled = true; btn.textContent = 'Saving…';

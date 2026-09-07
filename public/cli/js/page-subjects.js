@@ -19,7 +19,7 @@
     return '<li>' +
       '<div class="who">' +
         '<div class="nm">' + esc(x.subject_name) +
-          (x.needs_number ? ' <span class="tag">number required</span>' : '') +
+          (x.needs_number ? ' <span class="tag">' + esc(x.detail_label || 'detail') + '</span>' : '') +
           (x.is_active ? '' : ' <span class="tag mute">retired</span>') + '</div>' +
         '<div class="meta">' + esc(x.subject_code) + ' · ' + esc(x.topic_name) +
           ' · used in ' + x.times_used + ' session' + (x.times_used === 1 ? '' : 's') + '</div>' +
@@ -56,9 +56,12 @@
         '<label class="check" style="border:1px solid var(--line);border-radius:10px">' +
           '<input type="checkbox" id="s-num"' + (x.needs_number ? ' checked' : '') + '>' +
           '<span class="who"><span class="nm">Needs an instruction or circular number</span>' +
-          '<span class="meta">The CLI must type it, and it is shown as “Name-14” on the sheet.</span></span>' +
+          '<span class="meta">The CLI must fill it in before the session can be saved.</span></span>' +
         '</label>' +
-        '<button class="btn primary" style="margin-top:14px" data-save="' + x.subject_id + '">Save</button>' +
+        '<div class="field" style="margin-top:14px"><label for="s-lab">What to ask for</label>' +
+          '<input class="input" id="s-lab" maxlength="60" value="' + esc(x.detail_label || '') + '" ' +
+          'placeholder="e.g. Instruction / circular no."></div>' +
+        '<button class="btn primary" data-save="' + x.subject_id + '">Save</button>' +
       '</div>';
     host.hidden = false;
     host.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -74,9 +77,11 @@
         '<label class="check" style="border:1px solid var(--line);border-radius:10px">' +
           '<input type="checkbox" id="n-num">' +
           '<span class="who"><span class="nm">Needs an instruction or circular number</span>' +
-          '<span class="meta">Tick for anything numbered, like an instruction or a circular.</span></span>' +
+          '<span class="meta">Tick for anything with a number or a description the CLI must supply.</span></span>' +
         '</label>' +
-        '<button class="btn primary" style="margin-top:14px" data-add>Add</button>' +
+        '<div class="field" style="margin-top:14px"><label for="n-lab">What to ask for</label>' +
+          '<input class="input" id="n-lab" maxlength="60" placeholder="e.g. Instruction / circular no."></div>' +
+        '<button class="btn primary" data-add>Add</button>' +
       '</div></div>' +
       '<div class="card" data-issued hidden></div>' +
       '<div class="card"><div class="card-body tight" data-list></div></div>' +
@@ -89,10 +94,15 @@
       if (e.target.matches('[data-add]')) {
         var name = document.getElementById('n-name').value.trim();
         if (!name) return Cli.toast('Give the subject a name.', 'alert');
-        return Cli.post('/subjects', { subject_name: name, needs_number: document.getElementById('n-num').checked })
+        return Cli.post('/subjects', {
+          subject_name: name,
+          needs_number: document.getElementById('n-num').checked,
+          detail_label: document.getElementById('n-lab').value.trim(),
+        })
           .then(function () {
             document.getElementById('n-name').value = '';
             document.getElementById('n-num').checked = false;
+            document.getElementById('n-lab').value = '';
             Cli.toast('Added. It is on every CLI’s form now.', 'info');
             load();
           }).catch(function (err) { Cli.toast(err.message, 'alert'); });
@@ -106,6 +116,7 @@
           body: JSON.stringify({
             subject_name: document.getElementById('s-name').value.trim(),
             needs_number: document.getElementById('s-num').checked,
+            detail_label: document.getElementById('s-lab').value.trim(),
           })
         }).then(function () {
           document.querySelector('[data-issued]').hidden = true;
