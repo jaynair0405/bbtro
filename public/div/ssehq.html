@@ -26,6 +26,7 @@
         <a class="on" href="/div/ssehq.html"><span class="ic">&#9632;</span>Dashboard</a>
         <a href="/div/ssehq-opr.html"><span class="ic">&#128203;</span>One Page Report</a>
         <a href="/div/ssehq-note.html"><span class="ic">&#128221;</span>DElogging Note</a>
+        <a href="/div/ssehq-office-note.html"><span class="ic">&#128196;</span>Office Note</a>
         <a href="/div/documents.html?category=SSE_HQ_REPORT"><span class="ic">&#128193;</span>Filed reports</a>
 
         <h4>Shed</h4>
@@ -74,6 +75,11 @@
                 <h3>Recent delogging notes
                     <a class="more" href="/div/ssehq-note.html">New &rarr;</a></h3>
                 <div class="bd2" id="notes"><div class="none2">Loading&hellip;</div></div>
+            </div>
+            <div class="card2">
+                <h3>Recent office notes
+                    <a class="more" href="/div/ssehq-office-note.html">New &rarr;</a></h3>
+                <div class="bd2" id="offices"><div class="none2">Loading&hellip;</div></div>
             </div>
         </div>
     </section>
@@ -128,6 +134,7 @@ function renderTiles() {
         { n: stats.overdue ?? '—',   l: 'Schedules overdue', x: 'past due date',     cls: stats.overdue ? 'warn' : 'good' },
         { n: stats.oprMonth ?? '—',  l: 'OPRs this month', x: `${stats.oprDraft ?? 0} still draft`, cls: '', href: '/div/ssehq-opr.html' },
         { n: stats.noteMonth ?? '—', l: 'Notes this month', x: `${stats.noteDraft ?? 0} still draft`, cls: '', href: '/div/ssehq-note.html' },
+        { n: stats.officeMonth ?? '—', l: 'Office notes', x: `${stats.officeDraft ?? 0} still draft`, cls: '', href: '/div/ssehq-office-note.html' },
     ];
     $('tiles').innerHTML = t.map((x) => {
         const inner = `<div class="n">${esc(x.n)}</div><div class="l">${esc(x.l)}</div><div class="x">${esc(x.x)}</div>`;
@@ -192,7 +199,9 @@ function reportLines(list, page) {
     return list.map((r) => `
         <a class="line" href="${page}?id=${r.id}">
             <span class="k">${esc(r.number || '#' + r.id)}</span>
-            <span class="d">${esc([r.train_no && 'Train ' + r.train_no, r.loco_number && 'Loco ' + r.loco_number].filter(Boolean).join(' · '))}</span>
+            <span class="d">${esc(r.train_no || r.loco_number
+                ? [r.train_no && 'Train ' + r.train_no, r.loco_number && 'Loco ' + r.loco_number].filter(Boolean).join(' · ')
+                : (r.subject_text || ''))}</span>
             <span class="pill ${r.status === 'final' ? 'green' : 'grey'}">${r.status === 'final' ? 'Filed' : 'Draft'}</span>
             <span class="r">${esc(fmtDate(r.report_date))}</span>
         </a>`).join('');
@@ -204,9 +213,12 @@ async function loadReports() {
         stats.oprMonth = d.opr.this_month; stats.oprDraft = d.opr.draft;
         stats.noteMonth = d.note.this_month; stats.noteDraft = d.note.draft;
         renderTiles();
+        stats.officeMonth = d.office.this_month; stats.officeDraft = d.office.draft;
+        renderTiles();
         $('oprs').innerHTML = reportLines(d.opr.recent, '/div/ssehq-opr.html');
         $('notes').innerHTML = reportLines(d.note.recent, '/div/ssehq-note.html');
-    } catch (e) { panelFail('oprs', e); panelFail('notes', e); }
+        $('offices').innerHTML = reportLines(d.office.recent, '/div/ssehq-office-note.html');
+    } catch (e) { panelFail('oprs', e); panelFail('notes', e); panelFail('offices', e); }
 }
 
 (async function boot() {

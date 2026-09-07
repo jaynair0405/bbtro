@@ -17,19 +17,43 @@
 const SsehqReport = require('../public/div/js/ssehq-report-render.js');
 
 const {
-    renderOprSheet, renderNoteSheet, oprSubject, noteSubject,
+    renderOprSheet, renderNoteSheet, renderOfficeSheet, oprSubject, noteSubject,
     SHEET_CSS, escapeHtml, fmtDate,
 } = SsehqReport;
 
 // A4 with the margins the division's own reports use. The OPR is a dense
 // one-page form, so its side margins are tighter than a letter's.
-const PAGE_MARGIN = { opr: '12mm 12mm 12mm 12mm', note: '16mm 18mm 14mm 22mm' };
+const PAGE_MARGIN = {
+    opr: '12mm 12mm 12mm 12mm',
+    note: '16mm 18mm 14mm 22mm',
+    office: '16mm 18mm 14mm 22mm',
+};
+
+// The office note's letterhead is Devanagari, so its pages must pull the font.
+// Loaded for every kind rather than only that one: it costs nothing when
+// unused, and a note that gains a Hindi line later should not render in
+// fallback glyphs because someone forgot to add it here.
+const DEVA_FONT =
+    '<link rel="preconnect" href="https://fonts.googleapis.com">\n' +
+    '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n' +
+    '<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;500;600;700&display=swap" rel="stylesheet">';
 
 function oprTitle(report) {
     return ['OPR', report.report_no || '#' + report.id].filter(Boolean).join(' ');
 }
 function noteTitle(note) {
     return ['DElogging Note', note.note_no || '#' + note.id].filter(Boolean).join(' ');
+}
+function officeTitle(note) {
+    return ['Office Note', note.note_no || '#' + note.id].filter(Boolean).join(' ');
+}
+/* An office note has no printed subject. The stored one is for filing only, so
+ * the repository has something readable to list it under; falling back to the
+ * opening words of the note itself is better than an empty description. */
+function officeSubject(note) {
+    if (note.subject_text) return note.subject_text;
+    const body = String(note.body_text || '').replace(/\s+/g, ' ').trim();
+    return body ? body.slice(0, 140) + (body.length > 140 ? '…' : '') : 'Office note';
 }
 
 /**
@@ -40,18 +64,27 @@ function noteTitle(note) {
  * produced for this module. Without it the filed copy would be a page the user
  * can read but not turn into the file they have to attach to an email.
  */
+const KIND_RENDER = {
+    opr:    { title: oprTitle,    subject: oprSubject,    margin: 'opr',
+              sheet: (r, e) => renderOprSheet(r, e, { placeholders: false }) },
+    note:   { title: noteTitle,   subject: noteSubject,   margin: 'note',
+              sheet: (r, e) => renderNoteSheet(r, e, { placeholders: false }) },
+    office: { title: officeTitle, subject: officeSubject, margin: 'office',
+              sheet: (r) => renderOfficeSheet(r, { placeholders: false }) },
+};
+
 function renderPage(kind, rec, events) {
-    const isOpr = kind === 'opr';
-    const title = isOpr ? oprTitle(rec) : noteTitle(rec);
-    const subject = isOpr ? oprSubject(rec) : noteSubject(rec);
-    const sheet = isOpr ? renderOprSheet(rec, events, { placeholders: false })
-                        : renderNoteSheet(rec, events, { placeholders: false });
+    const k = KIND_RENDER[kind];
+    const title = k.title(rec);
+    const subject = k.subject(rec);
+    const sheet = k.sheet(rec, events);
 
     return `<!doctype html><html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${escapeHtml(title)} — ${escapeHtml(subject)}</title>
+${DEVA_FONT}
 <style>
-@page { size: A4; margin: ${PAGE_MARGIN[isOpr ? 'opr' : 'note']}; }
+@page { size: A4; margin: ${PAGE_MARGIN[k.margin]}; }
 body { margin:0; background:#5a5f66; font-family:"Times New Roman",Times,serif; }
 .bar { position:sticky; top:0; z-index:5; background:#1b2333; color:#e7edf7;
        padding:10px 16px; display:flex; align-items:center; gap:14px;
@@ -61,7 +94,7 @@ body { margin:0; background:#5a5f66; font-family:"Times New Roman",Times,serif; 
 .bar button { background:#f5a524; border:none; color:#17130b; font-weight:700;
               border-radius:7px; padding:8px 15px; cursor:pointer; font:inherit; font-weight:700; }
 .sheet { width:210mm; min-height:297mm; margin:22px auto; background:#fff;
-         padding:${PAGE_MARGIN[isOpr ? 'opr' : 'note']}; box-shadow:0 10px 40px rgba(0,0,0,.45); }
+         padding:${PAGE_MARGIN[k.margin]}; box-shadow:0 10px 40px rgba(0,0,0,.45); }
 ${SHEET_CSS}
 @media print {
   body { background:#fff; }
@@ -78,6 +111,7 @@ ${SHEET_CSS}
 
 const renderOprPage = (report, events) => renderPage('opr', report, events);
 const renderNotePage = (note, events) => renderPage('note', note, events);
+const renderOfficePage = (note) => renderPage('office', note, []);
 
 /**
  * Word export. The same sheet in the mso WordSection1 shell, served as
@@ -86,18 +120,19 @@ const renderNotePage = (note, events) => renderPage('note', note, events);
  * from this one.
  */
 function renderWord(kind, rec, events) {
-    const isOpr = kind === 'opr';
-    const title = isOpr ? oprTitle(rec) : noteTitle(rec);
-    const sheet = isOpr ? renderOprSheet(rec, events, { placeholders: false })
-                        : renderNoteSheet(rec, events, { placeholders: false });
+    const k = KIND_RENDER[kind];
+    const title = k.title(rec);
+    const sheet = k.sheet(rec, events);
 
     return `<!doctype html><html xmlns:o="urn:schemas-microsoft-com:office:office"
  xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
 <head><meta charset="utf-8"><title>${escapeHtml(title)}</title>
+${DEVA_FONT}
 <style>
-@page WordSection1 { size:210.0mm 297.0mm; margin:${PAGE_MARGIN[isOpr ? 'opr' : 'note']}; }
+@page WordSection1 { size:210.0mm 297.0mm; margin:${PAGE_MARGIN[k.margin]}; }
 div.WordSection1 { page: WordSection1; }
 body { font-family:"Times New Roman",Times,serif; }
+.deva,.sheet .deva{font-family:"Nirmala UI","Mangal","Noto Sans Devanagari","Times New Roman",serif;}
 ${SHEET_CSS}
 /* Word ignores the screen chrome; the sheet is the page itself here. */
 .sheet { width:auto; margin:0; padding:0; border:none; box-shadow:none; }
@@ -107,11 +142,12 @@ ${SHEET_CSS}
 
 const renderOprWord = (report, events) => renderWord('opr', report, events);
 const renderNoteWord = (note, events) => renderWord('note', note, events);
+const renderOfficeWord = (note) => renderWord('office', note, []);
 
 module.exports = {
-    renderOprPage, renderNotePage,
-    renderOprWord, renderNoteWord,
-    oprTitle, noteTitle,
-    oprSubject, noteSubject,
+    renderOprPage, renderNotePage, renderOfficePage,
+    renderOprWord, renderNoteWord, renderOfficeWord,
+    oprTitle, noteTitle, officeTitle,
+    oprSubject, noteSubject, officeSubject,
     fmtDate,
 };

@@ -84,6 +84,14 @@
         return m ? m[3] + '.' + m[2] + '.' + m[1] : s;
     }
 
+    /* The office note writes its date with dashes — "Date: 18-07-2025" — where
+     * the OPR and delogging note use dots. Small thing, but these go out over
+     * the division's name and the samples are consistent about it. */
+    function fmtDateDash(v) {
+        var d = fmtDate(v);
+        return d ? d.replace(/\./g, '-') : '';
+    }
+
     /* On screen an empty field shows a grey rule so the user can see what is
      * still blank; on paper it prints as nothing. Same convention as the cadre
      * renderer's placeholders option. */
@@ -226,6 +234,48 @@
         CREDIT;
     }
 
+    // ── Office Note ─────────────────────────────────────────────────────────
+    /* A short note put up for orders. The portal supplies the format — the
+     * Devanagari letterhead, the number/date line, the NOTE heading, the
+     * closing request and the approval chain — and the desk types the body.
+     *
+     * Deliberately NOT given a train/loco/staff block: both samples mention
+     * them inside the prose, never as headed fields, so structuring them would
+     * put boxes on the form that never appear on the paper.
+     */
+    function renderOfficeSheet(note, opts) {
+        var n = note || {};
+        opts = opts || {};
+
+        return '' +
+        '<table class="lh"><tr>' +
+          '<td class="l deva"><b>मध्य रेल</b></td>' +
+          '<td class="r deva">मंडल कार्यालय<br>व. म. वि. इं. (क. च. स्टॉक/परि)<br>छ. शि. म. ट. मुंबई</td>' +
+        '</tr></table>' +
+        '<table class="noline"><tr>' +
+          '<td>No.' + val(n.note_no, opts, 'BB.TRSO.ESTB.__') + '</td>' +
+          '<td class="dt">Date: ' + val(fmtDateDash(n.note_date), opts) + '</td>' +
+        '</tr></table>' +
+        '<div class="title">NOTE</div>' +
+        (paras(n.body_text) || (opts.placeholders
+            ? '<p class="para"><span class="ph">the note — what happened, and what is being put up</span></p>' : '')) +
+        (has(n.closing_text)
+            ? '<p class="para closing">' + nl2br(n.closing_text) + '</p>' : '') +
+        '<div class="sign">' + esc(n.signing_text || 'SSE/TRSO/CSMT') + '</div>' +
+        (has(n.forwarding_text)
+            ? '<div class="fwd">' + nl2br(n.forwarding_text) + '</div>'
+            : (opts.placeholders ? '<div class="fwd"><span class="ph">approval chain</span></div>' : '')) +
+        CREDIT;
+    }
+
+    /* Defaults taken from the samples. Offered by the editor as starting
+     * values rather than hard-coded into the renderer — a note that goes
+     * somewhere else, or asks for something else, must be able to say so. */
+    var DEFAULT_OFFICE_CLOSING = 'Put up for necessary action please.';
+    var DEFAULT_OFFICE_FORWARDING = 'ADEE/TRSO/CSMT:\nDEE/TRSO/CSMT:\nSr.DEE/TRSO/CSMT:';
+    /* Both samples are signed by one of these two. */
+    var OFFICE_SIGNATORIES = ['SSE/TRSO/CSMT', 'CLI (HQ)'];
+
     /* The default forwarding chain from the sample. Offered by the editor as a
      * starting value rather than hard-coded into the renderer — a note that
      * goes somewhere else must be able to say so. */
@@ -258,6 +308,15 @@
         '.sheet table.noline td.dt{width:1%;text-align:right;white-space:nowrap;}',
 
         '.sheet .title{text-align:center;font-weight:700;font-size:13pt;text-decoration:underline;margin:0 0 4mm;}',
+        /* The office note's letterhead is Devanagari. pdfkit's built-in fonts
+         * are WinAnsi and cannot render it at all — one more reason these are
+         * filed as composed HTML rather than generated PDFs. */
+        '.sheet .deva{font-family:"Noto Sans Devanagari","Nirmala UI","Mangal","Times New Roman",serif;}',
+        '.sheet table.lh td.r.deva{line-height:1.5;font-size:11pt;}',
+        /* "Put up for necessary action please." sits clear of the narrative it
+         * follows — it is a request for orders, not the last paragraph of the
+         * account. */
+        '.sheet .closing{margin-top:5mm;}',
         '.sheet .sub{margin:0 0 3.5mm;font-weight:700;}',
         '.sheet .locoline{margin:0 0 3mm;}',
         '.sheet .hd{font-weight:700;margin:3.5mm 0 1.5mm;letter-spacing:.4px;}',
@@ -313,6 +372,11 @@
     return {
         renderOprSheet: renderOprSheet,
         renderNoteSheet: renderNoteSheet,
+        renderOfficeSheet: renderOfficeSheet,
+        DEFAULT_OFFICE_CLOSING: DEFAULT_OFFICE_CLOSING,
+        DEFAULT_OFFICE_FORWARDING: DEFAULT_OFFICE_FORWARDING,
+        OFFICE_SIGNATORIES: OFFICE_SIGNATORIES,
+        fmtDateDash: fmtDateDash,
         oprSubject: oprSubject,
         noteSubject: noteSubject,
         DEFAULT_FORWARDING: DEFAULT_FORWARDING,

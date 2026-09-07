@@ -171,8 +171,8 @@ app.get('/index.html', (req, res) => {
 //    screens — an SSE-HQ clerk writing a detention report has no business in a
 //    loco pilot's service record.
 const SSEHQ_PAGES = new Set([
-  '/ssehq.html', '/ssehq-opr.html', '/ssehq-note.html', '/ssehq-manual.html',
-  '/documents.html',
+  '/ssehq.html', '/ssehq-opr.html', '/ssehq-note.html', '/ssehq-office-note.html',
+  '/ssehq-manual.html', '/documents.html',
 ]);
 // Where this desk lands: its own dashboard, not the OPR form. Landing straight
 // in a form gave it no view of the shed it is in charge of, and no home to

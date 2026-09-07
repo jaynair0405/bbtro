@@ -106,6 +106,13 @@
             var fwd = document.querySelector('[name="' + CFG.forwardingField + '"]');
             if (fwd && !fwd.value) fwd.value = CFG.forwardingDefault;
         }
+        /* Other boilerplate the server owns — the office note's closing request
+         * and its approval chain. Same reasoning as the forwarding chain: it is
+         * identical on every note, so a blank box is pure retyping. */
+        Object.keys(CFG.serverDefaults || {}).forEach(function (field) {
+            var el = document.querySelector('[name="' + field + '"]');
+            if (el && !el.value) el.value = CFG.serverDefaults[field] || '';
+        });
     }
 
     // ── Live preview ────────────────────────────────────────────────────────
@@ -123,8 +130,12 @@
     function touched() { DIRTY = true; render(); }
 
     // ── Chronology grid ─────────────────────────────────────────────────────
+    /* The office note has no chronology, so its page carries no grid. Guarding
+     * here rather than branching at every call site keeps the three pages on
+     * one runtime — a page simply omits the markup it does not use. */
     function renderEvents() {
         var body = $('evRows');
+        if (!body) return;
         if (!EVENTS.length) {
             body.innerHTML = '<tr><td colspan="4"><div class="noev">No events yet — ' +
                 'add the first one below.</div></td></tr>';
@@ -163,9 +174,13 @@
                 DIRTY = true; renderEvents(); render();
             };
         });
-        $('evCount').textContent = EVENTS.length ? EVENTS.length + ' event' + (EVENTS.length === 1 ? '' : 's') : '';
+        if ($('evCount')) {
+            $('evCount').textContent = EVENTS.length
+                ? EVENTS.length + ' event' + (EVENTS.length === 1 ? '' : 's') : '';
+        }
     }
     function addEvent() {
+        if (!$('evRows')) return;
         EVENTS.push({ event_time: '', description: '' });
         DIRTY = true; renderEvents(); render();
         var inputs = $('evRows').querySelectorAll('[data-k="event_time"]');
@@ -354,7 +369,7 @@
             if (dateEl) dateEl.value = new Date().toISOString().slice(0, 10);
             var flag = $('dueFlag'); if (flag) flag.classList.add('none');
             document.querySelectorAll('.derived').forEach(function (el) { el.classList.remove('derived'); });
-            api(CFG.locoApi + '/next-number').then(function (d) {
+            api(CFG.locoApi + '/next-number' + (CFG.numberQuery || '')).then(function (d) {
                 var el = document.querySelector('[name="' + CFG.numberCol + '"]');
                 if (el && !el.value) { el.value = d.number; render(); applyStatus(); }
             }).catch(function () { /* a suggested number is a convenience, not a requirement */ });
@@ -462,7 +477,7 @@
         $('btnHistory').onclick = function (e) { e.preventDefault(); drawer(true); };
         $('hSearch').oninput = loadHistory;
         $('hStatus').onchange = loadHistory;
-        $('addEvent').onclick = addEvent;
+        if ($('addEvent')) $('addEvent').onclick = addEvent;
         $('mCancel').onclick = closeModal;
         $('mOk').onclick = function () { if (modalOk) modalOk(); };
         document.addEventListener('keydown', function (e) {
@@ -537,6 +552,10 @@
         api(CFG.locoApi + '/config').then(function (data) {
             USER = data.user;
             CFG.forwardingDefault = data.forwarding_default;
+            if (typeof CFG.serverDefaultsFrom === 'function') {
+                CFG.serverDefaults = CFG.serverDefaultsFrom(data) || {};
+            }
+            CFG.config = data;
             $('who').innerHTML = '<b>' + escapeText(USER.full_name || USER.username) + '</b><br>' +
                 escapeText(USER.div_role);
             // ssehq is scoped out of the division dashboard, so the link would

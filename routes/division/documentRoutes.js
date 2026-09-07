@@ -80,7 +80,7 @@ const FOLDER_CONFIG = {
   // Cadre letters (HQ CLI cadre desk): one folder per letter family, so the
   // repo groups them the way the desk thinks about them.
   CADRE_LETTER: { required: ['TRANSFER', 'POSTING', 'TRAINING', 'CADRE', 'MISC'] },
-  SSE_HQ_REPORT: { optional: ['OPR', 'DELOGGING_NOTE'] },
+  SSE_HQ_REPORT: { optional: ['OPR', 'DELOGGING_NOTE', 'OFFICE_NOTE'] },
 };
 
 // Validate/normalise a folder value for a category. Returns

@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BBTRO | SSE-HQ — Office Note</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,wght@0,400;0,600;0,700;1,400&family=Archivo:wght@400;500;600;700;800&family=Noto+Sans+Devanagari:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/div/css/ssehq-shell.css">
+</head>
+<body>
+
+<header class="appbar">
+    <a class="brand" href="/div/ssehq.html"><span class="mark">&#128196;</span>
+        <span><b>SSE-HQ Reports</b><small>Office note</small></span></a>
+    <span class="spacer"></span>
+    <a class="back" href="/div/ssehq.html">Dashboard</a>
+    <a class="back" href="/div/ssehq-opr.html">OPR</a>
+    <a class="back" href="/div/ssehq-note.html">DElogging Note</a>
+    <a class="back on" href="/div/ssehq-office-note.html">Office Note</a>
+    <a class="back" href="#" id="btnHistory">Note history</a>
+    <a class="back" href="/div/documents.html?category=SSE_HQ_REPORT">Filed reports</a>
+    <a class="back" href="/control-office/">Control Office</a>
+    <a class="back" href="/div/" id="dashLink" style="display:none">&larr; Division</a>
+    <span class="who" id="who"></span>
+    <a class="back" href="/api/logout">Sign out</a>
+</header>
+
+<nav class="statusbar">
+    <span class="fam">Office Note</span>
+    <span class="tname" id="stRef">unsaved</span>
+    <span class="chip draft" id="stChip">Draft</span>
+    <span class="spacer"></span>
+</nav>
+
+<main class="stage">
+    <section class="desk" id="desk">
+        <div class="ro-note" id="roNote"></div>
+        <div class="scroll">
+
+            <div class="panel"><h2><span class="n">1</span>Note</h2><div class="bd">
+                <div class="row">
+                    <div class="fld"><label>Note No.</label>
+                        <input name="note_no" placeholder="BB.TRSO.ESTB.01"></div>
+                    <div class="fld"><label>Note date</label><input type="date" name="note_date"></div>
+                </div>
+                <!-- Not printed. The sample note has no subject line, but the
+                     Documents repository and the history list need something
+                     readable to show, or every note is just a number. -->
+                <div class="fld"><label>Subject <span class="hintlbl">— for filing, not printed</span></label>
+                    <input name="subject_text" placeholder="Stalling at Km 109/28 KJT-LNL — instruction 18/2017">
+                    <div class="hint">Used to find the note later and to name it in Documents.
+                        Leave it blank and the opening words of the note are used instead.</div></div>
+            </div></div>
+
+            <div class="panel events-panel"><h2><span class="n">2</span>The note</h2><div class="bd">
+                <div class="fld">
+                    <textarea name="body_text" style="min-height:340px"
+                        placeholder="On dated 15.07.2022, after passing PDI, LP of Loco No.32637/WAG-9H/LDH of Train No.UNGU-LONI, Load:-44/44=3670T, experienced heavy wheel slipping in Loco …&#10;&#10;As per Loco operating Instruction 18/2017, it is already stated that “…”&#10;&#10;In this case, LP Ghat Shri … violate above mentioned instruction …"></textarea>
+                    <div class="hint">A blank line starts a new paragraph. Write it as it should read
+                        on the note — nothing here is reformatted.</div></div>
+            </div></div>
+
+            <div class="panel"><h2><span class="n">3</span>Closing &amp; signing</h2><div class="bd">
+                <div class="fld"><label>Closing request</label>
+                    <input name="closing_text" placeholder="Put up for necessary action please."></div>
+                <div class="fld"><label>Signed by</label>
+                    <input name="signing_text" list="signatoryList" placeholder="SSE/TRSO/CSMT">
+                    <datalist id="signatoryList"></datalist></div>
+                <div class="fld"><label>Approval chain</label>
+                    <textarea name="forwarding_text" style="min-height:86px"></textarea>
+                    <div class="hint">One officer per line; each prints with a blank line to initial against.</div></div>
+            </div></div>
+
+        </div>
+        <div class="actions">
+            <button class="btn btn-ghost" id="btnNew">&#65291; New</button>
+            <button class="btn btn-ghost" id="btnPrint">&#128424; Print</button>
+            <button class="btn btn-ghost" id="btnWord">&#11015; Word</button>
+            <button class="btn btn-ghost" id="btnFiled" style="display:none">&#128196; Filed copy</button>
+            <button class="btn btn-red" id="btnDelete">Delete</button>
+            <span class="spacer" style="flex:1"></span>
+            <button class="btn btn-ghost" id="btnReopen" style="display:none">&#8617; Reopen</button>
+            <button class="btn btn-amber" id="btnSave">Save draft</button>
+            <button class="btn btn-green" id="btnFile">&#10003; File it</button>
+        </div>
+    </section>
+
+    <section class="yard">
+        <div class="preview-tag">Live note preview</div>
+        <div class="sheet" id="sheet"></div>
+    </section>
+</main>
+
+<div class="drawer-veil" id="drawerVeil"></div>
+<aside class="drawer">
+    <h3>Note history <button type="button" id="drawerClose">&times;</button></h3>
+    <div class="filters">
+        <input class="wide" id="hSearch" placeholder="Note no. or subject">
+        <select id="hStatus" class="wide">
+            <option value="">All notes</option>
+            <option value="draft">Drafts only</option>
+            <option value="final">Filed only</option>
+        </select>
+    </div>
+    <div class="list" id="hList"></div>
+</aside>
+
+<div class="modal-veil" id="modalVeil"><div class="modal">
+    <h4 id="mTitle"></h4><div id="mBody"></div>
+    <div class="btns"><button class="btn btn-ghost" id="mCancel">Cancel</button>
+        <button class="btn btn-amber" id="mOk">Confirm</button></div>
+</div></div>
+
+<div class="toast" id="toast"></div>
+
+<script src="/div/js/ssehq-report-render.js"></script>
+<script src="/div/js/ssehq-editor.js"></script>
+<script>
+document.getElementById('drawerClose').onclick = function () { document.body.classList.remove('drawer-open'); };
+document.getElementById('drawerVeil').onclick = function () { document.body.classList.remove('drawer-open'); };
+
+SsehqEditor.init({
+    kind: 'office',
+    api: '/api/division/ssehq/office-note',
+    label: 'Office Note',
+    dateCol: 'note_date',
+    numberCol: 'note_no',
+    // its own establishment series, not the Tech one the other two share
+    numberQuery: '?kind=office',
+    fields: [
+        'note_no', 'note_date', 'subject_text',
+        'body_text', 'closing_text', 'signing_text', 'forwarding_text',
+    ],
+    render: function (record, events, opts) { return SsehqReport.renderOfficeSheet(record, opts); },
+
+    /* The closing request and the approval chain are the same on every note, so
+       they come pre-filled from the server rather than being retyped — and from
+       the server rather than this markup, so the renderer stays the one place
+       that knows what a note says by default. */
+    serverDefaultsFrom: function (cfg) {
+        var list = document.getElementById('signatoryList');
+        if (list) {
+            list.innerHTML = (cfg.office_signatories || [])
+                .map(function (s) { return '<option value="' + s + '">'; }).join('');
+        }
+        return {
+            closing_text: cfg.office_closing_default,
+            forwarding_text: cfg.office_forwarding_default,
+            signing_text: (cfg.office_signatories || [])[0],
+        };
+    },
+});
+</script>
+</body>
+</html>

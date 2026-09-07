@@ -24,7 +24,7 @@
  *   GET    /search-staff/:q       division-wide staff picker
  *   GET    /search-loco/:q        loco picker from div_locos
  *   GET    /locos/:number         exact loco lookup
- *   GET    /opr | /delogging      list (?q=&from=&to=&status=)
+ *   GET    /opr | /delogging | /office-note   list (?q=&from=&to=&status=)
  *   GET    /opr/:id               report + events
  *   POST   /opr                   create/update draft (id in body)
  *   POST   /opr/:id/finalize      render + file into div_documents, lock
@@ -33,16 +33,23 @@
  *   GET    /opr/:id/word          Word download
  *   GET    /opr/:id/print         printable A4 page
  *   GET    /opr/:id/as-note       unsaved DElogging Note prefilled from an OPR
+ *
+ * Office Note is the third kind: a short free-text note put up for orders.
+ * It has no chronology and no train/loco block, so it declares `events: null`
+ * and its own `searchCols`; the shared handlers treat both as optional.
  */
 
 const express = require('express');
 const router = express.Router();
 
 const {
-    renderOprPage, renderNotePage, renderOprWord, renderNoteWord,
-    oprTitle, noteTitle, oprSubject, noteSubject,
+    renderOprPage, renderNotePage, renderOfficePage,
+    renderOprWord, renderNoteWord, renderOfficeWord,
+    oprTitle, noteTitle, officeTitle,
+    oprSubject, noteSubject, officeSubject,
 } = require('../../utils/ssehqReportHtml');
-const { DEFAULT_FORWARDING, fmtDate } = require('../../public/div/js/ssehq-report-render.js');
+const { DEFAULT_FORWARDING, DEFAULT_OFFICE_CLOSING, DEFAULT_OFFICE_FORWARDING,
+        OFFICE_SIGNATORIES, fmtDate } = require('../../public/div/js/ssehq-report-render.js');
 
 // ── Access ─────────────────────────────────────────────────────────────────
 // SSE-HQ reports are an HQ-level function, not a per-lobby one, so — as with
@@ -109,6 +116,13 @@ const NOTE_LIMITS = {
 const NOTE_DATES = ['note_date', 'train_date', 'loco_commission_date'];
 const NOTE_FIELDS = [...Object.keys(NOTE_LIMITS), ...NOTE_DATES];
 
+const OFFICE_LIMITS = {
+    note_no: 80, subject_text: 500,
+    body_text: 4294967295, closing_text: 255, signing_text: 255, forwarding_text: 65535,
+};
+const OFFICE_DATES = ['note_date'];
+const OFFICE_FIELDS = [...Object.keys(OFFICE_LIMITS), ...OFFICE_DATES];
+
 const today = () => new Date().toISOString().slice(0, 10);
 
 function normaliseOpr(input = {}) {
@@ -124,6 +138,14 @@ function normaliseNote(input = {}) {
     const out = {};
     for (const [f, max] of Object.entries(NOTE_LIMITS)) out[f] = asText(input[f], max);
     for (const f of NOTE_DATES) out[f] = asDate(input[f]);
+    out.note_date = out.note_date || today();
+    return out;
+}
+
+function normaliseOffice(input = {}) {
+    const out = {};
+    for (const [f, max] of Object.entries(OFFICE_LIMITS)) out[f] = asText(input[f], max);
+    for (const f of OFFICE_DATES) out[f] = asDate(input[f]);
     out.note_date = out.note_date || today();
     return out;
 }
@@ -179,6 +201,27 @@ const KIND = {
         page: renderNotePage,
         word: renderNoteWord,
     },
+    /* An office note has no chronology, so no events table and no `fk`. The
+     * handlers below treat `events` as optional rather than each growing a
+     * special case for this one kind. */
+    office: {
+        table: 'div_ssehq_office_notes',
+        events: null,
+        fk: null,
+        dateCol: 'note_date',
+        numberCol: 'note_no',
+        fields: OFFICE_FIELDS,
+        dates: OFFICE_DATES,
+        folder: 'OFFICE_NOTE',
+        label: 'Office Note',
+        normalise: normaliseOffice,
+        title: officeTitle,
+        subject: officeSubject,
+        page: renderOfficePage,
+        word: renderOfficeWord,
+        // the list/search columns the other two get from train_no/loco_number
+        searchCols: ['note_no', 'subject_text'],
+    },
 };
 
 /* Every DATE column is aliased over the SELECT *, never read raw. mysql2 hands
@@ -194,6 +237,7 @@ async function loadRecord(conn, k, id) {
         `SELECT *, ${dateAliases(k)} FROM ${k.table} WHERE id = ?`, [id]
     );
     if (!record) return { error: `${k.label} not found` };
+    if (!k.events) return { record, events: [] };
     const [events] = await conn.query(
         `SELECT id, event_no, event_time, description FROM ${k.events}
           WHERE ${k.fk} = ? ORDER BY event_no, id`, [id]
@@ -202,6 +246,7 @@ async function loadRecord(conn, k, id) {
 }
 
 async function replaceEvents(conn, k, id, events) {
+    if (!k.events) return;
     await conn.query(`DELETE FROM ${k.events} WHERE ${k.fk} = ?`, [id]);
     for (const e of events) {
         await conn.query(
@@ -223,15 +268,26 @@ router.get('/config', (req, res) => {
             is_admin: isAdmin(req),
         },
         forwarding_default: DEFAULT_FORWARDING,
+        office_closing_default: DEFAULT_OFFICE_CLOSING,
+        office_forwarding_default: DEFAULT_OFFICE_FORWARDING,
+        office_signatories: OFFICE_SIGNATORIES,
     });
 });
 
 // ── GET /next-number ───────────────────────────────────────────────────────
-// Year-wise serial across both report kinds, matching the sample's "BB/Tech/2".
+// Year-wise serial, matching the samples' "BB/Tech/2" and "BB.TRSO.ESTB.01".
 // Suggested only — the desk overrides it freely, so it is not made unique.
 
 router.get('/next-number', async (req, res) => {
     try {
+        // Office notes run on their own establishment series, not the Tech one
+        // the OPR and the delogging note share.
+        if (req.query.kind === 'office') {
+            const [[o]] = await req.app.locals.pool.query(
+                `SELECT COUNT(*) n FROM div_ssehq_office_notes
+                  WHERE YEAR(note_date) = YEAR(CURDATE())`);
+            return res.json({ number: `BB.TRSO.ESTB.${String(o.n + 1).padStart(2, '0')}` });
+        }
         const [[o]] = await req.app.locals.pool.query(
             `SELECT COUNT(*) n FROM div_ssehq_opr_reports WHERE YEAR(report_date) = YEAR(CURDATE())`);
         const [[n]] = await req.app.locals.pool.query(
@@ -262,22 +318,31 @@ router.get('/dashboard', async (req, res) => {
                this_month: Number(c.this_month || 0), total: Number(c.total || 0) };
     };
     const recent = async (table, numberCol, dateCol) => {
+      // Office notes carry no train/loco columns; selected as NULL so the
+      // dashboard can render every kind through one row shape.
+      const hasTrain = table !== 'div_ssehq_office_notes';
       const [rows] = await pool.query(
         `SELECT id, ${numberCol} AS number,
                 DATE_FORMAT(${dateCol}, '%Y-%m-%d') AS report_date,
-                train_no, loco_number, status, document_id
+                ${hasTrain ? 'train_no, loco_number' : 'NULL AS train_no, NULL AS loco_number'},
+                ${table === 'div_ssehq_office_notes' ? 'subject_text' : 'NULL'} AS subject_text,
+                status, document_id
            FROM ${table} ORDER BY ${dateCol} DESC, id DESC LIMIT 6`);
       return rows;
     };
-    const [oprCounts, noteCounts, oprRecent, noteRecent] = await Promise.all([
-      counts('div_ssehq_opr_reports', 'report_date'),
-      counts('div_ssehq_delogging_notes', 'note_date'),
-      recent('div_ssehq_opr_reports', 'report_no', 'report_date'),
-      recent('div_ssehq_delogging_notes', 'note_no', 'note_date'),
-    ]);
+    const [oprCounts, noteCounts, officeCounts, oprRecent, noteRecent, officeRecent] =
+      await Promise.all([
+        counts('div_ssehq_opr_reports', 'report_date'),
+        counts('div_ssehq_delogging_notes', 'note_date'),
+        counts('div_ssehq_office_notes', 'note_date'),
+        recent('div_ssehq_opr_reports', 'report_no', 'report_date'),
+        recent('div_ssehq_delogging_notes', 'note_no', 'note_date'),
+        recent('div_ssehq_office_notes', 'note_no', 'note_date'),
+      ]);
     res.json({
       opr: { ...oprCounts, recent: oprRecent },
       note: { ...noteCounts, recent: noteRecent },
+      office: { ...officeCounts, recent: officeRecent },
     });
   } catch (e) {
     console.error('ssehq dashboard:', e);
@@ -400,8 +465,12 @@ function mount(kindKey, base) {
             const params = [];
             if (req.query.q) {
                 const q = `%${req.query.q}%`;
-                where.push(`(${k.numberCol} LIKE ? OR train_no LIKE ? OR loco_number LIKE ?)`);
-                params.push(q, q, q);
+                // Office notes have no train/loco columns — each kind says what
+                // it can be searched on rather than every table being assumed
+                // to look like the OPR.
+                const cols = k.searchCols || [k.numberCol, 'train_no', 'loco_number'];
+                where.push('(' + cols.map((c) => `${c} LIKE ?`).join(' OR ') + ')');
+                cols.forEach(() => params.push(q));
             }
             if (asDate(req.query.from)) { where.push(`${k.dateCol} >= ?`); params.push(asDate(req.query.from)); }
             if (asDate(req.query.to)) { where.push(`${k.dateCol} <= ?`); params.push(asDate(req.query.to)); }
@@ -409,7 +478,8 @@ function mount(kindKey, base) {
             const [rows] = await req.app.locals.pool.query(
                 `SELECT id, ${k.numberCol} AS number,
                         DATE_FORMAT(${k.dateCol}, '%Y-%m-%d') AS report_date,
-                        train_no, loco_number, status, document_id, created_by, updated_at
+                        ${k.events ? 'train_no, loco_number' : "NULL AS train_no, NULL AS loco_number"},
+                        status, document_id, created_by, updated_at
                    FROM ${k.table} ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
                   ORDER BY ${k.dateCol} DESC, id DESC LIMIT 200`, params
             );
@@ -490,8 +560,11 @@ function mount(kindKey, base) {
             if (!record[k.numberCol]) {
                 return res.status(400).json({ error: 'A report number is required before filing.' });
             }
-            if (!record.train_no) {
+            if (k.events && !record.train_no) {
                 return res.status(400).json({ error: 'A train number is required before filing.' });
+            }
+            if (!k.events && !record.body_text) {
+                return res.status(400).json({ error: 'The note is empty — type it before filing.' });
             }
 
             const html = k.page(record, events);
@@ -512,7 +585,8 @@ function mount(kindKey, base) {
                     k.folder,
                     html,
                     JSON.stringify({ ref_no: record[k.numberCol], kind: kindKey,
-                                     train_no: record.train_no, loco_number: record.loco_number }),
+                                     train_no: record.train_no || null,
+                                     loco_number: record.loco_number || null }),
                     req.session.user.username,
                 ]
             );
@@ -626,6 +700,7 @@ function mount(kindKey, base) {
 
 mount('opr', '/opr');
 mount('note', '/delogging');
+mount('office', '/office-note');
 
 // ── GET /opr/:id/as-note ───────────────────────────────────────────────────
 // A DElogging Note prefilled from an OPR, returned UNSAVED. Both documents
