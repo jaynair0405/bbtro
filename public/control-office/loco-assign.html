@@ -1008,6 +1008,11 @@ function renderTrains() {
         if (t.expected_shed) want.push('<b>' + esc(t.expected_shed) + '</b>');
         if (t.expected_hog) want.push('HOG');
         if (t.expected_loco_type) want.push(esc(t.expected_loco_type));
+        // Rake type sits between the loco class and the link attribute: both are
+        // things the LPC matches a loco against, and the coach type decides
+        // whether HOG is usable. Comes from the API's COALESCE of the link row
+        // and the train, so a train carrying it only at train level shows it too.
+        if (t.rake_type) want.push(esc(t.rake_type));
         if (t.link_attr) want.push(esc(t.link_attr));
 
         const rear = t.actual_loco_no_rear
