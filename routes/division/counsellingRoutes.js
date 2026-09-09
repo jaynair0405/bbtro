@@ -1188,6 +1188,341 @@ router.delete('/locks', hqOnly, async (req, res) => {
   }
 });
 
+// ── Ambush check ──────────────────────────────────────────────────────────
+/*
+ * A daily tally, not a register of people. A CLI reports how many staff they
+ * checked against each subject; names appear only where someone was caught.
+ *
+ * One return per CLI per day, enforced by uniq_ambush_day (return_date, cli_id).
+ * That single key does three jobs: a CLI who checks 20 in the morning and 15 in
+ * the evening ends with one return saying 35, editing is an upsert, and an
+ * offline replay is harmless without any further machinery.
+ */
+
+/** ML or SUB, from the CLI's own lobby -- the same rule the staff picker uses. */
+function lineFor(office) {
+  return D.staffScopeFor(office) === 'motorman' ? 'SUB' : 'ML';
+}
+
+router.get('/ambush/bootstrap', async (req, res) => {
+  let conn;
+  try {
+    conn = await req.app.locals.pool.getConnection();
+    const [subjects] = await conn.query(
+      `SELECT subject_id, subject_code, subject_name FROM div_ambush_subjects
+        WHERE is_active = 1 ORDER BY sort_order`
+    );
+    conn.release();
+    res.json({ subjects, line: req.myOffice ? lineFor(req.myOffice) : null, today: today() });
+  } catch (e) {
+    if (conn) conn.release();
+    res.status(500).json({ error: 'Database error', details: e.message });
+  }
+});
+
+/** The CLI's own return for a date, so the form opens on what is already there. */
+router.get('/ambush/return', async (req, res) => {
+  let conn;
+  try {
+    const date = isoDate(req.query.date) || today();
+    const cliId = req.isHQ ? Number(req.query.cli || 0) : (req.session.user.cli_id || 0);
+    conn = await req.app.locals.pool.getConnection();
+    const [subjects] = await conn.query(
+      `SELECT subject_id, subject_code, subject_name FROM div_ambush_subjects
+        WHERE is_active = 1 ORDER BY sort_order`
+    );
+    if (!cliId) { conn.release(); return res.json({ date, cli_id: null, subjects, counts: {}, violations: [] }); }
+
+    const [[ret]] = await conn.query(
+      `SELECT * FROM div_ambush_returns WHERE return_date = ? AND cli_id = ?`, [date, cliId]
+    );
+    let counts = {}, violations = [];
+    if (ret) {
+      const [cs] = await conn.query(
+        `SELECT subject_id, checked FROM div_ambush_counts WHERE return_id = ?`, [ret.return_id]
+      );
+      cs.forEach((c) => { counts[c.subject_id] = c.checked; });
+      const [vs] = await conn.query(
+        `SELECT v.violation_id, v.subject_id, v.staff_hrms_id, v.remarks,
+                m.name, m.current_cms_id, dg.designation_code, v.office_code
+           FROM div_ambush_violations v
+           JOIN div_staff_master m ON m.hrms_id = v.staff_hrms_id
+           JOIN designations dg ON dg.id = v.designation_id
+          WHERE v.return_id = ?
+          ORDER BY m.name`, [ret.return_id]
+      );
+      violations = vs;
+    }
+    conn.release();
+    res.json({
+      date, cli_id: cliId, subjects, counts, violations,
+      return_id: ret ? ret.return_id : null,
+      line: ret ? ret.line : (req.myOffice ? lineFor(req.myOffice) : null),
+      remarks: ret ? ret.remarks : null,
+    });
+  } catch (e) {
+    if (conn) conn.release();
+    console.error('ambush/return:', e);
+    res.status(500).json({ error: 'Database error', details: e.message });
+  }
+});
+
+router.post('/ambush/return', async (req, res) => {
+  const b = req.body || {};
+  let conn;
+  try {
+    const date = isoDate(b.date);
+    if (!date) return res.status(400).json({ error: 'A valid date is required' });
+    if (date > today()) return res.status(400).json({ error: 'A check cannot be dated in the future' });
+
+    conn = await req.app.locals.pool.getConnection();
+    const cliId = Number(b.cli_id || req.session.user.cli_id || 0);
+    if (!cliId) { conn.release(); return res.status(400).json({ error: 'Choose the CLI who did the checks' }); }
+
+    const [[cli]] = await conn.query(
+      `SELECT cli_id, current_office_code FROM div_cli_master WHERE cli_id = ? AND is_active = 1`, [cliId]
+    );
+    if (!cli) { conn.release(); return res.status(400).json({ error: 'Unknown or inactive CLI' }); }
+    if (!req.isHQ && D.depotOf(cli.current_office_code) !== D.depotOf(req.myOffice)) {
+      conn.release(); return res.status(403).json({ error: 'That CLI belongs to another lobby' });
+    }
+
+    const office = cli.current_office_code;
+    const line = lineFor(office);
+
+    // Counts, validated before anything is written.
+    const [subjects] = await conn.query(
+      `SELECT subject_id FROM div_ambush_subjects WHERE is_active = 1`
+    );
+    const valid = new Set(subjects.map((x) => x.subject_id));
+    const counts = [];
+    let total = 0;
+    for (const [k, v] of Object.entries(b.counts || {})) {
+      const id = Number(k);
+      if (!valid.has(id)) { conn.release(); return res.status(400).json({ error: `Unknown subject ${k}` }); }
+      const n = Number(v);
+      if (!Number.isInteger(n) || n < 0 || n > 9999) {
+        conn.release(); return res.status(400).json({ error: 'Counts must be whole numbers from 0 upwards' });
+      }
+      if (n > 0) { counts.push([id, n]); total += n; }
+    }
+
+    const viols = Array.isArray(b.violations) ? b.violations : [];
+    if (!total && !viols.length) {
+      conn.release();
+      return res.status(400).json({ error: 'Enter at least one count, or record someone caught' });
+    }
+
+    let staffRows = [];
+    if (viols.length) {
+      const ids = Array.from(new Set(viols.map((v) => String(v.hrms_id || '').trim()).filter(Boolean)));
+      [staffRows] = await conn.query(
+        `SELECT hrms_id, designation_id, current_office_code FROM div_staff_master
+          WHERE hrms_id IN (?) AND status = 'Active'
+            AND designation_id IN (${RUNNING_IDS.join(',')})`, [ids]
+      );
+      if (staffRows.length !== ids.length) {
+        conn.release();
+        return res.status(400).json({ error: 'Some of those staff are no longer on the running roster' });
+      }
+    }
+
+    await conn.beginTransaction();
+    // Upsert on (return_date, cli_id): editing the day's figures and replaying
+    // an offline submission are the same operation.
+    await conn.query(
+      `INSERT INTO div_ambush_returns
+         (return_date, cli_id, office_code, line, remarks, entered_by_user_id, client_uuid)
+       VALUES (?, ?, ?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE office_code = VALUES(office_code), line = VALUES(line),
+                               remarks = VALUES(remarks), entered_by_user_id = VALUES(entered_by_user_id)`,
+      [date, cliId, office, line, (b.remarks || '').trim() || null,
+       req.session.user.id || null, (b.client_uuid || '').trim() || null]
+    );
+    const [[ret]] = await conn.query(
+      `SELECT return_id FROM div_ambush_returns WHERE return_date = ? AND cli_id = ?`, [date, cliId]
+    );
+
+    // The form always sends the whole day, so the stored day is replaced.
+    await conn.query(`DELETE FROM div_ambush_counts WHERE return_id = ?`, [ret.return_id]);
+    if (counts.length) {
+      await conn.query(
+        `INSERT INTO div_ambush_counts (return_id, subject_id, checked) VALUES ?`,
+        [counts.map((c) => [ret.return_id, c[0], c[1]])]
+      );
+    }
+    await conn.query(`DELETE FROM div_ambush_violations WHERE return_id = ?`, [ret.return_id]);
+    if (viols.length) {
+      const byId = new Map(staffRows.map((r) => [r.hrms_id, r]));
+      await conn.query(
+        `INSERT INTO div_ambush_violations
+           (return_id, subject_id, staff_hrms_id, designation_id, office_code, remarks) VALUES ?`,
+        [viols.map((v) => {
+          const st = byId.get(String(v.hrms_id).trim());
+          return [ret.return_id, Number(v.subject_id), st.hrms_id,
+                  st.designation_id, st.current_office_code,
+                  String(v.remarks || '').slice(0, 500) || null];
+        })]
+      );
+    }
+    await audit(conn, req, null, 'ambush_return',
+      { date, cli_id: cliId, office, line, total, violations: viols.length });
+    await conn.commit();
+    conn.release();
+    res.json({ success: true, return_id: ret.return_id, total, violations: viols.length, line });
+  } catch (e) {
+    if (conn) { try { await conn.rollback(); } catch (_) {} conn.release(); }
+    console.error('ambush/save:', e);
+    res.status(500).json({ error: 'Database error', details: e.message });
+  }
+});
+
+/**
+ * The ambush block of the officers' sheet: subject rows, depot columns.
+ *
+ * Transposed from the counselling block -- subjects down the side, depots
+ * across -- because that is how the workbook has printed it for over a year and
+ * the officers read it that way.
+ *
+ * Each subject appears TWICE, once for ML and once for SUB, which is what the
+ * "Location of Ambush" column in the workbook was recording. A row with nothing
+ * against it is still shown: a blank ML row says the mainline CLIs reported no
+ * checks that day, which is information, where a missing row says nothing.
+ */
+router.get('/ambush/sheet', async (req, res) => {
+  let conn;
+  try {
+    conn = await req.app.locals.pool.getConnection();
+    const from = isoDate(req.query.from) || isoDate(req.query.date) || today();
+    const to = isoDate(req.query.to) || isoDate(req.query.date) || from;
+
+    const params = [from, to];
+    let where = ' WHERE r.return_date BETWEEN ? AND ? ';
+    const scope = scopeOffice(req, 'r.office_code');
+    where += scope.sql; params.push(...scope.params);
+
+    const [subjects] = await conn.query(
+      `SELECT subject_id, subject_code, subject_name FROM div_ambush_subjects
+        WHERE is_active = 1 ORDER BY sort_order`
+    );
+    const [rows] = await conn.query(
+      `SELECT r.office_code, r.line, c.subject_id, SUM(c.checked) AS n
+         FROM div_ambush_returns r
+         JOIN div_ambush_counts  c ON c.return_id = r.return_id
+         ${where}
+        GROUP BY r.office_code, r.line, c.subject_id`, params
+    );
+    const [viols] = await conn.query(
+      `SELECT r.office_code, r.line, v.subject_id, COUNT(*) AS n
+         FROM div_ambush_returns r
+         JOIN div_ambush_violations v ON v.return_id = r.return_id
+         ${where}
+        GROUP BY r.office_code, r.line, v.subject_id`, params
+    );
+
+    const blank = () => { const o = {}; D.DEPOT_ORDER.forEach((d) => { o[d] = 0; }); return o; };
+    const grid = {};
+    subjects.forEach((s2) => {
+      grid[s2.subject_id] = { ML: blank(), SUB: blank(), ML_v: blank(), SUB_v: blank() };
+    });
+    const warnings = [];
+    // Each row already knows its line, so it lands in exactly one cell.
+    const place = (src, suffix) => src.forEach((r) => {
+      const cell = grid[r.subject_id];
+      if (!cell) return;
+      const depot = D.depotOf(r.office_code);
+      const bucket = cell[r.line + suffix];
+      if (!bucket || !(depot in bucket)) {
+        // Never dropped silently: a depot outside the sheet is said out loud,
+        // the same way the counselling sheet surfaces its OTHER row.
+        warnings.push(`${r.n} from ${r.office_code}, which is not a sheet depot.`);
+        return;
+      }
+      bucket[depot] += Number(r.n);
+    });
+    place(rows, '');
+    place(viols, '_v');
+
+    const out = [];
+    subjects.forEach((s2) => {
+      ['ML', 'SUB'].forEach((line) => {
+        const counts = grid[s2.subject_id][line];
+        const caught = grid[s2.subject_id][line + '_v'];
+        out.push({
+          subject_id: s2.subject_id, subject_name: s2.subject_name, line,
+          counts, caught,
+          total: D.DEPOT_ORDER.reduce((a, d) => a + counts[d], 0),
+          total_caught: D.DEPOT_ORDER.reduce((a, d) => a + caught[d], 0),
+        });
+      });
+    });
+    const colTotals = blank();
+    let grand = 0, grandCaught = 0;
+    out.forEach((r) => {
+      D.DEPOT_ORDER.forEach((d) => { colTotals[d] += r.counts[d]; });
+      grand += r.total; grandCaught += r.total_caught;
+    });
+
+    const [filed] = await conn.query(
+      `SELECT DISTINCT r.office_code FROM div_ambush_returns r
+        WHERE r.return_date BETWEEN ? AND ?`, [from, to]
+    );
+    conn.release();
+    const filedDepots = new Set(filed.map((r) => D.depotOf(r.office_code)));
+    res.json({
+      from, to, depots: D.DEPOT_ORDER, rows: out, colTotals,
+      grandTotal: grand, grandCaught,
+      not_filed: D.DEPOT_ORDER.filter((d) => !filedDepots.has(d)),
+      warnings: Array.from(new Set(warnings)),
+    });
+  } catch (e) {
+    if (conn) conn.release();
+    console.error('ambush/sheet:', e);
+    res.status(500).json({ error: 'Database error', details: e.message });
+  }
+});
+
+/** The names behind a "caught" figure. */
+router.get('/ambush/caught', async (req, res) => {
+  let conn;
+  try {
+    conn = await req.app.locals.pool.getConnection();
+    const from = isoDate(req.query.from) || isoDate(req.query.date) || today();
+    const to = isoDate(req.query.to) || isoDate(req.query.date) || from;
+    const params = [from, to];
+    let where = ' WHERE r.return_date BETWEEN ? AND ? ';
+    if (req.query.subject) { where += ' AND v.subject_id = ? '; params.push(Number(req.query.subject)); }
+    if (req.query.line)    { where += ' AND r.line = ? ';       params.push(req.query.line); }
+    const depot = (req.query.depot || '').toUpperCase();
+    if (depot) {
+      where += ' AND (r.office_code = ? OR r.office_code = ? OR r.office_code = ?) ';
+      params.push(depot, `${depot}-ML`, `${depot}-SUB`);
+    }
+    const scope = scopeOffice(req, 'r.office_code');
+    where += scope.sql; params.push(...scope.params);
+
+    const [rows] = await conn.query(
+      `SELECT r.return_date, r.line, r.office_code, cm.cli_name,
+              sub.subject_name, m.name, m.current_cms_id, dg.designation_code,
+              v.office_code AS staff_office, v.remarks
+         FROM div_ambush_violations v
+         JOIN div_ambush_returns   r  ON r.return_id  = v.return_id
+         JOIN div_ambush_subjects  sub ON sub.subject_id = v.subject_id
+         JOIN div_staff_master     m  ON m.hrms_id    = v.staff_hrms_id
+         JOIN designations         dg ON dg.id        = v.designation_id
+         LEFT JOIN div_cli_master  cm ON cm.cli_id    = r.cli_id
+         ${where}
+        ORDER BY r.return_date DESC, m.name LIMIT 500`, params
+    );
+    conn.release();
+    res.json({ caught: rows.map((r) => ({ ...r, return_date: isoDate(r.return_date) })) });
+  } catch (e) {
+    if (conn) conn.release();
+    console.error('ambush/caught:', e);
+    res.status(500).json({ error: 'Database error', details: e.message });
+  }
+});
+
 // ── Unassigned staff (HQ) ─────────────────────────────────────────────────
 /**
  * Active running staff who belong to no CLI, and are therefore in nobody's

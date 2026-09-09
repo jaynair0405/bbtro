@@ -28,13 +28,16 @@
     { id: 'session', label: 'New Counselling',  href: '/cli/session.html', icon: I.plus },
     { id: 'history', label: 'My Sessions',      href: '/cli/history.html', icon: I.list },
 
+    { group: 'Ambush' },
+    { id: 'ambush',  label: 'Ambush Check',      href: '/cli/ambush.html', icon: I.ambush },
+
     { group: 'Coming soon' },
-    { id: 'ambush',  label: 'Ambush Check',      icon: I.ambush, soon: true },
     { id: 'spm',     label: 'SPM / RTIS',        icon: I.chart,  soon: true },
     { id: 'foot',    label: 'CLI Footplate',     icon: I.boot,   soon: true },
 
     { group: 'HQ', hq: true },
     { id: 'sheet',    label: 'Consolidated Sheet', href: '/cli/sheet.html',    icon: I.sheet, hq: true },
+    { id: 'ambush-sheet', label: 'Ambush Sheet',  href: '/cli/ambush-sheet.html', icon: I.sheet, hq: true },
     { id: 'accounts', label: 'CLI Logins',         href: '/cli/accounts.html', icon: I.users, hq: true },
     { id: 'unassigned', label: 'Unassigned Staff', href: '/cli/unassigned.html', icon: I.orphan, hq: true },
     { id: 'subjects',   label: 'Subjects',         href: '/cli/subjects.html',   icon: I.list,   hq: true },

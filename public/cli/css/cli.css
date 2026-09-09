@@ -237,6 +237,13 @@ textarea.input{min-height:84px;resize:vertical;line-height:1.5}
 .circle.many{background:var(--amber-100);color:var(--amber-600)}
 
 .sub-count{font-weight:500;opacity:.75}
+/* One number per subject. The box sits at the end of its row so the eight of
+   them line up as a column the eye can run down. */
+.count-row .cnt{width:104px;flex:none;min-height:40px;font-size:17px;text-align:center;
+  font-variant-numeric:tabular-nums;padding:6px 8px}
+.viol-remark{margin-top:7px;font-size:14px;min-height:38px}
+td.caught-cell{color:var(--red-600);font-weight:700}
+
 .photo-box{margin-top:12px;display:flex;align-items:center;flex-wrap:wrap;gap:6px}
 
 /* Subject checkboxes. Each row can carry its own instruction number, enabled
