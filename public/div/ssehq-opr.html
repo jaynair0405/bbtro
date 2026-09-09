@@ -143,6 +143,14 @@
                 <div class="fld"><label>Responsibility</label><textarea name="responsibility_text"></textarea></div>
             </div></div>
 
+            <div class="panel"><h2><span class="n">9</span>Copy to<span class="tag">C/-</span></h2><div class="bd">
+                <div class="fld"><label>Copied for information</label>
+                    <textarea name="copy_to_text" style="min-height:86px"></textarea>
+                    <div class="hint">One officer per line, printed below the signature.
+                        Prefilled with the usual three &mdash; edit or clear for a report that
+                        goes elsewhere.</div></div>
+            </div></div>
+
         </div>
         <div class="actions">
             <button class="btn btn-ghost" id="btnNew">&#65291; New</button>
@@ -207,8 +215,14 @@ SsehqEditor.init({
         'load_text', 'lp_name', 'lp_staff_hrms_id', 'alp_name', 'alp_staff_hrms_id',
         'section_text', 'major_text', 'minor_text', 'detention_text',
         'repercussion_text', 'punctuality_text',
-        'reported_text', 'reason_text', 'responsibility_text',
+        'reported_text', 'reason_text', 'responsibility_text', 'copy_to_text',
     ],
+    /* The C/- list is the same three officers on nearly every report, so it
+       comes prefilled — from the server rather than this markup, so the
+       renderer stays the one place that knows what an OPR says by default. */
+    serverDefaultsFrom: function (cfg) {
+        return { copy_to_text: cfg.opr_copy_to_default };
+    },
     staffPickers: [
         { name: 'lp_name',  hrms: 'lp_staff_hrms_id',  drop: 'lpDrop' },
         { name: 'alp_name', hrms: 'alp_staff_hrms_id', drop: 'alpDrop' },

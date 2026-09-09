@@ -188,6 +188,13 @@
           '<tr><td class="k">Responsibility</td><td colspan="3">' + (paras(r.responsibility_text) || val('', opts)) + '</td></tr>' +
         '</table>' +
         '<div class="sign">' + esc(r.signing_text || 'DEE/TRO/BB') + '</div>' +
+        /* C/- block: who the report is copied to for information. Sits below
+         * the signature, like the delogging note's forwarding chain — the
+         * difference is that the note's chain is for orders and this one is
+         * for information, so it never leaves room to initial against. */
+        (has(r.copy_to_text)
+            ? '<div class="copyto">' + nl2br(r.copy_to_text) + '</div>'
+            : (opts.placeholders ? '<div class="copyto"><span class="ph">copy to</span></div>' : '')) +
         CREDIT;
     }
 
@@ -271,6 +278,14 @@
     /* Defaults taken from the samples. Offered by the editor as starting
      * values rather than hard-coded into the renderer — a note that goes
      * somewhere else, or asks for something else, must be able to say so. */
+    /* Who the OPR is copied to. Prefilled because it is the same three every
+     * time, and editable because it is not always. */
+    var DEFAULT_OPR_COPY_TO = [
+        'C/- CEE(OP)/CR :- For kind information please',
+        'C/- CELE/CR :- For kind information please',
+        'C/- ADRM(OP) BB :- For kind information please',
+    ].join('\n');
+
     var DEFAULT_OFFICE_CLOSING = 'Put up for necessary action please.';
     var DEFAULT_OFFICE_FORWARDING = 'ADEE/TRSO/CSMT:\nDEE/TRSO/CSMT:\nSr.DEE/TRSO/CSMT:';
     /* Both samples are signed by one of these two. */
@@ -345,6 +360,9 @@
          * break cannot strand the signing line on its own sheet. */
         '.sheet .sign{margin-top:26mm;text-align:right;font-weight:700;page-break-inside:avoid;}',
         '.sheet .fwd{margin-top:14mm;line-height:2.4;page-break-inside:avoid;}',
+        /* Copied-for-information, so no signing gap: single spacing, kept
+         * together, and left aligned under the signature block. */
+        '.sheet .copyto{margin-top:10mm;line-height:1.5;page-break-inside:avoid;}',
         '.sheet .gen-credit{margin-top:8mm;font-size:6.5pt;color:#c9ced6;letter-spacing:.2px;}',
         '@media print{.sheet .gen-credit{position:fixed;bottom:0;left:0;margin:0;}}',
 
@@ -380,6 +398,7 @@
         oprSubject: oprSubject,
         noteSubject: noteSubject,
         DEFAULT_FORWARDING: DEFAULT_FORWARDING,
+        DEFAULT_OPR_COPY_TO: DEFAULT_OPR_COPY_TO,
         SHEET_CSS: SHEET_CSS,
         escapeHtml: esc,
         fmtDate: fmtDate,

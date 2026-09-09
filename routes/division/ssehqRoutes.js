@@ -48,7 +48,8 @@ const {
     oprTitle, noteTitle, officeTitle,
     oprSubject, noteSubject, officeSubject,
 } = require('../../utils/ssehqReportHtml');
-const { DEFAULT_FORWARDING, DEFAULT_OFFICE_CLOSING, DEFAULT_OFFICE_FORWARDING,
+const { DEFAULT_FORWARDING, DEFAULT_OPR_COPY_TO,
+        DEFAULT_OFFICE_CLOSING, DEFAULT_OFFICE_FORWARDING,
         OFFICE_SIGNATORIES, fmtDate } = require('../../public/div/js/ssehq-report-render.js');
 
 // ── Access ─────────────────────────────────────────────────────────────────
@@ -100,6 +101,7 @@ const OPR_LIMITS = {
     section_text: 120, major_text: 255, minor_text: 255,
     detention_text: 65535, repercussion_text: 65535, punctuality_text: 65535,
     reported_text: 65535, reason_text: 65535, responsibility_text: 65535,
+    copy_to_text: 65535,
 };
 const OPR_DATES = ['report_date', 'failure_date', 'loco_commission_date',
                    'last_inspection_date', 'last_schedule_date'];
@@ -268,6 +270,7 @@ router.get('/config', (req, res) => {
             is_admin: isAdmin(req),
         },
         forwarding_default: DEFAULT_FORWARDING,
+        opr_copy_to_default: DEFAULT_OPR_COPY_TO,
         office_closing_default: DEFAULT_OFFICE_CLOSING,
         office_forwarding_default: DEFAULT_OFFICE_FORWARDING,
         office_signatories: OFFICE_SIGNATORIES,
