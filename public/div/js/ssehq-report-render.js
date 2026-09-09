@@ -363,8 +363,20 @@
         /* Copied-for-information, so no signing gap: single spacing, kept
          * together, and left aligned under the signature block. */
         '.sheet .copyto{margin-top:10mm;line-height:1.5;page-break-inside:avoid;}',
-        '.sheet .gen-credit{margin-top:8mm;font-size:6.5pt;color:#c9ced6;letter-spacing:.2px;}',
-        '@media print{.sheet .gen-credit{position:fixed;bottom:0;left:0;margin:0;}}',
+        /* Provenance line. Quiet, but it has to be READABLE — the inherited
+         * #c9ced6 on this cream sheet is a contrast ratio of 1.53:1, well
+         * under the 4.5:1 floor, so it was invisible on screen and on paper
+         * alike. #7a808a is 3.84:1: clearly secondary, actually legible. One
+         * colour for both media, so screen and print cannot drift apart. */
+        '.sheet .gen-credit{margin-top:8mm;font-size:7pt;color:#7a808a;letter-spacing:.2px;}',
+        /* On paper it must also stay in normal flow. The inherited rule pinned
+         * it with position:fixed;bottom:0, which puts it hard against the edge
+         * of the sheet — outside the @page margin — so the print engine
+         * clipped it; and browsers disagree about whether a fixed element
+         * prints on every page, the first, or none. In flow it prints once, at
+         * the end, which is what a provenance line should do. */
+        '@media print{.sheet .gen-credit{position:static;margin:6mm 0 0;'
+            + 'page-break-inside:avoid;}}',
 
         /* Unfilled placeholder — loud on screen so it cannot be missed, plain
          * black on paper. Red ink on a report going to ADRM would be worse
