@@ -1013,7 +1013,15 @@ function renderTrains() {
         // whether HOG is usable. Comes from the API's COALESCE of the link row
         // and the train, so a train carrying it only at train level shows it too.
         if (t.rake_type) want.push(esc(t.rake_type));
-        if (t.link_attr) want.push(esc(t.link_attr));
+        // link_attr is usually the loco class restated in link shorthand --
+        // WAP7 written as P/7 -- which put the same fact on the line twice
+        // (12322: "WAP7 · P/7"). Strip only that token; whatever else the field
+        // carries is real and appears nowhere else on this line: PUSHPULL,
+        // DSL, AC/DC, 130 kmph.
+        let attr = String(t.link_attr || '').trim();
+        const locoCls = String(t.expected_loco_type || '').match(/^WAP(\d+)$/);
+        if (locoCls) attr = attr.replace(new RegExp('^P/' + locoCls[1] + '\\b\\s*'), '').trim();
+        if (attr) want.push(esc(attr));
 
         const rear = t.actual_loco_no_rear
             ? ' + ' + esc(t.actual_loco_no_rear)
