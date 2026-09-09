@@ -1,5 +1,58 @@
 # Project Memory - BBTRO
 
+## Working style — plan first, one step at a time (HARD RULE)
+
+Before changing anything, state the steps you intend to take and WAIT for approval.
+
+- Applies to every state change: edits, SQL, commits, pushes, deploys, restarts,
+  killing processes, branch/worktree operations.
+- Does NOT apply to investigation — reading, searching, SELECT queries, checking
+  git state. Investigate freely; that is how you produce an accurate plan.
+- The plan must be the real steps in order, naming files and commands, not
+  "I'll implement X".
+- After approval, do **ONE step**, report the result, and WAIT. Do not start the
+  next step until the user gives the result or says to continue. Never chain
+  steps because they seem small or obviously next.
+- If reality differs mid-way — a step turns out wrong, or a new one is needed —
+  STOP and say so. Do not improvise past the approved plan.
+- One approval covers one plan. A new request needs a new plan.
+
+Asked for repeatedly in chat and not followed, because chat instructions do not
+survive the session. This file does.
+
+## Worktrees and branches (HARD RULE)
+
+- **`/Users/neeraja/bbtro` stays on `master`.** Never check a feature branch out
+  there. That is the directory you cd into and pull, and a feature branch sitting
+  in it silently breaks `git pull origin master` — it rebases the feature branch
+  instead of updating master.
+- **Feature work lives in a sibling worktree:**
+  ```
+  git worktree add /Users/neeraja/bbtro-<module> -b feature/<module> origin/master
+  ln -s /Users/neeraja/bbtro/node_modules /Users/neeraja/bbtro-<module>/node_modules
+  ln -s /Users/neeraja/bbtro/.env         /Users/neeraja/bbtro-<module>/.env
+  ```
+  Branch off `origin/master`, not off whatever happens to be checked out.
+- **Retire on merge, the same day:** `git worktree remove <dir>` and
+  `git branch -d feature/<module>`. Left alone they accumulate — six merged
+  branches and three dead worktrees had piled up by Sept 2026, and one of them
+  was squatting on `master` so the main directory could not have it back.
+- **A small change to a module already live in prod does NOT need a branch.**
+  Commit it straight to master in `bbtro`. Branches exist to keep *half-finished*
+  modules out of a deployable master; using one for a two-line fix just makes it
+  awkward to pull.
+
+### Local vs prod — label every command
+`/Users/neeraja/bbtro` is LOCAL. Prod is only ever reached through
+`ssh railway@93.127.198.125 'cd ~/bbtro && …'`. A path on its own is local, and
+running a "deploy" command without the ssh prefix silently does nothing to prod.
+
+### When does prod need a restart?
+- `public/…` (pages, CSS, client JS) — served from disk per request; a browser
+  refresh is enough.
+- `server.js`, `routes/…`, `utils/…`, `lib/…` — loaded into memory at startup;
+  needs `pm2 restart bbtro`.
+
 ## Local Database Credentials
 - **Database**: bbtro
 - **User**: jay
