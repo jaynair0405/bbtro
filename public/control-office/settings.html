@@ -1615,6 +1615,7 @@ async function openTrainModal(train) {
     $('#ft_link_sheet_source').value = '';
     $('#ft_link_from_station').value = '';
     $('#ft_link_event_time').value = '';
+    delete $('#ft_link_sheet_source').dataset.suggested;
     $('#ft_link_section').value = '';
     $('#ft_link_shed_code').value = '';
     $('#ft_link_attr').value = '';
@@ -1664,6 +1665,12 @@ async function openTrainModal(train) {
                     const sheetSel = $('#ft_link_sheet_source');
                     if (Array.from(sheetSel.options).some(o => o.value === suggestedSheet)) {
                         sheetSel.value = suggestedSheet;
+                        // Remember we filled this in. A suggestion sitting in the
+                        // box is not a request to create a loco link — without
+                        // this, editing anything on a train that has no link (a
+                        // Vande Bharat's coach type, say) demanded an event time
+                        // for a link the user never asked for.
+                        sheetSel.dataset.suggested = suggestedSheet;
                     }
                 }
                 linkLegend.innerHTML = `Loco Link Details <span style="font-weight:400;color:var(--danger)">(no link yet — train won't show on any sheet until one is saved)</span>`;
@@ -1727,8 +1734,12 @@ async function saveTrain() {
     const linkDisabled = linkFs.querySelector('input').disabled;     // true when >1 links
     let linkPayload = null;
     if (!linkDisabled) {
-        const linkSheet = $('#ft_link_sheet_source').value;
+        const sheetSel  = $('#ft_link_sheet_source');
+        const linkSheet = sheetSel.value;
         const linkTime  = $('#ft_link_event_time').value.trim();
+        // A sheet we pre-filled ourselves and the user never touched is not
+        // intent to create a link.
+        const sheetChosen = linkSheet && sheetSel.dataset.suggested !== linkSheet;
         // Any other link field filled? — if so we need sheet+time too.
         const otherLinkFilled = (
             $('#ft_link_section').value ||
@@ -1738,7 +1749,7 @@ async function saveTrain() {
             parseInt($('#ft_link_expected_hog').value, 10) ||
             parseInt($('#ft_link_is_push_pull').value, 10)
         );
-        if (linkSheet || linkTime || editingTrainLinkId || otherLinkFilled) {
+        if (sheetChosen || linkTime || editingTrainLinkId || otherLinkFilled) {
             if (!linkSheet || !linkTime) {
                 $('#trainFormError').innerHTML =
                     '<strong>Please fix the Loco Link section:</strong><ul>'
@@ -2276,6 +2287,11 @@ async function saveAddLink() {
     $('#filterTrainStatus').addEventListener('change', loadTrains);
     $('#filterTrainSearch').addEventListener('input', onTrainSearchChange);
     $('#btnAddTrain').addEventListener('click', () => openTrainModal(null));
+    // Touching the sheet select is a deliberate choice, so it stops being a
+    // mere suggestion from that point on.
+    $('#ft_link_sheet_source').addEventListener('change', (e) => {
+        delete e.target.dataset.suggested;
+    });
     $('#btnTrainCancel').addEventListener('click', closeTrainModal);
     $('#btnTrainSave').addEventListener('click', saveTrain);
     $('#btnRenumberCancel').addEventListener('click', closeRenumberModal);
