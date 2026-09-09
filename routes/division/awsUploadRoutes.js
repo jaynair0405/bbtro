@@ -306,9 +306,10 @@ function isAwsCandidate(row) {
         return true;
     }
 
-    // Pattern 3: AUX braking (standalone word)
-    // Examples: "AUX at NRL S 18", "AUX BRAKING"
-    if (/\bAUX\b/.test(detail)) {
+    // Pattern 3: AUX braking. Prefix match (not \bAUX\b) so misspellings like
+    // "Auxi" (seen in CMS: "Pick Up Auxi") are caught too.
+    // Examples: "AUX at NRL S 18", "AUX BRAKING", "Pick Up Auxi"
+    if (/\bAUX/.test(detail)) {
         return true;
     }
 
@@ -327,7 +328,10 @@ function isAwsCandidate(row) {
 
     // Pattern 6: "ON A", "ON B", etc. - code follows "ON" (acted on [code] aspect)
     // Examples: "AWS act BY S 46 On A", "acted on B", "on C aspect"
-    if (/\bON\s+[ABCDEPQR]\b/i.test(detail)) {
+    // Guard: "PASSED ON P.NO.17" / "ON P NO" means a red signal Passed On a
+    // Private Number (SM's written authority) — NOT an AWS act. Reject when the
+    // code (P) is followed by a NO/No. (number) token.
+    if (/\bON\s+[ABCDEPQR]\b(?!\s*[.\/]?\s*NO(?:\b|\.))/i.test(detail)) {
         return true;
     }
 
@@ -368,6 +372,35 @@ function isAwsCandidate(row) {
     // do not overlap. Scoped tight (code letter, ON, then a signal-like token
     // containing a digit) and only reached for already-gated EMU/ST rows.
     if (/\b[ABCDEPQR]\s+ON\s+[A-Z]{0,4}[-.\s]?\d/i.test(detail)) {
+        return true;
+    }
+
+    // Pattern 13: "<CODE> ACT/ACTED" — code first, then the act verb.
+    // Examples: "A Act At SE 8206", "B ACT S/23", "KE S-37 A/S A ACT".
+    // Complements Pattern 7 (ACT … <code>) and Pattern 8 ("AWS ACT").
+    if (/\b[ABCDEPQR]\s+ACT(ED)?\b/i.test(detail)) {
+        return true;
+    }
+
+    // Pattern 14: "<CODE> AT <loc>" tolerant of dash/hyphen connectors that
+    // Pattern 4 (space only) misses. Examples: "AWS C-AT TNA -S28",
+    // "A -at -VGI -S 24".
+    if (/\b[ABCDEPQR][\s\-]+AT[\s\-]+\w/i.test(detail)) {
+        return true;
+    }
+
+    // Pattern 15: terse "<CODE>/<signal>" — a code, a slash, then a signal token
+    // that STARTS WITH A LETTER and reaches a digit (e.g. "A/NU11"). The leading
+    // letter is essential: "D/xxxx" means Driving-cab xxxx, so "D/2233" is a cab
+    // reference, not a code-D act — requiring a letter after the slash excludes
+    // it. Also excludes "A/C" (air-con), "A/S", and "D/CAB …".
+    if (/\b[ABCDEPQR]\/(?!CAB)[A-Z]{1,4}-?\d/i.test(detail)) {
+        return true;
+    }
+
+    // Pattern 16: "<CODE> @ <loc>" — some motormen write "@" for "at".
+    // Examples: "E @ km 14/06", "D @ NE 54/26", "A@S-18".
+    if (/\b[ABCDEPQR]\s*@/i.test(detail)) {
         return true;
     }
 
