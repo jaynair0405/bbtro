@@ -4,7 +4,6 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Staff Bio-Profile Report</title>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
     <style>
         :root {
             --surface: #ffffff;
@@ -522,11 +521,13 @@
                 width: 160px;
             }
 
-            /* Hide punishments section in print unless explicitly shown for admin */
+            /* Restricted sections print only when the current user is an admin. */
+            #awardsSection.admin-print-visible,
             #punishmentsSection.admin-print-visible {
                 display: block !important;
             }
 
+            #awardsSection:not(.admin-print-visible),
             #punishmentsSection:not(.admin-print-visible) {
                 display: none !important;
             }
@@ -671,24 +672,8 @@
                 margin-top: 2px;
             }
 
-            /* Hide sections in concise view */
-            body.concise-print #awardsSection,
-            body.concise-print #punishmentsSection,
+            /* Remarks remain outside the one-page executive view. */
             body.concise-print #remarksSection {
-                display: none !important;
-            }
-
-            /* Hide Other Trainings table in concise */
-            body.concise-print #otherTrainingTable {
-                display: none !important;
-            }
-
-            body.concise-print h4 {
-                display: none !important;
-            }
-
-            /* Hide training info cards (Upcoming Milestone & Personal Store) in concise */
-            body.concise-print #trainingSection .info-grid {
                 display: none !important;
             }
 
@@ -714,37 +699,629 @@
                 page-break-after: auto !important;
             }
         }
+
+        /* ===== FORMAL BIO-PROFILE DESIGN ===== */
+        :root {
+            --primary: #7f1d1d;
+            --primary-dark: #501313;
+            --primary-soft: #f8eeee;
+            --accent: #b7791f;
+            --accent-soft: #fff8e8;
+            --surface-muted: #f8f7f4;
+            --text-strong: #20242b;
+            --text-muted: #5f6670;
+            --border: #d8d3c9;
+        }
+
+        body {
+            padding: 28px;
+            background: #eceae5;
+            font-family: Inter, "Segoe UI", Arial, sans-serif;
+        }
+
+        .document-toolbar {
+            max-width: 1040px;
+            margin: 0 auto 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 12px;
+            background: rgba(255, 255, 255, .96);
+            border: 1px solid #d8d3c9;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(32, 36, 43, .08);
+        }
+
+        .toolbar-actions,
+        .print-options {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .print-options {
+            padding: 0 !important;
+            background: transparent !important;
+            border: 0 !important;
+        }
+
+        .print-choice {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            padding: 7px 10px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+
+        .print-choice:has(input:checked) {
+            background: var(--primary-soft);
+            color: var(--primary);
+        }
+
+        .print-choice input {
+            accent-color: var(--primary);
+        }
+
+        .action-button {
+            min-height: 36px;
+            padding: 8px 15px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: white;
+            color: var(--text-strong);
+            font: inherit;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .action-button.primary {
+            border-color: var(--primary);
+            background: var(--primary);
+            color: white;
+        }
+
+        .report-shell {
+            max-width: 1040px;
+            border: 1px solid #c9c2b6;
+            border-radius: 4px;
+            box-shadow: 0 24px 70px rgba(32, 36, 43, .14);
+        }
+
+        .report-header {
+            position: relative;
+            display: grid;
+            grid-template-columns: 92px minmax(0, 1fr) 112px;
+            align-items: center;
+            gap: 20px;
+            padding: 24px 34px 20px;
+            border-top: 8px solid var(--primary);
+            border-bottom: 3px double var(--accent);
+            background: white;
+        }
+
+        .railway-mark {
+            width: 82px;
+            height: 82px;
+            padding: 8px;
+            display: grid;
+            place-items: center;
+            border: 1px solid var(--border);
+            border-radius: 50%;
+            background: #fff;
+        }
+
+        .railway-mark img {
+            display: block;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .header-left {
+            text-align: center;
+        }
+
+        .header-left .organisation {
+            display: block;
+            padding: 0;
+            border-radius: 0;
+            background: none;
+            color: var(--primary);
+            font-family: Georgia, "Times New Roman", serif;
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: .14em;
+            text-transform: uppercase;
+        }
+
+        .document-title {
+            margin: 5px 0 3px;
+            color: var(--text-strong);
+            font-family: Georgia, "Times New Roman", serif;
+            font-size: 27px;
+            line-height: 1.05;
+            letter-spacing: .02em;
+            text-transform: uppercase;
+        }
+
+        .document-subtitle {
+            margin: 0;
+            color: var(--text-muted);
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+        }
+
+        .generated-on {
+            margin-top: 8px;
+            color: var(--text-muted);
+            font-size: 10px;
+        }
+
+        .profile-photo {
+            position: relative;
+            width: 104px;
+            height: 124px;
+            border: 1px solid #a9a39a;
+            border-radius: 2px;
+            box-shadow: none;
+            background: #f6f3ed;
+        }
+
+        .profile-photo img {
+            position: relative;
+            z-index: 1;
+        }
+
+        .photo-placeholder {
+            position: absolute;
+            inset: 0;
+            display: grid;
+            place-items: center;
+            color: #9b9488;
+            font-family: Georgia, "Times New Roman", serif;
+            font-size: 11px;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+        }
+
+        .identity-banner {
+            grid-column: 1 / -1;
+            display: grid;
+            grid-template-columns: minmax(220px, 1.5fr) repeat(4, minmax(110px, .75fr));
+            border: 1px solid var(--border);
+            background: #fff;
+        }
+
+        .identity-item {
+            min-width: 0;
+            padding: 10px 12px;
+            border-left: 1px solid var(--border);
+        }
+
+        .identity-item:first-child {
+            border-left: 0;
+        }
+
+        .identity-label {
+            display: block;
+            margin-bottom: 3px;
+            color: var(--primary);
+            font-size: 9px;
+            font-weight: 800;
+            letter-spacing: .09em;
+            text-transform: uppercase;
+        }
+
+        .identity-value {
+            display: block;
+            overflow-wrap: anywhere;
+            color: var(--text-strong);
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        .identity-name {
+            font-family: Georgia, "Times New Roman", serif;
+            font-size: 18px;
+            color: var(--primary-dark);
+        }
+
+        .quick-stats {
+            grid-template-columns: repeat(5, 1fr);
+            gap: 0;
+            padding: 0 34px;
+            background: white;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .stat-card {
+            padding: 13px 14px;
+            border: 0;
+            border-left: 1px solid var(--border);
+            border-radius: 0;
+            box-shadow: none;
+            background: white;
+        }
+
+        .stat-card:first-child {
+            border-left: 0;
+        }
+
+        .stat-label { font-size: 9px; color: var(--primary); }
+        .stat-value { margin-top: 3px; font-size: 13px; }
+
+        .content {
+            counter-reset: report-section;
+            padding: 24px 34px 30px;
+            gap: 18px;
+            background: #fff;
+        }
+
+        section {
+            counter-increment: report-section;
+            padding: 0;
+            border: 1px solid var(--border);
+            border-radius: 2px;
+            box-shadow: none;
+            overflow: hidden;
+        }
+
+        section header {
+            align-items: center;
+            min-height: 42px;
+            margin: 0;
+            padding: 8px 13px;
+            background: linear-gradient(90deg, var(--primary-soft), #fff 72%);
+            border-bottom: 1px solid var(--border);
+        }
+
+        section header h2 {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-family: Georgia, "Times New Roman", serif;
+            font-size: 16px;
+            color: var(--primary-dark);
+        }
+
+        section header h2::before {
+            content: counter(report-section, decimal-leading-zero);
+            color: var(--accent);
+            font-family: Inter, "Segoe UI", sans-serif;
+            font-size: 9px;
+            letter-spacing: .08em;
+        }
+
+        .section-subtitle { font-size: 10px; }
+
+        section > .info-grid,
+        section > .table-wrapper,
+        section > .info-card,
+        section > h4 {
+            margin-left: 13px;
+            margin-right: 13px;
+        }
+
+        section > .info-grid { margin-top: 13px; }
+        section > .table-wrapper { margin-top: 13px; margin-bottom: 13px; }
+        section > .info-card { margin-top: 13px; }
+
+        .info-grid { gap: 10px; }
+
+        .info-card {
+            padding: 13px 14px;
+            border: 1px solid #e5e1da;
+            border-radius: 2px;
+            background: var(--surface-muted);
+        }
+
+        .info-card h3 {
+            margin-bottom: 9px;
+            color: var(--primary);
+            font-size: 10px;
+        }
+
+        .info-list { gap: 8px 12px; }
+        .info-label { color: #6d675e; font-size: 9px; }
+        .info-value { margin-top: 2px; font-size: 12px; line-height: 1.35; }
+
+        .table-wrapper {
+            border-color: #bdb7ad;
+            border-radius: 1px;
+        }
+
+        thead { background: #f2eee8; }
+        th, td { padding: 9px 10px; font-size: 11px; }
+        th { color: var(--primary-dark); font-size: 9px; }
+        tbody tr:nth-child(even) { background: #fbfaf8; }
+
+        .training-status {
+            font-weight: 800;
+            letter-spacing: .01em;
+        }
+
+        .training-status.status-overdue {
+            color: #b91c1c;
+            background: #fff1f1;
+        }
+
+        .training-status.status-upcoming {
+            color: #a16207;
+            background: #fff8df;
+        }
+
+        .training-status.status-compliant {
+            color: #166534;
+            background: #f0f9f1;
+        }
+
+        .training-status.status-unknown {
+            color: var(--text-muted);
+            background: #f5f5f4;
+        }
+
+        #monitoringSection .info-grid { margin-bottom: 13px; }
+
+        #monitoringSection input {
+            border: 0 !important;
+            border-bottom: 1px solid #a9a39a !important;
+            border-radius: 0 !important;
+            background: white !important;
+            color: var(--text-strong);
+        }
+
+        .report-footer {
+            display: flex;
+            justify-content: space-between;
+            gap: 20px;
+            padding: 11px 34px 14px;
+            border-top: 3px double var(--accent);
+            background: white;
+            color: var(--text-muted);
+            font-size: 9px;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+        }
+
+        .report-footer span {
+            flex: 1;
+        }
+
+        .report-footer span:nth-child(2) {
+            text-align: center;
+            font-weight: 700;
+            color: var(--primary-dark);
+            text-transform: lowercase;
+        }
+
+        .report-footer span:last-child {
+            text-align: right;
+        }
+
+        @media (max-width: 760px) {
+            body { padding: 10px; }
+            .document-toolbar { align-items: flex-start; flex-direction: column; }
+            .report-header { grid-template-columns: 64px minmax(0, 1fr); padding: 18px; }
+            .railway-mark { width: 60px; height: 60px; }
+            .profile-photo { display: none; }
+            .identity-banner { grid-template-columns: 1fr 1fr; }
+            .identity-item { border-top: 1px solid var(--border); }
+            .identity-item:first-child { grid-column: 1 / -1; }
+            .quick-stats { grid-template-columns: 1fr 1fr; padding: 0 18px; }
+            .content { padding: 18px; }
+        }
+
+        @page {
+            size: A4 portrait;
+            margin: 8mm;
+        }
+
+        @media print {
+            html, body {
+                width: 100%;
+                background: white !important;
+            }
+
+            body {
+                padding: 0 !important;
+                font-family: Arial, sans-serif;
+                font-size: 9pt;
+            }
+
+            .document-toolbar { display: none !important; }
+
+            .report-shell {
+                width: 100%;
+                max-width: none;
+                border: .35mm solid #777168;
+            }
+
+            .report-header {
+                grid-template-columns: 18mm minmax(0, 1fr) 22mm;
+                gap: 4mm;
+                padding: 3mm 5mm 2.5mm;
+                border-top-width: 2mm;
+            }
+
+            .railway-mark { width: 16mm; height: 16mm; padding: 1.5mm; }
+            .header-left .organisation { font-size: 7.5pt; }
+            .document-title { margin: 1mm 0 .5mm; font-size: 15pt; }
+            .document-subtitle { font-size: 6.5pt; }
+            .generated-on { margin-top: 1.2mm; font-size: 6.3pt; }
+            .profile-photo { display: block !important; width: 20mm; height: 24mm; border-radius: 0; }
+            .photo-placeholder { font-size: 6pt; }
+
+            .identity-banner { grid-template-columns: 1.45fr repeat(4, .78fr); }
+            .identity-item { padding: 2mm 2.2mm; }
+            .identity-label { font-size: 5.8pt; }
+            .identity-value { font-size: 7.7pt; }
+            .identity-name { font-size: 10pt; }
+
+            .quick-stats {
+                display: grid !important;
+                grid-template-columns: repeat(5, 1fr);
+                padding: 0 5mm;
+            }
+
+            .stat-card { padding: 2mm; }
+            .stat-label { font-size: 5.5pt; }
+            .stat-value { font-size: 7.5pt; }
+
+            .content {
+                padding: 4mm 5mm 5mm;
+                gap: 3mm;
+                grid-template-columns: 1fr;
+            }
+
+            section {
+                border-radius: 0;
+                break-inside: avoid;
+            }
+
+            section header { min-height: 0; padding: 1.5mm 2mm; }
+            section header h2 { font-size: 9pt; }
+            section header h2::before { font-size: 5.5pt; }
+            .section-subtitle { font-size: 6pt; }
+            section > .info-grid,
+            section > .table-wrapper,
+            section > .info-card,
+            section > h4 { margin-left: 2mm; margin-right: 2mm; }
+            section > .info-grid { margin-top: 2mm; }
+            section > .table-wrapper { margin-top: 2mm; margin-bottom: 2mm; }
+
+            .info-grid { gap: 1.5mm; }
+            .info-card { padding: 2mm; border-radius: 0; }
+            .info-card h3 { margin-bottom: 1mm; font-size: 6pt; }
+            .info-list { gap: 1mm 2mm; }
+            .info-label { font-size: 5.5pt; }
+            .info-value { font-size: 7pt; line-height: 1.2; }
+
+            .table-wrapper { border-radius: 0; }
+            th, td { padding: 1.2mm 1.5mm; font-size: 6.7pt; line-height: 1.15; }
+            th { font-size: 5.7pt; }
+            .training-status.status-overdue { color: #a40000 !important; font-weight: 900; }
+
+            #monitoringSection input {
+                padding: .7mm 0 !important;
+                font-size: 7pt !important;
+            }
+
+            .signature-block { margin-top: 10mm; font-size: 7pt; }
+            .report-footer { padding: 2mm 5mm; font-size: 5.5pt; }
+
+            body.concise-print .report-header {
+                flex-direction: initial;
+                align-items: center;
+                padding: 2.5mm 4mm 2mm;
+            }
+
+            body.concise-print .profile-photo { display: block !important; }
+            body.concise-print .quick-stats { display: grid !important; }
+
+            body.concise-print .content {
+                padding: 2.5mm 4mm 3mm;
+                gap: 2.2mm;
+                grid-template-columns: 1fr 1fr;
+                align-items: start;
+            }
+
+            body.concise-print section {
+                padding: 0;
+                border-radius: 0;
+                break-inside: avoid !important;
+            }
+
+            body.concise-print section header { margin: 0; padding: 1.1mm 1.5mm; }
+            body.concise-print section header h2 { font-size: 7.5pt; }
+            body.concise-print section .section-subtitle { display: none; }
+            body.concise-print .info-grid { gap: 1mm; grid-template-columns: 1fr 1fr; }
+            body.concise-print .info-card { padding: 1.2mm 1.5mm; }
+            body.concise-print .info-card h3 { display: block !important; margin-bottom: .8mm; font-size: 5.3pt; }
+            body.concise-print .info-list { gap: .7mm 1mm; grid-template-columns: 1fr 1fr; line-height: 1.12; }
+            body.concise-print .info-label { font-size: 4.8pt; }
+            body.concise-print .info-value { font-size: 6.1pt; }
+            body.concise-print th,
+            body.concise-print td { padding: .8mm 1mm; font-size: 5.7pt; line-height: 1.1; }
+            body.concise-print th { font-size: 4.8pt; }
+            body.concise-print .table-wrapper { margin-top: 1mm; margin-bottom: 1mm; }
+
+            body.concise-print #personalSection { grid-column: 1; }
+            body.concise-print #serviceSection { grid-column: 2; }
+            body.concise-print #familySection { grid-column: 1; }
+            body.concise-print #trainingSection { grid-column: 2; }
+            body.concise-print #monitoringSection { grid-column: 1 / -1; }
+            body.concise-print #monitoringSection .info-grid { display: grid !important; margin-bottom: 1.2mm; }
+            body.concise-print #specialTrainingTable th:last-child,
+            body.concise-print #specialTrainingTable td:last-child { text-align: center; }
+            body.concise-print .special-training-check small { font-size: 4.5pt; }
+        }
     </style>
 </head>
 <body>
     <script src="/div/js/division-auth.js"></script>
+    <div class="document-toolbar no-print">
+        <div class="print-options" aria-label="Print layout">
+            <strong style="font-size: 12px; color: var(--text-muted);">Print layout</strong>
+            <label class="print-choice">
+                <input type="radio" name="printView" value="concise" checked>
+                <span>Executive · 1 page</span>
+            </label>
+            <label class="print-choice">
+                <input type="radio" name="printView" value="detailed">
+                <span>Detailed dossier</span>
+            </label>
+        </div>
+        <div class="toolbar-actions">
+            <button type="button" class="action-button" onclick="handleBack()">← Back</button>
+            <button type="button" class="action-button primary" onclick="handlePrint()">Print profile</button>
+        </div>
+    </div>
     <div class="report-shell">
         <div class="report-header">
-            <div class="header-left">
-                <span>Staff Biodata</span>
-                <h1 id="staffName">Loading...</h1>
-                <div class="header-meta">
-                    <div><strong id="staffDesignation">—</strong></div>
-                    <div>PF No: <strong id="pfNo">—</strong></div>
-                    <div>HRMS ID: <strong id="hrmsId">—</strong></div>
-                    <div>CMS ID: <strong id="headerCmsId">—</strong></div>
-                    <div>CLI: <strong id="cliName">—</strong></div>
-                </div>
+            <div class="railway-mark" aria-hidden="true">
+                <img src="/img/railway-logo.png" alt="">
             </div>
-            <div style="display: flex; gap: 12px; align-items: flex-start; flex-wrap: wrap;">
-                <div class="print-options" style="display: flex; gap: 16px; align-items: center; padding: 8px 16px; background: var(--surface-muted); border-radius: 10px; border: 1px solid var(--border);">
-                    <span style="font-size: 13px; font-weight: 600; color: var(--text-muted);">Print:</span>
-                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px;">
-                        <input type="radio" name="printView" value="concise" checked style="accent-color: var(--primary);">
-                        <span>Concise (1 page)</span>
-                    </label>
-                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px;">
-                        <input type="radio" name="printView" value="detailed">
-                        <span>Detailed</span>
-                    </label>
+            <div class="header-left">
+                <span class="organisation">Central Railway · Mumbai Division</span>
+                <h1 class="document-title">Running Staff Bio-Profile</h1>
+                <p class="document-subtitle">Personnel · competency · safety record</p>
+                <div class="generated-on">Generated on <span id="generatedOn">—</span></div>
+            </div>
+            <div class="profile-photo" aria-label="Staff photograph">
+                <span class="photo-placeholder">Photo</span>
+                <img id="profilePhoto" alt="Staff photograph" hidden>
+            </div>
+
+            <div class="identity-banner">
+                <div class="identity-item">
+                    <span class="identity-label">Name</span>
+                    <strong class="identity-value identity-name" id="staffName">Loading...</strong>
                 </div>
-                <button type="button" onclick="handleBack()" style="padding: 10px 20px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); color: var(--text-strong); font-weight: 600; cursor: pointer; font-size: 14px;">← Back</button>
-                <button type="button" onclick="handlePrint()" style="padding: 10px 20px; border-radius: 10px; border: none; background: var(--primary); color: white; font-weight: 600; cursor: pointer; font-size: 14px;">Print</button>
+                <div class="identity-item">
+                    <span class="identity-label">Designation</span>
+                    <strong class="identity-value" id="staffDesignation">—</strong>
+                </div>
+                <div class="identity-item">
+                    <span class="identity-label">PF Number</span>
+                    <strong class="identity-value" id="pfNo">—</strong>
+                </div>
+                <div class="identity-item">
+                    <span class="identity-label">HRMS / CMS</span>
+                    <strong class="identity-value"><span id="hrmsId">—</span> / <span id="headerCmsId">—</span></strong>
+                </div>
+                <div class="identity-item">
+                    <span class="identity-label">Nominated CLI</span>
+                    <strong class="identity-value" id="cliName">—</strong>
+                </div>
             </div>
         </div>
 
@@ -937,45 +1514,6 @@
                     <div class="section-subtitle">Latest compliance on statutory and competency-based programs.</div>
                 </header>
 
-                <div class="info-grid" style="margin-bottom: 26px;">
-                    <div class="info-card">
-                        <h3>Upcoming Milestone</h3>
-                        <div class="info-list">
-                            <div class="info-item">
-                                <span class="info-label">Next Due</span>
-                                <span class="info-value" id="nextTrainingDue">—</span>
-                            </div>
-                            <div class="info-item">
-                                <span class="info-label">Status</span>
-                                <span class="info-value" id="nextTrainingStatus">—</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="info-card">
-                        <h3>Personal Store Issue</h3>
-                        <div class="info-list">
-                            <div class="info-item">
-                                <span class="info-label">Personal Store Last Updated</span>
-                                <span class="info-value" id="storeLastUpdated">—</span>
-                            </div>
-                            <div class="info-item">
-                                <span class="info-label">Next Due</span>
-                                <span class="info-value" id="storeNextDue">—</span>
-                            </div>
-                            <div class="info-item">
-                                <span class="info-label">Detonator Lot No.</span>
-                                <span class="info-value" id="detonatorLotNo">—</span>
-                            </div>
-                            <div class="info-item">
-                                <span class="info-label">MFG / Expiry</span>
-                                <span class="info-value" id="detonatorDetails">—</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <h4 style="margin: 0 0 12px 0; font-size: 14px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Major Matrices</h4>
                 <div class="table-wrapper" style="margin-bottom: 24px;">
                     <table id="majorTrainingTable">
                         <thead>
@@ -990,21 +1528,22 @@
                     </table>
                 </div>
 
-                <h4 style="margin: 0 0 12px 0; font-size: 14px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Other Trainings</h4>
+                <h4 style="margin: 0 0 12px 0; font-size: 14px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Special Training Compliance</h4>
                 <div class="table-wrapper">
-                    <table id="otherTrainingTable">
+                    <table id="specialTrainingTable">
                         <thead>
                             <tr>
-                                <th>Programme</th>
-                                <th>Last Done</th>
+                                <th>Training / Course</th>
+                                <th>Completed On</th>
+                                <th>Compliance</th>
                             </tr>
                         </thead>
-                        <tbody></tbody>
+                        <tbody id="specialTrainingBody"><tr><td colspan="3" style="text-align: center; color: var(--text-muted);">Loading...</td></tr></tbody>
                     </table>
                 </div>
             </section>
 
-            <section id="awardsSection">
+            <section id="awardsSection" style="display: none;">
                 <header>
                     <h2>Awards & Recognitions</h2>
                     <div class="section-subtitle">Awards and commendations received by the staff member.</div>
@@ -1107,22 +1646,12 @@
                 </div>
             </section>
 
-            <section id="specialTrainingSection">
-                <header>
-                    <h2>Special Training Compliance</h2>
-                    <div class="section-subtitle">Additional trainings captured in the Training Compliance Matrix.</div>
-                </header>
-
-                <div class="table-wrapper">
-                    <table id="specialTrainingTable">
-                        <thead>
-                            <tr id="specialTrainingHeader"></tr>
-                        </thead>
-                        <tbody id="specialTrainingBody"></tbody>
-                    </table>
-                </div>
-            </section>
         </div>
+        <footer class="report-footer">
+            <span>BB Division · Staff Biodata Record</span>
+            <span>www.crtms.in</span>
+            <span>System generated · Verify against current records</span>
+        </footer>
     </div>
 
     <script>
@@ -1133,6 +1662,7 @@
             pfNo: '—',
             hrmsId: '—',
             cli: '—',
+            photo: null,
             dob: null,
             doa: null,
             reportingDate: null,
@@ -1149,6 +1679,7 @@
             assignmentStatus: '—',
             vision: '—',
             currentOffice: '—',
+            currentOfficeCode: null,
             presentGrade: '—',
             gradePay: '—',
             cliNomination: '—',
@@ -1177,34 +1708,41 @@
             remarks: 'No remarks recorded.'
         };
 
-        const SPECIAL_TRAININGS = [
-            { id: 4, label: 'KAVACH' },
-            { id: 10, label: 'WAG-12' },
-            { id: 22, label: 'NE GHAT UP' },
-            { id: 23, label: 'NE GHAT DN' },
-            { id: 24, label: 'SE GHAT UP' },
-            { id: 25, label: 'SE GHAT DN' },
-            { id: 11, label: 'SPIC' },
-            { id: 16, label: 'Vande Bharat' },
-            { id: 18, label: 'Push Pull' },
-            { id: 17, label: 'MEMU' },
-            { id: 9, label: 'AC/DC' },
-            { id: 21, label: 'WDS6' },
-            { id: 12, label: 'HS-SPART' },
-            { id: 19, label: 'HSTAT' }
-        ];
+        // These four course types belong exclusively to the Refresher & PME Matrix.
+        // If one is not applicable to a staff member it is suppressed rather than
+        // allowed to spill into Special Training Compliance.
+        const MATRIX_TRAINING_IDS = new Set([1, 2, 5, 26]);
+        const LPS_DESIGNATION_IDS = new Set([3, 4]);
 
-        const SPECIAL_TRAINING_IDS = new Set(SPECIAL_TRAININGS.map(t => t.id));
-        const SPECIAL_TRAINING_ORDER = SPECIAL_TRAININGS.reduce((acc, t, index) => {
-            acc[t.id] = index;
-            return acc;
-        }, {});
+        const getMatrixTrainingIds = (data) => {
+            const designationId = Number(data.designation_id);
+            const isMotorman = designationId === 8;
+            const isLps = LPS_DESIGNATION_IDS.has(designationId);
+            const officeCode = String(data.currentOfficeCode || '').trim().toUpperCase();
+            const cmsId = String(data.cmsId || '').trim().toUpperCase();
+            const isLnlOrIgp = ['LNL', 'IGP'].includes(officeCode)
+                || cmsId.startsWith('LNL')
+                || cmsId.startsWith('IGP');
+
+            const ids = [1, isMotorman ? 26 : 2];
+            if (!isLps && !isLnlOrIgp) ids.push(5);
+            return ids;
+        };
 
         const formatDate = (dateString, fallback = '—') => {
             if (!dateString) return fallback;
             const date = new Date(dateString);
             if (Number.isNaN(date.getTime())) return fallback;
             return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+        };
+
+        const getTrainingStatusClass = (status) => {
+            switch (String(status || '').toLowerCase()) {
+                case 'overdue': return 'status-overdue';
+                case 'upcoming': return 'status-upcoming';
+                case 'compliant': return 'status-compliant';
+                default: return 'status-unknown';
+            }
         };
 
         const calculateRetirementDate = (dob) => {
@@ -1287,36 +1825,28 @@
         };
 
         const renderSpecialTrainingTable = (trainings) => {
-            const headerRow = document.getElementById('specialTrainingHeader');
             const body = document.getElementById('specialTrainingBody');
 
-            if (!headerRow || !body) return;
+            if (!body) return;
 
             const completed = Array.isArray(trainings)
                 ? trainings
-                    .filter(t => SPECIAL_TRAINING_IDS.has(t.training_id) && t.done)
-                    .sort((a, b) => (SPECIAL_TRAINING_ORDER[a.training_id] ?? 999) - (SPECIAL_TRAINING_ORDER[b.training_id] ?? 999))
+                    .filter(t => t.training_id !== 3 && !MATRIX_TRAINING_IDS.has(t.training_id) && t.done)
+                    .sort((a, b) => String(a.programme || '').localeCompare(String(b.programme || '')))
                 : [];
 
             if (completed.length === 0) {
-                headerRow.innerHTML = '<th>Special Trainings</th>';
-                body.innerHTML = '<tr><td style="text-align: center; color: var(--text-muted);">No special training records</td></tr>';
+                body.innerHTML = '<tr><td colspan="3" style="text-align: center; color: var(--text-muted);">No special training records</td></tr>';
                 return;
             }
 
-            headerRow.innerHTML = completed.map(entry => {
-                const meta = SPECIAL_TRAININGS.find(t => t.id === entry.training_id);
-                return `<th title="${entry.programme || meta?.label || 'Training'}">${meta?.label || entry.programme || 'Training'}</th>`;
-            }).join('');
-
-            body.innerHTML = `<tr>${completed.map(entry => `
-                <td style="text-align: center;">
-                    <span class="special-training-check">
-                        <span>&#10003;</span>
-                        <small>${formatDate(entry.done)}</small>
-                    </span>
-                </td>
-            `).join('')}</tr>`;
+            body.innerHTML = completed.map(entry => `
+                <tr>
+                    <td>${entry.programme || '—'}</td>
+                    <td>${formatDate(entry.done)}</td>
+                    <td><span class="special-training-check"><span>&#10003;</span><small>Completed</small></span></td>
+                </tr>
+            `).join('');
         };
 
         const populateReport = (overrides = {}) => {
@@ -1357,6 +1887,19 @@
             document.getElementById('hrmsId').textContent = data.hrmsId;
             document.getElementById('headerCmsId').textContent = data.cmsId || '—';
             document.getElementById('cliName').textContent = data.cli;
+
+            const profilePhoto = document.getElementById('profilePhoto');
+            if (data.photo) {
+                profilePhoto.hidden = false;
+                profilePhoto.src = data.photo;
+                profilePhoto.onerror = () => {
+                    profilePhoto.hidden = true;
+                    profilePhoto.removeAttribute('src');
+                };
+            } else {
+                profilePhoto.hidden = true;
+                profilePhoto.removeAttribute('src');
+            }
 
             // Service Information Card
             document.getElementById('doaValue').textContent = formatDate(data.doa);
@@ -1412,73 +1955,6 @@
                 document.getElementById('cliNomination').textContent = '—';
             }
 
-            // Upcoming Milestone - Check for trainings due in next 60 days
-            if (data.trainings && Array.isArray(data.trainings) && data.trainings.length > 0) {
-                const today = new Date();
-                const sixtyDaysLater = new Date(today.getTime() + (60 * 24 * 60 * 60 * 1000));
-
-                // Define major training IDs based on designation
-                // Non-Motorman: 1 (PME), 2 (Refresher IC), 5 (Automatic), 6 (Refresher Diesel), 7 (Refresher AC)
-                // Motorman (id=8): 1 (PME), 5 (Automatic), 17 (MEMU), 26 (Mman Promotion/Refresher)
-                const isMotorman = data.designation_id === 8;
-                const relevantTrainingIds = isMotorman
-                    ? [1, 5, 17, 26]
-                    : [1, 2, 5, 6, 7];
-
-                // Filter trainings that are due in next 60 days and match relevant types
-                const upcomingTrainings = data.trainings.filter(training => {
-                    if (!training.due || !training.training_id) return false;
-
-                    const dueDate = new Date(training.due);
-                    if (isNaN(dueDate.getTime())) return false;
-
-                    // Check if due within 60 days
-                    if (dueDate > sixtyDaysLater) return false;
-
-                    // Check if training type is relevant using training_id
-                    return relevantTrainingIds.includes(training.training_id);
-                }).sort((a, b) => new Date(a.due) - new Date(b.due)); // Sort by earliest due date
-
-                if (upcomingTrainings.length > 0) {
-                    const nextTraining = upcomingTrainings[0];
-                    const daysUntilDue = Math.ceil((new Date(nextTraining.due) - today) / (24 * 60 * 60 * 1000));
-
-                    document.getElementById('nextTrainingDue').textContent =
-                        `${nextTraining.programme} - ${formatDate(nextTraining.due)}`;
-
-                    if (daysUntilDue < 0) {
-                        document.getElementById('nextTrainingStatus').textContent = 'Overdue';
-                    } else if (daysUntilDue <= 7) {
-                        document.getElementById('nextTrainingStatus').textContent = 'Due this week';
-                    } else if (daysUntilDue <= 30) {
-                        document.getElementById('nextTrainingStatus').textContent = 'Due this month';
-                    } else {
-                        document.getElementById('nextTrainingStatus').textContent = `Due in ${daysUntilDue} days`;
-                    }
-                } else {
-                    document.getElementById('nextTrainingDue').textContent = 'No Course due in next 60 days';
-                    document.getElementById('nextTrainingStatus').textContent = 'Compliant';
-                }
-            } else {
-                document.getElementById('nextTrainingDue').textContent = 'No training data available';
-                document.getElementById('nextTrainingStatus').textContent = '—';
-            }
-
-            // Personal Store Issue section
-            // Use pstore dates from staff master
-            document.getElementById('storeLastUpdated').textContent = formatDate(data.pstoreLastUpdated);
-            document.getElementById('storeNextDue').textContent = formatDate(data.pstoreNextDue);
-
-            // Use detonator details from detonator data
-            if (data.detonatorData) {
-                document.getElementById('detonatorLotNo').textContent = data.detonatorData.lotNumber || '—';
-                document.getElementById('detonatorDetails').textContent =
-                    `${formatDate(data.detonatorData.mfgDate)} / ${formatDate(data.detonatorData.expiryDate)}`;
-            } else {
-                document.getElementById('detonatorLotNo').textContent = '—';
-                document.getElementById('detonatorDetails').textContent = '—';
-            }
-
             // Quick stats
             const quickStatsContainer = document.getElementById('quickStats');
             if (data.quickStats && Array.isArray(data.quickStats)) {
@@ -1517,36 +1993,15 @@
                 </tr>
             `).join('');
 
-            // Training tables - split into Major Matrices and Other Trainings
+            // Core matrix and completed special/technical trainings are rendered separately.
             const majorTrainingBody = document.querySelector('#majorTrainingTable tbody');
-            const otherTrainingBody = document.querySelector('#otherTrainingTable tbody');
 
             if (data.trainings && data.trainings.length > 0) {
-                // Define major training IDs based on designation
-                // Non-Motorman: 1 (PME), 2 (Refresher IC), 5 (Automatic), 6 (Refresher Diesel), 7 (Refresher AC)
-                // Motorman (id=8): 1 (PME), 5 (Automatic), 17 (MEMU), 26 (Mman Promotion/Refresher)
-                const isMotorman = data.designation_id === 8;
-                const majorTrainingIds = isMotorman
-                    ? [1, 5, 17, 26]
-                    : [1, 2, 5, 6, 7];
+                const majorTrainingIds = getMatrixTrainingIds(data);
 
-                // Filter trainings into major and other using training_id
-                // Exclude Safety Camp (training_id = 3) from print
-                const majorTrainings = [];
-                const otherTrainings = [];
-
-                data.trainings.forEach(training => {
-                    // Skip Safety Camp (id = 3)
-                    if (training.training_id === 3) return;
-
-                    const isMajor = majorTrainingIds.includes(training.training_id);
-
-                    if (isMajor) {
-                        majorTrainings.push(training);
-                    } else {
-                        otherTrainings.push(training);
-                    }
-                });
+                const majorTrainings = data.trainings.filter(training =>
+                    majorTrainingIds.includes(training.training_id)
+                );
 
                 // Populate Major Matrices table
                 if (majorTrainings.length > 0) {
@@ -1555,53 +2010,44 @@
                             <td>${training.programme}</td>
                             <td>${formatDate(training.done)}</td>
                             <td>${formatDate(training.due)}</td>
-                            <td>${training.status}</td>
+                            <td class="training-status ${getTrainingStatusClass(training.status)}">${training.status}</td>
                         </tr>
                     `).join('');
                 } else {
                     majorTrainingBody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-muted);">No major training records found</td></tr>';
                 }
-
-                // Populate Other Trainings table
-                if (otherTrainings.length > 0) {
-                    otherTrainingBody.innerHTML = otherTrainings.map(training => `
-                        <tr>
-                            <td>${training.programme}</td>
-                            <td>${formatDate(training.done)}</td>
-                        </tr>
-                    `).join('');
-                } else {
-                    otherTrainingBody.innerHTML = '<tr><td colspan="2" style="text-align: center; color: var(--text-muted);">No other training records found</td></tr>';
-                }
             } else {
                 majorTrainingBody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-muted);">No training records found</td></tr>';
-                otherTrainingBody.innerHTML = '<tr><td colspan="2" style="text-align: center; color: var(--text-muted);">No training records found</td></tr>';
             }
 
             renderSpecialTrainingTable(data.trainings);
 
-            // Awards table
+            // Awards and disciplinary records are restricted to division admins.
+            // Hidden sections do not increment the CSS section counter, so the
+            // remaining visible report sections retain consecutive numbering.
+            const awardsSection = document.getElementById('awardsSection');
             const awardsBody = document.querySelector('#awardsTable tbody');
-            if (data.awards && data.awards.length > 0) {
-                awardsBody.innerHTML = data.awards.map(award => `
-                    <tr>
-                        <td>${award.name || '—'}</td>
-                        <td>${formatDate(award.date)}</td>
-                        <td>${award.issuedBy || '—'}</td>
-                        <td>${award.description || '—'}</td>
-                    </tr>
-                `).join('');
-            } else {
-                awardsBody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-muted);">No awards on record</td></tr>';
-            }
-
-            // Punishments table (only visible for admin users)
             const punishmentsSection = document.getElementById('punishmentsSection');
             const punishmentsBody = document.querySelector('#punishmentsTable tbody');
 
             if (data.isAdmin) {
+                awardsSection.style.display = 'block';
                 punishmentsSection.style.display = 'block';
+                awardsSection.classList.add('admin-print-visible');
                 punishmentsSection.classList.add('admin-print-visible');
+
+                if (data.awards && data.awards.length > 0) {
+                    awardsBody.innerHTML = data.awards.map(award => `
+                        <tr>
+                            <td>${award.name || '—'}</td>
+                            <td>${formatDate(award.date)}</td>
+                            <td>${award.issuedBy || '—'}</td>
+                            <td>${award.description || '—'}</td>
+                        </tr>
+                    `).join('');
+                } else {
+                    awardsBody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-muted);">No awards on record</td></tr>';
+                }
 
                 if (data.punishments && data.punishments.length > 0) {
                     punishmentsBody.innerHTML = data.punishments.map(punishment => `
@@ -1617,7 +2063,9 @@
                     punishmentsBody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted);">No disciplinary records</td></tr>';
                 }
             } else {
+                awardsSection.style.display = 'none';
                 punishmentsSection.style.display = 'none';
+                awardsSection.classList.remove('admin-print-visible');
                 punishmentsSection.classList.remove('admin-print-visible');
             }
 
@@ -1664,6 +2112,7 @@
                     assignmentStatus: staff.assignment_status || staffProfile.assignmentStatus,
                     vision: staff.vision || staffProfile.vision,
                     currentOffice: staff.office_name || staff.current_office_code || staffProfile.currentOffice,
+                    currentOfficeCode: staff.current_office_code || null,
                     cmsId: staff.current_cms_id || staffProfile.cmsId,
                     status: staff.status || staffProfile.quickStats?.find(q => q.label === 'Status')?.value,
                     pstoreLastUpdated: staff.pstore_last_updated || null,
@@ -1837,6 +2286,13 @@
         }
 
         document.addEventListener('DOMContentLoaded', async () => {
+            document.getElementById('generatedOn').textContent = new Date().toLocaleString('en-IN', {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
             const params = new URLSearchParams(window.location.search);
             const hrmsParam = params.get('hrms_id');
             let overrides = {};
