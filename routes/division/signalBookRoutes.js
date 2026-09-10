@@ -413,9 +413,24 @@ router.post('/section/:code/publish', async (req, res) => {
       for (const r of rows) {
         if (r.row_type !== 'SIGNAL' || !r.signal) continue;
         const sig = r.signal;
+        // Existing row first: it is the fallback for anything the editor model
+        // does not carry, and the baseline for "did this signal change at all".
+        let old = null;
+        if (r.signal_id) {
+          [[old]] = await conn.execute(`SELECT * FROM div_signals WHERE id = ?`, [r.signal_id]);
+        }
         const arms = sig.arms || null;
-        const riString = arms ? serializeRiSpec(arms) : (sig.book_description || null);
-        const counts = arms ? armCounts(arms) : { left: sig.ri_left_arms || 0, right: sig.ri_right_arms || 0 };
+        // parseRiSpec() returns an EMPTY spec when a signal has arm counts but no
+        // book_description. Serialising that back used to write ri_*_arms = 0 and
+        // silently zero the counts on every publish (found 2026-09-10: CLA S-19 and
+        // CLA YD S-2 lost ri_left_arms=2 when only TMBY S-541 was edited).
+        // An empty spec means "nothing to say", not "no arms": keep the stored values.
+        const specEmpty = !arms || (!arms.main && !(arms.left || []).length && !(arms.right || []).length);
+        const riString = !specEmpty ? serializeRiSpec(arms)
+                                    : (sig.book_description || (old && old.book_description) || null);
+        const counts = !specEmpty ? armCounts(arms)
+                                  : { left:  sig.ri_left_arms  ?? (old ? old.ri_left_arms  : 0) ?? 0,
+                                      right: sig.ri_right_arms ?? (old ? old.ri_right_arms : 0) ?? 0 };
         const sigFields = {
           signal_number: sig.signal_number,
           normalized_signal_number: normalizeSignalNumber(sig.signal_number),
@@ -435,11 +450,12 @@ router.post('/section/:code/publish', async (req, res) => {
         };
 
         if (r.signal_id) {
-          // capture old values for history
-          const [[old]] = await conn.execute(
-            `SELECT signal_number, placement, location_text, km_text, book_description FROM div_signals WHERE id = ?`,
-            [r.signal_id]
-          );
+          // Only the signals the draft actually changes are written. Everything
+          // else in the section is left untouched: no UPDATE, no updated_at bump,
+          // no history entry.
+          const norm = v => (v == null ? '' : String(v));
+          const changed = !old || Object.keys(sigFields).some(k => norm(old[k]) !== norm(sigFields[k]));
+          if (!changed) continue;
           await conn.execute(
             `UPDATE div_signals SET signal_number=?, normalized_signal_number=?, location_text=?, km_text=?,
                     placement=?, on_curve=?, is_rhs=?, is_ext_rhs=?, is_lhs=?, is_ext_lhs=?,
@@ -475,6 +491,8 @@ router.post('/section/:code/publish', async (req, res) => {
               historyEntries.push([r.signal_id, 'Location Changed', `${old.location_text||''} / ${old.km_text||''}`, `${sigFields.location_text||''} / ${sigFields.km_text||''}`, userId]);
             if ((old.book_description || '') !== (sigFields.book_description || ''))
               historyEntries.push([r.signal_id, 'Description Changed', old.book_description, sigFields.book_description, userId]);
+            if (old.ri_left_arms !== sigFields.ri_left_arms || old.ri_right_arms !== sigFields.ri_right_arms)
+              historyEntries.push([r.signal_id, 'Other', `RI arms L${old.ri_left_arms}/R${old.ri_right_arms}`, `RI arms L${sigFields.ri_left_arms}/R${sigFields.ri_right_arms}`, userId]);
           }
         } else {
           const [ins] = await conn.execute(
