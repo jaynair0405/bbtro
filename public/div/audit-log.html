@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audit Log - Signal Sync - Division Portal</title>
+    <link rel="stylesheet" href="/div/css/division-main.css">
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f7fa; margin: 0; padding: 20px; color: #1f2937; }
+        .wrap { max-width: 1200px; margin: 0 auto; }
+        .head { background: #fff; padding: 20px 28px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,.08); margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+        .head h1 { font-size: 22px; margin: 0 0 4px; }
+        .crumb { color: #6b7280; font-size: 14px; }
+        .crumb a { color: #2563eb; text-decoration: none; }
+        .actions { display: flex; gap: 10px; flex-wrap: wrap; }
+        .btn { border: 0; border-radius: 8px; padding: 10px 16px; font-size: 14px; font-weight: 600; cursor: pointer; text-decoration: none; display: inline-block; }
+        .btn-primary { background: #2563eb; color: #fff; }
+        .btn-primary:hover { background: #1d4ed8; }
+        .btn-ok { background: #16a34a; color: #fff; }
+        .btn-ok:hover { background: #15803d; }
+        .btn-ghost { background: #f3f4f6; color: #374151; }
+        .btn[disabled] { opacity: .45; cursor: not-allowed; }
+        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 20px; }
+        .stat { background: #fff; border-radius: 10px; padding: 14px 18px; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+        .stat .v { font-size: 26px; font-weight: 700; }
+        .stat .l { font-size: 12px; color: #6b7280; text-transform: uppercase; letter-spacing: .04em; }
+        .stat.warn .v { color: #d97706; }
+        .card { background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,.08); overflow: hidden; }
+        .card h2 { font-size: 15px; margin: 0; padding: 14px 20px; border-bottom: 1px solid #e5e7eb; background: #f9fafb; }
+        .howto { padding: 14px 20px; font-size: 14px; color: #4b5563; border-bottom: 1px solid #e5e7eb; line-height: 1.55; }
+        .howto code { background: #f3f4f6; padding: 1px 6px; border-radius: 4px; font-size: 13px; }
+        table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
+        th { background: #f9fafb; font-weight: 600; color: #374151; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+        tr:hover td { background: #fafbff; }
+        .tag { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+        .tag.updated { background: #dbeafe; color: #1e40af; }
+        .tag.created { background: #dcfce7; color: #166534; }
+        .was { color: #6b7280; font-size: 12px; }
+        .hist { margin: 0; padding: 0; list-style: none; font-size: 12px; color: #4b5563; }
+        .hist li { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 420px; }
+        .hist b { color: #111827; font-weight: 600; }
+        .empty { padding: 40px 20px; text-align: center; color: #6b7280; }
+        .empty .big { font-size: 40px; margin-bottom: 8px; }
+        .muted { color: #9ca3af; }
+        #msg { margin: 0 0 14px; padding: 10px 14px; border-radius: 8px; font-size: 14px; display: none; }
+        #msg.ok { display: block; background: #dcfce7; color: #166534; }
+        #msg.err { display: block; background: #fee2e2; color: #991b1b; }
+        .table-scroll { overflow-x: auto; }
+    </style>
+</head>
+<body>
+<div class="wrap">
+    <div class="head">
+        <div>
+            <div class="crumb"><a href="/div">Division</a> › <a href="/div/settings.html">Settings</a> › Audit Log</div>
+            <h1>📜 Signal Book — pending sync to local</h1>
+            <div class="crumb">Signals edited here through the signal-book editor that the development database has not received yet.</div>
+        </div>
+        <div class="actions">
+            <a id="btnSql" class="btn btn-primary" href="/api/division/signal-sync/sql">⬇ Download sync SQL</a>
+            <button id="btnMark" class="btn btn-ok">✓ Mark all synced</button>
+            <button id="btnReload" class="btn btn-ghost">Refresh</button>
+        </div>
+    </div>
+
+    <div id="msg"></div>
+
+    <div class="stats">
+        <div class="stat warn"><div class="v" id="stPending">–</div><div class="l">Pending</div></div>
+        <div class="stat"><div class="v" id="stCreated">–</div><div class="l">of which new signals</div></div>
+        <div class="stat"><div class="v" id="stTotal">–</div><div class="l">Queued ever</div></div>
+        <div class="stat"><div class="v" id="stLast" style="font-size:16px;line-height:26px">–</div><div class="l">Last synced</div></div>
+    </div>
+
+    <div class="card">
+        <h2>Pending signals</h2>
+        <div class="howto">
+            <b>1</b> Download the SQL &nbsp;·&nbsp; <b>2</b> on the development machine run
+            <code>mysql bbtro &lt; sql/&lt;file&gt;.sql</code> (your usual local credentials) and commit the file &nbsp;·&nbsp;
+            <b>3</b> come back and press <b>Mark all synced</b>. Rows are kept with a synced date, never deleted.
+            The blow-by-blow of each edit stays in <code>div_signal_history</code>.
+        </div>
+        <div class="table-scroll">
+        <table>
+            <thead><tr>
+                <th>#</th><th>Section</th><th>Signal</th><th>Kind</th><th>Location</th><th>What changed (history)</th><th>Edited by</th><th>Queued</th>
+            </tr></thead>
+            <tbody id="rows"><tr><td colspan="8" class="empty">Loading…</td></tr></tbody>
+        </table>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    const $ = id => document.getElementById(id);
+    let pending = [];
+
+    const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+    const fmt = ts => {
+        if (!ts) return '–';
+        const d = new Date(ts);
+        return isNaN(d) ? esc(ts) : d.toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+    };
+    const fmtDate = d => d ? String(d).slice(0, 10) : '';
+
+    function show(kind, text) { const m = $('msg'); m.className = kind; m.textContent = text; }
+
+    function render() {
+        const tb = $('rows');
+        const created = pending.filter(r => r.change_kind === 'created').length;
+        $('stPending').textContent = pending.length;
+        $('stCreated').textContent = created;
+        $('btnMark').disabled = !pending.length;
+        if (!pending.length) {
+            $('btnSql').removeAttribute('href'); $('btnSql').setAttribute('disabled', '');
+            tb.innerHTML = '<tr><td colspan="8" class="empty"><div class="big">✅</div>Nothing pending — local and prod are in step.</td></tr>';
+            return;
+        }
+        $('btnSql').href = '/api/division/signal-sync/sql'; $('btnSql').removeAttribute('disabled');
+        tb.innerHTML = pending.map((r, i) => {
+            const renum = r.old_signal_number && r.old_signal_number !== r.signal_number;
+            const hist = (r.history || []).map(h =>
+                `<li title="${esc(h.old_value)} → ${esc(h.new_value)}"><span class="muted">${esc(fmtDate(h.change_date))}</span> <b>${esc(h.change_type)}</b>` +
+                (h.old_value || h.new_value ? `: ${esc(h.old_value || '∅')} → ${esc(h.new_value || '∅')}` : '') + `</li>`
+            ).join('') || '<li class="muted">no history rows</li>';
+            return `<tr>
+                <td class="muted">${i + 1}</td>
+                <td>${esc(r.section)}<br><span class="was">${esc(r.line)} ${esc(r.direction)}</span></td>
+                <td><b>${esc(r.signal_number)}</b>${renum ? `<br><span class="was">was ${esc(r.old_signal_number)}</span>` : ''}<br><span class="was">id ${r.signal_id}</span></td>
+                <td><span class="tag ${esc(r.change_kind)}">${esc(r.change_kind)}</span></td>
+                <td>${esc(r.location_text || '')}<br><span class="was">${esc(r.km_text || '')}</span></td>
+                <td><ul class="hist">${hist}</ul></td>
+                <td>${esc(r.queued_by || (r.queued_by_user_id ? 'user ' + r.queued_by_user_id : '–'))}</td>
+                <td>${fmt(r.queued_at)}</td>
+            </tr>`;
+        }).join('');
+    }
+
+    async function load() {
+        try {
+            const res = await fetch('/api/division/signal-sync/pending', { credentials: 'same-origin' });
+            if (res.status === 401 || res.status === 403) { location.href = '/div'; return; }
+            const j = await res.json();
+            if (!res.ok) throw new Error(j.error || res.statusText);
+            pending = j.pending || [];
+            $('stTotal').textContent = j.total_ever;
+            $('stLast').textContent = fmt(j.last_synced);
+            render();
+        } catch (e) { show('err', 'Could not load: ' + e.message); }
+    }
+
+    $('btnReload').onclick = load;
+    $('btnMark').onclick = async () => {
+        if (!pending.length) return;
+        const ids = pending.map(r => r.signal_id);
+        if (!confirm(`Mark ${ids.length} signal(s) as synced?\n\nOnly do this AFTER the downloaded SQL has been run on the development database.`)) return;
+        try {
+            const res = await fetch('/api/division/signal-sync/mark-synced', {
+                method: 'POST', credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ signal_ids: ids }),
+            });
+            const j = await res.json();
+            if (!res.ok) throw new Error(j.error || res.statusText);
+            show('ok', `Marked ${j.marked} signal(s) synced.`);
+            load();
+        } catch (e) { show('err', 'Mark synced failed: ' + e.message); }
+    };
+
+    load();
+})();
+</script>
+</body>
+</html>

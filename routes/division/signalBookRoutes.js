@@ -366,6 +366,38 @@ router.post('/section/:code/discard', async (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Sync outbox (docs/SIGNAL_SYNC_PLAN.md). Every div_signals row the editor
+// actually changes is snapshotted in full into div_signal_sync_queue, in the
+// same transaction as the history insert. One row per signal, latest wins;
+// old_signal_number / change_kind are frozen while a row is still pending so a
+// double renumber keeps the number the OTHER database still holds.
+// ---------------------------------------------------------------------------
+let syncMirrorCols = null; // div_signals columns except id, read once
+async function queueSignalSnapshot(conn, signalId, oldSignalNumber, changeKind, userId) {
+  if (!syncMirrorCols) {
+    const [cols] = await conn.execute(
+      `SELECT column_name AS c FROM information_schema.columns
+        WHERE table_schema = DATABASE() AND table_name = 'div_signals' AND column_name <> 'id'
+        ORDER BY ordinal_position`
+    );
+    syncMirrorCols = cols.map(r => r.c);
+  }
+  const list = syncMirrorCols.map(c => `\`${c}\``).join(', ');
+  const upd = syncMirrorCols.map(c => `\`${c}\` = VALUES(\`${c}\`)`).join(', ');
+  await conn.execute(
+    `INSERT INTO div_signal_sync_queue (signal_id, ${list}, old_signal_number, change_kind, queued_by_user_id, synced_at)
+     SELECT id, ${list}, ?, ?, ?, NULL FROM div_signals WHERE id = ?
+     ON DUPLICATE KEY UPDATE ${upd},
+       old_signal_number = IF(synced_at IS NULL, old_signal_number, VALUES(old_signal_number)),
+       change_kind       = IF(synced_at IS NULL, change_kind,       VALUES(change_kind)),
+       queued_by_user_id = VALUES(queued_by_user_id),
+       queued_at         = CURRENT_TIMESTAMP,
+       synced_at         = NULL`,
+    [oldSignalNumber, changeKind, userId, signalId]
+  );
+}
+
 // POST /section/:code/publish — apply the draft to the live tables atomically.
 // Upserts signals (canonicalising RI arms), rebuilds book rows, flips
 // edit_source to 'ui', logs signal field changes, deletes the draft.
@@ -452,7 +484,7 @@ router.post('/section/:code/publish', async (req, res) => {
         if (r.signal_id) {
           // Only the signals the draft actually changes are written. Everything
           // else in the section is left untouched: no UPDATE, no updated_at bump,
-          // no history entry.
+          // no history, no sync-queue row.
           const norm = v => (v == null ? '' : String(v));
           const changed = !old || Object.keys(sigFields).some(k => norm(old[k]) !== norm(sigFields[k]));
           if (!changed) continue;
@@ -493,6 +525,7 @@ router.post('/section/:code/publish', async (req, res) => {
               historyEntries.push([r.signal_id, 'Description Changed', old.book_description, sigFields.book_description, userId]);
             if (old.ri_left_arms !== sigFields.ri_left_arms || old.ri_right_arms !== sigFields.ri_right_arms)
               historyEntries.push([r.signal_id, 'Other', `RI arms L${old.ri_left_arms}/R${old.ri_right_arms}`, `RI arms L${sigFields.ri_left_arms}/R${sigFields.ri_right_arms}`, userId]);
+            await queueSignalSnapshot(conn, r.signal_id, old.signal_number, 'updated', userId);
           }
         } else {
           const [ins] = await conn.execute(
@@ -511,6 +544,7 @@ router.post('/section/:code/publish', async (req, res) => {
           );
           r.signal_id = ins.insertId;
           historyEntries.push([r.signal_id, 'Created', null, sigFields.signal_number, userId]);
+          await queueSignalSnapshot(conn, r.signal_id, null, 'created', userId);
         }
       }
 
@@ -575,3 +609,4 @@ router.post('/section/:code/publish', async (req, res) => {
 });
 
 module.exports = router;
+module.exports.normalizeSignalNumber = normalizeSignalNumber; // shared with signalSyncRoutes

@@ -212,10 +212,20 @@ app.get('/div', (req, res) => {
 });
 
 // ✅ Protect specific division portal HTML pages
+// Settings and the audit-log page are division_admin only. The "Admin Only"
+// badges on settings.html are cosmetic; this is the enforcement.
 app.get('/div/settings.html', (req, res) => {
   if (!req.session.user) return res.redirect('/');
   if (req.session.user.realm !== 'division') return res.redirect('/');
+  if (req.session.user.div_role !== 'division_admin') return res.redirect('/div');
   res.sendFile(path.join(__dirname, 'public', 'div', 'settings.html'));
+});
+
+app.get('/div/audit-log.html', (req, res) => {
+  if (!req.session.user) return res.redirect('/');
+  if (req.session.user.realm !== 'division') return res.redirect('/');
+  if (req.session.user.div_role !== 'division_admin') return res.redirect('/div');
+  res.sendFile(path.join(__dirname, 'public', 'div', 'audit-log.html'));
 });
 
 app.get('/div/training-types-manager.html', (req, res) => {
@@ -871,6 +881,7 @@ const trainingCentreRoutes = require('./routes/division/trainingCentreRoutes');
 const locoLinkRoutes = require('./routes/division/locoLinkRoutes');
 const awsUploadRoutes = require('./routes/division/awsUploadRoutes');
 const signalBookRoutes = require('./routes/division/signalBookRoutes');
+const signalSyncRoutes = require('./routes/division/signalSyncRoutes');
 const documentRoutes = require('./routes/division/documentRoutes');
 const transferLetterRoutes = require('./routes/division/transferLetterRoutes');
 const cadreLetterRoutes = require('./routes/division/cadreLetterRoutes');
@@ -926,6 +937,7 @@ app.use("/api/division/adas", requireRealm('division'), adasRoutes);
 app.use("/api/division/loco-link", requireRealm('division'), locoLinkRoutes);
 app.use("/api/division/aws", requireRealm('division'), awsUploadRoutes);
 app.use("/api/division/signal-book", requireRealm('division'), signalBookRoutes);
+app.use("/api/division/signal-sync", requireRealm('division'), signalSyncRoutes); // admin check inside
 app.use("/api/division/documents", requireRealm('division'), documentRoutes);
 app.use("/api/division/transfer-letters", requireRealm('division'), transferLetterRoutes);
 app.use("/api/division/cadre-letters", requireRealm('division'), cadreLetterRoutes);

@@ -1,9 +1,53 @@
 # Signal book: keeping local and prod in step
 
-**Status 2026-09-10:** local and prod are **identical** — 3,069 signals, whole-table
-checksum `6553771499056` on both, verified from prod.
+**Status 2026-09-10 (evening):** the outbox below is **built and tested locally**
+on `feature/signal-sync` (worktree `/Users/neeraja/bbtro-signal-sync`). Not merged,
+not on prod. Local and prod `div_signals` are identical (3,069 signals, checksum
+verified from prod that morning; prod had no rows updated later that day).
 
-The feature described below is **designed but not built**.
+## How to use it (once deployed)
+
+1. CLI-HQ edits and publishes in the signal-book editor on prod, as today.
+2. Settings → **Audit Log** (`/div/audit-log.html`, division_admin) lists every
+   signal edited since the last sync.
+3. **Download sync SQL** → save the file into `sql/` on the dev machine, run it
+   against local, commit it.
+4. **Mark all synced**. Rows stay in the table with a `synced_at`; "Queued ever"
+   keeps counting them. That is by design.
+
+Deploy needs `sql/2026-09-10_signal_sync_queue.sql` on prod, then pull + restart.
+
+## What the generated SQL does and does not touch
+
+- An **UPDATE** sets only the 18 columns the editor can write (`signal_number`,
+  placement, flags, type/function, arms, description, notes …). Never lat/long,
+  `km_from_csmt`, `magnet_id`, `seq_order`: those land on local first and prod's
+  NULLs must not overwrite them.
+- A **renumber** also re-creates the two `div_signal_aliases` rows the editor
+  writes on prod (`INSERT IGNORE`).
+- A **CREATED** signal is inserted in full with its prod id, guarded by
+  `NOT EXISTS`; a following `SELECT` prints a CONFLICT line if that id already
+  belongs to a different signal locally. Resolve those by hand.
+- Every statement is guarded on `id` + current `signal_number`, the whole file is
+  one transaction, and re-running it is a no-op.
+
+## Bug found by the first test (fixed on master 18dff82, deployed to prod)
+
+The first test edit — one placement on TMBY S-541 — queued **three** signals.
+Publish rewrote every signal in the section, and for a signal with arm counts
+but no `book_description`, `parseRiSpec()` returns an empty spec that
+serialised back to `ri_left_arms = ri_right_arms = 0`. CLA S-19 and CLA YD S-2
+lost `ri_left_arms = 2` (recovered from the local binary log, `binlog_row_image=FULL`).
+47 signals were in that state. History never showed it because arms were not a
+logged column.
+
+Fix: an empty spec keeps the stored counts, publish writes **only signals whose
+fields differ from the draft**, and arm changes are now logged as history type
+`Other`. Prod was checked before the hotfix: the 10 Sep column-by-column sync
+had only upward arm corrections and no unexplained rows, so nothing was lost there.
+
+This is the outbox doing its job — a change-detection that watches every column
+caught what a hand-picked history logger missed.
 
 ---
 
@@ -108,13 +152,15 @@ Rather than detecting drift after the fact, prod announces it.
    no pasting, no ssh.
 5. **"Mark synced"** sets `synced_at`.
 
-### Build steps
+### Where it lives (built)
 ```
-1  server.js    make /div/settings.html enforce division_admin  (see trap below)
-2  sql/         div_signal_sync_queue
-3  signalBookRoutes  snapshot on publish, same transaction as the history insert
-4  /div/audit-log.html   pending list + Download sync SQL + Mark synced
-5  settings.html  point the Audit Log card at it, drop the alert
+server.js                            /div/settings.html + /div/audit-log.html enforce division_admin
+sql/2026-09-10_signal_sync_queue.sql div_signal_sync_queue — mirror of div_signals + 5 bookkeeping cols
+routes/division/signalBookRoutes.js  queueSignalSnapshot(): upsert in the publish transaction,
+                                     only for signals that actually changed
+routes/division/signalSyncRoutes.js  /api/division/signal-sync  pending | sql | mark-synced
+public/div/audit-log.html            the page
+public/div/settings.html             Audit Log card → live pending count
 ```
 
 ### No new role — decided, with a reason
@@ -159,9 +205,13 @@ the flag. Document the indirection loudly at the one place it happens.
 
 ## Open
 
-- `scripts/signal-sync-check.js` — **uncommitted**. Comparison logic is sound and
-  tested; its ssh fetch does not work and should be stripped. Largely superseded
-  by the queue design, but keep it for the checksum backstop.
-- The two reconcile migrations are committed (`594e336`) but **not pushed**.
-  They are local-only — prod already holds those values — so pushing is for
-  durability and the record, not deployment.
+- **Merge + deploy** `feature/signal-sync` after a few days of local use: rebase,
+  ff-merge to master, push, then on prod run the queue SQL, pull, `pm2 restart bbtro`.
+- `scripts/signal-sync-check.js` — **uncommitted** in the main checkout.
+  Comparison logic is sound; its ssh fetch does not work and should be stripped.
+  Superseded by the queue for detection; keep it for the checksum backstop.
+- The local queue table also collects local test edits. They mean nothing (local
+  reaches prod via git, not via this queue) — delete them when they get in the way.
+- `mysqlbinlog --read-from-remote-server -v --base64-output=DECODE-ROWS` recovers
+  before-images of any `div_signals` write on local. Worth checking whether prod
+  has `log_bin` on too; it turns "what did that publish overwrite" into a query.

@@ -393,8 +393,8 @@
                 </div>
             </div>
 
-            <!-- Audit Log Card -->
-            <div class="settings-card admin-only" onclick="alert('Coming soon!')">
+            <!-- Audit Log Card — signal-book edits pending sync to local (docs/SIGNAL_SYNC_PLAN.md) -->
+            <div class="settings-card admin-only" onclick="location.href='/div/audit-log.html'">
                 <div class="card-header">
                     <div class="card-icon admin">📜</div>
                     <div class="card-title">
@@ -403,16 +403,16 @@
                     </div>
                 </div>
                 <div class="card-description">
-                    View system activity logs, track changes to master data, and monitor user actions for security.
+                    Signal-book edits made here that the development database has not received yet. Download the sync SQL, run it, mark synced.
                 </div>
                 <div class="card-stats">
                     <div class="stat-item">
-                        <div class="stat-value">Today</div>
-                        <div class="stat-label">Last Activity</div>
+                        <div class="stat-value" id="auditPending">–</div>
+                        <div class="stat-label">Pending sync</div>
                     </div>
                     <div class="stat-item">
-                        <div class="stat-value">30 days</div>
-                        <div class="stat-label">Retention</div>
+                        <div class="stat-value" id="auditLastSync">–</div>
+                        <div class="stat-label">Last synced</div>
                     </div>
                 </div>
                 <div class="card-action">
@@ -573,6 +573,18 @@
 // The neighbouring cards carry hardcoded counts that have already gone stale
 // (144 CLIs, 11 users). These two read the real numbers, and fail quietly to
 // the em-dash placeholder if the endpoint is not reachable.
+// Audit Log card: live pending-sync count (division_admin only; others just see the dash)
+fetch('/api/division/signal-sync/pending', { credentials: 'same-origin' })
+  .then(r => r.ok ? r.json() : null)
+  .then(j => {
+    if (!j) return;
+    document.getElementById('auditPending').textContent = j.pending.length;
+    const d = j.last_synced ? new Date(j.last_synced) : null;
+    document.getElementById('auditLastSync').textContent =
+      d && !isNaN(d) ? d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) : 'never';
+  })
+  .catch(() => {});
+
 fetch('/api/division/counselling/cli-users', { credentials: 'same-origin' })
   .then(function (r) { return r.ok ? r.json() : null; })
   .then(function (d) {
