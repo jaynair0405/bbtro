@@ -305,6 +305,32 @@ app.get('/control-office/schedule-due.html', requireControlOffice, (req, res) =>
 app.get('/control-office/loco-assign.html', requireControlOffice, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'control-office', 'loco-assign.html'));
 });
+// The remaining Control Office pages. Without an explicit route these fell
+// through to express.static and loaded without a login (fixed 2026-09-11).
+// The APIs behind them were always gated; this closes the page shell too.
+app.get('/control-office/loco-management.html', requireControlOffice, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'control-office', 'loco-management.html'));
+});
+app.get('/control-office/defect-reports.html', requireControlOffice, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'control-office', 'defect-reports.html'));
+});
+app.get('/control-office/loco-availability.html', requireControlOffice, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'control-office', 'loco-availability.html'));
+});
+app.get('/control-office/sick-report.html', requireControlOffice, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'control-office', 'sick-report.html'));
+});
+app.get('/control-office/print-all.html', requireControlOffice, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'control-office', 'print-all.html'));
+});
+// Settings is an edit page: the dashboard shows its tile, and the settings
+// APIs accept writes, only for division_admin and ctlc. Same rule here.
+app.get('/control-office/settings.html', requireControlOffice, (req, res) => {
+  if (!['division_admin', 'ctlc'].includes(req.session.user.div_role)) {
+    return res.redirect('/control-office/');
+  }
+  res.sendFile(path.join(__dirname, 'public', 'control-office', 'settings.html'));
+});
 // WTT lookup page — viewable by any logged-in user (edits are gated in the API
 // to division_admin/ctlc). Explicit route so it is login-gated, not open static.
 app.get('/control-office/wtt.html', (req, res) => {

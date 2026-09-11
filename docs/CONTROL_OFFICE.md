@@ -48,25 +48,25 @@ Served from `public/control-office/`. Static assets (`img/`) come from the globa
 | `settings.html` | Admin: Scheduled Specials, Trains, Loco Link and Coach Types (§9) |
 | `wtt.html` | **Working Time Table** — separate dark "night-platform" theme, for *all* staff (§5) |
 
-### Access gates — and a gap
+### Access gates
 
 `requireControlOffice` (`server.js:259`) requires `realm='division'` and
 `div_role ∈ {lpc, division_admin, ctlc, ctlc_view, ssehq}`.
 
-**Only nine pages are wired to it.** These have explicit `app.get` routes:
-`index`, `daily-entry`, `reports`, `consolidated-sheet`, `sick-locos`, `hog-position`,
-`schedule-due`, `loco-assign`, `wtt`.
+**Every page has an explicit `app.get` wired to it** (`server.js`, after the
+`requireControlOffice` definition). Two narrow further inside the gate:
+`consolidated-sheet` to division_admin/ctlc/ctlc_view, and `settings` to
+division_admin/ctlc — the same two roles the dashboard shows the Settings tile
+to and `requireSettingsRole` accepts writes from. `wtt` is the odd one out: any
+logged-in user, any realm.
 
-**Six have no route and fall through to `express.static`, so they load for anyone:**
-`settings`, `loco-management`, `defect-reports`, `loco-availability`, `sick-report`,
-`print-all`. Verified against prod on 2026-09-11 — all six return HTTP 200 with full
-HTML to an anonymous request; `daily-entry` correctly returns 302.
-
-**No data leaks**: every API still refuses anonymously
-(`{"success":false,"message":"Not authenticated"}`), so an outsider gets an empty shell.
-What is exposed is page structure, field names and endpoint URLs — and `settings.html`
-is the admin surface. This looks like an oversight that grew as pages were added.
-Fix is six one-line routes mirroring the existing nine. **Not yet done** (§11).
+History: until 2026-09-11 six pages (`settings`, `loco-management`,
+`defect-reports`, `loco-availability`, `sick-report`, `print-all`) had no route
+and fell through to `express.static`, loading for anyone. No data leaked — every
+API refused anonymously — but the page shells, field names and endpoint URLs
+were exposed, and `settings.html` is the admin surface. Fixed with six routes
+mirroring the existing ones. **When adding a page, add its route** — the global
+`express.static` at the bottom of `server.js` will otherwise serve it open.
 
 ---
 
@@ -482,7 +482,7 @@ that would have broken the whole board, not just the edited line.
 
 | # | Item | Notes |
 |---|---|---|
-| 1 | **Six pages served without a login** | §1. Six one-line routes; no data exposure, but `settings.html` is the admin surface |
+| 1 | ~~Six pages served without a login~~ | **Done 2026-09-11.** §1. Six routes added; `settings` narrowed to division_admin/ctlc |
 | 2 | **Eight DR workings possibly on the wrong board** | §6.4; pre-existing, needs an operational answer not a code guess |
 | 3 | **Position tracking debt** | §6.5; only worth doing if ghosts re-accumulate |
 | 4 | WTT inline edit | admin/ctlc editing of halts/timings; `window.__canEdit` hooks stubbed. Memory `wtt_edit_feature_pending` |
