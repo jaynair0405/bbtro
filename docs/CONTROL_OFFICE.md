@@ -319,13 +319,21 @@ VVH board; VVH and DR are one pool, a loco held at DR shows badged `AT DR`.
 `sql/2026-07-20_dr_locos_to_vvh.sql` ran on prod 2026-07-20 (1 loco, 22926; rollback tag
 `updated_by='dr-to-vvh'`).
 
-> **OPEN — eight trains possibly on the wrong board.** `div_trains` says nine DN trains
-> depart DR, but in `div_loco_link_master` only **11003** has `from_station='DR'`. The other
-> eight (**11005, 11021, 11027, 11035, 11041, 12131, 17318, 22147**) are recorded as `LTT`
-> on the `LTT-DN` sheet, while their locos — arriving on DR-terminating UP trains — now
-> stand at VVH. An LPC on the LTT board will not see them. Either the master data is stale
-> (fix: prefer `div_trains.from_station` in `originOf()`) or it is deliberate and something
-> else supplies their locos at LTT. Pre-existing, nothing regressed, unresolved.
+**Resolved 2026-07-20 — the eight are on the right board.** `div_trains` says nine DN
+trains depart DR. The other eight (**11005, 11021, 11027, 11035, 11041, 12131, 17318,
+22147**) once carried `from_station='LTT'` in `div_loco_link_master` because they are worked
+from the LTT-DN sheet. `sql/2026-07-20_dr_departures_from_station.sql` (commit 0cbae58)
+set them to `DR`, confirmed against the timetable, the WTT stop lists and the operator.
+Verified on prod 2026-09-11: all eight read `DR` in both tables.
+
+The split is deliberate and both halves matter:
+- **`sheet_source` stays `LTT-DN`** — the LPC works them from the LTT sheet, under the
+  "SE · ex DR" / "NE · ex DR" sub-headers.
+- **`from_station='DR'` maps to VVH** via `stablingTerminal`, so the Assignment Board lists
+  them on the VVH board with the locos that feed them.
+
+The correction was made in data rather than by preferring `div_trains.from_station` in
+`originOf()`, so the sheet and the board keep reading one field and cannot drift.
 
 ### 6.5 The remaining debt — position tracking
 
@@ -483,7 +491,7 @@ that would have broken the whole board, not just the edited line.
 | # | Item | Notes |
 |---|---|---|
 | 1 | ~~Six pages served without a login~~ | **Done 2026-09-11.** §1. Six routes added; `settings` narrowed to division_admin/ctlc |
-| 2 | **Eight DR workings possibly on the wrong board** | §6.4; pre-existing, needs an operational answer not a code guess |
+| 2 | ~~Eight DR workings possibly on the wrong board~~ | **Done.** Fixed 2026-07-20 (0cbae58) before this doc was merged; note was stale. Verified on prod 2026-09-11. §6.4 |
 | 3 | **Position tracking debt** | §6.5; only worth doing if ghosts re-accumulate |
 | 4 | WTT inline edit | admin/ctlc editing of halts/timings; `window.__canEdit` hooks stubbed. Memory `wtt_edit_feature_pending` |
 | 5 | Settings `mirror_sheet` dropdown | deferred |
