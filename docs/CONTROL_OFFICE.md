@@ -427,6 +427,16 @@ Lists **only rows with `is_scheduled_special = 1`** and offers Close / Extend / 
 plus `train_type='Special'`). Close writes `effective_until`; Delete is a soft
 `active = 0`.
 
+**Bypass rows must carry a `route_label`.** The bypass sheet groups by it (LNL-BSR,
+IGP-ROHA, BSR-ROHA, PUNE-ROHA and their reverses); a row without one lands on an OTHER tab
+where the LPC cannot find it. Until 2026-09-11 none of the four forms that create or edit a
+link row (this tab, Add Train's link block, Add Link, Edit Link) had a route field, and 26
+rows on prod had piled up there. Now every form shows a Bypass Route input for a BYPASS
+sheet, and `normaliseBypass()` in `locoLinkRoutes.js` refuses a bypass row without one and
+forces `direction='BYPASS'`, `is_bypass=1`, `section='BYPASS'` on every write path. The label
+is the division entry/exit pair, not the train's endpoints, so it is never derived from
+from/to. Backfill: `sql/2026-09-11_bypass_route_label_backfill.sql` (ran on prod 2026-09-11).
+
 ### Trains
 CRUD over `div_trains` plus renumbering through `div_train_aliases`. Deactivating a train
 sets `is_active = 0` **and** closes its link rows by writing `effective_until` = the last
