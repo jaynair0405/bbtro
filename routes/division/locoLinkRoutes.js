@@ -4465,7 +4465,7 @@ router.get('/scheduled-specials', async (req, res) => {
     try {
         const pool = req.app.locals.pool;
         let sql = `SELECT id, sheet_source, sr_no, section, direction, route_label, train_no, train_name,
-                          shed_code, link_attr, expected_loco_type, event_time, run_days,
+                          shed_code, link_attr, expected_loco_type, rake_type, event_time, run_days,
                           effective_from, effective_until, skip_dates, is_scheduled_special,
                           active, remark, created_at, updated_at
                    FROM div_loco_link_master
