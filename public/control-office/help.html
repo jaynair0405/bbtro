@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Help &amp; How-To | Control Office</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+    :root {
+        --brand: #0b3d91;
+        --bg: #f1f5f9;
+        --surface: #ffffff;
+        --border: #e2e8f0;
+        --border-strong: #cbd5e1;
+        --text-main: #1e293b;
+        --text-light: #64748b;
+        --danger: #dc2626;
+        --danger-bg: #fee2e2;
+        --warning: #d97706;
+        --warning-bg: #fef3c7;
+        --success: #059669;
+        --success-bg: #d1fae5;
+        --muted: #94a3b8;
+    }
+    * { box-sizing: border-box; }
+    body { font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+           background: var(--bg); color: var(--text-main); margin: 0; line-height: 1.55; }
+
+    .header { background: var(--brand); color: white; padding: 12px 24px; display: flex;
+              align-items: center; justify-content: space-between; box-shadow: 0 2px 6px rgba(0,0,0,.08); }
+    .header-title { font-size: 1.1rem; font-weight: 600; }
+    .header-title a { color: white; text-decoration: none; opacity: .85; }
+    .header-title .sep { margin: 0 10px; opacity: .6; }
+    .header-user { display: flex; align-items: center; gap: 12px; font-size: .9rem; }
+    .header-user a { color: white; background: rgba(255,255,255,.15); padding: 5px 11px;
+                     border-radius: 4px; text-decoration: none; font-size: .82rem; }
+    .print-btn-bar { background: rgba(255,255,255,.15); color: white; border: 1px solid rgba(255,255,255,.25);
+                     padding: 5px 12px; border-radius: 4px; font-size: .82rem; font-weight: 600;
+                     cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-family: inherit; }
+    .print-btn-bar:hover { background: rgba(255,255,255,.28); }
+
+    .wrap { max-width: 1180px; margin: 0 auto; padding: 18px 24px 60px; display: grid;
+            grid-template-columns: 232px 1fr; gap: 24px; align-items: start; }
+
+    /* Contents rail */
+    .toc { position: sticky; top: 16px; background: var(--surface); border: 1px solid var(--border);
+           border-radius: 8px; padding: 12px 14px; font-size: .82rem; max-height: calc(100vh - 40px); overflow: auto; }
+    .toc h4 { margin: 0 0 8px; font-size: .7rem; text-transform: uppercase; letter-spacing: .6px; color: var(--text-light); }
+    .toc a { display: block; color: var(--text-main); text-decoration: none; padding: 3px 0; }
+    .toc a:hover { color: var(--brand); text-decoration: underline; }
+    .toc .grp { margin-top: 10px; font-weight: 700; color: var(--brand); font-size: .74rem;
+                text-transform: uppercase; letter-spacing: .4px; }
+
+    .intro { background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--brand);
+             border-radius: 8px; padding: 14px 18px; margin-bottom: 18px; }
+    .intro h1 { margin: 0 0 6px; font-size: 1.25rem; }
+    .intro p { margin: 6px 0; font-size: .9rem; }
+
+    h2.sec { font-size: .78rem; text-transform: uppercase; letter-spacing: .8px; color: white;
+             background: var(--brand); padding: 7px 14px; border-radius: 6px; margin: 26px 0 12px; }
+    h2.sec:first-of-type { margin-top: 0; }
+
+    .task { background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+            padding: 14px 18px; margin-bottom: 12px; }
+    .task h3 { margin: 0 0 4px; font-size: .98rem; color: var(--brand); }
+    .task .where { font-size: .78rem; color: var(--text-light); margin: 0 0 9px; }
+    .task .where b { color: var(--text-main); }
+    .task ol, .task ul { margin: 8px 0; padding-left: 20px; font-size: .88rem; }
+    .task li { margin: 4px 0; }
+    .task p { font-size: .88rem; margin: 8px 0; }
+    kbd { background: var(--bg); border: 1px solid var(--border-strong); border-bottom-width: 2px;
+          border-radius: 4px; padding: 1px 6px; font-size: .82rem; font-family: inherit; font-weight: 600; }
+
+    .note { border-left: 3px solid var(--brand); background: #f8fafc; padding: 8px 12px;
+            margin: 10px 0; font-size: .85rem; border-radius: 0 4px 4px 0; }
+    .warn { border-left: 3px solid var(--warning); background: var(--warning-bg); padding: 8px 12px;
+            margin: 10px 0; font-size: .85rem; border-radius: 0 4px 4px 0; }
+    .stop { border-left: 3px solid var(--danger); background: var(--danger-bg); padding: 8px 12px;
+            margin: 10px 0; font-size: .85rem; border-radius: 0 4px 4px 0; }
+
+    table.ref { width: 100%; border-collapse: collapse; font-size: .84rem; margin: 10px 0; }
+    table.ref th { background: #f8fafc; color: var(--text-light); font-size: .7rem; text-transform: uppercase;
+                   letter-spacing: .3px; padding: 6px 8px; text-align: left; border-bottom: 1px solid var(--border); }
+    table.ref td { padding: 5px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    .pill { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: .72rem; font-weight: 700; }
+    .pill.yes { background: var(--success-bg); color: var(--success); }
+    .pill.no  { background: var(--danger-bg); color: var(--danger); }
+
+    .faq { background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+           padding: 0 18px; margin-bottom: 12px; }
+    .faq details { border-bottom: 1px solid var(--border); }
+    .faq details:last-child { border-bottom: none; }
+    .faq summary { cursor: pointer; padding: 11px 0; font-weight: 600; font-size: .9rem; color: var(--brand); }
+    .faq summary::marker { color: var(--muted); }
+    .faq .ans { padding: 0 0 12px; font-size: .88rem; }
+    .faq .ans p { margin: 6px 0; }
+
+    .print-header { display: none; text-align: center; margin-bottom: 12px; padding-bottom: 8px;
+                    border-bottom: 2px solid #333; }
+
+    @media (max-width: 860px) {
+        .wrap { grid-template-columns: 1fr; }
+        .toc { position: static; max-height: none; }
+    }
+
+    @media print {
+        * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+        body { background: white !important; font-size: 10.5pt; }
+        .header, .toc, .print-btn-bar { display: none !important; }
+        .wrap { display: block; max-width: 100%; padding: 0; }
+        .print-header { display: block !important; }
+        .task, .faq, .intro { border: 1px solid #ccc !important; break-inside: avoid; page-break-inside: avoid; }
+        h2.sec { break-after: avoid; page-break-after: avoid; }
+        .faq details { display: block; }
+        .faq .ans { display: block !important; }
+        @page { size: A4 portrait; margin: 12mm 12mm; }
+    }
+</style>
+</head>
+<body>
+
+<header class="header">
+    <div class="header-title">
+        <a href="/control-office/" title="Back"><i class="fa-solid fa-arrow-left"></i> Control Office</a>
+        <span class="sep">›</span>
+        <span>Help &amp; How-To</span>
+    </div>
+    <div class="header-user">
+        <button class="print-btn-bar" onclick="window.print()" title="Print / Save as PDF">
+            <i class="fa-solid fa-print"></i> Print
+        </button>
+        <a href="/api/logout" title="Logout"><i class="fa-solid fa-right-from-bracket"></i></a>
+    </div>
+</header>
+
+<div class="print-header">
+    <div style="font-size:1.15rem;font-weight:800">Control Office Portal — Help &amp; How-To</div>
+    <div style="font-size:.82rem;color:#444;margin-top:3px">Central Railway, Mumbai Division · crtms.in</div>
+</div>
+
+<div class="wrap">
+
+<nav class="toc">
+    <h4>Contents</h4>
+    <a href="#basics">How the system thinks</a>
+    <div class="grp">Daily work</div>
+    <a href="#t-sheet">1 · Fill the daily sheet</a>
+    <a href="#t-find">2 · Find a train or loco</a>
+    <a href="#t-second">3 · Second loco / push-pull</a>
+    <a href="#t-failed">4 · A loco that failed</a>
+    <a href="#t-board">5 · Assignment Board</a>
+    <a href="#t-print">6 · Print the day</a>
+    <div class="grp">Locos</div>
+    <a href="#t-sick">7 · Mark a loco sick</a>
+    <a href="#t-fit">8 · Mark it fit again</a>
+    <a href="#t-defect">9 · Record a defect</a>
+    <a href="#t-avail">10 · Availability list</a>
+    <a href="#t-hog">11 · HOG position</a>
+    <a href="#t-sched">12 · Schedules due</a>
+    <a href="#t-master">13 · Loco master</a>
+    <div class="grp">Trains &amp; settings</div>
+    <a href="#t-special">14 · Add a special train</a>
+    <a href="#t-stop">15 · Stop a special</a>
+    <a href="#t-extend">16 · Extend / 17 · Skip dates</a>
+    <a href="#t-days">18 · Change running days</a>
+    <a href="#t-rake">19 · Change coach type</a>
+    <a href="#t-link">20 · Change the loco link</a>
+    <a href="#t-renumber">21 · Renumber a train</a>
+    <a href="#t-newtrain">22 · Add a regular train</a>
+    <div class="grp">Timetable</div>
+    <a href="#t-wtt">23 · Look up timings</a>
+    <a href="#t-station">24 · Station board</a>
+    <a href="#t-book">25 · Print the WTT book</a>
+    <div class="grp">Reports</div>
+    <a href="#t-sickrep">26 · Sick loco report</a>
+    <a href="#t-mislink">27 · Mis-link report</a>
+    <a href="#t-consol">28 · Consolidated sheet</a>
+    <div class="grp">Reference</div>
+    <a href="#faq">Why does it do that?</a>
+    <a href="#roles">Who can do what</a>
+</nav>
+
+<main>
+
+<div class="intro">
+    <h1>Help &amp; How-To</h1>
+    <p>Everything the Control Office does on this platform, written as tasks: find the job you
+    need, follow the steps. Each task names the page it lives on.</p>
+    <p>Use <b>Print</b> (top right) for a paper copy — it prints the whole guide, including the
+    answers in the last section.</p>
+</div>
+
+<h2 class="sec" id="basics">How the system thinks — worth two minutes</h2>
+
+<div class="task">
+    <h3>A train and its working are two different things</h3>
+    <p>This one idea explains most of the surprises, so it is worth reading before anything else.</p>
+    <ul>
+        <li>A <b>train</b> is the train itself — its number, name, running days, coach type. It lives
+        in <b>Settings → Trains</b>.</li>
+        <li>A <b>working</b> (also called the <b>loco link</b>) is that train's appearance on one
+        sheet, with the loco you expect for it — shed, loco class, HOG, link attribute. It lives
+        in <b>Settings → Loco Link and Coach Types</b>.</li>
+    </ul>
+    <p><b>The daily sheets show workings, not trains.</b> A train can exist in the system and appear
+    on no sheet at all — that is normal, not a fault. Vande Bharat trains are the clearest example:
+    they are self-propelled and need no loco, so they have no working and never appear on a sheet.</p>
+    <div class="note">If you want a train to appear on a sheet, it needs a <b>loco link</b>
+    (a sheet and a time). Editing the train alone will not put it there.</div>
+</div>
+
+<div class="task">
+    <h3>The nine sheets</h3>
+    <p>Work is divided by terminal and direction: <b>CSMT-UP / CSMT-DN</b>, <b>LTT-UP / LTT-DN</b>,
+    <b>KR-UP / KR-DN</b>, <b>PNVL-UP / PNVL-DN</b>, and <b>Bypass</b> for trains that avoid the
+    Mumbai terminals and run via Vasai Road.</p>
+    <p><b>DN</b> = leaving Mumbai. <b>UP</b> = arriving. On a DN sheet you record the loco that will
+    take the train out; on an UP sheet, the loco that brought it in and where it goes next.</p>
+</div>
+
+<h2 class="sec">Daily work</h2>
+
+<div class="task" id="t-sheet">
+    <h3>1 · Fill the daily sheet</h3>
+    <p class="where">Dashboard → the sheet you want (e.g. <b>CSMT-DN</b>)</p>
+    <ol>
+        <li>Pick the date — <kbd>Today</kbd> and <kbd>Tomorrow</kbd> are one click; any other date
+        from the date box.</li>
+        <li>Trains are listed in time order, so you can work down the sheet as the day goes.</li>
+        <li>Type the loco number in the <b>loco no</b> box on the train's row.</li>
+        <li>Fill what applies: the train the loco came in on (or goes out on), remarks, maintenance
+        schedule and due date.</li>
+        <li>Press <kbd>Save</kbd> on the row.</li>
+    </ol>
+    <p>Not sure which locos are free? Press <kbd>Show available locos</kbd> to list what is standing
+    at that terminal.</p>
+    <div class="note">You can edit <b>today, tomorrow, and the last 7 days</b>. The window is
+    deliberately wide because actuals are often filled in over the following days. Older dates are
+    locked.</div>
+</div>
+
+<div class="task" id="t-find">
+    <h3>2 · Find a train or loco quickly</h3>
+    <p class="where">Any daily sheet — the search box at the top</p>
+    <p>Type a train number, loco number or train name. Matching rows are highlighted as you type, so
+    you don't have to scroll a long sheet hunting for one entry.</p>
+</div>
+
+<div class="task" id="t-second">
+    <h3>3 · Record a second loco, push-pull or an assist</h3>
+    <p class="where">Daily sheet — the second box on the row</p>
+    <ol>
+        <li>Enter the main loco first and save.</li>
+        <li>Put the second loco in the <b>2nd loco</b> box (it reads <b>rear loco</b> on a push-pull
+        working).</li>
+        <li>Choose what the second loco is doing — rear, coupler, assist, or dead in tow.</li>
+    </ol>
+    <div class="warn"><b>Rear</b> is only for push-pull trains. On an ordinary train the system will
+    refuse it — use <b>coupler</b> or <b>assist</b>.</div>
+    <p>If the assist or coupler loco is to work a DN train later, type that train in the box beside
+    it; the system will carry the loco onto that train's row for you.</p>
+</div>
+
+<div class="task" id="t-failed">
+    <h3>4 · A loco that failed</h3>
+    <p class="where">Daily sheet — row options</p>
+    <ul>
+        <li>Tick <b>Failed within our division</b> so it is counted against the division.</li>
+        <li>If the failed loco is left attached and towed, record the new working loco in front and
+        the failed one as <b>dead in tow</b> — both correctly leave with the train.</li>
+        <li>If the loco is being taken out of service, also mark it sick (task 7).</li>
+    </ul>
+</div>
+
+<div class="task" id="t-board">
+    <h3>5 · Assign locos with the Assignment Board</h3>
+    <p class="where">Dashboard → <b>Loco Assignment Board</b></p>
+    <p>The board is the daily sheet turned around: locos standing at a terminal on one side, the
+    trains still needing one on the other. Useful when you want to place the locos you have rather
+    than work train by train.</p>
+    <ol>
+        <li>Choose the terminal and date.</li>
+        <li><b>Needs loco</b> lists the workings still unfilled. Each shows what it wants, e.g.
+        <em>wants AQE · HOG · WAP7 · LHB</em> — expected shed, HOG requirement, loco class, coach type.</li>
+        <li><b>Standing at …</b> lists the locos available, best fit first, with the reason shown
+        (<em>✓ fits</em>, or <em>MISLINK</em> / <em>NO HOG</em>).</li>
+        <li>Pick a loco for a working. It saves immediately and the board refreshes — there is no
+        separate confirm button.</li>
+    </ol>
+    <p>If a loco has to be changed late, the board offers three choices rather than an error:
+    <b>replace it</b>, <b>attach it with the old one dead in tow</b>, or <b>add it as a second loco</b>.</p>
+    <div class="note">The board and the sheet write the same records. Whichever you use, the other
+    shows the result.</div>
+</div>
+
+<div class="task" id="t-print">
+    <h3>6 · Print the day</h3>
+    <p class="where">Daily sheet, or Dashboard → <b>Consolidated Sheet</b></p>
+    <ul>
+        <li><kbd>Print / Save this sheet as PDF</kbd> — the sheet you are on.</li>
+        <li><kbd>Open all sheets in one PDF</kbd> — every sheet for that date in one document.</li>
+    </ul>
+</div>
+
+<h2 class="sec">Locos</h2>
+
+<div class="task" id="t-sick">
+    <h3>7 · Mark a loco sick</h3>
+    <p class="where">Dashboard → <b>Sick Loco Mgmt</b> (or <kbd>Mark Sick</kbd> on Loco Availability)</p>
+    <ol>
+        <li>Add a row and enter the loco number.</li>
+        <li>Record the defect or reason, the date and time it became ineffective, and where it
+        happened.</li>
+        <li>Add the shed arrival date and time once it reaches the shed.</li>
+        <li>Save.</li>
+    </ol>
+    <p>The sheet groups locos into <b>COG</b> (coaching) and <b>GOODS</b> blocks, with separate
+    blocks for diesels. The system works out which block from the loco class and the train it was
+    working; if it guesses wrong, set the category on the row and your choice wins.</p>
+</div>
+
+<div class="task" id="t-fit">
+    <h3>8 · Mark a loco fit again</h3>
+    <p class="where">Sick Loco Mgmt</p>
+    <ol>
+        <li>Find the loco in its block.</li>
+        <li>Enter the date it was passed fit, then <kbd>Confirm Ready</kbd>.</li>
+        <li>If it was handed over to another shed or railway instead of being repaired, record it as
+        handed over (H/O) with that date.</li>
+    </ol>
+    <p>The loco then leaves the live sick sheet and stays in the <b>Sick Loco Report</b> history
+    (task 26) with the number of days it was out.</p>
+</div>
+
+<div class="task" id="t-defect">
+    <h3>9 · Record a defect</h3>
+    <p class="where">Dashboard → <b>Defect Reports</b></p>
+    <ol>
+        <li>Press to add a defect.</li>
+        <li>Enter the <b>Loco No</b>, <b>Working Date</b> and a <b>Description</b> — these are required.</li>
+        <li>Set category, severity, status, terminal and train number where known.</li>
+        <li><kbd>Save Defect</kbd>.</li>
+    </ol>
+    <p>A defect is a fault worth recording against a loco; marking a loco <b>sick</b> (task 7) is
+    what takes it out of service. A loco can have defects without being sick.</p>
+</div>
+
+<div class="task" id="t-avail">
+    <h3>10 · Add, move or remove a loco in Availability</h3>
+    <p class="where">Dashboard → <b>Loco Availability</b></p>
+    <ul>
+        <li><kbd>Add Loco</kbd> — record a loco as standing at a terminal (one that arrived light,
+        or from outside the division).</li>
+        <li><kbd>Move Loco</kbd> → <b>Move to another terminal</b> — when a loco is moved light.</li>
+        <li><kbd>Remove from availability</kbd> — when it has left the division and no sheet entry
+        covers it.</li>
+        <li><kbd>Mark Sick</kbd> — jumps straight to the sick entry for that loco.</li>
+    </ul>
+    <div class="warn">If the list looks too long, read <a href="#faq-ghosts">“Why does Availability
+    show locos that aren't there?”</a> before clearing anything by hand.</div>
+</div>
+
+<div class="task" id="t-hog">
+    <h3>11 · Check HOG position</h3>
+    <p class="where">Dashboard → <b>HOG Position</b></p>
+    <p>Shows which workings need a HOG-capable loco and whether one is placed, so a train that needs
+    hotel load isn't left with a loco that cannot supply it.</p>
+</div>
+
+<div class="task" id="t-sched">
+    <h3>12 · Check schedules falling due</h3>
+    <p class="where">Dashboard → <b>Loco Schedule Due</b></p>
+    <p>Lists locos by maintenance schedule and due date, overdue ones flagged. The schedule type and
+    due date come from what is entered on the daily sheet, so keeping that column filled is what
+    keeps this page useful.</p>
+</div>
+
+<div class="task" id="t-master">
+    <h3>13 · Manage the loco master</h3>
+    <p class="where">Dashboard → <b>Loco Management</b> · needs admin rights</p>
+    <p>This is the roster of locos themselves — not where they are today. Use it to:</p>
+    <ul>
+        <li>search a loco by number and see or edit its class, shed, zone, traction and HOG fitment;</li>
+        <li>add a loco (diesels are added here as they come in);</li>
+        <li>transfer a loco to another shed or zone — the change is recorded with a reason;</li>
+        <li>change status to <b>Transferred Out</b> or <b>Condemned</b>;</li>
+        <li>see a loco's history of transfers and status changes.</li>
+    </ul>
+    <div class="note">Don't confuse this with Availability (task 10). Availability is where a loco is
+    standing today; this is the loco's permanent record.</div>
+</div>
+
+<h2 class="sec">Trains and settings</h2>
+<p style="font-size:.85rem;color:var(--text-light);margin:-6px 0 12px">
+Everything in this group is under <b>Dashboard → Settings</b> and needs admin rights.</p>
+
+<div class="task" id="t-special">
+    <h3>14 · Add a special train</h3>
+    <p class="where">Settings → <b>Scheduled Specials</b> → <kbd>Add</kbd></p>
+    <ol>
+        <li>Enter the <b>train number</b> and name.</li>
+        <li>Choose the <b>sheet</b> it runs on (e.g. CSMT-DN) and its <b>direction</b>.</li>
+        <li>Enter the <b>event time</b> — the time at the station where the loco link happens. On a DN
+        sheet that is the terminal; on an UP sheet it is the takeover point (LNL, IGP or ROHA).</li>
+        <li>Set <b>Effective From</b> and, if known, <b>Effective Until</b>. Leave Until blank if it
+        runs until further notice.</li>
+        <li>Set the <b>running days</b>, the expected <b>shed</b>, <b>loco type</b>, <b>coach type</b>,
+        HOG and push-pull as applicable.</li>
+        <li>Save.</li>
+    </ol>
+    <p>The special now appears on that sheet, on its running days, between those dates only.</p>
+</div>
+
+<div class="task" id="t-stop">
+    <h3>15 · Stop a special from running</h3>
+    <p class="where">Settings → Scheduled Specials → <kbd>Close</kbd> on the row</p>
+    <ol>
+        <li>Find the special.</li>
+        <li>Press <kbd>Close</kbd> and enter the <b>last date it ran</b>.</li>
+    </ol>
+    <p>It disappears from the sheet from the next day onward, and sheets for earlier dates still show
+    it with whatever locos were recorded — the history is not lost.</p>
+    <div class="warn">Do not use this on a train that has merely stopped for a few days; use
+    <b>Skip dates</b> (task 17) instead, so you don't have to re-create it.</div>
+</div>
+
+<div class="task" id="t-extend">
+    <h3>16 · Extend a special that is continuing</h3>
+    <p class="where">Settings → Scheduled Specials → <kbd>Extend</kbd></p>
+    <p>Enter the new end date. Use this when a special is prolonged rather than creating a second
+    entry — a duplicate would put the train on the sheet twice.</p>
+</div>
+
+<div class="task" id="t-skip">
+    <h3>17 · Skip particular dates</h3>
+    <p class="where">Settings → Scheduled Specials → <kbd>Skip</kbd></p>
+    <p>Enter a date the train will not run. The train stays on the books and keeps its dates, but
+    that day's sheet leaves it out. Use it for cancellations and blocks.</p>
+</div>
+
+<div class="task" id="t-days">
+    <h3>18 · Change a train's running days</h3>
+    <p class="where">Settings → <b>Trains</b> → find the train → Edit</p>
+    <ol>
+        <li>Search the train number and press edit.</li>
+        <li>Tick the days it runs — Mon to Sun — or set it to daily.</li>
+        <li>Save.</li>
+    </ol>
+    <div class="note">Saving here also updates the train's workings, so the sheets follow
+    immediately. This is why running days should be changed here rather than on individual links —
+    a seasonal curtailment set in the wrong place never reaches the sheet.</div>
+</div>
+
+<div class="task" id="t-rake">
+    <h3>19 · Change the coach type</h3>
+    <p class="where">Settings → Trains → find the train → Edit → <b>Coach Type</b></p>
+    <ol>
+        <li>Search the train and press edit.</li>
+        <li>Set <b>Coach Type</b> — it sits with the train's own details (Type, Direction, Traction),
+        near the top of the form, <em>not</em> in the Loco Link section below.</li>
+        <li>Save.</li>
+    </ol>
+    <table class="ref">
+        <tr><th>Code</th><th>Means</th></tr>
+        <tr><td><b>LHB</b></td><td>LHB coaches</td></tr>
+        <tr><td><b>ICF</b></td><td>ICF coaches</td></tr>
+        <tr><td><b>VNDB</b></td><td>Vande Bharat</td></tr>
+        <tr><td><b>AMTB</b></td><td>Amrit Bharat</td></tr>
+        <tr><td><b>LVPH</b></td><td>Parcel</td></tr>
+    </table>
+    <p>The coach type then shows on the daily sheet and on the Assignment Board, so whoever places a
+    loco can see what stock it is for.</p>
+    <div class="warn">Coach type belongs to the <b>train</b>, which is why it works for a Vande
+    Bharat that has no loco link at all. If a particular working genuinely runs different stock, that
+    one link can be set separately under <b>Loco Link and Coach Types</b>.</div>
+</div>
+
+<div class="task" id="t-link">
+    <h3>20 · Change the loco link — shed, railway and link attribute</h3>
+    <p class="where">Settings → <b>Loco Link and Coach Types</b></p>
+    <ol>
+        <li>Filter by <b>Sheet</b> or <b>Shed</b>, or search the train number or name.</li>
+        <li>Press edit on the working you want.</li>
+        <li>Change what the link expects: <b>Shed</b>, <b>Loco Type</b>, <b>Link Attribute</b>,
+        <b>Coach Type</b>, <b>HOG</b>, <b>Push-Pull</b>, event time and section.</li>
+        <li>Save.</li>
+    </ol>
+    <p>This is what the Assignment Board checks a loco against — change the shed here and a loco from
+    a different shed will be flagged as a mislink, and appear in the <b>Mis-link Report</b> (task 27).</p>
+    <p>Use <kbd>Add Link</kbd> on this tab to put an existing train onto a sheet it is not yet on.</p>
+</div>
+
+<div class="task" id="t-renumber">
+    <h3>21 · Renumber a train</h3>
+    <p class="where">Settings → Trains → <kbd>Renumber</kbd></p>
+    <p>Enter the new number and the date it changed. Use this rather than editing the number by hand:
+    the old number stays searchable, past records stay attached to the same train, and the sheets show
+    a “previously numbered …” note so nobody is confused by the change.</p>
+</div>
+
+<div class="task" id="t-newtrain">
+    <h3>22 · Add a regular train, or take one off</h3>
+    <p class="where">Settings → Trains</p>
+    <p><b>To add:</b> press add, fill number, name, type, direction, from and to stations, running
+    days and coach type. If it is to appear on a sheet, also give the <b>sheet</b> and <b>event
+    time</b> in the Loco Link section — without those it is recorded but appears nowhere.</p>
+    <p><b>To take one off:</b> press the delete icon and enter the <b>last date it ran</b>. As with a
+    special, it leaves the sheet from the next day and earlier sheets keep their history.</p>
+</div>
+
+<h2 class="sec">Timetable</h2>
+
+<div class="task" id="t-wtt">
+    <h3>23 · Look up a train's timings</h3>
+    <p class="where">Dashboard → <b>Working Time Table</b> → Train lookup</p>
+    <p>Type the train number and press <kbd>Find</kbd>. You get the train's details and every halt
+    with arrival and departure. A <b>+1</b> beside a time means it reaches that station the next day.
+    Old numbers work too — the page shows a “was …” note.</p>
+    <p>The WTT is open to all staff, not only the Control Office.</p>
+</div>
+
+<div class="task" id="t-station">
+    <h3>24 · See everything through a station</h3>
+    <p class="where">Working Time Table → Station board</p>
+    <p>Pick the station, direction and a time window, then <kbd>Show trains</kbd>. Useful for
+    answering “what passes IGP between 2 and 4”. You can also compare several trains' full halt lists
+    side by side.</p>
+</div>
+
+<div class="task" id="t-book">
+    <h3>25 · Print the full working timetable</h3>
+    <p class="where">Working Time Table → Full WTT</p>
+    <ol>
+        <li>Choose direction — All, Down or Up.</li>
+        <li>Choose how many train columns per page (8 to 16; 10 is usual).</li>
+        <li><kbd>Export PDF</kbd> for the printed book, or <kbd>Export Excel</kbd> for a spreadsheet.</li>
+    </ol>
+    <p>It prints in the classic form — trains as columns, stations as rows — grouped Down, then Up,
+    then Bypass, then MEMU.</p>
+    <div class="note">Print in <b>landscape</b>, and switch on <b>Background graphics</b> in the
+    browser's print dialog so the shaded rows come out.</div>
+</div>
+
+<h2 class="sec">Reports</h2>
+
+<div class="task" id="t-sickrep">
+    <h3>26 · Sick loco report</h3>
+    <p class="where">Dashboard → <b>Sick Loco Report</b></p>
+    <ol>
+        <li>Choose a period — <kbd>Last 7d</kbd>, <kbd>Last 30d</kbd>, <kbd>Last 90d</kbd>, or your
+        own From and To dates.</li>
+        <li>Narrow by shed, or by status (still open / closed).</li>
+        <li><kbd>Apply</kbd>.</li>
+    </ol>
+    <p>Results are split into <b>COG</b> and <b>GOODS</b> blocks, each with its own count, and the
+    summary across the top gives totals, how many are still open, how many closed or handed over, and
+    the average days out. <kbd>Excel</kbd> and <kbd>PDF</kbd> keep the same grouping.</p>
+</div>
+
+<div class="task" id="t-mislink">
+    <h3>27 · Mis-link report</h3>
+    <p class="where">Dashboard → <b>Mis-link Reports</b></p>
+    <p>Lists workings where the loco placed does not match what the link expects, in three degrees:
+    wrong <b>railway</b>, wrong <b>shed</b>, and wrong <b>loco class</b>. Use it to see where links
+    are being worked by the wrong power.</p>
+</div>
+
+<div class="task" id="t-consol">
+    <h3>28 · Consolidated sheet</h3>
+    <p class="where">Dashboard → <b>Consolidated Sheet</b></p>
+    <p>All sheets for one date in a single view, for a full picture of the day or for printing.</p>
+</div>
+
+<h2 class="sec" id="faq">Why does it do that?</h2>
+
+<div class="faq">
+    <details id="faq-ghosts" open>
+        <summary>Why does Loco Availability show locos that are not actually there?</summary>
+        <div class="ans">
+            <p>Because the list is built from what has been <b>entered</b>, and a loco only leaves it
+            when something records it leaving.</p>
+            <p>A loco is taken out of the available list when it appears on a DN link — front or rear
+            — dated on or after the day it arrived. So if a loco left the division and no sheet entry
+            covers it (worked light to a shed, transferred out, or the link was simply never filled),
+            nothing tells the system it has gone and it keeps standing there.</p>
+            <p><b>What to do:</b> fill the link that took it out, if there is one — that is the real
+            fix and it corrects the count everywhere. If the loco genuinely left without a working,
+            use <b>Remove from availability</b> on the Loco Availability page.</p>
+            <p><b>What not to do:</b> clear the list wholesale. A loco that is booked on tomorrow's
+            train is correctly still shown as standing here today.</p>
+            <p>A loco that has been standing for several days with no booking is the one worth
+            questioning — that is usually a missing entry rather than a loco that is really idle.</p>
+        </div>
+    </details>
+
+    <details>
+        <summary>I deactivated a train, but it still shows on the sheet</summary>
+        <div class="ans">
+            <p>Two things can cause this.</p>
+            <p><b>The date.</b> Stopping a train takes effect from the day <em>after</em> the last
+            running date you entered. Sheets for that date and earlier still show it — deliberately,
+            so the record of what actually ran is not rewritten.</p>
+            <p><b>The page is showing an old copy.</b> Reload with <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd>
+            (<kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd> on a Mac).</p>
+            <p>If it still appears on a future date after reloading, the train most likely has more
+            than one working — check <b>Settings → Loco Link and Coach Types</b> and search its number:
+            a train on two sheets has two links, and each has to be closed.</p>
+        </div>
+    </details>
+
+    <details>
+        <summary>It says “Sheet and Event Time are required” when I am only changing something small</summary>
+        <div class="ans">
+            <p>You have filled in something in the <b>Loco Link</b> section of the train form, and a
+            link cannot be created without a sheet and a time. The system is asking you to finish the
+            link, not blocking your edit.</p>
+            <p>If you did not mean to create a link, clear the link fields and save again. If you did,
+            give it the sheet and the event time.</p>
+            <p>Note that <b>Coach Type</b> is <em>not</em> part of the link section — it sits with the
+            train's own details, so changing it never asks for this.</p>
+        </div>
+    </details>
+
+    <details>
+        <summary>Why do some trains show no coach type?</summary>
+        <div class="ans">
+            <p>Because nobody has set one. Existing values were filled in automatically where the
+            train's workings already agreed on a coach type; where a train's workings disagreed, it
+            was left blank rather than guessing.</p>
+            <p>Set it on the train (task 19) and it applies everywhere that train appears.</p>
+        </div>
+    </details>
+
+    <details>
+        <summary>Why is a Dadar loco shown at VVH?</summary>
+        <div class="ans">
+            <p>Dadar terminates trains but has no stabling shed, so locos run light to VVH and back to
+            attach. Arrivals at Dadar are therefore positioned at <b>VVH</b>, and Dadar-originating
+            workings are listed on the VVH board.</p>
+            <p>The two are treated as one pool — a loco actually held at Dadar still appears on the
+            VVH board, badged <b>AT DR</b>, so it stays assignable.</p>
+        </div>
+    </details>
+
+    <details>
+        <summary>Why can't I edit an older date?</summary>
+        <div class="ans">
+            <p>Sheets stay open for <b>today, tomorrow and the past 7 days</b>. Beyond that they are
+            locked so the record settles. If something genuinely needs correcting outside that window,
+            it has to be done by the administrator.</p>
+        </div>
+    </details>
+
+    <details>
+        <summary>The Working Time Table says “No WTT data”</summary>
+        <div class="ans">
+            <p>The timings come from the timetable data loaded into the system, not from the daily
+            sheets. If the page is blank for every train, the data has not been loaded or the service
+            needs restarting after an update — report it rather than re-entering anything.</p>
+        </div>
+    </details>
+
+    <details>
+        <summary>My change isn't showing</summary>
+        <div class="ans">
+            <p>Reload the page with <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd>
+            (<kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd> on a Mac). Browsers keep a copy of a page and
+            will happily show you yesterday's version. This is the single most common cause of
+            "it didn't save".</p>
+            <p>If a fresh reload still shows the old value, check you saved the row — the daily sheet
+            saves per row, not per page.</p>
+        </div>
+    </details>
+
+    <details>
+        <summary>Everything is greyed out / it says I may not make changes</summary>
+        <div class="ans">
+            <p>Your login is a <b>view-only</b> one. Several accounts are set up to read the Control
+            Office without changing it — including the SSE-HQ desk and supervisory logins. Nothing is
+            wrong; ask the administrator if you need working access.</p>
+        </div>
+    </details>
+</div>
+
+<h2 class="sec" id="roles">Who can do what</h2>
+
+<div class="task">
+    <table class="ref">
+        <tr>
+            <th>Role</th><th>Daily sheets &amp; locos</th><th>Settings</th><th>Reports &amp; WTT</th>
+        </tr>
+        <tr>
+            <td><b>LPC</b></td>
+            <td><span class="pill yes">edit</span></td>
+            <td><span class="pill no">no</span></td>
+            <td><span class="pill yes">yes</span></td>
+        </tr>
+        <tr>
+            <td><b>CTLC</b> / <b>Division admin</b></td>
+            <td><span class="pill yes">edit</span></td>
+            <td><span class="pill yes">edit</span></td>
+            <td><span class="pill yes">yes</span></td>
+        </tr>
+        <tr>
+            <td><b>CTLC (view)</b></td>
+            <td><span class="pill no">read only</span></td>
+            <td><span class="pill no">no</span></td>
+            <td><span class="pill yes">yes</span></td>
+        </tr>
+        <tr>
+            <td><b>SSE-HQ desk</b></td>
+            <td><span class="pill no">read only</span></td>
+            <td><span class="pill no">no</span></td>
+            <td><span class="pill yes">yes</span></td>
+        </tr>
+    </table>
+    <p style="font-size:.85rem">A view-only login can open every page and read everything; the system
+    refuses any change it attempts, whichever page it is on.</p>
+    <p style="font-size:.85rem;color:var(--text-light)">The <b>Working Time Table</b> is open to all
+    division staff, not only the Control Office.</p>
+</div>
+
+<div class="task" style="border-left:4px solid var(--brand)">
+    <h3>If something looks wrong</h3>
+    <p>Before re-entering anything, try in this order: reload the page properly
+    (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd>), check the date you are looking at, and check
+    whether the train has more than one working. Most surprises are one of those three.</p>
+    <p>If a number looks wrong on a report, note the train or loco number and the date — that is
+    what is needed to trace it.</p>
+</div>
+
+</main>
+</div>
+
+<script src="/control-office/nav-home.js"></script>
+</body>
+</html>

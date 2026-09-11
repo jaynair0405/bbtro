@@ -276,6 +276,11 @@ app.get('/control-office/daily-entry.html', requireControlOffice, (req, res) => 
 app.get('/control-office/reports.html', requireControlOffice, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'control-office', 'reports.html'));
 });
+// Help & How-To — task-shaped user guide for the desk. Gated like every other
+// control-office page: it describes internal workflows, so it is not public.
+app.get('/control-office/help.html', requireControlOffice, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'control-office', 'help.html'));
+});
 // Consolidated (all-sheets) loco-link view — admin/ctlc overview, plus ctlc_view (read-only).
 // LPCs use their per-section daily sheets; this merges every sheet into one page.
 app.get('/control-office/consolidated-sheet.html', requireControlOffice, (req, res) => {
