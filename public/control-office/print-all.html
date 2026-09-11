@@ -261,7 +261,7 @@ function renderSheetBlock(sheet, data, date) {
             groups.get(k).push(row);
         }
         for (const [route, rows] of groups) {
-            tbody.insertAdjacentHTML('beforeend', `<tr class="sec-header sec-bypass"><td colspan="5">${esc(route)}</td></tr>`);
+            tbody.insertAdjacentHTML('beforeend', `<tr class="sec-header sec-bypass"><td colspan="5">${esc(route === '(no route)' ? 'OTHER' : route)}</td></tr>`);
             rows.sort((a, b) => parseMin(a.event_time) - parseMin(b.event_time));
             for (const row of rows) tbody.appendChild(renderRow(row, sheet));
             for (const sp of (data.specials || []).filter(s => (s.section || '') === route)) {

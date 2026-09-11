@@ -2781,7 +2781,9 @@ function renderBypass(data) {
     // Build bypass nav chips up front using the routes we'll render
     const navItems = [];
     for (const route of routeList) {
-        navItems.push({ id: `route-${route.replace(/[^A-Za-z0-9]/g, '-')}`, label: route, colourClass: 'sec-bypass', section: 'BYPASS' });
+        // A row with no route_label is a data fault (Settings now refuses one);
+        // name the bucket OTHER on the chip as the header already does.
+        navItems.push({ id: `route-${route.replace(/[^A-Za-z0-9]/g, '-')}`, label: route === '(no route)' ? 'OTHER' : route, colourClass: 'sec-bypass', section: 'BYPASS' });
     }
     renderSectionNav(navItems);
 
@@ -2796,7 +2798,7 @@ function renderBypass(data) {
         header.classList.add('route-header');
         header.id = `route-${route.replace(/[^A-Za-z0-9]/g, '-')}`;
         header.innerHTML = `<td colspan="10">
-            <span class="route-name"><i class="fa-solid fa-route"></i> ${esc(route)}</span>
+            <span class="route-name"><i class="fa-solid fa-route"></i> ${esc(route === '(no route)' ? 'OTHER' : route)}</span>
             <span class="route-count">${filled}/${rows.length}</span>
             <button type="button" class="go-top-btn" onclick="scrollToSheetTop()" title="Back to top">
                 <i class="fa-solid fa-arrow-up"></i> Top

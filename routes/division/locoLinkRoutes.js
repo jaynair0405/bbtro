@@ -4204,12 +4204,46 @@ router.put('/sheds/:shed_code', requireSettingsRole, async (req, res) => {
 // sheet the train appears on. They must stay mutually consistent (the frontend
 // derives direction from the chosen sheet).
 const MASTER_EDITABLE_FIELDS = [
-    'sheet_source', 'direction',
+    'sheet_source', 'direction', 'section', 'route_label',
     'from_station', 'to_station',
     'shed_code', 'link_attr', 'expected_loco_type',
     'accepted_loco_types', 'rake_type', 'expected_hog',
     'is_push_pull', 'traction_type', 'remark',
 ];
+
+// ── Bypass rows ─────────────────────────────────────────────────────────────
+// The bypass sheet groups by route_label (LNL-BSR, IGP-ROHA, ...). A row
+// without one lands in a "(no route)" bucket where the LPC cannot find it —
+// 26 rows on prod by 2026-09-11, every one created from Settings, which had no
+// route field. A bypass row is therefore normalised here on every write path:
+// direction BYPASS, is_bypass 1, section BYPASS, and a route_label that is
+// required on create. The label is the division entry/exit pair, not the
+// train's own endpoints, so it is never derived from from/to.
+const KNOWN_BYPASS_ROUTES = [
+    'LNL-BSR', 'BSR-LNL', 'IGP-ROHA', 'ROHA-IGP',
+    'BSR-ROHA', 'ROHA-BSR', 'PUNE-ROHA', 'ROHA-PUNE',
+];
+function isBypassRow(fields, existing) {
+    const sheet = String(fields.sheet_source ?? existing?.sheet_source ?? '').trim().toUpperCase();
+    const dir = String(fields.direction ?? existing?.direction ?? '').trim().toUpperCase();
+    return sheet.startsWith('BYPASS') || dir === 'BYPASS';
+}
+// Mutates `fields`. Returns an error string, or null when the row is fine.
+// `existing` is the current DB row on update, undefined on create.
+function normaliseBypass(fields, existing) {
+    if (!isBypassRow(fields, existing)) return null;
+    fields.direction = 'BYPASS';
+    fields.is_bypass = 1;
+    if (!String(fields.section ?? existing?.section ?? '').trim()) fields.section = 'BYPASS';
+    if ('route_label' in fields) {
+        fields.route_label = String(fields.route_label || '').trim().toUpperCase() || null;
+    }
+    const label = fields.route_label ?? existing?.route_label ?? null;
+    if (!label) {
+        return `route_label required for a BYPASS row (one of ${KNOWN_BYPASS_ROUTES.join(', ')}, or a new route)`;
+    }
+    return null;
+}
 
 // ── GET /master — list link master rows with filters ───────────────────────
 //   ?sheet=CSMT-UP        filter by sheet
@@ -4281,6 +4315,8 @@ router.post('/master', requireSettingsRole, async (req, res) => {
     }
     if ('expected_hog' in fields) fields.expected_hog = fields.expected_hog ? 1 : 0;
     if ('is_push_pull' in fields) fields.is_push_pull = fields.is_push_pull ? 1 : 0;
+    const bypassErr = normaliseBypass(fields);
+    if (bypassErr) return res.status(400).json({ error: bypassErr });
     fields.is_scheduled_special = 0;
     fields.active = 1;
 
@@ -4335,6 +4371,12 @@ router.put('/master/:id', requireSettingsRole, async (req, res) => {
 
     try {
         const pool = req.app.locals.pool;
+        if (isBypassRow(fields) || 'sheet_source' in fields || 'direction' in fields || 'route_label' in fields) {
+            const [cur] = await pool.query('SELECT * FROM div_loco_link_master WHERE id = ?', [id]);
+            if (!cur.length) return res.status(404).json({ error: 'link master row not found' });
+            const bypassErr = normaliseBypass(fields, cur[0]);
+            if (bypassErr) return res.status(400).json({ error: bypassErr });
+        }
         const sets = Object.keys(fields).map(k => `${k} = ?`).join(', ');
         const [r] = await pool.query(
             `UPDATE div_loco_link_master SET ${sets} WHERE id = ?`,
@@ -4422,7 +4464,7 @@ router.get('/scheduled-specials', async (req, res) => {
 
     try {
         const pool = req.app.locals.pool;
-        let sql = `SELECT id, sheet_source, sr_no, section, direction, train_no, train_name,
+        let sql = `SELECT id, sheet_source, sr_no, section, direction, route_label, train_no, train_name,
                           shed_code, link_attr, expected_loco_type, event_time, run_days,
                           effective_from, effective_until, skip_dates, is_scheduled_special,
                           active, remark, created_at, updated_at
@@ -4476,6 +4518,9 @@ router.post('/scheduled-specials', requireSettingsRole, async (req, res) => {
     if (fields.skip_dates && Array.isArray(fields.skip_dates)) {
         fields.skip_dates = JSON.stringify(fields.skip_dates);
     }
+
+    const bypassErr = normaliseBypass(fields);
+    if (bypassErr) return res.status(400).json({ error: bypassErr });
 
     try {
         const pool = req.app.locals.pool;
@@ -4542,6 +4587,9 @@ router.put('/scheduled-specials/:id', requireSettingsRole, async (req, res) => {
         );
         if (!cur.length) return res.status(404).json({ error: 'schedule not found' });
         const existing = cur[0];
+
+        const bypassErr = normaliseBypass(fields, existing);
+        if (bypassErr) return res.status(400).json({ error: bypassErr });
 
         const newFrom = fields.effective_from || toDateISO(existing.effective_from);
         const newUntil = ('effective_until' in fields)

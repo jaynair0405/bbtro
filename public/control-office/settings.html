@@ -603,6 +603,14 @@
                 </div>
             </div>
             <div class="row2">
+                <div id="f_route_wrap" class="bypass-only" style="display:none">
+                    <label>Bypass Route *</label>
+                    <input type="text" id="f_route_label" list="bypassRoutes" maxlength="30" placeholder="LNL-BSR / IGP-ROHA / BSR-ROHA…" style="text-transform:uppercase">
+                    <div class="hint">Entry–exit pair on the bypass sheet. This is the tab the train appears under.</div>
+                </div>
+                <div></div>
+            </div>
+            <div class="row2">
                 <div>
                     <label>Event Time</label>
                     <input type="text" id="f_event_time" maxlength="30" placeholder="HH:MM">
@@ -794,6 +802,11 @@
                         <label>Takeover / Origin Stn</label>
                         <input type="text" id="ft_link_from_station" maxlength="10" placeholder="LNL / IGP / ROHA…">
                     </div>
+                    <div id="ft_link_route_wrap" class="bypass-only" style="display:none">
+                        <label>Bypass Route *</label>
+                        <input type="text" id="ft_link_route_label" list="bypassRoutes" maxlength="30" placeholder="LNL-BSR / IGP-ROHA / BSR-ROHA…" style="text-transform:uppercase">
+                        <div class="hint">Entry–exit pair on the bypass sheet. This is the tab the train appears under.</div>
+                    </div>
                     <div>
                         <label>Event Time</label>
                         <input type="text" id="ft_link_event_time" maxlength="5" placeholder="HH:MM">
@@ -918,6 +931,11 @@
                     <label>Takeover / Origin Stn</label>
                     <input type="text" id="al_from_station" maxlength="10" placeholder="LNL / IGP / ROHA…">
                 </div>
+                <div id="al_route_wrap" class="bypass-only" style="display:none">
+                    <label>Bypass Route *</label>
+                    <input type="text" id="al_route_label" list="bypassRoutes" maxlength="30" placeholder="LNL-BSR / IGP-ROHA / BSR-ROHA…" style="text-transform:uppercase">
+                    <div class="hint">Entry–exit pair on the bypass sheet. This is the tab the train appears under.</div>
+                </div>
                 <div>
                     <label>Event Time *</label>
                     <input type="text" id="al_event_time" maxlength="5" placeholder="HH:MM">
@@ -1025,6 +1043,11 @@
                     <input type="text" id="fl_from_station" maxlength="10" placeholder="LNL / IGP / ROHA / CSMT…">
                     <div class="hint">UP sheets: takeover station (LNL=SE, IGP=NE, ROHA=KR). DN sheets: origin terminal (CSMT, LTT). This is where the event time refers to.</div>
                 </div>
+                <div id="fl_route_wrap" class="bypass-only" style="display:none">
+                    <label>Bypass Route *</label>
+                    <input type="text" id="fl_route_label" list="bypassRoutes" maxlength="30" placeholder="LNL-BSR / IGP-ROHA / BSR-ROHA…" style="text-transform:uppercase">
+                    <div class="hint">Entry–exit pair on the bypass sheet. This is the tab the train appears under.</div>
+                </div>
                 <div>
                     <label>Shed</label>
                     <select id="fl_shed_code">
@@ -1100,6 +1123,13 @@
 
 <div class="toast" id="toast"></div>
 
+<datalist id="bypassRoutes">
+    <option value="LNL-BSR"><option value="BSR-LNL">
+    <option value="IGP-ROHA"><option value="ROHA-IGP">
+    <option value="BSR-ROHA"><option value="ROHA-BSR">
+    <option value="PUNE-ROHA"><option value="ROHA-PUNE">
+</datalist>
+
 <script>
 const $ = sel => document.querySelector(sel);
 const $$ = sel => Array.from(document.querySelectorAll(sel));
@@ -1113,6 +1143,26 @@ function directionFromSheet(sheet) {
     if (s.endsWith('-UP')) return 'UP';
     if (s.endsWith('-DN')) return 'DN';
     return null;
+}
+
+// Bypass rows must carry a route_label — it is what the bypass sheet groups
+// by, and a row without one lands in a "(no route)" bucket the LPC cannot
+// find. Each form has a <prefix>route_wrap shown only for a BYPASS sheet or
+// direction, and <prefix>route_label read into the payload.
+function syncBypassRoute(prefix) {
+    const sheet = $('#' + prefix + 'sheet_source');
+    const dir   = $('#' + prefix + 'direction');
+    const wrap  = $('#' + prefix + 'route_wrap');
+    if (!wrap) return;
+    const on = directionFromSheet(sheet && sheet.value) === 'BYPASS'
+            || (dir && String(dir.value).toUpperCase() === 'BYPASS');
+    wrap.style.display = on ? '' : 'none';
+}
+// undefined = not a bypass row (omit from payload); null = bypass but blank.
+function readBypassRoute(prefix) {
+    const wrap = $('#' + prefix + 'route_wrap');
+    if (!wrap || wrap.style.display === 'none') return undefined;
+    return $('#' + prefix + 'route_label').value.trim().toUpperCase() || null;
 }
 
 // ── Date helpers ──────────────────────────────────────────────────────────
@@ -1351,6 +1401,8 @@ function openSchedModal(sched) {
     set('#f_sheet_source', sched ? sched.sheet_source : 'CSMT-DN');
     set('#f_direction', sched ? sched.direction : 'DN');
     set('#f_section', sched ? (sched.section || '') : '');
+    set('#f_route_label', sched ? (sched.route_label || '') : '');
+    syncBypassRoute('f_');
     set('#f_event_time', sched ? sched.event_time : '');
     set('#f_rake_type', sched ? (sched.rake_type || '') : '');
     set('#f_shed_code', sched ? (sched.shed_code || '') : '');
@@ -1376,6 +1428,7 @@ async function saveSchedule() {
         sheet_source: $('#f_sheet_source').value,
         direction: $('#f_direction').value,
         section: $('#f_section').value || null,
+        route_label: readBypassRoute('f_'),
         event_time: $('#f_event_time').value.trim() || null,
         rake_type: $('#f_rake_type').value || null,
         shed_code: $('#f_shed_code').value || null,
@@ -1391,6 +1444,8 @@ async function saveSchedule() {
     if (!body.train_no) errs.push('Train No is required');
     if (!body.run_days) errs.push('Run Days: select at least one day');
     if (!body.effective_from) errs.push('Effective From is required');
+    if (body.route_label === null) errs.push('Bypass Route is required for a BYPASS sheet');
+    if (body.route_label === undefined) delete body.route_label;
     if (errs.length) {
         showFormError('#schedFormError', errs);
         return;
@@ -1617,6 +1672,8 @@ async function openTrainModal(train) {
     $('#ft_link_event_time').value = '';
     delete $('#ft_link_sheet_source').dataset.suggested;
     $('#ft_link_section').value = '';
+    $('#ft_link_route_label').value = '';
+    syncBypassRoute('ft_link_');
     $('#ft_link_shed_code').value = '';
     $('#ft_link_attr').value = '';
     $('#ft_link_expected_loco_type').value = '';
@@ -1687,6 +1744,8 @@ async function openTrainModal(train) {
                 $('#ft_link_from_station').value         = lk.from_station || '';
                 $('#ft_link_event_time').value           = lk.event_time || '';
                 $('#ft_link_section').value              = lk.section || '';
+                $('#ft_link_route_label').value          = lk.route_label || '';
+                syncBypassRoute('ft_link_');
                 $('#ft_link_shed_code').value            = lk.shed_code || '';
                 $('#ft_link_attr').value                 = lk.link_attr || '';
                 $('#ft_link_expected_loco_type').value   = lk.expected_loco_type || '';
@@ -1771,6 +1830,7 @@ async function saveTrain() {
                 from_station: $('#ft_link_from_station').value.trim().toUpperCase() || null,
                 event_time: linkTime,
                 section: $('#ft_link_section').value || null,
+                route_label: readBypassRoute('ft_link_'),
                 shed_code: $('#ft_link_shed_code').value || null,
                 link_attr: $('#ft_link_attr').value.trim() || null,
                 expected_loco_type: $('#ft_link_expected_loco_type').value.trim() || null,
@@ -1796,6 +1856,8 @@ async function saveTrain() {
 
     const errs = [];
     if (!body.train_no)  errs.push('Train No is required');
+    if (linkPayload && linkPayload.route_label === null) errs.push('Bypass Route is required for a BYPASS link');
+    if (linkPayload && linkPayload.route_label === undefined) delete linkPayload.route_label;
     if (errs.length) {
         $('#trainFormError').innerHTML = '<strong>Please fix:</strong><ul>' + errs.map(e => `<li>${esc(e)}</li>`).join('') + '</ul>';
         $('#trainFormError').classList.add('active');
@@ -2080,6 +2142,7 @@ function renderLinks() {
 const LINK_SHEETS = ['CSMT-UP','CSMT-DN','LTT-UP','LTT-DN','PNVL-UP','PNVL-DN','KR-UP','KR-DN','BYPASS'];
 function onLinkSheetChange() {
     $('#fl_direction').value = directionFromSheet($('#fl_sheet_source').value) || '';
+    syncBypassRoute('fl_');
 }
 let editingLinkId = null;
 function openLinkModal(row) {
@@ -2093,6 +2156,8 @@ function openLinkModal(row) {
     $('#fl_sheet_source').value = row.sheet_source || '';
     $('#fl_direction').value = directionFromSheet(row.sheet_source) || row.direction || '';
     $('#fl_from_station').value        = row.from_station || '';
+    $('#fl_route_label').value         = row.route_label || '';
+    syncBypassRoute('fl_');
     $('#fl_shed_code').value           = row.shed_code || '';
     $('#fl_link_attr').value           = row.link_attr || '';
     $('#fl_expected_loco_type').value  = row.expected_loco_type || '';
@@ -2114,6 +2179,7 @@ async function saveLink() {
         sheet_source: sheet,
         direction: directionFromSheet(sheet),   // sheet drives direction; keeps the row consistent
         from_station: $('#fl_from_station').value.trim().toUpperCase() || null,
+        route_label: readBypassRoute('fl_'),
         shed_code: $('#fl_shed_code').value || null,
         link_attr: $('#fl_link_attr').value.trim() || null,
         expected_loco_type: $('#fl_expected_loco_type').value.trim() || null,
@@ -2121,6 +2187,12 @@ async function saveLink() {
         expected_hog: parseInt($('#fl_expected_hog').value, 10) ? 1 : 0,
         is_push_pull: parseInt($('#fl_is_push_pull').value, 10) ? 1 : 0,
     };
+    if (body.route_label === null) {
+        $('#linkFormError').innerHTML = '<strong>Please fix:</strong><ul><li>Bypass Route is required for a BYPASS sheet</li></ul>';
+        $('#linkFormError').classList.add('active');
+        return;
+    }
+    if (body.route_label === undefined) delete body.route_label;
     const r = await fetch(`${API}/master/${editingLinkId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -2164,6 +2236,7 @@ async function openAddLinkModal(preset) {
     $('#al_from_station').value       = '';
     $('#al_event_time').value         = '';
     $('#al_section').value            = '';
+    $('#al_route_label').value        = '';
     $('#al_shed_code').value          = '';
     $('#al_link_attr').value          = '';
     $('#al_expected_loco_type').value = '';
@@ -2209,6 +2282,7 @@ async function openAddLinkModal(preset) {
         $('#addLinkContext').style.display = 'none';
     }
 
+    syncBypassRoute('al_');
     $('#addLinkModal').classList.add('active');
 }
 function closeAddLinkModal() {
@@ -2223,6 +2297,7 @@ async function saveAddLink() {
         event_time: $('#al_event_time').value.trim(),
         from_station: $('#al_from_station').value.trim().toUpperCase() || null,
         section: $('#al_section').value || null,
+        route_label: readBypassRoute('al_'),
         shed_code: $('#al_shed_code').value || null,
         link_attr: $('#al_link_attr').value.trim() || null,
         expected_loco_type: $('#al_expected_loco_type').value.trim() || null,
@@ -2238,6 +2313,8 @@ async function saveAddLink() {
     if (!body.direction)    errs.push('Direction is required');
     if (!body.event_time)   errs.push('Event Time is required');
     if (body.event_time && !/^\d{1,2}:\d{2}$/.test(body.event_time)) errs.push('Event Time must be HH:MM');
+    if (body.route_label === null) errs.push('Bypass Route is required for a BYPASS sheet');
+    if (body.route_label === undefined) delete body.route_label;
     if (errs.length) {
         $('#addLinkFormError').innerHTML = '<strong>Please fix:</strong><ul>' + errs.map(e => `<li>${esc(e)}</li>`).join('') + '</ul>';
         $('#addLinkFormError').classList.add('active');
@@ -2291,7 +2368,13 @@ async function saveAddLink() {
     // mere suggestion from that point on.
     $('#ft_link_sheet_source').addEventListener('change', (e) => {
         delete e.target.dataset.suggested;
+        syncBypassRoute('ft_link_');
     });
+    // Bypass Route field follows the sheet/direction choice on every form.
+    $('#f_sheet_source').addEventListener('change', () => syncBypassRoute('f_'));
+    $('#f_direction').addEventListener('change', () => syncBypassRoute('f_'));
+    $('#al_sheet_source').addEventListener('change', () => syncBypassRoute('al_'));
+    $('#al_direction').addEventListener('change', () => syncBypassRoute('al_'));
     $('#btnTrainCancel').addEventListener('click', closeTrainModal);
     $('#btnTrainSave').addEventListener('click', saveTrain);
     $('#btnRenumberCancel').addEventListener('click', closeRenumberModal);
