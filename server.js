@@ -570,6 +570,16 @@ app.use("/div", (req, res, next) => {
 app.get(["/div/suburban", "/div/suburban/"], (req, res) =>
   res.redirect("/div/suburban/index.html"));
 
+// Ghat SPM (IGP / LNL banker analysis) — folder module like suburban, plus the
+// module flag. The section an office may open is decided in the router.
+app.use("/div/ghat-spm", (req, res, next) => {
+  const u = req.session.user;
+  if (!u.can_access_ghat_spm && u.div_role !== "division_admin") return res.status(403).send("Ghat SPM access denied");
+  next();
+});
+app.get(["/div/ghat-spm", "/div/ghat-spm/"], (req, res) =>
+  res.redirect("/div/ghat-spm/index.html"));
+
 // ✅ Protect all /spm/rtis/* (Division realm only) — must be ABOVE proxy
 app.use("/spm/rtis", (req, res, next) => {
   console.log("[RTIS GUARD HIT]", req.method, req.originalUrl, "session?", !!req.session?.user);
@@ -919,6 +929,7 @@ const cadreLetterRoutes = require('./routes/division/cadreLetterRoutes');
 const ssehqRoutes = require('./routes/division/ssehqRoutes');
 const counsellingRoutes = require('./routes/division/counsellingRoutes');
 const subCrewRoutes = require('./routes/division/subCrewRoutes');
+const ghatSpmRoutes = require('./routes/division/ghatSpmRoutes');
 
 // Add division routes with realm protection
 // ✅ SSE-HQ's API surface, matching the page allowlist above. Every division
@@ -975,6 +986,7 @@ app.use("/api/division/cadre-letters", requireRealm('division'), cadreLetterRout
 app.use("/api/division/ssehq", requireRealm('division'), ssehqRoutes);
 app.use("/api/division/counselling", requireRealm('division'), counsellingRoutes);
 app.use("/api/division/suburban", requireRealm('division'), subCrewRoutes);
+app.use("/api/division/ghat-spm", requireRealm('division'), ghatSpmRoutes); // flag + office check inside
 
 // Session info endpoint
 app.get('/api/session', (req, res) => {

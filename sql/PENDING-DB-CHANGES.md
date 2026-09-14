@@ -433,3 +433,13 @@ so admin/ctlc can set mirrors from the UI instead of SQL. Small build, NOT yet d
 ---
 
 *Last Updated: 2026-06-18*
+
+---
+
+## 15. Ghat SPM reference tables + access flag ⏳ PENDING (prod)
+**File:** `sql/2026-09-14_ghat_spm_reference_tables.sql`
+**Status:** ✅ applied locally 2026-09-14; ⏳ prod on merge of `feature/ghat-spm`
+
+Creates `div_ghat_spm_stations`, `div_ghat_spm_psr`, `div_ghat_spm_signals`, `div_ghat_spm_markers` (KSRA-IGP data included, LNL later) and adds `users.can_access_ghat_spm` (idempotent).
+
+**Purpose:** Reference data for the IGP/LNL banker SPM module (`/div/ghat-spm/`), replacing the prototype's CSV files. Trip-km datum from PSR spans / ISD; `signal_id` links to `div_signals` for later mast-datum reconciliation.

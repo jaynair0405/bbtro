@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ghat SPM Analysis — IGP / LNL</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script src="/div/js/division-auth.js"></script>
+    <script>window.GHAT_API = "/api/division/ghat-spm";</script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        :root{--bg:#0c1222;--bg2:#111a2e;--card:rgba(22,33,55,0.85);--accent:#f0b429;--accent-dim:rgba(240,180,41,0.15);--accent-hover:#e5a820;--green:#34d399;--green-dim:rgba(52,211,153,0.15);--red:#f87171;--red-dim:rgba(248,113,113,0.12);--blue:#60a5fa;--text:#e2e8f0;--text-dim:#7a8ba8;--text-muted:#4a5568;--border:rgba(255,255,255,0.07);--border-accent:rgba(240,180,41,0.25);--radius:14px;--radius-sm:10px}
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+        .top-bar{background:var(--bg2);border-bottom:1px solid var(--border);padding:14px 32px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;backdrop-filter:blur(16px)}
+        .top-bar .brand{display:flex;align-items:center;gap:12px}
+        .brand-icon{width:36px;height:36px;background:var(--accent);border-radius:10px;display:grid;place-items:center;font-weight:800;font-size:1rem;color:#000}
+        .top-bar h1{font-size:1.05rem;font-weight:700;letter-spacing:-0.3px}
+        .top-bar .tag{font-size:0.65rem;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:1.5px}
+        .nav-links{display:flex;gap:6px}
+        .nav-links a{padding:7px 16px;border-radius:8px;font-size:0.8rem;font-weight:500;color:var(--text-dim);text-decoration:none;transition:all 0.2s}
+        .nav-links a:hover,.nav-links a.active{background:var(--accent-dim);color:var(--accent)}
+        .nav-links a.disabled{opacity:.35;pointer-events:none}
+        .container{max-width:1200px;margin:0 auto;padding:28px 24px 60px}
+        #inputSection{transition:all 0.4s ease}
+        #inputSection.collapsed{max-height:0;overflow:hidden;opacity:0;padding:0;margin:0}
+        .input-grid{display:grid;grid-template-columns:1fr 340px;gap:22px}
+        @media(max-width:900px){.input-grid{grid-template-columns:1fr}}
+        .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:28px;backdrop-filter:blur(8px)}
+        .section-title{font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:var(--text-dim);margin-bottom:20px;display:flex;align-items:center;gap:10px}
+        .section-title::after{content:"";flex:1;height:1px;background:var(--border)}
+        .form-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+        .form-grid .span-2{grid-column:span 2}
+        .field{display:flex;flex-direction:column;gap:6px}
+        .field label{font-size:0.72rem;font-weight:600;color:var(--text-dim);letter-spacing:0.5px;text-transform:uppercase}
+        .field input,.field select{background:rgba(10,17,30,0.7);border:1px solid var(--border);border-radius:var(--radius-sm);padding:11px 14px;color:var(--text);font-size:0.88rem;font-family:inherit;transition:border-color 0.25s,box-shadow 0.25s}
+        .field input:focus,.field select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-dim)}
+        .field input::placeholder{color:var(--text-muted)}
+        .field input:disabled{opacity:0.45;cursor:not-allowed}
+        .direction-toggle{display:flex;background:rgba(10,17,30,0.7);border-radius:var(--radius-sm);border:1px solid var(--border);overflow:hidden}
+        .direction-toggle button{flex:1;padding:11px 0;background:transparent;border:none;color:var(--text-dim);font-family:inherit;font-size:0.85rem;font-weight:600;cursor:pointer;transition:all 0.25s}
+        .direction-toggle button.active{background:var(--accent);color:#000}
+        .direction-toggle button .dir-sub{display:block;font-size:0.6rem;font-weight:500;opacity:0.7;margin-top:2px}
+        .upload-zone{border:2px dashed var(--border);border-radius:var(--radius);padding:28px 20px;text-align:center;transition:all 0.3s;cursor:pointer;position:relative}
+        .upload-zone:hover,.upload-zone.drag-over{border-color:var(--accent);background:var(--accent-dim)}
+        .upload-zone.file-loaded{border-color:var(--green);border-style:solid;background:var(--green-dim)}
+        .upload-icon{font-size:2.2rem;margin-bottom:10px;display:block}
+        .upload-title{font-weight:700;font-size:0.95rem;margin-bottom:4px}
+        .upload-sub{font-size:0.75rem;color:var(--text-dim)}
+        .upload-zone input[type="file"]{position:absolute;inset:0;opacity:0;cursor:pointer}
+        .file-info{background:rgba(10,17,30,0.6);border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px;margin-top:16px;font-family:'JetBrains Mono',monospace;font-size:0.75rem;line-height:1.7;color:var(--text-dim);display:none}
+        .file-info.visible{display:block}
+        .fi-label{color:var(--text-muted)}.fi-value{color:var(--text)}.fi-accent{color:var(--accent);font-weight:600}
+        .trip-time-section{margin-top:16px;padding:16px;background:var(--accent-dim);border:1px solid var(--border-accent);border-radius:var(--radius-sm);display:none}
+        .trip-time-section.visible{display:block}
+        .tt-label{font-size:0.72rem;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px}
+        .trip-time-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+        .trip-time-grid input{background:rgba(10,17,30,0.8);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:0.85rem}
+        .trip-time-grid input:focus{outline:none;border-color:var(--accent)}
+        .trip-time-grid label{font-size:0.68rem;color:var(--text-dim);margin-bottom:4px;display:block}
+        .btn-analyze{width:100%;padding:15px;border:none;border-radius:var(--radius);background:var(--accent);color:#000;font-family:inherit;font-size:0.95rem;font-weight:800;letter-spacing:1px;text-transform:uppercase;cursor:pointer;transition:all 0.2s;margin-top:16px}
+        .btn-analyze:hover{background:var(--accent-hover);transform:translateY(-1px);box-shadow:0 6px 20px rgba(240,180,41,0.25)}
+        .btn-analyze:disabled{opacity:0.4;cursor:not-allowed;transform:none;box-shadow:none}
+        #resultsSection{display:none;margin-top:24px}
+        #resultsSection.visible{display:block}
+        .results-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+        .results-header h2{font-size:1.2rem;font-weight:800}
+        .btn-back{padding:8px 18px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text-dim);font-family:inherit;font-size:0.8rem;font-weight:600;cursor:pointer;transition:all 0.2s}
+        .btn-back:hover{border-color:var(--accent);color:var(--accent)}
+        .stats-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:22px}
+        .stat-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px;text-align:center}
+        .stat-value{font-size:1.5rem;font-weight:800;font-family:'JetBrains Mono',monospace;color:var(--accent)}
+        .stat-label{font-size:0.65rem;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-top:4px}
+        .trip-info-bar{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px 20px;margin-bottom:18px;display:flex;flex-wrap:wrap;gap:24px;font-size:0.78rem}
+        .ti-item{display:flex;align-items:center;gap:6px}
+        .ti-label{color:var(--text-muted);font-weight:500}
+        .ti-value{color:var(--text);font-weight:700;font-family:'JetBrains Mono',monospace}
+        .attach-line{font-size:1.05rem;font-weight:600;color:var(--text);padding:12px 16px;margin-bottom:12px;border-radius:var(--radius-sm);background:var(--accent-dim);border:1px solid var(--border-accent)}
+        .attach-line b{color:var(--accent);font-family:'JetBrains Mono',monospace}
+        .depart-table th.band,.depart-table td.band{background:rgba(240,180,41,0.12)}
+        .depart-table td:first-child{color:var(--text-dim);font-family:'Plus Jakarta Sans',sans-serif;font-weight:600}
+        .depart-table td{text-align:center}
+        .stn-table td:first-child{font-family:'Plus Jakarta Sans',sans-serif;font-weight:700}
+        .ghat-name{color:#fb923c}
+        .stn-note{font-size:0.65rem;font-weight:500;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px;margin-left:6px}
+        .approach-block{margin-bottom:16px}
+        .approach-block:last-child{margin-bottom:0}
+        .approach-title{font-size:0.8rem;color:var(--text-dim);margin-bottom:6px}
+        .approach-title b{color:var(--text)}
+        .approach-table td{transition:none}
+        .sec-table td:first-child{font-family:'Plus Jakarta Sans',sans-serif;font-weight:700}
+        .sec-table tr.total-row td{border-top:2px solid var(--border-accent);font-weight:700;color:var(--accent)}
+        .sec-table .late{color:var(--red);font-weight:700}
+        .sec-table .early{color:var(--green);font-weight:700}
+        .badge-warn{background:var(--accent-dim);color:var(--accent);padding:3px 10px;border-radius:20px;font-size:0.7rem;font-weight:700}
+        .badge-muted{background:rgba(255,255,255,0.06);color:var(--text-dim);padding:3px 10px;border-radius:20px;font-size:0.7rem;font-weight:700}
+        .psr-table tr.row-over td{background:var(--red-dim)}
+        .trip-table td,.trip-table th{padding:6px 8px;white-space:nowrap}
+        .trip-table input,.trip-table select{background:rgba(10,17,30,0.8);border:1px solid var(--border);border-radius:6px;padding:5px 8px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:0.78rem;width:110px}
+        .trip-table select{width:70px}
+        .trip-table input.tt-time{width:112px}
+        .tt-msg{font-size:0.65rem;color:var(--text-dim);white-space:normal;max-width:180px;margin-top:2px}
+        .tt-msg.good{color:var(--green)}
+        .tt-msg.bad{color:var(--red)}
+        .trip-table input.wide{width:150px}
+        .trip-table tr.check td{background:rgba(245,158,11,.08)}
+        .trip-table tr.done td:nth-child(2){color:var(--green)}
+        .trip-table .row-btn{background:var(--accent);color:#1a1a1a;border:none;border-radius:6px;padding:6px 12px;font-weight:700;font-size:0.72rem;cursor:pointer;font-family:inherit}
+        .trip-table .row-btn:disabled{opacity:.4;cursor:default}
+        .tt-count{font-weight:500;color:var(--accent);margin-left:8px;text-transform:none;letter-spacing:0}
+        .trip-nav{display:flex;align-items:center;gap:14px;margin-bottom:12px;font-size:0.8rem;color:var(--text-dim)}
+        .nav-btn{background:transparent;border:1px solid var(--border-accent);color:var(--accent);border-radius:8px;padding:6px 12px;font-family:inherit;font-weight:600;cursor:pointer}
+        .nav-btn:disabled{opacity:.35;cursor:default}
+        .creep-tag{display:inline-block;margin-left:6px;padding:1px 6px;border-radius:4px;background:rgba(234,88,12,.18);color:#fb923c;font-size:10px;font-weight:600;white-space:nowrap}
+        .ti-warn{flex-basis:100%;margin-top:6px;padding:6px 10px;border-radius:6px;background:rgba(245,158,11,.15);color:#fbbf24;font-size:12px;font-weight:600}
+        .charts-grid{display:grid;grid-template-columns:1fr;gap:18px}
+        .chart-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:22px;backdrop-filter:blur(8px)}
+        .chart-card h3{font-size:0.8rem;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:16px}
+        .chart-wrapper{position:relative;width:100%;height:320px}
+        .halt-table{width:100%;border-collapse:collapse;font-size:0.82rem}
+        .halt-table thead th{background:rgba(10,17,30,0.6);padding:10px 14px;text-align:left;font-size:0.7rem;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid var(--border)}
+        .halt-table tbody td{padding:10px 14px;border-bottom:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:0.8rem;color:var(--text)}
+        .halt-table tbody tr:hover{background:rgba(255,255,255,0.03)}
+        .badge-smooth{background:var(--green-dim);color:var(--green);padding:3px 10px;border-radius:20px;font-size:0.7rem;font-weight:700}
+        .badge-abrupt{background:var(--red-dim);color:var(--red);padding:3px 10px;border-radius:20px;font-size:0.7rem;font-weight:700}
+        .loading-overlay{position:fixed;inset:0;background:rgba(12,18,34,0.85);display:none;place-items:center;z-index:999}
+        .loading-overlay.visible{display:grid}
+        .loading-spinner{width:48px;height:48px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 16px}
+        @keyframes spin{to{transform:rotate(360deg)}}
+    </style>
+</head>
+<body>
+<div class="top-bar">
+    <div class="brand"><div class="brand-icon">G</div><div><h1>Ghat SPM Analysis</h1><span class="tag">Central Railway - Mumbai Division</span></div></div>
+    <div class="nav-links" id="sectionTabs"><a href="#" data-section="KSRA-IGP" onclick="return selectSection(this)">IGP Section</a><a href="#" data-section="KJT-LNL" onclick="return selectSection(this)">LNL Section</a><a href="/div/spm-hub.html">SPM Hub</a></div>
+</div>
+<div class="container">
+    <div id="inputSection">
+        <div class="card trip-table-card" id="tripTableCard" style="display:none;margin-bottom:18px">
+            <div class="section-title">Trips found in this file <span id="tripTableCount" class="tt-count"></span></div>
+            <div class="upload-sub" style="margin-bottom:12px">Date, departure, arrival and distance come from the recorder. If a time does not match the driver's sheet, type the sheet time and the app snaps it to the nearest recorder departure or stop and rechecks the row. Confirm the direction, enter train, driver and load, then analyse. Driver and load carry down.</div>
+            <div style="overflow-x:auto"><table class="halt-table trip-table" id="tripTable">
+                <thead><tr><th></th><th>#</th><th>Date</th><th>Dep</th><th>Arr</th><th>Km</th><th>Dir</th><th>Train</th><th>Driver (CMS ID)</th><th>Load</th><th></th></tr></thead>
+                <tbody></tbody>
+            </table></div>
+        </div>
+        <div class="input-grid">
+            <div class="card">
+                <div class="section-title">Personnel Details</div>
+                <div class="form-grid" style="margin-bottom:28px">
+                    <div class="field"><label>CMS / HRMS ID</label><input type="text" id="cmsId" placeholder="e.g. 11012345"></div>
+                    <div class="field"><label>Crew Name</label><input type="text" id="crewName" disabled placeholder="Auto from ID"></div>
+                    <div class="field"><label>Analyzed By (CLI)</label><input type="text" id="analyzedBy" placeholder="CLI Name"></div>
+                    <div class="field"><label>Date of Working</label><input type="date" id="workingDate"></div>
+                </div>
+                <div class="section-title">Journey Parameters</div>
+                <div class="form-grid">
+                    <div class="field span-2"><label>Direction</label>
+                        <div class="direction-toggle" id="dirToggle">
+                            <button type="button" class="active" data-dir="DN" onclick="setDirection('DN')">DN<span class="dir-sub">KSRA to IGP</span></button>
+                            <button type="button" data-dir="UP" onclick="setDirection('UP')">UP<span class="dir-sub">IGP to KSRA</span></button>
+                        </div>
+                    </div>
+                    <div class="field"><label>Train Number</label><input type="text" id="trainNo" placeholder="e.g. 11055 or HIMB-JNPT"></div>
+                    <div class="field"><label>Banker / Loco No</label><input type="text" id="locoNo" placeholder="e.g. 27410"></div>
+                    <div class="field"><label>From Station</label>
+                        <select id="fromStation"><option>KSRA</option><option>KSRA YD</option><option>TGR3</option><option>TGR2</option><option>TGR1</option><option>IGP</option><option>IGP YD</option></select>
+                    </div>
+                    <div class="field"><label>To Station</label>
+                        <select id="toStation"><option>IGP</option><option>IGP YD</option><option>TGR1</option><option>TGR2</option><option>TGR3</option><option>KSRA</option><option>KSRA YD</option></select>
+                    </div>
+                    <div class="field span-2"><label>Load</label><input type="text" id="load" placeholder="e.g. 58 BOXN / 24 Coaching / LE"></div>
+                </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:18px">
+                <div class="card" style="padding:0">
+                    <div class="upload-zone" id="dropZone">
+                        <span class="upload-icon">&#128194;</span>
+                        <div class="upload-title">Upload SPM Data</div>
+                        <div class="upload-sub">TXT - XLSX - CSV</div>
+                        <input type="file" id="fileInput" accept=".txt,.xlsx,.csv,.xls">
+                    </div>
+                </div>
+                <div class="file-info" id="fileInfo"></div>
+                <div class="trip-time-section" id="tripTimeSection">
+                    <div class="tt-label">Manual Trip Entry</div>
+                    <div class="upload-sub" style="margin-bottom:10px">Use only for a run not listed in the trip table: enter date and departure time.</div>
+                    <div class="trip-time-grid">
+                        <div style="grid-column:span 2"><label>Trip Date</label><input type="date" id="tripDate"></div>
+                        <div><label>Departure Time</label><input type="time" id="tripStart" step="1"></div>
+                        <div><label>Arrival Time (opt)</label><input type="time" id="tripEnd" step="1"></div>
+                    </div>
+                </div>
+                <button class="btn-analyze" id="btnAnalyze" disabled onclick="runAnalysis()">START ANALYSIS</button>
+            </div>
+        </div>
+    </div>
+    <div id="resultsSection">
+        <div class="results-header"><h2>Analysis Report</h2>
+            <div style="display:flex;gap:8px"><button class="btn-back" onclick="showInput()">Edit Input</button><button class="btn-back" onclick="newAnalysis()">+ New</button></div>
+        </div>
+        <div class="trip-nav" id="tripNav" style="display:none">
+            <button type="button" class="nav-btn" onclick="navTrip(-1)">&#9664; Prev</button>
+            <span id="tripNavLabel"></span>
+            <button type="button" class="nav-btn" onclick="navTrip(1)">Next &#9654;</button>
+        </div>
+        <div class="trip-info-bar" id="tripInfoBar"></div>
+        <div class="stats-strip" id="statsStrip"></div>
+        <div class="charts-grid">
+            <div class="chart-card" id="attachCard" style="display:none"><h3>Attaching Halts at KSRA (before departure)</h3>
+                <div id="attachLine" class="attach-line"></div>
+                <div id="attachSummary" style="font-size:0.78rem;color:var(--text-dim);margin-bottom:12px"></div>
+                <div style="overflow-x:auto"><table class="halt-table" id="attachTable">
+                    <thead><tr><th>#</th><th>Stop time</th><th>In rear of train (m)</th><th>Stood</th><th>Creep to next</th><th>Creep max kmph</th></tr></thead>
+                    <tbody></tbody>
+                </table></div>
+            </div>
+            <div class="chart-card" id="departCard" style="display:none"><h3>Departure Notch-up Profile (first 200 m from KSRA)</h3>
+                <div id="departSummary" style="font-size:0.78rem;color:var(--text-dim);margin-bottom:12px"></div>
+                <div style="overflow-x:auto"><table class="halt-table depart-table" id="departTable"><thead></thead><tbody></tbody></table></div>
+            </div>
+            <div class="chart-card" id="stationCard" style="display:none"><h3>Station-wise Readings</h3>
+                <div style="overflow-x:auto"><table class="halt-table stn-table" id="stationTable">
+                    <thead><tr><th>Place</th><th>Km</th><th>Time</th><th>Speed (kmph)</th><th>OHE (kV)</th><th>Amps (A)</th></tr></thead>
+                    <tbody></tbody>
+                </table></div>
+            </div>
+            <div class="chart-card" id="sectionCard" style="display:none"><h3>Sectional Running Time</h3>
+                <div id="sectionNote" style="font-size:0.78rem;color:var(--text-dim);margin-bottom:12px"></div>
+                <div style="overflow-x:auto"><table class="halt-table sec-table" id="sectionTable">
+                    <thead><tr><th>Section</th><th>From</th><th>To</th><th>Elapsed</th><th>Stood (halts)</th><th>Moving</th><th>WTT</th><th>Diff</th></tr></thead>
+                    <tbody></tbody>
+                </table></div>
+            </div>
+            <div class="chart-card" id="psrCard" style="display:none"><h3>Speed Restriction Compliance (PSR / MPS)</h3>
+                <div id="psrNote" style="font-size:0.78rem;color:var(--text-dim);margin-bottom:12px"></div>
+                <div style="overflow-x:auto"><table class="halt-table psr-table" id="psrTable">
+                    <thead><tr><th>Zone (km)</th><th>Section</th><th>Limit</th><th>Max</th><th>Excess</th><th>Over</th><th>Verdict</th></tr></thead>
+                    <tbody></tbody>
+                </table></div>
+            </div>
+            <div class="chart-card" id="approachCard"><h3>Halt Analysis</h3>
+                <div id="approachNote" style="font-size:0.78rem;color:var(--text-dim);margin-bottom:12px"></div>
+                <div style="overflow-x:auto;margin-bottom:14px"><table class="halt-table" id="haltTable">
+                    <thead><tr><th>#</th><th>Place</th><th>Time</th><th>Stood</th><th>Km</th><th>Profile</th></tr></thead>
+                    <tbody></tbody>
+                </table></div>
+                <div id="approachBody"></div>
+            </div>
+            <div class="chart-card"><h3>Speed vs Distance</h3><div class="chart-wrapper"><canvas id="chartSpeedDist"></canvas></div></div>
+            <div class="chart-card"><h3>Speed vs Time</h3><div class="chart-wrapper"><canvas id="chartSpeedTime"></canvas></div></div>
+            <div class="chart-card"><h3>Speed and OHE Parameters</h3><div class="chart-wrapper"><canvas id="chartOHE"></canvas></div></div>
+            <div class="chart-card"><h3>Deceleration Profile</h3><div class="chart-wrapper" id="haltChartWrap"><canvas id="chartHalts"></canvas></div></div>
+        </div>
+    </div>
+</div>
+<div class="loading-overlay" id="loadingOverlay"><div class="loading-box"><div class="loading-spinner"></div><div style="font-weight:700;color:var(--accent)">Processing...</div><div style="font-size:0.8rem;color:var(--text-dim);margin-top:6px" id="loadingMsg"></div></div></div>
+<script src="js/igp-parsers.js"></script>
+<script src="js/igp-psr.js"></script>
+<script src="js/igp-analysis.js"></script>
+<script src="js/igp-charts.js"></script>
+<script src="js/igp-app.js"></script>
+</body>
+</html>
