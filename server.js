@@ -930,6 +930,7 @@ const ssehqRoutes = require('./routes/division/ssehqRoutes');
 const counsellingRoutes = require('./routes/division/counsellingRoutes');
 const subCrewRoutes = require('./routes/division/subCrewRoutes');
 const ghatSpmRoutes = require('./routes/division/ghatSpmRoutes');
+const tsrRoutes = require('./routes/division/tsrRoutes');
 
 // Add division routes with realm protection
 // ✅ SSE-HQ's API surface, matching the page allowlist above. Every division
@@ -987,6 +988,7 @@ app.use("/api/division/ssehq", requireRealm('division'), ssehqRoutes);
 app.use("/api/division/counselling", requireRealm('division'), counsellingRoutes);
 app.use("/api/division/suburban", requireRealm('division'), subCrewRoutes);
 app.use("/api/division/ghat-spm", requireRealm('division'), ghatSpmRoutes); // flag + office check inside
+app.use("/api/division/tsr", requireRealm('division'), tsrRoutes); // caution orders (division-wide); write needs ghat/rtis flag or admin
 
 // Session info endpoint
 app.get('/api/session', (req, res) => {

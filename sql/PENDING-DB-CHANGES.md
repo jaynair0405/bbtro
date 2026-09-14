@@ -443,3 +443,11 @@ so admin/ctlc can set mirrors from the UI instead of SQL. Small build, NOT yet d
 Creates `div_ghat_spm_stations`, `div_ghat_spm_psr`, `div_ghat_spm_signals`, `div_ghat_spm_markers` (KSRA-IGP data included, LNL later) and adds `users.can_access_ghat_spm` (idempotent).
 
 **Purpose:** Reference data for the IGP/LNL banker SPM module (`/div/ghat-spm/`), replacing the prototype's CSV files. Trip-km datum from PSR spans / ISD; `signal_id` links to `div_signals` for later mast-datum reconciliation.
+
+---
+
+## 16. TSR caution-order tables ⏳ PENDING (prod)
+**File:** `sql/2026-09-14_tsr_cautions.sql`
+**Status:** ✅ applied locally 2026-09-14; ⏳ prod on merge of `feature/ghat-spm`
+
+Creates `div_tsr_cautions` (division-wide, keyed by ICMS caution ID or MAN-… for manual entries, validity range + daily time window, pass/goods speeds, advisory types) and `div_tsr_imports` (upload log). Served by `/api/division/tsr`; used by Ghat SPM now and available to RTIS.

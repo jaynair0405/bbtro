@@ -591,7 +591,7 @@ function psrCompliance(trip, psrSegments, trainType) {
     if (!trip || !trip.length || !psrSegments || !psrSegments.length) return [];
     var tt = (trainType || 'Unknown');
     return psrSegments.map(function(seg) {
-        var limits = [seg.speed], label = String(seg.speed), isIGP = (seg.speed === 15);
+        var limits = [seg.speed], label = String(seg.speed), isIGP = (seg.speed === 15 && !seg.tsr);
         if (isIGP) {
             if (tt === 'Goods') { limits = [10]; label = '10 (goods)'; }
             else if (tt === 'Coaching') { limits = [15]; label = '15 (coaching)'; }
@@ -610,10 +610,71 @@ function psrCompliance(trip, psrSegments, trainType) {
         }
         var worst = res.length ? res.reduce(function(a, b) { return b.excess > a.excess ? b : a; }, res[0]) : null;
         var verdict = !rows ? 'no data' : (!worst ? 'n/a' : (worst.excess === 0 ? 'OK' : (worst.excess <= 2 ? 'marginal' : 'over')));
-        return { from: seg.from, to: seg.to, section: seg.section, limit: limits.length ? limits[0] : null, limitLabel: label,
+        if (seg.tsr) label = String(seg.speed) + ' TSR';
+        return { from: seg.from, to: seg.to, section: seg.section, limit: limits.length ? limits[0] : null, limitLabel: label, tsr: seg.tsr || null,
                  maxSpeed: rows ? maxS : null, overM: worst ? Math.round(worst.overM) : 0, overSec: worst ? worst.overSec : 0,
                  excess: worst ? worst.excess : 0, rows: rows, verdict: verdict, perLimit: res };
     });
+}
+
+/**
+ * TSR (caution orders) for a trip.
+ * cautionToTrip(): raw caution km (km.mast, WTT datum) → curtailed datum
+ * (−1.910 beyond km 126.9, as GAS) → trip km through the PSR spans. Applies the
+ * daily time window against the trip's passing time. Returns null if the
+ * caution lies outside the route or its window.
+ * applyTSR(): splits the PSR segments at the caution boundaries and lowers the
+ * limit where a speed caution applies (lower wins); pieces carry tsr info.
+ */
+var CURTAIL_KM = 126.9, CURTAIL_M = 1.910;
+function rawToPsrKm(km) { return km > CURTAIL_KM ? km - CURTAIL_M : km; }
+
+function cautionToTrip(c, psrSegments, trip, trainType) {
+    if (c.from_km === null || c.to_km === null) return null;
+    var a = kmToTripDist(rawToPsrKm(Number(c.from_km)), psrSegments);
+    var b = kmToTripDist(rawToPsrKm(Number(c.to_km)), psrSegments);
+    if (a === null && b === null) return null;
+    if (a === null) a = b; if (b === null) b = a;
+    var from = Math.min(a, b), to = Math.max(a, b);
+    if (to - from < 0.02) to = from + 0.02;                       // a point caution gets a 20 m footprint
+    // time window: trip's passing time at the caution start
+    if (c.time_from && c.time_to && trip && trip.length) {
+        var row = null;
+        for (var i = 0; i < trip.length; i++) { if (trip[i].cumDistKm >= from) { row = trip[i]; break; } }
+        if (!row) row = trip[trip.length - 1];
+        var t = timeToSec(row.time), w0 = timeToSec(c.time_from), w1 = timeToSec(c.time_to);
+        var inWin = w0 <= w1 ? (t >= w0 && t <= w1) : (t >= w0 || t <= w1);
+        if (!inWin) return null;
+    }
+    var goods = trainType === 'Goods';
+    var speed = (c.res_type === 'SPEED') ? (goods ? (c.speed_goods !== null ? Number(c.speed_goods) : Number(c.speed_pass)) : (c.speed_pass !== null ? Number(c.speed_pass) : Number(c.speed_goods))) : null;
+    return { id: c.caution_id, from: Math.round(from * 1000) / 1000, to: Math.round(to * 1000) / 1000, speed: isNaN(speed) ? null : speed,
+             advisory: c.res_type !== 'SPEED' || speed === null || !!c.advisory_line, advisoryLine: !!c.advisory_line,
+             line: c.line_name, type: c.res_type, reason: c.reason || '', remarks: c.remarks || '', mast: (c.from_mast || '') + ' – ' + (c.to_mast || ''),
+             window: c.time_from ? (String(c.time_from).slice(0, 5) + '–' + String(c.time_to).slice(0, 5)) : '' };
+}
+
+function applyTSR(psrSegments, tsrs) {
+    if (!psrSegments || !psrSegments.length) return psrSegments;
+    var speedTsrs = (tsrs || []).filter(function(t) { return !t.advisory && t.speed !== null; });
+    if (!speedTsrs.length) return psrSegments;
+    var cuts = {};
+    psrSegments.forEach(function(s) { cuts[s.from] = 1; cuts[s.to] = 1; });
+    speedTsrs.forEach(function(t) { cuts[t.from] = 1; cuts[t.to] = 1; });
+    var pts = Object.keys(cuts).map(Number).sort(function(a, b) { return a - b; });
+    var out = [];
+    for (var i = 0; i + 1 < pts.length; i++) {
+        var a = pts[i], b = pts[i + 1], mid = (a + b) / 2;
+        var base = null;
+        for (var k = 0; k < psrSegments.length; k++) { if (mid >= psrSegments[k].from && mid < psrSegments[k].to) { base = psrSegments[k]; break; } }
+        if (!base) continue;
+        var seg = { from: a, to: b, speed: base.speed, section: base.section, psrFrom: base.psrFrom, psrTo: base.psrTo, baseSpeed: base.speed, tsr: null };
+        speedTsrs.forEach(function(t) {
+            if (mid >= t.from && mid < t.to && t.speed < seg.speed) { seg.speed = t.speed; seg.tsr = t; }
+        });
+        out.push(seg);
+    }
+    return out;
 }
 
 /**

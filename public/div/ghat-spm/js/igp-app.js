@@ -111,59 +111,94 @@ function showFileInfo() {
 }
 
 // ── Run Analysis ──
+var tsrForTrip = [];          // cautions applied to the current trip (converted to trip km)
+var tsrRawForTrip = [];       // as returned by the server
+var TSR_API = '/api/division/tsr';
+
 function runAnalysis() {
     tripData = extractTrip(parsedData, isFullFile);
     if (!tripData || !tripData.length) return;
-
     showLoading('Analyzing...');
-    setTimeout(function() {
-        try {
-            var stats = computeStats(tripData);
-            var halts = detectHalts(tripData);
+    var dir = getDirection();
+    var at = (tripData[0].date.split('/').reverse().map(function(x, i) { return i === 0 ? '20' + x : x; }).join('-')) + 'T' + tripData[0].time;
+    var section = (typeof currentSection !== 'undefined' && currentSection) ? currentSection : 'KSRA-IGP';
+    fetch(TSR_API + '/active?section=' + encodeURIComponent(section) + '&dir=' + dir + '&at=' + encodeURIComponent(at), { credentials: 'same-origin' })
+        .then(function(r) { return r.ok ? r.json() : { rows: [] }; })
+        .catch(function() { return { rows: [] }; })
+        .then(function(j) { tsrRawForTrip = j.rows || []; finishAnalysis(); });
+}
 
-            // Build PSR overlay data
-            var fromStn = document.getElementById('fromStation').value;
-            var toStn = document.getElementById('toStation').value;
-            var psrSegments = null;
-            if (typeof buildTripPSR === 'function' && psrRawData) {
-                psrSegments = buildTripPSR(fromStn, toStn);
-            }
+function finishAnalysis() {
+    try {
+        var stats = computeStats(tripData);
+        var halts = detectHalts(tripData);
 
-            // Build station markers (from curtailment-adjusted km CSV)
-            var stationMarkers = null;
-            if (typeof buildStationMarkers === 'function' && stnRawData) {
-                stationMarkers = buildStationMarkers(fromStn, toStn);
-            }
-
-            // Build signal markers
-            var signalMarkers = null;
-            if (typeof buildTripSignals === 'function' && sigRawData) {
-                signalMarkers = buildTripSignals(fromStn, toStn);
-            }
-
-            // DN ghat markers (15/10 board, GR-0) — anchored to signals/stations, drawn on the OHE/Amps chart
-            var ghatMarkers = null;
-            if (typeof buildGhatMarkers === 'function' && ghatRawData) {
-                ghatMarkers = buildGhatMarkers(fromStn, toStn, psrSegments, signalMarkers, stationMarkers);
-            }
-
-            showResults(stats, halts);
-            renderStationTable(stationReadings(tripData, stationMarkers, ghatMarkers));
-            renderSectionalTimes(sectionalTimes(tripData, stationMarkers, halts), getDirection());
-            renderPSRCompliance(psrCompliance(tripData, psrSegments, getTrainType()));
-            var isDN = getDirection() === 'DN';
-            renderHaltAnalysis(halts, haltApproachProfiles(tripData, halts, stationMarkers, signalMarkers, ghatMarkers,
-                { lookAheadKm: isDN ? 0.75 : 0.4, bankerAtRear: isDN }), getDirection());
-            renderCharts(tripData, halts, psrSegments, stationMarkers, signalMarkers, ghatMarkers);
-            hideLoading();
-            document.getElementById('inputSection').classList.add('collapsed');
-            document.getElementById('resultsSection').classList.add('visible');
-        } catch (e) {
-            hideLoading();
-            alert('Error: ' + e.message);
-            console.error(e);
+        // Build PSR overlay data
+        var fromStn = document.getElementById('fromStation').value;
+        var toStn = document.getElementById('toStation').value;
+        var psrSegments = null;
+        if (typeof buildTripPSR === 'function' && psrRawData) {
+            psrSegments = buildTripPSR(fromStn, toStn);
         }
-    }, 100);
+
+        // Build station markers (from curtailment-adjusted km CSV)
+        var stationMarkers = null;
+        if (typeof buildStationMarkers === 'function' && stnRawData) {
+            stationMarkers = buildStationMarkers(fromStn, toStn);
+        }
+
+        // Build signal markers
+        var signalMarkers = null;
+        if (typeof buildTripSignals === 'function' && sigRawData) {
+            signalMarkers = buildTripSignals(fromStn, toStn);
+        }
+
+        // DN ghat markers (15/10 board, GR-0) — anchored to signals/stations, drawn on the OHE/Amps chart
+        var ghatMarkers = null;
+        if (typeof buildGhatMarkers === 'function' && ghatRawData) {
+            ghatMarkers = buildGhatMarkers(fromStn, toStn, psrSegments, signalMarkers, stationMarkers);
+        }
+
+        // TSR: convert the cautions to trip km and lower the PSR band where a speed applies
+        tsrForTrip = [];
+        if (psrSegments && tsrRawForTrip.length) {
+            tsrRawForTrip.forEach(function(c) { var t = cautionToTrip(c, psrSegments, tripData, getTrainType()); if (t) tsrForTrip.push(t); });
+        }
+        var effectivePSR = psrSegments ? applyTSR(psrSegments, tsrForTrip) : psrSegments;
+        tsrForChart = tsrForTrip;
+
+        showResults(stats, halts);
+        renderStationTable(stationReadings(tripData, stationMarkers, ghatMarkers));
+        renderSectionalTimes(sectionalTimes(tripData, stationMarkers, halts), getDirection());
+        renderPSRCompliance(psrCompliance(tripData, effectivePSR, getTrainType()));
+        renderTripTSR(tsrForTrip, tsrRawForTrip.length);
+        var isDN = getDirection() === 'DN';
+        renderHaltAnalysis(halts, haltApproachProfiles(tripData, halts, stationMarkers, signalMarkers, ghatMarkers,
+            { lookAheadKm: isDN ? 0.75 : 0.4, bankerAtRear: isDN }), getDirection());
+        renderCharts(tripData, halts, effectivePSR, stationMarkers, signalMarkers, ghatMarkers);
+        hideLoading();
+        document.getElementById('inputSection').classList.add('collapsed');
+        document.getElementById('resultsSection').classList.add('visible');
+    } catch (e) {
+        hideLoading();
+        alert('Error: ' + e.message);
+        console.error(e);
+    }
+}
+
+// ── TSR applied to this trip (card under the compliance table) ──
+function renderTripTSR(list, rawCount) {
+    var card = document.getElementById('tripTsrCard'); if (!card) return;
+    if (!rawCount) { card.style.display = 'none'; return; }
+    card.style.display = '';
+    var skipped = rawCount - list.length;
+    document.getElementById('tripTsrNote').textContent = list.length + ' caution' + (list.length === 1 ? '' : 's') + ' apply to this trip' +
+        (skipped ? ' (' + skipped + ' more on file for the day fell outside the route or the daily time window)' : '') + '.';
+    document.querySelector('#tripTsrTable tbody').innerHTML = list.map(function(t) {
+        return '<tr><td>' + t.id + '</td><td>' + (t.line || '-') + (t.advisoryLine ? ' <span class="stn-note">middle line</span>' : '') + '</td><td>' + t.mast + '</td><td>' + t.from.toFixed(2) + ' – ' + t.to.toFixed(2) +
+            '</td><td>' + (t.advisory ? '<span class="badge-muted">' + (t.type === 'OHS_WF' ? 'OHS / WF' : t.type.toLowerCase()) + '</span>' : '<span class="badge-warn">' + t.speed + ' kmph</span>') +
+            '</td><td>' + (t.window || 'all day') + '</td><td>' + (t.reason || t.remarks || '') + '</td></tr>';
+    }).join('');
 }
 
 // ── Display Results ──
@@ -361,8 +396,10 @@ function renderTripTable(trips) {
             '<td><input type="text" class="tt-train" data-i="' + i + '" placeholder="12137 / GOODS / LE"></td>' +
             '<td><input type="text" class="tt-driver wide" data-i="' + i + '" placeholder="CMS ID"></td>' +
             '<td><input type="text" class="tt-load" data-i="' + i + '" placeholder="24 coach / LE"></td>' +
+            '<td class="tt-tsr" id="tripTsr' + i + '">…</td>' +
             '<td><button type="button" class="row-btn" onclick="analyseTripRow(' + i + ')">Analyse</button></td></tr>';
     }).join('');
+    fillTripTableTSR();
     // carry-down: driver and load fill the empty rows below when changed
     ['tt-driver', 'tt-load'].forEach(function(cls) {
         document.querySelectorAll('#tripTable .' + cls).forEach(function(inp) {
@@ -472,8 +509,9 @@ function renderPSRCompliance(zones) {
     var cls = { 'OK': 'badge-smooth', 'marginal': 'badge-warn', 'over': 'badge-abrupt', 'n/a': 'badge-muted', 'no data': 'badge-muted' };
     document.querySelector('#psrTable tbody').innerHTML = zones.map(function(z) {
         var isMPS = z.limit === 60;
-        return '<tr' + (z.verdict === 'over' ? ' class="row-over"' : '') + '><td>' + z.from.toFixed(2) + ' – ' + z.to.toFixed(2) + '</td><td>' + z.section +
-            '</td><td>' + z.limitLabel + (isMPS ? ' <span class="stn-note">MPS</span>' : '') + '</td><td>' + (z.maxSpeed === null ? '-' : z.maxSpeed) +
+        var tsrTag = z.tsr ? ' <span class="tsr-tag" title="' + (z.tsr.reason || '') + '">TSR ' + z.tsr.id + '</span>' : '';
+        return '<tr' + (z.verdict === 'over' ? ' class="row-over"' : '') + (z.tsr ? ' class="row-tsr"' : '') + '><td>' + z.from.toFixed(2) + ' – ' + z.to.toFixed(2) + '</td><td>' + z.section +
+            '</td><td>' + z.limitLabel + (isMPS ? ' <span class="stn-note">MPS</span>' : '') + tsrTag + '</td><td>' + (z.maxSpeed === null ? '-' : z.maxSpeed) +
             '</td><td>' + (z.excess ? '+' + z.excess : '-') + '</td><td>' + (z.overM ? z.overM + ' m / ' + z.overSec + ' s' : '-') +
             '</td><td><span class="' + (cls[z.verdict] || 'badge-muted') + '">' + z.verdict + '</span></td></tr>';
     }).join('');
@@ -570,6 +608,14 @@ function selectSection(a) {
     if (a.classList.contains('disabled')) return false;
     document.querySelectorAll('#sectionTabs a[data-section]').forEach(function(x) { x.classList.toggle('active', x === a); });
     loadReferenceData(section).catch(function(e) { console.error(e); alert('Could not load reference data for ' + section); });
+    if (document.getElementById('tsrOn')) loadTsrCard();
+    // manual-entry line list follows the section: NE lines for KSRA-IGP, SE lines for KJT-LNL
+    var lineSel = document.getElementById('tsrLine');
+    if (lineSel) {
+        var ne = section === 'KSRA-IGP';
+        [].forEach.call(lineSel.options, function(o) { o.disabled = ne ? /SE$/.test(o.value) : /NE$|^MIDDLE$/.test(o.value); });
+        if (lineSel.selectedOptions[0] && lineSel.selectedOptions[0].disabled) lineSel.value = ne ? 'DNNE' : 'DNSE';
+    }
     // LNL has no reference data yet — the router will return empty lists; the form still works for IGP only.
     return false;
 }
@@ -591,3 +637,82 @@ function selectSection(a) {
         })
         .catch(function(e) { console.error('ghat-spm /me failed', e); });
 })();
+
+
+// ── TSR count per trip row (cautions on file for that day, direction and line) ──
+function fillTripTableTSR() {
+    var section = (typeof currentSection !== 'undefined' && currentSection) ? currentSection : 'KSRA-IGP';
+    var dates = {}; tripList.forEach(function(t) { dates[t.isoDate] = 1; });
+    Object.keys(dates).forEach(function(d) {
+        fetch(TSR_API + '/list?section=' + encodeURIComponent(section) + '&on=' + d, { credentials: 'same-origin' })
+            .then(function(r) { return r.ok ? r.json() : { rows: [] }; }).catch(function() { return { rows: [] }; })
+            .then(function(j) {
+                tripList.forEach(function(t, i) {
+                    if (t.isoDate !== d) return;
+                    var dir = (document.querySelector('#tripTable .tt-dir[data-i="' + i + '"]') || {}).value || t.dirGuess;
+                    var rows = (j.rows || []).filter(function(c) { return c.direction === dir || c.direction === 'BUP'; });
+                    var cell = document.getElementById('tripTsr' + i); if (!cell) return;
+                    var n = rows.length, sp = rows.filter(function(c) { return c.res_type === 'SPEED'; }).length;
+                    cell.innerHTML = n ? '<span class="tsr-tag">' + n + ' TSR' + (sp ? ' (' + sp + ' speed)' : '') + '</span>' : '<span class="stn-note">none</span>';
+                    cell.title = rows.map(function(c) { return c.caution_id + ' ' + (c.line_name || '') + ' ' + (c.from_mast || '') + '-' + (c.to_mast || '') + ' ' + (c.res_type === 'SPEED' ? c.speed_pass + '/' + c.speed_goods + ' kmph' : c.res_type) + (c.time_from ? ' ' + String(c.time_from).slice(0, 5) + '-' + String(c.time_to).slice(0, 5) : ''); }).join('\n');
+                });
+            });
+    });
+}
+
+// ── TSR card in the input area: cautions on file today, ICMS import, manual entry ──
+function loadTsrCard() {
+    var section = (typeof currentSection !== 'undefined' && currentSection) ? currentSection : 'KSRA-IGP';
+    var on = document.getElementById('tsrOn').value || new Date().toISOString().slice(0, 10);
+    document.getElementById('tsrOn').value = on;
+    fetch(TSR_API + '/list?section=' + encodeURIComponent(section) + '&on=' + on, { credentials: 'same-origin' })
+        .then(function(r) { return r.json(); })
+        .then(function(j) {
+            var rows = j.rows || [];
+            document.getElementById('tsrCardNote').textContent = rows.length + ' caution' + (rows.length === 1 ? '' : 's') + ' in force on ' + section + ' on ' + on + '.';
+            document.querySelector('#tsrCardTable tbody').innerHTML = rows.length ? rows.map(function(c) {
+                var lim = c.res_type === 'SPEED' ? (c.speed_pass || '-') + ' / ' + (c.speed_goods || '-') : (c.res_type === 'OHS_WF' ? 'OHS / WF' : 'cautious');
+                return '<tr><td>' + c.caution_id + (c.source === 'MANUAL' ? ' <span class="stn-note">manual</span>' : '') + (c.mast_flag ? ' &#9888;' : '') + '</td><td>' + (c.line_name || '-') + ' ' + c.direction + '</td><td>' + (c.from_stn || '') + ' – ' + (c.to_stn || '') +
+                    '</td><td>' + (c.from_mast || '') + ' – ' + (c.to_mast || '') + '</td><td>' + lim + '</td><td>' + (c.time_from ? String(c.time_from).slice(0, 5) + '–' + String(c.time_to).slice(0, 5) : 'all day') +
+                    '</td><td>' + String(c.date_from).slice(0, 10) + ' → ' + (c.date_to ? String(c.date_to).slice(0, 10) : 'in force') + '</td><td>' + (c.reason || '') +
+                    '</td><td><button type="button" class="row-btn" onclick="closeTsr(' + c.id + ')" title="Close today (keeps history)">Close</button></td></tr>';
+            }).join('') : '<tr><td colspan="9" style="text-align:center;color:var(--text-dim)">No cautions on file for this day</td></tr>';
+        }).catch(function(e) { console.error(e); });
+}
+function closeTsr(id) {
+    if (!confirm('Close this caution as of now?')) return;
+    fetch(TSR_API + '/' + id, { method: 'DELETE', credentials: 'same-origin' }).then(function() { loadTsrCard(); });
+}
+function importTsr() {
+    var f = document.getElementById('tsrFile').files[0];
+    if (!f) { alert('Choose the ICMS caution report (.xlsx) first'); return; }
+    var fd = new FormData(); fd.append('file', f); fd.append('close_missing', document.getElementById('tsrCloseMissing').checked ? '1' : '0');
+    var msg = document.getElementById('tsrImportMsg'); msg.textContent = 'Importing…';
+    fetch(TSR_API + '/import', { method: 'POST', body: fd, credentials: 'same-origin' })
+        .then(function(r) { return r.json(); })
+        .then(function(j) {
+            if (!j.success) { msg.textContent = 'Import failed: ' + (j.error || ''); return; }
+            msg.textContent = 'Imported: ' + j.rows_read + ' rows read, ' + j.added + ' added, ' + j.updated + ' updated, ' + j.closed + ' closed' + (j.flagged ? ', ' + j.flagged + ' mast cells to check (⚠)' : '') + '. Sections: ' + j.sections.join(', ');
+            loadTsrCard(); if (tripList.length) fillTripTableTSR();
+        }).catch(function(e) { msg.textContent = 'Import failed: ' + e.message; });
+}
+function addTsrManual() {
+    var g = function(id) { return document.getElementById(id).value.trim(); };
+    var speed = g('tsrSpeed'), timed = document.getElementById('tsrTimed').checked;
+    var today = new Date(); var pad = function(n) { return (n < 10 ? '0' : '') + n; };
+    var body = { section: (typeof currentSection !== 'undefined' && currentSection) ? currentSection : 'KSRA-IGP',
+        line_name: g('tsrLine'), direction: g('tsrDir'), from_stn: g('tsrFromStn'), to_stn: g('tsrToStn'), from_mast: g('tsrFromMast'), to_mast: g('tsrToMast'),
+        speed_pass: speed, speed_goods: speed, res_type: speed ? 'SPEED' : 'OHS_WF',
+        date_from: today.getFullYear() + '-' + pad(today.getMonth() + 1) + '-' + pad(today.getDate()) + ' 00:00:00', date_to: '',
+        time_from: timed ? g('tsrTimeFrom') : '', time_to: timed ? g('tsrTimeTo') : '', reason: 'Manual entry' };
+    if (!body.from_mast) { alert('From mast is required'); return; }
+    if (timed && (!body.time_from || !body.time_to)) { alert('Enter both times of the daily window, or untick it'); return; }
+    fetch(TSR_API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), credentials: 'same-origin' })
+        .then(function(r) { return r.json(); })
+        .then(function(j) {
+            if (!j.success) { alert(j.error || 'Could not save'); return; }
+            document.getElementById('tsrManualMsg').textContent = 'Saved as ' + j.caution_id + '.';
+            ['tsrFromMast', 'tsrToMast', 'tsrSpeed'].forEach(function(id) { document.getElementById(id).value = ''; });
+            loadTsrCard(); if (tripList.length) fillTripTableTSR();
+        }).catch(function(e) { alert('Could not save: ' + e.message); });
+}

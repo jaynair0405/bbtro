@@ -112,6 +112,9 @@
         .trip-nav{display:flex;align-items:center;gap:14px;margin-bottom:12px;font-size:0.8rem;color:var(--text-dim)}
         .nav-btn{background:transparent;border:1px solid var(--border-accent);color:var(--accent);border-radius:8px;padding:6px 12px;font-family:inherit;font-weight:600;cursor:pointer}
         .nav-btn:disabled{opacity:.35;cursor:default}
+        .tsr-tag{display:inline-block;padding:2px 8px;border-radius:12px;background:rgba(249,115,22,.18);color:#fb923c;font-size:0.68rem;font-weight:700;white-space:nowrap}
+        .psr-table tr.row-tsr td{background:rgba(249,115,22,.08)}
+        .tsr-table td,.tsr-table th{padding:6px 8px;font-size:0.75rem}
         .creep-tag{display:inline-block;margin-left:6px;padding:1px 6px;border-radius:4px;background:rgba(234,88,12,.18);color:#fb923c;font-size:10px;font-weight:600;white-space:nowrap}
         .ti-warn{flex-basis:100%;margin-top:6px;padding:6px 10px;border-radius:6px;background:rgba(245,158,11,.15);color:#fbbf24;font-size:12px;font-weight:600}
         .charts-grid{display:grid;grid-template-columns:1fr;gap:18px}
@@ -141,9 +144,40 @@
             <div class="section-title">Trips found in this file <span id="tripTableCount" class="tt-count"></span></div>
             <div class="upload-sub" style="margin-bottom:12px">Date, departure, arrival and distance come from the recorder. If a time does not match the driver's sheet, type the sheet time and the app snaps it to the nearest recorder departure or stop and rechecks the row. Confirm the direction, enter train, driver and load, then analyse. Driver and load carry down.</div>
             <div style="overflow-x:auto"><table class="halt-table trip-table" id="tripTable">
-                <thead><tr><th></th><th>#</th><th>Date</th><th>Dep</th><th>Arr</th><th>Km</th><th>Dir</th><th>Train</th><th>Driver (CMS ID)</th><th>Load</th><th></th></tr></thead>
+                <thead><tr><th></th><th>#</th><th>Date</th><th>Dep</th><th>Arr</th><th>Km</th><th>Dir</th><th>Train</th><th>Driver (CMS ID)</th><th>Load</th><th>TSR</th><th></th></tr></thead>
                 <tbody></tbody>
             </table></div>
+        </div>
+        <div class="card" id="tsrCard" style="margin-bottom:18px">
+            <div class="section-title">Caution orders (TSR) <span class="tt-count" id="tsrCardNote"></span></div>
+            <div style="display:flex;flex-wrap:wrap;gap:18px;align-items:flex-end;margin-bottom:12px">
+                <div class="field"><label>In force on</label><input type="date" id="tsrOn" onchange="loadTsrCard()"></div>
+                <div class="field" style="min-width:280px"><label>Import ICMS caution report (.xlsx)</label><input type="file" id="tsrFile" accept=".xlsx,.xls,.csv"></div>
+                <label style="font-size:0.75rem;color:var(--text-dim);display:flex;align-items:center;gap:6px"><input type="checkbox" id="tsrCloseMissing" style="width:auto"> close cautions missing from this report</label>
+                <button type="button" class="row-btn" onclick="importTsr()">Import</button>
+                <span id="tsrImportMsg" style="font-size:0.75rem;color:var(--text-dim)"></span>
+            </div>
+            <div style="overflow-x:auto"><table class="halt-table tsr-table" id="tsrCardTable">
+                <thead><tr><th>Caution</th><th>Line</th><th>Between</th><th>Masts</th><th>Pass / Goods</th><th>Window</th><th>Valid</th><th>Reason</th><th></th></tr></thead>
+                <tbody></tbody>
+            </table></div>
+            <details style="margin-top:12px"><summary style="cursor:pointer;font-size:0.78rem;color:var(--accent);font-weight:600">Manual entry (when the ICMS export is not available)</summary>
+                <div class="upload-sub" style="margin:10px 0 8px">Valid from today until closed. Leave speed blank for an OHS / whistle-freely advisory.</div>
+                <div class="form-grid">
+                    <div class="field"><label>Line</label><select id="tsrLine"><option>DNNE</option><option>UPNE</option><option>MIDDLE</option><option>DNSE</option><option>UPSE</option><option>MIDSE</option></select></div>
+                    <div class="field"><label>Direction</label><select id="tsrDir"><option>DN</option><option>UP</option><option value="BUP">Both</option></select></div>
+                    <div class="field"><label>From station</label><input type="text" id="tsrFromStn" placeholder="X102"></div>
+                    <div class="field"><label>To station</label><input type="text" id="tsrToStn" placeholder="X101"></div>
+                    <div class="field"><label>From mast</label><input type="text" id="tsrFromMast" placeholder="131/162"></div>
+                    <div class="field"><label>To mast</label><input type="text" id="tsrToMast" placeholder="132/102"></div>
+                    <div class="field"><label>Speed (kmph)</label><input type="number" id="tsrSpeed" placeholder="blank = OHS / WF"></div>
+                    <div class="field"><label>Daily time window</label>
+                        <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;color:var(--text);padding:9px 0"><input type="checkbox" id="tsrTimed" style="width:auto" onchange="document.getElementById('tsrTimeBox').style.display=this.checked?'':'none'"> Applies only between certain hours</label>
+                    </div>
+                    <div class="field span-2" id="tsrTimeBox" style="display:none"><div style="display:flex;gap:12px"><div><label>From</label><input type="time" id="tsrTimeFrom"></div><div><label>To</label><input type="time" id="tsrTimeTo"></div></div></div>
+                </div>
+                <div style="margin-top:10px;display:flex;gap:12px;align-items:center"><button type="button" class="row-btn" onclick="addTsrManual()">Save caution</button><span id="tsrManualMsg" style="font-size:0.75rem;color:var(--green)"></span></div>
+            </details>
         </div>
         <div class="input-grid">
             <div class="card">
@@ -237,6 +271,13 @@
                 <div id="psrNote" style="font-size:0.78rem;color:var(--text-dim);margin-bottom:12px"></div>
                 <div style="overflow-x:auto"><table class="halt-table psr-table" id="psrTable">
                     <thead><tr><th>Zone (km)</th><th>Section</th><th>Limit</th><th>Max</th><th>Excess</th><th>Over</th><th>Verdict</th></tr></thead>
+                    <tbody></tbody>
+                </table></div>
+            </div>
+            <div class="chart-card" id="tripTsrCard" style="display:none"><h3>Caution Orders Applied (TSR)</h3>
+                <div id="tripTsrNote" style="font-size:0.78rem;color:var(--text-dim);margin-bottom:12px"></div>
+                <div style="overflow-x:auto"><table class="halt-table" id="tripTsrTable">
+                    <thead><tr><th>Caution</th><th>Line</th><th>Masts</th><th>Trip km</th><th>Limit</th><th>Window</th><th>Reason</th></tr></thead>
                     <tbody></tbody>
                 </table></div>
             </div>

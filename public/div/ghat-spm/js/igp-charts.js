@@ -13,6 +13,7 @@ var chartInstances = {};
  * @param {Array|null} signalMarkers - signal positions from buildTripSignals()
  * @param {Array|null} ghatMarkers - DN ghat markers from buildGhatMarkers() (drawn on the OHE chart)
  */
+var tsrForChart = [];   // set by the app before renderCharts(): [{from,to,speed,advisory,id,...}]
 function renderCharts(data, halts, psrSegments, stationMarkers, signalMarkers, ghatMarkers) {
     // Destroy existing
     Object.values(chartInstances).forEach(function(c) { c.destroy() });
@@ -93,6 +94,15 @@ function renderSpeedDistChart(dl, sp, psrSegments, stationMarkers, signalMarkers
         order: 1
     });
 
+    // TSR band: only where a speed caution applies (null elsewhere)
+    var tsrSpeed = (tsrForChart || []).filter(function(t) { return !t.advisory && t.speed !== null; });
+    if (tsrSpeed.length) {
+        datasets.unshift({
+            label: 'TSR', data: dl.map(function(x) { var km = parseFloat(x); var v = null; tsrSpeed.forEach(function(t) { if (km >= t.from && km <= t.to) v = (v === null ? t.speed : Math.min(v, t.speed)); }); return v; }),
+            borderColor: 'rgba(249, 115, 22, 0.9)', backgroundColor: 'rgba(249, 115, 22, 0.25)', borderWidth: 1.5, pointRadius: 0, fill: 'origin', stepped: true, spanGaps: false, order: 0
+        });
+    }
+
     // Combined marker plugin — draws signals (red) and stations (thicker red)
     var markerPlugin = {
         id: 'chartMarkers',
@@ -151,6 +161,22 @@ function renderSpeedDistChart(dl, sp, psrSegments, stationMarkers, signalMarkers
                     ctx.restore();
                 });
             }
+
+            // TSR advisories (OHS/WF, cautious, middle-line cautions): purple dashed band edge lines + label at top
+            (tsrForChart || []).filter(function(t) { return t.advisory; }).forEach(function(t) {
+                var px1 = getPixelX(t.from), px2 = getPixelX(t.to);
+                if (px2 < chartArea.left || px1 > chartArea.right) return;
+                ctx.save();
+                ctx.fillStyle = 'rgba(168, 85, 247, 0.12)';
+                ctx.fillRect(Math.max(px1, chartArea.left), chartArea.top, Math.max(2, Math.min(px2, chartArea.right) - Math.max(px1, chartArea.left)), chartArea.bottom - chartArea.top);
+                ctx.strokeStyle = 'rgba(168, 85, 247, 0.8)'; ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
+                ctx.beginPath(); ctx.moveTo(px1, chartArea.top); ctx.lineTo(px1, chartArea.bottom); ctx.stroke();
+                ctx.setLineDash([]);
+                ctx.fillStyle = 'rgba(168, 85, 247, 0.95)'; ctx.font = '600 8px "Plus Jakarta Sans", sans-serif'; ctx.textAlign = 'right';
+                ctx.translate(px1 - 2, chartArea.top + 3); ctx.rotate(-Math.PI / 2);
+                ctx.fillText('TSR ' + (t.type === 'OHS_WF' ? 'OHS/WF' : t.type.toLowerCase()) + (t.advisoryLine ? ' (middle line)' : ''), 0, 0);
+                ctx.restore();
+            });
 
             // Station markers: blue dot on the x axis with the name beside it (no line)
             if (stationMarkers && stationMarkers.length) {
