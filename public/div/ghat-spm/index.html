@@ -112,6 +112,7 @@
         .trip-nav{display:flex;align-items:center;gap:14px;margin-bottom:12px;font-size:0.8rem;color:var(--text-dim)}
         .nav-btn{background:transparent;border:1px solid var(--border-accent);color:var(--accent);border-radius:8px;padding:6px 12px;font-family:inherit;font-weight:600;cursor:pointer}
         .nav-btn:disabled{opacity:.35;cursor:default}
+        .nav-btn.pdf-btn{margin-left:auto;background:var(--accent);color:#111;border-color:var(--accent)}
         .tsr-tag{display:inline-block;padding:2px 8px;border-radius:12px;background:rgba(249,115,22,.18);color:#fb923c;font-size:0.68rem;font-weight:700;white-space:nowrap}
         .psr-table tr.row-tsr td{background:rgba(249,115,22,.08)}
         .tsr-table td,.tsr-table th{padding:6px 8px;font-size:0.75rem}
@@ -142,6 +143,7 @@
     <div id="inputSection">
         <div class="card trip-table-card" id="tripTableCard" style="display:none;margin-bottom:18px">
             <div class="section-title">Trips found in this file <span id="tripTableCount" class="tt-count"></span></div>
+            <div style="display:flex;gap:12px;align-items:center;margin-bottom:10px"><button type="button" class="row-btn" onclick="analyseAllPdf()">Analyse all ticked &amp; save PDFs</button><span id="allPdfMsg" style="font-size:0.75rem;color:var(--text-dim)"></span></div>
             <div class="upload-sub" style="margin-bottom:12px">Date, departure, arrival and distance come from the recorder. If a time does not match the driver's sheet, type the sheet time and the app snaps it to the nearest recorder departure or stop and rechecks the row. Confirm the direction, enter train, driver and load, then analyse. Driver and load carry down.</div>
             <div style="overflow-x:auto"><table class="halt-table trip-table" id="tripTable">
                 <thead><tr><th></th><th>#</th><th>Date</th><th>Dep</th><th>Arr</th><th>Km</th><th>Dir</th><th>Train</th><th>Driver (CMS ID)</th><th>Load</th><th>TSR</th><th></th></tr></thead>
@@ -185,6 +187,8 @@
                 <div class="form-grid" style="margin-bottom:28px">
                     <div class="field"><label>CMS / HRMS ID</label><input type="text" id="cmsId" placeholder="e.g. 11012345"></div>
                     <div class="field"><label>Crew Name</label><input type="text" id="crewName" disabled placeholder="Auto from ID"></div>
+                    <div class="field"><label>Designation</label><input type="text" id="crewDesig" disabled placeholder="Auto from ID"></div>
+                    <div class="field"><label>Nominated CLI</label><input type="text" id="nominatedCli" placeholder="Auto from ID (editable)"></div>
                     <div class="field"><label>Analyzed By (CLI)</label><input type="text" id="analyzedBy" placeholder="CLI Name"></div>
                     <div class="field"><label>Date of Working</label><input type="date" id="workingDate"></div>
                 </div>
@@ -238,6 +242,8 @@
             <button type="button" class="nav-btn" onclick="navTrip(-1)">&#9664; Prev</button>
             <span id="tripNavLabel"></span>
             <button type="button" class="nav-btn" onclick="navTrip(1)">Next &#9654;</button>
+            <button type="button" class="nav-btn pdf-btn" onclick="saveTripPdf()">&#128196; Save PDF</button>
+            <span id="pdfMsg" style="font-size:0.75rem"></span>
         </div>
         <div class="trip-info-bar" id="tripInfoBar"></div>
         <div class="stats-strip" id="statsStrip"></div>

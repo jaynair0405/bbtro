@@ -396,3 +396,39 @@ function renderDecelerationChart(data, halts) {
         }
     });
 }
+
+
+// ── Print export: re-render the charts with a white palette on hidden canvases and return PNGs ──
+function exportChartsForPrint() {
+    var out = {};
+    var mk = function(w, h) { var c = document.createElement('canvas'); c.width = w; c.height = h; c.style.display = 'none'; document.body.appendChild(c); return c; };
+    var light = function(opts) {
+        var o = JSON.parse(JSON.stringify(opts));
+        o.responsive = false; o.animation = false; o.devicePixelRatio = 1;
+        o.plugins = o.plugins || {}; o.plugins.legend = o.plugins.legend || {}; o.plugins.legend.labels = Object.assign({}, o.plugins.legend.labels || {}, { color: '#222' });
+        Object.keys(o.scales || {}).forEach(function(k) { var sc = o.scales[k]; if (sc.title) sc.title.color = '#333'; if (sc.ticks) sc.ticks.color = '#444'; if (sc.grid) sc.grid.color = 'rgba(0,0,0,0.08)'; });
+        return o;
+    };
+    var whiteBg = { id: 'whiteBg', beforeDraw: function(ch) { var c = ch.ctx; c.save(); c.fillStyle = '#fff'; c.fillRect(0, 0, ch.width, ch.height); c.restore(); } };
+    var render = function(key, inst, w, h) {
+        if (!inst) return;
+        var cv = mk(w, h);
+        var cfg = { type: inst.config.type, data: JSON.parse(JSON.stringify(inst.config.data)), options: light(inst.config.options), plugins: [whiteBg].concat(inst.config.plugins || []) };
+        // darker series on white
+        cfg.data.datasets.forEach(function(ds) {
+            if (ds.label === 'Speed') { ds.borderColor = '#1d4ed8'; ds.backgroundColor = 'rgba(29,78,216,0.05)'; }
+            if (ds.label === 'PSR/MPS Limit') { ds.borderColor = 'rgba(21,128,61,0.8)'; ds.backgroundColor = 'rgba(34,197,94,0.18)'; }
+            if (ds.label === 'OHE kV') { ds.borderColor = '#15803d'; ds.backgroundColor = 'rgba(21,128,61,0.08)'; }
+            if (ds.label === 'Amps') { ds.borderColor = '#b45309'; ds.backgroundColor = 'rgba(180,83,9,0.10)'; }
+            if (ds.label === 'TSR') { ds.borderColor = '#c2410c'; ds.backgroundColor = 'rgba(249,115,22,0.25)'; }
+        });
+        var ch = new Chart(cv, cfg);
+        out[key] = cv.toDataURL('image/png');
+        ch.destroy(); cv.remove();
+    };
+    render('profile', chartInstances.sd, 1100, 400);
+    render('speedTime', chartInstances.st, 1100, 300);
+    render('ohe', chartInstances.ohe, 1100, 400);
+    render('decel', chartInstances.hl, 1100, 380);
+    return out;
+}

@@ -84,6 +84,7 @@ const sessionStore = new MySQLStore(sessionStoreOptions);
 app.use((req, res, next) => {
   if (req.originalUrl.startsWith("/spm/rtis")) return next();
   if (req.originalUrl.startsWith("/spm/sub-spm")) return next();
+  if (req.originalUrl.startsWith("/api/division/ghat-spm/report")) return next(); // chart PNGs inside; the route parses with a 25 MB limit
   express.json()(req, res, next);
 });
 

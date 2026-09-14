@@ -117,13 +117,55 @@ router.get('/wtt', async (req, res) => {
       if (!dep || !arr) continue;
       let minutes = toMin(arr) - toMin(dep) + ((g.day_offset || 0) - (f.day_offset || 0)) * 1440;
       if (minutes < 0) minutes += 1440;
-      out.push({ train: t.train_no, dir: t.dir, from: fromCode, to: toCode, dep: hhmm(dep), arr: hhmm(arr), minutes, note: t.name || '' });
+      out.push({ train: t.train, dir: t.dir, from: fromCode, to: toCode, dep: hhmm(dep), arr: hhmm(arr), minutes, note: t.name || '' });
     }
     res.json({ success: true, section, rows: out });
   } catch (err) {
     console.error('ghat-spm wtt error:', err);
     res.status(500).json({ success: false, error: 'Could not load WTT timings' });
   }
+});
+
+// GET /staff?cms=IGP1340 — driver name, designation and nominated CLI for the report header
+router.get('/staff', async (req, res) => {
+  const cms = String(req.query.cms || '').trim().toUpperCase();
+  if (!cms) return res.status(400).json({ success: false, error: 'cms required' });
+  try {
+    const [rows] = await req.app.locals.pool.query(
+      `SELECT s.hrms_id, s.current_cms_id, s.name, s.current_office_code, s.status,
+              d.designation_name, d.designation_code,
+              c.cli_id, c.cli_name, c.cmsid AS cli_cms
+         FROM div_staff_master s
+         LEFT JOIN designations d ON d.id = s.designation_id
+         LEFT JOIN div_cli_master c ON c.cli_id = s.current_cli_id
+        WHERE UPPER(s.current_cms_id) = ? OR UPPER(s.hrms_id) = ? OR UPPER(s.original_cms_id) = ?
+        LIMIT 1`, [cms, cms, cms]);
+    if (!rows.length) return res.json({ success: true, found: false });
+    const r = rows[0];
+    let cli = r.cli_name ? { cli_id: r.cli_id, name: r.cli_name, cms: r.cli_cms } : null;
+    if (!cli) {   // fall back to the latest active nomination
+      const [n] = await req.app.locals.pool.query(
+        `SELECT c.cli_id, c.cli_name, c.cmsid FROM div_cli_nominations n JOIN div_cli_master c ON c.cli_id = n.cli_id
+          WHERE n.staff_hrms_id = ? AND n.status = 'Active' ORDER BY n.nominated_from_date DESC LIMIT 1`, [r.hrms_id]);
+      if (n.length) cli = { cli_id: n[0].cli_id, name: n[0].cli_name, cms: n[0].cmsid };
+    }
+    res.json({ success: true, found: true, hrms_id: r.hrms_id, cms_id: r.current_cms_id, name: r.name, designation: r.designation_name || '', designation_code: r.designation_code || '', office: r.current_office_code, status: r.status, cli });
+  } catch (err) { console.error('ghat-spm staff error:', err); res.status(500).json({ success: false, error: 'Lookup failed' }); }
+});
+
+// POST /report — build the trip PDF (pdfkit) from the analysed results + chart PNGs sent by the page
+const { buildTripReport } = require('../../lib/ghatSpm/report');
+router.post('/report', express.json({ limit: '25mb' }), async (req, res) => {
+  const body = req.body || {};
+  if (!body.header || !body.stats) return res.status(400).json({ success: false, error: 'header and stats required' });
+  try {
+    body.header.office = body.header.office || req.session.user.div_office_code || '';
+    body.header.generatedBy = req.session.user.full_name || req.session.user.username;
+    const name = ['GHAT', body.header.section === 'KJT-LNL' ? 'LNL' : 'IGP', (body.header.train || 'LE').replace(/[^A-Za-z0-9]/g, ''), body.header.date || '', body.header.loco || ''].filter(Boolean).join('_') + '.pdf';
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'attachment; filename="' + name + '"');
+    buildTripReport(body, res);
+  } catch (err) { console.error('ghat-spm report error:', err); if (!res.headersSent) res.status(500).json({ success: false, error: 'Could not build the report' }); }
 });
 
 module.exports = router;

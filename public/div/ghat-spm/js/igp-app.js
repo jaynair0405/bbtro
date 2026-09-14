@@ -61,6 +61,7 @@ async function handleFile(file) {
             isFullFile = parsedData.rows.length > 5000 || (m.startEvents && m.startEvents.length > 3);
         }
 
+        parsedData.metadata.fileName = file.name;
         showFileInfo();
         renderTripTable(isFullFile && typeof detectTrips === 'function' ? detectTrips(parsedData) : []);
         document.getElementById('btnAnalyze').disabled = !parsedData || !parsedData.rows.length;
@@ -111,6 +112,7 @@ function showFileInfo() {
 }
 
 // ── Run Analysis ──
+var lastResults = null;       // everything the last analysis produced (for the PDF)
 var tsrForTrip = [];          // cautions applied to the current trip (converted to trip km)
 var tsrRawForTrip = [];       // as returned by the server
 var TSR_API = '/api/division/tsr';
@@ -168,13 +170,17 @@ function finishAnalysis() {
         tsrForChart = tsrForTrip;
 
         showResults(stats, halts);
-        renderStationTable(stationReadings(tripData, stationMarkers, ghatMarkers));
-        renderSectionalTimes(sectionalTimes(tripData, stationMarkers, halts), getDirection());
-        renderPSRCompliance(psrCompliance(tripData, effectivePSR, getTrainType()));
-        renderTripTSR(tsrForTrip, tsrRawForTrip.length);
+        var readings = stationReadings(tripData, stationMarkers, ghatMarkers);
+        var secTimes = sectionalTimes(tripData, stationMarkers, halts);
+        var zones = psrCompliance(tripData, effectivePSR, getTrainType());
         var isDN = getDirection() === 'DN';
-        renderHaltAnalysis(halts, haltApproachProfiles(tripData, halts, stationMarkers, signalMarkers, ghatMarkers,
-            { lookAheadKm: isDN ? 0.75 : 0.4, bankerAtRear: isDN }), getDirection());
+        var profiles = haltApproachProfiles(tripData, halts, stationMarkers, signalMarkers, ghatMarkers, { lookAheadKm: isDN ? 0.75 : 0.4, bankerAtRear: isDN });
+        renderStationTable(readings);
+        renderSectionalTimes(secTimes, getDirection());
+        renderPSRCompliance(zones);
+        renderTripTSR(tsrForTrip, tsrRawForTrip.length);
+        renderHaltAnalysis(halts, profiles, getDirection());
+        lastResults = { stats: stats, halts: halts, readings: readings, secTimes: secTimes, zones: zones, profiles: profiles, tsr: tsrForTrip, isDN: isDN };
         renderCharts(tripData, halts, effectivePSR, stationMarkers, signalMarkers, ghatMarkers);
         hideLoading();
         document.getElementById('inputSection').classList.add('collapsed');
@@ -464,7 +470,7 @@ function analyseTripRow(i) {
     setDirection(v.dir);
     document.getElementById('trainNo').value = v.train;
     document.getElementById('load').value = v.load;
-    if (v.driver) document.getElementById('cmsId').value = v.driver;
+    if (v.driver) { document.getElementById('cmsId').value = v.driver; lookupStaff(v.driver).then(applyStaff); }
     document.getElementById('tripDate').value = t.isoDate;
     document.getElementById('tripStart').value = t.depTime;
     document.getElementById('tripEnd').value = t.arrTime;
@@ -715,4 +721,129 @@ function addTsrManual() {
             ['tsrFromMast', 'tsrToMast', 'tsrSpeed'].forEach(function(id) { document.getElementById(id).value = ''; });
             loadTsrCard(); if (tripList.length) fillTripTableTSR();
         }).catch(function(e) { alert('Could not save: ' + e.message); });
+}
+
+
+// ── Driver lookup (CMS / HRMS id → name, designation, nominated CLI) ──
+var staffCache = {};
+function lookupStaff(cms) {
+    cms = (cms || '').trim().toUpperCase();
+    if (!cms) return Promise.resolve(null);
+    if (staffCache[cms]) return Promise.resolve(staffCache[cms]);
+    return fetch((window.GHAT_API || '/api/division/ghat-spm') + '/staff?cms=' + encodeURIComponent(cms), { credentials: 'same-origin' })
+        .then(function(r) { return r.ok ? r.json() : null; }).then(function(j) { if (j && j.found) staffCache[cms] = j; return (j && j.found) ? j : null; }).catch(function() { return null; });
+}
+// Only loco-pilot grades drive the banker; an ALP / Sr.ALP / shunter / motorman
+// id fills the designation (so the CLI sees why) but not the driver name.
+var LP_CODES = ['LP_GHAT', 'LPM', 'LPP', 'LPG'];
+function applyStaff(j) {
+    var name = document.getElementById('crewName'), desig = document.getElementById('crewDesig'), cli = document.getElementById('nominatedCli');
+    if (!j) { name.value = ''; desig.value = ''; cli.value = ''; name.placeholder = 'Not found in staff master'; return; }
+    var isLP = LP_CODES.indexOf(String(j.designation_code || '').toUpperCase()) !== -1;
+    desig.value = j.designation || '';
+    desig.style.color = isLP ? '' : 'var(--red)';
+    if (isLP) { name.value = j.name; name.placeholder = 'Auto from ID'; }
+    else { name.value = ''; name.placeholder = (j.designation || 'Not a loco pilot') + ' — not a ghat LP'; }
+    cli.value = (j.cli && j.cli.name) ? j.cli.name : '';
+}
+(function bindCms() {
+    var el = document.getElementById('cmsId'); if (!el) return;
+    el.addEventListener('change', function() { lookupStaff(el.value).then(applyStaff); });
+})();
+
+// ── PDF ──
+function reportPayload() {
+    var R = lastResults; if (!R || !tripData) return null;
+    var a = tripData.anchor || {};
+    var h = {
+        section: (typeof currentSection !== 'undefined' && currentSection) ? currentSection : 'KSRA-IGP',
+        direction: getDirection(), route: document.getElementById('fromStation').value + ' to ' + document.getElementById('toStation').value,
+        train: document.getElementById('trainNo').value.trim() || 'LE', trainType: getTrainType(), load: document.getElementById('load').value.trim(),
+        loco: document.getElementById('locoNo').value.trim(), driverCms: document.getElementById('cmsId').value.trim(), driverName: document.getElementById('crewName').value,
+        driverDesig: document.getElementById('crewDesig').value, cli: document.getElementById('nominatedCli').value.trim(), analysedBy: document.getElementById('analyzedBy').value.trim(),
+        date: tripData[0].date.split('/').reverse().map(function(x, i) { return i === 0 ? '20' + x : x; }).join('-'),
+        depEntered: a.reqStart ? a.reqStart.slice(0, 5) : '', arrEntered: a.reqEnd ? a.reqEnd.slice(0, 5) : '',
+        spm: (parsedData && parsedData.metadata.spmMake) || 'Medha', fileName: (parsedData && parsedData.metadata.fileName) || ''
+    };
+    var w = (typeof wttRow === 'function' && /^\d+$/.test(h.train)) ? wttRow(h.train, h.direction, R.secTimes.total ? R.secTimes.total.from : '', R.secTimes.total ? R.secTimes.total.to : '') : null;
+    if (w && w.note) h.trainName = w.note;
+    var st = R.stats, haltSec = R.halts.reduce(function(s2, x) { return s2 + x.duration; }, 0);
+    var stats = { depTime: st.depTime, arrTime: st.arrTime, totalDist: st.totalDist, runningTime: fmtSec(st.totalSeconds), maxSpeed: st.maxSpeed, avgSpeed: st.avgSpeed,
+        halts: R.halts.length, haltTime: haltSec ? fmtDur(haltSec) : '-', stoodAfter: (a.arrivalGapSec != null && isFinite(a.arrivalGapSec)) ? fmtDur(a.arrivalGapSec) : '-', maxAmps: Math.max.apply(null, tripData.map(function(r) { return r.amps || 0; })) };
+    var mmss = function(sec) { var m = Math.floor(sec / 60), s2 = Math.round(sec % 60); return m + ':' + (s2 < 10 ? '0' : '') + s2; };
+    var isCoaching = /^\d+$/.test(h.train), rows = R.secTimes.sections.concat(R.secTimes.total ? [R.secTimes.total] : []);
+    var sections = rows.map(function(s2) {
+        var wm = (isCoaching && typeof wttMinutes === 'function') ? wttMinutes(h.train, h.direction, s2.from, s2.to) : null;
+        var diff = wm !== null ? Math.round(s2.elapsedSec - wm * 60) : null;
+        return { section: s2.from + ' → ' + s2.to, from: s2.fromTime, to: s2.toTime, elapsed: mmss(s2.elapsedSec), stood: s2.halts ? mmss(s2.haltSec) + ' (' + s2.halts + ')' : '-', moving: mmss(s2.movingSec), wtt: wm !== null ? mmss(wm * 60) : '-', diff: diff === null ? '-' : ((diff > 0 ? '+' : '-') + mmss(Math.abs(diff))) };
+    });
+    var wttNote = ''; if (w) wttNote = 'WTT dep ' + w.dep + ' arr ' + w.arr + ' (' + w.minutes + ' min)'; else if (isCoaching) wttNote = 'no WTT timing on file'; else wttNote = 'goods / LE: actuals only';
+    var ah = tripData.attachHalts, dp = R.isDN ? departureProfile(tripData) : null;
+    var byNum = {}; R.profiles.forEach(function(p) { byNum[p.num] = p; });
+    return {
+        header: h, stats: stats, warnings: a.warnings || [],
+        stations: R.readings.map(function(r) { return { name: r.name, note: r.note, km: r.tripDist.toFixed(2), time: r.time, speed: r.speed, ohe: r.oheKV != null ? r.oheKV.toFixed(1) : '-', amps: r.amps }; }),
+        sections: sections, wttNote: wttNote,
+        compliance: R.zones.map(function(z) { return { zone: z.from.toFixed(2) + ' – ' + z.to.toFixed(2), section: z.section, limit: z.limitLabel + (z.limit === 60 ? ' (MPS)' : '') + (z.tsr ? ' TSR ' + z.tsr.id : ''), max: z.maxSpeed === null ? '-' : z.maxSpeed, excess: z.excess ? '+' + z.excess : '-', over: z.overM ? z.overM + ' m / ' + z.overSec + ' s' : '-', verdict: z.verdict }; }),
+        tsr: R.tsr.map(function(t) { return { id: t.id, line: (t.line || '') + (t.advisoryLine ? ' (middle)' : ''), mast: t.mast, km: t.from.toFixed(2) + ' – ' + t.to.toFixed(2), limit: t.advisory ? (t.type === 'OHS_WF' ? 'OHS / WF' : t.type.toLowerCase()) : t.speed + ' kmph', window: t.window || 'all day', reason: t.reason || t.remarks || '' }; }),
+        attach: (R.isDN && ah) ? { line: ah.halts.length ? 'Banker stopped at ' + ah.halts.map(function(x) { return x.rearM + ' m'; }).join(', ') + ' in rear of the Train. Final approach ' + ah.halts[0].creepMaxKmph + ' kmph' + (ah.halts[0].creepMaxKmph > ANCHOR.ATTACH_FINAL_MAX_KMPH ? ' (limit ' + ANCHOR.ATTACH_FINAL_MAX_KMPH + ')' : '') : 'No banker stops in the last ' + ah.lookbackM + ' m before departure',
+            summary: 'Attached and stood ' + fmtDur(ah.attachedStoodSec) + ' before moving off.', rows: ah.halts.slice().reverse().map(function(x, i, arr) { return { time: x.time, rear: x.rearM + ' m', stood: fmtDur(x.stoodSec), creep: x.creepM + ' m' + (i === arr.length - 1 ? ' (onto train)' : ''), creepMax: x.creepMaxKmph }; }) } : null,
+        depart: dp ? { cols: dp.rows.map(function(r) { return r.m; }), amps: dp.rows.map(function(r) { return r.amps; }), speed: dp.rows.map(function(r) { return r.speed; }), secs: dp.rows.map(function(r) { return r.secs; }) } : null,
+        halts: R.halts.map(function(x) { var p = byNum[x.num]; return { num: x.num, place: p ? p.label : 'km ' + x.dist.toFixed(2), time: x.time, stood: fmtDur(x.duration) + (x.stops > 1 ? ' (' + x.stops + ' stops, ' + x.creepM + ' m creep)' : ''), km: x.dist.toFixed(3), profile: x.profile,
+            approach: p ? { cols: p.cols.map(function(c) { return c.m; }), speed: p.cols.map(function(c) { return c.speed === null ? '-' : c.speed; }), amps: p.cols.map(function(c) { return c.amps === null ? '-' : c.amps; }) } : null }; }),
+        charts: exportChartsForPrint()
+    };
+}
+
+function requestPdf(payload) {
+    return fetch((window.GHAT_API || '/api/division/ghat-spm') + '/report', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify(payload) })
+        .then(function(r) {
+            if (!r.ok) return r.json().then(function(j) { throw new Error(j.error || ('HTTP ' + r.status)); });
+            var cd = r.headers.get('Content-Disposition') || '', m = /filename="([^"]+)"/.exec(cd);
+            return r.blob().then(function(b) { return { blob: b, name: m ? m[1] : 'ghat-spm-report.pdf' }; });
+        });
+}
+function downloadBlob(blob, name) {
+    var url = URL.createObjectURL(blob), a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click();
+    setTimeout(function() { URL.revokeObjectURL(url); a.remove(); }, 2000);
+}
+function saveTripPdf() {
+    var msg = document.getElementById('pdfMsg'); msg.textContent = 'Building PDF…';
+    var payload = reportPayload(); if (!payload) { msg.textContent = 'Analyse a trip first'; return; }
+    requestPdf(payload).then(function(f) { downloadBlob(f.blob, f.name); msg.textContent = 'Saved ' + f.name; }).catch(function(e) { msg.textContent = 'PDF failed: ' + e.message; });
+}
+
+// Analyse every ticked row in turn and save one PDF each. Sequential: the
+// page has one set of charts, so each trip is rendered, exported, then next.
+function analyseAllPdf() {
+    var rows = [].map.call(document.querySelectorAll('#tripTable .tt-sel:checked'), function(cb) { return parseInt(cb.dataset.i, 10); });
+    var msg = document.getElementById('allPdfMsg');
+    if (!rows.length) { msg.textContent = 'No rows ticked'; return; }
+    var done = 0, failed = [];
+    var next = function() {
+        if (!rows.length) { msg.textContent = 'Done: ' + done + ' PDF' + (done === 1 ? '' : 's') + (failed.length ? '; failed rows ' + failed.join(', ') : ''); return; }
+        var i = rows.shift(); msg.textContent = 'Row ' + (i + 1) + ': analysing…';
+        var v = tripRowValues(i);
+        var go = function() {
+            analyseTripRowAsync(i).then(function() {
+                var payload = reportPayload(); if (!payload) throw new Error('no results');
+                return requestPdf(payload);
+            }).then(function(f) { downloadBlob(f.blob, f.name); done++; next(); })
+              .catch(function(e) { failed.push(i + 1); console.error('row', i, e); next(); });
+        };
+        if (v.driver) lookupStaff(v.driver).then(function(j) { applyStaff(j); go(); }); else go();
+    };
+    next();
+}
+// analyseTripRow() that resolves when the results are on the page
+function analyseTripRowAsync(i) {
+    return new Promise(function(resolve, reject) {
+        var t0 = Date.now(), before = lastResults;
+        analyseTripRow(i);
+        (function wait() {
+            if (lastResults && lastResults !== before) return resolve();
+            if (Date.now() - t0 > 20000) return reject(new Error('analysis timeout'));
+            setTimeout(wait, 100);
+        })();
+    });
 }
