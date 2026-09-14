@@ -51,9 +51,14 @@ async function handleFile(file) {
     });
 
     try {
-        if (ext === 'txt') parsedData = parseTXT(await file.text());
-        else if (ext === 'xlsx' || ext === 'xls') parsedData = parseExcel(await file.arrayBuffer(), file.name);
-        else if (ext === 'csv') parsedData = parseCSV(await file.text());
+        var info = document.getElementById('fileInfo');
+        info.classList.add('visible');
+        info.innerHTML = '<div><span class="fi-label">Reading</span> <span class="fi-value">' + file.name + ' (' + (file.size / 1048576).toFixed(1) + ' MB)…</span></div>';
+        var t0 = Date.now();
+        parsedData = await parseInWorker(file, ext, function(p) {
+            info.innerHTML = '<div><span class="fi-label">' + (p.stage === 'transferring' ? 'Loading ' + p.rows.toLocaleString() + ' rows' : 'Parsing') + '</span> <span class="fi-value">' + file.name + '…</span></div>';
+        });
+        parsedData.metadata.loadMs = Date.now() - t0;
 
         // Determine if full file
         if (parsedData) {
@@ -85,6 +90,7 @@ function showFileInfo() {
     if (m.shed) h += '<div><span class="fi-label">Shed:</span> <span class="fi-value">' + m.shed + '</span></div>';
     if (m.dates && m.dates.length) h += '<div><span class="fi-label">Date(s):</span> <span class="fi-value">' + m.dates.join(', ') + '</span></div>';
     if (r.length > 0) h += '<div><span class="fi-label">Time:</span> <span class="fi-value">' + r[0].time + ' - ' + r[r.length - 1].time + '</span></div>';
+    if (m.loadMs) h += '<div><span class="fi-label">Loaded in:</span> <span class="fi-value">' + (m.loadMs / 1000).toFixed(1) + ' s' + (m.parseMs ? ' (parse ' + (m.parseMs / 1000).toFixed(1) + ' s)' : '') + '</span></div>';
     if (isFullFile && m.startEvents) h += '<div style="margin-top:6px"><span class="fi-accent">START events: ' + m.startEvents.length + '</span></div>';
 
     // Auto-fill loco number
@@ -109,6 +115,43 @@ function showFileInfo() {
     } else {
         ts.classList.remove('visible');
     }
+}
+
+// Rebuild row objects from the worker's typed columns (~0.5 s per million rows)
+function unpackColumns(metadata, c) {
+    var rows = new Array(c.n), pad = function(v) { return v < 10 ? '0' + v : '' + v; };
+    for (var i = 0; i < c.n; i++) {
+        var t = c.tSec[i];
+        rows[i] = { date: c.dates[c.dIdx[i]], time: pad(Math.floor(t / 3600)) + ':' + pad(Math.floor(t % 3600 / 60)) + ':' + pad(t % 60),
+                    speed: c.speed[i], distMeters: c.dist[i], oheKV: Math.round(c.kv[i] * 10) / 10, amps: c.amps[i], event: c.events[c.ev[i]] };
+    }
+    return { metadata: metadata, rows: rows };
+}
+
+// ── Parse off the main thread (Web Worker); falls back to inline parsing ──
+function parseInWorker(file, ext, onProgress) {
+    var inline = async function() {
+        if (ext === 'txt') return parseTXT(await file.text());
+        if (ext === 'xlsx' || ext === 'xls') return parseExcel(await file.arrayBuffer(), file.name);
+        if (ext === 'csv') return parseCSV(await file.text());
+        throw new Error('Unsupported file type: ' + ext);
+    };
+    if (typeof Worker === 'undefined') return inline();
+    return new Promise(function(resolve, reject) {
+        var w;
+        try { w = new Worker('js/parser-worker.js'); } catch (e) { return inline().then(resolve, reject); }
+        var fallback = function(err) { console.warn('parser worker failed, parsing inline:', err); w.terminate(); inline().then(resolve, reject); };
+        w.onerror = function(e) { fallback(e.message || e); };
+        w.onmessage = function(e) {
+            var msg = e.data;
+            if (msg.type === 'progress') { if (onProgress) onProgress(msg); return; }
+            if (msg.type === 'error') { w.terminate(); reject(new Error(msg.message)); return; }
+            if (msg.type === 'done') { w.terminate(); resolve(msg.parsed || unpackColumns(msg.metadata, msg.cols)); }
+        };
+        var send = function(payload, transfer) { try { w.postMessage(payload, transfer || []); } catch (e) { fallback(e); } };
+        if (ext === 'xlsx' || ext === 'xls') file.arrayBuffer().then(function(buf) { send({ ext: ext, name: file.name, size: file.size, buffer: buf }, [buf]); }, fallback);
+        else file.text().then(function(text) { send({ ext: ext, name: file.name, size: file.size, text: text }); }, fallback);
+    });
 }
 
 // ── Run Analysis ──
