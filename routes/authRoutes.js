@@ -38,7 +38,7 @@ router.post('/login', async (req, res) => {
 
     // Look up user in the specified realm
     const [rows] = await conn.query(
-      'SELECT id, username, password, role, full_name, office, realm, div_role, div_office_code, can_access_sub_spm, training_center_id, cli_id, must_change_password FROM users WHERE username = ? AND realm = ? LIMIT 1',
+      'SELECT id, username, password, role, full_name, office, realm, div_role, div_office_code, clihq_desk, can_access_sub_spm, training_center_id, cli_id, must_change_password FROM users WHERE username = ? AND realm = ? LIMIT 1',
 
       [username, realm]
     );
@@ -83,6 +83,9 @@ router.post('/login', async (req, res) => {
       // Division-specific fields
       div_role: user.div_role,
       div_office_code: user.div_office_code,
+      // Which CLI-HQ desk (ML/DSL/SUB) this login writes notes for. Kept off
+      // div_office_code because that value is read by training letters.
+      clihq_desk: user.clihq_desk || null,
       can_access_sub_spm: !!user.can_access_sub_spm,
       training_center_id: user.training_center_id || null,
       // Which CLI this login IS. Bulk-generated lobby-CLI accounts carry it, so

@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BBTRO | CLI (HQ) — Notes Desk</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,wght@0,400;0,600;0,700&family=Archivo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/div/css/ssehq-shell.css">
+</head>
+<body>
+
+<header class="appbar">
+    <a class="brand" href="/div/clihq.html" data-keep-desk><span class="mark">&#128196;</span>
+        <span><b>CLI (HQ)</b><small id="deskTag">Notes desk</small></span></a>
+    <span class="spacer"></span>
+    <span class="who" id="who"></span>
+    <a class="back" href="/div/" id="dashLink">&larr; Division dashboard</a>
+    <a class="back" href="/api/logout">Sign out</a>
+</header>
+
+<main class="stage home">
+    <nav class="sidebar">
+        <h4>Notes</h4>
+        <a class="on" href="/div/clihq.html" data-keep-desk><span class="ic">&#9632;</span>Dashboard</a>
+        <a href="/div/clihq-note.html" data-keep-desk><span class="ic">&#128221;</span>Note</a>
+        <a href="/div/clihq-note.html?kind=award" data-keep-desk><span class="ic">&#127942;</span>Award note</a>
+        <a href="/div/clihq-letter.html" data-keep-desk><span class="ic">&#9993;</span>Warning letter</a>
+        <a href="/div/documents.html?category=CLI_HQ_NOTE"><span class="ic">&#128193;</span>Filed notes</a>
+
+        <h4>Desk</h4>
+        <div id="deskSwitch" style="padding:4px 14px 8px;display:none">
+            <select id="deskSel" class="wide" style="width:100%"></select>
+        </div>
+    </nav>
+
+    <section class="board">
+        <h1 id="h1">CLI (HQ) notes</h1>
+        <div class="sub" id="sub">Loading&hellip;</div>
+
+        <div class="tiles" id="tiles"></div>
+
+        <div class="cols">
+            <div class="card2">
+                <h3>Recent notes
+                    <a class="more" href="/div/clihq-note.html" data-keep-desk>New &rarr;</a></h3>
+                <div class="bd2" id="notes"><div class="none2">Loading&hellip;</div></div>
+            </div>
+            <div class="card2">
+                <h3>Recent warning letters
+                    <a class="more" href="/div/clihq-letter.html" data-keep-desk>New &rarr;</a></h3>
+                <div class="bd2" id="letters"><div class="none2">Loading&hellip;</div></div>
+            </div>
+        </div>
+    </section>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script src="/div/js/clihq-shell.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = ClihqShell.esc;
+const fmtDate = (v) => {
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(v || ''));
+    return m ? `${m[3]}.${m[2]}.${m[1]}` : '';
+};
+const Q = ClihqShell.apiQuery ? '?' + ClihqShell.apiQuery : '';
+const SS = '/api/division/ssehq/clihq';
+async function get(path) {
+    const res = await fetch(path, { credentials: 'same-origin' });
+    if (res.status === 401) { window.location = '/'; throw new Error('Session expired'); }
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error || `${path} → ${res.status}`);
+    return body;
+}
+function tiles(d) {
+    const t = [
+        { n: d.this_month, l: 'This month', x: `${d.draft} still draft`, href: '/div/clihq-note.html' },
+        { n: d.notes,   l: 'Notes',           x: 'put up for action', href: '/div/clihq-note.html' },
+        { n: d.awards,  l: 'Award notes',     x: 'recommendations',  href: '/div/clihq-note.html?kind=award' },
+        { n: d.letters, l: 'Warning letters', x: 'issued to staff',  href: '/div/clihq-letter.html' },
+    ];
+    $('tiles').innerHTML = t.map((x) => `<a class="tile" href="${x.href}${Q ? (x.href.includes('?') ? '&' : '?') + ClihqShell.apiQuery : ''}">` +
+        `<div class="n">${esc(x.n)}</div><div class="l">${esc(x.l)}</div><div class="x">${esc(x.x)}</div></a>`).join('');
+}
+function lines(list, page) {
+    if (!list.length) return '<div class="none2">Nothing yet.</div>';
+    return list.map((r) => `
+        <a class="line" href="${page}?id=${r.id}${Q ? '&' + ClihqShell.apiQuery : ''}">
+            <span class="k">${esc(r.number || '#' + r.id)}</span>
+            <span class="d">${esc(r.addressee_name || r.subject_text || (r.note_kind === 'award' ? 'Award note' : ''))}</span>
+            <span class="pill ${r.status === 'final' ? 'green' : 'grey'}">${r.status === 'final' ? 'Filed' : 'Draft'}</span>
+            <span class="r">${esc(fmtDate(r.report_date))}</span>
+        </a>`).join('');
+}
+(async function boot() {
+    let cfg;
+    try {
+        cfg = await get(`${SS}/config${Q}`);
+    } catch (e) {
+        document.body.innerHTML = `<div class="bootfail"><h3>CLI (HQ) notes could not start</h3>
+            <p>The portal could not confirm your access.</p><div class="why">${esc(e.message)}</div></div>`;
+        return;
+    }
+    const u = cfg.user;
+    $('who').innerHTML = `<b>${esc(u.full_name || u.username)}</b><br>${esc(u.div_role)}`;
+    $('sub').textContent = new Date().toLocaleDateString('en-GB',
+        { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    const desk = ClihqShell.applyConfig(cfg);
+    if (!desk) return;                       // chooser is up
+    $('h1').textContent = cfg.desks[desk].label;
+    // An unbound admin can switch desks from here; a desk-bound account cannot.
+    if (!u.clihq_desk) {
+        $('deskSwitch').style.display = '';
+        $('deskSel').innerHTML = Object.keys(cfg.desks).map((k) =>
+            `<option value="${k}"${k === desk ? ' selected' : ''}>${esc(cfg.desks[k].label)}</option>`).join('');
+        $('deskSel').onchange = () => { window.location.search = 'desk=' + $('deskSel').value; };
+    }
+    try {
+        const d = await get(`${SS}/dashboard${Q}`);
+        tiles(d);
+        $('notes').innerHTML = lines(d.recent.filter((r) => r.note_kind !== 'warning'), '/div/clihq-note.html');
+        $('letters').innerHTML = lines(d.recent.filter((r) => r.note_kind === 'warning'), '/div/clihq-letter.html');
+    } catch (e) {
+        $('notes').innerHTML = $('letters').innerHTML = `<div class="none2">Could not load — ${esc(e.message)}</div>`;
+    }
+})();
+</script>
+</body>
+</html>

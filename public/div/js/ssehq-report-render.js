@@ -275,6 +275,169 @@
         CREDIT;
     }
 
+    // ── CLI (HQ) notes — ML / DSL / SUB desks ──────────────────────────────
+    /* Everything that differs between the three desks is data here, taken
+     * from data/NOTE FORMATS.docx (ML), Note format-dsl.docx (DSL) and
+     * NOTE FORMAT-sub.docx (SUB): the letterhead variant, the number series,
+     * how the date line is labelled and punctuated, and the default signatory
+     * and approval chain per kind. The defaults are starting values the desk
+     * edits on the form; the letterhead and date style are fixed per desk.
+     *
+     * `award` and `warning` for DSL and SUB have no sample of their own, so
+     * they inherit that desk's note signatory and the ML letter's copies —
+     * the desk corrects them on the form if its practice differs. */
+    var LETTERHEAD = {
+        std: '<td class="l deva"><b>मध्य रेल</b></td>' +
+             '<td class="r deva">मंडल कार्यालय<br>व. म. वि. इं. (क. च. स्टॉक/परि)<br>छ. शि. म. ट. मुंबई</td>',
+        dsl: '<td class="l deva"><b>मध्य रेल</b></td>' +
+             '<td class="r deva">मंडल कार्यालय<br>वरि.मं.वि.इं(क.च.स्टाक/परि)<br>मुंबई.छ.शि.म.ट</td>',
+    };
+    var LETTER_COPIES = 'C/- DRM (P), for information and necessary action.\n' +
+                        'C/- Sr. CC CSMT, for information and necessary action.';
+    var LETTER_SIGNING = '(RAHUL KR MISHRA)\nDEE TRO BB';
+    var CLIHQ_DESKS = {
+        ML: {
+            label: 'CLI (HQ) Mainline', letterhead: 'std', series: 'BB.TRSO.ESTB.',
+            dateLabel: 'Date:', dateSep: '.',
+            defaults: {
+                note:    { closing: 'Put for necessary action please.', signing: 'CLI(HQ)',
+                           forwarding: 'ADEE/TRO\nDEE/TRO\nSr. DEE/TRO' },
+                award:   { closing: 'Put up for necessary action please.', signing: 'CLI (HQ)/CSMT',
+                           forwarding: 'DEE/TRO/BB :\nSR DEE TRO/BB :\nDY CEE OP :\nCEE OP :' },
+                warning: { closing: '', signing: LETTER_SIGNING, forwarding: LETTER_COPIES },
+            },
+        },
+        DSL: {
+            label: 'CLI (HQ) Diesel', letterhead: 'dsl', series: 'BB.E.104.OP.VOL1.',
+            dateLabel: 'दिनांक:', dateSep: '.',
+            defaults: {
+                note:    { closing: 'Put up for necessary action please.', signing: 'CLI HQ/CSMT',
+                           forwarding: 'ADEE (TRS-O) BB\nDEE (TRS-O) BB' },
+                award:   { closing: 'Put up for necessary action please.', signing: 'CLI HQ/CSMT',
+                           forwarding: 'ADEE (TRS-O) BB\nDEE (TRS-O) BB' },
+                warning: { closing: '', signing: LETTER_SIGNING, forwarding: LETTER_COPIES },
+            },
+        },
+        SUB: {
+            label: 'CLI (HQ) Suburban', letterhead: 'std', series: 'BB.TRSO.ESTB.',
+            dateLabel: 'Date:', dateSep: '-',
+            defaults: {
+                note:    { closing: 'Put up for necessary action please.', signing: 'CLI / HQ',
+                           forwarding: 'ADEE (TRO)\nSr. DEE (TRO)' },
+                award:   { closing: 'Put up for necessary action please.', signing: 'CLI / HQ',
+                           forwarding: 'ADEE (TRO)\nSr. DEE (TRO)' },
+                warning: { closing: '', signing: LETTER_SIGNING, forwarding: LETTER_COPIES },
+            },
+        },
+    };
+    function deskOf(n) { return CLIHQ_DESKS[n.desk] || CLIHQ_DESKS.ML; }
+    function deskDate(d, v) {
+        var s = fmtDate(v);
+        return d.dateSep === '-' ? s.replace(/\./g, '-') : s;
+    }
+
+    /* The staff table the DSL sample carries inside the note: Sr No / Name /
+     * PF No. / Desg/Stn. The serial is positional. */
+    function staffTable(rows) {
+        if (typeof rows === 'string') { try { rows = JSON.parse(rows); } catch (e) { rows = null; } }
+        if (!Array.isArray(rows) || !rows.length) return '';
+        return '<table class="st"><thead><tr><th class="n">Sr No</th><th>Name</th>' +
+               '<th>PF No.</th><th>Desg/Stn.</th></tr></thead><tbody>' +
+               rows.map(function (r, i) {
+                   return '<tr><td class="n">' + (i + 1) + '</td><td>' + esc(r.name) + '</td>' +
+                          '<td>' + esc(r.pf_number) + '</td><td>' + esc(r.designation_station) + '</td></tr>';
+               }).join('') + '</tbody></table>';
+    }
+    /* Where the table goes: at a {{staff}} line if the desk put one, else
+     * after the first paragraph — which is where the sample has it. */
+    function bodyWithStaff(body, rows, opts) {
+        var table = staffTable(rows);
+        var text = String(body || '');
+        if (!has(text)) {
+            return (opts.placeholders
+                ? '<p class="para"><span class="ph">the note — what happened, and what is being put up</span></p>' : '') + table;
+        }
+        if (/\{\{\s*staff\s*\}\}/i.test(text)) {
+            var parts = text.split(/\{\{\s*staff\s*\}\}/i);
+            return paras(parts[0]) + table + paras(parts.slice(1).join(''));
+        }
+        if (!table) return paras(text);
+        var ps = text.split(/\r?\n\s*\r?\n/);
+        return paras(ps[0]) + table + paras(ps.slice(1).join('\n\n'));
+    }
+
+    function cliNoteSubject(n) {
+        if (has(n.subject_text)) return n.subject_text;
+        var body = String(n.body_text || '').replace(/\s+/g, ' ').trim();
+        return body ? body.slice(0, 140) + (body.length > 140 ? '…' : '')
+                    : (n.note_kind === 'award' ? 'Award note' : 'Note');
+    }
+
+    function renderCliNoteSheet(note, opts) {
+        var n = note || {};
+        opts = opts || {};
+        var d = deskOf(n);
+        var def = d.defaults[n.note_kind === 'award' ? 'award' : 'note'];
+
+        return '' +
+        '<table class="lh"><tr>' + LETTERHEAD[d.letterhead] + '</tr></table>' +
+        '<table class="noline"><tr>' +
+          '<td>No.' + val(n.note_no, opts, d.series + '__') + '</td>' +
+          '<td class="dt' + (d.dateLabel === 'Date:' ? '' : ' deva') + '">' + d.dateLabel + ' ' +
+              val(deskDate(d, n.note_date), opts) + '</td>' +
+        '</tr></table>' +
+        '<div class="title">NOTE</div>' +
+        bodyWithStaff(n.body_text, n.staff_rows, opts) +
+        (has(n.closing_text)
+            ? '<p class="para closing">' + nl2br(n.closing_text) + '</p>' : '') +
+        '<div class="sign">' + nl2br(n.signing_text || def.signing) + '</div>' +
+        (has(n.forwarding_text)
+            ? '<div class="fwd">' + nl2br(n.forwarding_text) + '</div>'
+            : (opts.placeholders ? '<div class="fwd"><span class="ph">approval chain</span></div>' : '')) +
+        CREDIT;
+    }
+
+    /* Warning letter — addressed to one staff member, printed subject, signed
+     * by an officer by name, C/- copies below. Bilingual Sr.DEE (TRS-O)
+     * letterhead from the ML sample. */
+    function cliLetterSubject(n) {
+        if (has(n.subject_text)) return n.subject_text;
+        return 'Warning' + (has(n.addressee_name) ? ' — ' + n.addressee_name : '');
+    }
+
+    function renderCliLetterSheet(note, opts) {
+        var n = note || {};
+        opts = opts || {};
+        var d = deskOf(n);
+        var def = d.defaults.warning;
+
+        return '' +
+        '<table class="lh2"><tr>' +
+          '<td class="deva">वरिष्ठ मंडल विद्युत इंजीनियर,<br>कर्षण चलस्टॉक (परिचालन) कार्यालय,<br>' +
+              'छत्रपति शिवाजी महाराज टर्मिनस, मुंबई 400001</td>' +
+          '<td>Sr. Divisional Electrical Engineer<br>(TRS-O)&rsquo;s Office,<br>' +
+              'Chhatrapati Shivaji Maharaj Terminus, Mumbai 400001</td>' +
+        '</tr></table>' +
+        '<table class="noline"><tr>' +
+          '<td>NO. ' + val(n.note_no, opts, d.series + '__') + '</td>' +
+          '<td class="dt">Date: ' + val(fmtDate(n.note_date), opts) + '</td>' +
+        '</tr></table>' +
+        '<div class="addr">' +
+          val(n.addressee_name, opts, 'Shri ________') + '<br>' +
+          val(n.addressee_designation, opts, 'designation, HQ') + '<br>' +
+          'PF NO. ' + val(n.addressee_pf, opts, '________') +
+        '</div>' +
+        '<div class="sub">Subject: ' + val(n.subject_text, opts, 'Warning for ________.') + '</div>' +
+        (paras(n.body_text) || (opts.placeholders
+            ? '<p class="para"><span class="ph">the letter — what was observed, and the warning</span></p>' : '')) +
+        (has(n.closing_text) ? '<p class="para closing">' + nl2br(n.closing_text) + '</p>' : '') +
+        '<div class="sign">' + nl2br(n.signing_text || def.signing) + '</div>' +
+        (has(n.forwarding_text)
+            ? '<div class="copyto">' + nl2br(n.forwarding_text) + '</div>'
+            : (opts.placeholders ? '<div class="copyto"><span class="ph">C/- copies</span></div>' : '')) +
+        CREDIT;
+    }
+
     /* Defaults taken from the samples. Offered by the editor as starting
      * values rather than hard-coded into the renderer — a note that goes
      * somewhere else, or asks for something else, must be able to say so. */
@@ -333,6 +496,15 @@
          * account. */
         '.sheet .closing{margin-top:5mm;}',
         '.sheet .sub{margin:0 0 3.5mm;font-weight:700;}',
+        /* CLI (HQ): bilingual letter letterhead, addressee block, staff table. */
+        '.sheet table.lh2{width:100%;border-collapse:collapse;margin:0 0 4mm;}',
+        '.sheet table.lh2 td{border:none;padding:0;vertical-align:top;width:50%;font-size:11pt;line-height:1.45;}',
+        '.sheet table.lh2 td+td{text-align:right;}',
+        '.sheet .addr{margin:0 0 4mm;line-height:1.4;}',
+        '.sheet table.st{border-collapse:collapse;margin:0 0 3mm;min-width:70%;}',
+        '.sheet table.st th,.sheet table.st td{border:0.6pt solid #000;padding:1.3mm 2.5mm;vertical-align:top;text-align:left;}',
+        '.sheet table.st th{font-weight:700;background:#f0efe8;}',
+        '.sheet table.st .n{width:12mm;text-align:center;}',
         '.sheet .locoline{margin:0 0 3mm;}',
         '.sheet .hd{font-weight:700;margin:3.5mm 0 1.5mm;letter-spacing:.4px;}',
 
@@ -403,6 +575,11 @@
         renderOprSheet: renderOprSheet,
         renderNoteSheet: renderNoteSheet,
         renderOfficeSheet: renderOfficeSheet,
+        renderCliNoteSheet: renderCliNoteSheet,
+        renderCliLetterSheet: renderCliLetterSheet,
+        cliNoteSubject: cliNoteSubject,
+        cliLetterSubject: cliLetterSubject,
+        CLIHQ_DESKS: CLIHQ_DESKS,
         DEFAULT_OFFICE_CLOSING: DEFAULT_OFFICE_CLOSING,
         DEFAULT_OFFICE_FORWARDING: DEFAULT_OFFICE_FORWARDING,
         OFFICE_SIGNATORIES: OFFICE_SIGNATORIES,

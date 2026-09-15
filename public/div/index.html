@@ -363,6 +363,12 @@
                                 SSE-HQ — Shed Desk
                             </a>
                         </li>
+                        <li class="sidebar-nav-item clihq-link" style="display:none;">
+                            <a href="/div/clihq.html" class="sidebar-nav-link">
+                                <span class="icon">📄</span>
+                                CLI (HQ) — Notes Desk
+                            </a>
+                        </li>
                         <li class="sidebar-nav-item">
                             <a href="#" class="sidebar-nav-link">
                                 <span class="icon">🎓</span>
@@ -1023,8 +1029,19 @@
                         const ed = document.getElementById('signal-book-editor-link');
                         if (ed) ed.style.display = '';
                     }
-                    if (['ssehq', 'division_admin'].includes(user.div_role)) {
+                    // The three CLI-HQ desk logins are division_admin but carry
+                    // clihq_desk; the SSE-HQ desk is not theirs (the API refuses
+                    // them too — ssehqRoutes.js requireSsehq).
+                    if (user.div_role === 'ssehq' ||
+                        (user.div_role === 'division_admin' && !user.clihq_desk)) {
                         document.querySelectorAll('.ssehq-link')
+                            .forEach(el => { el.style.display = ''; });
+                    }
+                    // CLI (HQ) notes — the three HQ desks are division_admin
+                    // accounts (users.clihq_desk says which desk); any admin
+                    // may open it and pick a desk.
+                    if (user.div_role === 'division_admin') {
+                        document.querySelectorAll('.clihq-link')
                             .forEach(el => { el.style.display = ''; });
                     }
                 }

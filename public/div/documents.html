@@ -321,6 +321,7 @@ const CAT_META = {
     // server-side (folder = the letter family), so folderdate like transfers.
     CADRE_LETTER:       { label: 'Cadre Letters',       icon: '🗂', mode: 'folderdate' },
     SSE_HQ_REPORT:      { label: 'SSE-HQ Reports',       icon: '🛠️', mode: 'folderdate' },
+    CLI_HQ_NOTE:        { label: 'CLI (HQ) Notes',       icon: '📄', mode: 'folderdate' },
     PROMOTION_ORDER:    { label: 'Promotion / Demotion Orders', icon: '📈', mode: 'promotion' },
     SR_DEE_INSTRUCTION: { label: 'Sr.DEE Instructions', icon: '📋', mode: 'date' },
     CEE_OP_INSTRUCTION: { label: 'CEE-OP Instructions', icon: '📋', mode: 'date' },
@@ -346,7 +347,7 @@ const DEFAULT_PERMS = {
     success: true, role: null, canUpload: [], canUploadAny: false,
     dateTreeCategories: ['TRAINING_LETTER','INITIAL_APPOINTMENT','PROMOTION_ORDER',
                          'SR_DEE_INSTRUCTION','CEE_OP_INSTRUCTION','SAFETY_CIRCULAR','NEWS_LETTER',
-                         'E_CASE_STUDY','TRANSFER_LETTER','CADRE_LETTER','SSE_HQ_REPORT'],
+                         'E_CASE_STUDY','TRANSFER_LETTER','CADRE_LETTER','SSE_HQ_REPORT','CLI_HQ_NOTE'],
     folderConfig: {
         STUDY_MATERIAL:  { required: ['Main Line', 'Suburban'] },
         NEWS_LETTER:     { required: ['Main Line', 'Sub Urban'] },
@@ -355,10 +356,11 @@ const DEFAULT_PERMS = {
         TRANSFER_LETTER: { required: ['CSMT-SUB','KYN-SUB','PNVL-SUB','CSMT-ML','KYN-ML','PNVL-ML',
                                       'IGP','CLA','LNL','NRL','KCS','NCS','SCS','MTN','VVH'] },
         SSE_HQ_REPORT:   { optional: ['OPR','DELOGGING_NOTE','OFFICE_NOTE'] },
+        CLI_HQ_NOTE:     { optional: ['NOTE','AWARD_NOTE','WARNING_LETTER'] },
     },
     categories: ['TRAINING_LETTER','INITIAL_APPOINTMENT','TRANSFER_LETTER','PROMOTION_ORDER',
                  'SR_DEE_INSTRUCTION','CEE_OP_INSTRUCTION','SAFETY_CIRCULAR','NEWS_LETTER','E_CASE_STUDY',
-                 'STUDY_MATERIAL','MANUAL','PRESENTATION','BROCHURE','MISC','SSE_HQ_REPORT'],
+                 'STUDY_MATERIAL','MANUAL','PRESENTATION','BROCHURE','MISC','SSE_HQ_REPORT','CLI_HQ_NOTE'],
 };
 let perms = { ...DEFAULT_PERMS };
 /* Opening category. A ?category= in the URL wins when it names a real one, so

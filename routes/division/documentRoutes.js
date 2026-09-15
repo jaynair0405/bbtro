@@ -29,6 +29,7 @@ const CATEGORIES = [
   'TRAINING_LETTER', 'INITIAL_APPOINTMENT', 'PROMOTION_ORDER', 'SR_DEE_INSTRUCTION',
   'CEE_OP_INSTRUCTION', 'SAFETY_CIRCULAR', 'NEWS_LETTER', 'E_CASE_STUDY', 'STUDY_MATERIAL', 'MANUAL',
   'PRESENTATION', 'BROCHURE', 'MISC', 'TRANSFER_LETTER', 'CADRE_LETTER', 'SSE_HQ_REPORT',
+  'CLI_HQ_NOTE',
 ];
 
 // Who may upload/delete each category. Everyone logged-in can view/download.
@@ -50,6 +51,9 @@ const CATEGORY_UPLOAD_ROLES = {
   TRANSFER_LETTER:    ['office_hr', 'division_admin'],
   CADRE_LETTER:       ['office_hr', 'division_admin'],
   SSE_HQ_REPORT:       ['ssehq', 'division_admin'],
+  // CLI (HQ) ML/DSL/SUB notes. The three desks are division_admin accounts
+  // (see sql/2026-09-15_clihq_notes.sql), so no separate role yet.
+  CLI_HQ_NOTE:         ['division_admin'],
 };
 
 // Categories whose documents are organised by date (Year → Month tree).
@@ -57,7 +61,7 @@ const CATEGORY_UPLOAD_ROLES = {
 const DATE_TREE_CATEGORIES = new Set([
   'TRAINING_LETTER', 'INITIAL_APPOINTMENT', 'PROMOTION_ORDER',
   'SR_DEE_INSTRUCTION', 'CEE_OP_INSTRUCTION', 'SAFETY_CIRCULAR', 'NEWS_LETTER', 'E_CASE_STUDY',
-  'TRANSFER_LETTER', 'CADRE_LETTER', 'SSE_HQ_REPORT',
+  'TRANSFER_LETTER', 'CADRE_LETTER', 'SSE_HQ_REPORT', 'CLI_HQ_NOTE',
 ]);
 
 // Folder ("section") config per category, used for upload validation and to
@@ -81,6 +85,7 @@ const FOLDER_CONFIG = {
   // repo groups them the way the desk thinks about them.
   CADRE_LETTER: { required: ['TRANSFER', 'POSTING', 'TRAINING', 'CADRE', 'MISC'] },
   SSE_HQ_REPORT: { optional: ['OPR', 'DELOGGING_NOTE', 'OFFICE_NOTE'] },
+  CLI_HQ_NOTE:   { optional: ['NOTE', 'AWARD_NOTE', 'WARNING_LETTER'] },
 };
 
 // Validate/normalise a folder value for a category. Returns
@@ -127,6 +132,7 @@ const CATEGORY_DELETE_ROLES = {
   TRANSFER_LETTER: ['division_admin'],
   CADRE_LETTER:    ['division_admin'],
   SSE_HQ_REPORT:   ['ssehq', 'division_admin'],
+  CLI_HQ_NOTE:     ['division_admin'],
 };
 
 function canDeleteCategory(role, category) {

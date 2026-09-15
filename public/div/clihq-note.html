@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BBTRO | CLI (HQ) — Note</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,wght@0,400;0,600;0,700;1,400&family=Archivo:wght@400;500;600;700;800&family=Noto+Sans+Devanagari:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/div/css/ssehq-shell.css">
+<style>
+/* Staff table rows (the DSL sample's Sr No / Name / PF / Desg-Stn). */
+.stf { width:100%; border-collapse:collapse; margin-top:6px; }
+.stf td { padding:3px 3px 3px 0; vertical-align:top; }
+.stf td.sr { width:26px; color:#5a7099; font-size:12px; padding-top:9px; }
+.stf td.act { width:30px; }
+.stf input { width:100%; }
+</style>
+</head>
+<body>
+
+<header class="appbar">
+    <a class="brand" href="/div/clihq.html" data-keep-desk><span class="mark">&#128196;</span>
+        <span><b>CLI (HQ) Notes</b><small id="deskTag">&nbsp;</small></span></a>
+    <span class="spacer"></span>
+    <a class="back" href="/div/clihq.html" data-keep-desk>Dashboard</a>
+    <a class="back on" href="/div/clihq-note.html" data-keep-desk>Note</a>
+    <a class="back" href="/div/clihq-letter.html" data-keep-desk>Warning letter</a>
+    <a class="back" href="#" id="btnHistory">Note history</a>
+    <a class="back" href="/div/documents.html?category=CLI_HQ_NOTE">Filed notes</a>
+    <a class="back" href="/div/" id="dashLink" style="display:none">&larr; Division</a>
+    <span class="who" id="who"></span>
+    <a class="back" href="/api/logout">Sign out</a>
+</header>
+
+<nav class="statusbar">
+    <span class="fam" id="stKind">Note</span>
+    <span class="tname" id="stRef">unsaved</span>
+    <span class="chip draft" id="stChip">Draft</span>
+    <span class="spacer"></span>
+</nav>
+
+<main class="stage">
+    <section class="desk" id="desk">
+        <div class="ro-note" id="roNote"></div>
+        <div class="scroll">
+
+            <div class="panel"><h2><span class="n">1</span>Note</h2><div class="bd">
+                <div class="row">
+                    <div class="fld"><label>Kind</label>
+                        <select name="note_kind">
+                            <option value="note">Note — put up for action</option>
+                            <option value="award">Award note — recommendation</option>
+                        </select></div>
+                    <div class="fld"><label>Note No.</label>
+                        <input name="note_no" placeholder="BB.TRSO.ESTB.01"></div>
+                    <div class="fld"><label>Note date</label><input type="date" name="note_date"></div>
+                </div>
+                <div class="fld"><label>Subject <span class="hintlbl">— for filing, not printed</span></label>
+                    <input name="subject_text" placeholder="Banker 27213 — crew failed to troubleshoot, Tunnel 49">
+                    <div class="hint">Used to find the note later and to name it in Documents.
+                        Leave it blank and the opening words of the note are used instead.</div></div>
+            </div></div>
+
+            <div class="panel events-panel"><h2><span class="n">2</span>The note</h2><div class="bd">
+                <div class="fld">
+                    <textarea name="body_text" style="min-height:300px"
+                        placeholder="On 05.09.2026, Shri …, LPGhat/LNL, and ALP Shri … were booked to work Train No. 11021 …&#10;&#10;Thus, the crew failed to … resulting in detention of the train for approximately 103 minutes."></textarea>
+                    <div class="hint">A blank line starts a new paragraph. Write it as it should read
+                        on the note — nothing here is reformatted.</div></div>
+
+                <div class="fld"><label>Staff table <span class="hintlbl">— optional</span></label>
+                    <input type="hidden" name="staff_rows">
+                    <table class="stf"><tbody id="stfRows"></tbody></table>
+                    <button type="button" class="btn btn-ghost" id="stfAdd" style="margin-top:6px">&#65291; Add staff row</button>
+                    <div class="hint">Prints as Sr No / Name / PF No. / Desg-Stn. after the first paragraph.
+                        Put a line reading <b>{{staff}}</b> in the note to place it elsewhere.</div></div>
+            </div></div>
+
+            <div class="panel"><h2><span class="n">3</span>Closing &amp; signing</h2><div class="bd">
+                <div class="fld"><label>Closing request</label>
+                    <input name="closing_text" placeholder="Put up for necessary action please."></div>
+                <div class="fld"><label>Signed by</label>
+                    <input name="signing_text" placeholder="CLI(HQ)"></div>
+                <div class="fld"><label>Approval chain</label>
+                    <textarea name="forwarding_text" style="min-height:86px"></textarea>
+                    <div class="hint">One officer per line; each prints with a blank line to initial against.
+                        Changing the kind above refills these unless you have edited them.</div></div>
+            </div></div>
+
+        </div>
+        <div class="actions">
+            <button class="btn btn-ghost" id="btnNew">&#65291; New</button>
+            <button class="btn btn-ghost" id="btnPrint">&#128424; Print</button>
+            <button class="btn btn-ghost" id="btnWord">&#11015; Word</button>
+            <button class="btn btn-ghost" id="btnFiled" style="display:none">&#128196; Filed copy</button>
+            <button class="btn btn-red" id="btnDelete">Delete</button>
+            <span class="spacer" style="flex:1"></span>
+            <button class="btn btn-ghost" id="btnReopen" style="display:none">&#8617; Reopen</button>
+            <button class="btn btn-amber" id="btnSave">Save draft</button>
+            <button class="btn btn-green" id="btnFile">&#10003; File it</button>
+        </div>
+    </section>
+
+    <section class="yard">
+        <div class="preview-tag">Live note preview</div>
+        <div class="sheet" id="sheet"></div>
+    </section>
+</main>
+
+<div class="drawer-veil" id="drawerVeil"></div>
+<aside class="drawer">
+    <h3>Note history <button type="button" id="drawerClose">&times;</button></h3>
+    <div class="filters">
+        <input class="wide" id="hSearch" placeholder="Note no. or subject">
+        <select id="hStatus" class="wide">
+            <option value="">All notes</option>
+            <option value="draft">Drafts only</option>
+            <option value="final">Filed only</option>
+        </select>
+    </div>
+    <div class="list" id="hList"></div>
+</aside>
+
+<div class="modal-veil" id="modalVeil"><div class="modal">
+    <h4 id="mTitle"></h4><div id="mBody"></div>
+    <div class="btns"><button class="btn btn-ghost" id="mCancel">Cancel</button>
+        <button class="btn btn-amber" id="mOk">Confirm</button></div>
+</div></div>
+
+<div class="toast" id="toast"></div>
+
+<script src="/div/js/ssehq-report-render.js"></script>
+<script src="/div/js/ssehq-editor.js"></script>
+<script src="/div/js/clihq-shell.js"></script>
+<script>
+document.getElementById('drawerClose').onclick = function () { document.body.classList.remove('drawer-open'); };
+document.getElementById('drawerVeil').onclick = function () { document.body.classList.remove('drawer-open'); };
+
+var DESK = null;      // set from /clihq/config
+var DESKS = {};
+var $ = function (id) { return document.getElementById(id); };
+var field = function (name) { return document.querySelector('[name="' + name + '"]'); };
+
+/* ── Kind defaults ─────────────────────────────────────────────────────────
+   Closing, signatory and chain differ between a note and an award note. When
+   the kind changes, a box is refilled only if it is blank or still holds the
+   other kind's default — a chain the desk has edited is never overwritten. */
+var KIND_FIELDS = { closing_text: 'closing', signing_text: 'signing', forwarding_text: 'forwarding' };
+function deskDefaults(kind) {
+    var d = DESKS[DESK];
+    return (d && d.defaults[kind]) || { closing: '', signing: '', forwarding: '' };
+}
+function applyKind(force) {
+    var kind = field('note_kind').value;
+    var mine = deskDefaults(kind);
+    var other = deskDefaults(kind === 'award' ? 'note' : 'award');
+    Object.keys(KIND_FIELDS).forEach(function (f) {
+        var el = field(f);
+        var v = el.value.trim();
+        if (force || !v || v === other[KIND_FIELDS[f]]) el.value = mine[KIND_FIELDS[f]];
+    });
+    $('stKind').textContent = kind === 'award' ? 'Award note' : 'Note';
+    SsehqEditor.render();
+}
+
+/* ── Staff table ───────────────────────────────────────────────────────────
+   The rows live in the hidden staff_rows box as JSON, which is what is saved
+   and what the preview reads; this grid is only a way of typing into it. */
+function readRows() {
+    try { return JSON.parse(field('staff_rows').value || '[]') || []; } catch (e) { return []; }
+}
+function writeRows(rows) {
+    field('staff_rows').value = rows.length ? JSON.stringify(rows) : '';
+    SsehqEditor.setDirty(true);
+    SsehqEditor.render();
+}
+function drawRows() {
+    var rows = readRows();
+    $('stfRows').innerHTML = rows.map(function (r, i) {
+        return '<tr><td class="sr">' + (i + 1) + '</td>' +
+            '<td><input data-i="' + i + '" data-k="name" placeholder="Name" value="' + ClihqShell.esc(r.name) + '"></td>' +
+            '<td><input data-i="' + i + '" data-k="pf_number" placeholder="PF No." value="' + ClihqShell.esc(r.pf_number) + '"></td>' +
+            '<td><input data-i="' + i + '" data-k="designation_station" placeholder="Desg/Stn." value="' + ClihqShell.esc(r.designation_station) + '"></td>' +
+            '<td class="act"><button type="button" class="rowbtn rm" data-rm="' + i + '" title="Remove">&times;</button></td></tr>';
+    }).join('');
+    $('stfRows').querySelectorAll('[data-k]').forEach(function (el) {
+        el.oninput = function () {
+            var rs = readRows(); rs[Number(el.dataset.i)][el.dataset.k] = el.value; writeRows(rs);
+        };
+    });
+    $('stfRows').querySelectorAll('[data-rm]').forEach(function (el) {
+        el.onclick = function () { var rs = readRows(); rs.splice(Number(el.dataset.rm), 1); writeRows(rs); drawRows(); };
+    });
+}
+$('stfAdd').onclick = function () {
+    var rs = readRows(); rs.push({ name: '', pf_number: '', designation_station: '' });
+    writeRows(rs); drawRows();
+    var last = $('stfRows').querySelectorAll('[data-k="name"]');
+    if (last.length) last[last.length - 1].focus();
+};
+
+SsehqEditor.init({
+    kind: 'clinote',
+    api: '/api/division/ssehq/clihq/note',
+    configApi: '/api/division/ssehq/clihq/config',
+    apiQuery: ClihqShell.apiQuery,
+    label: 'Note',
+    filedIn: 'CLI (HQ) Notes',
+    bootName: 'CLI (HQ) notes',
+    dateCol: 'note_date',
+    numberCol: 'note_no',
+    numberQuery: '?kind=clinote',
+    fields: [
+        'note_kind', 'note_no', 'note_date', 'subject_text',
+        'body_text', 'staff_rows', 'closing_text', 'signing_text', 'forwarding_text',
+    ],
+    render: function (record, events, opts) {
+        record.desk = DESK;
+        return SsehqReport.renderCliNoteSheet(record, opts);
+    },
+    serverDefaultsFrom: function (cfg) {
+        DESKS = cfg.desks || {};
+        DESK = ClihqShell.applyConfig(cfg);
+        var d = deskDefaults('note');
+        field('note_no').placeholder = DESKS[DESK] ? DESKS[DESK].series + '01' : '';
+        field('note_kind').onchange = function () { applyKind(false); SsehqEditor.setDirty(true); };
+        // the dashboard's "Award note" link opens a new note already set to award
+        var wanted = new URLSearchParams(window.location.search).get('kind');
+        field('note_kind').dataset.default = wanted === 'award' ? 'award' : 'note';
+        return { closing_text: d.closing, signing_text: d.signing, forwarding_text: d.forwarding };
+    },
+    // after a load or a New: redraw the staff grid; on New, settle the kind's
+    // defaults (clearForm filled the plain-note ones)
+    afterWrite: function (record) {
+        drawRows();
+        if (!record && DESK) applyKind(false);
+        else $('stKind').textContent = (record && record.note_kind === 'award') ? 'Award note' : 'Note';
+    },
+});
+</script>
+</body>
+</html>

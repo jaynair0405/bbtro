@@ -17,7 +17,8 @@
 const SsehqReport = require('../public/div/js/ssehq-report-render.js');
 
 const {
-    renderOprSheet, renderNoteSheet, renderOfficeSheet, oprSubject, noteSubject,
+    renderOprSheet, renderNoteSheet, renderOfficeSheet, renderCliNoteSheet, renderCliLetterSheet,
+    oprSubject, noteSubject, cliNoteSubject, cliLetterSubject, CLIHQ_DESKS,
     SHEET_CSS, escapeHtml, fmtDate,
 } = SsehqReport;
 
@@ -27,6 +28,8 @@ const PAGE_MARGIN = {
     opr: '12mm 12mm 12mm 12mm',
     note: '16mm 18mm 14mm 22mm',
     office: '16mm 18mm 14mm 22mm',
+    clinote: '16mm 18mm 14mm 22mm',
+    cliletter: '16mm 18mm 14mm 22mm',
 };
 
 // The office note's letterhead is Devanagari, so its pages must pull the font.
@@ -46,6 +49,17 @@ function noteTitle(note) {
 }
 function officeTitle(note) {
     return ['Office Note', note.note_no || '#' + note.id].filter(Boolean).join(' ');
+}
+/* CLI (HQ). The desk is part of the title so the repository can tell the
+ * three desks' notes apart when they share a number series. */
+function cliDeskTag(n) { return (CLIHQ_DESKS[n.desk] ? n.desk : '') || ''; }
+function cliNoteTitle(n) {
+    return [n.note_kind === 'award' ? 'Award Note' : 'Note', cliDeskTag(n) && `CLI (HQ) ${cliDeskTag(n)}`,
+            n.note_no || '#' + n.id].filter(Boolean).join(' ');
+}
+function cliLetterTitle(n) {
+    return ['Warning Letter', cliDeskTag(n) && `CLI (HQ) ${cliDeskTag(n)}`,
+            n.note_no || '#' + n.id].filter(Boolean).join(' ');
 }
 /* An office note has no printed subject. The stored one is for filing only, so
  * the repository has something readable to list it under; falling back to the
@@ -71,6 +85,10 @@ const KIND_RENDER = {
               sheet: (r, e) => renderNoteSheet(r, e, { placeholders: false }) },
     office: { title: officeTitle, subject: officeSubject, margin: 'office',
               sheet: (r) => renderOfficeSheet(r, { placeholders: false }) },
+    clinote:   { title: cliNoteTitle,   subject: cliNoteSubject,   margin: 'clinote',
+                 sheet: (r) => renderCliNoteSheet(r, { placeholders: false }) },
+    cliletter: { title: cliLetterTitle, subject: cliLetterSubject, margin: 'cliletter',
+                 sheet: (r) => renderCliLetterSheet(r, { placeholders: false }) },
 };
 
 function renderPage(kind, rec, events) {
@@ -112,6 +130,8 @@ ${SHEET_CSS}
 const renderOprPage = (report, events) => renderPage('opr', report, events);
 const renderNotePage = (note, events) => renderPage('note', note, events);
 const renderOfficePage = (note) => renderPage('office', note, []);
+const renderCliNotePage = (note) => renderPage('clinote', note, []);
+const renderCliLetterPage = (note) => renderPage('cliletter', note, []);
 
 /**
  * Word export. The same sheet in the mso WordSection1 shell, served as
@@ -143,11 +163,13 @@ ${SHEET_CSS}
 const renderOprWord = (report, events) => renderWord('opr', report, events);
 const renderNoteWord = (note, events) => renderWord('note', note, events);
 const renderOfficeWord = (note) => renderWord('office', note, []);
+const renderCliNoteWord = (note) => renderWord('clinote', note, []);
+const renderCliLetterWord = (note) => renderWord('cliletter', note, []);
 
 module.exports = {
-    renderOprPage, renderNotePage, renderOfficePage,
-    renderOprWord, renderNoteWord, renderOfficeWord,
-    oprTitle, noteTitle, officeTitle,
-    oprSubject, noteSubject, officeSubject,
+    renderOprPage, renderNotePage, renderOfficePage, renderCliNotePage, renderCliLetterPage,
+    renderOprWord, renderNoteWord, renderOfficeWord, renderCliNoteWord, renderCliLetterWord,
+    oprTitle, noteTitle, officeTitle, cliNoteTitle, cliLetterTitle,
+    oprSubject, noteSubject, officeSubject, cliNoteSubject, cliLetterSubject,
     fmtDate,
 };

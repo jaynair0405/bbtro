@@ -37,20 +37,30 @@
  * Office Note is the third kind: a short free-text note put up for orders.
  * It has no chronology and no train/loco block, so it declares `events: null`
  * and its own `searchCols`; the shared handlers treat both as optional.
+ *
+ * CLI (HQ) notes — the ML, DSL and SUB HQ desks — ride on the same handlers:
+ *   GET    /clihq/config          desk + per-desk defaults
+ *   GET    /clihq/dashboard       ?desk=   counts + recent, per kind
+ *   GET    /clihq/note | /clihq/letter   list (?desk=&q=&from=&to=&status=)
+ *   …and the same /:id, finalize, unfinalize, print, word routes as above.
+ * Both kinds share ONE table (div_clihq_notes); `note_kind` tells a note or an
+ * award note (/clihq/note) from a warning letter (/clihq/letter). Every row is
+ * stamped with the desk it belongs to, taken from the session (users.clihq_desk)
+ * or, for an admin with no desk, from ?desk=. See sql/2026-09-15_clihq_notes.sql.
  */
 
 const express = require('express');
 const router = express.Router();
 
 const {
-    renderOprPage, renderNotePage, renderOfficePage,
-    renderOprWord, renderNoteWord, renderOfficeWord,
-    oprTitle, noteTitle, officeTitle,
-    oprSubject, noteSubject, officeSubject,
+    renderOprPage, renderNotePage, renderOfficePage, renderCliNotePage, renderCliLetterPage,
+    renderOprWord, renderNoteWord, renderOfficeWord, renderCliNoteWord, renderCliLetterWord,
+    oprTitle, noteTitle, officeTitle, cliNoteTitle, cliLetterTitle,
+    oprSubject, noteSubject, officeSubject, cliNoteSubject, cliLetterSubject,
 } = require('../../utils/ssehqReportHtml');
 const { DEFAULT_FORWARDING, DEFAULT_OPR_COPY_TO,
         DEFAULT_OFFICE_CLOSING, DEFAULT_OFFICE_FORWARDING,
-        OFFICE_SIGNATORIES, fmtDate } = require('../../public/div/js/ssehq-report-render.js');
+        OFFICE_SIGNATORIES, CLIHQ_DESKS, fmtDate } = require('../../public/div/js/ssehq-report-render.js');
 
 // ── Access ─────────────────────────────────────────────────────────────────
 // SSE-HQ reports are an HQ-level function, not a per-lobby one, so — as with
@@ -58,13 +68,34 @@ const { DEFAULT_FORWARDING, DEFAULT_OPR_COPY_TO,
 // admin-only.
 
 const ALLOWED = new Set(['ssehq', 'division_admin']);
+/* The three CLI-HQ desks (clihqmlbb, clidslhqbb, clihqsubbb) are division_admin
+ * accounts today — see the user-access review noted 2026-09-15 — so the role
+ * check is admin and the DESK, not the role, is what separates them. */
+const CLIHQ_ALLOWED = new Set(['division_admin']);
 
 function requireSsehq(req, res, next) {
     const u = req.session?.user;
-    if (!u || u.realm !== 'division' || !ALLOWED.has(u.div_role)) {
-        return res.status(403).json({ error: 'SSE-HQ access required' });
+    if (!u || u.realm !== 'division') return res.status(403).json({ error: 'SSE-HQ access required' });
+    if (req.path.startsWith('/clihq')) {
+        if (!CLIHQ_ALLOWED.has(u.div_role)) return res.status(403).json({ error: 'CLI (HQ) access required' });
+        return next();
     }
+    /* A CLI-HQ desk account is an admin only by accident of how it was
+     * created; it has no business in the SSE-HQ desk's reports. Until the
+     * role review separates them, the desk column is the fence. */
+    if (u.clihq_desk) return res.status(403).json({ error: 'Not available to a CLI (HQ) desk' });
+    if (!ALLOWED.has(u.div_role)) return res.status(403).json({ error: 'SSE-HQ access required' });
     next();
+}
+
+/* Which desk a CLI-HQ request is for: the account's own desk, else — for an
+ * admin login with none — an explicit ?desk= (or body.desk). An account WITH a
+ * desk cannot write as another one; the parameter is ignored for it. */
+function deskOf(req) {
+    const own = req.session.user?.clihq_desk;
+    if (own && CLIHQ_DESKS[own]) return own;
+    const asked = String(req.query.desk || req.body?.desk || '').toUpperCase();
+    return CLIHQ_DESKS[asked] ? asked : null;
 }
 
 const isAdmin = (req) => req.session.user?.div_role === 'division_admin';
@@ -125,7 +156,40 @@ const OFFICE_LIMITS = {
 const OFFICE_DATES = ['note_date'];
 const OFFICE_FIELDS = [...Object.keys(OFFICE_LIMITS), ...OFFICE_DATES];
 
+const CLI_LIMITS = {
+    note_no: 80, subject_text: 500,
+    staff_hrms_id: 10, addressee_name: 120, addressee_designation: 120, addressee_pf: 20,
+    body_text: 4294967295, closing_text: 255, signing_text: 255, forwarding_text: 65535,
+};
+const CLI_DATES = ['note_date'];
+// staff_rows is JSON and note_kind is fixed per kind, so neither is in LIMITS;
+// both are added to the field list explicitly.
+const CLI_FIELDS = [...Object.keys(CLI_LIMITS), ...CLI_DATES, 'staff_rows', 'note_kind'];
+
 const today = () => new Date().toISOString().slice(0, 10);
+
+/* The staff table inside a note (the DSL sample's Sr No / Name / PF / Desg-Stn).
+ * Rows with nothing in them are dropped; the serial is positional, never stored. */
+function normaliseStaffRows(rows) {
+    if (typeof rows === 'string') { try { rows = JSON.parse(rows); } catch (_) { rows = null; } }
+    if (!Array.isArray(rows)) return null;
+    const out = rows.map((r) => ({
+        name: asText(r && r.name, 120),
+        pf_number: asText(r && r.pf_number, 20),
+        designation_station: asText(r && r.designation_station, 120),
+    })).filter((r) => r.name || r.pf_number || r.designation_station);
+    return out.length ? JSON.stringify(out) : null;
+}
+
+const normaliseCli = (kinds) => (input = {}) => {
+    const out = {};
+    for (const [f, max] of Object.entries(CLI_LIMITS)) out[f] = asText(input[f], max);
+    for (const f of CLI_DATES) out[f] = asDate(input[f]);
+    out.note_date = out.note_date || today();
+    out.staff_rows = normaliseStaffRows(input.staff_rows);
+    out.note_kind = kinds.includes(input.note_kind) ? input.note_kind : kinds[0];
+    return out;
+};
 
 function normaliseOpr(input = {}) {
     const out = {};
@@ -179,6 +243,7 @@ const KIND = {
         numberCol: 'report_no',
         fields: OPR_FIELDS,
         dates: OPR_DATES,
+        category: 'SSE_HQ_REPORT',
         folder: 'OPR',
         label: 'OPR',
         normalise: normaliseOpr,
@@ -195,6 +260,7 @@ const KIND = {
         numberCol: 'note_no',
         fields: NOTE_FIELDS,
         dates: NOTE_DATES,
+        category: 'SSE_HQ_REPORT',
         folder: 'DELOGGING_NOTE',
         label: 'DElogging Note',
         normalise: normaliseNote,
@@ -214,6 +280,7 @@ const KIND = {
         numberCol: 'note_no',
         fields: OFFICE_FIELDS,
         dates: OFFICE_DATES,
+        category: 'SSE_HQ_REPORT',
         folder: 'OFFICE_NOTE',
         label: 'Office Note',
         normalise: normaliseOffice,
@@ -223,6 +290,50 @@ const KIND = {
         word: renderOfficeWord,
         // the list/search columns the other two get from train_no/loco_number
         searchCols: ['note_no', 'subject_text'],
+    },
+    /* CLI (HQ). Two kinds over one table: `where` narrows every list to the
+     * rows this kind owns, `desked` makes the handlers stamp and filter by
+     * desk, and `folder` is a function because a note and an award note file
+     * into different folders of the same category. */
+    clinote: {
+        table: 'div_clihq_notes',
+        events: null,
+        fk: null,
+        dateCol: 'note_date',
+        numberCol: 'note_no',
+        fields: CLI_FIELDS,
+        dates: CLI_DATES,
+        category: 'CLI_HQ_NOTE',
+        folder: (r) => (r.note_kind === 'award' ? 'AWARD_NOTE' : 'NOTE'),
+        label: 'CLI (HQ) Note',
+        normalise: normaliseCli(['note', 'award']),
+        title: cliNoteTitle,
+        subject: cliNoteSubject,
+        page: renderCliNotePage,
+        word: renderCliNoteWord,
+        searchCols: ['note_no', 'subject_text'],
+        where: "note_kind IN ('note','award')",
+        desked: true,
+    },
+    cliletter: {
+        table: 'div_clihq_notes',
+        events: null,
+        fk: null,
+        dateCol: 'note_date',
+        numberCol: 'note_no',
+        fields: CLI_FIELDS,
+        dates: CLI_DATES,
+        category: 'CLI_HQ_NOTE',
+        folder: 'WARNING_LETTER',
+        label: 'Warning Letter',
+        normalise: normaliseCli(['warning']),
+        title: cliLetterTitle,
+        subject: cliLetterSubject,
+        page: renderCliLetterPage,
+        word: renderCliLetterWord,
+        searchCols: ['note_no', 'subject_text', 'addressee_name', 'addressee_pf'],
+        where: "note_kind = 'warning'",
+        desked: true,
     },
 };
 
@@ -277,12 +388,33 @@ router.get('/config', (req, res) => {
     });
 });
 
+router.get('/clihq/config', (req, res) => {
+    const u = req.session.user;
+    res.json({
+        user: { username: u.username, full_name: u.full_name, div_role: u.div_role,
+                is_admin: isAdmin(req), clihq_desk: u.clihq_desk || null },
+        desk: deskOf(req),
+        desks: CLIHQ_DESKS,
+    });
+});
+
 // ── GET /next-number ───────────────────────────────────────────────────────
 // Year-wise serial, matching the samples' "BB/Tech/2" and "BB.TRSO.ESTB.01".
 // Suggested only — the desk overrides it freely, so it is not made unique.
 
 router.get('/next-number', async (req, res) => {
     try {
+        // CLI-HQ desks: each desk's own series (CLIHQ_DESKS[desk].series),
+        // counted per desk per year across all three kinds — the samples show
+        // one running number whether it is a note, an award or a letter.
+        if (req.query.kind === 'clinote' || req.query.kind === 'cliletter') {
+            const desk = deskOf(req);
+            if (!desk) return res.status(400).json({ error: 'Choose a desk first.' });
+            const [[o]] = await req.app.locals.pool.query(
+                `SELECT COUNT(*) n FROM div_clihq_notes
+                  WHERE desk = ? AND YEAR(note_date) = YEAR(CURDATE())`, [desk]);
+            return res.json({ number: CLIHQ_DESKS[desk].series + String(o.n + 1).padStart(2, '0') });
+        }
         // Office notes run on their own establishment series, not the Tech one
         // the OPR and the delogging note share.
         if (req.query.kind === 'office') {
@@ -349,6 +481,32 @@ router.get('/dashboard', async (req, res) => {
     });
   } catch (e) {
     console.error('ssehq dashboard:', e);
+    res.status(500).json({ error: 'Failed to load the dashboard' });
+  }
+});
+
+// ── GET /clihq/dashboard ───────────────────────────────────────────────────
+router.get('/clihq/dashboard', async (req, res) => {
+  try {
+    const desk = deskOf(req);
+    if (!desk) return res.status(400).json({ error: 'Choose a desk first.' });
+    const pool = req.app.locals.pool;
+    const [[c]] = await pool.query(
+      `SELECT SUM(status = 'draft') AS draft, SUM(status = 'final') AS final,
+              SUM(note_date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')) AS this_month,
+              SUM(note_kind = 'note') AS notes, SUM(note_kind = 'award') AS awards,
+              SUM(note_kind = 'warning') AS letters, COUNT(*) AS total
+         FROM div_clihq_notes WHERE desk = ?`, [desk]);
+    const [recent] = await pool.query(
+      `SELECT id, note_kind, note_no AS number, DATE_FORMAT(note_date, '%Y-%m-%d') AS report_date,
+              subject_text, addressee_name, status, document_id
+         FROM div_clihq_notes WHERE desk = ? ORDER BY note_date DESC, id DESC LIMIT 8`, [desk]);
+    const n = (v) => Number(v || 0);
+    res.json({ desk, draft: n(c.draft), final: n(c.final), this_month: n(c.this_month),
+               notes: n(c.notes), awards: n(c.awards), letters: n(c.letters), total: n(c.total),
+               recent });
+  } catch (e) {
+    console.error('clihq dashboard:', e);
     res.status(500).json({ error: 'Failed to load the dashboard' });
   }
 });
@@ -464,8 +622,13 @@ function mount(kindKey, base) {
     // list
     router.get(base, async (req, res) => {
         try {
-            const where = [];
+            const where = k.where ? [k.where] : [];
             const params = [];
+            if (k.desked) {
+                const desk = deskOf(req);
+                if (!desk) return res.status(400).json({ error: 'Choose a desk first.' });
+                where.push('desk = ?'); params.push(desk);
+            }
             if (req.query.q) {
                 const q = `%${req.query.q}%`;
                 // Office notes have no train/loco columns — each kind says what
@@ -482,6 +645,8 @@ function mount(kindKey, base) {
                 `SELECT id, ${k.numberCol} AS number,
                         DATE_FORMAT(${k.dateCol}, '%Y-%m-%d') AS report_date,
                         ${k.events ? 'train_no, loco_number' : "NULL AS train_no, NULL AS loco_number"},
+                        ${k.searchCols ? 'subject_text' : 'NULL AS subject_text'},
+                        ${k.desked ? 'desk, note_kind, addressee_name' : 'NULL AS desk, NULL AS note_kind, NULL AS addressee_name'},
                         status, document_id, created_by, updated_at
                    FROM ${k.table} ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
                   ORDER BY ${k.dateCol} DESC, id DESC LIMIT 200`, params
@@ -512,6 +677,13 @@ function mount(kindKey, base) {
         const rec = k.normalise(req.body.record);
         const events = normaliseEvents(req.body.events);
         const id = asInt(req.body.id);
+        // Desked kinds stamp the row on INSERT; an UPDATE leaves it alone, so a
+        // note can never migrate between desks by being edited.
+        let desk = null;
+        if (k.desked && !id) {
+            desk = deskOf(req);
+            if (!desk) return res.status(400).json({ error: 'Choose a desk first.' });
+        }
         let conn;
         try {
             conn = await getConnection(req);
@@ -532,10 +704,11 @@ function mount(kindKey, base) {
                     [...k.fields.map((c) => rec[c]), id]
                 );
             } else {
+                const deskCol = desk ? ', desk' : '';
                 const [result] = await conn.query(
-                    `INSERT INTO ${k.table} (${k.fields.join(',')}, status, created_by)
-                     VALUES (${k.fields.map(() => '?').join(',')}, 'draft', ?)`,
-                    [...k.fields.map((c) => rec[c]), req.session.user.username]
+                    `INSERT INTO ${k.table} (${k.fields.join(',')}, status, created_by${deskCol})
+                     VALUES (${k.fields.map(() => '?').join(',')}, 'draft', ?${desk ? ', ?' : ''})`,
+                    [...k.fields.map((c) => rec[c]), req.session.user.username, ...(desk ? [desk] : [])]
                 );
                 recordId = result.insertId;
             }
@@ -569,27 +742,34 @@ function mount(kindKey, base) {
             if (!k.events && !record.body_text) {
                 return res.status(400).json({ error: 'The note is empty — type it before filing.' });
             }
+            if (record.note_kind === 'warning' && !record.addressee_name) {
+                return res.status(400).json({ error: 'A warning letter needs an addressee before filing.' });
+            }
 
             const html = k.page(record, events);
+            const folder = typeof k.folder === 'function' ? k.folder(record) : k.folder;
 
             await conn.beginTransaction();
             const [doc] = await conn.query(
                 `INSERT INTO div_documents
                    (title, category, description, doc_date, folder, body_html,
                     language, source_type, status, header, uploaded_by)
-                 VALUES (?, 'SSE_HQ_REPORT', ?, ?, ?, ?, 'en', 'composed', 'final', ?, ?)`,
+                 VALUES (?, ?, ?, ?, ?, ?, 'en', 'composed', 'final', ?, ?)`,
                 [
                     k.title(record),
+                    k.category,
                     k.subject(record),
                     // SSE_HQ_REPORT is in DATE_TREE_CATEGORIES, so the repository
                     // files it under Year → Month by this column. The old code
                     // inserted NULL here and every report landed in "Undated".
                     record[k.dateCol],
-                    k.folder,
+                    folder,
                     html,
                     JSON.stringify({ ref_no: record[k.numberCol], kind: kindKey,
                                      train_no: record.train_no || null,
-                                     loco_number: record.loco_number || null }),
+                                     loco_number: record.loco_number || null,
+                                     desk: record.desk || null,
+                                     note_kind: record.note_kind || null }),
                     req.session.user.username,
                 ]
             );
@@ -704,6 +884,8 @@ function mount(kindKey, base) {
 mount('opr', '/opr');
 mount('note', '/delogging');
 mount('office', '/office-note');
+mount('clinote', '/clihq/note');
+mount('cliletter', '/clihq/letter');
 
 // ── GET /opr/:id/as-note ───────────────────────────────────────────────────
 // A DElogging Note prefilled from an OPR, returned UNSAVED. Both documents

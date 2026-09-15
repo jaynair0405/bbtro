@@ -40,6 +40,11 @@
     // Every call goes through here so a dropped session lands on the login page
     // instead of silently failing behind a button that then looks broken.
     function api(path, options) {
+        /* CLI (HQ) pages run on behalf of a desk. An account with its own desk
+         * needs nothing here; an admin without one carries ?desk= on every
+         * call (list, save, number, config), which the server reads from the
+         * query string whatever the method. */
+        if (CFG && CFG.apiQuery) path += (path.indexOf('?') < 0 ? '?' : '&') + CFG.apiQuery;
         var opts = options || {};
         opts.credentials = 'same-origin';
         opts.headers = Object.assign({ 'Content-Type': 'application/json' }, opts.headers || {});
@@ -89,8 +94,13 @@
     function writeForm(record) {
         CFG.fields.forEach(function (name) {
             var el = document.querySelector('[name="' + name + '"]');
-            if (el) el.value = (record && record[name] != null) ? record[name] : '';
+            if (!el) return;
+            var v = (record && record[name] != null) ? record[name] : '';
+            // A JSON column (staff_rows) comes back parsed; the box holds text.
+            if (typeof v === 'object') v = JSON.stringify(v);
+            el.value = v;
         });
+        if (typeof CFG.afterWrite === 'function') CFG.afterWrite(record);
     }
     function clearForm() {
         CFG.fields.forEach(function (name) {
@@ -113,6 +123,7 @@
             var el = document.querySelector('[name="' + field + '"]');
             if (el && !el.value) el.value = CFG.serverDefaults[field] || '';
         });
+        if (typeof CFG.afterWrite === 'function') CFG.afterWrite(null);
     }
 
     // ── Live preview ────────────────────────────────────────────────────────
@@ -402,6 +413,9 @@
                     '<div class="l2">' + escapeText(r.report_date || '') +
                     (r.train_no ? ' &middot; Train ' + escapeText(r.train_no) : '') +
                     (r.loco_number ? ' &middot; Loco ' + escapeText(r.loco_number) : '') +
+                    // notes and letters have no train/loco; show what they are about
+                    (!r.train_no && !r.loco_number && (r.addressee_name || r.subject_text)
+                        ? ' &middot; ' + escapeText(r.addressee_name || r.subject_text) : '') +
                     '</div></div>';
             }).join('');
             list.querySelectorAll('.hist-card').forEach(function (el) {
@@ -433,7 +447,7 @@
         };
         $('btnFile').onclick = function () {
             confirmModal('File this ' + CFG.label + '?',
-                '<p>It will be rendered and filed into <b>Documents &rarr; SSE-HQ Reports</b>, ' +
+                '<p>It will be rendered and filed into <b>Documents &rarr; ' + (CFG.filedIn || 'SSE-HQ Reports') + '</b>, ' +
                 'and locked against further editing.</p>' +
                 '<p>A division admin can reopen it if it needs correcting.</p>',
                 'File it', 'btn-green', function () {
@@ -443,7 +457,7 @@
                             .then(function (data) {
                                 STATUS = 'final'; DOCUMENT_ID = data.document_id;
                                 applyStatus(); loadHistory();
-                                toast('Filed in Documents → SSE-HQ Reports.', 'ok');
+                                toast('Filed in Documents → ' + (CFG.filedIn || 'SSE-HQ Reports') + '.', 'ok');
                             }).catch(fail);
                     });
                 });
@@ -549,7 +563,7 @@
             '\n.sheet{padding:12mm;}';
         document.head.appendChild(style);
 
-        api(CFG.locoApi + '/config').then(function (data) {
+        api(CFG.configApi || (CFG.locoApi + '/config')).then(function (data) {
             USER = data.user;
             CFG.forwardingDefault = data.forwarding_default;
             if (typeof CFG.serverDefaultsFrom === 'function') {
@@ -580,7 +594,7 @@
             if (params.get('fromOpr') && CFG.prefillFrom) return CFG.prefillFrom(params.get('fromOpr'));
             newRecord();
         }).catch(function (e) {
-            document.body.innerHTML = '<div class="bootfail"><h3>SSE-HQ reports could not start</h3>' +
+            document.body.innerHTML = '<div class="bootfail"><h3>' + (CFG.bootName || 'SSE-HQ reports') + ' could not start</h3>' +
                 '<p>The portal could not confirm your access.</p>' +
                 '<div class="why">' + escapeText(e.message) + '</div></div>';
         });
