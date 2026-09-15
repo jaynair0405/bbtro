@@ -407,6 +407,16 @@ router.put('/staff/:hrms_id', async (req, res) => {
             conn.release();
             return res.status(400).json({ error: 'Invalid status value' });
         }
+        // 'Transferred' is only ever set by the transfer flow (transfer-request
+        // with office OTHER / Inter Railway), which also moves the office,
+        // writes history and resolves requests. Setting it here bypasses all
+        // of that (LNL did so for 43 staff on 2026-09-09/10).
+        if (staffStatus === 'Transferred' && prevStatus !== 'Transferred') {
+            conn.release();
+            return res.status(400).json({
+                error: 'Use the Transfer button (Inter Railway / Transferred Out) to transfer staff out'
+            });
+        }
 
         // Helper function: convert empty strings to NULL for ENUM fields
         const toNullIfEmpty = (val) => (val === '' || val === undefined) ? null : val;
@@ -552,6 +562,10 @@ router.post('/staff', async (req, res) => {
         if (!STAFF_STATUS_OPTIONS.has(staffStatus)) {
             conn.release();
             return res.status(400).json({ error: 'Invalid status value' });
+        }
+        if (staffStatus === 'Transferred') {
+            conn.release();
+            return res.status(400).json({ error: 'A new staff record cannot be created as Transferred' });
         }
 
         // Validation
