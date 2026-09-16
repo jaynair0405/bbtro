@@ -311,13 +311,53 @@ the class.
 `"BIRD/ BIRD"`, `"DW"`). Use `normalizeTerminal()` with a fallback to the `sheet_source`
 prefix; skip masters that resolve to neither.
 
-### 6.4 DR stables at VVH
+### 6.4 LTT and DR stable at VVH
 
-Dadar terminates nine train pairs but has no stabling shed. Locos run light to VVH and back.
-Arrivals at DR position at **VVH** (`stablingTerminal`); DR-originating workings list on the
-VVH board; VVH and DR are one pool, a loco held at DR shows badged `AT DR`.
-`sql/2026-07-20_dr_locos_to_vvh.sql` ran on prod 2026-07-20 (1 loco, 22926; rollback tag
-`updated_by='dr-to-vvh'`).
+**VVH (Electric Loco Trip Shed, Vidyavihar) is the shed. LTT and DR are stations.**
+Trains arrive and depart at the station; neither station can stable a loco, so the locos
+run light to VVH and back. That is the whole model, and it is why the loco-link sheet is
+named for the station (`LTT-DN`; `VVH-DN` survives only as an alias in `SHEET_ALIASES`)
+while the locos belong to the shed.
+
+| Fact | Where it lives |
+|---|---|
+| Which sheet the LPC works | `sheet_source` — `LTT-DN`, unchanged |
+| Where a working starts | `from_station` — `LTT` or `DR`, unchanged |
+| Where its loco stands | `div_loco_positions.current_location` — `VVH` |
+
+Two pieces of code carry it, both in `locoLinkRoutes.js`:
+
+- `STABLING_TERMINAL = { DR: 'VVH', LTT: 'VVH' }` — applied to arrivals in `POST /log`
+  and to LTT/DR-originating DN workings in `originOf()`, so a working lists on the board
+  that holds its locos.
+- `stablingPool(terminal)` — returns the whole `VVH/DR/LTT` group. Applied in
+  `/assign-board`, **`/available` and `/positions`**. The last two matter: the daily
+  sheet asks `/available?terminal=LTT` (derived from its sheet name) while the locos
+  stand at VVH, so without the pool the **LTT-DN available-locos banner goes empty**.
+  A loco genuinely held at the station still shows, badged `AT LTT` / `AT DR`.
+
+Migrations, both one-time catch-ups — the mapping handles new arrivals by itself:
+- `sql/2026-07-20_dr_locos_to_vvh.sql` — prod 2026-07-20, 1 loco (22926), tag
+  `updated_by='dr-to-vvh'`.
+- `sql/2026-09-16_ltt_locos_to_vvh.sql` — prod 2026-09-16, 202 locos, tag
+  `updated_by='ltt-to-vvh'`. Writes its trail before the move and guards it, so unlike
+  the DR file a re-run is a no-op.
+
+> **The terminal list is copied in several places — keep them honest.** This caused two
+> live faults. `loco-availability.html` carried its own `['CSMT','LTT','DR','PNVL']` and
+> *skipped* any position outside it, so every loco at VVH, KYN or TNA was invisible on
+> that page. The Move Loco dropdown was hand-written and had drifted from the API's
+> `VALID_LOCATIONS`, missing VVH and TNA — a loco could be moved out of them but never
+> into them. Both now derive from one list per file; the API's list is the authority.
+
+**Board tabs are CSMT, VVH (LTT/DR), PNVL, KYN, TNA.** LTT and DR have no tabs — both
+resolve to VVH, and a saved or linked board on either is aliased over so nobody lands on
+a dead one. **KYN and TNA stay on purpose**: no working originates there, but trains do
+terminate there (12742, 20822 at KYN; 01150 at TNA), so a loco can land there with
+nothing to work out on. The tab is the only place it is visible, which is why each loco
+row now has **Move** (same `POST /position` the availability page uses). Note the board
+hides locos already booked out on a DN working, so a stranded *and* booked-out loco has
+to be moved from the availability page instead.
 
 **Resolved 2026-07-20 — the eight are on the right board.** `div_trains` says nine DN
 trains depart DR. The other eight (**11005, 11021, 11027, 11035, 11041, 12131, 17318,
@@ -502,7 +542,7 @@ that would have broken the whole board, not just the edited line.
 |---|---|---|
 | 1 | ~~Six pages served without a login~~ | **Done 2026-09-11.** §1. Six routes added; `settings` narrowed to division_admin/ctlc |
 | 2 | ~~Eight DR workings possibly on the wrong board~~ | **Done.** Fixed 2026-07-20 (0cbae58) before this doc was merged; note was stale. Verified on prod 2026-09-11. §6.4 |
-| 3 | **Position tracking debt** | §6.5; only worth doing if ghosts re-accumulate |
+| 3 | **Position tracking debt** | §6.5. 247 locos sat at VVH after the 2026-09-16 merge — the pile-up is now visible in one place instead of split across LTT and VVH, which makes it easier to judge whether ghosts have re-accumulated |
 | 4 | WTT inline edit | admin/ctlc editing of halts/timings; `window.__canEdit` hooks stubbed. Memory `wtt_edit_feature_pending` |
 | 5 | Settings `mirror_sheet` dropdown | deferred |
 | 6 | JL / BSL WTT station timings | user to append to the loader CSV |
