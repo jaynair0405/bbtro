@@ -1325,7 +1325,10 @@ function renderSchedules() {
                 <td>${esc(s.event_time || '—')}</td>
                 <td>${esc(dayNames(s.run_days))}</td>
                 <td>${esc(toDateISO(s.effective_from) || '—')}</td>
-                <td>${esc(toDateISO(s.effective_until) || '<span style="color:var(--muted)">open</span>')}</td>
+                <!-- esc() closes BEFORE the fallback: wrapping the whole
+                     expression escaped the fallback's own markup, so an
+                     open-ended schedule printed the <span> tag as text. -->
+                <td>${esc(toDateISO(s.effective_until)) || '<span style="color:var(--muted)">open</span>'}</td>
                 <td>${skipCount > 0 ? `<span title="${esc((s.skip_dates||[]).join(', '))}">${skipCount} skip${skipCount>1?'s':''}</span>` : '—'}</td>
                 <td><span class="pill ${st.cls}">${st.label}</span></td>
                 <td>
