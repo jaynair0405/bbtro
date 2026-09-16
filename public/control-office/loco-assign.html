@@ -256,6 +256,62 @@
         }
         .assign-cell select:focus { outline: 2px solid var(--brand-light); outline-offset: -1px; }
 
+        /* Train picker — a filtering combobox. 45 workings is too many to scroll,
+           and a native select's type-ahead only matches from the first character
+           and resets after a second, so the LPC could not type "121" to reach
+           12125. The panel keeps the same three groups the select had. */
+        .train-combo { position: relative; display: inline-block; }
+        .train-search {
+            border: 1px solid var(--border-strong);
+            border-radius: 6px;
+            padding: 6px 26px 6px 9px;
+            font-size: .84rem;
+            font-family: inherit;
+            width: 300px; max-width: 100%;
+            color: var(--text-main);
+            background: var(--surface);
+        }
+        .train-search:focus { outline: 2px solid var(--brand-light); outline-offset: -1px; }
+        .train-search.chosen { font-weight: 600; border-color: var(--brand-light); }
+        .train-clear {
+            position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+            border: 0; background: none; cursor: pointer; padding: 3px 5px;
+            color: var(--text-light); font-size: .8rem; line-height: 1;
+        }
+        .train-clear:hover { color: var(--danger); }
+        .train-panel {
+            position: absolute; z-index: 40; top: calc(100% + 3px); right: 0;
+            width: 340px; max-width: 86vw; max-height: 292px; overflow-y: auto;
+            background: var(--surface);
+            border: 1px solid var(--border-strong); border-radius: 8px;
+            box-shadow: 0 6px 20px rgba(0,0,0,.14);
+            text-align: left;
+        }
+        .tp-group {
+            padding: 5px 10px; font-size: .68rem; font-weight: 700;
+            text-transform: uppercase; letter-spacing: .04em;
+            color: var(--text-light); background: var(--bg);
+            position: sticky; top: 0;
+        }
+        .tp-opt {
+            padding: 6px 10px; font-size: .82rem; cursor: pointer;
+            display: flex; align-items: baseline; gap: 6px;
+        }
+        .tp-opt .no { font-weight: 700; font-variant-numeric: tabular-nums; }
+        .tp-opt .rest { color: var(--text-light); font-size: .76rem; }
+        .tp-opt .fit { margin-left: auto; font-size: .7rem; text-align: right; flex: 0 1 auto; min-width: 0; }
+        .tp-opt .fit.ok { color: var(--success); }
+        .tp-opt mark { background: #fde68a; color: inherit; border-radius: 2px; padding: 0 1px; }
+        .tp-opt:hover, .tp-opt.active { background: var(--brand); color: #fff; }
+        .tp-opt:hover .rest, .tp-opt.active .rest,
+        .tp-opt:hover .fit,  .tp-opt.active .fit { color: #dbeafe; }
+        .tp-opt:hover mark, .tp-opt.active mark { background: #1e40af; color: #fff; }
+        .tp-none { padding: 10px; font-size: .8rem; color: var(--text-light); text-align: center; }
+        @media (max-width: 760px) {
+            .train-search { width: 100%; }
+            .train-panel { width: 100%; right: auto; left: 0; }
+        }
+
         .conflict-actions {
             display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end;
             width: 100%; margin-top: 6px;
@@ -483,13 +539,16 @@ function flash(msg, kind) {
 function fitFor(loco, train) {
     const reasons = [];
     let penalty = 0;
+    // Each reason NAMES what the working wants. "MISLINK" and "TYPE" alone
+    // said only that something was wrong, so the LPC had to open the daily
+    // sheet to find out what. "MISLINK AQE" / "WANTS WAP7" answer it in place.
     if (train.expected_shed && loco.home_shed && train.expected_shed !== loco.home_shed) {
-        penalty += 3; reasons.push('MISLINK');
+        penalty += 3; reasons.push('MISLINK ' + train.expected_shed);
     }
     if (train.expected_hog && !loco.is_hog) { penalty += 4; reasons.push('NO HOG'); }
     if (train.expected_loco_type && loco.loco_type
         && train.expected_loco_type.toUpperCase() !== String(loco.loco_type).toUpperCase()) {
-        penalty += 2; reasons.push('TYPE');
+        penalty += 2; reasons.push('WANTS ' + train.expected_loco_type);
     }
     // Occupied workings are NOT penalised into the tail of the list. Adding a
     // second loco to a train that already has one is a normal daily action
@@ -670,9 +729,22 @@ function locoRowHtml(l) {
         </div>
         <div class="loco-origin">${origin}</div>
         <div class="assign-cell">
-            <select class="train-pick" aria-label="Train for loco ${esc(l.loco_number)}">
-                <option value="">Select working…</option>
-            </select>
+            <div class="train-combo">
+                <input class="train-search" type="text" autocomplete="off" spellcheck="false"
+                       role="combobox" aria-expanded="false" aria-autocomplete="list"
+                       placeholder="Type train no…"
+                       aria-label="Train for loco ${esc(l.loco_number)}">
+                <button class="train-clear" type="button" tabindex="-1" hidden
+                        aria-label="Clear the chosen working">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+                <div class="train-panel" role="listbox" hidden></div>
+                <!-- The value holder. onPick()/doAssign() read this, so the
+                     assign path is unchanged by the combobox above it. -->
+                <select class="train-pick" hidden aria-hidden="true" tabindex="-1">
+                    <option value="">Select working…</option>
+                </select>
+            </div>
             <button class="btn btn-primary btn-sm act-assign" disabled>
                 <i class="fa-solid fa-link"></i> Assign
             </button>
@@ -711,8 +783,182 @@ function wireLocoRows() {
         }
 
         sel.addEventListener('change', () => onPick(row, loco));
+        wireTrainCombo(row, loco, groups);
         row.querySelector('.act-assign').addEventListener('click', () => doAssign(row, loco, 'front'));
     }
+}
+
+/* ── Train picker ───────────────────────────────────────────────────
+   A filtering combobox over the same grouped options the hidden select
+   holds. It only ever writes that select and fires its change event, so
+   onPick()/doAssign() are untouched.
+
+   Matching is deliberately generous: the LPC types a few digits of the
+   train number, but may also reach for the destination. A number that
+   STARTS with what was typed ranks above one that merely contains it, so
+   typing "121" puts 12125 at the top rather than 01219.                    */
+function trainMatch(t, q) {
+    if (!q) return { hit: true, rank: 0 };
+    const no = String(t.train_no || '').toLowerCase();
+    if (no.startsWith(q)) return { hit: true, rank: 0 };
+    if (no.includes(q))   return { hit: true, rank: 1 };
+    const rest = [t.to_station, t.event_time, t.train_name]
+        .filter(Boolean).join(' ').toLowerCase();
+    if (rest.includes(q)) return { hit: true, rank: 2 };
+    return { hit: false, rank: 9 };
+}
+
+// Wrap the matched run of characters so the LPC can see WHY a row matched.
+function hl(text, q) {
+    const str = String(text == null ? '' : text);
+    if (!q) return esc(str);
+    const i = str.toLowerCase().indexOf(q);
+    if (i < 0) return esc(str);
+    return esc(str.slice(0, i)) + '<mark>' + esc(str.slice(i, i + q.length))
+         + '</mark>' + esc(str.slice(i + q.length));
+}
+
+function wireTrainCombo(row, loco, groups) {
+    const sel   = row.querySelector('.train-pick');
+    const input = row.querySelector('.train-search');
+    const panel = row.querySelector('.train-panel');
+    const clear = row.querySelector('.train-clear');
+    let active = -1;               // index into the rendered .tp-opt nodes
+    let open   = false;
+
+    const labelFor = (t) => t.train_no
+        + (t.event_time ? '  ' + t.event_time : '')
+        + (t.to_station ? ' → ' + t.to_station : '');
+
+    function draw(q) {
+        panel.innerHTML = '';
+        let count = 0;
+        for (const [label, items] of groups) {
+            const hits = items
+                .map(x => ({ ...x, m: trainMatch(x.t, q) }))
+                .filter(x => x.m.hit)
+                .sort((a, b) => a.m.rank - b.m.rank);
+            if (!hits.length) continue;
+            const h = document.createElement('div');
+            h.className = 'tp-group';
+            h.textContent = label + '  (' + hits.length + ')';
+            panel.appendChild(h);
+            for (const { t, fit } of hits) {
+                const o = document.createElement('div');
+                o.className = 'tp-opt';
+                o.setAttribute('role', 'option');
+                o.dataset.id = String(t.master_id);
+                const fits = !fit.reasons.length;
+                o.innerHTML = '<span class="no">' + hl(t.train_no, q) + '</span>'
+                    + '<span class="rest">'
+                    + (t.event_time ? hl(t.event_time, q) : '')
+                    + (t.to_station ? ' → ' + hl(t.to_station, q) : '')
+                    + '</span>'
+                    + '<span class="fit' + (fits ? ' ok' : '') + '">'
+                    + (fits ? '✓ fits' : esc(fit.reasons.join(' · '))) + '</span>';
+                o.addEventListener('mousedown', (e) => {   // before blur
+                    e.preventDefault();
+                    choose(t);
+                });
+                panel.appendChild(o);
+                count++;
+            }
+        }
+        if (!count) {
+            panel.innerHTML = '<div class="tp-none">No working matches '
+                + '“' + esc(q) + '”</div>';
+        }
+        active = -1;
+    }
+
+    function opts() { return Array.from(panel.querySelectorAll('.tp-opt')); }
+
+    function show(q) {
+        draw(q == null ? '' : q);
+        panel.hidden = false;
+        open = true;
+        input.setAttribute('aria-expanded', 'true');
+    }
+    function hide() {
+        panel.hidden = true;
+        open = false;
+        active = -1;
+        input.setAttribute('aria-expanded', 'false');
+    }
+
+    function mark(i) {
+        const list = opts();
+        if (!list.length) return;
+        active = (i + list.length) % list.length;
+        list.forEach((n, k) => n.classList.toggle('active', k === active));
+        list[active].scrollIntoView({ block: 'nearest' });
+    }
+
+    function choose(t) {
+        sel.value = String(t.master_id);
+        input.value = labelFor(t);
+        input.classList.add('chosen');
+        clear.hidden = false;
+        hide();
+        sel.dispatchEvent(new Event('change'));
+    }
+
+    function reset() {
+        sel.value = '';
+        input.value = '';
+        input.classList.remove('chosen');
+        clear.hidden = true;
+        sel.dispatchEvent(new Event('change'));
+    }
+
+    // Opening on focus shows the whole list, so the control still behaves
+    // like the dropdown it replaced for an LPC who would rather browse.
+    input.addEventListener('focus', () => { if (!open) show(input.classList.contains('chosen') ? '' : input.value.trim().toLowerCase()); });
+    input.addEventListener('click', () => { if (!open) show(''); });
+
+    input.addEventListener('input', () => {
+        // Typing over a chosen working clears it — the box is a filter again.
+        if (input.classList.contains('chosen')) {
+            input.classList.remove('chosen');
+            clear.hidden = true;
+            sel.value = '';
+            sel.dispatchEvent(new Event('change'));
+        }
+        show(input.value.trim().toLowerCase());
+    });
+
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+            e.preventDefault();
+            if (!open) { show(input.value.trim().toLowerCase()); mark(0); return; }
+            mark(active + (e.key === 'ArrowDown' ? 1 : -1));
+        } else if (e.key === 'Enter') {
+            if (!open) return;
+            e.preventDefault();
+            const list = opts();
+            // Enter with nothing highlighted takes the only match, which is
+            // the whole point of typing a full train number.
+            const pick = active >= 0 ? list[active] : (list.length === 1 ? list[0] : null);
+            if (!pick) return;
+            const t = board.trains.find(x => String(x.master_id) === pick.dataset.id);
+            if (t) choose(t);
+        } else if (e.key === 'Escape') {
+            if (open) { e.stopPropagation(); hide(); }
+        }
+    });
+
+    input.addEventListener('blur', () => {
+        // A half-typed filter that was never committed is not a selection;
+        // put the chosen working back so the box never lies about the value.
+        setTimeout(() => {
+            hide();
+            const t = board.trains.find(x => String(x.master_id) === sel.value);
+            if (t) { input.value = labelFor(t); input.classList.add('chosen'); clear.hidden = false; }
+            else if (input.value) { input.value = ''; clear.hidden = true; }
+        }, 0);
+    });
+
+    clear.addEventListener('mousedown', (e) => { e.preventDefault(); reset(); input.focus(); });
 }
 
 /* Selecting a working that already has a loco is not an error — it is the
