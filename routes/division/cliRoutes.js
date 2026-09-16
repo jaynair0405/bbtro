@@ -878,9 +878,11 @@ router.get('/staff-for-letter', requireDivisionAdmin, async (req, res) => {
         // split: their CMS ids are suburban (CSTS/KYNS/PNVS) but many are nominated
         // under main-line CLIs (KYN-ML, PNVL-ML, IGP, LNL, CSMT-ML) — and LNL/IGP
         // motormen with main-line CMS ids sit under suburban CLIs. So they stay
-        // searchable on both suburban and main-line letters.
+        // searchable on both suburban and main-line letters. Suburban letters also
+        // list LPGs (designation_id = 5), who hold main-line CMS ids.
         if (staff_type) {
-            query += ` AND (${getStaffTypeCondition(staff_type, 's')} OR s.designation_id = 8)`;
+            const crossover = staff_type === 'SUBURBAN' ? '5,8' : '8';
+            query += ` AND (${getStaffTypeCondition(staff_type, 's')} OR s.designation_id IN (${crossover}))`;
         }
 
         // Search by name or HRMS ID or CMS ID or PF number
