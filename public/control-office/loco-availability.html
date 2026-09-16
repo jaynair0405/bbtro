@@ -651,15 +651,7 @@
             </div>
             <div class="form-group">
                 <label>Move To *</label>
-                <select id="moveToTerminal">
-                    <option value="">— Select —</option>
-                    <option value="CSMT">CSMT</option>
-                    <option value="LTT">LTT (VVH)</option>
-                    <option value="DR">DR (Dadar)</option>
-                    <option value="PNVL">PNVL (Panvel)</option>
-                    <option value="KYN">KYN (Kalyan)</option>
-                    <option value="OUT_OF_DIV">Left Division (OUT)</option>
-                </select>
+                <select id="moveToTerminal"></select>
             </div>
             <div class="form-group">
                 <label>Reason</label>
@@ -685,7 +677,40 @@
 
 <script>
 const $ = sel => document.querySelector(sel);
-const TERMINALS = ['CSMT', 'LTT', 'DR', 'PNVL'];
+// The same five places the assignment board shows. This list used to be
+// ['CSMT','LTT','DR','PNVL'], and the loop below SKIPS any position outside it
+// — so every loco at VVH, KYN or TNA was silently missing from this page,
+// including the ones the DR migration put at VVH.
+//
+// LTT and DR are stations with no shed: their locos stand at VVH (see
+// STABLING_TERMINAL on the server), so they are grouped into the VVH column
+// rather than given columns of their own.
+const TERMINALS = ['CSMT', 'VVH', 'PNVL', 'KYN', 'TNA'];
+const TERMINAL_LABEL = { VVH: 'VVH (LTT / DR)' };
+const STABLING_OF = { LTT: 'VVH', DR: 'VVH' };
+const columnFor = (loc) => STABLING_OF[loc] || loc;
+
+// Every location the position API accepts, in one list, because this used to be
+// hand-written in the modal and had drifted: VVH and TNA were missing, so locos
+// could be moved OUT of them but never INTO them — and the VVH locos had only
+// got there by hand-run SQL. Shared with the assignment board's Move action.
+const MOVE_DESTINATIONS = [
+    ['CSMT',       'CSMT'],
+    ['VVH',        'VVH — trip shed (holds LTT / DR locos)'],
+    ['LTT',        'LTT — held at the station'],
+    ['DR',         'DR — held at the station'],
+    ['PNVL',       'PNVL (Panvel)'],
+    ['KYN',        'KYN (Kalyan)'],
+    ['TNA',        'TNA (Thane)'],
+    ['OUT_OF_DIV', 'Left Division (OUT)'],
+];
+function fillMoveDestinations(sel, exclude) {
+    if (!sel) return;
+    sel.innerHTML = '<option value="">— Select —</option>'
+        + MOVE_DESTINATIONS
+            .filter(([v]) => v !== exclude)   // moving somewhere it already is is a no-op
+            .map(([v, label]) => `<option value="${v}">${esc(label)}</option>`).join('');
+}
 
 let allPositions = [];
 let sickLocos = new Set();
@@ -746,7 +771,10 @@ function render() {
     let totalAvailable = 0, totalAssignedCount = 0, totalSickCount = 0;
 
     for (const pos of allPositions) {
-        if (!TERMINALS.includes(pos.current_location)) continue;
+        const col = columnFor(pos.current_location);
+        // Anything not in a column is IN_TRANSIT or OUT_OF_DIV, which this
+        // page does not show. A real terminal is never dropped now.
+        if (!TERMINALS.includes(col)) continue;
 
         const isSick = sickLocos.has(pos.loco_number);
         const isAssigned = assignedToday.has(pos.loco_number);
@@ -755,7 +783,9 @@ function render() {
         else if (isAssigned) totalAssignedCount++;
         else totalAvailable++;
 
-        byTerminal[pos.current_location].push({
+        // Push into the COLUMN, not the raw location — a loco held at LTT or
+        // DR belongs in the VVH column, and those keys no longer exist.
+        byTerminal[col].push({
             ...pos,
             isSick,
             isAssigned
@@ -800,7 +830,7 @@ function render() {
 
         section.innerHTML = `
             <div class="terminal-header">
-                <span><i class="fa-solid fa-warehouse"></i> ${terminal}</span>
+                <span><i class="fa-solid fa-warehouse"></i> ${TERMINAL_LABEL[terminal] || terminal}</span>
                 <span class="count">${availableCount} available / ${locos.length} total</span>
             </div>
             <div class="terminal-body">
@@ -956,6 +986,7 @@ async function submitAddLoco() {
 
 // ── Move Loco Modal ───────────────────────────────────────────────────
 function openMoveModal() {
+    fillMoveDestinations($('#moveToTerminal'), null);
     $('#moveLocoNo').value = '';
     $('#moveToTerminal').value = '';
     $('#moveReason').value = 'LE';
@@ -967,6 +998,8 @@ function openMoveModal() {
 }
 
 function openMoveModalFor(locoNo, currentLoc) {
+    // Drop the loco's own location from the list — moving it there is a no-op.
+    fillMoveDestinations($('#moveToTerminal'), currentLoc);
     $('#moveLocoNo').value = locoNo;
     $('#moveToTerminal').value = '';
     $('#moveReason').value = 'LE';

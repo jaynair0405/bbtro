@@ -241,6 +241,41 @@
         .loco-origin { font-size: .8rem; color: var(--text-light); }
         .loco-origin i { width: 14px; text-align: center; opacity: .7; }
         .loco-origin .via { color: var(--text-main); font-weight: 600; }
+        /* Move: a loco that worked into a terminal with no departure of its own
+           (KYN, TNA) would otherwise sit on a board with nothing to assign it
+           to and no way out. Same endpoint the availability page uses. */
+        .btn-move {
+            border: 1px solid var(--info); background: var(--surface);
+            border-radius: 6px; padding: 5px 9px; font-size: .74rem;
+            font-family: inherit; font-weight: 600; color: var(--info);
+            cursor: pointer; white-space: nowrap; margin-left: 8px;
+        }
+        .btn-move i { margin-right: 3px; }
+        /* Filled on hover rather than tinted at rest: there is one per loco
+           row, so a coloured border reads as available without 44 of them
+           competing with the Assign button for attention. */
+        .btn-move:hover { background: var(--info); color: #fff; border-color: var(--info); }
+        .btn-move:focus-visible { outline: 2px solid var(--info); outline-offset: 1px; }
+        .mv-back {
+            position: fixed; inset: 0; background: rgba(15,23,42,.45);
+            display: flex; align-items: center; justify-content: center; z-index: 90;
+        }
+        .mv-box {
+            background: var(--surface); border-radius: 10px; padding: 18px 20px;
+            width: 340px; max-width: 92vw; box-shadow: 0 12px 40px rgba(0,0,0,.28);
+        }
+        .mv-box h3 { margin: 0 0 4px; font-size: .98rem; }
+        .mv-box .sub { font-size: .78rem; color: var(--text-light); margin-bottom: 12px; }
+        .mv-box label { display: block; font-size: .72rem; font-weight: 700;
+            text-transform: uppercase; letter-spacing: .04em;
+            color: var(--text-light); margin: 9px 0 3px; }
+        .mv-box select, .mv-box input {
+            width: 100%; padding: 7px 9px; font-family: inherit; font-size: .84rem;
+            border: 1px solid var(--border-strong); border-radius: 6px;
+            background: var(--surface); color: var(--text-main);
+        }
+        .mv-err { color: var(--danger); font-size: .78rem; margin-top: 8px; min-height: 1em; }
+        .mv-acts { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; }
 
         .assign-cell { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
         .assign-cell select {
@@ -498,7 +533,16 @@
 <script>
 const $  = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
-const TERMINALS = ['CSMT', 'LTT', 'DR', 'PNVL', 'VVH', 'KYN', 'TNA'];
+// One tab per place a loco can actually be picked up from. LTT and DR are
+// stations with no shed — their locos and workings belong to VVH (see
+// STABLING_TERMINAL on the server), so a separate tab for either would show
+// locos with nothing to assign them to. KYN and TNA have no workings of their
+// own but DO catch locos off terminating trains, so they stay: it is the only
+// place those locos are visible to move out.
+const TERMINALS = ['CSMT', 'VVH', 'PNVL', 'KYN', 'TNA'];
+const TERMINAL_LABEL = { VVH: 'VVH (LTT/DR)' };
+// A board saved or linked before the merge would otherwise open on a dead tab.
+const TERMINAL_ALIAS = { LTT: 'VVH', DR: 'VVH' };
 
 let board = { locos: [], trains: [], counts: null };
 // The working most recently assigned from this page. The board reloads after
@@ -507,6 +551,7 @@ let board = { locos: [], trains: [], counts: null };
 // without a confirm click, and without holding old data on screen.
 let recentMasterId = null;
 let terminal = localStorage.getItem('assignTerminal') || 'CSMT';
+terminal = TERMINAL_ALIAS[terminal] || terminal;
 let sheetDate = todayISO();
 let trainFilter = 'open';
 
@@ -727,7 +772,12 @@ function locoRowHtml(l) {
             </div>
             <div class="badges">${badges.join('')}</div>
         </div>
-        <div class="loco-origin">${origin}</div>
+        <div class="loco-origin">
+            ${origin}
+            <button class="btn-move" data-move="${esc(l.loco_number)}" data-at="${esc(l.standing_at || board.terminal)}">
+                <i class="fa-solid fa-right-left"></i> Move
+            </button>
+        </div>
         <div class="assign-cell">
             <div class="train-combo">
                 <input class="train-search" type="text" autocomplete="off" spellcheck="false"
@@ -784,6 +834,8 @@ function wireLocoRows() {
 
         sel.addEventListener('change', () => onPick(row, loco));
         wireTrainCombo(row, loco, groups);
+        const mv = row.querySelector('.btn-move');
+        if (mv) mv.addEventListener('click', () => openMoveModal(mv.dataset.move, mv.dataset.at));
         row.querySelector('.act-assign').addEventListener('click', () => doAssign(row, loco, 'front'));
     }
 }
@@ -1294,10 +1346,95 @@ function renderTrains() {
     }).join('');
 }
 
+/* ── Move a loco ────────────────────────────────────────────────────
+   Posts to the same POST /position the Loco Availability page uses, so the
+   position history and its rules are identical. Offered here because a loco
+   that worked into KYN or TNA has no departing working to be assigned to —
+   without this the board shows it and can do nothing with it.               */
+const MOVE_DESTINATIONS = [
+    ['CSMT',       'CSMT'],
+    ['VVH',        'VVH — trip shed (holds LTT / DR locos)'],
+    ['LTT',        'LTT — held at the station'],
+    ['DR',         'DR — held at the station'],
+    ['PNVL',       'PNVL (Panvel)'],
+    ['KYN',        'KYN (Kalyan)'],
+    ['TNA',        'TNA (Thane)'],
+    ['OUT_OF_DIV', 'Left Division (OUT)'],
+];
+
+function openMoveModal(locoNo, standingAt) {
+    const back = document.createElement('div');
+    back.className = 'mv-back';
+    back.innerHTML = `
+        <div class="mv-box" role="dialog" aria-modal="true" aria-label="Move loco ${esc(locoNo)}">
+            <h3><i class="fa-solid fa-right-left"></i> Move ${esc(locoNo)}</h3>
+            <div class="sub">Currently at ${esc(standingAt || '—')}</div>
+            <label for="mvTo">Move to</label>
+            <select id="mvTo">
+                <option value="">— Select —</option>
+                ${MOVE_DESTINATIONS.filter(([v]) => v !== standingAt)
+                    .map(([v, t]) => `<option value="${v}">${esc(t)}</option>`).join('')}
+            </select>
+            <label for="mvReason">Reason</label>
+            <select id="mvReason">
+                <option value="LE">Light Engine Movement</option>
+                <option value="TRANSFER">Transfer</option>
+                <option value="SHED_MOVE">Shed Movement</option>
+                <option value="OTHER">Other</option>
+            </select>
+            <label for="mvRemarks">Remarks</label>
+            <input id="mvRemarks" type="text" maxlength="200" placeholder="Optional">
+            <div class="mv-err" id="mvErr"></div>
+            <div class="mv-acts">
+                <button class="btn btn-sm" id="mvCancel">Cancel</button>
+                <button class="btn btn-primary btn-sm" id="mvGo">Move</button>
+            </div>
+        </div>`;
+    document.body.appendChild(back);
+    const close = () => back.remove();
+    back.addEventListener('mousedown', (e) => { if (e.target === back) close(); });
+    back.querySelector('#mvCancel').addEventListener('click', close);
+    document.addEventListener('keydown', function esc0(e) {
+        if (e.key === 'Escape') { close(); document.removeEventListener('keydown', esc0); }
+    });
+    back.querySelector('#mvTo').focus();
+
+    back.querySelector('#mvGo').addEventListener('click', async () => {
+        const to = back.querySelector('#mvTo').value;
+        const reason = back.querySelector('#mvReason').value;
+        const remarks = back.querySelector('#mvRemarks').value.trim();
+        const err = back.querySelector('#mvErr');
+        if (!to) { err.textContent = 'Choose where it is going.'; return; }
+        const go = back.querySelector('#mvGo');
+        go.disabled = true; go.textContent = 'Moving…'; err.textContent = '';
+        try {
+            const r = await fetch('/api/division/loco-link/position', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    loco_number: locoNo,
+                    to_location: to,
+                    remarks: reason + (remarks ? ': ' + remarks : ''),
+                }),
+            });
+            const d = await r.json().catch(() => ({}));
+            if (!r.ok) { err.textContent = d.error || 'Move failed'; return; }
+            close();
+            loadBoard();
+        } catch (e) {
+            err.textContent = 'Network error: ' + e.message;
+        } finally {
+            go.disabled = false; go.textContent = 'Move';
+        }
+    });
+}
+
 /* ── Chrome ─────────────────────────────────────────────────────── */
 function renderPills() {
     $('#termPills').innerHTML = TERMINALS.map(t =>
-        `<button class="term-pill ${t === terminal ? 'active' : ''}" data-term="${t}">${t}</button>`).join('');
+        `<button class="term-pill ${t === terminal ? 'active' : ''}" data-term="${t}"
+                 title="${t === 'VVH' ? 'Trip shed at Vidyavihar — holds the locos for LTT and DR arrivals' : t}"
+                 >${TERMINAL_LABEL[t] || t}</button>`).join('');
     $$('.term-pill').forEach(b => b.addEventListener('click', () => {
         terminal = b.dataset.term;
         localStorage.setItem('assignTerminal', terminal);

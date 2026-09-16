@@ -48,13 +48,30 @@ const MUMBAI_TERMINALS = ['CSMT', 'LTT', 'DR', 'PNVL', 'VVH', 'KYN', 'TNA'];
 // Valid location values for div_loco_positions
 const VALID_LOCATIONS = [...MUMBAI_TERMINALS, 'IN_TRANSIT', 'OUT_OF_DIV'];
 
-// Where a loco actually stands after working into a terminal. Dadar terminates
-// nine train pairs (11004/11022/17317/22148/12132…) but has no stabling shed —
-// those locos stand at Vasai and work out from there. Applied to arrivals and,
-// for the same reason, to DR-originating DN workings on the assignment board,
-// so they draw from the shed that really holds their locos.
-const STABLING_TERMINAL = { DR: 'VVH' };
+// Where a loco actually stands after working into a terminal.
+//
+// VVH (Electric Loco Trip Shed, Vidyavihar) is the SHED for the LTT group.
+// LTT and DR are STATIONS — trains arrive and depart there, but neither can
+// stable a loco, so the locos run light to VVH and back. That is why the
+// loco-link sheet is named for the station (LTT-DN; VVH-DN survives only as
+// an alias in SHEET_ALIASES) while the locos belong to the shed.
+//
+// Applied to arrivals in POST /log, and for the same reason to LTT- and
+// DR-originating DN workings on the assignment board, so a working draws from
+// the shed that really holds its locos.
+const STABLING_TERMINAL = { DR: 'VVH', LTT: 'VVH' };
 const stablingTerminal = (t) => STABLING_TERMINAL[t] || t;
+
+// The three names are one pool, so a read must return the same locos whichever
+// name it is asked for: the daily sheet asks for LTT (its sheet is LTT-DN), the
+// assignment board asks for VVH, and a loco held at the station itself is
+// recorded at LTT or DR. Without this the LTT-DN available-locos banner would
+// go empty the moment arrivals start landing at VVH.
+const STABLING_GROUPS = [['VVH', 'DR', 'LTT']];
+function stablingPool(terminal) {
+    const g = STABLING_GROUPS.find(grp => grp.includes(terminal));
+    return g ? [...g] : [terminal];
+}
 
 // Loco maintenance-schedule types (LPC-entered on the daily sheet).
 // IA/IB/IC = inspection schedules; IOH/TOH/POH = overhaul schedules.
@@ -2650,9 +2667,11 @@ router.get('/positions', async (req, res) => {
             sql = `SELECT lp.*, dl.loco_type, dl.home_shed, dl.railway_zone
                    FROM div_loco_positions lp
                    LEFT JOIN div_locos dl ON lp.loco_number = dl.loco_number
-                   WHERE lp.current_location = ?
+                   WHERE lp.current_location IN (?)
                    ORDER BY lp.arrived_at DESC`;
-            params = [location];
+            // Same stabling group as /available — asking for any one of
+            // VVH/DR/LTT returns the whole pool.
+            params = [stablingPool(location)];
         } else if (all) {
             sql = `SELECT lp.*, dl.loco_type, dl.home_shed, dl.railway_zone
                    FROM div_loco_positions lp
@@ -2814,11 +2833,13 @@ router.get('/available', async (req, res) => {
              LEFT JOIN div_locos dl ON lp.loco_number = dl.loco_number
              LEFT JOIN div_loco_sick_records sr
                 ON lp.loco_number = sr.loco_number AND sr.fit_from IS NULL
-             WHERE lp.current_location = ?
+             WHERE lp.current_location IN (?)
                AND sr.id IS NULL
                AND NOT EXISTS (${BOOKED_OUT_EXISTS})
              ORDER BY lp.arrived_at ASC`,
-            [terminal]
+            // The LTT-DN sheet asks for LTT while its locos stand at VVH, so
+            // this reads the whole stabling group rather than the one name.
+            [stablingPool(terminal)]
         );
 
         res.json({
@@ -2868,12 +2889,12 @@ router.get('/assign-board', async (req, res) => {
         // Deliberately NOT filtered by arrival date: a loco that came in three
         // days ago is just as assignable as one that arrived this morning. The
         // date on this page picks which DN sheet is being filled, nothing else.
-        // VVH and DR are one stabling group: locos off DR-terminating trains run
-        // light to VVH for maintenance and light back to DR to attach. Locos are
-        // occasionally held at DR itself and worked out from there, so the VVH
-        // board must list them too — otherwise, with DR workings shown here, a
-        // DR-standing loco could not be assigned from any board.
-        const sourceLocations = terminal === 'VVH' ? ['VVH', 'DR'] : [terminal];
+        // VVH, DR and LTT are one stabling group (see STABLING_TERMINAL): the
+        // locos stand in the shed at VVH, but are occasionally held at the
+        // station they worked into and put back to work from there. The board
+        // must list those too — otherwise, with the group's workings shown here,
+        // a station-held loco could not be assigned from any board.
+        const sourceLocations = stablingPool(terminal);
 
         const [locoRows] = await pool.query(
             `SELECT lp.loco_number, lp.current_location, lp.arrived_via_train, lp.arrived_at, lp.remarks AS pos_remarks,
