@@ -276,6 +276,15 @@
             font-weight: 700;
             color: var(--text-main);
         }
+        /* Breakdown under a headline figure — quieter than the number it
+           qualifies, so the total still reads first. */
+        .stat-card .sub {
+            font-size: .74rem;
+            color: var(--text-light);
+            font-variant-numeric: tabular-nums;
+            margin-top: 2px;
+            min-height: 1em;
+        }
 
         .quick-links {
             display: grid;
@@ -418,6 +427,7 @@
             <div class="stat-card" style="border-left-color: var(--success);">
                 <div class="lbl">Total Locos</div>
                 <div class="val" id="statTotalLocos">…</div>
+                <div class="sub" id="statLocoSplit"></div>
             </div>
         </div>
     </section>
@@ -847,6 +857,15 @@ async function loadStats() {
                 ? `(${data.sick_count} active)` : '';
         }
         $('#statTotalLocos').textContent = (data.total_locos || 0).toLocaleString('en-IN');
+        // Electric / diesel split. The master held no diesels at all until
+        // 2026-09-17, so the breakdown says more than the total does.
+        const bt = data.locos_by_traction || {};
+        const split = ['Electric', 'Diesel', 'Dual']
+            .filter((k) => bt[k])
+            .map((k) => `${bt[k].toLocaleString('en-IN')} ${k[0]}`)
+            .join(' + ');
+        const el = $('#statLocoSplit');
+        if (el) el.textContent = split || '';
 
         // Segment badges
         const bySegment = new Map();

@@ -744,8 +744,15 @@ router.get('/dashboard-stats', async (req, res) => {
         const pool = req.app.locals.pool;
         const dow = dayOfWeekIR(date);
 
-        // Total electric/diesel locos in master
+        // Total locos in the master, split by traction. The split is worth
+        // showing: div_locos held nothing but electrics until the diesel fleet
+        // was imported on 2026-09-17, so "total" alone hides which half moved.
         const [[{ tl }]] = await pool.query('SELECT COUNT(*) AS tl FROM div_locos');
+        const [tractionRows] = await pool.query(
+            'SELECT traction_type, COUNT(*) AS n FROM div_locos GROUP BY traction_type'
+        );
+        const byTraction = {};
+        for (const r of tractionRows) byTraction[r.traction_type || 'Unknown'] = r.n;
 
         // Currently sick count (open records)
         let sickCount = 0;
@@ -809,6 +816,7 @@ router.get('/dashboard-stats', async (req, res) => {
             mislinks_today: totals.mislinks || 0,
             sick_count: sickCount,
             total_locos: tl,
+            locos_by_traction: byTraction,
             segments,
         });
     } catch (err) {
