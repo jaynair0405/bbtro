@@ -35,6 +35,27 @@ const dbConfig = {
 
 const BATCH_SIZE = 1000;
 
+// hotel_load_oem is not free text in effect: HOG capability is derived from it
+// being non-empty (is_hog = !!hotel_load_oem). So a value that MEANS "not
+// fitted" must arrive as NULL, or the loco reads as HOG-capable — the opposite
+// of what the sheet said. Four locos were in exactly that state until
+// sql/2026-09-17_hotel_load_hog_fix.sql, and a stale CSV would put them back.
+const NOT_HOG = new Set(['NO', 'N', 'NIL', 'NONE', 'NA', '-']);
+// Fold maker spellings onto the ones already in the table so the column does
+// not sprout SIEMENS alongside Siemens.
+const HOTEL_CANON = {
+    SIEMENS: 'Siemens', MEDHA: 'Medha', AAL: 'AAL', BHEL: 'BHEL', ABB: 'ABB',
+    'ABB(COMPOSITE)': 'ABB(Composite)', 'BHEL(COMPOSITE)': 'BHEL(Composite)',
+    HIRECT: 'HIRECT', HIND: 'HIND', CUMMINS: 'Cummins',
+};
+function cleanHotelLoad(v) {
+    const s = (v === undefined || v === null) ? '' : String(v).trim();
+    if (!s) return null;
+    const u = s.toUpperCase();
+    if (NOT_HOG.has(u)) return null;          // "not fitted" is NULL, never text
+    return HOTEL_CANON[u] || s;
+}
+
 function cleanStr(v) {
     if (v === undefined || v === null) return null;
     const s = String(v).trim();
@@ -72,7 +93,7 @@ function rowToTuple(r) {
         cleanStr(r['RTIS']),
         cleanHrpt(r['HRPT Nos']),
         cleanStr(r['Microprocessor/Relay']),
-        cleanStr(r['Hotel Load']),
+        cleanHotelLoad(r['Hotel Load']),
     ];
 }
 
@@ -134,6 +155,65 @@ async function loadLocos(csvPath) {
         );
         console.log(`Before:   ${countBefore.n} rows in div_locos`);
 
+        // ── Refuse an obviously stale CSV ─────────────────────────────
+        // The transfer guard below saves deliberate MOVES, but nothing saves a
+        // correction the CSV simply predates. Loading the April 2026 file over
+        // the September reconciliation reverts 1,170 rows of class and zone —
+        // silently, because an upsert cannot tell stale from new.
+        //
+        // A genuine refresh changes a handful of rows. Thousands means the file
+        // is older than the database. Count first, and stop.
+        const [existing] = await conn.query(
+            'SELECT loco_number, loco_type, railway_zone, home_shed, hotel_load_oem FROM div_locos'
+        );
+        const have = new Map(existing.map((r) => [String(r.loco_number), r]));
+        const eq = (a, b) => String(a ?? '').trim().toUpperCase() === String(b ?? '').trim().toUpperCase();
+        let wouldChange = 0;
+        for (const t of rows) {
+            const cur = have.get(String(t[0]));
+            if (!cur) continue;                       // a new loco is an addition, not a change
+            if (!eq(cur.loco_type, t[1]) || !eq(cur.railway_zone, t[2]) ||
+                !eq(cur.home_shed, t[3]) || !eq(cur.hotel_load_oem, t[10])) wouldChange++;
+        }
+        const newRows = rows.filter((t) => !have.has(String(t[0]))).length;
+        console.log(`Changes:  ${wouldChange} existing rows would change, ${newRows} would be added`);
+        const LIMIT = parseInt(process.env.LOCO_RELOAD_MAX_CHANGES || '250', 10);
+        if (wouldChange > LIMIT && process.env.LOCO_RELOAD_FORCE !== '1') {
+            throw new Error(
+                `this CSV would change ${wouldChange} existing rows (limit ${LIMIT}).\n` +
+                '  That usually means the file is OLDER than the database and would\n' +
+                '  revert corrections made since it was cut. Check the CSV is current.\n' +
+                '  To override:  LOCO_RELOAD_FORCE=1 ALLOW_LOCO_RELOAD=1 node scripts/load_locos.js <csv>\n' +
+                '  To raise the bar instead:  LOCO_RELOAD_MAX_CHANGES=<n>'
+            );
+        }
+
+        // ── Protect deliberate transfers ──────────────────────────────
+        // The CSV is a point-in-time snapshot. A loco moved AFTER it was cut
+        // still reads at its old shed in the file, so the upsert below would
+        // silently undo the move — which is what happened to 30081 and 30186:
+        // transferred BRCE -> KYNE on 2026-06-23, reverted by a later load,
+        // while div_loco_transfers went on recording the move as done.
+        //
+        // A loco is protected when its CURRENT shed and zone are exactly what
+        // its latest recorded transfer set. That is the signal the value was
+        // put there deliberately. If it has since moved again without being
+        // recorded, it will not match, and the CSV rightly wins.
+        const [protectedRows] = await conn.query(`
+            SELECT l.loco_number, l.home_shed, l.railway_zone
+              FROM div_locos l
+              JOIN div_loco_transfers t ON t.loco_number = l.loco_number
+              JOIN (SELECT loco_number, MAX(changed_at) AS mx
+                      FROM div_loco_transfers
+                     WHERE action = 'TRANSFER'
+                     GROUP BY loco_number) last
+                ON last.loco_number = t.loco_number AND last.mx = t.changed_at
+             WHERE t.action = 'TRANSFER'
+               AND l.home_shed <=> t.to_shed
+               AND l.railway_zone <=> t.to_zone
+        `);
+        console.log(`Guarded:  ${protectedRows.length} locos whose shed/zone came from a recorded transfer`);
+
         let inserted = 0;
         let affected = 0;
         for (let i = 0; i < rows.length; i += BATCH_SIZE) {
@@ -146,6 +226,22 @@ async function loadLocos(csvPath) {
             );
         }
         process.stdout.write('\n');
+
+        // Put the deliberate transfers back where the snapshot moved them.
+        let restored = 0;
+        for (const r of protectedRows) {
+            const [res] = await conn.query(
+                `UPDATE div_locos SET home_shed = ?, railway_zone = ?
+                  WHERE loco_number = ?
+                    AND NOT (home_shed <=> ? AND railway_zone <=> ?)`,
+                [r.home_shed, r.railway_zone, r.loco_number, r.home_shed, r.railway_zone]
+            );
+            if (res.affectedRows) {
+                restored++;
+                console.log(`  kept ${r.loco_number} at ${r.home_shed}/${r.railway_zone} (CSV would have moved it back)`);
+            }
+        }
+        if (restored) console.log(`Restored: ${restored} transfer(s) the CSV would have undone`);
 
         const [[countAfter]] = await conn.query(
             'SELECT COUNT(*) AS n FROM div_locos'
