@@ -376,6 +376,26 @@
 
 <main class="main">
 
+    <!-- Locos working our trains that the loco master does not hold. Shown to
+         admin/ctlc only — they are the roles that can add one. Until a loco is
+         registered its shed and HOG status are unknown, so mis-link and HOG
+         checks silently skip it. Derived from the sheet, so it clears itself
+         once the loco is added. -->
+    <!-- Days nobody finished. The per-sheet banner only warns whoever opens
+         that sheet; a day nobody opens goes unnoticed, and the gap runs in
+         collapse days rather than thin drift. -->
+    <div id="gapBanner" class="sick-banner" style="display:none;background:var(--warning-bg);border-left-color:var(--warning);color:var(--warning)">
+        <span class="ttl"><i class="fa-solid fa-calendar-xmark"></i> DAYS NOT FILLED</span>
+        <span id="gapMsg"></span>
+    </div>
+
+    <div id="unregLocoBanner" class="sick-banner" style="display:none">
+        <span class="ttl"><i class="fa-solid fa-triangle-exclamation"></i> LOCOS NOT IN THE MASTER</span>
+        <span id="unregLocoMsg"></span>
+        <a href="/control-office/loco-management.html"
+           style="color:inherit;font-weight:700;text-decoration:underline;margin-left:6px">Add them</a>
+    </div>
+
     <!-- Lookup result -->
     <div class="lookup-result" id="lookupResult"></div>
 
@@ -502,6 +522,14 @@
                     <div class="desc">Locos standing at a terminal → DN workings</div>
                 </div>
             </a>
+            <a class="link-card" id="icmsImportLink" href="/control-office/icms-import.html" style="display:none">
+                <i class="fa-solid fa-file-import icn" style="color:var(--success)"></i>
+                <div>
+                    <div class="ttl">ICMS Import</div>
+                    <div class="desc">Fill the DN sheet from the ICMS 501 export
+                        <span style="color:var(--danger);font-weight:600">— use the raw file</span></div>
+                </div>
+            </a>
             <a class="link-card" href="/control-office/hog-position.html">
                 <i class="fa-solid fa-bolt icn" style="color:var(--success)"></i>
                 <div>
@@ -593,6 +621,7 @@ async function loadMe() {
         const r = await fetch('/api/division/loco-link/me');
         if (!r.ok) { $('#userInfo').textContent = '—'; return; }
         const u = await r.json();
+        window.__divRole = u.div_role || null;
         const role = u.div_role === 'lpc' ? 'LPC' : (u.div_role || u.role);
         $('#userInfo').innerHTML = `<i class="fa-solid fa-user"></i> ${u.full_name || u.username} <small>(${role})</small>`;
         // Consolidated Sheet tile — writers (division_admin/ctlc) plus read-only ctlc_view
@@ -604,11 +633,20 @@ async function loadMe() {
             const ssehq = $('#ssehqLink');
             if (ssehq) ssehq.style.display = '';
         }
+        // ICMS Import tile — writers only, same roles that may fill a DN sheet.
+        if (['lpc', 'ctlc', 'division_admin'].includes(u.div_role)) {
+            const imp = $('#icmsImportLink');
+            if (imp) imp.style.display = '';
+        }
         // Settings tile — writers only (it is an edit page)
         if (['division_admin', 'ctlc'].includes(u.div_role)) {
             const settings = $('#settingsLink');
             if (settings) settings.style.display = '';
         }
+        // Unregistered-loco banner — only the roles that can act on it.
+        if (['division_admin', 'ctlc'].includes(u.div_role)) showUnregisteredLocos();
+        // Unfinished-day warning — anyone who can fill a sheet should see it.
+        if (['lpc', 'ctlc', 'division_admin'].includes(u.div_role)) showRecentGaps();
         // Back-to-Dashboard only for division_admin — they have the wider division
         // portal. ctlc/lpc are scoped to Control Office and have no dashboard to return to.
         if (u.div_role === 'division_admin') {
@@ -618,6 +656,58 @@ async function loadMe() {
     } catch (e) {
         $('#userInfo').textContent = '—';
     }
+}
+
+/* Recent days left substantially unfilled. Links straight to that day's sheet,
+   and to the ICMS import which can fill a whole day (or several) at once. */
+async function showRecentGaps() {
+    try {
+        const r = await fetch('/api/division/loco-link/icms/gaps?days=7');
+        if (!r.ok) return;
+        const d = await r.json();
+        const gaps = d.gaps || [];
+        if (!gaps.length) { $('#gapBanner').style.display = 'none'; return; }
+        const box = $('#gapMsg');
+        box.innerHTML = '';
+        box.textContent = ` — ${gaps.length} of the last 7 days ${gaps.length === 1 ? 'is' : 'are'} under 80% filled: `;
+        gaps.slice(0, 5).forEach((g, i) => {
+            if (i) box.appendChild(document.createTextNode(', '));
+            const a = document.createElement('a');
+            a.href = '/control-office/daily-entry.html?date=' + g.date;
+            a.style.cssText = 'color:inherit;font-weight:700;text-decoration:underline';
+            a.textContent = `${g.date} (${g.pct}%, ${g.blank} blank)`;
+            box.appendChild(a);
+        });
+        const imp = document.createElement('a');
+        imp.href = '/control-office/icms-import.html';
+        imp.style.cssText = 'color:inherit;font-weight:700;text-decoration:underline;margin-left:8px';
+        imp.textContent = 'Fill from ICMS';
+        box.appendChild(imp);
+        $('#gapBanner').style.display = '';
+    } catch (e) { /* advisory only */ }
+}
+
+/* Locos seen on our sheets that the loco master does not hold. Derived, so it
+   disappears by itself once they are registered — nothing to mark done. */
+async function showUnregisteredLocos() {
+    try {
+        const d0 = new Date();
+        const today = `${d0.getFullYear()}-${String(d0.getMonth() + 1).padStart(2, '0')}-${String(d0.getDate()).padStart(2, '0')}`;
+        const r = await fetch('/api/division/loco-link/icms/pending?date=' + today);
+        if (!r.ok) return;
+        const d = await r.json();
+        const list = d.unknown_locos || [];
+        // Hide on refresh once they have all been registered.
+        if (!list.length) { $('#unregLocoBanner').style.display = 'none'; return; }
+        // Loco numbers are digits-only by the time they reach here (the endpoint
+        // filters to ^[0-9]{4,6}$), so this is plain text, not markup.
+        const shown = list.slice(0, 6).map(l => l.loco_number).join(', ');
+        $('#unregLocoMsg').textContent =
+            ` — ${list.length} loco${list.length === 1 ? '' : 's'} on our sheets`
+            + ` ${list.length === 1 ? 'is' : 'are'} not in the loco master (${shown}${list.length > 6 ? ', …' : ''}).`
+            + ` Mis-link and HOG checks skip ${list.length === 1 ? 'it' : 'them'}.`;
+        $('#unregLocoBanner').style.display = '';
+    } catch (e) { /* advisory only — never block the dashboard */ }
 }
 
 // Loco lookup
@@ -787,6 +877,22 @@ $('#todayDate').textContent = todayHuman();
 loadMe();
 loadStats();
 $('#lookupInput').focus();
+
+/* The sheet cards show filled/total for today, read once at load. Filling
+   locos happens elsewhere — the ICMS import, or a DN sheet in another tab —
+   so refresh whenever this page comes back into view rather than leaving
+   stale counts on screen. `pageshow` covers a back-navigation served from the
+   browser's cache, where no script would otherwise re-run. */
+function refreshDashboard() {
+    loadStats();
+    const role = window.__divRole;
+    if (['division_admin', 'ctlc'].includes(role)) showUnregisteredLocos();
+    if (['lpc', 'ctlc', 'division_admin'].includes(role)) showRecentGaps();
+}
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') refreshDashboard();
+});
+window.addEventListener('pageshow', (e) => { if (e.persisted) refreshDashboard(); });
 </script>
 
 <script src="/control-office/nav-home.js"></script>

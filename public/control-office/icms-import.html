@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ICMS Import | Control Office</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --brand: #0b3d91; --brand-light: #1e5fb8;
+            --bg: #f1f5f9; --surface: #ffffff;
+            --border: #e2e8f0; --border-strong: #cbd5e1;
+            --text-main: #1e293b; --text-light: #64748b;
+            --danger: #dc2626; --danger-bg: #fee2e2;
+            --warning: #d97706; --warning-bg: #fef3c7;
+            --success: #059669; --success-bg: #d1fae5;
+            --muted: #94a3b8; --info: #0284c7; --info-bg: #e0f2fe;
+        }
+        * { box-sizing: border-box; }
+        body { font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+               background: var(--bg); margin: 0; color: var(--text-main); }
+
+        .header { background: var(--brand); color: #fff; padding: 12px 24px;
+                  display: flex; align-items: center; justify-content: space-between;
+                  box-shadow: 0 2px 6px rgba(0,0,0,.08); }
+        .header-title { display: flex; align-items: center; gap: 10px; font-size: 1.02rem; font-weight: 600; }
+        .header-title a { color: #fff; text-decoration: none; }
+        .header-title .sep { opacity: .5; }
+        .header-user { display: flex; align-items: center; gap: 12px; font-size: .84rem; }
+        .header-user a { color: #fff; text-decoration: none; opacity: .85; }
+
+        .main { max-width: 1120px; margin: 0 auto; padding: 18px 20px 60px; }
+
+        .card { background: var(--surface); border: 1px solid var(--border);
+                border-radius: 10px; padding: 16px 18px; margin-bottom: 14px; }
+        .card h2 { margin: 0 0 4px; font-size: .96rem; }
+        .card .sub { font-size: .82rem; color: var(--text-light); margin-bottom: 12px; }
+
+        /* The single most common mistake is uploading the formatted export, so
+           this is a warning rather than a footnote. The parser refuses that
+           file, but saying so before the upload saves a wasted round trip. */
+        .use-raw {
+            display: flex; gap: 9px; align-items: flex-start;
+            background: var(--danger-bg); border: 1px solid #fecaca;
+            color: var(--danger); border-radius: 8px;
+            padding: 10px 12px; margin: 0 0 12px;
+            font-size: .84rem; font-weight: 500;
+        }
+        .use-raw code {
+            background: rgba(255,255,255,.65); border: 1px solid #fecaca;
+            border-radius: 3px; padding: 0 4px; font-size: .92em;
+        }
+        .drop { border: 2px dashed var(--border-strong); border-radius: 10px;
+                padding: 22px; text-align: center; cursor: pointer; background: #fbfdff; }
+        .drop.over { border-color: var(--brand-light); background: var(--info-bg); }
+        .drop i { font-size: 1.7rem; color: var(--brand-light); }
+        .drop .big { font-weight: 600; margin-top: 8px; }
+        .drop .hint { font-size: .8rem; color: var(--text-light); margin-top: 4px; }
+        .drop input[type=file] { display: none; }
+
+        .btn { border: 1px solid var(--border-strong); background: var(--surface);
+               border-radius: 7px; padding: 8px 14px; font-family: inherit;
+               font-size: .86rem; cursor: pointer; color: var(--text-main); }
+        .btn:hover { border-color: var(--brand-light); color: var(--brand); }
+        .btn-primary { background: var(--brand); border-color: var(--brand); color: #fff; font-weight: 600; }
+        .btn-primary:hover { background: var(--brand-light); color: #fff; }
+        .btn:disabled { opacity: .5; cursor: not-allowed; }
+        .btn-lg { padding: 11px 20px; font-size: .92rem; }
+
+        .stats { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+        .stat { background: var(--surface); border: 1px solid var(--border);
+                border-radius: 9px; padding: 10px 14px; min-width: 104px; }
+        .stat .num { font-size: 1.5rem; font-weight: 700; line-height: 1.1; }
+        .stat .label { font-size: .72rem; color: var(--text-light);
+                       text-transform: uppercase; letter-spacing: .04em; }
+        .stat.good .num { color: var(--success); }
+        .stat.warn .num { color: var(--warning); }
+        .stat.info .num { color: var(--info); }
+
+        table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+        th { text-align: left; font-size: .7rem; text-transform: uppercase;
+             letter-spacing: .04em; color: var(--text-light); font-weight: 700;
+             padding: 6px 8px; border-bottom: 1px solid var(--border); }
+        td { padding: 6px 8px; border-bottom: 1px solid var(--border); }
+        tr:last-child td { border-bottom: 0; }
+        .no { font-weight: 700; font-variant-numeric: tabular-nums; }
+        .dim { color: var(--text-light); }
+        .tag { font-size: .68rem; font-weight: 700; padding: 1px 6px; border-radius: 10px;
+               text-transform: uppercase; letter-spacing: .03em; }
+        .tag.master { background: var(--success-bg); color: #065f46; }
+        .tag.icms { background: var(--warning-bg); color: #92400e; }
+        .tag.new { background: var(--info-bg); color: #075985; }
+
+        .banner { border-radius: 9px; padding: 11px 14px; margin-bottom: 14px;
+                  font-size: .86rem; display: flex; gap: 9px; align-items: flex-start; }
+        .banner.err { background: var(--danger-bg); color: #991b1b; border: 1px solid #fecaca; }
+        .banner.warn { background: var(--warning-bg); color: #92400e; border: 1px solid #fde68a; }
+        .banner.ok { background: var(--success-bg); color: #065f46; border: 1px solid #a7f3d0; }
+        .banner.info { background: var(--info-bg); color: #075985; border: 1px solid #bae6fd; }
+
+        .excluded { font-size: .8rem; color: var(--muted); padding: 8px 2px; }
+        details.fold summary { cursor: pointer; font-size: .84rem; color: var(--text-light);
+                               padding: 6px 0; user-select: none; }
+        .actions { display: flex; gap: 10px; align-items: center; margin-top: 4px; }
+        .hidden { display: none !important; }
+        .spin { animation: sp 1s linear infinite; }
+        @keyframes sp { to { transform: rotate(360deg); } }
+        @media (max-width: 700px) { .main { padding: 12px; } .stat { min-width: 84px; } }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <div class="header-title">
+        <a href="/control-office/"><i class="fa-solid fa-arrow-left"></i></a>
+        <span class="sep">|</span>
+        <i class="fa-solid fa-file-import"></i> ICMS Import
+    </div>
+    <div class="header-user">
+        <span id="whoami"></span>
+        <a href="/api/logout" title="Logout"><i class="fa-solid fa-right-from-bracket"></i></a>
+    </div>
+</div>
+
+<div class="main">
+
+    <div class="card" id="uploadCard">
+        <h2>Fill the DN sheet from ICMS</h2>
+        <div class="sub">
+            Upload the ICMS Report 501 export you already produce. It fills each DN working's
+            loco for you.
+        </div>
+        <div class="use-raw">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <span><b>Use the raw file.</b> The formatted export drops the leading zero from
+            train numbers — 01103 becomes 1103 — so those trains match nothing. A file
+            without <code>_raw</code> in its name is usually the wrong one.</span>
+        </div>
+        <label class="drop" id="drop">
+            <input type="file" id="file" accept=".xlsx">
+            <i class="fa-solid fa-cloud-arrow-up"></i>
+            <div class="big" id="dropName">Choose the ICMS_REPORT_501_raw.xlsx file</div>
+            <div class="hint">or drag it here</div>
+        </label>
+        <div class="actions" style="margin-top:12px">
+            <button class="btn btn-primary" id="btnPreview" disabled>
+                <i class="fa-solid fa-eye"></i> Preview
+            </button>
+            <span class="dim" id="uploadMsg"></span>
+        </div>
+    </div>
+
+    <div id="errBox"></div>
+    <div id="result" class="hidden"></div>
+
+</div>
+
+<script>
+const $  = (s) => document.querySelector(s);
+const $$ = (s) => [...document.querySelectorAll(s)];
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g,
+    c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const API = '/api/division/loco-link/icms';
+
+let chosen = null;      // the File
+let previewed = null;   // the last preview payload
+let myRole = null;      // adding a train needs ctlc / division_admin
+
+/* ── File choosing ──────────────────────────────────────────────── */
+const drop = $('#drop'), fileInput = $('#file');
+fileInput.addEventListener('change', () => setFile(fileInput.files[0]));
+['dragenter','dragover'].forEach(e => drop.addEventListener(e, (ev) => {
+    ev.preventDefault(); drop.classList.add('over');
+}));
+['dragleave','drop'].forEach(e => drop.addEventListener(e, (ev) => {
+    ev.preventDefault(); drop.classList.remove('over');
+}));
+drop.addEventListener('drop', (ev) => {
+    const f = ev.dataTransfer.files && ev.dataTransfer.files[0];
+    if (f) setFile(f);
+});
+function setFile(f) {
+    chosen = f || null;
+    $('#dropName').textContent = f ? f.name : 'Choose the ICMS_REPORT_501_raw.xlsx file';
+    $('#btnPreview').disabled = !f;
+    // Warn early rather than after a round trip — the formatted export is the
+    // easy mistake and its name is the giveaway.
+    const warn = f && !/_raw/i.test(f.name);
+    $('#uploadMsg').textContent = warn
+        ? 'This does not look like the raw export — it will probably be refused.' : '';
+    $('#uploadMsg').style.color = warn ? 'var(--danger)' : '';
+    $('#uploadMsg').style.fontWeight = warn ? '600' : '';
+}
+
+/* ── Preview ────────────────────────────────────────────────────── */
+$('#btnPreview').addEventListener('click', async () => {
+    if (!chosen) return;
+    const btn = $('#btnPreview');
+    btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner spin"></i> Reading…';
+    $('#errBox').innerHTML = '';
+    try {
+        const fd = new FormData(); fd.append('file', chosen);
+        const r = await fetch(`${API}/preview`, { method: 'POST', body: fd });
+        const d = await r.json();
+        if (!r.ok) { showError(d.error || 'Could not read the file.'); return; }
+        previewed = d;
+        renderPreview(d);
+    } catch (e) {
+        showError('Network error: ' + e.message);
+    } finally {
+        btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-eye"></i> Preview';
+    }
+});
+
+function showError(msg) {
+    $('#errBox').innerHTML =
+        `<div class="banner err"><i class="fa-solid fa-triangle-exclamation"></i><div>${esc(msg)}</div></div>`;
+    $('#result').classList.add('hidden');
+}
+
+function locoCell(l) {
+    if (!l) return '<span class="dim">—</span>';
+    const tag = l.in_master
+        ? '<span class="tag master">our master</span>'
+        : (l.type ? '<span class="tag icms">from ICMS</span>' : '<span class="tag new">new</span>');
+    return `<span class="no">${esc(l.number)}</span> `
+         + `<span class="dim">${esc(l.type || '—')}</span> ${tag}`;
+}
+
+function renderPreview(d) {
+    const s = d.summary;
+    const by = (o) => d.rows.filter(r => r.outcome === o);
+    const fill = by('fill'), already = by('already'), noLoco = by('no_loco'),
+          noWorking = by('no_working'), notToday = by('not_today');
+
+    let html = '';
+
+    if (d.warnings && d.warnings.length) {
+        html += `<div class="banner warn"><i class="fa-solid fa-circle-exclamation"></i><div>
+            ${d.warnings.map(w => esc(w)).join('<br>')}</div></div>`;
+    }
+
+    const multi = (d.dates || []).length > 1;
+    html += `<div class="banner info"><i class="fa-solid fa-circle-info"></i><div>
+        <b>${esc(d.file_name)}</b> — ${multi
+            ? `covers <b>${d.dates.length} days</b>: ${d.dates.map(esc).join(', ')}`
+            : `report for <b>${esc((d.dates || [])[0] || '')}</b>`}.
+        Nothing has been saved yet.</div></div>`;
+
+    // A multi-day export is matched day by day: each row goes to ITS OWN
+    // sheet, because the set of workings differs by weekday.
+    if (multi) {
+        html += `<div class="card"><h2>Day by day</h2>
+            <div class="sub">Each day is matched against its own sheet. A day already
+                filled shows here as such and is left alone.</div>`
+            + `<table><thead><tr><th>Date</th><th>Will fill</th><th>Already filled</th>
+                 <th>Need a loco</th><th>Excluded</th></tr></thead><tbody>`
+            + s.per_date.map(p => `<tr>
+                 <td class="no">${esc(p.date)}</td>
+                 <td>${p.fill}</td>
+                 <td class="dim">${p.already}</td>
+                 <td class="dim">${p.no_loco}</td>
+                 <td class="dim">${p.trainsets + p.no_working}</td></tr>`).join('')
+            + '</tbody></table></div>';
+    }
+
+    html += `<div class="stats">
+        <div class="stat good"><div class="num">${s.fill}</div><div class="label">Will fill</div></div>
+        <div class="stat"><div class="num">${s.already}</div><div class="label">Already filled</div></div>
+        <div class="stat warn"><div class="num">${s.no_loco}</div><div class="label">No loco yet</div></div>
+        <div class="stat info"><div class="num">${s.unknown_locos.length}</div><div class="label">New locos</div></div>
+    </div>`;
+
+    // ── Will fill: the main table. Train, loco, type — nothing else needed.
+    html += `<div class="card"><h2>Will be filled in (${fill.length})</h2>
+        <div class="sub">These DN workings are blank on the sheet and ICMS has a loco for them.</div>`;
+    html += fill.length ? table(fill.map(r => `
+        <tr><td class="no">${esc(r.train_no)}${multi ? `<br><small class="dim">${esc(r.working_date)}</small>` : ''}</td>
+            <td>${locoCell(r.front)}</td>
+            <td>${r.rear ? locoCell(r.rear) : '<span class="dim">—</span>'}</td>
+            <td class="dim">${esc(r.sheet_source || '')} ${esc(r.event_time || '')}</td></tr>`).join(''))
+        : '<div class="dim">Nothing to fill — the sheet is already complete for this date.</div>';
+    html += '</div>';
+
+    // ── Already filled: shown so a disagreement is visible, never overwritten.
+    if (already.length) {
+        const diff = already.filter(r => r.differs);
+        html += `<div class="card"><h2>Already filled — left untouched (${already.length})</h2>
+            <div class="sub">What is on the sheet always wins.${
+                diff.length ? ` <b>${diff.length}</b> differ from ICMS and are listed first.` : ''}</div>`;
+        const ordered = [...diff, ...already.filter(r => !r.differs)];
+        html += table(ordered.map(r => `
+            <tr><td class="no">${esc(r.train_no)}</td>
+                <td><span class="no">${esc(r.existing_loco)}</span>
+                    ${r.differs ? '<span class="tag icms">ICMS says ' + esc(r.front ? r.front.number : '—') + '</span>' : ''}</td>
+                <td class="dim">—</td>
+                <td class="dim">${esc(r.sheet_source || '')} ${esc(r.event_time || '')}</td></tr>`).join(''));
+        html += '</div>';
+    }
+
+    // ── Separate section, as asked: what the LPC still has to enter.
+    html += `<div class="card"><h2>Still need a loco (${noLoco.length})</h2>
+        <div class="sub">ICMS has no loco against these yet. Enter them on the DN sheet,
+            or upload a later ICMS export once they have departed.</div>`;
+    html += noLoco.length ? table(noLoco.map(r => `
+        <tr><td class="no">${esc(r.train_no)}${multi ? `<br><small class="dim">${esc(r.working_date)}</small>` : ''}</td>
+            <td class="dim">${r.departed ? 'departed — loco not entered in ICMS' : 'not departed yet'}</td>
+            <td class="dim">—</td>
+            <td class="dim">${esc(r.sheet_source || '')} ${esc(r.event_time || '')}</td></tr>`).join(''))
+        : '<div class="dim">None — every working in this file has a loco.</div>';
+    html += '</div>';
+
+    // A working whose run_days exclude this weekday: ICMS says it ran, so one of
+    // the two is wrong. Worth the LPC's eyes, not a silent write.
+    if (notToday.length) {
+        html += `<div class="card"><h2>Ran today, but not scheduled to (${notToday.length})</h2>
+            <div class="sub">ICMS reports these ran on this date, but their working's run days
+                say otherwise, so they are not on this day's sheet. Either it was a special
+                run, or the run days need correcting in Settings.</div>`
+            + `<table><thead><tr><th>Train</th><th>Sheet</th><th>Run days</th><th></th></tr></thead><tbody>`
+            + notToday.map(r => `<tr><td class="no">${esc(r.train_no)}</td>
+                 <td class="dim">${esc(r.sheet_source || '')}</td>
+                 <td class="dim">${esc(r.run_days || '—')}</td>
+                 <td class="dim">${esc(r.src || '')} → ${esc(r.dstn || '')}</td></tr>`).join('')
+            + '</tbody></table></div>';
+    }
+
+    // A train ICMS gives a LOCO for, that we hold no working for, is a special
+    // nobody registered — every WTT train is already on a sheet. That is
+    // actionable, so it gets its own section rather than a fold. The rest
+    // (no loco either) are just not ours.
+    const missingSpecials = noWorking.filter(r => r.locos_in_file > 0);
+    const notOurs = noWorking.filter(r => !r.locos_in_file);
+    const canAddTrain = ['ctlc', 'division_admin'].includes(myRole);
+
+    if (missingSpecials.length) {
+        html += `<div class="card"><h2>Ran with a loco, but not on any sheet (${missingSpecials.length})</h2>
+            <div class="sub">Every WTT train already has a working, so these are specials that
+                have not been registered. Their locos cannot be recorded until they are —
+                and those locos will keep reading as standing at the terminal.
+                ${canAddTrain ? 'Add each one, then upload the file again.'
+                              : 'A ctlc or admin user needs to add them.'}</div>`
+            + `<table><thead><tr><th>Train</th><th>Type</th><th>Loco in ICMS</th>
+                 <th>Route</th><th></th></tr></thead><tbody>`
+            + missingSpecials.map(r => `<tr>
+                 <td class="no">${esc(r.train_no)}${multi ? `<br><small class="dim">${esc(r.working_date)}</small>` : ''}</td>
+                 <td class="dim">${esc(r.train_type || '')}</td>
+                 <td>${r.loco_in_file ? `<span class="no">${esc(r.loco_in_file)}</span> <span class="dim">${esc(r.loco_type_in_file || '')}</span>` : '<span class="dim">—</span>'}</td>
+                 <td class="dim">${esc(r.src || '')} → ${esc(r.dstn || '')}</td>
+                 <td>${canAddTrain
+                    ? `<a class="btn" target="_blank" rel="noopener"
+                          href="/control-office/settings.html?tab=trains&add=${encodeURIComponent(r.train_no)}">
+                          <i class="fa-solid fa-plus"></i> Add train</a>`
+                    : '<span class="dim">needs ctlc/admin</span>'}</td></tr>`).join('')
+            + '</tbody></table></div>';
+    }
+
+    // MEMU and Vande Bharat are trainsets: no loco, ever. One line, not a list.
+    html += `<div class="excluded">
+        <i class="fa-solid fa-circle-minus"></i>
+        ${s.trainsets} MEMU / Vande Bharat trainsets excluded — they have no loco.
+        ${notOurs.length ? `&nbsp;·&nbsp; ${notOurs.length} more are not on a DN sheet we keep and had no loco either.` : ''}
+    </div>`;
+
+    if (notOurs.length) {
+        html += `<details class="fold"><summary>Show the ${notOurs.length} not on our DN sheets</summary>`
+             + table(notOurs.map(r => `
+                <tr><td class="no">${esc(r.train_no)}</td>
+                    <td class="dim">${esc(r.train_type || '')}</td>
+                    <td class="dim">${esc(r.src || '')} → ${esc(r.dstn || '')}</td>
+                    <td class="dim">${esc(r.note || '')}</td></tr>`).join(''))
+             + '</details>';
+    }
+
+    html += `<div class="card"><div class="actions">
+        <button class="btn btn-primary btn-lg" id="btnApply" ${fill.length ? '' : 'disabled'}>
+            <i class="fa-solid fa-check"></i> Fill ${fill.length} working${fill.length === 1 ? '' : 's'}${
+                multi ? ` across ${d.dates.length} days` : ''}
+        </button>
+        <span class="dim">Existing entries are never changed.</span>
+    </div></div>`;
+
+    $('#result').innerHTML = html;
+    $('#result').classList.remove('hidden');
+    const b = $('#btnApply');
+    if (b) b.addEventListener('click', apply);
+}
+
+function table(bodyHtml) {
+    return `<table><thead><tr>
+        <th>Train</th><th>Loco</th><th>Second loco</th><th>Sheet</th>
+    </tr></thead><tbody>${bodyHtml}</tbody></table>`;
+}
+
+/* ── Apply ──────────────────────────────────────────────────────── */
+async function apply() {
+    const btn = $('#btnApply');
+    btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner spin"></i> Filling…';
+    try {
+        // The file is sent again rather than a row list: the server re-reads it,
+        // so what is written is always what ICMS said, not what this page holds.
+        const fd = new FormData();
+        fd.append('file', chosen);
+        // No working_date: every row carries its own, so a multi-day file fills
+        // each day's sheet in one action.
+        const r = await fetch(`${API}/apply`, { method: 'POST', body: fd });
+        const d = await r.json();
+        if (!r.ok) { showError(d.error || 'Could not apply the import.'); return; }
+        renderApplied(d);
+    } catch (e) {
+        showError('Network error: ' + e.message);
+    }
+}
+
+function renderApplied(d) {
+    const days = (d.dates || []);
+    let html = `<div class="banner ok"><i class="fa-solid fa-circle-check"></i><div>
+        <b>${d.written}</b> working${d.written === 1 ? '' : 's'} filled
+        ${days.length > 1 ? `across ${days.length} days (${days.map(esc).join(', ')})`
+                          : `for ${esc(days[0] || '')}`}.
+        Loco positions have moved with them.</div></div>`;
+
+    if (d.failed) {
+        html += `<div class="banner warn"><i class="fa-solid fa-triangle-exclamation"></i><div>
+            <b>${d.failed}</b> could not be written — the sheet refuses a loco it does not know
+            on an electric working, in case the number is mistyped. Register the locos below,
+            then upload the file again.</div></div>`;
+    }
+
+    if (d.still_without_loco.length) {
+        html += `<div class="card"><h2>Still need a loco (${d.still_without_loco.length})</h2>
+            <div class="sub">Enter these on the DN sheet, or upload a later ICMS export.</div>`
+            + table(d.still_without_loco.map(r => `
+                <tr><td class="no">${esc(r.train_no)}${days.length > 1 ? `<br><small class="dim">${esc(r.working_date)}</small>` : ''}</td>
+                    <td class="dim">${r.departed ? 'departed — no loco in ICMS' : 'not departed yet'}</td>
+                    <td class="dim">—</td>
+                    <td class="dim">${esc(r.sheet_source || '')} ${esc(r.event_time || '')}</td></tr>`).join(''))
+            + '</div>';
+    }
+
+    // The prompt asked for: locos seen today that our master does not hold.
+    if (d.locos_to_register && d.locos_to_register.length) {
+        html += `<div class="card"><h2>New locos to add (${d.locos_to_register.length})</h2>
+            <div class="sub">These worked a train today but are not in the loco master.
+                Adding them needs shed, zone and class — a ctlc or admin user can do it on the
+                Loco Management page. Until then their shed and HOG status are unknown, so
+                mis-link and HOG checks skip them.</div>`
+            + `<table><thead><tr><th>Loco</th><th>Class (from ICMS)</th><th>Status</th></tr></thead><tbody>`
+            + d.locos_to_register.map(l => `
+                <tr><td class="no">${esc(l.loco_number)}</td>
+                    <td class="dim">${esc(l.type_from_icms || '—')}</td>
+                    <td>${l.blocked_write
+                        ? '<span class="tag icms">blocked — register first</span>'
+                        : '<span class="tag new">on the sheet, not in master</span>'}</td></tr>`).join('')
+            + `</tbody></table>
+               <div class="actions" style="margin-top:12px">
+                 <a class="btn" href="/control-office/loco-management.html">
+                   <i class="fa-solid fa-train"></i> Open Loco Management</a>
+               </div></div>`;
+    }
+
+    html += `<div class="card"><div class="actions">
+        <a class="btn btn-primary" href="/control-office/daily-entry.html">
+            <i class="fa-solid fa-table-list"></i> Open the DN sheet</a>
+        <button class="btn" onclick="location.reload()">Import another file</button>
+    </div></div>`;
+
+    $('#result').innerHTML = html;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+/* ── Who am I ───────────────────────────────────────────────────── */
+(async function init() {
+    try {
+        // Same endpoint the other Control Office pages use for the header.
+        const r = await fetch('/api/division/loco-link/me');
+        if (r.ok) {
+            const u = await r.json();
+            myRole = u.div_role || null;
+            $('#whoami').textContent = (u.username || '') + (u.div_role ? ' · ' + u.div_role : '');
+        }
+    } catch (e) { /* header detail only */ }
+})();
+</script>
+</body>
+</html>

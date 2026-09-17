@@ -305,6 +305,14 @@ app.get('/control-office/schedule-due.html', requireControlOffice, (req, res) =>
 app.get('/control-office/loco-assign.html', requireControlOffice, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'control-office', 'loco-assign.html'));
 });
+// ICMS Report 501 import — fills the DN sheet from the LPC's own ICMS export.
+// Writers only: it writes the sheet, so it is gated like the sheet is.
+app.get('/control-office/icms-import.html', requireControlOffice, (req, res) => {
+  if (!['lpc', 'ctlc', 'division_admin'].includes(req.session.user.div_role)) {
+    return res.redirect('/control-office/');
+  }
+  res.sendFile(path.join(__dirname, 'public', 'control-office', 'icms-import.html'));
+});
 // The remaining Control Office pages. Without an explicit route these fell
 // through to express.static and loaded without a login (fixed 2026-09-11).
 // The APIs behind them were always gated; this closes the page shell too.

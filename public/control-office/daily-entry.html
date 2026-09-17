@@ -137,6 +137,15 @@
             font-weight: 500;
             border-bottom: 1px solid var(--warning);
         }
+        .no-loco-banner {
+            background: var(--danger-bg);
+            color: var(--danger);
+            padding: 10px 24px;
+            font-size: .88rem;
+            font-weight: 500;
+            border-bottom: 1px solid var(--danger);
+            display: flex; align-items: center; gap: 9px;
+        }
 
         /* Main */
         .main { padding: 18px 24px; max-width: 1500px; margin: 0 auto; }
@@ -1342,6 +1351,7 @@
         </span>
         <span><span class="stat-num" id="statFilled">—</span> entered</span>
         <span><span class="stat-num bad" id="statMislink">—</span> mis-links</span>
+        <span><span class="stat-num bad" id="statNoLoco">—</span> without loco</span>
     </span>
 
     <span class="sheet-search" id="sheetSearchWrap">
@@ -1367,6 +1377,17 @@
 <div class="read-only-banner" id="readOnlyBanner" style="display:none">
     <i class="fa-solid fa-lock"></i>
     <span id="readOnlyMsg">This date is outside the editable window.</span>
+</div>
+
+<!-- Stays up until every working on this sheet has a loco. Locos only move
+     position when their row is written, so an unfilled row is not just a
+     missing record — that loco still reads as standing at the terminal. -->
+<div class="no-loco-banner" id="noLocoBanner" style="display:none">
+    <i class="fa-solid fa-triangle-exclamation"></i>
+    <span id="noLocoMsg"></span>
+    <a href="/control-office/icms-import.html" id="noLocoImport"
+       style="margin-left:auto;color:inherit;font-weight:600;text-decoration:underline">
+       Fill from ICMS</a>
 </div>
 
 <main class="main">
@@ -1669,6 +1690,25 @@ function renderSheet(data) {
     const mislinkCount = data.rows.filter(r =>
         r.log && (r.log.is_mislink || r.log.is_mislink_rear)).length;
     $('#statMislink').textContent = mislinkCount;
+
+    // A working with no log row at all counts too — the common case is a row
+    // the LPC never touched, not an empty one.
+    const noLoco = data.rows.filter(r => !r.log || !r.log.actual_loco_no).length;
+    $('#statNoLoco').textContent = noLoco;
+    const nlb = $('#noLocoBanner');
+    if (nlb) {
+        if (noLoco > 0 && direction === 'DN') {
+            nlb.style.display = 'flex';
+            $('#noLocoMsg').textContent =
+                `${noLoco} working${noLoco === 1 ? '' : 's'} on this sheet still ${noLoco === 1 ? 'has' : 'have'} no loco. `
+                + `Until entered, those locos still read as standing at the terminal.`;
+            // Only writers can act on it; for everyone else the link is noise.
+            const imp = $('#noLocoImport');
+            if (imp) imp.style.display = data.editable ? '' : 'none';
+        } else {
+            nlb.style.display = 'none';
+        }
+    }
 
     // Read-only banner
     if (!data.editable) {

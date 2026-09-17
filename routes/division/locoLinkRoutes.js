@@ -1892,7 +1892,12 @@ router.patch('/log-remark', async (req, res) => {
 //   actual_loco_no, actual_loco_no_rear?, hog?,
 //   incoming_train?, outgoing_train?, remark?
 // }
-router.post('/log', async (req, res) => {
+// Named, and exported, so the ICMS import can reuse this EXACT handler rather
+// than reimplementing it. It is 760 lines of log write, div_locos schedule
+// write-back, cross-direction propagation and position tracking; a second copy
+// would drift, and the position tracking is the whole point of the import.
+// Nothing about the logic below changed when it was named.
+async function handleLogWrite(req, res) {
     if (!req.session.user) return res.status(401).json({ error: 'not logged in' });
     const u = req.session.user;
     const b = req.body || {};
@@ -2648,7 +2653,8 @@ router.post('/log', async (req, res) => {
         console.error('[loco-link POST /log]', err);
         res.status(500).json({ error: 'Save failed' });
     }
-});
+}
+router.post('/log', handleLogWrite);
 
 // ─── LOCO POSITION TRACKING ──────────────────────────────────────────────
 
@@ -4424,6 +4430,14 @@ router.put('/master/:id', requireSettingsRole, async (req, res) => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
+// ICMS Report 501 import — fills the DN sheet from the LPC's own ICMS export.
+// Mounted here rather than in server.js so it inherits this router's realm
+// guard and sits under the same /api/division/loco-link prefix as the sheet
+// it writes.
+// ═══════════════════════════════════════════════════════════════════════════
+router.use('/icms', require('./icmsImportRoutes').router);
+
+// ═══════════════════════════════════════════════════════════════════════════
 // Scheduled Specials (Settings → manage train schedules with date ranges)
 // All mutations require division_admin or ctlc role; reads require login only.
 // ═══════════════════════════════════════════════════════════════════════════
@@ -5553,3 +5567,14 @@ router.post('/locos/:loco_number/condemn', requireSettingsRole, async (req, res)
 });
 
 module.exports = router;
+// Attached AFTER the export above, which would otherwise clobber it. The ICMS
+// import reuses this exact handler; it resolves it lazily at request time
+// because the two modules require each other (this file mounts /icms).
+module.exports.handleLogWrite = handleLogWrite;
+// Shared with the ICMS import so both format dates the same way. mysql2 hands
+// back a DATE as a JS Date at LOCAL midnight, which serialises to the previous
+// day in UTC ("2026-09-15" -> "2026-09-14T18:30:00.000Z" in IST) — so a raw
+// date must never reach JSON.
+module.exports.toDateISO = toDateISO;
+module.exports.runsToday = runsToday;
+module.exports.dayOfWeekIR = dayOfWeekIR;

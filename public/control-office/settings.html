@@ -2416,6 +2416,25 @@ async function saveAddLink() {
     });
 
     await loadSchedules();
+
+    // Deep link, used by the ICMS import: ?tab=trains&add=12345 opens the
+    // Trains tab with the Add Train form ready and the number filled in. The
+    // import is where an LPC discovers a special is missing; making them
+    // navigate here and find the tab themselves loses the number.
+    const qp = new URLSearchParams(location.search);
+    const wantTab = qp.get('tab');
+    if (wantTab) {
+        const tabBtn = $$('.tab').find(t => t.dataset.tab === wantTab);
+        if (tabBtn) tabBtn.click();
+    }
+    const addTrain = (qp.get('add') || '').trim();
+    if (addTrain) {
+        await openTrainModal(null);
+        const inp = $('#ft_train_no');
+        if (inp) { inp.value = addTrain; inp.focus(); }
+        const nm = qp.get('name');
+        if (nm && $('#ft_train_name')) $('#ft_train_name').value = nm;
+    }
 })();
 </script>
 
