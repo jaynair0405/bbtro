@@ -1,0 +1,19 @@
+{
+  "testedAt": "2026-09-15T06:06:31.427Z",
+  "success": true,
+  "environment": "Temporary local database; real login and centre router; synthetic users and trainees",
+  "checks": [
+    "Seed replay preserves 11 courses",
+    "Unauthenticated, wrong-role, cross-centre and missing-admin-centre requests rejected",
+    "Manual TM without HRMS, concurrent duplicate protection, centre-scoped register and authoritative master names",
+    "CLA-only seed, planning/renewal rules, holiday isolation, Sunday restriction and date preview",
+    "Invalid marks and stale/cross-centre edits rejected; new assessment version persists",
+    "Authenticated browser: register/reload/escaping, CLI search/reuse, assessment save, holiday save/reload, desktop/mobile without page errors",
+    "Division-admin centre change clears register and course context"
+  ],
+  "screenshots": [
+    "trainee-register.png",
+    "courses-holidays.png",
+    "courses-mobile.png"
+  ]
+}

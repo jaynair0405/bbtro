@@ -1,0 +1,17 @@
+{
+  "testedAt": "2026-09-15T06:06:08.760Z",
+  "success": true,
+  "environment": "Temporary local database with synthetic users, staff and letters",
+  "checks": [
+    "Centre-created Train Manager letter uses registered manual identity and permits optional HRMS",
+    "Office and centre scope, legacy-path protection, full acceptance and immutable accepted letter",
+    "Partial acceptance preserves accepted nominee; returned replacement creates version 2; version 1 remains reproducible",
+    "Duplicate letter number, repeat decision and stale revision rejected; division-admin scopes explicit",
+    "Authenticated browser: lobby search/add/submit/print preview and centre return decision without page errors"
+  ],
+  "screenshots": [
+    "step7-lobby-letter.png",
+    "step7-lobby-mobile.png",
+    "step7-centre-decisions.png"
+  ]
+}

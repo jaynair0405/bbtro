@@ -1,0 +1,259 @@
+{
+  "migration": "2026-09-15_training_centre_foundation.sql",
+  "sqlSha256": "0412774f01522409af98335a543cf51e3f9258f6cb945f5303294c613820845f",
+  "mode": "--verify",
+  "startedAt": "2026-09-15T05:05:27.566Z",
+  "tests": [
+    {
+      "test": "TM without HRMS, CLI without staff-master row, and staff lookup",
+      "result": "passed"
+    },
+    {
+      "test": "TM rejects missing name",
+      "result": "passed",
+      "rejectedWith": "ER_BAD_NULL_ERROR"
+    },
+    {
+      "test": "TM rejects blank name",
+      "result": "passed",
+      "rejectedWith": "ER_CHECK_CONSTRAINT_VIOLATED"
+    },
+    {
+      "test": "TM rejects missing cms_id",
+      "result": "passed",
+      "rejectedWith": "ER_CHECK_CONSTRAINT_VIOLATED"
+    },
+    {
+      "test": "TM rejects blank cms_id",
+      "result": "passed",
+      "rejectedWith": "ER_CHECK_CONSTRAINT_VIOLATED"
+    },
+    {
+      "test": "TM rejects missing lobby",
+      "result": "passed",
+      "rejectedWith": "ER_CHECK_CONSTRAINT_VIOLATED"
+    },
+    {
+      "test": "TM rejects blank lobby",
+      "result": "passed",
+      "rejectedWith": "ER_CHECK_CONSTRAINT_VIOLATED"
+    },
+    {
+      "test": "TM rejects missing pf_number",
+      "result": "passed",
+      "rejectedWith": "ER_CHECK_CONSTRAINT_VIOLATED"
+    },
+    {
+      "test": "TM rejects blank pf_number",
+      "result": "passed",
+      "rejectedWith": "ER_CHECK_CONSTRAINT_VIOLATED"
+    },
+    {
+      "test": "CLI must exist",
+      "result": "passed",
+      "rejectedWith": "ER_NO_REFERENCED_ROW_2"
+    },
+    {
+      "test": "Cannot mix identity sources",
+      "result": "passed",
+      "rejectedWith": "ER_CHECK_CONSTRAINT_VIOLATED"
+    },
+    {
+      "test": "Duplicate CLI identity",
+      "result": "passed",
+      "rejectedWith": "ER_DUP_ENTRY"
+    },
+    {
+      "test": "Version belongs to same letter",
+      "result": "passed",
+      "rejectedWith": "ER_NO_REFERENCED_ROW_2"
+    },
+    {
+      "test": "Return requires reason",
+      "result": "passed",
+      "rejectedWith": "ER_CHECK_CONSTRAINT_VIOLATED"
+    },
+    {
+      "test": "Attempt course matches letter",
+      "result": "passed",
+      "rejectedWith": "ER_NO_REFERENCED_ROW_2"
+    },
+    {
+      "test": "Completion cannot precede joining",
+      "result": "passed",
+      "rejectedWith": "ER_CHECK_CONSTRAINT_VIOLATED"
+    },
+    {
+      "test": "One attendance per date",
+      "result": "passed",
+      "rejectedWith": "ER_DUP_ENTRY"
+    },
+    {
+      "test": "Valid assessment thresholds",
+      "result": "passed",
+      "rejectedWith": "ER_CHECK_CONSTRAINT_VIOLATED"
+    },
+    {
+      "test": "Assessment matches attempt rule",
+      "result": "passed",
+      "rejectedWith": "ER_NO_REFERENCED_ROW_2"
+    },
+    {
+      "test": "Re-exam retains results and trainees have individual completion dates",
+      "result": "passed"
+    },
+    {
+      "test": "Duplicate completion request",
+      "result": "passed",
+      "rejectedWith": "ER_DUP_ENTRY"
+    },
+    {
+      "test": "Different request cannot reconfirm same attempt",
+      "result": "passed",
+      "rejectedWith": "ER_DUP_ENTRY"
+    },
+    {
+      "test": "Correction requires reason",
+      "result": "passed",
+      "rejectedWith": "ER_CHECK_CONSTRAINT_VIOLATED"
+    },
+    {
+      "test": "Correction belongs to same attempt",
+      "result": "passed",
+      "rejectedWith": "ER_NO_REFERENCED_ROW_2"
+    },
+    {
+      "test": "Two renewal effects without a staff-master record",
+      "result": "passed"
+    },
+    {
+      "test": "Preserve nominee with history",
+      "result": "passed",
+      "rejectedWith": "ER_ROW_IS_REFERENCED_2"
+    },
+    {
+      "test": "Holiday reason required",
+      "result": "passed",
+      "rejectedWith": "ER_CHECK_CONSTRAINT_VIOLATED"
+    },
+    {
+      "test": "Audit reason required",
+      "result": "passed",
+      "rejectedWith": "ER_CHECK_CONSTRAINT_VIOLATED"
+    }
+  ],
+  "server": {
+    "db": "bbtro",
+    "hostname": "JAYAKUMARs-MacBook-Pro.local",
+    "version": "8.1.0"
+  },
+  "before": {
+    "div_staff_master": {
+      "rows": 3697,
+      "dataSha256": "fbee656b26d6c2136340bfa6893414cfaa77fdae8a43daf6f452f4aee5c98036",
+      "schemaSha256": "f7547aca1ae1e9494a2c190f091b983dbfd3efb677db28b8c338fcdb6b487fe3"
+    },
+    "div_cli_master": {
+      "rows": 145,
+      "dataSha256": "cf427131652cf37061b90f3cb5ab634050b4cfb294485fecf0b65c54f5d21bb2",
+      "schemaSha256": "2b83989af7334d118179a7c90633edf45ffb3ec45615b180bb6263acd0dac5ce"
+    },
+    "div_training_centers": {
+      "rows": 6,
+      "dataSha256": "f96a1bc6f74d3cb1bc48c6602244c24f71444288c290536fcb57de232538c02b",
+      "schemaSha256": "8be94cc958d45a067a46283b0176fc5b81f1fa427798a020d2968d0424567caf"
+    },
+    "div_training_types": {
+      "rows": 26,
+      "dataSha256": "8b4136f566dc306b67a2424db5de6b099a2446d3d73dbc654d644aca8ac76533",
+      "schemaSha256": "2d5888c923bef4aa046a9754d037da8e76b5d9ff1f19b7ab8f01d3134152a0fe"
+    },
+    "div_training_letters": {
+      "rows": 2,
+      "dataSha256": "c190248ebbc5cea879442896199178addbf8555f37d7d1f8008d169ec16da821",
+      "schemaSha256": "2bd9ce1c9f47a942665c8c45c7ccffd03308c086f4e7771f9c1c80d73d11788d"
+    },
+    "div_training_letter_staff": {
+      "rows": 27,
+      "dataSha256": "d8343f65b6c2c5122ec61f95c0ee7d01d694a63863bfb22d240f5b2ad1e80e2a",
+      "schemaSha256": "89f6117043f1b0e2cd2e189a6486ca7e83fe51fd55930223c86c20403e99ef44"
+    },
+    "div_training_calendar": {
+      "rows": 3,
+      "dataSha256": "27e76a5e07f0239ed97111c87e0810423f4211e3cfa4a63d626f04f26701396e",
+      "schemaSha256": "8eda86115bbf3f686a681c3f8c9be16aff096060563927407838ace281da1235"
+    },
+    "div_training_records": {
+      "rows": 10288,
+      "dataSha256": "f91df0f69c8796197ee8c60699ed7f67ec187b3e89df987d24ac33b8ae402faf",
+      "schemaSha256": "b6c5697469d90344f449def1b7ce5553fdec8b9c10fef6baac1196363c4d746e"
+    },
+    "div_training_batch_sequences": {
+      "rows": 15,
+      "dataSha256": "870bb87bc14ada8b0baab6b0a4d0bc6a781f738ad38e13d0d1dc43a8b722592d",
+      "schemaSha256": "3a57542e29b3da2d94651526734edcc727a710d1238d660faf8d00a24eab3164"
+    },
+    "holidays_list": {
+      "rows": 12,
+      "dataSha256": "b2ce1efdf5530a4b3ff1594831c4a553456ed7a1ae348b274ef9ad4c9684f969",
+      "schemaSha256": "8db91a4a9b6b95cf3fe9bcfdf931acabf22cd992a8979832f0f549e665703fcc"
+    }
+  },
+  "applyResult": "verified_only",
+  "after": {
+    "div_staff_master": {
+      "rows": 3697,
+      "dataSha256": "fbee656b26d6c2136340bfa6893414cfaa77fdae8a43daf6f452f4aee5c98036",
+      "schemaSha256": "f7547aca1ae1e9494a2c190f091b983dbfd3efb677db28b8c338fcdb6b487fe3"
+    },
+    "div_cli_master": {
+      "rows": 145,
+      "dataSha256": "cf427131652cf37061b90f3cb5ab634050b4cfb294485fecf0b65c54f5d21bb2",
+      "schemaSha256": "2b83989af7334d118179a7c90633edf45ffb3ec45615b180bb6263acd0dac5ce"
+    },
+    "div_training_centers": {
+      "rows": 6,
+      "dataSha256": "f96a1bc6f74d3cb1bc48c6602244c24f71444288c290536fcb57de232538c02b",
+      "schemaSha256": "8be94cc958d45a067a46283b0176fc5b81f1fa427798a020d2968d0424567caf"
+    },
+    "div_training_types": {
+      "rows": 26,
+      "dataSha256": "8b4136f566dc306b67a2424db5de6b099a2446d3d73dbc654d644aca8ac76533",
+      "schemaSha256": "2d5888c923bef4aa046a9754d037da8e76b5d9ff1f19b7ab8f01d3134152a0fe"
+    },
+    "div_training_letters": {
+      "rows": 2,
+      "dataSha256": "c190248ebbc5cea879442896199178addbf8555f37d7d1f8008d169ec16da821",
+      "schemaSha256": "2bd9ce1c9f47a942665c8c45c7ccffd03308c086f4e7771f9c1c80d73d11788d"
+    },
+    "div_training_letter_staff": {
+      "rows": 27,
+      "dataSha256": "d8343f65b6c2c5122ec61f95c0ee7d01d694a63863bfb22d240f5b2ad1e80e2a",
+      "schemaSha256": "89f6117043f1b0e2cd2e189a6486ca7e83fe51fd55930223c86c20403e99ef44"
+    },
+    "div_training_calendar": {
+      "rows": 3,
+      "dataSha256": "27e76a5e07f0239ed97111c87e0810423f4211e3cfa4a63d626f04f26701396e",
+      "schemaSha256": "8eda86115bbf3f686a681c3f8c9be16aff096060563927407838ace281da1235"
+    },
+    "div_training_records": {
+      "rows": 10288,
+      "dataSha256": "f91df0f69c8796197ee8c60699ed7f67ec187b3e89df987d24ac33b8ae402faf",
+      "schemaSha256": "b6c5697469d90344f449def1b7ce5553fdec8b9c10fef6baac1196363c4d746e"
+    },
+    "div_training_batch_sequences": {
+      "rows": 15,
+      "dataSha256": "870bb87bc14ada8b0baab6b0a4d0bc6a781f738ad38e13d0d1dc43a8b722592d",
+      "schemaSha256": "3a57542e29b3da2d94651526734edcc727a710d1238d660faf8d00a24eab3164"
+    },
+    "holidays_list": {
+      "rows": 12,
+      "dataSha256": "b2ce1efdf5530a4b3ff1594831c4a553456ed7a1ae348b274ef9ad4c9684f969",
+      "schemaSha256": "8db91a4a9b6b95cf3fe9bcfdf931acabf22cd992a8979832f0f549e665703fcc"
+    }
+  },
+  "legacyUnchanged": true,
+  "tableCounts": {},
+  "success": true,
+  "finishedAt": "2026-09-15T05:05:29.600Z"
+}

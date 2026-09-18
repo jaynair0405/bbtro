@@ -1,0 +1,33 @@
+{
+  "appliedAt": "2026-09-15T05:27:27.617Z",
+  "centreId": 3,
+  "courses": 11,
+  "renewalTargets": 5,
+  "legacyUnchanged": true,
+  "protectedTables": {
+    "div_training_records": {
+      "rows": 10288,
+      "sha256": "9d6b0a5c80ef53ed392e59e9eff173f4bcfe0a9f5c07d226a11a49127ffa7280"
+    },
+    "div_training_letters": {
+      "rows": 2,
+      "sha256": "7b17d60240458b14bf0966779e5d6cb0abc944548fa3120aec9e38b95a495405"
+    },
+    "div_training_letter_staff": {
+      "rows": 27,
+      "sha256": "af8b9627988d35420c6170c4ddbd79e92dc391a716b24a1f5f4c6d8cf5208689"
+    },
+    "div_staff_master": {
+      "rows": 3697,
+      "sha256": "ab47a034b25eaec649e557c3a948d43be479954d53f551f8333769463b929a5d"
+    },
+    "div_cli_master": {
+      "rows": 145,
+      "sha256": "9ddccadccce8337eb1fd78423f738742a835b46e84f86aa472c9831885e02608"
+    },
+    "holidays_list": {
+      "rows": 12,
+      "sha256": "69e5938ad9e82463df3079532a48b33f3f281a4ad273fe6fe12b4f79295c80fb"
+    }
+  }
+}

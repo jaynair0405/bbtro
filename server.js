@@ -255,6 +255,12 @@ app.get('/div/training-centre.html', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'div', 'training-centre.html'));
 });
 
+app.get('/div/training-letter.html', (req, res) => {
+  if (!req.session.user || req.session.user.realm !== 'division') return res.redirect('/');
+  if (!['office_hr', 'trgcentre_admin', 'division_admin'].includes(req.session.user.div_role)) return res.redirect('/div');
+  res.sendFile(path.join(__dirname, 'public', 'div', 'training-letter-workflow.html'));
+});
+
 // ✅ Control Office Portal — accessible by lpc, division_admin, ctlc and ctlc_view (read-only)
 function requireControlOffice(req, res, next) {
   if (!req.session.user) return res.redirect('/');
@@ -909,6 +915,7 @@ const trainingLetterRoutes = require('./routes/division/trainingLetterRoutes');
 const cvvrsRoutes = require('./routes/division/cvvrsRoutes');
 const adasRoutes = require('./routes/division/adasRoutes');
 const trainingCentreRoutes = require('./routes/division/trainingCentreRoutes');
+const trainingLetterWorkflowRoutes = require('./routes/division/trainingLetterWorkflowRoutes');
 const locoLinkRoutes = require('./routes/division/locoLinkRoutes');
 const awsUploadRoutes = require('./routes/division/awsUploadRoutes');
 const signalBookRoutes = require('./routes/division/signalBookRoutes');
@@ -963,6 +970,7 @@ app.use("/api/division/category", requireRealm('division'), categoryRoutes);
 app.use("/api/division/slate", requireRealm('division'), slateRoutes);
 app.use("/api/division/training-letters", requireRealm('division'), trainingLetterRoutes);
 app.use("/api/division/training-centre", requireRealm('division'), trainingCentreRoutes);
+app.use("/api/division/training-letter-workflow", requireRealm('division'), trainingLetterWorkflowRoutes);
 app.use("/api/division/cvvrs", requireRealm('division'), cvvrsRoutes);
 app.use("/api/division/adas", requireRealm('division'), adasRoutes);
 app.use("/api/division/loco-link", requireRealm('division'), locoLinkRoutes);

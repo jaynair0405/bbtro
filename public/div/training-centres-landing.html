@@ -1,0 +1,2011 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Training Centres — BB Division · Central Railway</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&family=Noto+Sans+Devanagari:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<script>
+/* ============================================================
+   TWEAKS — persisted defaults. Edit via the Tweaks panel.
+   ============================================================ */
+window.TWEAKS = /*EDITMODE-BEGIN*/{
+  "accent": "maroon",
+  "heroVariant": "editorial",
+  "bilingual": true,
+  "density": "editorial"
+}/*EDITMODE-END*/;
+</script>
+
+<style>
+  :root {
+    --ink: #0B1220;
+    --ink-2: #1E2738;
+    --muted: #6B7280;
+    --muted-2: #9AA3B2;
+    --paper: #F4EFE6;
+    --paper-2: #ECE5D6;
+    --paper-3: #E4DCC8;
+    --line: #1f2937;
+    --rule: rgba(11,18,32,0.14);
+    --rule-strong: rgba(11,18,32,0.32);
+    --card: #FBF8F1;
+    --white: #FFFFFF;
+
+    /* accent — overridden by Tweaks */
+    --accent: #7C1D2B;         /* railway maroon */
+    --accent-ink: #4A0F1A;
+    --accent-soft: #F2E2E4;
+    --accent-fg: #FFFFFF;
+
+    --teal: #0E7490;
+    --amber: #B45309;
+    --success: #047857;
+    --danger: #B91C1C;
+
+    --f-serif: 'Instrument Serif', 'Times New Roman', serif;
+    --f-sans: 'IBM Plex Sans', system-ui, sans-serif;
+    --f-mono: 'IBM Plex Mono', ui-monospace, monospace;
+    --f-deva: 'Noto Sans Devanagari', 'IBM Plex Sans', sans-serif;
+  }
+  [data-accent="maroon"] { --accent: #7C1D2B; --accent-ink: #4A0F1A; --accent-soft: #F2E2E4; }
+  [data-accent="navy"]   { --accent: #1D3A6E; --accent-ink: #0E1F40; --accent-soft: #DDE4F1; }
+  [data-accent="teal"]   { --accent: #0E7490; --accent-ink: #06414F; --accent-soft: #D4EFF5; }
+  [data-accent="forest"] { --accent: #1F5A3A; --accent-ink: #0E3220; --accent-soft: #D6E8DC; }
+
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: var(--f-sans);
+    font-size: 15px;
+    line-height: 1.55;
+    color: var(--ink);
+    background: var(--paper);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  body.compact { font-size: 14px; }
+
+  a { color: inherit; text-decoration: none; }
+  button { font-family: inherit; cursor: pointer; }
+  img { display: block; max-width: 100%; }
+
+  .wrap { max-width: 1280px; margin: 0 auto; padding: 0 40px; }
+
+  .deva { font-family: var(--f-deva); }
+  .hide-deva .deva-optional { display: none !important; }
+
+  /* ============================================================
+     MASTHEAD — newspaper-style top strip
+     ============================================================ */
+  .masthead {
+    border-bottom: 1.5px solid var(--line);
+    background: var(--paper);
+  }
+  .masthead-top {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    padding: 10px 40px;
+    font-size: 11px;
+    font-family: var(--f-mono);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink);
+  }
+  .masthead-top .left { display: flex; gap: 18px; align-items: center; }
+  .masthead-top .right { display: flex; gap: 18px; align-items: center; justify-content: flex-end; }
+  .masthead-top .dot { width: 5px; height: 5px; background: var(--accent); border-radius: 50%; display: inline-block; }
+  .masthead-top .center { display: flex; gap: 8px; align-items: center; }
+
+  .masthead-title {
+    padding: 20px 40px 22px;
+    border-top: 0.5px solid var(--rule);
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 36px;
+    align-items: center;
+  }
+  .masthead-crest {
+    width: 62px; height: 62px; border-radius: 50%;
+    background: var(--ink); color: var(--paper);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--f-serif); font-size: 26px; font-style: italic;
+    box-shadow: inset 0 0 0 2px var(--paper), inset 0 0 0 3px var(--ink);
+  }
+  .masthead-wordmark { text-align: center; }
+  .masthead-wordmark .eyebrow {
+    font-family: var(--f-mono); font-size: 11px; letter-spacing: 0.22em;
+    text-transform: uppercase; color: var(--ink-2); opacity: 0.75;
+  }
+  .masthead-wordmark .logo {
+    font-family: var(--f-serif);
+    font-size: clamp(40px, 5.4vw, 68px);
+    line-height: 0.95;
+    font-weight: 400;
+    letter-spacing: -0.01em;
+    margin: 4px 0 2px;
+  }
+  .masthead-wordmark .logo em { font-style: italic; color: var(--accent); }
+  .masthead-wordmark .sub-deva {
+    font-family: var(--f-deva); font-size: 14px; color: var(--ink-2); font-weight: 500;
+  }
+  .masthead-meta {
+    font-family: var(--f-mono); font-size: 11px;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    text-align: right; color: var(--ink-2);
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .masthead-meta strong { color: var(--accent); }
+
+  /* primary nav */
+  .primary-nav {
+    border-top: 0.5px solid var(--rule);
+    border-bottom: 3px double var(--rule-strong);
+    display: flex; justify-content: center; gap: 28px;
+    padding: 10px 40px;
+    font-family: var(--f-mono);
+    font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+  }
+  .primary-nav a {
+    padding: 4px 0; border-bottom: 2px solid transparent;
+    transition: border-color .15s, color .15s;
+  }
+  .primary-nav a:hover { border-color: var(--accent); color: var(--accent); }
+  .primary-nav a.active { color: var(--accent); border-color: var(--accent); }
+
+  /* ============================================================
+     HERO
+     ============================================================ */
+  .hero {
+    padding: 64px 0 72px;
+    border-bottom: 1px solid var(--rule);
+    position: relative;
+  }
+  .hero-grid {
+    display: grid;
+    grid-template-columns: 1.15fr 1fr;
+    gap: 56px;
+    align-items: flex-end;
+  }
+  .hero-eyebrow {
+    font-family: var(--f-mono); font-size: 11px; letter-spacing: 0.22em;
+    text-transform: uppercase; color: var(--muted);
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 18px;
+  }
+  .hero-eyebrow .rule { flex: 0 0 38px; height: 1px; background: var(--ink); opacity: 0.5; }
+  .hero h1 {
+    font-family: var(--f-serif);
+    font-size: clamp(52px, 8vw, 116px);
+    line-height: 0.92;
+    letter-spacing: -0.025em;
+    font-weight: 400;
+    margin: 0 0 20px;
+    color: var(--ink);
+  }
+  .hero h1 em { font-style: italic; color: var(--accent); }
+  .hero h1 .amp { font-family: var(--f-serif); font-style: italic; color: var(--accent); }
+  .hero h1 .deva {
+    display: block;
+    font-size: 0.42em; font-weight: 500;
+    letter-spacing: -0.01em; line-height: 1.15;
+    color: var(--ink-2); margin-top: 16px;
+  }
+  .hero-lede {
+    max-width: 480px;
+    font-size: 17px; line-height: 1.6;
+    color: var(--ink-2);
+    margin-top: 12px;
+  }
+  .hero-ctas {
+    display: flex; gap: 14px; align-items: center; flex-wrap: wrap;
+    margin-top: 28px;
+  }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 10px;
+    padding: 13px 22px; border-radius: 999px;
+    font-family: var(--f-mono); font-size: 12px;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    border: 1.5px solid transparent;
+    transition: transform .15s, background .15s, color .15s, border-color .15s;
+    font-weight: 600;
+  }
+  .btn:hover { transform: translateY(-1px); }
+  .btn-primary { background: var(--accent); color: var(--accent-fg); }
+  .btn-primary:hover { background: var(--accent-ink); }
+  .btn-ink { background: var(--ink); color: var(--paper); }
+  .btn-ink:hover { background: #000; }
+  .btn-ghost { background: transparent; color: var(--ink); border-color: var(--ink); }
+  .btn-ghost:hover { background: var(--ink); color: var(--paper); }
+  .btn svg { width: 14px; height: 14px; }
+  /* Universal inline icon sizing guard — prevents unconstrained inline SVGs */
+  .arrow-ico, .enter-btn svg, .read-more svg, .learn svg, .doc-row .dl svg { width: 14px; height: 14px; flex-shrink: 0; }
+  .enter-btn, .read-more, .learn, .sec-num { white-space: nowrap; }
+
+  /* Hero card — schedule board aesthetic */
+  .hero-panel {
+    background: var(--ink);
+    color: var(--paper);
+    padding: 32px 28px;
+    border-radius: 4px;
+    font-family: var(--f-mono);
+    position: relative;
+    box-shadow: 0 40px 80px -40px rgba(11,18,32,0.4);
+    overflow: hidden;
+  }
+  .hero-panel::before {
+    content: "";
+    position: absolute; inset: 0;
+    background:
+      linear-gradient(to bottom, transparent 0, transparent calc(100% - 1px), rgba(255,255,255,0.04) 100%) 0 0 / 100% 28px;
+    pointer-events: none;
+  }
+  .panel-label {
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase;
+    color: var(--paper-2); opacity: 0.7;
+    padding-bottom: 10px; margin-bottom: 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.12);
+  }
+  .panel-label .live {
+    display: inline-flex; align-items: center; gap: 6px; color: #fca5a5;
+  }
+  .panel-label .live::before {
+    content: ""; width: 6px; height: 6px; border-radius: 50%;
+    background: #ef4444; box-shadow: 0 0 0 0 rgba(239,68,68,0.5);
+    animation: pulse 1.6s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.5); }
+    50% { box-shadow: 0 0 0 6px rgba(239,68,68,0); }
+  }
+  .board-row {
+    display: grid;
+    grid-template-columns: 50px 1fr auto auto;
+    gap: 14px;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px dashed rgba(255,255,255,0.08);
+    font-size: 13px;
+  }
+  .board-row:last-child { border-bottom: 0; }
+  .board-row .code {
+    color: #fbbf24; font-weight: 600;
+    letter-spacing: 0.06em;
+  }
+  .board-row .name {
+    color: var(--paper); font-weight: 500;
+  }
+  .board-row .time { color: var(--paper-2); opacity: 0.7; font-size: 11px; letter-spacing: 0.06em; }
+  .board-row .badge {
+    font-size: 10px; letter-spacing: 0.1em; padding: 3px 8px;
+    border-radius: 3px; text-transform: uppercase;
+  }
+  .badge-live { background: #065f46; color: #a7f3d0; }
+  .badge-next { background: #78350f; color: #fcd34d; }
+  .badge-soon { background: #1e3a8a; color: #bfdbfe; }
+
+  /* Hero train illustration (SVG) */
+  .train-decor {
+    position: absolute;
+    right: 0; bottom: -40px;
+    pointer-events: none; opacity: 0.08;
+  }
+
+  /* ============================================================
+     SECTION HEADERS
+     ============================================================ */
+  section { padding: 64px 0; border-bottom: 1px solid var(--rule); }
+  .compact section { padding: 48px 0; }
+
+  .sec-head {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 24px;
+    align-items: baseline;
+    margin-bottom: 36px;
+    padding-bottom: 14px;
+    border-bottom: 2px solid var(--ink);
+  }
+  .sec-num {
+    font-family: var(--f-mono); font-size: 12px;
+    letter-spacing: 0.14em; color: var(--accent); font-weight: 600;
+  }
+  .sec-title {
+    font-family: var(--f-serif); font-size: clamp(28px, 3.4vw, 44px);
+    line-height: 1; font-weight: 400; letter-spacing: -0.015em;
+  }
+  .sec-title em { font-style: italic; color: var(--accent); }
+  .sec-title .deva {
+    font-family: var(--f-deva); font-size: 0.55em; font-weight: 500;
+    color: var(--ink-2); margin-left: 12px; letter-spacing: -0.005em;
+  }
+  .sec-meta {
+    font-family: var(--f-mono); font-size: 11px;
+    letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted);
+    text-align: right;
+  }
+
+  /* ============================================================
+     CENTRES DIRECTORY
+     ============================================================ */
+  .centres-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+  }
+  .centre-card {
+    background: var(--card);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    overflow: hidden;
+    display: flex; flex-direction: column;
+    transition: transform .2s, box-shadow .2s, border-color .2s;
+    position: relative;
+  }
+  .centre-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 30px 60px -30px rgba(11,18,32,0.2);
+    border-color: var(--rule-strong);
+  }
+  .centre-hero {
+    aspect-ratio: 16 / 9;
+    background: var(--ink);
+    position: relative;
+    overflow: hidden;
+    display: flex; align-items: flex-end; padding: 18px 20px 16px;
+    color: var(--paper);
+  }
+  .centre-hero .type-badge {
+    position: absolute; top: 14px; left: 16px;
+    font-family: var(--f-mono); font-size: 8.5px;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    padding: 4px 9px; border-radius: 2px;
+    background: rgba(255,255,255,0.14); color: var(--paper);
+    backdrop-filter: blur(4px);
+    white-space: nowrap;
+  }
+  .centre-hero .code {
+    font-family: var(--f-mono); font-size: 44px;
+    font-weight: 700; letter-spacing: -0.04em;
+    line-height: 1;
+    color: var(--paper);
+    opacity: 0.95;
+    align-self: flex-end;
+    white-space: nowrap;
+  }
+  .centre-hero .code em {
+    font-style: normal; color: var(--accent-fg);
+    background: var(--accent); padding: 0 8px; display: inline-block;
+  }
+  .centre-hero .placeholder-img {
+    position: absolute; inset: 0;
+    background:
+      linear-gradient(135deg, var(--ink) 0%, var(--ink-2) 100%);
+    opacity: 1;
+  }
+  .centre-hero .placeholder-img::before {
+    content: "";
+    position: absolute; inset: 0;
+    background-image:
+      radial-gradient(circle at 20% 30%, rgba(251,191,36,0.08) 0%, transparent 40%),
+      radial-gradient(circle at 80% 70%, rgba(239,68,68,0.06) 0%, transparent 40%);
+  }
+  .centre-hero .placeholder-img svg { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0.22; }
+  .centre-hero > * { position: relative; z-index: 1; }
+
+  .centre-body {
+    padding: 22px;
+    flex: 1;
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  .centre-name {
+    font-family: var(--f-serif);
+    font-size: 28px; line-height: 1.05;
+    font-weight: 400; letter-spacing: -0.01em;
+  }
+  .centre-name .deva {
+    display: block;
+    font-family: var(--f-deva); font-size: 14px; color: var(--ink-2);
+    margin-top: 4px; font-weight: 500; letter-spacing: 0;
+  }
+  .centre-loc {
+    font-family: var(--f-mono); font-size: 11px;
+    letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted);
+  }
+  .centre-stats {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    border-top: 1px solid var(--rule);
+    padding-top: 14px; margin-top: 4px;
+  }
+  .centre-stats > div { padding-right: 8px; border-right: 1px solid var(--rule); }
+  .centre-stats > div:last-child { border-right: 0; padding-right: 0; padding-left: 8px; }
+  .centre-stats > div:not(:first-child) { padding-left: 8px; }
+  .centre-stats .n {
+    font-family: var(--f-mono); font-size: 20px; font-weight: 600;
+    color: var(--ink); letter-spacing: -0.01em;
+  }
+  .centre-stats .l {
+    font-family: var(--f-mono); font-size: 10px;
+    letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted);
+    margin-top: 2px;
+  }
+  .centre-courses {
+    display: flex; flex-wrap: wrap; gap: 6px;
+  }
+  .course-chip {
+    font-family: var(--f-mono); font-size: 10px;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    padding: 4px 9px; border: 1px solid var(--rule-strong);
+    border-radius: 2px; color: var(--ink-2);
+    white-space: nowrap;
+  }
+  .centre-next {
+    background: var(--paper-2); padding: 12px 14px; border-radius: 3px;
+    display: flex; justify-content: space-between; align-items: center;
+    font-family: var(--f-mono); font-size: 11px; letter-spacing: 0.06em;
+  }
+  .centre-next .label { color: var(--muted); text-transform: uppercase; letter-spacing: 0.14em; font-size: 10px; }
+  .centre-next .date { color: var(--accent); font-weight: 700; font-size: 13px; letter-spacing: 0.02em; }
+  .centre-actions {
+    display: flex; justify-content: space-between; align-items: center;
+    border-top: 1px solid var(--rule); padding-top: 14px; margin-top: 4px;
+  }
+  .enter-btn {
+    font-family: var(--f-mono); font-size: 11px;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--accent); font-weight: 700;
+    display: inline-flex; align-items: center; gap: 8px;
+    transition: gap .15s;
+  }
+  .enter-btn:hover { gap: 14px; }
+  .centre-status {
+    font-family: var(--f-mono); font-size: 10px;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--success);
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .centre-status::before {
+    content: ""; width: 6px; height: 6px; border-radius: 50%;
+    background: var(--success);
+  }
+
+  /* admin console strip */
+  .admin-strip {
+    grid-column: 1 / -1;
+    background: var(--ink); color: var(--paper);
+    border-radius: 4px; padding: 22px 28px;
+    display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 24px;
+    margin-top: 16px;
+    position: relative; overflow: hidden;
+  }
+  .admin-strip::before {
+    content: ""; position: absolute; inset: 0;
+    background:
+      repeating-linear-gradient(90deg, transparent 0, transparent 60px, rgba(255,255,255,0.03) 60px, rgba(255,255,255,0.03) 61px);
+  }
+  .admin-strip h3 {
+    font-family: var(--f-serif); font-size: 26px;
+    font-weight: 400; letter-spacing: -0.01em;
+    margin: 0 0 4px; line-height: 1.05;
+  }
+  .admin-strip h3 em { font-style: italic; color: #fbbf24; }
+  .admin-strip p {
+    font-family: var(--f-mono); font-size: 11px;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--paper-2); opacity: 0.7; margin: 0;
+  }
+  .admin-strip .btn-primary { background: #fbbf24; color: var(--ink); }
+  .admin-strip .btn-primary:hover { background: #fde68a; }
+
+  /* ============================================================
+     ANNOUNCEMENTS / NOTICES
+     ============================================================ */
+  .ticker {
+    background: var(--ink); color: var(--paper);
+    font-family: var(--f-mono); font-size: 12px;
+    letter-spacing: 0.08em;
+    padding: 10px 0;
+    position: relative;
+    margin-bottom: 28px;
+    display: flex; align-items: center; gap: 16px;
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .ticker-label {
+    background: var(--accent); color: var(--accent-fg);
+    padding: 6px 14px; border-radius: 2px;
+    font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+    font-weight: 700; flex-shrink: 0; margin-left: 12px;
+    position: relative; z-index: 2;
+    box-shadow: 12px 0 16px -4px var(--ink);
+  }
+  .ticker-viewport {
+    flex: 1; overflow: hidden; position: relative;
+    mask-image: linear-gradient(to right, transparent 0, #000 48px, #000 calc(100% - 60px), transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, transparent 0, #000 48px, #000 calc(100% - 60px), transparent 100%);
+  }
+  .ticker-track {
+    display: inline-flex; gap: 48px;
+    white-space: nowrap;
+    animation: slide 44s linear infinite;
+    padding-right: 48px;
+  }
+  .ticker-track span { display: inline-flex; align-items: center; gap: 10px; }
+  .ticker-track span::before {
+    content: "●"; color: var(--accent); font-size: 8px;
+  }
+  @keyframes slide {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
+
+  .notices-grid {
+    display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 0;
+    border-left: 1px solid var(--rule);
+  }
+  .notice {
+    border-right: 1px solid var(--rule);
+    border-top: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule);
+    padding: 24px 28px;
+    display: flex; flex-direction: column; gap: 10px;
+    background: var(--card);
+    transition: background .15s;
+  }
+  .notice:hover { background: var(--paper-2); cursor: pointer; }
+  .notice.featured {
+    background: var(--ink); color: var(--paper);
+    border-color: var(--ink);
+  }
+  .notice.featured:hover { background: var(--ink-2); }
+  .notice-meta {
+    display: flex; justify-content: space-between; align-items: center;
+    font-family: var(--f-mono); font-size: 10px;
+    letter-spacing: 0.14em; text-transform: uppercase;
+  }
+  .notice .tag {
+    padding: 3px 8px; border: 1px solid currentColor; border-radius: 2px;
+    opacity: 0.8;
+  }
+  .notice .date { opacity: 0.7; }
+  .notice h4 {
+    font-family: var(--f-serif);
+    font-size: 24px; line-height: 1.15;
+    font-weight: 400; letter-spacing: -0.015em;
+    margin: 6px 0 10px;
+  }
+  .notice.featured h4 { font-size: 32px; line-height: 1.1; margin: 8px 0 14px; }
+  .notice p {
+    font-size: 14px; line-height: 1.55; margin: 0;
+    color: var(--ink-2); opacity: 0.9;
+  }
+  .notice.featured p { color: var(--paper-2); opacity: 0.8; }
+  .notice .read-more {
+    font-family: var(--f-mono); font-size: 10px;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--accent); font-weight: 700; margin-top: 8px;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .notice.featured .read-more { color: #fbbf24; }
+
+  /* ============================================================
+     CIRCULARS / RULE BOOKS
+     ============================================================ */
+  .docs-layout { display: grid; grid-template-columns: 1fr 2fr; gap: 48px; align-items: flex-start; }
+  .docs-intro h3 {
+    font-family: var(--f-serif); font-size: 42px; line-height: 1;
+    font-weight: 400; letter-spacing: -0.02em; margin: 0 0 14px;
+  }
+  .docs-intro h3 em { font-style: italic; color: var(--accent); }
+  .docs-intro p { font-size: 15px; color: var(--ink-2); line-height: 1.6; }
+  .docs-filters {
+    display: flex; gap: 8px; flex-wrap: wrap; margin-top: 22px;
+  }
+  .filter-chip {
+    font-family: var(--f-mono); font-size: 10px;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    padding: 7px 12px; border: 1px solid var(--rule-strong);
+    border-radius: 999px; cursor: pointer; background: transparent;
+    color: var(--ink-2); transition: all .15s;
+    white-space: nowrap;
+  }
+  .filter-chip.active { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .filter-chip:hover:not(.active) { background: var(--paper-2); }
+
+  .docs-list { border-top: 1px solid var(--rule); }
+  .doc-row {
+    display: grid;
+    grid-template-columns: 70px 1fr auto auto auto;
+    gap: 20px;
+    align-items: center;
+    padding: 18px 4px;
+    border-bottom: 1px solid var(--rule);
+    cursor: pointer;
+    transition: background .15s;
+  }
+  .doc-row:hover { background: var(--paper-2); }
+  .doc-row .idx {
+    font-family: var(--f-mono); font-size: 11px; font-weight: 600;
+    color: var(--muted); letter-spacing: 0.06em;
+  }
+  .doc-row .title {
+    font-family: var(--f-serif); font-size: 20px; line-height: 1.15;
+    font-weight: 400; letter-spacing: -0.01em;
+  }
+  .doc-row .title .sub {
+    display: block; font-family: var(--f-sans); font-size: 12px;
+    color: var(--muted); letter-spacing: 0; margin-top: 2px;
+    font-weight: 400;
+  }
+  .doc-row .type {
+    font-family: var(--f-mono); font-size: 10px;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    padding: 4px 10px; border-radius: 2px;
+    background: var(--paper-2); color: var(--ink-2);
+  }
+  .doc-row .type.rulebook { background: #FEF2F2; color: var(--danger); }
+  .doc-row .type.circular { background: #EFF6FF; color: #1E40AF; }
+  .doc-row .type.sop { background: #F0FDF4; color: var(--success); }
+  .doc-row .type.syllabus { background: #FFFBEB; color: var(--amber); }
+  .doc-row .size {
+    font-family: var(--f-mono); font-size: 11px; color: var(--muted);
+    letter-spacing: 0.06em;
+  }
+  .doc-row .dl {
+    width: 34px; height: 34px; border-radius: 50%;
+    border: 1px solid var(--rule-strong);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--ink-2); transition: all .15s;
+  }
+  .doc-row:hover .dl { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+
+  /* ============================================================
+     CASE STUDIES — editorial 3-col
+     ============================================================ */
+  .cases-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 0;
+    border-left: 1px solid var(--rule);
+  }
+  .case {
+    border-right: 1px solid var(--rule);
+    padding: 0 24px;
+    display: flex; flex-direction: column;
+    cursor: pointer;
+  }
+  .case-img {
+    aspect-ratio: 4 / 3;
+    background: var(--paper-3);
+    margin: 0 -24px 22px;
+    position: relative;
+    overflow: hidden;
+  }
+  .case-img .kicker {
+    position: absolute; top: 14px; left: 14px;
+    background: var(--accent); color: var(--accent-fg);
+    font-family: var(--f-mono); font-size: 10px;
+    letter-spacing: 0.18em; text-transform: uppercase;
+    padding: 4px 10px; font-weight: 700;
+  }
+  .case-img svg { width: 100%; height: 100%; }
+  .case-meta {
+    font-family: var(--f-mono); font-size: 10px;
+    letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--muted);
+    display: flex; gap: 12px; margin-bottom: 10px;
+  }
+  .case-meta .sep { opacity: 0.4; }
+  .case h4 {
+    font-family: var(--f-serif); font-size: 26px; line-height: 1.1;
+    font-weight: 400; letter-spacing: -0.015em;
+    margin: 0 0 10px;
+    transition: color .15s;
+  }
+  .case:hover h4 { color: var(--accent); }
+  .case p {
+    font-size: 14px; color: var(--ink-2); line-height: 1.55;
+    margin: 0 0 14px; flex: 1;
+  }
+  .case .learn {
+    font-family: var(--f-mono); font-size: 10px;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--accent); font-weight: 700;
+    padding-top: 12px; border-top: 1px solid var(--rule);
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+
+  /* ============================================================
+     GOOD WORK — recognition wall
+     ============================================================ */
+  .good-work {
+    background: var(--ink); color: var(--paper);
+    margin-left: calc(50% - 50vw); margin-right: calc(50% - 50vw);
+    padding: 80px calc(50vw - 50% + 40px) 80px;
+    border-bottom: 0;
+    position: relative; overflow: hidden;
+  }
+  .good-work::before {
+    content: "";
+    position: absolute; inset: 0;
+    background: repeating-linear-gradient(
+      -6deg,
+      transparent 0,
+      transparent 140px,
+      rgba(255,255,255,0.015) 140px,
+      rgba(255,255,255,0.015) 141px
+    );
+  }
+  .good-work .wrap { position: relative; }
+  .good-work .sec-head { border-color: rgba(255,255,255,0.2); }
+  .good-work .sec-title { color: var(--paper); }
+  .good-work .sec-title em { color: #fbbf24; }
+  .good-work .sec-title .deva { color: var(--paper-2); }
+  .good-work .sec-meta { color: var(--paper-2); }
+  .good-work .sec-num { color: #fbbf24; }
+
+  .recog-grid {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr 1fr 1fr;
+    gap: 0;
+    border: 1px solid rgba(255,255,255,0.14);
+  }
+  .recog {
+    padding: 24px 24px 22px;
+    display: flex; flex-direction: column; gap: 12px;
+    border-right: 1px solid rgba(255,255,255,0.14);
+    background: rgba(255,255,255,0.02);
+    transition: background .15s;
+  }
+  .recog:last-child { border-right: 0; }
+  .recog:hover { background: rgba(255,255,255,0.06); }
+  .recog.featured {
+    background: linear-gradient(135deg, rgba(251,191,36,0.1) 0%, transparent 100%);
+  }
+  .recog-head {
+    display: flex; justify-content: space-between; align-items: flex-start;
+  }
+  .recog-medal {
+    width: 46px; height: 46px; border-radius: 50%;
+    background: linear-gradient(135deg, #fbbf24, #b45309);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--f-serif); font-size: 18px; color: var(--ink);
+    font-style: italic; flex-shrink: 0;
+  }
+  .recog-medal.silver { background: linear-gradient(135deg, #e5e7eb, #9ca3af); }
+  .recog-medal.bronze { background: linear-gradient(135deg, #fb923c, #9a3412); color: var(--paper); }
+  .recog-tag {
+    font-family: var(--f-mono); font-size: 10px;
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: #fbbf24; font-weight: 600; padding-top: 6px;
+  }
+  .recog h5 {
+    font-family: var(--f-serif); font-size: 22px; line-height: 1.1;
+    font-weight: 400; letter-spacing: -0.01em;
+    margin: 0;
+  }
+  .recog.featured h5 { font-size: 34px; }
+  .recog-role {
+    font-family: var(--f-mono); font-size: 10px;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--paper-2); opacity: 0.7;
+  }
+  .recog p {
+    font-size: 13px; color: var(--paper-2); line-height: 1.55;
+    margin: 4px 0 0; opacity: 0.9;
+  }
+  .recog.featured p { font-size: 15px; }
+  .recog-foot {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-top: auto; padding-top: 10px;
+    border-top: 1px solid rgba(255,255,255,0.12);
+    font-family: var(--f-mono); font-size: 10px;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--paper-2); opacity: 0.7;
+  }
+
+  /* ============================================================
+     STATS STRIP
+     ============================================================ */
+  .stats-strip {
+    padding: 48px 0;
+    background: var(--paper-2);
+    margin-left: calc(50% - 50vw); margin-right: calc(50% - 50vw);
+    padding-left: calc(50vw - 50% + 40px); padding-right: calc(50vw - 50% + 40px);
+    border-bottom: 1px solid var(--rule);
+    border-top: 1px solid var(--rule);
+  }
+  .stats-strip-inner {
+    display: grid; grid-template-columns: repeat(5, 1fr);
+    gap: 24px; align-items: flex-start;
+    max-width: 1280px; margin: 0 auto;
+  }
+  .stats-strip .label {
+    font-family: var(--f-mono); font-size: 10px;
+    letter-spacing: 0.2em; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 10px;
+    padding-top: 12px; border-top: 1px solid var(--rule-strong);
+  }
+  .stats-strip .num {
+    font-family: var(--f-mono); font-size: 54px;
+    line-height: 1; font-weight: 600; letter-spacing: -0.035em;
+    color: var(--ink);
+  }
+  .stats-strip .num .unit { font-size: 24px; color: var(--accent); margin-left: 4px; }
+  .stats-strip .desc {
+    font-size: 13px; color: var(--ink-2); line-height: 1.5;
+    margin-top: 6px;
+  }
+
+  /* ============================================================
+     GALLERY — placeholder imagery row
+     ============================================================ */
+  .gallery {
+    display: grid;
+    grid-template-columns: 1.5fr 1fr 1fr;
+    gap: 16px;
+    margin-top: -8px;
+  }
+  .gallery-item {
+    aspect-ratio: 4 / 3;
+    border-radius: 3px;
+    overflow: hidden;
+    position: relative;
+    background: var(--ink);
+  }
+  .gallery-item.tall { aspect-ratio: 3 / 4; grid-row: span 2; }
+  .gallery-item .cap {
+    position: absolute; left: 14px; bottom: 14px;
+    font-family: var(--f-mono); font-size: 10px;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--paper); padding: 5px 10px;
+    background: rgba(11,18,32,0.55); backdrop-filter: blur(6px);
+    border-radius: 2px;
+  }
+  .gallery-item svg { width: 100%; height: 100%; display: block; }
+
+  /* ============================================================
+     FOOTER
+     ============================================================ */
+  footer {
+    background: var(--ink); color: var(--paper);
+    padding: 72px 0 32px;
+  }
+  .footer-grid {
+    display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 48px;
+    padding-bottom: 48px; border-bottom: 1px solid rgba(255,255,255,0.12);
+  }
+  .footer-brand {
+    font-family: var(--f-serif); font-size: 40px;
+    line-height: 1; font-weight: 400; letter-spacing: -0.02em;
+    margin: 0 0 12px;
+  }
+  .footer-brand em { font-style: italic; color: #fbbf24; }
+  .footer-grid p { color: var(--paper-2); opacity: 0.8; font-size: 14px; line-height: 1.6; margin: 0 0 20px; }
+  .footer-grid h6 {
+    font-family: var(--f-mono); font-size: 10px;
+    letter-spacing: 0.18em; text-transform: uppercase;
+    margin: 0 0 14px; color: #fbbf24;
+  }
+  .footer-grid ul { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 9px; }
+  .footer-grid li a { color: var(--paper-2); font-size: 14px; opacity: 0.85; }
+  .footer-grid li a:hover { color: var(--paper); opacity: 1; }
+  .footer-bottom {
+    padding-top: 24px;
+    display: flex; justify-content: space-between; align-items: center;
+    font-family: var(--f-mono); font-size: 11px;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--paper-2); opacity: 0.6;
+  }
+
+  /* ============================================================
+     TWEAKS PANEL
+     ============================================================ */
+  #tweaks-panel {
+    position: fixed; bottom: 20px; right: 20px; z-index: 1000;
+    width: 300px;
+    background: var(--card); color: var(--ink);
+    border: 1px solid var(--rule-strong);
+    border-radius: 4px;
+    box-shadow: 0 30px 60px -20px rgba(11,18,32,0.3);
+    font-family: var(--f-sans);
+    display: none;
+  }
+  #tweaks-panel.open { display: block; }
+  .tweaks-head {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--rule);
+    display: flex; justify-content: space-between; align-items: center;
+    background: var(--ink); color: var(--paper);
+    border-radius: 4px 4px 0 0;
+  }
+  .tweaks-head h6 {
+    margin: 0; font-family: var(--f-mono); font-size: 11px;
+    letter-spacing: 0.2em; text-transform: uppercase;
+  }
+  .tweaks-head button {
+    background: transparent; border: 0; color: var(--paper);
+    font-size: 18px; line-height: 1; padding: 4px 6px;
+  }
+  .tweaks-body { padding: 16px 18px 18px; display: flex; flex-direction: column; gap: 16px; }
+  .tweak-group label {
+    display: block; font-family: var(--f-mono); font-size: 10px;
+    letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted);
+    margin-bottom: 8px; font-weight: 600;
+  }
+  .tweak-opts { display: flex; gap: 6px; flex-wrap: wrap; }
+  .tweak-opt {
+    font-family: var(--f-mono); font-size: 10px;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    padding: 6px 10px; border: 1px solid var(--rule-strong);
+    border-radius: 2px; cursor: pointer; background: transparent;
+    color: var(--ink-2); transition: all .15s;
+  }
+  .tweak-opt.active { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+  .tweak-swatch { display: inline-block; width: 12px; height: 12px; border-radius: 2px; vertical-align: middle; margin-right: 6px; }
+
+  /* ============================================================
+     RESPONSIVE-ish (1440 target; graceful at 1024)
+     ============================================================ */
+  @media (max-width: 1100px) {
+    .hero-grid, .docs-layout { grid-template-columns: 1fr; gap: 32px; }
+    .centres-grid, .cases-grid { grid-template-columns: 1fr; }
+    .recog-grid, .stats-strip-inner { grid-template-columns: repeat(2, 1fr); }
+    .notices-grid { grid-template-columns: 1fr; }
+    .footer-grid { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body data-accent="maroon">
+
+<!-- ============================================================
+     MASTHEAD
+     ============================================================ -->
+<header class="masthead">
+  <div class="masthead-top">
+    <div class="left">
+      <span><span class="dot"></span> &nbsp;Training Portal</span>
+      <span id="today-date">—</span>
+    </div>
+    <div class="center"><span>Mumbai · मुंबई</span></div>
+    <div class="right">
+      <span>Running Staff · BB Divn.</span>
+      <span>IST <span id="now-time">—</span></span>
+    </div>
+  </div>
+  <div class="masthead-title wrap">
+    <div class="masthead-crest">CR</div>
+    <div class="masthead-wordmark">
+      <div class="eyebrow">Central Railway · Mumbai Division · Training Wing</div>
+      <div class="logo">The <em>Training</em> Wing</div>
+      <div class="sub-deva deva deva-optional">सेंट्रल रेलवे — मुंबई मंडल — प्रशिक्षण विंग</div>
+    </div>
+    <div class="masthead-meta">
+      <span>Established <strong>1925</strong></span>
+      <span>Estd. MTC Kurla · 1978</span>
+      <span>Three Training Centres</span>
+    </div>
+  </div>
+  <nav class="primary-nav">
+    <a href="#centres" class="active">Centres</a>
+    <a href="#notices">Notices</a>
+    <a href="#circulars">Circulars &amp; Rule Books</a>
+    <a href="#case-studies">Case Studies</a>
+    <a href="#good-work">Good Work</a>
+    <a href="#gallery">Gallery</a>
+    <a href="/div/training-centre.html">Portal ↗</a>
+    <a href="/div">← Division Dashboard</a>
+  </nav>
+</header>
+
+<!-- ============================================================
+     HERO
+     ============================================================ -->
+<section class="hero">
+  <div class="wrap">
+    <div class="hero-grid">
+      <div>
+        <div class="hero-eyebrow"><span class="rule"></span>A Directory of Training Centres under BB Division</div>
+        <h1>
+          Where <em>motormen</em>
+          <span class="amp">&amp;</span>
+          loco pilots are
+          <em>made ready</em>.
+          <span class="deva deva-optional">जहाँ मोटरमैन और लोको पायलट तैयार होते हैं।</span>
+        </h1>
+        <p class="hero-lede">Three centres. One shared discipline — safe, schedule-keeping running. Refresher, MEMU, promotion and one-day intensive courses, rule books, case studies, and recognition for work done well. The front door to MTC Kurla, MTC Kalyan and DTC Kalyan.</p>
+        <div class="hero-ctas">
+          <a href="/div/training-centre.html" class="btn btn-primary">
+            Enter Centre Portal
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 7h10M8 3l4 4-4 4"/></svg>
+          </a>
+          <a href="#admin-console" class="btn btn-ghost">
+            Admin Combined Console
+          </a>
+        </div>
+      </div>
+
+      <!-- Departure-board style live panel -->
+      <div class="hero-panel" aria-label="Live batches across centres">
+        <div class="panel-label">
+          <span>Batches in Progress · Live</span>
+          <span class="live">on air</span>
+        </div>
+        <div class="board-row">
+          <span class="code">MTC·CLA</span>
+          <span class="name">Refresher (MMPRC)</span>
+          <span class="time">09:30 · Day 3/6</span>
+          <span class="badge badge-live">Live</span>
+        </div>
+        <div class="board-row">
+          <span class="code">MTC·CLA</span>
+          <span class="name">One Day Intensive</span>
+          <span class="time">09:30 · Day 1/1</span>
+          <span class="badge badge-live">Live</span>
+        </div>
+        <div class="board-row">
+          <span class="code">MTC·KYN</span>
+          <span class="name">MEMU Refresher</span>
+          <span class="time">09:30 · Day 2/4</span>
+          <span class="badge badge-live">Live</span>
+        </div>
+        <div class="board-row">
+          <span class="code">DTC·KYN</span>
+          <span class="name">Promotion Course</span>
+          <span class="time">Tomorrow · 09:00</span>
+          <span class="badge badge-next">Next</span>
+        </div>
+        <div class="board-row">
+          <span class="code">MTC·CLA</span>
+          <span class="name">MEMU Initial</span>
+          <span class="time">Mon · 14 Apr</span>
+          <span class="badge badge-soon">Soon</span>
+        </div>
+        <div class="board-row">
+          <span class="code">MTC·KYN</span>
+          <span class="name">Refresher Batch 17</span>
+          <span class="time">Wed · 16 Apr</span>
+          <span class="badge badge-soon">Soon</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     STATS STRIP
+     ============================================================ -->
+<section class="stats-strip" style="padding-top: 56px; padding-bottom: 56px;">
+  <div class="stats-strip-inner">
+    <div>
+      <div class="num">3<span class="unit">centres</span></div>
+      <div class="label">Training Infrastructure</div>
+      <div class="desc">MTC Kurla · MTC Kalyan · DTC Kalyan — spanning motorman, MEMU and diesel loco streams.</div>
+    </div>
+    <div>
+      <div class="num">11,240</div>
+      <div class="label">Motorman-Days Trained · FY</div>
+      <div class="desc">Cumulative training days across refresher, promotion, MEMU and intensive streams.</div>
+    </div>
+    <div>
+      <div class="num">412</div>
+      <div class="label">Batches Completed · FY</div>
+      <div class="desc">Refresher (MMPRC) forms the bulk; ODI cleared on demand.</div>
+    </div>
+    <div>
+      <div class="num">99.4<span class="unit">%</span></div>
+      <div class="label">Attendance Compliance</div>
+      <div class="desc">Across all letters received from CSMT-SUB, KYN-SUB and PNVL-SUB lobbies.</div>
+    </div>
+    <div>
+      <div class="num">06</div>
+      <div class="label">Simulators · Active</div>
+      <div class="desc">EMU cab, MEMU cab, tower wagon OHE and coaching LHB consists.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     CENTRES DIRECTORY
+     ============================================================ -->
+<section id="centres">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="sec-num">§ 01</div>
+      <h2 class="sec-title">The <em>three</em> centres<span class="deva deva-optional"> · तीनों केंद्र</span></h2>
+      <div class="sec-meta">Click a centre to enter its portal</div>
+    </div>
+
+    <div class="centres-grid">
+
+      <!-- MTC CLA -->
+      <a class="centre-card" href="/div/training-centre.html">
+        <div class="centre-hero">
+          <div class="placeholder-img">
+            <svg viewBox="0 0 400 225" preserveAspectRatio="xMidYMid slice">
+              <defs>
+                <pattern id="emu1" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse">
+                  <path d="M0 20 L40 20" stroke="#fbbf24" stroke-width="0.3" opacity="0.5"/>
+                  <path d="M20 0 L20 40" stroke="#fbbf24" stroke-width="0.3" opacity="0.5"/>
+                </pattern>
+              </defs>
+              <rect width="400" height="225" fill="url(#emu1)"/>
+              <!-- EMU silhouette -->
+              <g transform="translate(20,120)" fill="#fbbf24">
+                <rect x="0" y="30" width="360" height="40" rx="4"/>
+                <path d="M0 30 Q 8 10 40 10 L 340 10 Q 360 10 360 30 Z"/>
+                <rect x="50" y="18" width="30" height="22" fill="#0B1220" opacity="0.8"/>
+                <rect x="90" y="18" width="30" height="22" fill="#0B1220" opacity="0.8"/>
+                <rect x="130" y="18" width="30" height="22" fill="#0B1220" opacity="0.8"/>
+                <rect x="170" y="18" width="30" height="22" fill="#0B1220" opacity="0.8"/>
+                <rect x="210" y="18" width="30" height="22" fill="#0B1220" opacity="0.8"/>
+                <rect x="250" y="18" width="30" height="22" fill="#0B1220" opacity="0.8"/>
+                <rect x="290" y="18" width="30" height="22" fill="#0B1220" opacity="0.8"/>
+                <circle cx="30" cy="75" r="8" fill="#0B1220"/>
+                <circle cx="90" cy="75" r="8" fill="#0B1220"/>
+                <circle cx="270" cy="75" r="8" fill="#0B1220"/>
+                <circle cx="330" cy="75" r="8" fill="#0B1220"/>
+              </g>
+            </svg>
+          </div>
+          <div class="type-badge">Flagship · EMU Stream</div>
+          <div class="code">MTC <em>CLA</em></div>
+        </div>
+        <div class="centre-body">
+          <div>
+            <div class="centre-name">
+              Motormen Training Centre, Kurla
+              <span class="deva deva-optional">मोटरमैन प्रशिक्षण केंद्र, कुर्ला</span>
+            </div>
+            <div class="centre-loc">Kurla · BB Division · Estd. 1978</div>
+          </div>
+          <div class="centre-courses">
+            <span class="course-chip">Refresher · MMPRC</span>
+            <span class="course-chip">One Day Intensive</span>
+            <span class="course-chip">MEMU Refresher</span>
+            <span class="course-chip">Promotion</span>
+          </div>
+          <div class="centre-stats">
+            <div><div class="n">184</div><div class="l">Batches · FY</div></div>
+            <div><div class="n">4,912</div><div class="l">Trainees</div></div>
+            <div><div class="n">03</div><div class="l">Simulators</div></div>
+          </div>
+          <div class="centre-next">
+            <span class="label">Next Refresher</span>
+            <span class="date">Mon · 14 APR · 09:30</span>
+          </div>
+          <div class="centre-actions">
+            <span class="centre-status">Operational</span>
+            <span class="enter-btn">Enter Portal
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 7h10M8 3l4 4-4 4"/></svg>
+            </span>
+          </div>
+        </div>
+      </a>
+
+      <!-- MTC KYN -->
+      <a class="centre-card" href="/div/training-centre.html?center=MTC-KYN">
+        <div class="centre-hero">
+          <div class="placeholder-img">
+            <svg viewBox="0 0 400 225" preserveAspectRatio="xMidYMid slice">
+              <rect width="400" height="225" fill="none"/>
+              <g fill="#60a5fa" opacity="0.95">
+                <!-- MEMU silhouette -->
+                <rect x="20" y="130" width="360" height="40" rx="4"/>
+                <path d="M20 130 L50 108 L350 108 L380 130 Z"/>
+                <rect x="60" y="118" width="26" height="18" fill="#0B1220"/>
+                <rect x="94" y="118" width="26" height="18" fill="#0B1220"/>
+                <rect x="128" y="118" width="26" height="18" fill="#0B1220"/>
+                <rect x="162" y="118" width="26" height="18" fill="#0B1220"/>
+                <rect x="196" y="118" width="26" height="18" fill="#0B1220"/>
+                <rect x="230" y="118" width="26" height="18" fill="#0B1220"/>
+                <rect x="264" y="118" width="26" height="18" fill="#0B1220"/>
+                <rect x="298" y="118" width="26" height="18" fill="#0B1220"/>
+                <circle cx="60" cy="175" r="8" fill="#0B1220"/>
+                <circle cx="110" cy="175" r="8" fill="#0B1220"/>
+                <circle cx="290" cy="175" r="8" fill="#0B1220"/>
+                <circle cx="340" cy="175" r="8" fill="#0B1220"/>
+              </g>
+              <path d="M0 200 L400 200" stroke="#fbbf24" stroke-width="1.5" opacity="0.4"/>
+            </svg>
+          </div>
+          <div class="type-badge">MEMU Specialty · Long-Distance</div>
+          <div class="code">MTC <em>KYN</em></div>
+        </div>
+        <div class="centre-body">
+          <div>
+            <div class="centre-name">
+              Motormen Training Centre, Kalyan
+              <span class="deva deva-optional">मोटरमैन प्रशिक्षण केंद्र, कल्याण</span>
+            </div>
+            <div class="centre-loc">Kalyan · BB Division · Estd. 1986</div>
+          </div>
+          <div class="centre-courses">
+            <span class="course-chip">MEMU Initial</span>
+            <span class="course-chip">MEMU Refresher</span>
+            <span class="course-chip">Refresher</span>
+            <span class="course-chip">ODI</span>
+          </div>
+          <div class="centre-stats">
+            <div><div class="n">148</div><div class="l">Batches · FY</div></div>
+            <div><div class="n">3,840</div><div class="l">Trainees</div></div>
+            <div><div class="n">02</div><div class="l">Simulators</div></div>
+          </div>
+          <div class="centre-next">
+            <span class="label">Next Batch</span>
+            <span class="date">Wed · 16 APR · 09:30</span>
+          </div>
+          <div class="centre-actions">
+            <span class="centre-status">Operational</span>
+            <span class="enter-btn">Enter Portal
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 7h10M8 3l4 4-4 4"/></svg>
+            </span>
+          </div>
+        </div>
+      </a>
+
+      <!-- DTC KYN -->
+      <a class="centre-card" href="/div/training-centre.html?center=DTC-KYN">
+        <div class="centre-hero">
+          <div class="placeholder-img">
+            <svg viewBox="0 0 400 225" preserveAspectRatio="xMidYMid slice">
+              <rect width="400" height="225" fill="none"/>
+              <g fill="#f87171" opacity="0.9">
+                <!-- Diesel loco silhouette -->
+                <rect x="40" y="115" width="320" height="55" rx="3"/>
+                <rect x="40" y="100" width="80" height="15"/>
+                <rect x="280" y="100" width="80" height="15"/>
+                <rect x="60" y="125" width="24" height="16" fill="#0B1220"/>
+                <rect x="100" y="125" width="24" height="16" fill="#0B1220"/>
+                <rect x="140" y="125" width="120" height="10" fill="#0B1220" opacity="0.6"/>
+                <rect x="280" y="125" width="24" height="16" fill="#0B1220"/>
+                <rect x="320" y="125" width="24" height="16" fill="#0B1220"/>
+                <circle cx="80" cy="175" r="10" fill="#0B1220"/>
+                <circle cx="115" cy="175" r="10" fill="#0B1220"/>
+                <circle cx="150" cy="175" r="10" fill="#0B1220"/>
+                <circle cx="250" cy="175" r="10" fill="#0B1220"/>
+                <circle cx="285" cy="175" r="10" fill="#0B1220"/>
+                <circle cx="320" cy="175" r="10" fill="#0B1220"/>
+              </g>
+              <path d="M0 195 L400 195" stroke="#fbbf24" stroke-width="1.5" opacity="0.4"/>
+              <g fill="#fbbf24" opacity="0.7">
+                <rect x="60" y="70" width="10" height="30"/>
+                <path d="M55 60 L75 60 L80 70 L50 70 Z" opacity="0.5"/>
+              </g>
+            </svg>
+          </div>
+          <div class="type-badge">Diesel Stream · Goods &amp; Shunting</div>
+          <div class="code">DTC <em>KYN</em></div>
+        </div>
+        <div class="centre-body">
+          <div>
+            <div class="centre-name">
+              Driver Training Centre, Kalyan
+              <span class="deva deva-optional"> ड्राइवर प्रशिक्षण केंद्र, कल्याण</span>
+            </div>
+            <div class="centre-loc">Kalyan Loco Shed · BB Division · Estd. 1992</div>
+          </div>
+          <div class="centre-courses">
+            <span class="course-chip">Diesel Promotion</span>
+            <span class="course-chip">Refresher</span>
+            <span class="course-chip">Shunting Drill</span>
+            <span class="course-chip">ODI</span>
+          </div>
+          <div class="centre-stats">
+            <div><div class="n">80</div><div class="l">Batches · FY</div></div>
+            <div><div class="n">2,488</div><div class="l">Trainees</div></div>
+            <div><div class="n">01</div><div class="l">Simulator</div></div>
+          </div>
+          <div class="centre-next">
+            <span class="label">Next Batch</span>
+            <span class="date">Tue · 15 APR · 09:00</span>
+          </div>
+          <div class="centre-actions">
+            <span class="centre-status">Operational</span>
+            <span class="enter-btn">Enter Portal
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 7h10M8 3l4 4-4 4"/></svg>
+            </span>
+          </div>
+        </div>
+      </a>
+
+      <!-- Admin console strip -->
+      <div class="admin-strip" id="admin-console">
+        <div>
+          <h3>Admin — <em>Combined Console</em> across all three centres</h3>
+          <p>Attendance · Completion · Batches · Compliance · Division-wide rollup</p>
+        </div>
+        <a href="/div/training-compliance-matrix.html" class="btn btn-primary">
+          Open Console
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 7h10M8 3l4 4-4 4"/></svg>
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     NOTICES / ANNOUNCEMENTS
+     ============================================================ -->
+<section id="notices" style="background: var(--paper-2);">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="sec-num">§ 02</div>
+      <h2 class="sec-title">Notices &amp; <em>Announcements</em><span class="deva deva-optional"> · सूचनाएँ</span></h2>
+      <div class="sec-meta">Updated 23 Apr 2026 · 09:14 IST</div>
+    </div>
+
+    <div class="ticker" aria-label="Latest notices ticker">
+      <span class="ticker-label">Latest</span>
+      <div class="ticker-viewport"><div class="ticker-track">
+        <span>New MMPRC syllabus (Rev. 04/2026) effective from 01 May 2026</span>
+        <span>MEMU Refresher batch at KYN rescheduled to Wed 16 Apr</span>
+        <span>Simulator downtime · MTC CLA · 25 Apr · 14:00–18:00</span>
+        <span>Good Work Letter issued to Shri R. K. Waghmare, CLI</span>
+        <span>Rule book "GR 3.45 — Signal Passed at Danger" revised</span>
+        <!-- duplicate for seamless loop -->
+        <span>New MMPRC syllabus (Rev. 04/2026) effective from 01 May 2026</span>
+        <span>MEMU Refresher batch at KYN rescheduled to Wed 16 Apr</span>
+        <span>Simulator downtime · MTC CLA · 25 Apr · 14:00–18:00</span>
+        <span>Good Work Letter issued to Shri R. K. Waghmare, CLI</span>
+        <span>Rule book "GR 3.45 — Signal Passed at Danger" revised</span>
+      </div></div>
+    </div>
+
+    <div class="notices-grid">
+      <article class="notice featured">
+        <div class="notice-meta">
+          <span class="tag">Policy · Major</span>
+          <span class="date">18 Apr 2026</span>
+        </div>
+        <h4>Revised Motorman Periodical Refresher Course (MMPRC) syllabus — effective 01 May 2026</h4>
+        <p>Duration extended from 5 to 6 working days. New modules on CBTC readiness, Kavach interfacing and revised signal aspects (Rev. 04/2026). Attendance criteria unchanged. All centres to update their batch plans accordingly.</p>
+        <span class="read-more">Read circular
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 7h10M8 3l4 4-4 4"/></svg>
+        </span>
+      </article>
+
+      <article class="notice">
+        <div class="notice-meta">
+          <span class="tag">Schedule</span>
+          <span class="date">22 Apr 2026</span>
+        </div>
+        <h4>MEMU Refresher at KYN rescheduled to Wed, 16 Apr</h4>
+        <p>Originally scheduled for 15 Apr. Change due to overlap with CSMT-SUB depot lobby muster. Lobby managers requested to re-issue letters.</p>
+        <span class="read-more">Details
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 7h10M8 3l4 4-4 4"/></svg>
+        </span>
+      </article>
+
+      <article class="notice">
+        <div class="notice-meta">
+          <span class="tag">Maintenance</span>
+          <span class="date">20 Apr 2026</span>
+        </div>
+        <h4>Simulator downtime at MTC CLA — 25 April afternoon</h4>
+        <p>EMU Sim-01 unavailable between 14:00 and 18:00 for firmware update. Batches scheduled accordingly; classroom sessions unaffected.</p>
+        <span class="read-more">Details
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 7h10M8 3l4 4-4 4"/></svg>
+        </span>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     CIRCULARS & RULE BOOKS
+     ============================================================ -->
+<section id="circulars">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="sec-num">§ 03</div>
+      <h2 class="sec-title">Rule books, circulars &amp; <em>references</em><span class="deva deva-optional"> · नियम पुस्तिकाएँ</span></h2>
+      <div class="sec-meta">48 documents · Last indexed 22 Apr</div>
+    </div>
+
+    <div class="docs-layout">
+      <div class="docs-intro">
+        <h3>The <em>library</em> a motorman carries.</h3>
+        <p>Downloadable rule books, circulars, standard operating procedures and course syllabi. Authoritative copies — superseded versions are archived but kept for reference.</p>
+        <div class="docs-filters">
+          <button class="filter-chip active">All</button>
+          <button class="filter-chip">Rule Books</button>
+          <button class="filter-chip">Circulars</button>
+          <button class="filter-chip">SOPs</button>
+          <button class="filter-chip">Syllabi</button>
+        </div>
+      </div>
+
+      <div class="docs-list">
+        <div class="doc-row">
+          <span class="idx">01 / 2026</span>
+          <div>
+            <div class="title">General &amp; Subsidiary Rules (G&amp;SR), 2020
+              <span class="sub">Indian Railways — Working of Trains · English + Hindi</span>
+            </div>
+          </div>
+          <span class="type rulebook">Rule Book</span>
+          <span class="size">18.4 MB · PDF</span>
+          <span class="dl"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 1v8M3 6l4 4 4-4M2 12h10"/></svg></span>
+        </div>
+        <div class="doc-row">
+          <span class="idx">02 / 2026</span>
+          <div>
+            <div class="title">MMPRC Revised Syllabus · Rev. 04/2026
+              <span class="sub">Effective 01 May 2026 — supersedes Rev. 02/2024</span>
+            </div>
+          </div>
+          <span class="type syllabus">Syllabus</span>
+          <span class="size">2.1 MB · PDF</span>
+          <span class="dl"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 1v8M3 6l4 4 4-4M2 12h10"/></svg></span>
+        </div>
+        <div class="doc-row">
+          <span class="idx">03 / 2026</span>
+          <div>
+            <div class="title">Circular · GR 3.45 — Signal Passed at Danger
+              <span class="sub">Revised procedures for reporting and enquiry · 12 Apr 2026</span>
+            </div>
+          </div>
+          <span class="type circular">Circular</span>
+          <span class="size">460 KB · PDF</span>
+          <span class="dl"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 1v8M3 6l4 4 4-4M2 12h10"/></svg></span>
+        </div>
+        <div class="doc-row">
+          <span class="idx">04 / 2026</span>
+          <div>
+            <div class="title">Accident Manual (Working of Trains)
+              <span class="sub">Central Railway — 2021 edition · Chapters 1–14</span>
+            </div>
+          </div>
+          <span class="type rulebook">Rule Book</span>
+          <span class="size">24.7 MB · PDF</span>
+          <span class="dl"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 1v8M3 6l4 4 4-4M2 12h10"/></svg></span>
+        </div>
+        <div class="doc-row">
+          <span class="idx">05 / 2026</span>
+          <div>
+            <div class="title">SOP · EMU Rake Formation &amp; Pre-Departure Check
+              <span class="sub">For motormen deputed from CSMT-SUB, KYN-SUB &amp; PNVL-SUB</span>
+            </div>
+          </div>
+          <span class="type sop">SOP</span>
+          <span class="size">1.2 MB · PDF</span>
+          <span class="dl"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 1v8M3 6l4 4 4-4M2 12h10"/></svg></span>
+        </div>
+        <div class="doc-row">
+          <span class="idx">06 / 2026</span>
+          <div>
+            <div class="title">MEMU Initial Course — Training Calendar
+              <span class="sub">MTC KYN · FY 2026–27 batches</span>
+            </div>
+          </div>
+          <span class="type syllabus">Syllabus</span>
+          <span class="size">840 KB · PDF</span>
+          <span class="dl"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 1v8M3 6l4 4 4-4M2 12h10"/></svg></span>
+        </div>
+        <div class="doc-row">
+          <span class="idx">07 / 2026</span>
+          <div>
+            <div class="title">Signal Book · Block Working &amp; Absolute Block
+              <span class="sub">Mumbai Suburban territory · Pocket edition</span>
+            </div>
+          </div>
+          <span class="type rulebook">Rule Book</span>
+          <span class="size">6.9 MB · PDF</span>
+          <span class="dl"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 1v8M3 6l4 4 4-4M2 12h10"/></svg></span>
+        </div>
+        <div class="doc-row">
+          <span class="idx">08 / 2026</span>
+          <div>
+            <div class="title">Circular · One-Day Intensive Course — Revised nomination criteria
+              <span class="sub">For staff crossing 2 SPAD threshold · 04 Apr 2026</span>
+            </div>
+          </div>
+          <span class="type circular">Circular</span>
+          <span class="size">320 KB · PDF</span>
+          <span class="dl"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 1v8M3 6l4 4 4-4M2 12h10"/></svg></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     CASE STUDIES
+     ============================================================ -->
+<section id="case-studies" style="background: var(--paper-2);">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="sec-num">§ 04</div>
+      <h2 class="sec-title">Case studies &amp; <em>learnings</em><span class="deva deva-optional"> · केस स्टडी</span></h2>
+      <div class="sec-meta">Anonymised incident reviews · For classroom use</div>
+    </div>
+
+    <div class="cases-grid">
+      <article class="case">
+        <div class="case-img">
+          <svg viewBox="0 0 400 300" preserveAspectRatio="xMidYMid slice">
+            <rect width="400" height="300" fill="#1E2738"/>
+            <g opacity="0.35">
+              <circle cx="80" cy="80" r="35" fill="#ef4444"/>
+              <circle cx="80" cy="80" r="55" fill="none" stroke="#ef4444" stroke-width="1"/>
+              <circle cx="80" cy="80" r="78" fill="none" stroke="#ef4444" stroke-width="0.5"/>
+            </g>
+            <g fill="#fbbf24" opacity="0.85">
+              <rect x="160" y="140" width="220" height="28" rx="2"/>
+              <path d="M160 140 L180 122 L360 122 L380 140 Z"/>
+              <rect x="180" y="128" width="12" height="10" fill="#0B1220"/>
+              <rect x="198" y="128" width="12" height="10" fill="#0B1220"/>
+              <rect x="216" y="128" width="12" height="10" fill="#0B1220"/>
+              <rect x="234" y="128" width="12" height="10" fill="#0B1220"/>
+              <rect x="252" y="128" width="12" height="10" fill="#0B1220"/>
+              <rect x="270" y="128" width="12" height="10" fill="#0B1220"/>
+              <rect x="288" y="128" width="12" height="10" fill="#0B1220"/>
+              <rect x="306" y="128" width="12" height="10" fill="#0B1220"/>
+            </g>
+            <path d="M0 205 L400 205" stroke="#fbbf24" opacity="0.5" stroke-width="1"/>
+            <path d="M0 240 L400 240" stroke="#fbbf24" opacity="0.3" stroke-width="0.5"/>
+          </svg>
+          <span class="kicker">SPAD</span>
+        </div>
+        <div class="case-meta">
+          <span>Refresher · MMPRC</span>
+          <span class="sep">·</span>
+          <span>Running · CSTM → KYN</span>
+        </div>
+        <h4>Signal Passed at Danger near Kanjurmarg — fog, fatigue, and the 4-second window</h4>
+        <p>How a motorman, 11 hours into duty, misread an approach stop signal in patchy March fog. Reconstruction, root-cause analysis, and the three simulator exercises now derived from this event.</p>
+        <span class="learn">Read case study
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 7h10M8 3l4 4-4 4"/></svg>
+        </span>
+      </article>
+
+      <article class="case">
+        <div class="case-img">
+          <svg viewBox="0 0 400 300" preserveAspectRatio="xMidYMid slice">
+            <rect width="400" height="300" fill="#7C1D2B"/>
+            <g opacity="0.6" fill="#fbbf24">
+              <rect x="60" y="110" width="280" height="90" rx="4"/>
+              <rect x="60" y="95" width="60" height="15"/>
+              <rect x="280" y="95" width="60" height="15"/>
+              <rect x="80" y="125" width="18" height="14" fill="#0B1220"/>
+              <rect x="108" y="125" width="18" height="14" fill="#0B1220"/>
+              <rect x="136" y="125" width="120" height="10" fill="#0B1220" opacity="0.6"/>
+              <rect x="278" y="125" width="18" height="14" fill="#0B1220"/>
+              <rect x="306" y="125" width="18" height="14" fill="#0B1220"/>
+              <circle cx="100" cy="205" r="10" fill="#0B1220"/>
+              <circle cx="140" cy="205" r="10" fill="#0B1220"/>
+              <circle cx="260" cy="205" r="10" fill="#0B1220"/>
+              <circle cx="300" cy="205" r="10" fill="#0B1220"/>
+            </g>
+            <path d="M0 230 L400 230" stroke="#fbbf24" opacity="0.5" stroke-width="1"/>
+          </svg>
+          <span class="kicker">Brake Bind</span>
+        </div>
+        <div class="case-meta">
+          <span>MEMU Refresher</span>
+          <span class="sep">·</span>
+          <span>Goods Avenue · BSR</span>
+        </div>
+        <h4>Hot axle on a MEMU rake — catching a wheel bind before it catches fire</h4>
+        <p>A vigilant assistant loco pilot noticed an unusual undercarriage smell at Badlapur. What happened next — the checks, the protection, the decision tree — became a lesson for every MEMU refresher batch since.</p>
+        <span class="learn">Read case study
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 7h10M8 3l4 4-4 4"/></svg>
+        </span>
+      </article>
+
+      <article class="case">
+        <div class="case-img">
+          <svg viewBox="0 0 400 300" preserveAspectRatio="xMidYMid slice">
+            <rect width="400" height="300" fill="#0E7490"/>
+            <g opacity="0.85" fill="#ECE5D6">
+              <rect x="50" y="90" width="300" height="130" rx="3"/>
+              <rect x="50" y="70" width="80" height="20"/>
+              <rect x="270" y="70" width="80" height="20"/>
+              <rect x="70" y="115" width="60" height="30" fill="#0B1220"/>
+              <rect x="150" y="115" width="100" height="10" fill="#0B1220" opacity="0.6"/>
+              <rect x="150" y="130" width="100" height="6" fill="#0B1220" opacity="0.4"/>
+              <rect x="270" y="115" width="60" height="30" fill="#0B1220"/>
+              <circle cx="85" cy="225" r="12" fill="#0B1220"/>
+              <circle cx="125" cy="225" r="12" fill="#0B1220"/>
+              <circle cx="275" cy="225" r="12" fill="#0B1220"/>
+              <circle cx="315" cy="225" r="12" fill="#0B1220"/>
+            </g>
+            <g fill="#fbbf24">
+              <rect x="192" y="40" width="16" height="30" opacity="0.8"/>
+              <path d="M186 30 L214 30 L220 40 L180 40 Z" opacity="0.6"/>
+            </g>
+          </svg>
+          <span class="kicker">Shunting</span>
+        </div>
+        <div class="case-meta">
+          <span>Diesel Promotion</span>
+          <span class="sep">·</span>
+          <span>KYN Loco Shed</span>
+        </div>
+        <h4>The runaway wagon at KYN Yard — human factors in shunting operations</h4>
+        <p>A study of how a single missed handbrake, unchallenged by a second pair of eyes, set up the events of March 2025. The counter-measures — buddy-check protocol and the revised DP syllabus module — are now standard at DTC.</p>
+        <span class="learn">Read case study
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 7h10M8 3l4 4-4 4"/></svg>
+        </span>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     GOOD WORK — dark section
+     ============================================================ -->
+<section id="good-work" class="good-work">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="sec-num">§ 05</div>
+      <h2 class="sec-title">Good <em>work</em>, well done<span class="deva deva-optional"> · उल्लेखनीय कार्य</span></h2>
+      <div class="sec-meta">Latest commendations · April 2026</div>
+    </div>
+
+    <div class="recog-grid">
+      <article class="recog featured">
+        <div class="recog-head">
+          <div class="recog-medal">★</div>
+          <span class="recog-tag">Good Work Letter · GWL-087</span>
+        </div>
+        <div>
+          <h5>Shri R. K. Waghmare</h5>
+          <div class="recog-role">Chief Loco Inspector · MTC CLA</div>
+        </div>
+        <p>Led the redesign of the MMPRC simulator exercise library from 14 to 32 scenarios over six months, without a single batch cancellation. 184 batches ran to schedule in FY 2025–26 — a divisional record.</p>
+        <div class="recog-foot">
+          <span>17 Apr 2026</span>
+          <span>DRM · BB Division</span>
+        </div>
+      </article>
+
+      <article class="recog">
+        <div class="recog-head">
+          <div class="recog-medal silver">✓</div>
+          <span class="recog-tag">Commendation</span>
+        </div>
+        <div>
+          <h5>Shri P. S. Kadam</h5>
+          <div class="recog-role">Motorman · CSMT-SUB</div>
+        </div>
+        <p>Prompt reaction to approach signal failure near Vikhroli — averted a potential SPAD. Skill traceable to ODI exercise Module 7.</p>
+        <div class="recog-foot">
+          <span>12 Apr 2026</span>
+          <span>SDGM</span>
+        </div>
+      </article>
+
+      <article class="recog">
+        <div class="recog-head">
+          <div class="recog-medal bronze">♦</div>
+          <span class="recog-tag">Good Work Letter</span>
+        </div>
+        <div>
+          <h5>Smt. A. Deshmukh</h5>
+          <div class="recog-role">Loco Pilot · MEMU · KYN</div>
+        </div>
+        <p>Detected a hot axle developing on rake 88517-KYN two stations early. Rake taken out of service; no disruption.</p>
+        <div class="recog-foot">
+          <span>08 Apr 2026</span>
+          <span>Sr. DOM</span>
+        </div>
+      </article>
+
+      <article class="recog">
+        <div class="recog-head">
+          <div class="recog-medal bronze">♦</div>
+          <span class="recog-tag">Commendation</span>
+        </div>
+        <div>
+          <h5>Shri M. Farookh</h5>
+          <div class="recog-role">Loco Inspector · DTC KYN</div>
+        </div>
+        <p>Spearheaded the buddy-check shunting protocol, now adopted across all three centres. Zero unattended-movement incidents in Q4.</p>
+        <div class="recog-foot">
+          <span>02 Apr 2026</span>
+          <span>Sr. DEE</span>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     GALLERY
+     ============================================================ -->
+<section id="gallery">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="sec-num">§ 06</div>
+      <h2 class="sec-title">Gallery &amp; <em>facilities</em><span class="deva deva-optional"> · सुविधाएँ</span></h2>
+      <div class="sec-meta">Photos to be swapped in — placeholders for now</div>
+    </div>
+
+    <div class="gallery">
+      <div class="gallery-item tall">
+        <svg viewBox="0 0 400 600" preserveAspectRatio="xMidYMid slice">
+          <rect width="400" height="600" fill="#0B1220"/>
+          <g fill="#fbbf24" opacity="0.85">
+            <rect x="60" y="300" width="280" height="140" rx="4"/>
+            <path d="M60 300 L88 270 L312 270 L340 300 Z"/>
+            <rect x="80" y="285" width="22" height="16" fill="#0B1220"/>
+            <rect x="110" y="285" width="22" height="16" fill="#0B1220"/>
+            <rect x="140" y="285" width="22" height="16" fill="#0B1220"/>
+            <rect x="170" y="285" width="22" height="16" fill="#0B1220"/>
+            <rect x="200" y="285" width="22" height="16" fill="#0B1220"/>
+            <rect x="230" y="285" width="22" height="16" fill="#0B1220"/>
+            <rect x="260" y="285" width="22" height="16" fill="#0B1220"/>
+            <rect x="290" y="285" width="22" height="16" fill="#0B1220"/>
+            <circle cx="90" cy="450" r="14" fill="#0B1220"/>
+            <circle cx="140" cy="450" r="14" fill="#0B1220"/>
+            <circle cx="260" cy="450" r="14" fill="#0B1220"/>
+            <circle cx="310" cy="450" r="14" fill="#0B1220"/>
+          </g>
+          <g fill="#fbbf24" opacity="0.25">
+            <rect x="60" y="150" width="280" height="6"/>
+            <rect x="60" y="170" width="280" height="2"/>
+          </g>
+          <path d="M0 490 L400 490" stroke="#fbbf24" stroke-width="2" opacity="0.4"/>
+          <path d="M0 520 L400 520" stroke="#fbbf24" stroke-width="1" opacity="0.3"/>
+        </svg>
+        <span class="cap">EMU Rake · Simulator bay · MTC CLA</span>
+      </div>
+      <div class="gallery-item">
+        <svg viewBox="0 0 400 300" preserveAspectRatio="xMidYMid slice">
+          <rect width="400" height="300" fill="#7C1D2B"/>
+          <g fill="#F4EFE6" opacity="0.9">
+            <rect x="40" y="80" width="320" height="180" rx="2"/>
+            <rect x="60" y="100" width="280" height="12" fill="#0B1220" opacity="0.3"/>
+            <rect x="60" y="120" width="280" height="4" fill="#0B1220" opacity="0.2"/>
+            <rect x="60" y="130" width="230" height="4" fill="#0B1220" opacity="0.2"/>
+            <rect x="60" y="140" width="260" height="4" fill="#0B1220" opacity="0.2"/>
+            <rect x="60" y="160" width="70" height="70" fill="#0B1220" opacity="0.5"/>
+            <rect x="140" y="160" width="70" height="70" fill="#0B1220" opacity="0.3"/>
+            <rect x="220" y="160" width="120" height="70" fill="#0B1220" opacity="0.4"/>
+          </g>
+        </svg>
+        <span class="cap">Classroom · Chapter on Signals</span>
+      </div>
+      <div class="gallery-item">
+        <svg viewBox="0 0 400 300" preserveAspectRatio="xMidYMid slice">
+          <rect width="400" height="300" fill="#0E7490"/>
+          <g fill="#ECE5D6" opacity="0.85">
+            <circle cx="200" cy="150" r="80" fill="none" stroke="currentColor" stroke-width="3"/>
+            <circle cx="200" cy="150" r="4" fill="currentColor"/>
+            <line x1="200" y1="150" x2="200" y2="90" stroke="currentColor" stroke-width="3"/>
+            <line x1="200" y1="150" x2="240" y2="150" stroke="currentColor" stroke-width="2"/>
+            <text x="200" y="80" text-anchor="middle" font-family="IBM Plex Mono" font-size="12" fill="currentColor">12</text>
+            <text x="280" y="154" text-anchor="middle" font-family="IBM Plex Mono" font-size="12" fill="currentColor">3</text>
+            <text x="200" y="228" text-anchor="middle" font-family="IBM Plex Mono" font-size="12" fill="currentColor">6</text>
+            <text x="120" y="154" text-anchor="middle" font-family="IBM Plex Mono" font-size="12" fill="currentColor">9</text>
+          </g>
+        </svg>
+        <span class="cap">09:30 Hrs · Batch muster</span>
+      </div>
+      <div class="gallery-item">
+        <svg viewBox="0 0 400 300" preserveAspectRatio="xMidYMid slice">
+          <rect width="400" height="300" fill="#1F5A3A"/>
+          <g fill="#fbbf24" opacity="0.8">
+            <rect x="60" y="130" width="280" height="60" rx="3"/>
+            <path d="M60 130 L80 112 L320 112 L340 130 Z"/>
+            <rect x="80" y="120" width="20" height="14" fill="#0B1220"/>
+            <rect x="108" y="120" width="20" height="14" fill="#0B1220"/>
+            <rect x="136" y="120" width="20" height="14" fill="#0B1220"/>
+            <rect x="164" y="120" width="20" height="14" fill="#0B1220"/>
+            <rect x="192" y="120" width="20" height="14" fill="#0B1220"/>
+            <rect x="220" y="120" width="20" height="14" fill="#0B1220"/>
+            <rect x="248" y="120" width="20" height="14" fill="#0B1220"/>
+            <rect x="276" y="120" width="20" height="14" fill="#0B1220"/>
+            <circle cx="90" cy="200" r="9" fill="#0B1220"/>
+            <circle cx="130" cy="200" r="9" fill="#0B1220"/>
+            <circle cx="270" cy="200" r="9" fill="#0B1220"/>
+            <circle cx="310" cy="200" r="9" fill="#0B1220"/>
+          </g>
+          <path d="M0 220 L400 220" stroke="#fbbf24" opacity="0.4" stroke-width="1.5"/>
+        </svg>
+        <span class="cap">MEMU Rake · KYN yard</span>
+      </div>
+      <div class="gallery-item">
+        <svg viewBox="0 0 400 300" preserveAspectRatio="xMidYMid slice">
+          <rect width="400" height="300" fill="#b45309"/>
+          <g fill="#F4EFE6" opacity="0.9">
+            <rect x="80" y="80" width="240" height="160" rx="3" stroke="currentColor" stroke-width="2" fill="none"/>
+            <rect x="100" y="100" width="200" height="20" fill="currentColor" opacity="0.3"/>
+            <rect x="100" y="130" width="90" height="90" fill="currentColor" opacity="0.2"/>
+            <rect x="210" y="130" width="90" height="20" fill="currentColor" opacity="0.3"/>
+            <rect x="210" y="160" width="90" height="4" fill="currentColor" opacity="0.2"/>
+            <rect x="210" y="170" width="70" height="4" fill="currentColor" opacity="0.2"/>
+            <rect x="210" y="180" width="80" height="4" fill="currentColor" opacity="0.2"/>
+            <rect x="210" y="195" width="50" height="25" fill="currentColor" opacity="0.4"/>
+          </g>
+        </svg>
+        <span class="cap">Training Letter · Issued 09:30</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     FOOTER
+     ============================================================ -->
+<footer>
+  <div class="wrap">
+    <div class="footer-grid">
+      <div>
+        <h2 class="footer-brand">The <em>Training</em> Wing</h2>
+        <p>Central Railway · Mumbai (BB) Division<br>
+        Motormen &amp; Loco Pilot Training · Three Centres · One discipline.</p>
+        <p style="font-family: var(--f-mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; opacity: 0.6;">
+          Internal portal · For authorised divisional staff only
+        </p>
+      </div>
+      <div>
+        <h6>Centres</h6>
+        <ul>
+          <li><a href="/div/training-centre.html">MTC Kurla</a></li>
+          <li><a href="/div/training-centre.html?center=MTC-KYN">MTC Kalyan</a></li>
+          <li><a href="/div/training-centre.html?center=DTC-KYN">DTC Kalyan</a></li>
+        </ul>
+      </div>
+      <div>
+        <h6>Portals</h6>
+        <ul>
+          <li><a href="/div/training-centre.html">Centre Portal</a></li>
+          <li><a href="/div/training-compliance-matrix.html">Admin Console</a></li>
+          <li><a href="/div/training-letter.html">Training Letters</a></li>
+          <li><a href="/div">Division Dashboard</a></li>
+        </ul>
+      </div>
+      <div>
+        <h6>Support</h6>
+        <ul>
+          <li><a href="#">Contact CLI HQ</a></li>
+          <li><a href="#">Raise a ticket</a></li>
+          <li><a href="#">Documentation</a></li>
+          <li><a href="#">Change log</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© Central Railway · BB Division · 2026</span>
+      <span>Internal use only · For authorised divisional staff</span>
+    </div>
+  </div>
+</footer>
+
+<!-- ============================================================
+     TWEAKS PANEL
+     ============================================================ -->
+<div id="tweaks-panel" aria-hidden="true">
+  <div class="tweaks-head">
+    <h6>Tweaks</h6>
+    <button type="button" id="tweaks-close">×</button>
+  </div>
+  <div class="tweaks-body">
+    <div class="tweak-group">
+      <label>Accent</label>
+      <div class="tweak-opts" data-key="accent">
+        <button class="tweak-opt" data-v="maroon"><span class="tweak-swatch" style="background:#7C1D2B"></span>Maroon</button>
+        <button class="tweak-opt" data-v="navy"><span class="tweak-swatch" style="background:#1D3A6E"></span>Navy</button>
+        <button class="tweak-opt" data-v="teal"><span class="tweak-swatch" style="background:#0E7490"></span>Teal</button>
+        <button class="tweak-opt" data-v="forest"><span class="tweak-swatch" style="background:#1F5A3A"></span>Forest</button>
+      </div>
+    </div>
+    <div class="tweak-group">
+      <label>Hindi captions</label>
+      <div class="tweak-opts" data-key="bilingual">
+        <button class="tweak-opt" data-v="true">On · हिंदी</button>
+        <button class="tweak-opt" data-v="false">English only</button>
+      </div>
+    </div>
+    <div class="tweak-group">
+      <label>Density</label>
+      <div class="tweak-opts" data-key="density">
+        <button class="tweak-opt" data-v="editorial">Editorial</button>
+        <button class="tweak-opt" data-v="compact">Compact</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  /* =========================================================
+     Live clock + date in the masthead
+     ========================================================= */
+  function pad(n) { return String(n).padStart(2, '0'); }
+  function updateClock() {
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('en-IN', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
+    const timeStr = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+    const d = document.getElementById('today-date');
+    const t = document.getElementById('now-time');
+    if (d) d.textContent = dateStr;
+    if (t) t.textContent = timeStr;
+  }
+  updateClock();
+  setInterval(updateClock, 30_000);
+
+  /* =========================================================
+     Apply Tweaks on load
+     ========================================================= */
+  function applyTweaks(t) {
+    document.body.setAttribute('data-accent', t.accent);
+    document.body.classList.toggle('hide-deva', !t.bilingual);
+    document.body.classList.toggle('compact', t.density === 'compact');
+    // Reflect active state in panel
+    document.querySelectorAll('.tweak-opts').forEach(group => {
+      const key = group.dataset.key;
+      group.querySelectorAll('.tweak-opt').forEach(btn => {
+        const v = btn.dataset.v;
+        const match = String(t[key]) === v;
+        btn.classList.toggle('active', match);
+      });
+    });
+  }
+  applyTweaks(window.TWEAKS);
+
+  /* =========================================================
+     Tweaks — edit-mode protocol
+     ========================================================= */
+  const panel = document.getElementById('tweaks-panel');
+
+  window.addEventListener('message', (ev) => {
+    const d = ev.data;
+    if (!d || !d.type) return;
+    if (d.type === '__activate_edit_mode') { panel.classList.add('open'); panel.setAttribute('aria-hidden', 'false'); }
+    else if (d.type === '__deactivate_edit_mode') { panel.classList.remove('open'); panel.setAttribute('aria-hidden', 'true'); }
+  });
+  window.parent.postMessage({ type: '__edit_mode_available' }, '*');
+
+  document.getElementById('tweaks-close').addEventListener('click', () => {
+    panel.classList.remove('open');
+  });
+
+  document.querySelectorAll('.tweak-opts').forEach(group => {
+    const key = group.dataset.key;
+    group.addEventListener('click', (e) => {
+      const btn = e.target.closest('.tweak-opt');
+      if (!btn) return;
+      let v = btn.dataset.v;
+      if (v === 'true') v = true; else if (v === 'false') v = false;
+      window.TWEAKS[key] = v;
+      applyTweaks(window.TWEAKS);
+      try {
+        window.parent.postMessage({ type: '__edit_mode_set_keys', edits: { [key]: v } }, '*');
+      } catch (err) {}
+    });
+  });
+
+  /* =========================================================
+     Primary nav active indicator on scroll
+     ========================================================= */
+  const navLinks = document.querySelectorAll('.primary-nav a[href^="#"]');
+  const sections = [...navLinks].map(a => document.querySelector(a.getAttribute('href'))).filter(Boolean);
+  function setActiveNav() {
+    const y = window.scrollY + 120;
+    let current = sections[0]?.id;
+    for (const s of sections) if (s.offsetTop <= y) current = s.id;
+    navLinks.forEach(a => a.classList.toggle('active', a.getAttribute('href') === '#' + current));
+  }
+  window.addEventListener('scroll', setActiveNav, { passive: true });
+  setActiveNav();
+
+  /* =========================================================
+     Doc filter chips (demo — toggle active state only)
+     ========================================================= */
+  document.querySelectorAll('.filter-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      chip.parentElement.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+    });
+  });
+</script>
+</body>
+</html>

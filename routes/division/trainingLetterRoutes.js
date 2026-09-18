@@ -31,6 +31,22 @@ const isAdmin = (req) => {
     return req.session.user?.div_role === 'division_admin';
 };
 
+function canUseOffice(req, officeCode) {
+    return isAdmin(req) || getUserOffice(req) === officeCode;
+}
+
+async function rejectWorkflowLetter(conn, letterId) {
+    const [[workflow]] = await conn.query(
+        'SELECT workflow_status FROM div_training_letter_workflows WHERE letter_id = ?',
+        [letterId]
+    );
+    if (workflow) {
+        const error = new Error('Use the new letter workflow for this letter');
+        error.status = 409;
+        throw error;
+    }
+}
+
 // Course type configurations
 const COURSE_CONFIG = {
     'ONE_DAY_INTENSIVE': {
@@ -382,6 +398,10 @@ router.get('/:id', requireDivisionAccess, async (req, res) => {
         if (!letter) {
             return res.status(404).json({ error: 'Letter not found' });
         }
+        if (!canUseOffice(req, letter.office_code)) {
+            return res.status(403).json({ error: 'Letter belongs to another office' });
+        }
+        await rejectWorkflowLetter(conn, letter.id);
 
         // Get staff list
         const [staff] = await conn.query(`
@@ -512,12 +532,16 @@ router.post('/', requireDivisionAccess, async (req, res) => {
         if (!letter_date || !office_code || !course_type || !training_date || !staff || staff.length === 0) {
             return res.status(400).json({ error: 'Missing required fields' });
         }
+        if (!canUseOffice(req, office_code)) {
+            return res.status(403).json({ error: 'Cannot create or edit another office letter' });
+        }
 
         await conn.beginTransaction();
 
         let letterId;
 
         if (letter_id) {
+            await rejectWorkflowLetter(conn, letter_id);
             // Update existing letter
             const [[existingLetter]] = await conn.query(
                 `SELECT id FROM div_training_letters WHERE id = ?`,
@@ -570,6 +594,8 @@ router.post('/', requireDivisionAccess, async (req, res) => {
             `, [letter_date, office_code, course_type]);
 
             if (existing) {
+                await conn.rollback();
+                return res.status(409).json({ error: 'A letter already exists for this date, office and course. Open that letter explicitly; it will not be overwritten.' });
                 // Update existing
                 letterId = existing.id;
                 await conn.query(`
@@ -647,8 +673,8 @@ router.post('/', requireDivisionAccess, async (req, res) => {
 
     } catch (error) {
         if (conn) await conn.rollback();
-        console.error('Error saving training letter:', error);
-        res.status(500).json({ error: 'Failed to save training letter: ' + error.message });
+        if (!error.status) console.error('Error saving training letter:', error);
+        res.status(error.status || 500).json({ error: error.status ? error.message : 'Failed to save training letter' });
     } finally {
         if (conn) conn.release();
     }
@@ -660,6 +686,10 @@ router.delete('/:id', requireDivisionAccess, async (req, res) => {
     try {
         conn = await getConnection(req);
         const { id } = req.params;
+        const [[letter]] = await conn.query('SELECT id, office_code FROM div_training_letters WHERE id = ?', [id]);
+        if (!letter) return res.status(404).json({ error: 'Letter not found' });
+        if (!canUseOffice(req, letter.office_code)) return res.status(403).json({ error: 'Letter belongs to another office' });
+        await rejectWorkflowLetter(conn, id);
 
         const [result] = await conn.query(
             `DELETE FROM div_training_letters WHERE id = ?`,
@@ -672,8 +702,8 @@ router.delete('/:id', requireDivisionAccess, async (req, res) => {
 
         res.json({ success: true, message: 'Letter deleted' });
     } catch (error) {
-        console.error('Error deleting training letter:', error);
-        res.status(500).json({ error: 'Failed to delete training letter' });
+        if (!error.status) console.error('Error deleting training letter:', error);
+        res.status(error.status || 500).json({ error: error.status ? error.message : 'Failed to delete training letter' });
     } finally {
         if (conn) conn.release();
     }

@@ -56,6 +56,8 @@ function getCentreId(req) {
 
 // Apply middleware to all routes
 router.use(requireCentreAccess);
+router.use('/manage', require('./trainingCentreManageRoutes'));
+router.use('/operations', require('./trainingCentreOperationsRoutes'));
 
 // ============================================================
 // GET /config - Centre info and user config
@@ -295,6 +297,8 @@ router.post('/mark-attendance', async (req, res) => {
         // Verify letter exists and belongs to this centre
         const [[letter]] = await conn.query('SELECT * FROM div_training_letters WHERE id = ?', [letter_id]);
         if (!letter) return res.status(404).json({ error: 'Letter not found' });
+        const [[workflow]] = await conn.query('SELECT workflow_status FROM div_training_letter_workflows WHERE letter_id = ?', [letter_id]);
+        if (workflow) return res.status(409).json({ error: 'Accept this workflow letter before recording attendance in the new attendance step' });
         if (letter.training_center_id && letter.training_center_id !== centreId) {
             return res.status(403).json({ error: 'Letter does not belong to this centre' });
         }
@@ -356,6 +360,8 @@ router.post('/mark-completion', async (req, res) => {
         // Verify letter
         const [[letter]] = await conn.query('SELECT * FROM div_training_letters WHERE id = ?', [letter_id]);
         if (!letter) return res.status(404).json({ error: 'Letter not found' });
+        const [[workflow]] = await conn.query('SELECT workflow_status FROM div_training_letter_workflows WHERE letter_id = ?', [letter_id]);
+        if (workflow) return res.status(409).json({ error: 'Use the new completion workflow for this letter' });
         if (letter.training_center_id && letter.training_center_id !== centreId) {
             return res.status(403).json({ error: 'Letter does not belong to this centre' });
         }

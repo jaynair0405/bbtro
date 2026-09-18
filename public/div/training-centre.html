@@ -173,6 +173,7 @@
     input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--success); cursor: pointer; }
     .note-box { margin-top: 12px; background: #fef3c7; padding: 10px 14px; border-radius: 8px; font-size: 0.8rem; color: #92400e; }
   </style>
+  <link rel="stylesheet" href="/div/css/training-centre-manage.css">
 </head>
 <body>
 
@@ -210,6 +211,8 @@
   <div class="tab" data-tab="calendar" onclick="switchTab('calendar')">
     <i class="fas fa-calendar-alt"></i> Refresher Calendar
   </div>
+  <div class="tab" data-tab="register" onclick="switchTab('register')">Trainee Register</div>
+  <div class="tab" data-tab="courses" onclick="switchTab('courses')">Courses &amp; Holidays</div>
   <div class="tab" data-tab="history" onclick="switchTab('history')">
     <i class="fas fa-history"></i> History
   </div>
@@ -371,6 +374,89 @@
     </div>
   </div>
 
+  <section id="tab-register" class="tab-content" aria-label="Trainee register">
+    <div class="card">
+      <div class="card-header"><h3>Register a trainee</h3></div>
+      <div class="card-body">
+        <p class="trg-help">Select staff or CLI details from their master records. Enter Train Managers manually.</p>
+        <div class="form-group trg-source"><label for="trg-source">Trainee source</label><select id="trg-source"><option value="staff">Staff master</option><option value="cli">CLI master</option><option value="manual_tm">Train Manager — manual entry</option></select></div>
+        <form id="trg-lookup-form" class="form-row">
+          <div class="form-group trg-grow"><label for="trg-lookup">Find a trainee</label><input id="trg-lookup" minlength="2" maxlength="100" required placeholder="Name, CMS ID or HRMS ID" autocomplete="off"></div>
+          <button class="btn btn-primary" type="submit">Search master</button>
+        </form>
+        <form id="trg-manual-form" hidden>
+          <div class="trg-fields">
+            <div class="form-group"><label for="trg-name">Name *</label><input id="trg-name" name="name" maxlength="100" required></div>
+            <div class="form-group"><label for="trg-cms">CMS ID *</label><input id="trg-cms" name="cms_id" maxlength="30" required></div>
+            <div class="form-group"><label for="trg-lobby">Lobby *</label><input id="trg-lobby" name="lobby" maxlength="50" required></div>
+            <div class="form-group"><label for="trg-pf">PF number *</label><input id="trg-pf" name="pf_number" maxlength="30" required></div>
+            <div class="form-group"><label for="trg-hrms">HRMS ID (optional)</label><input id="trg-hrms" name="hrms_id" maxlength="20"></div>
+          </div>
+          <button class="btn btn-primary" type="submit">Register Train Manager</button>
+        </form>
+        <div id="trg-results" class="trg-scroll" aria-live="polite"></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><h3>Centre trainee register</h3><span id="trg-total" class="staff-badge">0 trainees</span></div>
+      <div class="card-body">
+        <form id="trg-filter-form" class="form-row">
+          <div class="form-group trg-grow"><label for="trg-filter">Search register</label><input id="trg-filter" maxlength="100" placeholder="Name or identity number"></div>
+          <div class="form-group"><label for="trg-filter-source">Source</label><select id="trg-filter-source"><option value="">All sources</option><option value="staff">Staff</option><option value="cli">CLI</option><option value="manual_tm">Train Managers</option></select></div>
+          <button class="btn btn-outline" type="submit">Filter</button>
+        </form>
+        <div id="trg-register" class="trg-scroll" aria-live="polite"></div>
+        <div class="trg-pagination"><button id="trg-prev" class="btn btn-outline btn-sm" type="button">Previous</button><span id="trg-page">Page 1</span><button id="trg-next" class="btn btn-outline btn-sm" type="button">Next</button></div>
+      </div>
+    </div>
+  </section>
+  <section id="tab-courses" class="tab-content" aria-label="Courses and holidays">
+    <div class="card">
+      <div class="card-header"><h3>Course rules</h3><span id="trg-course-count" class="staff-badge"></span></div>
+      <div class="card-body"><p class="trg-help">Durations exclude Sundays and centre holidays. Renewal uses actual MTC completion plus the validity period, less one day. Eligibility guides centre acceptance.</p><div id="trg-courses" class="trg-course-grid" aria-live="polite"></div></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><h3>Course date estimate</h3></div>
+      <div class="card-body">
+        <form id="trg-preview-form" class="form-row">
+          <div class="form-group trg-grow"><label for="trg-preview-course">Course</label><select id="trg-preview-course" required></select></div>
+          <div class="form-group"><label for="trg-preview-date">Joining date</label><input id="trg-preview-date" type="date" required></div>
+          <button class="btn btn-outline" type="submit">Calculate estimate</button>
+        </form><div id="trg-preview-result" class="trg-help" aria-live="polite"></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><h3>Centre holidays</h3></div>
+      <div class="card-body">
+        <p class="trg-help">Sundays are excluded automatically. Add other holidays for this centre.</p>
+        <form id="trg-holiday-form" class="form-row">
+          <div class="form-group"><label for="trg-holiday-date">Holiday date</label><input id="trg-holiday-date" type="date" required></div>
+          <div class="form-group trg-grow"><label for="trg-holiday-reason">Holiday / reason</label><input id="trg-holiday-reason" maxlength="255" required></div>
+          <button class="btn btn-primary" type="submit">Save holiday</button>
+        </form><div id="trg-holidays" class="trg-scroll"></div>
+      </div>
+    </div>
+  </section>
+  <dialog id="trg-assessment-dialog" class="trg-dialog" aria-labelledby="trg-assessment-title">
+    <form id="trg-assessment-form">
+      <div class="card-header"><h3 id="trg-assessment-title">Assessment settings</h3><button class="btn btn-outline btn-sm" type="button" data-close="trg-assessment-dialog">Close</button></div>
+      <div class="card-body">
+        <p class="trg-help" id="trg-assessment-course"></p>
+        <p class="trg-help">Enter the centre's approved assessment components and pass marks. Saving preserves earlier course rules.</p>
+        <label class="trg-check"><input id="trg-no-assessment" type="checkbox"> No assessment required for this course</label>
+        <div id="trg-assessment-rows"></div>
+        <button id="trg-add-assessment" class="btn btn-outline btn-sm" type="button">Add component</button>
+        <div class="form-group trg-reason"><label for="trg-assessment-reason">Reason for configuration *</label><textarea id="trg-assessment-reason" maxlength="1000" required></textarea></div>
+        <button class="btn btn-primary" type="submit">Save assessment settings</button>
+      </div>
+    </form>
+  </dialog>
+  <dialog id="trg-remove-dialog" class="trg-dialog" aria-labelledby="trg-remove-title">
+    <form id="trg-remove-form"><div class="card-header"><h3 id="trg-remove-title">Remove centre holiday</h3><button class="btn btn-outline btn-sm" type="button" data-close="trg-remove-dialog">Close</button></div>
+      <div class="card-body"><p id="trg-remove-date" class="trg-help"></p><div class="form-group"><label for="trg-remove-reason">Reason for removal *</label><input id="trg-remove-reason" maxlength="255" required></div><button type="submit" class="btn btn-danger trg-reason">Remove holiday</button></div>
+    </form>
+  </dialog>
+
 </div>
 
 <!-- LETTER DETAIL MODAL -->
@@ -425,6 +511,7 @@ function onCentreChange() {
   const opt = sel.options[sel.selectedIndex];
   document.getElementById('centreName').textContent = opt.text;
   document.title = `Training Centre - ${opt.text}`;
+  if (window.trainingManage) window.trainingManage.reset();
   // Reload everything for the new centre
   loadDashboardStats();
   loadIncomingLetters();
@@ -523,6 +610,7 @@ function switchTab(tabName) {
   else if (tabName === 'completion') loadCompletionLetters();
   else if (tabName === 'calendar') loadCalendar();
   else if (tabName === 'history') loadHistory();
+  else if (window.trainingManage) window.trainingManage.load(tabName);
 }
 
 // ============================================================
@@ -1197,5 +1285,8 @@ async function logout() {
 // ============================================================
 document.addEventListener('DOMContentLoaded', init);
 </script>
+<script src="/div/js/training-centre-manage.js"></script>
+<script src="/div/js/training-centre-letters.js"></script>
+<script src="/div/js/training-centre-operations.js"></script>
 </body>
 </html>

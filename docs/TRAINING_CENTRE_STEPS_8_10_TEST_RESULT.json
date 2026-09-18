@@ -1,0 +1,12 @@
+{
+  "testedAt": "2026-09-15T06:32:37.789Z",
+  "success": true,
+  "environment": "Temporary local database with synthetic staff, users, letter and results",
+  "checks": [
+    "Refresher capacity and flexible lobby allocation are saved and visible to the lobby",
+    "Accepted trainee joining, daily attendance, failed assessment and re-examination are preserved",
+    "Manual completion is idempotent; renewal uses confirmed date; correction preserves revision and audit history while updating the linked legacy row",
+    "Authenticated browser renders planning and completion history without page errors"
+  ],
+  "screenshot": "steps8-10-operations.png"
+}
