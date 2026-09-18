@@ -10,14 +10,14 @@
 
 <script>
 /* ============================================================
-   TWEAKS — persisted defaults. Edit via the Tweaks panel.
+   Page styling options, read once on load by applyTweaks().
    ============================================================ */
-window.TWEAKS = /*EDITMODE-BEGIN*/{
+window.TWEAKS = {
   "accent": "maroon",
   "heroVariant": "editorial",
   "bilingual": true,
   "density": "editorial"
-}/*EDITMODE-END*/;
+};
 </script>
 
 <style>
@@ -903,51 +903,6 @@ window.TWEAKS = /*EDITMODE-BEGIN*/{
     color: var(--paper-2); opacity: 0.6;
   }
 
-  /* ============================================================
-     TWEAKS PANEL
-     ============================================================ */
-  #tweaks-panel {
-    position: fixed; bottom: 20px; right: 20px; z-index: 1000;
-    width: 300px;
-    background: var(--card); color: var(--ink);
-    border: 1px solid var(--rule-strong);
-    border-radius: 4px;
-    box-shadow: 0 30px 60px -20px rgba(11,18,32,0.3);
-    font-family: var(--f-sans);
-    display: none;
-  }
-  #tweaks-panel.open { display: block; }
-  .tweaks-head {
-    padding: 14px 18px;
-    border-bottom: 1px solid var(--rule);
-    display: flex; justify-content: space-between; align-items: center;
-    background: var(--ink); color: var(--paper);
-    border-radius: 4px 4px 0 0;
-  }
-  .tweaks-head h6 {
-    margin: 0; font-family: var(--f-mono); font-size: 11px;
-    letter-spacing: 0.2em; text-transform: uppercase;
-  }
-  .tweaks-head button {
-    background: transparent; border: 0; color: var(--paper);
-    font-size: 18px; line-height: 1; padding: 4px 6px;
-  }
-  .tweaks-body { padding: 16px 18px 18px; display: flex; flex-direction: column; gap: 16px; }
-  .tweak-group label {
-    display: block; font-family: var(--f-mono); font-size: 10px;
-    letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted);
-    margin-bottom: 8px; font-weight: 600;
-  }
-  .tweak-opts { display: flex; gap: 6px; flex-wrap: wrap; }
-  .tweak-opt {
-    font-family: var(--f-mono); font-size: 10px;
-    letter-spacing: 0.1em; text-transform: uppercase;
-    padding: 6px 10px; border: 1px solid var(--rule-strong);
-    border-radius: 2px; cursor: pointer; background: transparent;
-    color: var(--ink-2); transition: all .15s;
-  }
-  .tweak-opt.active { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
-  .tweak-swatch { display: inline-block; width: 12px; height: 12px; border-radius: 2px; vertical-align: middle; margin-right: 6px; }
 
   /* ============================================================
      RESPONSIVE-ish (1440 target; graceful at 1024)
@@ -1880,41 +1835,6 @@ window.TWEAKS = /*EDITMODE-BEGIN*/{
   </div>
 </footer>
 
-<!-- ============================================================
-     TWEAKS PANEL
-     ============================================================ -->
-<div id="tweaks-panel" aria-hidden="true">
-  <div class="tweaks-head">
-    <h6>Tweaks</h6>
-    <button type="button" id="tweaks-close">×</button>
-  </div>
-  <div class="tweaks-body">
-    <div class="tweak-group">
-      <label>Accent</label>
-      <div class="tweak-opts" data-key="accent">
-        <button class="tweak-opt" data-v="maroon"><span class="tweak-swatch" style="background:#7C1D2B"></span>Maroon</button>
-        <button class="tweak-opt" data-v="navy"><span class="tweak-swatch" style="background:#1D3A6E"></span>Navy</button>
-        <button class="tweak-opt" data-v="teal"><span class="tweak-swatch" style="background:#0E7490"></span>Teal</button>
-        <button class="tweak-opt" data-v="forest"><span class="tweak-swatch" style="background:#1F5A3A"></span>Forest</button>
-      </div>
-    </div>
-    <div class="tweak-group">
-      <label>Hindi captions</label>
-      <div class="tweak-opts" data-key="bilingual">
-        <button class="tweak-opt" data-v="true">On · हिंदी</button>
-        <button class="tweak-opt" data-v="false">English only</button>
-      </div>
-    </div>
-    <div class="tweak-group">
-      <label>Density</label>
-      <div class="tweak-opts" data-key="density">
-        <button class="tweak-opt" data-v="editorial">Editorial</button>
-        <button class="tweak-opt" data-v="compact">Compact</button>
-      </div>
-    </div>
-  </div>
-</div>
-
 <script>
   /* =========================================================
      Live clock + date in the masthead
@@ -1939,49 +1859,8 @@ window.TWEAKS = /*EDITMODE-BEGIN*/{
     document.body.setAttribute('data-accent', t.accent);
     document.body.classList.toggle('hide-deva', !t.bilingual);
     document.body.classList.toggle('compact', t.density === 'compact');
-    // Reflect active state in panel
-    document.querySelectorAll('.tweak-opts').forEach(group => {
-      const key = group.dataset.key;
-      group.querySelectorAll('.tweak-opt').forEach(btn => {
-        const v = btn.dataset.v;
-        const match = String(t[key]) === v;
-        btn.classList.toggle('active', match);
-      });
-    });
   }
   applyTweaks(window.TWEAKS);
-
-  /* =========================================================
-     Tweaks — edit-mode protocol
-     ========================================================= */
-  const panel = document.getElementById('tweaks-panel');
-
-  window.addEventListener('message', (ev) => {
-    const d = ev.data;
-    if (!d || !d.type) return;
-    if (d.type === '__activate_edit_mode') { panel.classList.add('open'); panel.setAttribute('aria-hidden', 'false'); }
-    else if (d.type === '__deactivate_edit_mode') { panel.classList.remove('open'); panel.setAttribute('aria-hidden', 'true'); }
-  });
-  window.parent.postMessage({ type: '__edit_mode_available' }, '*');
-
-  document.getElementById('tweaks-close').addEventListener('click', () => {
-    panel.classList.remove('open');
-  });
-
-  document.querySelectorAll('.tweak-opts').forEach(group => {
-    const key = group.dataset.key;
-    group.addEventListener('click', (e) => {
-      const btn = e.target.closest('.tweak-opt');
-      if (!btn) return;
-      let v = btn.dataset.v;
-      if (v === 'true') v = true; else if (v === 'false') v = false;
-      window.TWEAKS[key] = v;
-      applyTweaks(window.TWEAKS);
-      try {
-        window.parent.postMessage({ type: '__edit_mode_set_keys', edits: { [key]: v } }, '*');
-      } catch (err) {}
-    });
-  });
 
   /* =========================================================
      Primary nav active indicator on scroll
