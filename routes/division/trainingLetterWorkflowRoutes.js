@@ -37,6 +37,16 @@ router.get('/lookup',wrap(async(req,res)=>{
     const data=[];for(const ref of candidates)data.push(await w.person(pool,req,{source,...ref},s,r,false));
     res.json({data});
 }));
+router.post('/refresh',wrap(async(req,res)=>{
+    const s=w.scope(req),pool=req.app.locals.pool;
+    const list=Array.isArray(req.body&&req.body.trainees)?req.body.trainees:[];
+    if(!list.length)return res.json({data:[]});
+    if(list.length>100)throw w.error(400,'Too many trainees');
+    if(!s.center){const [[c]]=await pool.query("SELECT center_id FROM div_training_centers WHERE center_code='MTC_CLA'");s.center=c&&c.center_id;}
+    const r=await w.course(pool,req.body.rule_id,s.center);
+    const data=[];for(const t of list)data.push(await w.person(pool,req,{source:t.source,source_id:t.source_id},s,r,false));
+    res.json({data});
+}));
 router.get('/',wrap(async(req,res)=>{
     const s=w.scope(req);
     const [data]=await req.app.locals.pool.query(`SELECT l.id,l.letter_no,l.letter_date,l.training_date,l.office_code,l.total_staff,l.course_type,
