@@ -170,7 +170,143 @@ ORDER BY TABLE_NAME, COLUMN_NAME;
 ```
 (`unmapped_cms_ids` is a free-text list column — left out of both.)
 
-## 4. Reference — every hrms-keyed table/column (schema as of 2026-07-16)
+## 4. Wrong staff selected during a transfer
+
+Use this procedure when two real employees have similar names and a transfer is
+completed against the wrong `hrms_id`. This is **not** an hrms-id correction and
+the two staff records must not be merged or deleted.
+
+Typical symptoms:
+
+- the intended employee remains at the old office/cms;
+- another employee receives the new office/cms;
+- `div_transfer_requests` and `div_transfer_history` point to the wrong employee;
+- some biodata fields on the wrong employee may also have been overwritten with
+  the intended employee's values.
+
+### Establish the two identities first
+
+Compare both complete `div_staff_master` rows and the holder of the destination
+cms. Names alone are not proof. Use HRMS/official records to compare `hrms_id`,
+PF number, DOB, appointment date, designation and PAN.
+
+```sql
+SELECT *
+FROM div_staff_master
+WHERE hrms_id IN ('INTENDED_HRMS', 'WRONG_HRMS')
+   OR current_cms_id = 'DESTINATION_CMS'
+ORDER BY hrms_id;
+
+SELECT * FROM div_transfer_requests
+WHERE staff_hrms_id IN ('INTENDED_HRMS', 'WRONG_HRMS')
+   OR current_cms_id = 'DESTINATION_CMS'
+   OR proposed_cms_id = 'DESTINATION_CMS';
+
+SELECT * FROM div_transfer_history
+WHERE staff_hrms_id IN ('INTENDED_HRMS', 'WRONG_HRMS')
+   OR from_cms_id = 'DESTINATION_CMS'
+   OR to_cms_id = 'DESTINATION_CMS';
+```
+
+The last valid transfer for the wrongly selected employee is normally the safe
+source for that employee's pre-error `current_cms_id` and office. It is not a
+source for biodata.
+
+### Check for operational records before reassigning the transfer
+
+Inspect records from the erroneous transfer's effective/reporting date onward
+for **both** hrms ids. At minimum check `div_ctr_duties`,
+`div_cli_nominations`, `div_lrd_segment_coverage`, `div_lrd_status`,
+`div_midnight_position_staff`, `div_runsafe_sessions`, `div_sub_spm_runs`,
+`div_training_records`, `div_daily_slate` (LP/ALP/extra ALP) and
+`div_detail_book_log` (LP/ALP).
+
+Run these as separate SELECTs. A large `UNION ALL` can fail with **Error 1271**
+because legacy tables use different collations. Date columns also differ:
+`div_ctr_duties.duty_date`, `div_lrd_segment_coverage.last_worked_date`,
+`div_daily_slate.slot_date`, `div_detail_book_log.shift_date`,
+`div_runsafe_sessions.started_at` and `div_sub_spm_runs.date_of_working`.
+
+- If all result sets are empty, only master + transfer rows need correction.
+- If rows exist, decide row-by-row whether they describe work actually done by
+  the intended employee. Never move all rows merely because they are dated
+  after the transfer.
+
+### Transaction template
+
+Replace every placeholder and retain the guards. The wrong employee is restored
+to their last confirmed position; the intended employee receives the new one.
+Only the erroneous request/history rows are re-anchored.
+
+```sql
+START TRANSACTION;
+
+UPDATE div_staff_master
+SET current_cms_id = 'WRONG_STAFF_PREVIOUS_CMS',
+    current_office_code = 'WRONG_STAFF_PREVIOUS_OFFICE',
+    home_office_code = 'WRONG_STAFF_PREVIOUS_OFFICE',
+    hq_station = 'WRONG_STAFF_PREVIOUS_OFFICE'
+WHERE hrms_id = 'WRONG_HRMS'
+  AND current_cms_id = 'DESTINATION_CMS'
+  AND current_office_code = 'DESTINATION_OFFICE';
+
+UPDATE div_staff_master
+SET current_cms_id = 'DESTINATION_CMS',
+    current_office_code = 'DESTINATION_OFFICE',
+    home_office_code = 'DESTINATION_OFFICE',
+    hq_station = 'DESTINATION_OFFICE'
+WHERE hrms_id = 'INTENDED_HRMS'
+  AND current_cms_id = 'INTENDED_PREVIOUS_CMS'
+  AND current_office_code = 'INTENDED_PREVIOUS_OFFICE';
+
+UPDATE div_transfer_requests
+SET staff_hrms_id = 'INTENDED_HRMS',
+    current_cms_id = 'INTENDED_PREVIOUS_CMS'
+WHERE request_id = ERRONEOUS_REQUEST_ID
+  AND staff_hrms_id = 'WRONG_HRMS'
+  AND current_cms_id = 'WRONG_STAFF_PREVIOUS_CMS'
+  AND proposed_cms_id = 'DESTINATION_CMS';
+
+UPDATE div_transfer_history
+SET staff_hrms_id = 'INTENDED_HRMS',
+    from_cms_id = 'INTENDED_PREVIOUS_CMS'
+WHERE transfer_id = ERRONEOUS_HISTORY_ID
+  AND staff_hrms_id = 'WRONG_HRMS'
+  AND from_cms_id = 'WRONG_STAFF_PREVIOUS_CMS'
+  AND to_cms_id = 'DESTINATION_CMS';
+```
+
+Each UPDATE must affect exactly one row. Verify both master rows and the exact
+request/history ids before `COMMIT`; otherwise `ROLLBACK`.
+
+### Biodata is a separate correction
+
+A transfer rollback restores posting fields only. If PF number, DOB,
+appointment date, designation, PAN, father name, contact details or identifying
+marks were copied between the two employees, restore each field from the HRMS
+portal or another official source. Do not infer biodata from the other employee,
+transfer history or a similar name. A backup table may be checked, but an empty
+backup is not permission to guess.
+
+Afterward, verify both identities together:
+
+```sql
+SELECT hrms_id, name, current_cms_id, current_office_code, designation_id,
+       pf_number, date_of_birth, date_of_appointment, fathers_name, pan_card_no
+FROM div_staff_master
+WHERE hrms_id IN ('INTENDED_HRMS', 'WRONG_HRMS')
+ORDER BY hrms_id;
+```
+
+### Workbench transaction caution
+
+Execute only the intended selection. Old statements left in the editor can
+produce unrelated errors (`1243`, `1054`, `1271`) while the transaction remains
+open. After any error, verify `@@session.in_transaction`; do not assume that a
+later syntax error rolled back successful earlier UPDATEs. Verify the rows, then
+explicitly `COMMIT` or `ROLLBACK`.
+
+## 5. Reference — every hrms-keyed table/column (schema as of 2026-07-16)
 
 The complete checklist for an hrms_id correction: 47 columns across 37 base
 tables. Update ALL of them inside the FK-off transaction (0-row tables are
@@ -254,9 +390,24 @@ BINARY matching so lowercase ids match exactly). 2026-07-17: swept 9 in one run.
   (restore `= 1` after), alongside `SET FOREIGN_KEY_CHECKS = 0/1`.
 - After an errored partial run, `ROLLBACK;` first, then re-run the whole block.
 
-## 5. Log of corrections applied (server)
+### CLI-run gotchas (learned 2026-09-02)
+- **`ssh host "mysql -p ... < file"` fails with Access denied 1045.** No TTY is
+  allocated, so `mysql` cannot open `/dev/tty` and reads the password from
+  **stdin** — i.e. the first line of your SQL file. Use `ssh -t`, or log in and
+  run the `mysql` command there.
+- **Never pass `--force`** to a one-shot run: it continues past a tripped guard
+  and reaches `COMMIT`.
+- A one-shot `mysql < file` run shows the verify SELECTs only *after* it is too
+  late to react, so pair the PRE-guard with a **POST-guard** (same 1242
+  multi-row-subquery trick) placed immediately before `COMMIT`. On abort the
+  connection closes and the transaction rolls back.
+
+## 6. Log of corrections applied (server)
 | Date | Field | hrms_id / old cms | → | Method |
 |------|-------|-------------------|---|--------|
+| 2026-09-16 | wrong staff selected for transfer | Request 1544/history 1418 (2026-06-16, Promotion) moved ATACWQ (RISHIKESH MEENA, KYN3405/KYN-ML) to CSTS2216/CSMT-SUB; the real promotee was EKMSED (RISHIKESH N MEENA, CSMT6172/CSMT-ML) | EKMSED → CSTS2216/CSMT-SUB/desig 8/CLI 1; ATACWQ restored to KYN3405/KYN-ML/desig 5/CLI 106 | §4 guarded transaction, **no hrms_id change** (two real people, similar names, same mobile in the master). DECIDER: `div_promotion_history` from the official promotion import has EKMSED 5→8 on 2026-06-02 — the promotion the transfer implements. Re-anchored to EKMSED: request 1544, history 1418 (from CSMT-ML/CSMT6172), 7 `div_sub_spm_runs`, `div_family_members` 1162-1164 (created 09:21-09:23 on transfer day = his family), nomination 5332 (CLI 1); nomination 3759 (CLI 5) expired 2026-05-29; ATACWQ's 2928 (CLI 106) reopened Active. BIODATA: the KYN lobby had typed EKMSED's details over ATACWQ's row — restored from the Jan-2026 dump `div_staff_master.sql` (PF 00264110233, DOB 1987-12-20, DOA 2011-09-07, reporting 2025-03-18, cug 9004413936, father HARSAHAY MEENA, MAHAK PRIDE address, caste GEN, PAN BOMPM3946L, blood A+, id 1602273, safety A); EKMSED kept the values typed for him (father NAMONARAYAN MEENA, caste ST, blood AB+, id 370498, safety C) + user-confirmed PAN BLWPM9336D. Aadhaar/email/ID-marks were never overwritten. NOT done: the two 2026-05-29 training records (REF_IC, AUTOMATIC) still under ATACWQ — user fixes manually. `bak_20260902_*`/`stg_motnom_28aug` snapshots left untouched. Prod PRE+POST guard OK, COMMITTED 2026-09-16; local mirrored (different id space — new rows got local auto-increment ids; local-only CLI 71 nomination deleted to match prod) |
+| 2026-09-02 | cms (malformed prefix) | PFECQF (RANJAN KUMAR PANDIT, motorman) / `CST2228` | `CSTS2228` | B (value-based) — prod-only; local still holds his pre-transfer state (CSMT5541/CSMT-ML/desig 5), the 2026-08-31 CSMT-ML→CSMT-SUB transfer was never mirrored. Footprint 3 cols / 1 row each: div_staff_master.current_cms_id, div_transfer_history.to_cms_id (2041), div_transfer_requests.proposed_cms_id (2196). `original_cms_id` KYN5084 left as-is. Self-guarded transaction with a PRE-guard (holder is PFECQF, target free) AND a POST-guard before COMMIT, so it is safe to run one-shot via `mysql < file` — error 1242 aborts and the txn rolls back at disconnect. CORROBORATION: `reassignment_history` already carried the correct `CSTS2228` for "R K PANDIT(2228)" (detail 364→303, 2026-07-26) — the suburban portal had the true id while the transfer entry typoed it, so the master row was the odd one out. Matches the CSTS↔CSMT-SUB invariant. Run via ssh 2026-09-02, verified, COMMITTED |
+| 2026-08-12 | wrong staff selected for transfer | Request 2063/history 1873 incorrectly moved ANXYJF (Kamlesh Kumar) KYN5914→CSTS2250; intended staff was JKPBXL (Kamlesh Kr), then at KYN5674 | ANXYJF restored to KYN5914/KYN-ML; JKPBXL moved to CSTS2250/CSMT-SUB; request/history re-anchored to JKPBXL with from cms KYN5674 | Guarded transaction per §4. Post-2026-08-01 operational footprint was empty, so no duty/slate/LRD/training rows moved. ANXYJF biodata had also been contaminated; restored separately from official values (designation 1, PF 00229811701, DOB 1991-08-25, DOA 2020-10-20, PAN INXPK0137A). Both are real employees; no merge/delete and no hrms-id change |
 | 2026-06-10 | hrms_id | PMQHDW | PMQHOW | FK-off (PK) |
 | 2026-06-10 | hrms_id | ZWIGKE | ZWIGLE | FK-off (PK) |
 | 2026-06-11 | hrms_id | JNLRU | FJNLRU | FK-off (PK) |
@@ -270,7 +421,11 @@ BINARY matching so lowercase ids match exactly). 2026-07-17: swept 9 in one run.
 | 2026-07-01 | cms (duplicate) | EWYFQK (Ajay Kumar, PNVL-ML) / PNVL5341 shared with QEEQOL | PNVL5505 | A (hrms-anchored — 2 staff shared PNVL5341, value-based would corrupt both). 4 cols: div_staff_master.current_cms_id, div_ctr_duties.staff_cms_id, div_transfer_history.to_cms_id, div_transfer_requests.proposed_cms_id. PNVL5505 confirmed free; QEEQOL retains PNVL5341 |
 | 2026-07-01 | cms (transposition) | TUFJUX (Abdul Matin, PNVL-ML) / PNVL5504 | PNVL5540 | A (hrms-anchored). 4 cols: div_staff_master.current_cms_id, div_ctr_duties.staff_cms_id, div_transfer_history.to_cms_id, div_transfer_requests.proposed_cms_id. PNVL5540 confirmed free |
 | 2026-07-16 | cms (reassignment chain) | IJPUNC (V R MAHADIK) CSMT6162 → CSMT6362, then AIHFBZ (NANDKISHOR JADHAV) CSMT6279 → CSMT6162 | — | A (hrms-anchored, double-anchored on old value, vacate-first). Prod side tables: div_ctr_duties 2, div_transfer_history.to_cms_id 1, div_transfer_requests.proposed_cms_id 1, div_runsafe_sessions 1. div_staff_master_backup (prod-only snapshot) deliberately untouched. Chain 2 same day: YXSFRN (SATISH NIMASE) 6054→6290, then APLPOU (SATISH KUMAR YADAV) 6219→6054 — the apparent 6290 collision was stale local data (PHDMKP had transferred to CSTS2212/CSMT-SUB on prod 2026-06-25; local reconciled, dup IAYPRY→CSMT6046 fixed, dup DJGZYY deleted). PHDMKP's 2 pre-transfer ctr_duties rows corrected CSMT6290→CSMT6219 on prod (his TRUE id as LPG at the time; the DB's 6290 was part of the same mis-numbering). LESSON (user-confirmed policy): div_ctr_duties.staff_cms_id is the ACTUAL id at the time of duty — correct it to the true historical id when the recorded one was wrong, but a genuine role/office change (new id issued, e.g. LP→motorman) does NOT rewrite old rows to the new id. staff_hrms_id is the identity key |
+| 2026-07-23 | cms (malformed prefix) | DNPGTZ (Ajay Kumar Prajapati) / PMVL5511 | PNVL5511 | B (value-based, prod-only — local never had the value), self-guarded script, 19 cms cols, _backup snapshot untouched. Local record was stale on every axis (CSMT5227/CSMT-ML, NULL dates) — fully synced from prod (PNVL5511/PNVL-ML/LPG/1985-08-01/2017-07-15) |
+| 2026-07-23 | hrms_id | IBQHVT (GUPESH KUMAR NIRALA, cms CSMT6051) | IBQHUT | Self-guarded FK-off script per §5. Local: 5 rows / 3 tables. Prod: guard OK, verified, COMMITTED 2026-07-23; file deleted |
+| 2026-07-22 | hrms_id (batch of 10) | CHMPWZ→CMHPWZ, DJGFUI→DZGFUI, KURQQK→KURSQK, UKNPWI→UKNPWY, UQEFMC→UQEEMC, VTRBWX→UTRBWX, VUHWAX→UUHWAX, XYSDGL→XYSDGC, YXSFRN→YXSFRW, ZQXYOO←ZQXYOD | (user-verified) | FK-off CASE batch per §5, first run via scp+ssh with SELF-GUARD (IF+multi-row-subquery → error 1242 aborts before any change if an old id is missing or a target taken; replaces Workbench's manual STEP-0/COMMIT eyeballing). Local: 481 rows / 8 tables. Prod: 870 rows / 15 tables (ctr_duties 411, lrd_segment_coverage 241, detail_book_log 73, training_records 57, daily_slate 22, cli_nominations 16, leave_tracking 16, others) — run via ssh 2026-07-22, guard OK, verified; file deleted |
+| 2026-07-22 | hrms_id (batch of 2) | PUZQBP→PUZQBD (RAM DHANI YADAV, IGP1613), HYEEAJ→HYEEAI (DEELIP KUMAR, PNVS1190) | (user-verified) | FK-off CASE batch per §5. Local: 9 rows / 3 tables. Prod: 64 rows / 6 tables (sub_spm_runs 48, training_records 8, cli_nominations 3, transfer_requests 2, staff_master 2, transfer_history 1) — COMMITTED via Workbench 2026-07-22; one-time file deleted |
 | 2026-07-17 | duplicate staff records (hrms twins, found via duplicate-PF scan) | 6 pairs — kept JWTDUH (Ravi Jatav), WNWUTP (Kailash Patel), JAFQIT (Manoj Prabhakar), QLDDXK (Vishnu M Chauthe), BFOWID (Prem Lokhande, prod-only pair), NJDCKT (Shyam Surat); deleted lookalike twins JWTDVH/WHWUTP/JAFQJT/GLDDXK/BEOWID/NIDCKT | (user-verified vs HRMS) | Merge method: (a) delete wrong-id child rows colliding on a unique key (8 keys: training_once, cli_nomination, lrd seg/status, runsafe test, letter_staff ×2, fatigue PK), (b) re-point children wrong→true, (c) delete wrong master. Local + prod COMMITTED 2026-07-17 (prod: 53 child rows re-pointed — training_records 25, cli_nominations 7, promotion_history 7, family_members 6, sub_spm_runs 3, transfer_requests 3, rtis_daily_entries 1, detonator_stock 1). GOTCHA: footprint UNION queries need CONVERT..COLLATE on the id column (error 1271 fails silently in scripts). Follow-through COMPLETE both DBs 2026-07-18: postings set (JWTDUH CSTS2156, WNWUTP CSTS2167, JAFQIT CSTS2160, BFOWID CSTS2220 all CSMT-SUB motormen; QLDDXK CSMT5976 + NJDCKT CSMT4722 CSMT-ML); phantom twin CLI nominations removed (biodata double-row cause), NJDCKT's Ompal Singh nomination ended as history, current_cli_id aligned (one Active nomination each, matching). JAFQIT DOB confirmed 1986-01-31 (kept record already correct; nothing to change) |
-| 2026-07-17 | hrms_id (batch of 9, format-scan) | AAAY6J→AAAYGJ, DUDRX4→DUDRXL, RIKWQ2→RIKWQZ, IJMZY→IJYMZY, SSFTW→SSWFTW, UNMIL→UNMIIL, WGNWU→WGNLWU, YLLJBHJ→YLLJBJ, xzbjwd→XZBJWD | (user-verified vs HRMS portal) | FK-off (PK), single CASE-mapped transaction, all hrms cols per §4, BINARY matching. Found by format scan: valid id = exactly 6 uppercase letters (digits/5-char/7-char/lowercase = defect). Local: 151 rows / 8 tables. Prod: 762 rows / 21 hrms columns (ctr_duties 197, lrd_segment_coverage 175, rtis 177, training_records 63, detail_book_log 70, daily_slate 26, sub_spm_runs 15, promotion_history 5, others) — COMMITTED via Workbench 2026-07-17; one-time file deleted |
-| 2026-07-17 | hrms_id | HMJKCV (HEMANT KUSHWAHA, cms CSMT6405) | HMJKCU | FK-off (PK), all hrms cols per §4 (one-time file, deleted after run). Local: 5 tables (96 rows). Prod: 12 tables, 154 rows — incl. rtis_analyses 40, rtis_braking_runs 40, rtis_daily_entries 25, rtis_violations 8, lrd_segment_coverage 25, training_records 8, ctr_duties 2, cli_nominations 2, transfer_history/requests 1+1 — COMMITTED via Workbench 2026-07-17 |
-| 2026-07-16 | hrms_id | MGCT25 (GANESH LOHAR, cms CSMT6295) | MGCTZS | FK-off (PK), 47 hrms cols per §4 (one-time sql file deleted after run). Local: 3 tables (div_staff_master 1, div_cli_nominations 1, div_training_records 3). Prod: 4 tables (+ div_ctr_duties 1; div_training_records 5) — COMMITTED via Workbench 2026-07-16. adas/cvvrs skipped on prod (tables absent) |
+| 2026-07-17 | hrms_id (batch of 9, format-scan) | AAAY6J→AAAYGJ, DUDRX4→DUDRXL, RIKWQ2→RIKWQZ, IJMZY→IJYMZY, SSFTW→SSWFTW, UNMIL→UNMIIL, WGNWU→WGNLWU, YLLJBHJ→YLLJBJ, xzbjwd→XZBJWD | (user-verified vs HRMS portal) | FK-off (PK), single CASE-mapped transaction, all hrms cols per §5, BINARY matching. Found by format scan: valid id = exactly 6 uppercase letters (digits/5-char/7-char/lowercase = defect). Local: 151 rows / 8 tables. Prod: 762 rows / 21 hrms columns (ctr_duties 197, lrd_segment_coverage 175, rtis 177, training_records 63, detail_book_log 70, daily_slate 26, sub_spm_runs 15, promotion_history 5, others) — COMMITTED via Workbench 2026-07-17; one-time file deleted |
+| 2026-07-17 | hrms_id | HMJKCV (HEMANT KUSHWAHA, cms CSMT6405) | HMJKCU | FK-off (PK), all hrms cols per §5 (one-time file, deleted after run). Local: 5 tables (96 rows). Prod: 12 tables, 154 rows — incl. rtis_analyses 40, rtis_braking_runs 40, rtis_daily_entries 25, rtis_violations 8, lrd_segment_coverage 25, training_records 8, ctr_duties 2, cli_nominations 2, transfer_history/requests 1+1 — COMMITTED via Workbench 2026-07-17 |
+| 2026-07-16 | hrms_id | MGCT25 (GANESH LOHAR, cms CSMT6295) | MGCTZS | FK-off (PK), 47 hrms cols per §5 (one-time sql file deleted after run). Local: 3 tables (div_staff_master 1, div_cli_nominations 1, div_training_records 3). Prod: 4 tables (+ div_ctr_duties 1; div_training_records 5) — COMMITTED via Workbench 2026-07-16. adas/cvvrs skipped on prod (tables absent) |
