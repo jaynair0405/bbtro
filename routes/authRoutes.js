@@ -96,9 +96,11 @@ router.post('/login', async (req, res) => {
     if (user.realm === 'suburban') {
       redirectUrl = '/index.html';
     } else if (user.realm === 'division') {
-      // Training centre users go directly to centre portal
+      // The landing page is the centre user's dashboard: the three centres,
+      // notices, circulars and case studies. Their own portal is one click on
+      // from it, and a centre login only ever resolves to its own centre.
       if (user.div_role === 'trgcentre_admin') {
-        redirectUrl = '/div/training-centre.html';
+        redirectUrl = '/div/training-centres-landing.html';
       } else if (['lpc', 'ctlc', 'ctlc_view'].includes(user.div_role)) {
         // LPC + CTLC (Chief Traction Loco Controller) + ctlc_view (read-only) → Control Office portal
         redirectUrl = '/control-office/';

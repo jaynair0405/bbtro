@@ -154,9 +154,9 @@
                             </a>
                         </li>
                         <li class="sidebar-nav-item" id="admin-centre-link" style="display:none;">
-                            <a href="/div/training-centre.html" class="sidebar-nav-link">
+                            <a href="/div/training-centres-landing.html" class="sidebar-nav-link">
                                 <span class="icon">🏫</span>
-                                Training Centre Portal
+                                Training Centres
                                 <span class="badge green">New</span>
                             </a>
                         </li>
@@ -1022,6 +1022,10 @@
                         // CLI-HQ logins clihqmlbb / clihqsubbb (CSMT-HQ, role division_admin).
                         const ed = document.getElementById('signal-book-editor-link');
                         if (ed) ed.style.display = '';
+                    }
+                    if (user.div_role === 'trgcentre_admin') {
+                        const el = document.getElementById('admin-centre-link');
+                        if (el) el.style.display = '';
                     }
                     if (['ssehq', 'division_admin'].includes(user.div_role)) {
                         document.querySelectorAll('.ssehq-link')
