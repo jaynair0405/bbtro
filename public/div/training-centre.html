@@ -539,11 +539,16 @@ async function init() {
         opt.textContent = c.center_name;
         selector.appendChild(opt);
       }
-      // Default to first centre
-      if (centreConfig.allCentres && centreConfig.allCentres.length > 0) {
-        selectedCentreId = centreConfig.allCentres[0].center_id;
-        document.getElementById('centreName').textContent = centreConfig.allCentres[0].center_name;
-        document.title = `Training Centre - ${centreConfig.allCentres[0].center_name}`;
+      // The landing page links straight to a centre with ?center_id=; an
+      // unknown or missing id falls back to the first centre as before.
+      const centres = centreConfig.allCentres || [];
+      if (centres.length > 0) {
+        const wanted = parseInt(new URLSearchParams(location.search).get('center_id'), 10);
+        const chosen = centres.find(c => c.center_id === wanted) || centres[0];
+        selectedCentreId = chosen.center_id;
+        selector.value = String(chosen.center_id);
+        document.getElementById('centreName').textContent = chosen.center_name;
+        document.title = `Training Centre - ${chosen.center_name}`;
       }
     } else if (centreConfig.centre) {
       document.getElementById('centreName').textContent = centreConfig.centre.center_name;

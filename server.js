@@ -246,6 +246,17 @@ app.get('/div/biodata-form-design.html', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'div', 'biodata-form-design.html'));
 });
 
+// ✅ Training Centre landing page - the front door to the three centres.
+// Gated like the portal itself: without this route it would fall through to
+// express.static and load for any division user.
+app.get('/div/training-centres-landing.html', (req, res) => {
+  if (!req.session.user) return res.redirect('/');
+  if (req.session.user.realm !== 'division') return res.redirect('/');
+  const role = req.session.user.div_role;
+  if (role !== 'trgcentre_admin' && role !== 'division_admin') return res.redirect('/div');
+  res.sendFile(path.join(__dirname, 'public', 'div', 'training-centres-landing.html'));
+});
+
 // ✅ Training Centre Portal - accessible by trgcentre_admin and division_admin
 app.get('/div/training-centre.html', (req, res) => {
   if (!req.session.user) return res.redirect('/');
