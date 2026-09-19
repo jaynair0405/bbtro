@@ -29,3 +29,6 @@
   .trg-assessment-row .form-group:first-child { grid-column:1 / -1; }
   .trg-dialog .card-header { gap:12px; }
 }
+
+.ops-days{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.ops-days .btn.active{background:var(--brand,#0e7490);color:#fff;border-color:var(--brand,#0e7490)}
