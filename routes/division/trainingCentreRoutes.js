@@ -644,27 +644,40 @@ router.get('/history', async (req, res) => {
     try {
         conn = await getConnection(req);
         const centreId = getCentreId(req);
-        if (!centreId) return res.json({ data: [] });
+        if (!centreId) return res.json({ data: [], courses: [] });
 
-        const { course_type, month, year } = req.query;
+        const { course_type, course_id, month, year } = req.query;
 
+        // Counts come from the workflow tables. Letters raised before the
+        // workflow existed have none, so their legacy per-staff rows are used
+        // instead — a letter is never reported as empty merely because it
+        // predates the new path.
         let query = `
-            SELECT
-                tl.*,
-                (SELECT COUNT(*) FROM div_training_letter_staff WHERE letter_id = tl.id) AS total_staff_count,
-                (SELECT COUNT(*) FROM div_training_letter_staff WHERE letter_id = tl.id AND attendance_status = 'present') AS attended_count,
-                (SELECT COUNT(*) FROM div_training_letter_staff WHERE letter_id = tl.id AND completion_status = 'completed') AS completed_count,
-                (SELECT COUNT(*) FROM div_training_letter_staff WHERE letter_id = tl.id AND completion_status = 'not_completed') AS not_completed_count
+            SELECT tl.id, tl.letter_no, tl.office_code, tl.letter_date, tl.training_date,
+                   tl.course_type, tl.status, tl.completed_at,
+                   c.course_id, c.course_name,
+                   wf.letter_id IS NOT NULL AS is_workflow,
+                   (SELECT COUNT(*) FROM div_training_nominees n WHERE n.letter_id = tl.id AND n.decision <> 'withdrawn') AS wf_nominated,
+                   (SELECT COUNT(*) FROM div_training_nominees n WHERE n.letter_id = tl.id AND n.decision = 'accepted') AS wf_accepted,
+                   (SELECT COUNT(*) FROM div_training_nominees n WHERE n.letter_id = tl.id AND n.decision = 'returned') AS wf_returned,
+                   (SELECT COUNT(DISTINCT a.attempt_id) FROM div_training_attempts a
+                      JOIN div_training_daily_attendance d ON d.attempt_id = a.attempt_id AND d.status = 'present'
+                     WHERE a.letter_id = tl.id) AS wf_attended,
+                   (SELECT COUNT(*) FROM div_training_attempts a WHERE a.letter_id = tl.id AND a.outcome = 'passed') AS wf_completed,
+                   (SELECT COUNT(*) FROM div_training_letter_staff s WHERE s.letter_id = tl.id) AS legacy_total,
+                   (SELECT COUNT(*) FROM div_training_letter_staff s WHERE s.letter_id = tl.id AND s.attendance_status = 'present') AS legacy_attended,
+                   (SELECT COUNT(*) FROM div_training_letter_staff s WHERE s.letter_id = tl.id AND s.completion_status = 'completed') AS legacy_completed
             FROM div_training_letters tl
+            LEFT JOIN div_training_letter_workflows wf ON wf.letter_id = tl.id
+            LEFT JOIN div_training_course_rules r ON r.rule_id = wf.rule_id
+            LEFT JOIN div_training_courses c ON c.course_id = r.course_id
             WHERE tl.training_center_id = ?
               AND tl.status = 'completed'
         `;
         const params = [centreId];
 
-        if (course_type) {
-            query += ' AND tl.course_type = ?';
-            params.push(course_type);
-        }
+        if (course_id) { query += ' AND c.course_id = ?'; params.push(parseInt(course_id, 10)); }
+        if (course_type) { query += ' AND tl.course_type = ?'; params.push(course_type); }
         if (month && year) {
             query += ' AND YEAR(tl.completed_at) = ? AND MONTH(tl.completed_at) = ?';
             params.push(parseInt(year), parseInt(month));
@@ -673,7 +686,30 @@ router.get('/history', async (req, res) => {
         query += ' ORDER BY tl.completed_at DESC LIMIT 100';
 
         const [letters] = await conn.query(query, params);
-        res.json({ data: letters });
+        const data = letters.map(l => {
+            const workflow = !!l.is_workflow;
+            return {
+                ...l,
+                source: workflow ? 'workflow' : 'legacy',
+                course_label: l.course_name || COURSE_LABELS[l.course_type] || l.course_type || '-',
+                nominated_count: workflow ? l.wf_nominated : l.legacy_total,
+                accepted_count: workflow ? l.wf_accepted : null,
+                returned_count: workflow ? l.wf_returned : null,
+                attended_count: workflow ? l.wf_attended : l.legacy_attended,
+                completed_count: workflow ? l.wf_completed : l.legacy_completed
+            };
+        });
+
+        // The filter should offer the courses this centre actually runs, not
+        // the five legacy types, which cannot name six of the eleven courses.
+        const [courses] = await conn.query(
+            `SELECT DISTINCT c.course_id, c.course_name FROM div_training_course_offerings o
+               JOIN div_training_course_rules r ON r.rule_id = o.rule_id
+               JOIN div_training_courses c ON c.course_id = r.course_id
+              WHERE o.training_center_id = ? AND o.is_active = 1 AND c.is_active = 1
+              ORDER BY c.course_id`, [centreId]);
+
+        res.json({ data, courses });
     } catch (error) {
         console.error('Error fetching history:', error);
         res.status(500).json({ error: 'Failed to fetch history' });

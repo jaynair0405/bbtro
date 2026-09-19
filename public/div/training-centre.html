@@ -360,11 +360,7 @@
         <div class="filter-row">
           <input type="month" id="hist-filter-month" onchange="loadHistory()">
           <select id="hist-filter-course" onchange="loadHistory()">
-            <option value="">All Course Types</option>
-            <option value="REFRESHER">Refresher</option>
-            <option value="ONE_DAY_INTENSIVE">One Day Intensive</option>
-            <option value="MEMU_INITIAL">MEMU Initial</option>
-            <option value="MEMU_REFRESHER">MEMU Refresher</option>
+            <option value="">All courses</option>
           </select>
         </div>
       </div>
@@ -1223,7 +1219,7 @@ async function loadHistory() {
   const monthVal = document.getElementById('hist-filter-month').value;
 
   let hParams = [];
-  if (courseType) hParams.push(`course_type=${courseType}`);
+  if (courseType) hParams.push(`course_id=${encodeURIComponent(courseType)}`);
   if (monthVal) {
     const [y, m] = monthVal.split('-');
     hParams.push(`year=${y}`, `month=${m}`);
@@ -1234,7 +1230,19 @@ async function loadHistory() {
 
   try {
     const resp = await fetch(url);
-    const { data } = await resp.json();
+    const { data, courses } = await resp.json();
+
+    // Keep the course filter in step with what the centre actually offers.
+    const sel = document.getElementById('hist-filter-course');
+    if (courses && courses.length && sel.options.length <= 1) {
+      for (const c of courses) {
+        const opt = document.createElement('option');
+        opt.value = c.course_id;
+        opt.textContent = c.course_name;
+        sel.appendChild(opt);
+      }
+      sel.value = courseType || '';
+    }
 
     if (!data || data.length === 0) {
       container.innerHTML = '<div class="empty-state"><i class="fas fa-history"></i><p>No completed training history</p></div>';
@@ -1242,24 +1250,30 @@ async function loadHistory() {
     }
 
     let html = `<table><thead><tr>
-      <th>Letter No</th><th>Office</th><th>Course</th><th>Training Date</th><th>Completed</th><th>Staff</th><th>Result</th>
+      <th>Letter No</th><th>Office</th><th>Course</th><th>Training Date</th><th>Completed</th><th>Nominated</th><th>Attended</th><th>Result</th>
     </tr></thead><tbody>`;
 
     for (const l of data) {
-      const total = l.attended_count || l.total_staff_count || 0;
-      const completed = l.completed_count || 0;
-      const allDone = completed === total;
+      const nominated = Number(l.nominated_count) || 0;
+      const attended = Number(l.attended_count) || 0;
+      const completed = Number(l.completed_count) || 0;
+      const returned = Number(l.returned_count) || 0;
+      // Judge the result against those actually accepted; a returned nominee
+      // was never the centre's to complete.
+      const expected = l.accepted_count == null ? nominated : Number(l.accepted_count);
+      const allDone = expected > 0 && completed === expected;
       const resultClass = allDone ? 'status-completed' : 'status-ongoing';
       const resultIcon = allDone ? 'fa-check' : 'fa-exclamation';
 
       html += `<tr>
         <td>${l.letter_no || '-'}</td>
         <td>${l.office_code}</td>
-        <td>${COURSE_LABELS[l.course_type] || l.course_type}</td>
+        <td>${l.course_label || '-'}</td>
         <td>${fmtDate(l.training_date)}</td>
         <td>${fmtDate(l.completed_at)}</td>
-        <td>${total} staff</td>
-        <td><span class="status ${resultClass}"><i class="fas ${resultIcon}"></i> ${completed}/${total} Completed</span></td>
+        <td>${nominated}${returned ? ` <small>(${returned} returned)</small>` : ''}</td>
+        <td>${attended}</td>
+        <td><span class="status ${resultClass}"><i class="fas ${resultIcon}"></i> ${completed}/${expected} Completed</span></td>
       </tr>`;
     }
     html += '</tbody></table>';
