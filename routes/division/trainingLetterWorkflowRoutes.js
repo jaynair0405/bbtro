@@ -37,6 +37,50 @@ router.get('/lookup',wrap(async(req,res)=>{
     const data=[];for(const ref of candidates)data.push(await w.person(pool,req,{source,...ref},s,r,false));
     res.json({data});
 }));
+router.get('/due',wrap(async(req,res)=>{
+    const s=w.scope(req),pool=req.app.locals.pool;
+    if(!s.center){const [[c]]=await pool.query("SELECT center_id FROM div_training_centers WHERE center_code='MTC_CLA'");s.center=c&&c.center_id;}
+    const r=await w.course(pool,req.query.rule_id,s.center);
+    // A course is recurring when it renews itself: AUTOMATIC renews AUTOMATIC,
+    // MM_REFRESHER renews MM_REFRESHER. A conversion or promotion renews some
+    // OTHER target, so nobody is ever "due" for it.
+    const target=r.renewals.find(t=>t.target_code===r.course_code);
+    if(!target)return res.json({data:[],note:r.course_name+' is not a recurring course, so no one falls due for it. Use the search to nominate.'});
+    if(!target.legacy_training_id)return res.json({data:[],note:'No training history is recorded for '+target.target_name+' yet, so a due list cannot be built.'});
+    // Same eligibility the warning() check uses, expressed for a set query.
+    const designation=r.course_code.startsWith('LPS_')?'%shunt%':'%motorman%';
+    const within=Math.min(Math.max(parseInt(req.query.within,10)||90,0),3650);
+    const [data]=await pool.query(`SELECT s.hrms_id AS source_id,'staff' AS source,s.hrms_id AS staff_hrms_id,s.name,
+            s.current_cms_id AS cms_id,s.current_office_code AS lobby,s.pf_number,s.hrms_id,d.designation_name,
+            DATE_FORMAT(last.done_date,'%Y-%m-%d') AS last_training_date,DATE_FORMAT(last.due_date,'%Y-%m-%d') AS due_date,
+            CASE WHEN last.done_date IS NULL THEN 'never' WHEN last.due_date < CURDATE() THEN 'overdue' ELSE 'due' END AS due_state,
+            DATEDIFF(CURDATE(),last.due_date) AS days_overdue
+        FROM div_staff_master s
+        LEFT JOIN designations d ON d.id=s.designation_id
+        LEFT JOIN div_training_records last ON last.record_id=(
+            SELECT r2.record_id FROM div_training_records r2
+             WHERE r2.staff_hrms_id=s.hrms_id AND r2.training_id=? AND r2.done_date IS NOT NULL
+             ORDER BY r2.done_date DESC,r2.record_id DESC LIMIT 1)
+        WHERE s.status='Active' AND LOWER(d.designation_name) LIKE ?
+          ${s.origin==='lobby'?'AND s.current_office_code=?':''}
+          AND (last.due_date IS NULL OR last.due_date <= DATE_ADD(CURDATE(),INTERVAL ? DAY))
+        ORDER BY (last.due_date IS NOT NULL),last.due_date,s.name LIMIT 500`,
+        [target.legacy_training_id,designation,...(s.origin==='lobby'?[s.office]:[]),within]);
+    // A centre sees every lobby at once, so the cap can bite where a single
+    // lobby never reaches it. Report the true total rather than a short list
+    // that looks complete.
+    const [[{total}]]=await pool.query(`SELECT COUNT(*) AS total FROM div_staff_master s
+        LEFT JOIN designations d ON d.id=s.designation_id
+        LEFT JOIN div_training_records last ON last.record_id=(
+            SELECT r2.record_id FROM div_training_records r2
+             WHERE r2.staff_hrms_id=s.hrms_id AND r2.training_id=? AND r2.done_date IS NOT NULL
+             ORDER BY r2.done_date DESC,r2.record_id DESC LIMIT 1)
+        WHERE s.status='Active' AND LOWER(d.designation_name) LIKE ?
+          ${s.origin==='lobby'?'AND s.current_office_code=?':''}
+          AND (last.due_date IS NULL OR last.due_date <= DATE_ADD(CURDATE(),INTERVAL ? DAY))`,
+        [target.legacy_training_id,designation,...(s.origin==='lobby'?[s.office]:[]),within]);
+    res.json({data,total,truncated:total>data.length,target:target.target_name,within});
+}));
 router.post('/refresh',wrap(async(req,res)=>{
     const s=w.scope(req),pool=req.app.locals.pool;
     const list=Array.isArray(req.body&&req.body.trainees)?req.body.trainees:[];
