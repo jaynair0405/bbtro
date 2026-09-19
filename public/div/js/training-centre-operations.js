@@ -9,8 +9,87 @@
   function renderPlans(rows){const box=document.getElementById('ops-plans');box.innerHTML=rows.length?`<table><thead><tr><th>Batch</th><th>Course</th><th>Dates</th><th>Capacity</th><th>Suggested lobby seats</th><th>Status</th></tr></thead><tbody>${rows.map(x=>`<tr><td>${esc(x.batch_code)}</td><td>${esc(x.course_name)}</td><td>${esc(x.from_date)} to ${esc(x.expected_end_date)}</td><td>${esc(x.capacity||'Open')}</td><td>${x.allocations.map(a=>esc(a.lobby)+': '+a.suggested_seats).join('<br>')||'None'}</td><td>${esc(x.status)}</td></tr>`).join('')}</tbody></table>`:'<div class="empty-state"><p>No refresher batches planned.</p></div>';}
   async function savePlan(e){e.preventDefault();const f=new FormData(e.currentTarget);try{const allocations=String(f.get('allocations')||'').split(',').filter(Boolean).map(x=>{const [lobby,seats]=x.split(':');return{lobby:lobby.trim(),suggested_seats:Number(seats)}});await request('/plans',{method:'POST',body:JSON.stringify({rule_id:Number(f.get('rule_id')),batch_code:f.get('batch_code'),from_date:f.get('from_date'),capacity:f.get('capacity')?Number(f.get('capacity')):null,allocations})});notify('Batch plan saved');loadCalendar();}catch(e){notify(e.message,'error')}}
 
-  window.loadAttendanceLetters=async function(){const box=document.getElementById('attendance-list');try{const [candidates,attempts,plans]=await Promise.all([request('/candidates'),request('/attempts'),request('/plans')]);const fresh=candidates.data.filter(x=>!x.attempt_id);box.innerHTML=`<div class="card"><div class="card-body"><h4>Accepted trainees awaiting joining</h4>${fresh.length?fresh.map(x=>`<form class="ops-start completion-row" data-id="${x.nominee_id}"><span><strong>${esc(x.identity_snapshot.name)}</strong><br><small>${esc(x.letter_no)} · ${esc(x.course_name)}</small></span><input name="joining_date" type="date" value="${esc(x.training_date)}" required><select name="calendar_id"><option value="">No planned batch</option>${plans.data.filter(p=>p.rule_id===x.rule_id).map(p=>`<option value="${p.id}">${esc(p.batch_code)}</option>`).join('')}</select><button class="btn btn-primary btn-sm">Start</button></form>`).join(''):'<p class="trg-help">No accepted trainees awaiting joining.</p>'}<h4>Attendance in progress</h4><form class="ops-bulk completion-row"><span><strong>Mark the whole day</strong><br><small>Everyone joined and still in progress. Already-marked trainees are left alone.</small></span><input name="attendance_date" type="date" required><select name="status"><option value="present">Present</option><option value="absent">Absent</option><option value="leave">Leave</option></select><button class="btn btn-primary btn-sm">Mark all</button></form>${attempts.data.filter(a=>a.outcome==='in_progress').map(attendanceCard).join('')||'<p class="trg-help">No active attempts.</p>'}</div></div>`;box.querySelectorAll('.ops-start').forEach(f=>f.onsubmit=startAttempt);box.querySelectorAll('.ops-att').forEach(f=>f.onsubmit=markAttendance);const bulk=box.querySelector('.ops-bulk');if(bulk)bulk.onsubmit=markWholeDay;}catch(e){box.innerHTML='<div class="card-body">'+esc(e.message)+'</div>';}}
-  function attendanceCard(a){return `<form class="ops-att completion-row" data-id="${a.attempt_id}"><span><strong>${esc(person(a))}</strong><br><small>${esc(a.course_name)} · joined ${esc(a.joining_date)} · ${a.attendance.length} day(s) marked</small></span><input name="attendance_date" type="date" required><select name="status"><option value="present">Present</option><option value="absent">Absent</option><option value="leave">Leave</option></select><input name="reason" placeholder="Reason (only when changing)"><button class="btn btn-primary btn-sm">Save</button></form>`;}
+  let attFilter={date:null,group:null,view:'tomark'};
+  const attToday=()=>{const d=new Date();return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-')};
+  function attGroupKey(a){return a.batch_code?('B'+a.calendar_id):('C'+a.course_name)}
+  function attGroupLabel(a){return a.batch_code?(a.batch_code+' \u00b7 '+a.course_name):a.course_name}
+  window.loadAttendanceLetters=async function(){
+    const box=document.getElementById('attendance-list');
+    if(!attFilter.date)attFilter.date=attToday();
+    try{
+      const d=attFilter.date;
+      const [candidates,attempts,plans]=await Promise.all([
+        request('/candidates'),
+        request('/attempts?'+new URLSearchParams({state:'open',active_on:d})),
+        request('/plans')
+      ]);
+      const fresh=candidates.data.filter(x=>!x.attempt_id);
+
+      // Group by batch, falling back to course, so courses running on the same
+      // day are never mixed together.
+      const groups=new Map();
+      for(const a of attempts.data){
+        const k=attGroupKey(a);
+        if(!groups.has(k))groups.set(k,{key:k,label:attGroupLabel(a),rows:[]});
+        groups.get(k).rows.push(a);
+      }
+      const list=[...groups.values()];
+      if(!list.some(g=>g.key===attFilter.group))attFilter.group=list.length?list[0].key:null;
+      const active=list.find(g=>g.key===attFilter.group);
+      const split=g=>({
+        tomark:(g?g.rows:[]).filter(a=>!a.day_status),
+        present:(g?g.rows:[]).filter(a=>a.day_status==='present'),
+        away:(g?g.rows:[]).filter(a=>a.day_status&&a.day_status!=='present')
+      });
+      const parts=split(active);
+      const shown=parts[attFilter.view]||[];
+
+      const strip=list.length?list.map(g=>{
+        const p=split(g);
+        return `<button class="btn btn-outline btn-sm att-group${g.key===attFilter.group?' active':''}" data-group="${esc(g.key)}">${esc(g.label)} \u00b7 ${p.tomark.length} to mark</button>`;
+      }).join(' '):'<p class="trg-help">No course is running on this day.</p>';
+
+      const tabs=active?`<div class="ops-days">
+        ${['tomark','present','away'].map(v=>`<button class="btn btn-outline btn-sm att-view${attFilter.view===v?' active':''}" data-view="${v}">${v==='tomark'?'To mark':v==='present'?'Present':'Absent / leave'} \u00b7 ${parts[v].length}</button>`).join(' ')}
+      </div>`:'';
+
+      const bulk=(active&&parts.tomark.length)?`<form class="ops-bulk completion-row"><span><strong>Mark all present</strong><br><small>${parts.tomark.length} not yet marked on ${esc(d)}. Anyone already marked is left alone.</small></span><input type="hidden" name="attendance_date" value="${esc(d)}"><input type="hidden" name="status" value="present"><button class="btn btn-primary btn-sm">Mark all present</button></form>`:'';
+
+      box.innerHTML=`<div class="card"><div class="card-body">
+        <form class="ops-date completion-row"><span><strong>Attendance day</strong></span><input name="attendance_date" type="date" value="${esc(d)}" required><button class="btn btn-outline btn-sm">Show</button></form>
+        <div class="ops-days">${strip}</div>
+        ${tabs}${bulk}
+        ${shown.map(a=>attendanceCard(a,d)).join('')||'<p class="trg-help">Nobody in this list.</p>'}
+        <h4>Accepted trainees awaiting joining</h4>
+        ${fresh.length?fresh.map(x=>`<form class="ops-start completion-row" data-id="${x.nominee_id}"><span><strong>${esc(x.identity_snapshot.name)}</strong><br><small>${esc(x.letter_no)} \u00b7 ${esc(x.course_name)}</small></span><input name="joining_date" type="date" value="${esc(x.training_date)}" required>${(()=>{const match=plans.data.filter(p=>p.rule_id===x.rule_id);const only=match.length===1;return `<select name="calendar_id"><option value=""${only?'':' selected'}>No planned batch</option>${match.map(p=>`<option value="${p.id}"${only?' selected':''}>${esc(p.batch_code)}</option>`).join('')}</select>`})()}<button class="btn btn-primary btn-sm">Start</button></form>`).join(''):'<p class="trg-help">No accepted trainees awaiting joining.</p>'}
+      </div></div>`;
+
+      box.querySelectorAll('.ops-start').forEach(f=>f.onsubmit=startAttempt);
+      box.querySelectorAll('.ops-att').forEach(f=>f.onsubmit=markAttendance);
+      const bf=box.querySelector('.ops-bulk');if(bf)bf.onsubmit=markWholeDay;
+      const df=box.querySelector('.ops-date');if(df)df.onsubmit=(e)=>{e.preventDefault();attFilter.date=new FormData(e.currentTarget).get('attendance_date');loadAttendanceLetters()};
+      box.querySelectorAll('.att-group').forEach(b=>b.onclick=()=>{attFilter.group=b.dataset.group;loadAttendanceLetters()});
+      box.querySelectorAll('.att-view').forEach(b=>b.onclick=()=>{attFilter.view=b.dataset.view;loadAttendanceLetters()});
+    }catch(e){box.innerHTML='<div class="card-body">'+esc(e.message)+'</div>';}}
+  // Attendance stands as present against days actually marked, with the
+  // course length alongside so a part-finished course is not read as a
+  // shortfall.
+  function attStats(a){
+    const rows=a.attendance||[];
+    const present=rows.filter(x=>x.status==='present').length;
+    const marked=rows.length;
+    const pct=marked?Math.round(present*100/marked):null;
+    return {present,marked,pct,away:marked-present,days:a.working_days};
+  }
+  function attSummary(a){
+    const s=attStats(a);
+    if(!s.marked)return 'no day marked yet';
+    return `${s.marked}/${s.days} day(s) marked \u00b7 ${s.present} present${s.away?' \u00b7 '+s.away+' absent/leave':''} \u00b7 <b>${s.pct}%</b>`;
+  }
+  function attendanceCard(a,day){
+    const st=a.day_status;
+    return `<form class="ops-att completion-row" data-id="${a.attempt_id}"><span><strong>${esc(person(a))}</strong><br><small>${esc(a.course_name)} \u00b7 joined ${esc(a.joining_date)} \u00b7 ${attSummary(a)}${st?' \u00b7 <b>'+esc(st)+'</b> on '+esc(day):''}</small></span><input type="hidden" name="attendance_date" value="${esc(day)}"><select name="status"><option value="present"${st==='present'?' selected':''}>Present</option><option value="absent"${st==='absent'?' selected':''}>Absent</option><option value="leave"${st==='leave'?' selected':''}>Leave</option></select><input name="reason" placeholder="${st?'Reason for the change':'Reason (optional)'}"${st?' required':''}><button class="btn btn-primary btn-sm">${st?'Change':'Save'}</button></form>`;
+  }
   async function startAttempt(e){e.preventDefault();const f=new FormData(e.currentTarget);try{await request('/attempts',{method:'POST',body:JSON.stringify({nominee_id:Number(e.currentTarget.dataset.id),joining_date:f.get('joining_date'),calendar_id:f.get('calendar_id')?Number(f.get('calendar_id')):null})});notify('Training attempt started');loadAttendanceLetters();}catch(e){notify(e.message,'error')}}
   async function markWholeDay(e){
     e.preventDefault();
@@ -54,7 +133,7 @@
       box.querySelectorAll('.ops-day').forEach(b=>b.onclick=()=>{completionFilter={day:b.dataset.day,course_id:b.dataset.course,course_name:b.dataset.name};loadCompletionLetters()});
       const clear=box.querySelector('.ops-day-clear');if(clear)clear.onclick=()=>{completionFilter={day:null,course_id:null,course_name:''};loadCompletionLetters()};
     }catch(e){box.innerHTML='<div class="card-body">'+esc(e.message)+'</div>';}}
-  function completionCard(a){const defs=[...new Map(a.assessments.map(x=>[x.assessment_id,x])).values()];return `<section class="card" style="margin:12px"><div class="card-header"><h4>${esc(person(a))} · ${esc(a.course_name)}</h4><span class="status">${esc(a.outcome)}</span></div><div class="card-body"><p class="trg-help">Letter ${esc(a.letter_no)} · joined ${esc(a.joining_date)}</p>${a.outcome==='in_progress'?defs.map(d=>`<form class="ops-result form-row" data-id="${a.attempt_id}"><input type="hidden" name="assessment_id" value="${d.assessment_id}"><strong>${esc(d.assessment_name)}</strong><input name="exam_date" type="date" required><input name="marks" type="number" step="0.01" max="${d.maximum_marks}" placeholder="Marks / ${d.maximum_marks}" required><input name="reason" value="Assessment result" required><button class="btn btn-outline btn-sm">Record / re-exam</button><small>${a.assessments.filter(x=>x.assessment_id===d.assessment_id&&x.result).map(x=>'Exam '+x.exam_no+': '+x.result+' ('+x.marks+')').join(', ')}</small></form>`).join('')+`<form class="ops-complete form-row" data-id="${a.attempt_id}"><input name="completion_date" type="date" required><button class="btn btn-success btn-sm">Confirm completion</button></form><form class="ops-outcome form-row" data-id="${a.attempt_id}"><select name="outcome"><option value="failed">Failed</option><option value="repeat_required">Repeat required</option><option value="withdrawn">Withdrawn</option></select><input name="reason" placeholder="Mandatory reason" required><button class="btn btn-outline btn-sm">Save outcome</button></form>`:''}${a.outcome==='passed'?`<p>Confirmed: ${esc(a.completion_date)}</p><form class="ops-correct form-row" data-id="${a.attempt_id}"><input name="completion_date" type="date" value="${esc(a.completion_date)}" required><input name="reason" placeholder="Mandatory correction reason" required><button class="btn btn-outline btn-sm">Correct date</button></form><details><summary>Completion revisions</summary>${a.completions.map(c=>'Revision '+c.revision+': '+esc(c.completion_date)+' · '+esc(c.event_type)+' · '+esc(c.confirmed_by)).join('<br>')}</details>`:''}</div></section>`;}
+  function completionCard(a){const defs=[...new Map(a.assessments.map(x=>[x.assessment_id,x])).values()];return `<section class="card" style="margin:12px"><div class="card-header"><h4>${esc(person(a))} · ${esc(a.course_name)}</h4><span class="status">${esc(a.outcome)}</span></div><div class="card-body"><p class="trg-help">Letter ${esc(a.letter_no)} · joined ${esc(a.joining_date)} · ${attSummary(a)}</p>${a.outcome==='in_progress'?defs.map(d=>`<form class="ops-result form-row" data-id="${a.attempt_id}"><input type="hidden" name="assessment_id" value="${d.assessment_id}"><strong>${esc(d.assessment_name)}</strong><input name="exam_date" type="date" required><input name="marks" type="number" step="0.01" max="${d.maximum_marks}" placeholder="Marks / ${d.maximum_marks}" required><input name="reason" value="Assessment result" required><button class="btn btn-outline btn-sm">Record / re-exam</button><small>${a.assessments.filter(x=>x.assessment_id===d.assessment_id&&x.result).map(x=>'Exam '+x.exam_no+': '+x.result+' ('+x.marks+')').join(', ')}</small></form>`).join('')+`<form class="ops-complete form-row" data-id="${a.attempt_id}"><input name="completion_date" type="date" required><button class="btn btn-success btn-sm">Confirm completion</button></form><form class="ops-outcome form-row" data-id="${a.attempt_id}"><select name="outcome"><option value="failed">Failed</option><option value="repeat_required">Repeat required</option><option value="withdrawn">Withdrawn</option></select><input name="reason" placeholder="Mandatory reason" required><button class="btn btn-outline btn-sm">Save outcome</button></form>`:''}${a.outcome==='passed'?`<p>Confirmed: ${esc(a.completion_date)}</p><form class="ops-correct form-row" data-id="${a.attempt_id}"><input name="completion_date" type="date" value="${esc(a.completion_date)}" required><input name="reason" placeholder="Mandatory correction reason" required><button class="btn btn-outline btn-sm">Correct date</button></form><details><summary>Completion revisions</summary>${a.completions.map(c=>'Revision '+c.revision+': '+esc(c.completion_date)+' · '+esc(c.event_type)+' · '+esc(c.confirmed_by)).join('<br>')}</details>`:''}</div></section>`;}
   async function saveResult(e){e.preventDefault();const f=Object.fromEntries(new FormData(e.currentTarget));f.assessment_id=Number(f.assessment_id);f.marks=Number(f.marks);try{await request(`/attempts/${e.currentTarget.dataset.id}/assessments`,{method:'POST',body:JSON.stringify(f)});notify('Assessment result recorded');loadCompletionLetters();}catch(e){notify(e.message,'error')}}
   async function completeWholeDay(e){
     e.preventDefault();

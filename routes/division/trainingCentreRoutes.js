@@ -339,9 +339,16 @@ router.get('/incoming-letters', async (req, res) => {
                 ) AS staff_count
             FROM div_training_letters tl
             WHERE tl.training_center_id = ?
-              -- A letter finished on an earlier day is history, not incoming
-              -- work. Today's stay visible until the day is over.
-              AND NOT (tl.status = 'completed' AND tl.training_date < CURDATE())
+              -- Incoming means still awaiting the centre's decision. Once
+              -- every nominee is accepted or returned the letter is work in
+              -- progress, not an inbox item — the same definition the Pending
+              -- card uses. Letters predating the workflow keep the old rule.
+              AND (
+                    EXISTS (SELECT 1 FROM div_training_nominees n
+                             WHERE n.letter_id = tl.id AND n.decision = 'pending')
+                 OR (NOT EXISTS (SELECT 1 FROM div_training_letter_workflows wf2 WHERE wf2.letter_id = tl.id)
+                     AND NOT (tl.status = 'completed' AND tl.training_date < CURDATE()))
+              )
         `;
         const params = [centreId];
 
