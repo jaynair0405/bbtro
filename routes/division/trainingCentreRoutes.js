@@ -107,6 +107,97 @@ router.get('/config', async (req, res) => {
 });
 
 // ============================================================
+// The three suburban crew lobbies. MTC CLA serves these; the Kalyan centres
+// serve everything else.
+const SUBURBAN_OFFICES = ['CSMT-SUB', 'KYN-SUB', 'PNVL-SUB'];
+
+// ============================================================
+// GET /due-by-lobby - who each lobby still owes the centre
+// ============================================================
+// The centre plans from this: which lobby is falling behind on which
+// recurring course. Counts use the same latest-record rule as the lobby's own
+// due list, so the two cannot disagree.
+router.get('/due-by-lobby', async (req, res) => {
+    let conn;
+    try {
+        conn = await getConnection(req);
+        const centreId = getCentreId(req);
+        if (!centreId) return res.json({ data: [], within: 90 });
+        const within = Math.min(Math.max(parseInt(req.query.within, 10) || 90, 0), 365);
+
+        // MTC CLA trains the suburban lobbies' motormen; the Kalyan centres
+        // take everyone else. Each centre must be shown its own lobbies only,
+        // or the due position reads as a backlog it cannot act on.
+        const [[centre]] = await conn.query(
+            'SELECT center_code FROM div_training_centers WHERE center_id = ?', [centreId]);
+        const suburban = centre && centre.center_code === 'MTC_CLA';
+        const officeClause = suburban
+            ? 'AND s.current_office_code IN (?, ?, ?)'
+            : 'AND s.current_office_code NOT IN (?, ?, ?)';
+        const officeParams = SUBURBAN_OFFICES;
+
+        // Only recurring courses have a due position: a course renews itself
+        // when its own code is one of its renewal targets.
+        const [courses] = await conn.query(
+            `SELECT DISTINCT c.course_id, c.course_code, c.course_name, t.legacy_training_id, t.target_name
+               FROM div_training_course_offerings o
+               JOIN div_training_course_rules r ON r.rule_id = o.rule_id
+               JOIN div_training_courses c ON c.course_id = r.course_id
+               JOIN div_training_rule_renewals rr ON rr.rule_id = r.rule_id
+               JOIN div_training_renewal_targets t ON t.target_id = rr.target_id
+              WHERE o.training_center_id = ? AND o.is_active = 1 AND c.is_active = 1
+                AND t.target_code = c.course_code AND t.legacy_training_id IS NOT NULL
+              ORDER BY c.course_id`, [centreId]);
+
+        const data = [];
+        for (const course of courses) {
+            const designation = course.course_code.startsWith('LPS_') ? '%shunt%' : '%motorman%';
+            const [rows] = await conn.query(
+                `SELECT s.current_office_code AS lobby,
+                        SUM(last.done_date IS NULL) AS never_recorded,
+                        SUM(last.due_date < CURDATE()) AS overdue,
+                        SUM(last.due_date >= CURDATE() AND last.due_date <= DATE_ADD(CURDATE(), INTERVAL ? DAY)) AS due_soon,
+                        COUNT(*) AS strength
+                   FROM div_staff_master s
+                   LEFT JOIN designations d ON d.id = s.designation_id
+                   LEFT JOIN div_training_records last ON last.record_id = (
+                        SELECT r2.record_id FROM div_training_records r2
+                         WHERE r2.staff_hrms_id = s.hrms_id AND r2.training_id = ?
+                           AND r2.done_date IS NOT NULL
+                         ORDER BY r2.done_date DESC, r2.record_id DESC LIMIT 1)
+                  WHERE s.status = 'Active' AND LOWER(d.designation_name) LIKE ?
+                    AND s.current_office_code IS NOT NULL
+                    ${officeClause}
+                  GROUP BY s.current_office_code
+                  ORDER BY s.current_office_code`,
+                [within, course.legacy_training_id, designation, ...officeParams]);
+            const lobbies = rows.map(r => ({
+                lobby: r.lobby,
+                never_recorded: Number(r.never_recorded) || 0,
+                overdue: Number(r.overdue) || 0,
+                due_soon: Number(r.due_soon) || 0,
+                strength: Number(r.strength) || 0
+            })).filter(r => r.never_recorded || r.overdue || r.due_soon);
+            if (lobbies.length) data.push({
+                course_id: course.course_id,
+                course_name: course.course_name,
+                lobbies,
+                totals: lobbies.reduce((a, r) => ({
+                    never_recorded: a.never_recorded + r.never_recorded,
+                    overdue: a.overdue + r.overdue,
+                    due_soon: a.due_soon + r.due_soon
+                }), { never_recorded: 0, overdue: 0, due_soon: 0 })
+            });
+        }
+        res.json({ data, within });
+    } catch (error) {
+        console.error('Error fetching due by lobby:', error);
+        res.status(500).json({ error: 'Failed to fetch due position' });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
 // GET /dashboard-stats - Stats for dashboard cards
 // ============================================================
 router.get('/dashboard-stats', async (req, res) => {
@@ -201,9 +292,16 @@ router.get('/incoming-letters', async (req, res) => {
         let query = `
             SELECT
                 tl.*,
-                (SELECT COUNT(*) FROM div_training_letter_staff WHERE letter_id = tl.id) AS staff_count
+                COALESCE(
+                    NULLIF((SELECT COUNT(*) FROM div_training_nominees n
+                             WHERE n.letter_id = tl.id AND n.decision <> 'withdrawn'), 0),
+                    (SELECT COUNT(*) FROM div_training_letter_staff WHERE letter_id = tl.id)
+                ) AS staff_count
             FROM div_training_letters tl
             WHERE tl.training_center_id = ?
+              -- A letter finished on an earlier day is history, not incoming
+              -- work. Today's stay visible until the day is over.
+              AND NOT (tl.status = 'completed' AND tl.training_date < CURDATE())
         `;
         const params = [centreId];
 
