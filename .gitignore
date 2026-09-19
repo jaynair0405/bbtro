@@ -40,3 +40,7 @@ csv/new_pnvl_alp*
 
 # Bulk-generated CLI login passwords — distribute then delete, never commit
 cli_user_passwords_*.csv
+
+# Training centre source spreadsheets — one-time imports, never committed
+data/*.xlsx
+data/training-centre/
