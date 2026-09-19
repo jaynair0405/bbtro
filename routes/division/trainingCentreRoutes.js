@@ -211,50 +211,90 @@ router.get('/dashboard-stats', async (req, res) => {
             traineesMonth: { total: 0, breakup: {} }
         });
 
-        // Pending letters (sent but attendance not confirmed)
+        // Pending: letters with a nominee still awaiting the centre's accept
+        // or return decision. Letters from before the workflow have no
+        // nominees, so their legacy 'sent' status still counts.
         const [[{ pending }]] = await conn.query(
-            "SELECT COUNT(*) AS pending FROM div_training_letters WHERE training_center_id = ? AND status = 'sent'",
+            `SELECT COUNT(DISTINCT tl.id) AS pending
+               FROM div_training_letters tl
+               LEFT JOIN div_training_letter_workflows wf ON wf.letter_id = tl.id
+              WHERE tl.training_center_id = ?
+                AND ( (wf.letter_id IS NOT NULL AND EXISTS (
+                          SELECT 1 FROM div_training_nominees n
+                           WHERE n.letter_id = tl.id AND n.decision = 'pending'))
+                   OR (wf.letter_id IS NULL AND tl.status = 'sent') )`,
             [centreId]
         );
 
-        // Attendance due today
+        // Attendance due: a course day on or before today with an accepted
+        // trainee who has not been marked for it.
         const [[{ attendanceToday }]] = await conn.query(
-            "SELECT COUNT(*) AS attendanceToday FROM div_training_letters WHERE training_center_id = ? AND status = 'sent' AND training_date <= CURDATE()",
+            `SELECT COUNT(DISTINCT tl.id) AS attendanceToday
+               FROM div_training_letters tl
+               LEFT JOIN div_training_letter_workflows wf ON wf.letter_id = tl.id
+              WHERE tl.training_center_id = ? AND tl.training_date <= CURDATE()
+                AND ( (wf.letter_id IS NOT NULL AND EXISTS (
+                          SELECT 1 FROM div_training_nominees n
+                           LEFT JOIN div_training_attempts a ON a.nominee_id = n.nominee_id
+                           WHERE n.letter_id = tl.id AND n.decision = 'accepted'
+                             AND ( a.attempt_id IS NULL
+                                OR (a.outcome = 'in_progress' AND NOT EXISTS (
+                                     SELECT 1 FROM div_training_daily_attendance d
+                                      WHERE d.attempt_id = a.attempt_id
+                                        AND d.attendance_date = CURDATE())))))
+                   OR (wf.letter_id IS NULL AND tl.status = 'sent') )`,
             [centreId]
         );
 
-        // Completed batches this month - breakup by course type
+        // Batches completed this month, by the real course where known.
         const [completedRows] = await conn.query(
-            `SELECT course_type, COUNT(*) AS cnt
-             FROM div_training_letters
-             WHERE training_center_id = ? AND status = 'completed'
-               AND YEAR(completed_at) = YEAR(CURDATE()) AND MONTH(completed_at) = MONTH(CURDATE())
-             GROUP BY course_type`,
+            `SELECT COALESCE(c.course_name, tl.course_type) AS label, COUNT(*) AS cnt
+               FROM div_training_letters tl
+               LEFT JOIN div_training_letter_workflows wf ON wf.letter_id = tl.id
+               LEFT JOIN div_training_course_rules r ON r.rule_id = wf.rule_id
+               LEFT JOIN div_training_courses c ON c.course_id = r.course_id
+              WHERE tl.training_center_id = ? AND tl.status = 'completed'
+                AND YEAR(tl.completed_at) = YEAR(CURDATE()) AND MONTH(tl.completed_at) = MONTH(CURDATE())
+              GROUP BY label`,
             [centreId]
         );
         const completedBreakup = {};
         let completedTotal = 0;
         for (const row of completedRows) {
-            const prefix = COURSE_TYPE_PREFIX[row.course_type] || row.course_type;
-            completedBreakup[prefix] = row.cnt;
+            completedBreakup[row.label || '-'] = row.cnt;
             completedTotal += row.cnt;
         }
 
-        // Trainees completed this month - count DISTINCT staff with completion_status='completed'
+        // Trainees completed this month: confirmed completion events, plus the
+        // legacy per-staff rows for letters that never went through the
+        // workflow.
         const [traineeRows] = await conn.query(
-            `SELECT tl.course_type, COUNT(DISTINCT tls.staff_hrms_id) AS cnt
-             FROM div_training_letter_staff tls
-             JOIN div_training_letters tl ON tl.id = tls.letter_id
-             WHERE tl.training_center_id = ? AND tls.completion_status = 'completed'
-               AND YEAR(tl.completed_at) = YEAR(CURDATE()) AND MONTH(tl.completed_at) = MONTH(CURDATE())
-             GROUP BY tl.course_type`,
-            [centreId]
+            `SELECT label, COUNT(*) AS cnt FROM (
+                SELECT COALESCE(c.course_name, tl.course_type) AS label, e.attempt_id
+                  FROM div_training_completion_events e
+                  JOIN div_training_attempts a ON a.attempt_id = e.attempt_id
+                  JOIN div_training_letters tl ON tl.id = a.letter_id
+                  LEFT JOIN div_training_course_rules r ON r.rule_id = a.rule_id
+                  LEFT JOIN div_training_courses c ON c.course_id = r.course_id
+                 WHERE a.training_center_id = ? AND e.event_type = 'confirmed'
+                   AND YEAR(e.completion_date) = YEAR(CURDATE())
+                   AND MONTH(e.completion_date) = MONTH(CURDATE())
+                UNION ALL
+                SELECT tl.course_type AS label, NULL
+                  FROM div_training_letter_staff tls
+                  JOIN div_training_letters tl ON tl.id = tls.letter_id
+                  LEFT JOIN div_training_letter_workflows wf ON wf.letter_id = tl.id
+                 WHERE tl.training_center_id = ? AND wf.letter_id IS NULL
+                   AND tls.completion_status = 'completed'
+                   AND YEAR(tl.completed_at) = YEAR(CURDATE())
+                   AND MONTH(tl.completed_at) = MONTH(CURDATE())
+             ) x GROUP BY label`,
+            [centreId, centreId]
         );
         const traineesBreakup = {};
         let traineesTotal = 0;
         for (const row of traineeRows) {
-            const prefix = COURSE_TYPE_PREFIX[row.course_type] || row.course_type;
-            traineesBreakup[prefix] = row.cnt;
+            traineesBreakup[row.label || '-'] = row.cnt;
             traineesTotal += row.cnt;
         }
 
