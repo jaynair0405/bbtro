@@ -16,7 +16,7 @@ const express = require('express');
 const multer = require('multer');
 const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit');
-const { parseCmsReport, PARAMETERS } = require('../lib/cmsReport');
+const { parseCmsReport, PARAMETERS, istTodayISO } = require('../lib/cmsReport');
 
 const router = express.Router();
 
@@ -359,6 +359,192 @@ router.post('/export/summary/pdf', (req, res) => {
     });
 
     drawReportFooter(doc, left, generatedAtIST, usableBottom);
+    doc.end();
+  } catch (err) {
+    if (!res.headersSent) res.status(400).json({ error: err.message || 'Export failed.' });
+  }
+});
+
+// =====================================================================
+// Daily Position — the day's CMS count reports, stacked on one sheet.
+// Same contract as the due list: parsed in memory, nothing stored; exports are
+// built from the tables the browser posts back. Paths keep "/upload" and
+// "/export" in them on purpose — that is what clicms-sw.js never caches.
+// =====================================================================
+const cmsReports = require('../lib/cmsReports');
+
+router.post('/daily/upload', upload.array('files', 20), (req, res) => {
+  const files = req.files || [];
+  if (files.length === 0) return res.status(400).json({ error: 'No files uploaded (field name must be "files").' });
+
+  const reports = [];
+  const rejected = [];
+  files.forEach((f) => {
+    try {
+      const r = cmsReports.processFile(f.buffer);
+      const dup = reports.find((x) => x.key === r.key);
+      // Two files of one report are two different days — the file carries no date to tell which.
+      if (dup) throw new Error(`Same report as "${dup.file}". Upload one day at a time.`);
+      reports.push({ file: f.originalname, ...r });
+    } catch (err) {
+      rejected.push({ file: f.originalname, error: err.message || 'Could not read the file.' });
+    }
+  });
+  reports.sort((a, b) => a.order - b.order);
+  res.json({ catalogue: cmsReports.catalogue(), reports, rejected });
+});
+
+function readDailyBody(req) {
+  const date = safeISO((req.body || {}).date);
+  if (!date) throw new Error('Missing report date.');
+  const reports = (req.body || {}).reports;
+  if (!Array.isArray(reports) || reports.length === 0) throw new Error('Nothing to export.');
+  reports.forEach((r) => {
+    if (typeof r.label !== 'string' || !Array.isArray(r.tables)) throw new Error('Malformed report payload.');
+    r.tables.forEach((t) => {
+      if (typeof t.title !== 'string' || !Array.isArray(t.headers) || !Array.isArray(t.rows)) {
+        throw new Error('Malformed table payload.');
+      }
+    });
+  });
+  return { date, reports };
+}
+const DAILY_TITLE = (date) => `CSMT Division — CMS Daily Position (${isoToDDMMYYYY(date)})`;
+function dailyFileName(date, reports, ext) {
+  const tag = reports.length === 1 && /^[a-z0-9_-]+$/i.test(reports[0].key || '') ? reports[0].key : 'daily_position';
+  return `CMS_${tag}_${date}.${ext}`;
+}
+
+// One sheet per report; a single-report body is how the per-report button downloads.
+router.post('/daily/export/xlsx', async (req, res) => {
+  try {
+    const { date, reports } = readDailyBody(req);
+    const wb = new ExcelJS.Workbook();
+
+    reports.forEach((rep, ri) => {
+      // Excel: max 31 chars, none of \ / ? * [ ] :
+      const name = rep.label.replace(/[\\/?*[\]:]/g, '-').slice(0, 28) || `Report ${ri + 1}`;
+      const ws = wb.addWorksheet(wb.getWorksheet(name) ? `${name} ${ri + 1}` : name);
+      const width = Math.max(...rep.tables.map((t) => t.headers.length), 2);
+
+      ws.mergeCells(1, 1, 1, width);
+      ws.getCell(1, 1).value = `${rep.label} — ${isoToDDMMYYYY(date)}`;
+      ws.getCell(1, 1).font = { name: 'Arial', size: 13, bold: true };
+      ws.getCell(1, 1).alignment = { horizontal: 'center' };
+
+      rep.tables.forEach((t) => {
+        ws.addRow([]);
+        ws.addRow([t.title]).font = { name: 'Arial', size: 11, bold: true, color: { argb: 'FF1F3A5F' } };
+        const head = ws.addRow(t.headers);
+        head.font = { name: 'Arial', bold: true, color: { argb: 'FFFFFFFF' } };
+        head.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+        head.eachCell((c) => { c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1F3A5F' } }; });
+        if (t.rows.length === 0) {
+          ws.addRow([t.emptyText || 'None.']).font = { name: 'Arial', size: 10, italic: true };
+        }
+        t.rows.forEach((r) => { ws.addRow(r).font = { name: 'Arial', size: 10 }; });
+        if (Array.isArray(t.total)) {
+          const tot = ws.addRow(t.total);
+          tot.font = { name: 'Arial', bold: true };
+          tot.eachCell({ includeEmpty: true }, (c, n) => {
+            if (n <= t.headers.length) c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEEF2F7' } };
+          });
+        }
+      });
+
+      for (let i = 1; i <= width; i++) ws.getColumn(i).width = 18;
+      ws.addRow([]);
+      // Generated today, about `date` — the two differ here, unlike the due list.
+      ws.addRow([REPORT_FOOTER(istTodayISO())]).font = { name: 'Arial', size: 8, italic: true, color: { argb: 'FF5D6B7E' } };
+    });
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${dailyFileName(date, reports, 'xlsx')}"`);
+    await wb.xlsx.write(res);
+    res.end();
+  } catch (err) {
+    if (!res.headersSent) res.status(400).json({ error: err.message || 'Export failed.' });
+  }
+});
+
+// Draw one generic table at doc.y. Text columns are left-aligned and wider; counts centred.
+function drawDailyTable(doc, t, { x, width, usableBottom }) {
+  const n = t.headers.length;
+  const isText = t.headers.map((_, i) =>
+    t.rows.length > 0 && t.rows.every((r) => !/^\d+$/.test(String(r[i] == null ? '' : r[i]))));
+  const weights = isText.map((tx) => (tx ? 1.6 : 1));
+  const wSum = weights.reduce((a, b) => a + b, 0);
+  const colW = weights.map((w) => (width * w) / wSum);
+  const headH = 28;
+  const rowH = 16;
+
+  if (doc.y + headH + rowH * 2 + 20 > usableBottom) doc.addPage();
+  doc.font('Helvetica-Bold').fontSize(10).fillColor('#1F3A5F').text(t.title, x, doc.y);
+  doc.fillColor('#000').moveDown(0.25);
+  let y = doc.y;
+
+  const drawHead = () => {
+    let cx = x;
+    t.headers.forEach((h, i) => {
+      doc.rect(cx, y, colW[i], headH).fillAndStroke('#1F3A5F', '#FFFFFF');
+      doc.font('Helvetica-Bold').fontSize(8).fillColor('#FFFFFF')
+        .text(String(h), cx + 3, y + 5, { width: colW[i] - 6, height: headH - 6, align: 'center' });
+      cx += colW[i];
+    });
+    doc.fillColor('#000');
+    y += headH;
+  };
+  const drawRow = (cells, o = {}) => {
+    if (y + rowH > usableBottom) { doc.addPage(); y = doc.page.margins.top; drawHead(); }
+    let cx = x;
+    for (let i = 0; i < n; i++) {
+      if (o.fill) doc.rect(cx, y, colW[i], rowH).fillAndStroke(o.fill, '#D0D5DD');
+      else doc.rect(cx, y, colW[i], rowH).stroke('#D0D5DD');
+      doc.font(o.bold ? 'Helvetica-Bold' : 'Helvetica').fontSize(8.5).fillColor('#000')
+        .text(String(cells[i] == null ? '' : cells[i]), cx + 4, y + 4,
+          { width: colW[i] - 8, height: rowH - 4, align: isText[i] ? 'left' : 'center', ellipsis: true });
+      cx += colW[i];
+    }
+    y += rowH;
+  };
+
+  drawHead();
+  if (t.rows.length === 0) {
+    doc.rect(x, y, width, rowH).stroke('#D0D5DD');
+    doc.font('Helvetica-Oblique').fontSize(8.5).fillColor('#5D6B7E')
+      .text(t.emptyText || 'None.', x + 4, y + 4, { width: width - 8 });
+    doc.fillColor('#000');
+    y += rowH;
+  }
+  t.rows.forEach((r) => drawRow(r));
+  if (Array.isArray(t.total)) drawRow(t.total, { bold: true, fill: '#EEF2F7' });
+  doc.y = y + 12;
+}
+
+router.post('/daily/export/pdf', (req, res) => {
+  try {
+    const { date, reports } = readDailyBody(req);
+    const doc = new PDFDocument({ size: 'A4', margin: 36 });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${dailyFileName(date, reports, 'pdf')}"`);
+    doc.pipe(res);
+
+    const x = doc.page.margins.left;
+    const width = doc.page.width - doc.page.margins.left - doc.page.margins.right;
+    const usableBottom = doc.page.height - doc.page.margins.bottom;
+
+    doc.font('Helvetica-Bold').fontSize(14).text(DAILY_TITLE(date), { align: 'center' });
+    doc.moveDown(0.6);
+
+    reports.forEach((rep) => {
+      if (doc.y + 90 > usableBottom) doc.addPage();
+      doc.font('Helvetica-Bold').fontSize(11.5).fillColor('#000').text(rep.label, x, doc.y);
+      doc.moveTo(x, doc.y + 2).lineTo(x + width, doc.y + 2).stroke('#1F3A5F');
+      doc.moveDown(0.5);
+      rep.tables.forEach((t) => drawDailyTable(doc, t, { x, width, usableBottom }));
+    });
+
+    drawReportFooter(doc, x, istTodayISO(), usableBottom);
     doc.end();
   } catch (err) {
     if (!res.headersSent) res.status(400).json({ error: err.message || 'Export failed.' });
