@@ -140,8 +140,27 @@ window.trainingManage = (() => {
             action(e.submitter,async()=>{
                 const none=$('trg-no-assessment').checked;
                 const assessments=none?[]:[...$('trg-assessment-rows').children].map(row=>Object.fromEntries([...row.querySelectorAll('[data-field]')].map(el=>[el.dataset.field,el.type==='number'?Number(el.value):el.value])));
-                await post('/courses/'+selectedRule.rule_id+'/assessments',{no_assessment:none,assessments,reason:$('trg-assessment-reason').value});
-                $('trg-assessment-dialog').close();showToast('Assessment settings saved');await loadCourses();
+                // Changing a course makes a new version of its rules. Batches
+                // already running stay on the old one unless the centre says
+                // otherwise — asked here, with the numbers, rather than left as
+                // a button somewhere they would have to know about.
+                let applyToRunning=false;
+                try{
+                    const running=await api('/courses/'+selectedRule.rule_id+'/running');
+                    if(running&&running.trainees>0){
+                        if(running.can_apply){
+                            applyToRunning=confirm(`${running.trainees} trainee(s) on ${running.batches||0} running batch(es) are still on the previous rules.\n\nApply the new rules to them as well?`);
+                        }else{
+                            alert(`${running.finished} trainee(s) have already finished under the previous rules, so running batches cannot be moved onto the new ones. The new rules will apply to batches started from now on.`);
+                        }
+                    }
+                }catch(e){/* the count is a courtesy; saving must not depend on it */}
+                const saved=await post('/courses/'+selectedRule.rule_id+'/assessments',{no_assessment:none,assessments,reason:$('trg-assessment-reason').value,apply_to_running:applyToRunning});
+                $('trg-assessment-dialog').close();
+                showToast(saved&&saved.applied
+                    ? `Assessment settings saved and applied to ${saved.applied.trainees} trainee(s) on ${saved.applied.batches} batch(es)`
+                    : 'Assessment settings saved');
+                await loadCourses();
             });
         });
         $('trg-holiday-form').addEventListener('submit',e=>{

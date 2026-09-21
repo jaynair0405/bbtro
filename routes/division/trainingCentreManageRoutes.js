@@ -154,6 +154,29 @@ async function courseList(pool, centreId) {
     return data;
 }
 router.get('/courses', endpoint(async (req,res) => res.json({data:await courseList(req.app.locals.pool,req.trainingCentreId)})));
+// What a configuration change would leave behind. The screen asks the centre
+// with these numbers in hand rather than a bare "apply to existing batches?".
+router.get('/courses/:ruleId/running', endpoint(async (req,res) => {
+    const ruleId = positiveId(req.params.ruleId);
+    const pool = req.app.locals.pool;
+    const [[counts]] = await pool.query(
+        `SELECT COUNT(*) AS trainees,
+                COUNT(DISTINCT a.calendar_id) AS batches,
+                SUM(a.outcome <> 'in_progress') AS finished
+           FROM div_training_attempts a
+          WHERE a.rule_id = ? AND a.training_center_id = ?`, [ruleId, req.trainingCentreId]);
+    const finished = Number(counts.finished) || 0;
+    res.json({
+        trainees: Number(counts.trainees) || 0,
+        batches: Number(counts.batches) || 0,
+        finished,
+        // A completed trainee must stay on the rules he was judged under, and
+        // his letter and batch hold him there, so nothing on this version can
+        // move while he is on it.
+        can_apply: (Number(counts.trainees) || 0) > 0 && finished === 0
+    });
+}));
+
 router.post('/courses/:ruleId/assessments', endpoint(async (req,res) => {
     const ruleId = positiveId(req.params.ruleId);
     const reason = field(req.body.reason,'Change reason',1000,true);
@@ -182,7 +205,28 @@ router.post('/courses/:ruleId/assessments', endpoint(async (req,res) => {
             VALUES(?,?,?,?,?)`,[req.trainingCentreId,newId,old.report_time,old.advance_planning,old.requirements_text]);
         const [beforeAssessments] = await conn.query('SELECT * FROM div_training_assessment_definitions WHERE rule_id=?',[ruleId]);
         await audit(conn,req,'course_rule',newId,'configure_assessment',reason,{rule_id:ruleId,assessments:beforeAssessments},{rule_id:newId,assessments,no_assessment:!assessments.length});
-        return {rule_id:newId};
+
+        // Carry batches still running onto the new rules, if the centre said so.
+        // A trainee is held to his rule version by his letter and his batch, so
+        // all three move together or none do — and nothing moves once anyone on
+        // the version has finished, because his result was judged under it.
+        let applied = null;
+        if (req.body.apply_to_running === true) {
+            const [[{ finished }]] = await conn.query(
+                "SELECT SUM(outcome <> 'in_progress') AS finished FROM div_training_attempts WHERE rule_id=? AND training_center_id=?",[ruleId,req.trainingCentreId]);
+            if (Number(finished) > 0) throw fail(409,'The new rules were saved, but existing batches were not moved: a trainee on the previous rules has already finished under them.');
+            await conn.query('SET FOREIGN_KEY_CHECKS=0');
+            try {
+                const [w] = await conn.query('UPDATE div_training_letter_workflows SET rule_id=? WHERE rule_id=? AND training_center_id=?',[newId,ruleId,req.trainingCentreId]);
+                const [b] = await conn.query('UPDATE div_training_batch_settings SET rule_id=? WHERE rule_id=? AND training_center_id=?',[newId,ruleId,req.trainingCentreId]);
+                const [a] = await conn.query("UPDATE div_training_attempts SET rule_id=? WHERE rule_id=? AND training_center_id=? AND outcome='in_progress'",[newId,ruleId,req.trainingCentreId]);
+                applied = { letters: w.affectedRows, batches: b.affectedRows, trainees: a.affectedRows };
+            } finally {
+                await conn.query('SET FOREIGN_KEY_CHECKS=1');
+            }
+            await audit(conn,req,'course_rule',newId,'apply_to_running',reason,{rule_id:ruleId},{rule_id:newId,...applied});
+        }
+        return {rule_id:newId, applied};
     });
     res.status(201).json(result);
 }));
