@@ -120,21 +120,59 @@
       const header=f.day
         ? `<p class="trg-help">${esc(f.course_name)} on ${esc(f.day)} \u2014 completed trainees shown too. <button class="btn btn-outline btn-sm ops-day-clear">Back to open work</button></p>`
         : '<p class="trg-help">Trainees still awaiting a completion decision. Pick a day above to see a finished batch.</p>';
-      const bulk=f.day
-        ? `<form class="ops-complete-all completion-row"><span><strong>Mark the day attended</strong><br><small>${esc(f.course_name)} on ${esc(f.day)} \u2014 completes everyone whose attendance is in order.</small></span><input type="hidden" name="completion_date" value="${esc(f.day)}"><button class="btn btn-primary btn-sm">Mark all attended</button></form>`
+      // One exam, one date, one mark per man. A blank mark means he did not
+      // sit it; he keeps his attempt and can be examined another day.
+      const open=attempts.data.filter(a=>a.outcome==='in_progress');
+      const needsExam=open.filter(a=>(a.assessments||[]).some(d=>d.is_required));
+      const exam=(f.day&&needsExam.length)
+        ? `<form class="ops-exam"><div class="completion-row"><span><strong>Record exam</strong><br><small>Marks out of ${esc(needsExam[0].assessments.find(d=>d.is_required).maximum_marks)}, pass at ${esc(needsExam[0].assessments.find(d=>d.is_required).passing_marks)}. Leave a mark blank for anyone who did not sit it.</small></span><input name="exam_date" type="date" value="${esc(f.day)}" required><button class="btn btn-primary btn-sm">Save marks</button></div>
+            ${needsExam.map(a=>`<div class="completion-row exam-row" data-attempt="${a.attempt_id}"><span>${esc(person(a))}</span><input class="exam-marks" type="number" min="0" step="0.5" placeholder="marks"><input class="exam-date" type="date" title="Different exam date for this trainee"></div>`).join('')}
+          </form>`
         : '';
-      box.innerHTML='<div class="card-body"><div class="ops-days">'+strip+'</div>'+header+bulk
+      const bulk=f.day
+        ? `<form class="ops-complete-all completion-row"><span><strong>Confirm completion</strong><br><small>${esc(f.course_name)} on ${esc(f.day)} \u2014 completes everyone whose attendance and exam are in order, and updates their training record.</small></span><input name="completion_date" type="date" value="${esc(completionDefault(open,f.day))}" required><button class="btn btn-primary btn-sm">Complete the batch</button></form>`
+        : '';
+      box.innerHTML='<div class="card-body"><div class="ops-days">'+strip+'</div>'+header+exam+bulk
         +(attempts.data.map(completionCard).join('')||'<p class="trg-help">Nothing awaiting a decision.</p>')+'</div>';
       box.querySelectorAll('.ops-result').forEach(x=>x.onsubmit=saveResult);
       box.querySelectorAll('.ops-complete').forEach(x=>x.onsubmit=complete);
       box.querySelectorAll('.ops-correct').forEach(x=>x.onsubmit=correct);
       box.querySelectorAll('.ops-outcome').forEach(x=>x.onsubmit=outcome);
       const all=box.querySelector('.ops-complete-all');if(all)all.onsubmit=completeWholeDay;
+      const ex=box.querySelector('.ops-exam');if(ex)ex.onsubmit=saveExamMarks;
       box.querySelectorAll('.ops-day').forEach(b=>b.onclick=()=>{completionFilter={day:b.dataset.day,course_id:b.dataset.course,course_name:b.dataset.name};loadCompletionLetters()});
       const clear=box.querySelector('.ops-day-clear');if(clear)clear.onclick=()=>{completionFilter={day:null,course_id:null,course_name:''};loadCompletionLetters()};
     }catch(e){box.innerHTML='<div class="card-body">'+esc(e.message)+'</div>';}}
   function completionCard(a){const defs=[...new Map(a.assessments.map(x=>[x.assessment_id,x])).values()];return `<section class="card" style="margin:12px"><div class="card-header"><h4>${esc(person(a))} · ${esc(a.course_name)}</h4><span class="status">${esc(a.outcome)}</span></div><div class="card-body"><p class="trg-help">Letter ${esc(a.letter_no)} · joined ${esc(a.joining_date)} · ${attSummary(a)}</p>${a.outcome==='in_progress'?defs.map(d=>`<form class="ops-result form-row" data-id="${a.attempt_id}"><input type="hidden" name="assessment_id" value="${d.assessment_id}"><strong>${esc(d.assessment_name)}</strong><input name="exam_date" type="date" required><input name="marks" type="number" step="0.01" max="${d.maximum_marks}" placeholder="Marks / ${d.maximum_marks}" required><input name="reason" value="Assessment result" required><button class="btn btn-outline btn-sm">Record / re-exam</button><small>${a.assessments.filter(x=>x.assessment_id===d.assessment_id&&x.result).map(x=>'Exam '+x.exam_no+': '+x.result+' ('+x.marks+')').join(', ')}</small></form>`).join('')+`<form class="ops-complete form-row" data-id="${a.attempt_id}"><input name="completion_date" type="date" required><button class="btn btn-success btn-sm">Confirm completion</button></form><form class="ops-outcome form-row" data-id="${a.attempt_id}"><select name="outcome"><option value="failed">Failed</option><option value="repeat_required">Repeat required</option><option value="withdrawn">Withdrawn</option></select><input name="reason" placeholder="Mandatory reason" required><button class="btn btn-outline btn-sm">Save outcome</button></form>`:''}${a.outcome==='passed'?`<p>Confirmed: ${esc(a.completion_date)}</p><form class="ops-correct form-row" data-id="${a.attempt_id}"><input name="completion_date" type="date" value="${esc(a.completion_date)}" required><input name="reason" placeholder="Mandatory correction reason" required><button class="btn btn-outline btn-sm">Correct date</button></form><details><summary>Completion revisions</summary>${a.completions.map(c=>'Revision '+c.revision+': '+esc(c.completion_date)+' · '+esc(c.event_type)+' · '+esc(c.confirmed_by)).join('<br>')}</details>`:''}</div></section>`;}
   async function saveResult(e){e.preventDefault();const f=Object.fromEntries(new FormData(e.currentTarget));f.assessment_id=Number(f.assessment_id);f.marks=Number(f.marks);try{await request(`/attempts/${e.currentTarget.dataset.id}/assessments`,{method:'POST',body:JSON.stringify(f)});notify('Assessment result recorded');loadCompletionLetters();}catch(e){notify(e.message,'error')}}
+  // A one-day course completes on its own day. A longer one completes at the
+  // end, not on the day the batch started — which is what the day strip names.
+  function completionDefault(rows,day){
+    const multi=rows.find(a=>Number(a.working_days)>1);
+    if(!multi)return day;
+    return multi.expected_end_date||new Date().toISOString().slice(0,10);
+  }
+  async function saveExamMarks(e){
+    e.preventDefault();
+    const form=e.currentTarget;
+    const examDate=form.querySelector('input[name=exam_date]').value;
+    const results=[...form.querySelectorAll('.exam-row')].map(r=>({
+      attempt_id:Number(r.dataset.attempt),
+      marks:r.querySelector('.exam-marks').value,
+      exam_date:r.querySelector('.exam-date').value||undefined
+    }));
+    const button=form.querySelector('button');button.disabled=true;
+    try{
+      const r=await request('/assessments/bulk',{method:'POST',body:JSON.stringify({exam_date:examDate,results})});
+      const passed=r.recorded.filter(x=>x.result==='pass').length;
+      const failedMarks=r.recorded.filter(x=>x.result==='fail').length;
+      let msg=`${r.recorded.length} recorded \u2014 ${passed} pass, ${failedMarks} fail`;
+      if(r.skipped)msg+=`, ${r.skipped} left blank`;
+      if(r.failed.length)msg+=`. Not recorded: `+r.failed.map(x=>x.reason).join('; ');
+      notify(msg,r.failed.length?'error':undefined);
+      loadCompletionLetters();
+    }catch(e){notify(e.message,'error')}finally{button.disabled=false}
+  }
   async function completeWholeDay(e){
     e.preventDefault();
     const f=Object.fromEntries(new FormData(e.currentTarget));

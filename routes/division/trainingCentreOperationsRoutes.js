@@ -54,7 +54,7 @@ router.get('/attempts/days',endpoint(async(req,res)=>{
     const data=[...single.slice(0,30),...multi.slice(0,10)].sort((a,b)=>b.day<a.day?-1:b.day>a.day?1:a.course_id-b.course_id);
     res.json({data});
 }));
-router.get('/attempts',endpoint(async(req,res)=>{const state=['open','done','all'].includes(req.query.state)?req.query.state:'open';const day=req.query.day?date(req.query.day):null;const courseId=req.query.course_id?id(req.query.course_id):null;const activeOn=req.query.active_on?date(req.query.active_on):null;const [data]=await req.app.locals.pool.query(`SELECT a.*,DATE_FORMAT(a.joining_date,'%Y-%m-%d') joining_date,DATE_FORMAT(a.completion_date,'%Y-%m-%d') completion_date,n.identity_snapshot,c.course_code,c.course_name,r.working_days,r.assessment_configured,l.letter_no FROM div_training_attempts a JOIN div_training_nominees n ON n.nominee_id=a.nominee_id JOIN div_training_letters l ON l.id=a.letter_id JOIN div_training_course_rules r ON r.rule_id=a.rule_id JOIN div_training_courses c ON c.course_id=r.course_id WHERE a.training_center_id=?
+router.get('/attempts',endpoint(async(req,res)=>{const state=['open','done','all'].includes(req.query.state)?req.query.state:'open';const day=req.query.day?date(req.query.day):null;const courseId=req.query.course_id?id(req.query.course_id):null;const activeOn=req.query.active_on?date(req.query.active_on):null;const [data]=await req.app.locals.pool.query(`SELECT a.*,DATE_FORMAT(a.joining_date,'%Y-%m-%d') joining_date,DATE_FORMAT(a.completion_date,'%Y-%m-%d') completion_date,n.identity_snapshot,c.course_code,c.course_name,r.working_days,r.assessment_configured,l.letter_no,DATE_FORMAT(bs.expected_end_date,'%Y-%m-%d') expected_end_date FROM div_training_attempts a JOIN div_training_nominees n ON n.nominee_id=a.nominee_id JOIN div_training_letters l ON l.id=a.letter_id LEFT JOIN div_training_batch_settings bs ON bs.calendar_id=a.calendar_id JOIN div_training_course_rules r ON r.rule_id=a.rule_id JOIN div_training_courses c ON c.course_id=r.course_id WHERE a.training_center_id=?
           ${state==='open'?"AND a.outcome='in_progress'":state==='done'?"AND a.outcome='passed'":''}
           ${day?'AND a.joining_date=?':''}
           ${courseId?'AND c.course_id=?':''}
@@ -120,6 +120,45 @@ router.post('/attendance/bulk',endpoint(async(req,res)=>{
 }));
 router.post('/attempts/:attemptId/attendance',endpoint(async(req,res)=>{const attempt=id(req.params.attemptId),attendanceDate=date(req.body.attendance_date),status=req.body.status,remarks=text(req.body.remarks,1000),reason=text(req.body.reason,1000);if(!['present','absent','leave'].includes(status))throw fail(400,'Invalid attendance status');await write(req,async c=>{const a=await lockedAttempt(c,req,attempt);if(a.outcome!=='in_progress')throw fail(409,'Attendance is closed for this attempt');if(attendanceDate<day(a.joining_date))throw fail(400,'Attendance cannot precede joining');const [[holiday]]=await c.query("SELECT 1 ok FROM div_training_center_holidays WHERE training_center_id=? AND holiday_date=?",[req.trainingCentreId,attendanceDate]);if(parseDate(attendanceDate).getUTCDay()===0||holiday)throw fail(400,'Attendance cannot be marked on a Sunday or centre holiday');const [[old]]=await c.query("SELECT DATE_FORMAT(attendance_date,'%Y-%m-%d') attendance_date,status,remarks FROM div_training_daily_attendance WHERE attempt_id=? AND attendance_date=?",[attempt,attendanceDate]);if(old&&!reason)throw fail(400,'A reason is required to correct attendance already marked');await c.query(`INSERT INTO div_training_daily_attendance(attempt_id,attendance_date,status,remarks,marked_by) VALUES(?,?,?,?,?) ON DUPLICATE KEY UPDATE status=VALUES(status),remarks=VALUES(remarks),marked_by=VALUES(marked_by),marked_at=CURRENT_TIMESTAMP`,[attempt,attendanceDate,status,remarks,req.trainingActor]);await audit(c,req,'attendance',attempt+':'+attendanceDate,old?'correct':'mark',reason||'Attendance marked',old||null,{attendance_date:attendanceDate,status,remarks});});res.json({success:true});}));
 
+// A batch sits one exam on one day. The centre types the date once and the
+// marks per man; pass or fail follows from the configured passing marks. A
+// blank mark means he did not sit it — he keeps his attempt and can be
+// examined on another day.
+router.post('/assessments/bulk',endpoint(async(req,res)=>{
+    const examDate=date(req.body.exam_date);
+    const rows=Array.isArray(req.body.results)?req.body.results:[];
+    if(!rows.length||rows.length>200)throw fail(400,'Enter marks for between 1 and 200 trainees');
+    const recorded=[],failed=[];let skipped=0;
+    for(const row of rows){
+        const attempt=id(row.attempt_id);
+        const raw=row.marks;
+        if(raw===''||raw===null||raw===undefined){skipped++;continue}
+        const marks=Number(raw);
+        if(!Number.isFinite(marks)||marks<0){failed.push({attempt_id:attempt,reason:'Marks must be a number'});continue}
+        const when=row.exam_date?date(row.exam_date):examDate;
+        try{
+            const out=await write(req,async c=>{
+                const a=await lockedAttempt(c,req,attempt);
+                if(a.outcome!=='in_progress')throw fail(409,'Assessment is closed for this attempt');
+                const [[d]]=await c.query('SELECT * FROM div_training_assessment_definitions WHERE rule_id=? AND is_required=1 ORDER BY assessment_id LIMIT 1',[a.rule_id]);
+                if(!d)throw fail(404,'No assessment is configured for this course');
+                if(marks>Number(d.maximum_marks))throw fail(400,'Marks exceed the maximum of '+d.maximum_marks);
+                const [[last]]=await c.query('SELECT COALESCE(MAX(exam_no),0) n FROM div_training_assessment_results WHERE attempt_id=? AND assessment_id=?',[attempt,d.assessment_id]);
+                const exam=last.n+1,result=marks>=Number(d.passing_marks)?'pass':'fail';
+                const [ins]=await c.query(`INSERT INTO div_training_assessment_results(attempt_id,assessment_id,rule_id,exam_no,exam_date,marks,result,recorded_by)
+                    VALUES(?,?,?,?,?,?,?,?)`,[attempt,d.assessment_id,a.rule_id,exam,when,marks,result,req.trainingActor]);
+                await audit(c,req,'assessment_result',ins.insertId,'record',exam>1?'Re-examination recorded':'Assessment result recorded',null,{attempt_id:attempt,assessment_id:d.assessment_id,exam_no:exam,exam_date:when,marks,result});
+                return{result,exam_no:exam};
+            });
+            recorded.push({attempt_id:attempt,marks,...out});
+        }catch(e){
+            // Log it: a swallowed exception here cost a debugging round trip.
+            if(!e.status)console.error('Bulk assessment:',e.code||e.message);
+            failed.push({attempt_id:attempt,reason:e.status?e.message:'Could not be recorded'});
+        }
+    }
+    res.json({exam_date:examDate,recorded,skipped,failed});
+}));
 router.post('/attempts/:attemptId/assessments',endpoint(async(req,res)=>{const attempt=id(req.params.attemptId),assessment=id(req.body.assessment_id),examDate=date(req.body.exam_date),absent=req.body.absent===true,reason=text(req.body.reason,1000,true);const marks=absent?null:Number(req.body.marks);if(!absent&&(!Number.isFinite(marks)||marks<0))throw fail(400,'Enter valid marks');const out=await write(req,async c=>{const a=await lockedAttempt(c,req,attempt);if(a.outcome!=='in_progress')throw fail(409,'Assessment is closed for this attempt');const [[d]]=await c.query('SELECT * FROM div_training_assessment_definitions WHERE assessment_id=? AND rule_id=?',[assessment,a.rule_id]);if(!d)throw fail(404,'Assessment component not found');if(!absent&&marks>Number(d.maximum_marks))throw fail(400,'Marks exceed maximum');const [[last]]=await c.query('SELECT COALESCE(MAX(exam_no),0) n FROM div_training_assessment_results WHERE attempt_id=? AND assessment_id=?',[attempt,assessment]);const exam=last.n+1,result=absent?'absent':marks>=Number(d.passing_marks)?'pass':'fail';const [ins]=await c.query(`INSERT INTO div_training_assessment_results(attempt_id,assessment_id,rule_id,exam_no,exam_date,marks,result,recorded_by) VALUES(?,?,?,?,?,?,?,?)`,[attempt,assessment,a.rule_id,exam,examDate,marks,result,req.trainingActor]);await audit(c,req,'assessment_result',ins.insertId,'record',reason,null,{attempt_id:attempt,assessment_id:assessment,exam_no:exam,marks,result});return{result_id:ins.insertId,exam_no:exam,result};});res.status(201).json(out);}));
 
 async function validateCompletion(c,req,a,completion){if(completion<day(a.joining_date))throw fail(400,'Completion cannot precede joining');const end=expectedEnd(day(a.joining_date),a.working_days,await holidays(c,req.trainingCentreId));if(completion<end)throw fail(409,'Completion is before the expected course end',{expected_completion:end});const [att]=await c.query("SELECT DATE_FORMAT(attendance_date,'%Y-%m-%d') d,status FROM div_training_daily_attendance WHERE attempt_id=? AND attendance_date BETWEEN ? AND ?",[a.attempt_id,day(a.joining_date),completion]);const absent=att.filter(x=>x.status!=='present').length;if(att.length<a.working_days)throw fail(409,'Daily attendance is incomplete',{required_days:a.working_days,marked_days:att.length});if((a.working_days===1&&absent)||(a.working_days>1&&absent>2))throw fail(409,'Attendance requires a repeat course',{non_present_days:absent});if(!a.assessment_configured)throw fail(409,'Configure assessment requirements before completion');const [missing]=await c.query(`SELECT d.assessment_id,d.assessment_name FROM div_training_assessment_definitions d WHERE d.rule_id=? AND d.is_required=1 AND COALESCE((SELECT x.result FROM div_training_assessment_results x WHERE x.attempt_id=? AND x.assessment_id=d.assessment_id ORDER BY x.exam_no DESC LIMIT 1),'fail')<>'pass'`,[a.rule_id,a.attempt_id]);if(missing.length)throw fail(409,'Required assessments are not passed',{assessments:missing});}
@@ -127,7 +166,16 @@ async function renewals(c,req,a,completionId,completionDate,previous={}){const [
 
 // One trainee's completion. The bulk route runs this too, so a rule can
 // never apply to an individual and not to a batch.
-async function completeOne(c,req,attempt,completion,key){const [[existing]]=await c.query('SELECT completion_id,attempt_id,revision FROM div_training_completion_events WHERE request_key=?',[key]);if(existing){if(Number(existing.attempt_id)!==attempt)throw fail(409,'Request key was already used');return{completion_id:existing.completion_id,revision:existing.revision,idempotent:true};}const a=await lockedAttempt(c,req,attempt);if(a.outcome!=='in_progress')throw fail(409,'Only an in-progress attempt can be completed');await validateCompletion(c,req,a,completion);const [ins]=await c.query(`INSERT INTO div_training_completion_events(attempt_id,revision,completion_date,event_type,request_key,confirmed_by) VALUES(?,1,?,'confirmed',?,?)`,[attempt,completion,key,req.trainingActor]);await renewals(c,req,a,ins.insertId,completion);await c.query("UPDATE div_training_attempts SET completion_date=?,outcome='passed' WHERE attempt_id=?",[completion,attempt]);const [[remaining]]=await c.query("SELECT COUNT(*) n FROM div_training_nominees n LEFT JOIN div_training_attempts a ON a.nominee_id=n.nominee_id WHERE n.letter_id=? AND n.decision='accepted' AND COALESCE(a.outcome,'pending')<>'passed'",[a.letter_id]);if(!remaining.n){await c.query("UPDATE div_training_letter_workflows SET workflow_status='completed',updated_by=? WHERE letter_id=?",[req.trainingActor,a.letter_id]);await c.query("UPDATE div_training_letters SET status='completed',completed_at=NOW() WHERE id=?",[a.letter_id]);}await audit(c,req,'completion',ins.insertId,'confirm','Centre confirmed individual completion',null,{attempt_id:attempt,completion_date:completion});return{completion_id:ins.insertId,revision:1};}
+async function completeOne(c,req,attempt,completion,key){const [[existing]]=await c.query('SELECT completion_id,attempt_id,revision FROM div_training_completion_events WHERE request_key=?',[key]);if(existing){if(Number(existing.attempt_id)!==attempt)throw fail(409,'Request key was already used');return{completion_id:existing.completion_id,revision:existing.revision,idempotent:true};}const a=await lockedAttempt(c,req,attempt);if(a.outcome!=='in_progress')throw fail(409,'Only an in-progress attempt can be completed');await validateCompletion(c,req,a,completion);const [ins]=await c.query(`INSERT INTO div_training_completion_events(attempt_id,revision,completion_date,event_type,request_key,confirmed_by) VALUES(?,1,?,'confirmed',?,?)`,[attempt,completion,key,req.trainingActor]);await renewals(c,req,a,ins.insertId,completion);await c.query("UPDATE div_training_attempts SET completion_date=?,outcome='passed' WHERE attempt_id=?",[completion,attempt]);const [[remaining]]=await c.query("SELECT COUNT(*) n FROM div_training_nominees n LEFT JOIN div_training_attempts a ON a.nominee_id=n.nominee_id WHERE n.letter_id=? AND n.decision='accepted' AND COALESCE(a.outcome,'pending')<>'passed'",[a.letter_id]);if(!remaining.n){await c.query("UPDATE div_training_letter_workflows SET workflow_status='completed',updated_by=? WHERE letter_id=?",[req.trainingActor,a.letter_id]);await c.query("UPDATE div_training_letters SET status='completed',completed_at=NOW() WHERE id=?",[a.letter_id]);}// A batch closes when nobody on it is still in progress. Someone failed or
+    // withdrawn does not hold it open — he is no longer attending.
+    if(a.calendar_id){
+        const [[{still}]]=await c.query("SELECT COUNT(*) still FROM div_training_attempts WHERE calendar_id=? AND outcome='in_progress'",[a.calendar_id]);
+        if(!still){
+            await c.query("UPDATE div_training_calendar SET status='completed',to_date=? WHERE id=? AND status<>'cancelled'",[completion,a.calendar_id]);
+            await audit(c,req,'batch',a.calendar_id,'close','Every trainee on the batch has a final outcome',null,{to_date:completion,status:'completed'});
+        }
+    }
+    await audit(c,req,'completion',ins.insertId,'confirm','Centre confirmed individual completion',null,{attempt_id:attempt,completion_date:completion});return{completion_id:ins.insertId,revision:1};}
 // End of the day: the centre marks the day's trainees attended. Each one is
 // completed in its own transaction, so a man who cannot be completed — absent,
 // assessment outstanding — does not roll back the rest. Every rule still runs.
