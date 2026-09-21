@@ -435,6 +435,14 @@ router.post('/daily/export/xlsx', async (req, res) => {
       rep.tables.forEach((t) => {
         ws.addRow([]);
         ws.addRow([t.title]).font = { name: 'Arial', size: 11, bold: true, color: { argb: 'FF1F3A5F' } };
+        if (typeof t.note === 'string' && t.note) {
+          ws.addRow([t.note]).font = { name: 'Arial', size: 9, italic: true, color: { argb: 'FF5D6B7E' } };
+        }
+        const alertCols = Array.isArray(t.alertCols) ? t.alertCols : [];
+        // A non-zero count in an alert column is a case to explain — red, as on the page.
+        const markAlerts = (row, cells) => alertCols.forEach((ci) => {
+          if (Number(cells[ci]) > 0) row.getCell(ci + 1).font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FFC8462F' } };
+        });
         const head = ws.addRow(t.headers);
         head.font = { name: 'Arial', bold: true, color: { argb: 'FFFFFFFF' } };
         head.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
@@ -442,10 +450,11 @@ router.post('/daily/export/xlsx', async (req, res) => {
         if (t.rows.length === 0) {
           ws.addRow([t.emptyText || 'None.']).font = { name: 'Arial', size: 10, italic: true };
         }
-        t.rows.forEach((r) => { ws.addRow(r).font = { name: 'Arial', size: 10 }; });
+        t.rows.forEach((r) => { const row = ws.addRow(r); row.font = { name: 'Arial', size: 10 }; markAlerts(row, r); });
         if (Array.isArray(t.total)) {
           const tot = ws.addRow(t.total);
           tot.font = { name: 'Arial', bold: true };
+          markAlerts(tot, t.total);
           tot.eachCell({ includeEmpty: true }, (c, n) => {
             if (n <= t.headers.length) c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEEF2F7' } };
           });
@@ -480,8 +489,12 @@ function drawDailyTable(doc, t, { x, width, usableBottom }) {
 
   if (doc.y + headH + rowH * 2 + 20 > usableBottom) doc.addPage();
   doc.font('Helvetica-Bold').fontSize(10).fillColor('#1F3A5F').text(t.title, x, doc.y);
+  if (typeof t.note === 'string' && t.note) {
+    doc.font('Helvetica-Oblique').fontSize(8).fillColor('#5D6B7E').text(t.note, x, doc.y + 1, { width });
+  }
   doc.fillColor('#000').moveDown(0.25);
   let y = doc.y;
+  const alertCols = Array.isArray(t.alertCols) ? t.alertCols : [];
 
   const drawHead = () => {
     let cx = x;
@@ -500,7 +513,8 @@ function drawDailyTable(doc, t, { x, width, usableBottom }) {
     for (let i = 0; i < n; i++) {
       if (o.fill) doc.rect(cx, y, colW[i], rowH).fillAndStroke(o.fill, '#D0D5DD');
       else doc.rect(cx, y, colW[i], rowH).stroke('#D0D5DD');
-      doc.font(o.bold ? 'Helvetica-Bold' : 'Helvetica').fontSize(8.5).fillColor('#000')
+      const alert = alertCols.includes(i) && Number(cells[i]) > 0;
+      doc.font(o.bold || alert ? 'Helvetica-Bold' : 'Helvetica').fontSize(8.5).fillColor(alert ? '#C8462F' : '#000')
         .text(String(cells[i] == null ? '' : cells[i]), cx + 4, y + 4,
           { width: colW[i] - 8, height: rowH - 4, align: isText[i] ? 'left' : 'center', ellipsis: true });
       cx += colW[i];

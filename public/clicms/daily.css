@@ -72,6 +72,9 @@
 .rtable thead th.txt { text-align: left; }
 .rtable td.n { text-align: center; font-family: var(--mono); font-size: 13px; }
 .rtable td.n.zero { color: #b3bcc8; }
+/* alertCols: a non-zero count here is a case to explain (FSD N, …). */
+.rtable td.n.alert { color: var(--alert); font-weight: 700; background: #fdf0ed; }
+.rtable .tnote { font-size: 12.5px; color: var(--muted); margin: -2px 0 8px; }
 .rtable tr.total td { font-weight: 700; background: #eef2f7; border-top: 2px solid var(--navy); }
 
 @media (max-width: 720px) {
