@@ -476,6 +476,11 @@ router.post('/daily/export/xlsx', async (req, res) => {
   }
 });
 
+// Title + note + header + rows + total, in points. Keep in step with headH/rowH below.
+function dailyTableHeight(t) {
+  return 34 + 28 + 16 * (Math.max(t.rows.length, 1) + (Array.isArray(t.total) ? 1 : 0));
+}
+
 // Draw one generic table at doc.y. Text columns are left-aligned and wider; counts centred.
 function drawDailyTable(doc, t, { x, width, usableBottom }) {
   const n = t.headers.length;
@@ -487,7 +492,12 @@ function drawDailyTable(doc, t, { x, width, usableBottom }) {
   const headH = 28;
   const rowH = 16;
 
-  if (doc.y + headH + rowH * 2 + 20 > usableBottom) doc.addPage();
+  // Keep a table whole: if it will not fit in what is left of this page but would fit
+  // on a fresh one, start it there. Longer tables flow on, repeating their header.
+  const fullH = dailyTableHeight(t);
+  const pageH = usableBottom - doc.page.margins.top;
+  const room = usableBottom - doc.y;
+  if ((fullH > room && fullH <= pageH) || headH + rowH * 2 + 20 > room) doc.addPage();
   doc.font('Helvetica-Bold').fontSize(10).fillColor('#1F3A5F').text(t.title, x, doc.y);
   if (typeof t.note === 'string' && t.note) {
     doc.font('Helvetica-Oblique').fontSize(8).fillColor('#5D6B7E').text(t.note, x, doc.y + 1, { width });
@@ -551,7 +561,10 @@ router.post('/daily/export/pdf', (req, res) => {
     doc.moveDown(0.6);
 
     reports.forEach((rep) => {
-      if (doc.y + 90 > usableBottom) doc.addPage();
+      // Never leave a report heading stranded: it travels with its first table.
+      const firstH = 30 + (rep.tables[0] ? dailyTableHeight(rep.tables[0]) : 60);
+      const pageH = usableBottom - doc.page.margins.top;
+      if (doc.y + Math.min(firstH, pageH) > usableBottom) doc.addPage();
       doc.font('Helvetica-Bold').fontSize(11.5).fillColor('#000').text(rep.label, x, doc.y);
       doc.moveTo(x, doc.y + 2).lineTo(x + width, doc.y + 2).stroke('#1F3A5F');
       doc.moveDown(0.5);
