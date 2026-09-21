@@ -129,10 +129,15 @@
             ${needsExam.map(a=>`<div class="completion-row exam-row" data-attempt="${a.attempt_id}"><span>${esc(person(a))}</span><input class="exam-marks" type="number" min="0" step="0.5" placeholder="marks"><input class="exam-date" type="date" title="Different exam date for this trainee"></div>`).join('')}
           </form>`
         : '';
+      const done=attempts.data.filter(a=>a.outcome==='passed');
+      const batchId=(done.find(a=>a.calendar_id)||{}).calendar_id;
+      const letterBtn=done.length
+        ? `<div class="completion-row"><span><strong>Examination result letter</strong><br><small>${done.length} completed on this day. Marks and names come from the record; dates and wording are yours to edit.</small></span><a class="btn btn-outline btn-sm" target="_blank" href="/div/training-result-letter.html?${batchId?('calendar_id='+batchId):('letter_id='+(done[0].letter_id||''))}${(getApiParam&&getApiParam())?('&'+getApiParam()):''}">Open letter</a></div>`
+        : '';
       const bulk=f.day
         ? `<form class="ops-complete-all completion-row"><span><strong>Confirm completion</strong><br><small>${esc(f.course_name)} on ${esc(f.day)} \u2014 completes everyone whose attendance and exam are in order, and updates their training record.</small></span><input name="completion_date" type="date" value="${esc(completionDefault(open,f.day))}" required><button class="btn btn-primary btn-sm">Complete the batch</button></form>`
         : '';
-      box.innerHTML='<div class="card-body"><div class="ops-days">'+strip+'</div>'+header+exam+bulk
+      box.innerHTML='<div class="card-body"><div class="ops-days">'+strip+'</div>'+header+exam+bulk+letterBtn
         +(attempts.data.map(completionCard).join('')||'<p class="trg-help">Nothing awaiting a decision.</p>')+'</div>';
       box.querySelectorAll('.ops-result').forEach(x=>x.onsubmit=saveResult);
       box.querySelectorAll('.ops-complete').forEach(x=>x.onsubmit=complete);

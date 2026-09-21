@@ -8,7 +8,11 @@ const text=(v,n,required=false)=>{if(v==null&&!required)return null;if(typeof v!
 const date=v=>{try{parseDate(v);return v;}catch(e){throw fail(400,e.message);}};
 const day=v=>typeof v==='string'?v.slice(0,10):v.toISOString().slice(0,10);
 const json=v=>typeof v==='string'?JSON.parse(v):v;
-const endpoint=fn=>async(req,res,next)=>{try{await fn(req,res,next);}catch(e){if(!e.status)console.error('Training centre operations:',e.code||e.message);res.status(e.status||500).json({error:e.status?e.message:'Unable to complete this request',...(e.details||{})});}};
+const endpoint=fn=>async(req,res,next)=>{try{await fn(req,res,next);}catch(e){
+    // Log the path with the message. A bare "Invalid identifier" in the browser
+    // says nothing about which call sent what, which cost real time to chase.
+    console.error('Training centre operations:',req.method,req.originalUrl,'->',e.status||500,e.status?e.message:(e.code||e.message));
+    res.status(e.status||500).json({error:e.status?e.message:'Unable to complete this request',...(e.details||{})});}};
 
 router.use(endpoint(async(req,res,next)=>{
   const u=req.session?.user;
@@ -124,6 +128,118 @@ router.post('/attempts/:attemptId/attendance',endpoint(async(req,res)=>{const at
 // marks per man; pass or fail follows from the configured passing marks. A
 // blank mark means he did not sit it — he keeps his attempt and can be
 // examined on another day.
+// The centre's examination result letter. Everything but three fields is read
+// live from the record, so a name corrected in the register shows corrected.
+// The exam date, the viva date and the "found suitable" sentence are the
+// centre's own words and are stored, so a reprint gives the same document.
+// The office writes dates as 15.09.2026.
+const fmtOffice=d=>{if(!d)return '';const [y,m,dd]=String(d).split('-');return `${dd}.${m}.${y}`;};
+const LETTER_PREFIX={MM_PROMOTION:'MPC',MM_REFRESHER:'MMRC',AUTOMATIC:'MMOD',MEMU_CONVERSION:'MMMI',MEMU_REFRESHER:'MMMR'};
+router.get('/result-letter',endpoint(async(req,res)=>{
+    const calendar=req.query.calendar_id?id(req.query.calendar_id):null;
+    const letter=req.query.letter_id?id(req.query.letter_id):null;
+    if(!calendar===!letter)throw fail(400,'Name either a batch or a letter');
+    const pool=req.app.locals.pool;
+
+    const [rows]=await pool.query(`SELECT a.attempt_id,DATE_FORMAT(a.joining_date,'%Y-%m-%d') joining_date,
+            DATE_FORMAT(a.completion_date,'%Y-%m-%d') completion_date,a.outcome,
+            n.identity_snapshot,c.course_code,c.course_name,r.working_days,
+            cal.batch_code,DATE_FORMAT(cal.from_date,'%Y-%m-%d') batch_from,
+            l.id AS letter_id,l.letter_no AS source_letter_no,DATE_FORMAT(l.letter_date,'%Y-%m-%d') source_letter_date,
+            (SELECT x.marks FROM div_training_assessment_results x
+              WHERE x.attempt_id=a.attempt_id ORDER BY x.exam_no DESC LIMIT 1) AS marks,
+            (SELECT x.result FROM div_training_assessment_results x
+              WHERE x.attempt_id=a.attempt_id ORDER BY x.exam_no DESC LIMIT 1) AS exam_result,
+            (SELECT DATE_FORMAT(MIN(x.exam_date),'%Y-%m-%d') FROM div_training_assessment_results x WHERE x.attempt_id=a.attempt_id) AS first_exam_date
+        FROM div_training_attempts a
+        JOIN div_training_nominees n ON n.nominee_id=a.nominee_id
+        JOIN div_training_letters l ON l.id=a.letter_id
+        JOIN div_training_course_rules r ON r.rule_id=a.rule_id
+        JOIN div_training_courses c ON c.course_id=r.course_id
+        LEFT JOIN div_training_calendar cal ON cal.id=a.calendar_id
+        WHERE a.training_center_id=? AND ${calendar?'a.calendar_id=?':'a.letter_id=?'}
+          AND a.outcome='passed'
+        ORDER BY a.attempt_id`,[req.trainingCentreId,calendar||letter]);
+    if(!rows.length)throw fail(404,'Nobody on this batch has completed yet');
+
+    const [[centre]]=await pool.query('SELECT center_code,center_name,location FROM div_training_centers WHERE center_id=?',[req.trainingCentreId]);
+    const first=rows[0];
+    const trainees=rows.map((x,i)=>{
+        const who=json(x.identity_snapshot)||{};
+        return {sr_no:i+1,name:who.name,cms_id:who.cms_id,hrms_id:who.hrms_id,
+                marks:x.marks==null?null:Number(x.marks),
+                result:x.exam_result,remark:x.exam_result==='pass'?'SUITABLE':null,
+                completion_date:x.completion_date};
+    });
+    // One batch can be fed by several lobby letters; the Ref line names them all.
+    const refs=[...new Map(rows.map(x=>[x.letter_id,{letter_no:x.source_letter_no,letter_date:x.source_letter_date}])).values()];
+
+    const [[saved]]=await pool.query(`SELECT * FROM div_training_result_letters
+        WHERE training_center_id=? AND ${calendar?'calendar_id=?':'letter_id=?'}`,[req.trainingCentreId,calendar||letter]);
+
+    const courseEnd=trainees.map(t=>t.completion_date).filter(Boolean).sort().pop();
+    // The exam day is the one the batch sat; a re-examination for one or two
+    // is not the batch's date. The centre edits it for those who sat later.
+    const examTally=new Map();
+    for(const x of rows)if(x.first_exam_date)examTally.set(x.first_exam_date,(examTally.get(x.first_exam_date)||0)+1);
+    const batchExamDate=[...examTally.entries()].sort((a,b)=>b[1]-a[1]||(a[0]<b[0]?-1:1))[0]?.[0]||null;
+    const seq=first.batch_code?String(first.batch_code).split('-').pop().replace(/^0+/,''):first.letter_id;
+    res.json({
+        centre,
+        course:{code:first.course_code,name:first.course_name,working_days:first.working_days},
+        batch:{calendar_id:calendar,batch_code:first.batch_code,from_date:first.batch_from||first.joining_date},
+        course_end:courseEnd,
+        refs,
+        trainees,
+        saved:saved||null,
+        defaults:{
+            // MTC's own numbering: MTC.CLA.MPC.81 — centre, course prefix, batch number.
+            letter_no:`MTC.${(centre.center_code||'').replace('MTC_','').replace('DTC_','')}.${LETTER_PREFIX[first.course_code]||'GEN'}.${seq}`,
+            letter_date:new Date().toISOString().slice(0,10),
+            exam_date:batchExamDate||courseEnd,
+            // Only the promotion course ends in a viva at the Sr.DEE office;
+            // a refresher does not, so its letter carries no viva line.
+            viva_date:first.course_code==='MM_PROMOTION'?courseEnd:null,
+            // Sr.DEE (TRS-O) receives the promotion result, which ends in a
+            // viva at his office. Other courses go elsewhere; the centre says
+            // where rather than the system assuming.
+            addressee:first.course_code==='MM_PROMOTION'?'Sr.DEE (TRS-O) CSMT':'',
+            copy_to:first.course_code==='MM_PROMOTION'?'Sr. DPO, CSMT':'',
+            // MTC's own wording. The rake list and the section vary by batch,
+            // so the centre edits this; everything else it should not have to
+            // retype.
+            body_text:first.course_code==='MM_PROMOTION'
+                ? `Enclosed here with the list of ${trainees.length} LPP/LPG who have completed their Motorman training at ${centre.center_name} From ${fmtOffice(first.batch_from||first.joining_date)} to ${fmtOffice(courseEnd)} and found suitable to work as Motorman only on HB section with Siemens, Bombardier, MEDHA, AC Retrofit and BHEL AC EMU Rakes.`
+                : `Enclosed here with the list of ${trainees.length} staff who have completed their ${first.course_name} at ${centre.center_name} From ${fmtOffice(first.batch_from||first.joining_date)} to ${fmtOffice(courseEnd)} and found suitable.`
+        }
+    });
+}));
+router.post('/result-letter',endpoint(async(req,res)=>{
+    const calendar=req.body.calendar_id?id(req.body.calendar_id):null;
+    const letter=req.body.letter_id?id(req.body.letter_id):null;
+    if(!calendar===!letter)throw fail(400,'Name either a batch or a letter');
+    const out=await write(req,async c=>{
+        const row={
+            letter_no:text(req.body.letter_no,60,true),
+            letter_date:date(req.body.letter_date),
+            exam_date:req.body.exam_date?date(req.body.exam_date):null,
+            viva_date:req.body.viva_date?date(req.body.viva_date):null,
+            body_text:text(req.body.body_text,4000),
+            addressee:text(req.body.addressee,255),
+            copy_to:text(req.body.copy_to,255)
+        };
+        await c.query(`INSERT INTO div_training_result_letters
+            (training_center_id,calendar_id,letter_id,letter_no,letter_date,exam_date,viva_date,body_text,addressee,copy_to,updated_by)
+            VALUES(?,?,?,?,?,?,?,?,?,?,?)
+            ON DUPLICATE KEY UPDATE letter_no=VALUES(letter_no),letter_date=VALUES(letter_date),exam_date=VALUES(exam_date),
+              viva_date=VALUES(viva_date),body_text=VALUES(body_text),addressee=VALUES(addressee),copy_to=VALUES(copy_to),
+              updated_by=VALUES(updated_by)`,
+            [req.trainingCentreId,calendar,letter,row.letter_no,row.letter_date,row.exam_date,row.viva_date,row.body_text,row.addressee,row.copy_to,req.trainingActor]);
+        await audit(c,req,'result_letter',String(calendar||letter),'save','Result letter details saved',null,row);
+        return row;
+    });
+    res.json(out);
+}));
 router.post('/assessments/bulk',endpoint(async(req,res)=>{
     const examDate=date(req.body.exam_date);
     const rows=Array.isArray(req.body.results)?req.body.results:[];

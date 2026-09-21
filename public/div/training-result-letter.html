@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Examination Result Letter</title>
+<style>
+  :root { --ink:#0f172a; --muted:#64748b; --border:#cbd5e1; --brand:#0e7490; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, sans-serif; color:var(--ink); background:#f1f5f9; }
+  .top { background:var(--brand); color:#fff; padding:14px 20px; display:flex;
+         justify-content:space-between; align-items:center; gap:14px; flex-wrap:wrap; }
+  .top h1 { margin:0; font-size:1.1rem; }
+  .btn { border:0; border-radius:8px; padding:8px 14px; font:inherit; font-weight:700; cursor:pointer; }
+  .primary { background:#fff; color:var(--brand); }
+  .ghost { background:transparent; color:#fff; border:1px solid rgba(255,255,255,.6); }
+  .layout { max-width:1180px; margin:18px auto; padding:0 16px; display:grid;
+            grid-template-columns: 300px minmax(0,1fr); gap:18px; align-items:start; }
+  .panel { background:#fff; border:1px solid var(--border); border-radius:12px; padding:16px; }
+  .panel h2 { margin:0 0 12px; font-size:.95rem; }
+  .field { display:flex; flex-direction:column; gap:4px; margin-bottom:12px; }
+  .field label { font-size:.72rem; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); font-weight:700; }
+  .field input, .field textarea { border:1px solid var(--border); border-radius:7px; padding:8px; font:inherit; }
+  .field textarea { min-height:90px; resize:vertical; }
+  .hint { font-size:.76rem; color:var(--muted); line-height:1.5; }
+
+  /* The letter itself — Central Railway office format */
+  .paper { background:#fff; border:1px solid var(--border); border-radius:4px;
+           padding:44px 52px; font-family:"Times New Roman", serif; font-size:15px; line-height:1.45; }
+  .crest { text-align:center; font-weight:700; letter-spacing:.06em; margin-bottom:18px; }
+  .head { display:flex; justify-content:space-between; gap:24px; margin-bottom:22px; }
+  .head .right { text-align:right; font-weight:700; }
+  .addressee { font-weight:700; margin:18px 0 14px; }
+  .line { margin:6px 0; }
+  .line b { font-weight:700; }
+  .body-text { margin:16px 0; text-align:justify; }
+  table { width:100%; border-collapse:collapse; margin:18px 0; }
+  th, td { border:1px solid #111; padding:6px 8px; }
+  th { text-align:center; font-weight:700; }
+  td.num, th.num { text-align:center; width:56px; }
+  td.mark, th.mark { text-align:center; width:130px; }
+  td.pct, th.pct { text-align:center; width:70px; }
+  td.rem, th.rem { text-align:center; width:120px; }
+  .sign { display:flex; justify-content:space-between; align-items:flex-end; margin-top:52px; gap:30px; }
+  .sign .right { text-align:right; font-weight:700; }
+  .foot { margin-top:26px; font-size:14px; }
+  .empty { padding:40px; text-align:center; color:var(--muted); }
+
+  @media (max-width:980px) { .layout { grid-template-columns:1fr; } }
+  @media print {
+    body { background:#fff; }
+    .top, .panel { display:none !important; }
+    .layout { display:block; padding:0; margin:0; max-width:none; }
+    .paper { border:0; border-radius:0; padding:0; }
+  }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <h1>Examination Result Letter <span id="scope"></span></h1>
+  <div>
+    <button class="btn primary" onclick="window.print()">Print / PDF</button>
+    <button class="btn ghost" id="save">Save details</button>
+    <button class="btn ghost" onclick="history.back()">Back</button>
+  </div>
+</header>
+
+<main class="layout">
+  <section class="panel">
+    <h2>Letter details</h2>
+    <div class="field"><label for="letter_no">Letter number</label><input id="letter_no" maxlength="60"></div>
+    <div class="field"><label for="letter_date">Letter date</label><input id="letter_date" type="date"></div>
+    <div class="field"><label for="exam_date">Written exam conducted on</label><input id="exam_date" type="date"></div>
+    <div class="field"><label for="viva_date">Viva voce conducted on</label><input id="viva_date" type="date"></div>
+    <div class="field"><label for="addressee">Addressed to</label><input id="addressee" maxlength="255"></div>
+    <div class="field"><label for="copy_to">Copy to</label><input id="copy_to" maxlength="255"></div>
+    <div class="field"><label for="body_text">Body</label><textarea id="body_text" maxlength="4000"></textarea></div>
+    <p class="hint">Names, marks and the trainee list come from the record and cannot be edited here. Correct a name in the trainee register and it corrects on this letter.</p>
+  </section>
+
+  <article class="paper" id="paper">
+    <div class="empty">Loading…</div>
+  </article>
+</main>
+
+<script>
+(() => {
+  const API = '/api/division/training-centre/operations';
+  const $ = id => document.getElementById(id);
+  const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const params = new URLSearchParams(location.search);
+  const key = params.get('calendar_id') ? 'calendar_id' : 'letter_id';
+  const value = params.get(key);
+  // A division_admin has no centre on the session; the portal passes the one
+  // selected in its dropdown, and this page must carry it too.
+  const centreParam = params.get('center_id') ? `&center_id=${encodeURIComponent(params.get('center_id'))}` : '';
+  const fields = ['letter_no','letter_date','exam_date','viva_date','addressee','copy_to','body_text'];
+  let data = null;
+
+  const fmt = d => {
+    if (!d) return '—';
+    const [y,m,dd] = String(d).split('-');
+    return `${dd}.${m}.${y}`;              // 15.09.2026, as the office writes it
+  };
+
+  function render() {
+    if (!data) return;
+    const t = data.trainees;
+    const refs = data.refs.map(r => `${esc(r.letter_no)} Dated ${fmt(r.letter_date)}`).join(' & ');
+    $('paper').innerHTML = `
+      <div class="crest">CENTRAL RAILWAY</div>
+      <div class="head">
+        <div><b>L.NO: ${esc($('letter_no').value)}</b></div>
+        <div class="right">
+          ${esc(data.centre.center_name)}<br>
+          ${esc(data.centre.location || '')}<br>
+          Date: ${fmt($('letter_date').value)}
+        </div>
+      </div>
+
+      ${$('addressee').value ? `<div class="addressee">${esc($('addressee').value)}</div>` : ''}
+
+      <div class="line"><b>Sub-:</b> Final Examination Result of ${esc(data.course.name)}${data.batch.batch_code ? ' Batch ' + esc(data.batch.batch_code) : ''}</div>
+      ${refs ? `<div class="line"><b>Ref-:</b> ${refs}</div>` : ''}
+
+      <div class="body-text">${esc($('body_text').value)}</div>
+
+      <div class="line">Technical &amp; Traffic written exam conducted on - <b>${fmt($('exam_date').value)}</b></div>
+      ${$('viva_date').value ? `<div class="line">Viva voce test conducted on - <b>${fmt($('viva_date').value)}</b></div>` : ''}
+
+      <table>
+        <thead><tr>
+          <th class="num">SR. NO</th><th>NAME</th><th class="mark">TRAFFIC+ TECH EXAM</th>
+          <th class="pct">%</th><th class="rem">REMARK</th>
+        </tr></thead>
+        <tbody>
+          ${t.map(x => `<tr>
+            <td class="num">${x.sr_no}</td>
+            <td>${esc(x.name)}</td>
+            <td class="mark">${x.marks ?? '—'}</td>
+            <td class="pct">${x.marks ?? '—'}</td>
+            <td class="rem">${esc(x.remark || '')}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+
+      <div class="sign">
+        <div>${esc($('addressee').value)}</div>
+        <div class="right">CLI TRG.<br>${esc(data.centre.center_name)}</div>
+      </div>
+
+      <div class="foot">
+        DA: List of trainees${$('copy_to').value ? `<br>C/- ${esc($('copy_to').value)}` : ''}
+      </div>`;
+  }
+
+  async function load() {
+    try {
+      const res = await fetch(`${API}/result-letter?${key}=${encodeURIComponent(value)}${centreParam}`);
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || 'Could not load the letter');
+      data = body;
+      const start = Object.assign({}, data.defaults, data.saved || {});
+      for (const f of fields) if (start[f] != null) $(f).value = String(start[f]).slice(0, f.endsWith('_date') ? 10 : undefined);
+      $('scope').textContent = data.batch.batch_code ? `· ${data.batch.batch_code}` : '';
+      document.title = `Result Letter ${data.batch.batch_code || ''}`.trim();
+      render();
+    } catch (e) {
+      $('paper').innerHTML = `<div class="empty">${esc(e.message)}</div>`;
+    }
+  }
+
+  fields.forEach(f => $(f).addEventListener('input', render));
+
+  $('save').addEventListener('click', async () => {
+    const payload = { [key]: Number(value) };
+    for (const f of fields) payload[f] = $(f).value || null;
+    try {
+      const res = await fetch(`${API}/result-letter?_=1${centreParam}`, {
+        method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload)
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || 'Could not save');
+      $('save').textContent = 'Saved';
+      setTimeout(() => ($('save').textContent = 'Save details'), 2000);
+    } catch (e) { alert(e.message); }
+  });
+
+  load();
+})();
+</script>
+</body>
+</html>

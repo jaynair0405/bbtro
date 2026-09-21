@@ -257,6 +257,15 @@ app.get('/div/training-centres-landing.html', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'div', 'training-centres-landing.html'));
 });
 
+// ✅ The centre's examination result letter, gated like the portal it prints from
+app.get('/div/training-result-letter.html', (req, res) => {
+  if (!req.session.user) return res.redirect('/');
+  if (req.session.user.realm !== 'division') return res.redirect('/');
+  const role = req.session.user.div_role;
+  if (role !== 'trgcentre_admin' && role !== 'division_admin') return res.redirect('/div');
+  res.sendFile(path.join(__dirname, 'public', 'div', 'training-result-letter.html'));
+});
+
 // ✅ Training Centre Portal - accessible by trgcentre_admin and division_admin
 app.get('/div/training-centre.html', (req, res) => {
   if (!req.session.user) return res.redirect('/');
