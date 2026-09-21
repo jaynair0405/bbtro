@@ -102,9 +102,12 @@ const isCount = (v) => /^\d+$/.test(String(v));
 function tableHtml(t) {
   // A column is text when no body cell in it is a plain count.
   const textCol = t.headers.map((_, i) => t.rows.length > 0 && t.rows.every((r) => !isCount(r[i])));
-  const cell = (v, i) => (textCol[i]
-    ? `<td>${esc(v)}</td>`
-    : `<td class="n${String(v) === '0' ? ' zero' : ''}">${esc(v)}</td>`);
+  const alertCol = new Set(t.alertCols || []);
+  const cell = (v, i) => {
+    if (textCol[i]) return `<td>${esc(v)}</td>`;
+    const cls = String(v) === '0' ? ' zero' : (alertCol.has(i) && isCount(v) ? ' alert' : '');
+    return `<td class="n${cls}">${esc(v)}</td>`;
+  };
 
   const head = t.headers.map((h, i) => `<th class="${textCol[i] ? 'txt' : ''}">${esc(h)}</th>`).join('');
   const body = t.rows.length === 0
@@ -113,7 +116,8 @@ function tableHtml(t) {
   const total = Array.isArray(t.total)
     ? `<tr class="total">${t.headers.map((_, i) => cell(t.total[i], i)).join('')}</tr>` : '';
 
-  return `<div class="rtable"><h3>${esc(t.title)}</h3>
+  const note = t.note ? `<p class="tnote">${esc(t.note)}</p>` : '';
+  return `<div class="rtable"><h3>${esc(t.title)}</h3>${note}
     <div class="table-wrap"><table><thead><tr>${head}</tr></thead><tbody>${body}${total}</tbody></table></div></div>`;
 }
 
