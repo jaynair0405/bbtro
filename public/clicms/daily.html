@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CMS Daily Position · CRTMS</title>
+
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#1f3a5f" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <!-- ?v tags must match CACHE_VERSION in clicms-sw.js (see index.html). -->
+  <link rel="stylesheet" href="clicms.css?v4" />
+  <link rel="stylesheet" href="daily.css?v4" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">CR</span>
+      <div>
+        <h1>CMS Report — Daily Position</h1>
+        <p class="sub">Central Railway · Mumbai Division · HQ-CLI tool</p>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <nav class="report-switch">
+        <a href="./">Due List</a>
+        <a href="daily.html" class="active">Daily Position</a>
+      </nav>
+      <a class="topbar-btn" id="navBtn" hidden></a>
+    </div>
+  </header>
+
+  <main>
+    <!-- Upload stage -->
+    <section id="uploadStage" class="upload-stage">
+      <div class="date-row">
+        <label for="reportDate">Reports are for</label>
+        <input type="date" id="reportDate" />
+        <span class="date-note">The CMS downloads carry no date — this is the only place it is recorded.</span>
+      </div>
+      <div class="dropzone" id="dropzone">
+        <div class="dz-icon">⇪</div>
+        <p class="dz-title">Drop all of the day's CMS downloads here</p>
+        <p class="dz-or">or</p>
+        <label class="btn btn-primary">
+          Choose CSV files
+          <input type="file" id="fileInput" accept=".csv,text/csv" multiple hidden />
+        </label>
+        <p class="dz-note">Each file is recognised by its contents, so the file names do not matter.<br />
+          Nothing is stored on the server — files are processed in memory and discarded.</p>
+      </div>
+      <div class="err" id="uploadErr" hidden></div>
+    </section>
+
+    <!-- Work stage -->
+    <section id="workStage" hidden>
+      <div class="day-bar">
+        <div class="day-title">Position for <strong id="dayLabel">—</strong></div>
+        <div class="day-actions">
+          <label class="btn btn-ghost">
+            + Add files
+            <input type="file" id="addInput" accept=".csv,text/csv" multiple hidden />
+          </label>
+          <button class="btn btn-export" id="dayXlsxBtn">⬇ Whole day — Excel</button>
+          <button class="btn btn-export" id="dayPdfBtn">⬇ Whole day — PDF</button>
+          <button class="btn btn-ghost" id="newBtn">New day</button>
+        </div>
+      </div>
+
+      <div class="err" id="rejected" hidden></div>
+      <div class="warnings" id="warnings" hidden></div>
+      <div class="checklist" id="checklist"></div>
+      <div id="reports"></div>
+    </section>
+  </main>
+
+  <script src="daily.js?v4"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('clicms-sw.js').catch(() => {});
+      });
+    }
+  </script>
+</body>
+</html>

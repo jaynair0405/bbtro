@@ -19,6 +19,7 @@
   <!-- ?v tag must match CACHE_VERSION in clicms-sw.js: it stops a cache-first service
        worker pairing a fresh index.html with a stale clicms.js (columns then misalign). -->
   <link rel="stylesheet" href="clicms.css?v4" />
+  <link rel="stylesheet" href="daily.css?v4" /><!-- report switcher only -->
 </head>
 <body>
   <header class="topbar">
@@ -31,6 +32,10 @@
     </div>
     <div class="topbar-right">
       <div class="asof" id="asof" hidden>As on <strong id="asofDate">—</strong> (IST)</div>
+      <nav class="report-switch">
+        <a href="./" class="active">Due List</a>
+        <a href="daily.html">Daily Position</a>
+      </nav>
       <a class="topbar-btn" id="navBtn" hidden></a>
     </div>
   </header>

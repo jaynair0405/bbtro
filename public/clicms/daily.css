@@ -1,0 +1,80 @@
+/* Daily Position page. Loaded after clicms.css, which supplies the shell
+   (topbar, dropzone, buttons, tables, warnings). The report switcher lives here
+   and is loaded by index.html too. */
+
+/* ---- Report switcher (topbar) ---- */
+.report-switch {
+  display: inline-flex; border: 1px solid rgba(255, 255, 255, .35);
+  border-radius: 6px; overflow: hidden;
+}
+.report-switch a {
+  font-family: "Barlow", sans-serif; font-weight: 600; font-size: 13.5px;
+  color: #d5deea; text-decoration: none; padding: 7px 14px; white-space: nowrap;
+}
+.report-switch a:not(:last-child) { border-right: 1px solid rgba(255, 255, 255, .35); }
+.report-switch a:hover { background: rgba(255, 255, 255, .12); color: #fff; }
+.report-switch a.active { background: #fff; color: var(--navy); }
+
+/* ---- Date ---- */
+.date-row {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+  padding: 12px 16px; margin-bottom: 14px; font-weight: 600;
+}
+.date-row input[type="date"] {
+  font-family: var(--mono); font-size: 14px; padding: 6px 8px;
+  border: 1px solid var(--line); border-radius: 5px; color: var(--ink);
+}
+.date-note { font-weight: 400; font-size: 12.5px; color: var(--muted); }
+
+/* ---- Day bar ---- */
+.day-bar {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: 12px; margin-bottom: 16px;
+}
+.day-title { font-family: "Barlow Semi Condensed", sans-serif; font-size: 22px; font-weight: 600; }
+.day-title strong { font-family: var(--mono); font-size: 19px; color: var(--navy); }
+.day-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* ---- Checklist: which of the day's reports are in ---- */
+.checklist { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+.chk {
+  font-size: 12.5px; font-weight: 600; padding: 4px 10px; border-radius: 20px;
+  border: 1px solid var(--line); background: var(--surface); color: var(--muted);
+}
+.chk.in { border-color: var(--ok); color: var(--ok); background: #e3f1e8; }
+.chk.missing { border-style: dashed; }
+
+.err ul, .warnings ul { margin: 4px 0 0 18px; }
+
+/* ---- One report ---- */
+.report {
+  background: var(--surface); border: 1px solid var(--line);
+  border-top: 4px solid var(--navy); border-radius: 8px;
+  padding: 16px 18px 6px; margin-bottom: 22px;
+}
+.report-head {
+  display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between;
+  gap: 10px; margin-bottom: 12px;
+}
+.report-head h2 { font-family: "Barlow Semi Condensed", sans-serif; font-size: 19px; font-weight: 600; }
+.report-head .src { font-family: var(--mono); font-size: 11.5px; color: var(--muted); margin-left: 8px; }
+.report-head .btn { padding: 6px 12px; font-size: 13px; }
+
+.rtable { margin-bottom: 18px; }
+.rtable h3 {
+  font-size: 12.5px; font-weight: 600; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px;
+}
+/* Tables here are short — drop the due list's 62vh scroll box. */
+.rtable .table-wrap { max-height: none; }
+.rtable thead th { white-space: normal; text-align: center; }
+.rtable thead th.txt { text-align: left; }
+.rtable td.n { text-align: center; font-family: var(--mono); font-size: 13px; }
+.rtable td.n.zero { color: #b3bcc8; }
+.rtable tr.total td { font-weight: 700; background: #eef2f7; border-top: 2px solid var(--navy); }
+
+@media (max-width: 720px) {
+  .topbar-right { flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+  .day-actions .btn { flex: 1 1 auto; justify-content: center; }
+}
