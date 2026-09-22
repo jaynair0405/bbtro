@@ -62,6 +62,10 @@ async function uploadFiles(files) {
   let data;
   try {
     const res = await fetch(`${API_BASE}daily/upload`, { method: 'POST', body: fd });
+    // A login redirect comes back as an HTML page: say so instead of a JSON parse error.
+    if (res.redirected || !/json/i.test(res.headers.get('content-type') || '')) {
+      throw new Error('Your session has expired — log in again, then re-upload.');
+    }
     data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Upload failed.');
   } catch (err) {
@@ -97,7 +101,9 @@ function showRejected(list) {
 }
 
 // ---------- Render ----------
-const isCount = (v) => /^\d+$/.test(String(v));
+// A count, optionally with a bracketed figure after it: "24" or "24 (2:22)".
+const isCount = (v) => /^\d+(\s*\(.*\))?$/.test(String(v));
+const countOf = (v) => Number(String(v).match(/^\d+/)[0]);
 
 function tableHtml(t) {
   // A column is text when no body cell in it is a plain count.
@@ -105,7 +111,7 @@ function tableHtml(t) {
   const alertCol = new Set(t.alertCols || []);
   const cell = (v, i) => {
     if (textCol[i]) return `<td>${esc(v)}</td>`;
-    const cls = String(v) === '0' ? ' zero' : (alertCol.has(i) && isCount(v) ? ' alert' : '');
+    const cls = String(v) === '0' ? ' zero' : (alertCol.has(i) && isCount(v) && countOf(v) > 0 ? ' alert' : '');
     return `<td class="n${cls}">${esc(v)}</td>`;
   };
 
@@ -137,14 +143,20 @@ function render() {
     <section class="report">
       <div class="report-head">
         <h2>${esc(r.label)}<span class="src">${esc(r.file)}</span></h2>
-        <button class="btn btn-export" data-xlsx="${esc(r.key)}">⬇ Excel</button>
+        <span class="report-export">
+          <label class="detail-opt"><input type="checkbox" data-detail="${esc(r.key)}" /> Include detail tables</label>
+          <button class="btn btn-export" data-xlsx="${esc(r.key)}">⬇ Excel</button>
+        </span>
       </div>
       ${r.tables.map(tableHtml).join('')}
     </section>`).join('');
 }
 
 // ---------- Export ----------
-async function exportAs(kind, reports) {
+// Exports print the daily-sheet block (each report's first table) unless the
+// caller asks for the detail tables too. The page itself always shows everything.
+const sheetOnly = (r) => ({ key: r.key, label: r.label, tables: r.tables.slice(0, 1) });
+async function exportAs(kind, reports, detail) {
   if (reports.length === 0) return;
   try {
     const res = await fetch(`${API_BASE}daily/export/${kind}`, {
@@ -152,7 +164,7 @@ async function exportAs(kind, reports) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         date: state.date,
-        reports: reports.map(({ key, label, tables }) => ({ key, label, tables })),
+        reports: reports.map((r) => (detail ? { key: r.key, label: r.label, tables: r.tables } : sheetOnly(r))),
       }),
     });
     if (!res.ok) {
@@ -171,12 +183,14 @@ async function exportAs(kind, reports) {
     alert('Export failed. ' + err.message);
   }
 }
-$('dayXlsxBtn').addEventListener('click', () => exportAs('xlsx', state.reports));
-$('dayPdfBtn').addEventListener('click', () => exportAs('pdf', state.reports));
+$('dayXlsxBtn').addEventListener('click', () => exportAs('xlsx', state.reports, $('dayDetail').checked));
+$('dayPdfBtn').addEventListener('click', () => exportAs('pdf', state.reports, $('dayDetail').checked));
 // Delegated: #reports is rebuilt on every render.
 $('reports').addEventListener('click', (e) => {
   const btn = e.target.closest('[data-xlsx]');
-  if (btn) exportAs('xlsx', state.reports.filter((r) => r.key === btn.dataset.xlsx));
+  if (!btn) return;
+  const detail = $('reports').querySelector(`[data-detail="${btn.dataset.xlsx}"]`);
+  exportAs('xlsx', state.reports.filter((r) => r.key === btn.dataset.xlsx), !!(detail && detail.checked));
 });
 
 $('newBtn').addEventListener('click', () => {
