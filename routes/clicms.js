@@ -441,7 +441,7 @@ router.post('/daily/export/xlsx', async (req, res) => {
         const alertCols = Array.isArray(t.alertCols) ? t.alertCols : [];
         // A non-zero count in an alert column is a case to explain — red, as on the page.
         const markAlerts = (row, cells) => alertCols.forEach((ci) => {
-          if (Number(cells[ci]) > 0) row.getCell(ci + 1).font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FFC8462F' } };
+          if (leadingCount(cells[ci]) > 0) row.getCell(ci + 1).font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FFC8462F' } };
         });
         const head = ws.addRow(t.headers);
         head.font = { name: 'Arial', bold: true, color: { argb: 'FFFFFFFF' } };
@@ -476,6 +476,12 @@ router.post('/daily/export/xlsx', async (req, res) => {
   }
 });
 
+// "24" or "24 (2:22)" -> 24; anything else -> null. Keep in step with isCount in daily.js.
+function leadingCount(v) {
+  const m = String(v == null ? '' : v).match(/^(\d+)(\s*\(.*\))?$/);
+  return m ? Number(m[1]) : null;
+}
+
 // Title + note + header + rows + total, in points. Keep in step with headH/rowH below.
 function dailyTableHeight(t) {
   return 34 + 28 + 16 * (Math.max(t.rows.length, 1) + (Array.isArray(t.total) ? 1 : 0));
@@ -485,7 +491,7 @@ function dailyTableHeight(t) {
 function drawDailyTable(doc, t, { x, width, usableBottom }) {
   const n = t.headers.length;
   const isText = t.headers.map((_, i) =>
-    t.rows.length > 0 && t.rows.every((r) => !/^\d+$/.test(String(r[i] == null ? '' : r[i]))));
+    t.rows.length > 0 && t.rows.every((r) => leadingCount(r[i]) === null));
   const weights = isText.map((tx) => (tx ? 1.6 : 1));
   const wSum = weights.reduce((a, b) => a + b, 0);
   const colW = weights.map((w) => (width * w) / wSum);
@@ -523,7 +529,7 @@ function drawDailyTable(doc, t, { x, width, usableBottom }) {
     for (let i = 0; i < n; i++) {
       if (o.fill) doc.rect(cx, y, colW[i], rowH).fillAndStroke(o.fill, '#D0D5DD');
       else doc.rect(cx, y, colW[i], rowH).stroke('#D0D5DD');
-      const alert = alertCols.includes(i) && Number(cells[i]) > 0;
+      const alert = alertCols.includes(i) && leadingCount(cells[i]) > 0;
       doc.font(o.bold || alert ? 'Helvetica-Bold' : 'Helvetica').fontSize(8.5).fillColor(alert ? '#C8462F' : '#000')
         .text(String(cells[i] == null ? '' : cells[i]), cx + 4, y + 4,
           { width: colW[i] - 8, height: rowH - 4, align: isText[i] ? 'left' : 'center', ellipsis: true });

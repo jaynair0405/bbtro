@@ -34,7 +34,10 @@
 }
 .day-title { font-family: "Barlow Semi Condensed", sans-serif; font-size: 22px; font-weight: 600; }
 .day-title strong { font-family: var(--mono); font-size: 19px; color: var(--navy); }
-.day-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.day-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+/* Exports print the daily-sheet block only unless this is ticked. */
+.detail-opt { font-size: 13px; font-weight: 600; color: var(--muted); display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.detail-opt input { accent-color: var(--navy); }
 
 /* ---- Checklist: which of the day's reports are in ---- */
 .checklist { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
@@ -60,6 +63,7 @@
 .report-head h2 { font-family: "Barlow Semi Condensed", sans-serif; font-size: 19px; font-weight: 600; }
 .report-head .src { font-family: var(--mono); font-size: 11.5px; color: var(--muted); margin-left: 8px; }
 .report-head .btn { padding: 6px 12px; font-size: 13px; }
+.report-export { display: inline-flex; align-items: center; gap: 12px; }
 
 .rtable { margin-bottom: 18px; }
 .rtable h3 {
