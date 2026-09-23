@@ -134,9 +134,10 @@
         </div>
         <div class="use-raw">
             <i class="fa-solid fa-triangle-exclamation"></i>
-            <span><b>Use the raw file.</b> The formatted export drops the leading zero from
-            train numbers — 01103 becomes 1103 — so those trains match nothing. A file
-            without <code>_raw</code> in its name is usually the wrong one.</span>
+            <span><b>Use the raw export.</b> The formatted one stores train numbers as
+            numbers, so a leading zero is already lost — 01103 arrives as 1103 and matches
+            nothing. It is refused on upload, by checking the cells rather than the
+            filename, so a correct file is never turned away for being named plainly.</span>
         </div>
         <label class="drop" id="drop">
             <input type="file" id="file" accept=".xlsx">
@@ -183,15 +184,18 @@ drop.addEventListener('drop', (ev) => {
 });
 function setFile(f) {
     chosen = f || null;
-    $('#dropName').textContent = f ? f.name : 'Choose the ICMS_REPORT_501_raw.xlsx file';
+    $('#dropName').textContent = f ? f.name : 'Choose an ICMS Report 501 export';
     $('#btnPreview').disabled = !f;
     // Warn early rather than after a round trip — the formatted export is the
     // easy mistake and its name is the giveaway.
-    const warn = f && !/_raw/i.test(f.name);
-    $('#uploadMsg').textContent = warn
-        ? 'This does not look like the raw export — it will probably be refused.' : '';
-    $('#uploadMsg').style.color = warn ? 'var(--danger)' : '';
-    $('#uploadMsg').style.fontWeight = warn ? '600' : '';
+    // No filename check. "_raw" is how one export happened to be SAVED, not
+    // something ICMS puts there — the 20-Sep terminating file is a perfectly
+    // good raw export named plain ICMS_REPORT_501.xlsx, and warning on it cried
+    // wolf. What actually distinguishes the two is whether train numbers are
+    // stored as numbers, which the parser tests on the real cells and refuses
+    // with a precise message. A guess that fires on good files only teaches
+    // people to ignore the real one.
+    $('#uploadMsg').textContent = '';
 }
 
 /* ── Preview ────────────────────────────────────────────────────── */
