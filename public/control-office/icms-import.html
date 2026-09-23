@@ -125,10 +125,12 @@
 <div class="main">
 
     <div class="card" id="uploadCard">
-        <h2>Fill the DN sheet from ICMS</h2>
+        <h2>Fill the sheets from ICMS</h2>
         <div class="sub">
-            Upload the ICMS Report 501 export you already produce. It fills each DN working's
-            loco for you.
+            Upload the ICMS Report 501 export you already produce and it fills each
+            working's loco for you. An <b>Originating</b> report fills the DN sheets,
+            a <b>Terminating</b> one fills UP — the file says which, and it is checked
+            against the stations inside it.
         </div>
         <div class="use-raw">
             <i class="fa-solid fa-triangle-exclamation"></i>
@@ -139,7 +141,7 @@
         <label class="drop" id="drop">
             <input type="file" id="file" accept=".xlsx">
             <i class="fa-solid fa-cloud-arrow-up"></i>
-            <div class="big" id="dropName">Choose the ICMS_REPORT_501_raw.xlsx file</div>
+            <div class="big" id="dropName">Choose an ICMS Report 501 export</div>
             <div class="hint">or drag it here</div>
         </label>
         <div class="actions" style="margin-top:12px">
@@ -241,10 +243,16 @@ function renderPreview(d) {
     }
 
     const multi = (d.dates || []).length > 1;
+    const up = d.direction === 'UP';
+    // An Originating report fills DN sheets; a Terminating one fills UP. Not
+    // cosmetic — an UP row is dated by its ARRIVAL and carries the loco it
+    // arrived with, so saying which is being read matters.
     html += `<div class="banner info"><i class="fa-solid fa-circle-info"></i><div>
-        <b>${esc(d.file_name)}</b> — ${multi
-            ? `covers <b>${d.dates.length} days</b>: ${d.dates.map(esc).join(', ')}`
-            : `report for <b>${esc((d.dates || [])[0] || '')}</b>`}.
+        <b>${esc(d.file_name)}</b> — ${esc(d.scope || '')} report, filling the
+        <b>${esc(d.direction || 'DN')}</b> sheets. ${multi
+            ? `Covers <b>${d.dates.length} days</b>: ${d.dates.map(esc).join(', ')}.`
+            : `For <b>${esc((d.dates || [])[0] || '')}</b>.`}
+        ${up ? 'Dated by arrival, and the loco is the one each train arrived with.' : ''}
         Nothing has been saved yet.</div></div>`;
 
     // A multi-day export is matched day by day: each row goes to ITS OWN
@@ -274,9 +282,21 @@ function renderPreview(d) {
     // ── Will fill: the main table. Train, loco, type — nothing else needed.
     html += `<div class="card"><h2>Will be filled in (${fill.length})</h2>
         <div class="sub">These DN workings are blank on the sheet and ICMS has a loco for them.</div>`;
+    const changed = fill.filter(r => r.loco_changed_enroute).length;
+    if (changed) {
+        html += `<div class="banner warn"><i class="fa-solid fa-circle-exclamation"></i><div>
+            <b>${changed}</b> train${changed === 1 ? '' : 's'} changed loco en route, so the
+            engine that arrived is not the one that set out. The arriving loco is what goes
+            on the sheet, and each is marked below. Where two arrived, ICMS does not say
+            whether the second is assisting or dead in tow — set the role by hand if it
+            matters.</div></div>`;
+    }
     html += fill.length ? table(fill.map(r => `
         <tr><td class="no">${esc(r.train_no)}${multi ? `<br><small class="dim">${esc(r.working_date)}</small>` : ''}</td>
-            <td>${locoCell(r.front)}</td>
+            <td>${locoCell(r.front)}${r.loco_changed_enroute
+                ? `<br><small class="tag icms">changed en route${
+                    (r.locos_departed && r.locos_departed.length)
+                      ? ' — set out with ' + esc(r.locos_departed.join(' + ')) : ''}</small>` : ''}</td>
             <td>${r.rear ? locoCell(r.rear) : '<span class="dim">—</span>'}</td>
             <td class="dim">${esc(r.sheet_source || '')} ${esc(r.event_time || '')}</td></tr>`).join(''))
         : '<div class="dim">Nothing to fill — the sheet is already complete for this date.</div>';

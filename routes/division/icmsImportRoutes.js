@@ -80,7 +80,7 @@ const OUTCOME = {
  * Match parsed ICMS rows to the DN workings for a date and decide each outcome.
  * Pure apart from the two queries, so /preview and /apply cannot disagree.
  */
-async function classifyAll(pool, rows) {
+async function classifyAll(pool, rows, direction = 'DN') {
     // A multi-day export holds one block of rows per day. Each row must be
     // matched against ITS OWN day's workings — the run_days set differs by
     // weekday, and the sheet is per date. Classifying a 3-day file against one
@@ -94,20 +94,22 @@ async function classifyAll(pool, rows) {
     }
     const out = [];
     for (const [d, subset] of [...byDate.entries()].sort()) {
-        const classified = await classify(pool, subset, d);
-        for (const c of classified) out.push({ ...c, working_date: d });
+        const classified = await classify(pool, subset, d, direction);
+        for (const c of classified) out.push({ ...c, working_date: d, direction });
     }
     return out;
 }
 
-async function classify(pool, rows, workingDate) {
+async function classify(pool, rows, workingDate, direction = 'DN') {
     const { runsToday, dayOfWeekIR } = require('./locoLinkRoutes');
     const dow = dayOfWeekIR(workingDate);
 
-    // Active DN workings for that date. The sheet filters on BOTH the effective
-    // window and run_days (see the /today handler); this must apply the same two
-    // rules or it would write a row for a working the sheet does not display —
-    // invisible to the LPC and uneditable.
+    // Active workings for that date, in the report's OWN direction: an
+    // Originating report fills DN sheets, a Terminating one fills UP.
+    //
+    // The sheet filters on BOTH the effective window and run_days (see the
+    // /today handler); this must apply the same two rules or it would write a
+    // row for a working the sheet does not display — invisible and uneditable.
     //
     // A train ICMS says ran, whose working says it does not run that weekday, is
     // reported as NOT_TODAY rather than written. That is a real discrepancy: the
@@ -118,10 +120,10 @@ async function classify(pool, rows, workingDate) {
                 m.from_station, m.to_station, m.event_time, m.run_days,
                 m.expected_loco_type, m.shed_code AS expected_shed, m.is_push_pull
            FROM div_loco_link_master m
-          WHERE m.active = 1 AND m.direction = 'DN'
+          WHERE m.active = 1 AND m.direction = ? AND m.is_bypass = 0
             AND (m.effective_from IS NULL OR m.effective_from <= ?)
             AND (m.effective_until IS NULL OR m.effective_until >= ?)`,
-        [workingDate, workingDate]
+        [direction, workingDate, workingDate]
     );
     const byTrain = new Map();
     for (const m of masters) {
@@ -133,8 +135,8 @@ async function classify(pool, rows, workingDate) {
     const [logs] = await pool.query(
         `SELECT master_id, train_no, actual_loco_no, actual_loco_no_rear
            FROM div_loco_link_log
-          WHERE working_date = ? AND direction = 'DN'`,
-        [workingDate]
+          WHERE working_date = ? AND direction = ?`,
+        [workingDate, direction]
     );
     const logByMaster = new Map(logs.filter(l => l.master_id).map(l => [l.master_id, l]));
 
@@ -166,6 +168,8 @@ async function classify(pool, rows, workingDate) {
             // Carried on EVERY outcome, not just matched ones: a train with a
             // loco in ICMS and no working of ours is a special nobody
             // registered, and the UI needs the loco to say so.
+            loco_changed_enroute: Boolean(r.loco_changed_enroute),
+            locos_departed: (r.locos_departed || []).map((l) => l.number),
             locos_in_file: r.locos.length,
             loco_in_file: r.loco_front ? r.loco_front.number : null,
             loco_type_in_file: r.loco_front ? r.loco_front.type : null,
@@ -257,6 +261,8 @@ function summarise(classified) {
         no_loco: c(OUTCOME.NO_LOCO).length,
         no_working: c(OUTCOME.NO_WORKING).length,
         not_today: c(OUTCOME.NOT_TODAY).length,
+        changed_enroute: classified.filter(r => r.loco_changed_enroute
+                                             && r.outcome === OUTCOME.FILL).length,
         trainsets: c(OUTCOME.TRAINSET).length,
         unknown_locos: [...unknown.values()],
     };
@@ -292,9 +298,11 @@ router.post('/preview', requireWriter, upload.single('file'), async (req, res) =
 
     try {
         const pool = req.app.locals.pool;
-        const rows = await classifyAll(pool, rowsIn);
+        const rows = await classifyAll(pool, rowsIn, parsed.direction || 'DN');
         res.json({
             ok: true,
+            scope: parsed.scope,
+            direction: parsed.direction || 'DN',
             dates: [...new Set(rowsIn.map(r => r.working_date))].sort(),
             report_date: parsed.reportDate,
             report_date_to: parsed.reportDateTo,
@@ -372,7 +380,7 @@ router.post('/apply', requireWriter, upload.single('file'), async (req, res) => 
 
     try {
         const pool = req.app.locals.pool;
-        const classified = await classifyAll(pool, rowsIn);
+        const classified = await classifyAll(pool, rowsIn, parsed.direction || 'DN');
         const toWrite = classified.filter(r => r.outcome === OUTCOME.FILL
                                             && (!only || only.has(r.train_no)));
 
@@ -383,7 +391,7 @@ router.post('/apply', requireWriter, upload.single('file'), async (req, res) => 
             // assisting loco, which is what the board defaults to as well.
             const body = {
                 working_date: r.working_date,
-                direction: 'DN',
+                direction: r.direction || 'DN',
                 train_no: r.train_no,
                 master_id: r.master_id,
                 actual_loco_no: r.front.number,
@@ -416,7 +424,7 @@ router.post('/apply', requireWriter, upload.single('file'), async (req, res) => 
 
         // Recompute AFTER writing, so the follow-up lists reflect reality rather
         // than the pre-write preview.
-        const after = await classifyAll(pool, rowsIn);
+        const after = await classifyAll(pool, rowsIn, parsed.direction || 'DN');
 
         // Locos that are now ON the sheet but still absent from the master.
         // summarise() only looks at rows still awaiting a write, so once a row
@@ -436,6 +444,8 @@ router.post('/apply', requireWriter, upload.single('file'), async (req, res) => 
         }
         res.json({
             ok: true,
+            scope: parsed.scope,
+            direction: parsed.direction || 'DN',
             dates: [...new Set(rowsIn.map(r => r.working_date))].sort(),
             written: written.length,
             failed: failed.length,
