@@ -1,23 +1,53 @@
 # Local database restore runbook (bbtro + rrcms)
 
-Written 2026-09-25 after the macOS 26.2 → 27 upgrade on 24 Sep re-initialised the
-Homebrew MySQL data directory. `bbtro`, `rrcms` and the `jay` account vanished with
-no error in the log — just a fresh datadir at 09:07 IST. Nothing local had ever
-been backed up. This is the procedure that rebuilt both databases, kept so the next
-time is a checklist and not a day's archaeology.
+Written 2026-09-25 after the macOS 26.7 → 27 upgrade on 24 Sep. `bbtro`, `rrcms` and
+the `jay` account appeared to vanish. **Corrected 2026-09-25 (later the same day):
+nothing was wiped — the app had silently switched to a different, empty MySQL
+server.** See "What really happened" below. The databases were rebuilt from prod
+dumps (§1–§6); the original local data still exists and is recovered per §9.
 
-Local: MySQL **9.7** (Homebrew). Prod: MySQL **8.0** on Ubuntu, reached only via
-`ssh railway@93.127.198.125`. Claude cannot ssh — the user runs those lines with `!`.
+Local now: MySQL **9.7** (Homebrew, arm64, `/opt/homebrew/var/mysql`). Prod: MySQL
+**8.0** on Ubuntu, reached only via `ssh railway@93.127.198.125`. Claude cannot ssh
+or sudo — the user runs those lines with `!`.
+
+## What really happened on 2026-09-24
+
+This Mac had **two** MySQL servers, both wanting port 3306:
+
+| | Oracle MySQL 8.1.0 (old) | Homebrew MySQL 9.7 (now) |
+|---|---|---|
+| Binary / data | `/usr/local/mysql` → `mysql-8.1.0-macos13-x86_64`; data `/usr/local/mysql/data` (owner `_mysql`, needs sudo) | `/opt/homebrew/opt/mysql`; data `/opt/homebrew/var/mysql` |
+| Started by | `/Library/LaunchDaemons/com.oracle.oss.mysql.mysqld.plist` at boot | `brew services` (`~/Library/LaunchAgents/homebrew.mxcl.mysql.plist`) |
+| Architecture | **x86_64 — runs only under Rosetta 2** | arm64 native |
+| Until 24 Sep | held 3306; **this is where bbtro/rrcms lived** (since Jul 2023) | crash-looped every ~10 s from 27 Jun: "Bind on TCP/IP port: Address already in use" (→ 83k empty `binlog.*` files, 220 MB `.err`) |
+
+Timeline (IST): 08:53 old server shut down cleanly for the reboot → 08:53–08:58 macOS
+27 installed → 09:03 `Rosetta flplugin: daemon port null!` (Rosetta no longer
+installed) → the 8.1 LaunchDaemon cannot spawn (`last exit code = 78`) → 09:07:59
+Homebrew 9.7 gets 3306 **for the first time ever** and the apps connect to its empty
+datadir. Earlier macOS updates kept Rosetta, so the 8.1 server kept starting.
+
+The old datadir (listed 2026-09-25) holds `bbtro` (last write 23 Sep 07:54, ~236
+table files vs 182 tables in the rebuild), `rrcms` (10 Sep), and four databases not
+rebuilt at all: `bbtro_dev`, `brain_game_data`, `employee`, `schlwork`.
+
+**Do not delete `/usr/local/mysql` or its data until §9 is finished.**
 
 ---
 
 ## 0. Diagnose before touching anything
 
 ```bash
-mysql -u root -p -e "show databases"          # only the 4 system schemas = wiped
-ls -la /opt/homebrew/var/mysql/               # ibdata1 timestamp = when it was re-initialised
-tail -50 /opt/homebrew/var/mysql/*.err        # look for "initialization has started" with no bbtro
+mysql -u root -p -e "show databases"          # only the 4 system schemas = wrong server, or wiped
+lsof -nP -iTCP:3306 -sTCP:LISTEN              # WHICH mysqld holds 3306? (path tells 8.1 vs 9.7)
+pgrep -lf mysqld
+arch -x86_64 /usr/bin/true || echo "Rosetta missing"   # the 8.1 server needs it
+sudo launchctl print system/com.oracle.oss.mysql.mysqld | grep -E "state|last exit"
+ls -la /opt/homebrew/var/mysql/  ;  sudo ls -la /usr/local/mysql/data
 ```
+
+A missing database is far more likely a server switch than a wipe: check `auto.cnf`
+and the `mysql/` folder dates — if they are old, the datadir was not re-initialised.
 
 Backups on this Mac: `~/rrcms19/backups/` (prod pulls, may be stale — check the
 dates) and `~/rrcms19/backups/local/` (nightly local dumps, since 2026-09-25).
@@ -165,3 +195,71 @@ and only then upgrade prod's MySQL.
 - **Prod pulls** into `~/rrcms19/backups/` (launchd job from the rrcms deploy kit)
   — failing on rsync since 2026-09-22; to be fixed.
 - rrcms is **not in git** anywhere: code is `~/rrcms19/rrcms-app` and `/opt/rrcms`.
+
+## 9. Recover the old 8.1 data (done 2026-09-26)
+
+Run the old server by hand on **port 3307** so it never competes with 9.7 on 3306.
+
+```bash
+sudo cp -a /usr/local/mysql/data ~/mysql81-data-copy-2026-09-24      # safety copy first
+sudo launchctl bootout system/com.oracle.oss.mysql.mysqld             # stop boot-time start
+softwareupdate --install-rosetta --agree-to-license                   # 8.1 is x86_64
+sudo -u _mysql /usr/local/mysql/bin/mysqld --basedir=/usr/local/mysql \
+  --datadir=/usr/local/mysql/data --plugin-dir=/usr/local/mysql/lib/plugin \
+  --early-plugin-load=keyring_file=keyring_file.so \
+  --keyring-file-data=/usr/local/mysql/keyring/keyring \
+  --port=3307 --socket=/tmp/mysql81.sock --mysqlx=OFF \
+  --log-error=/usr/local/mysql/data/recovery.err &
+```
+
+Then (Claude can do these, no sudo):
+
+1. Connect: `mysql -h 127.0.0.1 -P 3307 -u jay -p` (old accounts, old passwords).
+2. List tables in old `bbtro` that are not in the rebuilt one (~50 expected); decide
+   keep/drop with the user.
+3. Compare trip-shed row counts old vs new; the old server has entries up to 23 Sep
+   that the prod rebuild lacks.
+4. Dump old `bbtro`, `rrcms`, and whichever of `bbtro_dev`/`brain_game_data`/
+   `employee`/`schlwork` the user wants, to `~/rrcms19/backups/old81-*.sql.gz`.
+5. Show the missing rows **before** loading anything into 9.7; load only what is
+   agreed.
+6. Stop the old server: `mysqladmin -h 127.0.0.1 -P 3307 -u root -p shutdown`.
+7. After everything is verified: retire 8.1 for good (keep the LaunchDaemon booted
+   out; archive the data copy), so two servers never fight over 3306 again.
+
+### 9a. What was done on 2026-09-26
+
+- Datadir copied to `~/mysql81-data-copy-2026-09-24` (diff-identical); LaunchDaemon booted out; Rosetta installed; 8.1 started on 3307, dumped, shut down.
+- Dumps: `~/rrcms19/backups/old81-{bbtro,rrcms,bbtro_dev,brain_game_data,employee,schlwork}-2026-09-23.sql.gz`
+  (bbtro needs `--force`: view `div_active_staff` was already broken on 8.1).
+- Old bbtro loaded into local **`bbtro_old`** (234 tables, counts identical). 9.7 refuses the FK
+  `div_timetable_halts → div_timetable_trains(train_number)` (non-unique key): load with
+  `SET SESSION restrict_fk_on_non_standard_key=OFF`.
+- Merged into local `bbtro` (backup before: `backups/local/bbtro-2026-09-26_1124.sql.gz`):
+  65 local-only tables + data; columns `users.can_access_ghat_spm`, `trains.train_code/service_type`,
+  `div_training_records.source_course_id`, `div_cr_loco_transfers.created_by`; 10 views; 3 procedures;
+  rows per `~/rrcms19/backups/local-merge-2026-09-26.sql` (training centre + prod-empty tables).
+- Not merged, still in `bbtro_old`: `div_sub_spm_points` (orphan test runs, unused by code), trip-shed
+  and counselling test rows, 24 other user logins, and old-only rows in prod-used tables (prod wins).
+- **rrcms (checked 2026-09-29, nothing merged):** masters and contract setup match today's local by
+  natural code (only ids differ); prod's later edits kept. Old-only data was dev logins, test entries
+  (21 Aug–10 Sep) and 350 `call_sheet_trains` rows. **Decision 2026-09-29: do not copy the call
+  sheet.** Those rows came from the static pilot file `rrcms-app/data/pilot/call-sheet.json`
+  (`import-call-sheet.js --file`), which still exists. The call sheet is to be generated from bbtro
+  instead: create `v_rr_call_sheet` (rrcms-app `db/crtms/v_rr_call_sheet.sql`, reads
+  `div_loco_link_master`; never yet created anywhere), dry-run `node db/import-call-sheet.js`,
+  compare with the pilot file. By design it is a re-runnable import, not a live read. The
+  temporary `rr_*` comparison tables were dropped from `bbtro_old`; the full old rrcms remains in
+  `~/rrcms19/backups/old81-rrcms-2026-09-23.sql.gz`.
+- **None of this is on prod.** Prod has none of the 65 tables / 5 columns: moving a feature to prod
+  = schema first (dated `sql/` file), then only the data the user picks, one feature at a time.
+
+## 10. Which MySQL going forward
+
+**Local stays on Homebrew 9.7.** The 8.1 build is x86_64, depends on Rosetta (Apple
+is winding Rosetta down after macOS 27), and 8.1 was a short-lived innovation release
+that no longer gets fixes. Recovery (§9) only reads from it, then it is retired.
+
+The real gap is **prod 8.0 vs local 9.7** — that caused every trap in §3. Close it by
+upgrading prod (after the two prod fixes in §7), to 9.7 so both sides match. Until
+then, keep using §3's filter for prod → local copies.
