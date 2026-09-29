@@ -7,7 +7,7 @@ server.** See "What really happened" below. The databases were rebuilt from prod
 dumps (§1–§6); the original local data still exists and is recovered per §9.
 
 Local now: MySQL **9.7** (Homebrew, arm64, `/opt/homebrew/var/mysql`). Prod: MySQL
-**8.0** on Ubuntu, reached only via `ssh railway@93.127.198.125`. Claude cannot ssh
+**8.0.46** (Ubuntu 24.04 package `8.0.46-0ubuntu0.24.04.4`, checked 2026-09-29) on Ubuntu, reached only via `ssh railway@93.127.198.125`. Claude cannot ssh
 or sudo — the user runs those lines with `!`.
 
 ## What really happened on 2026-09-24
