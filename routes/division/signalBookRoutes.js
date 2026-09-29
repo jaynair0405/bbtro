@@ -398,6 +398,74 @@ async function queueSignalSnapshot(conn, signalId, oldSignalNumber, changeKind, 
   );
 }
 
+// One physical signal is stored once per page it prints on (junction, platform and
+// main/MID copies), tied together by magnet_id. Fields that describe the signal itself
+// are the same on every copy, so an edit to one copy is carried to the others. Fields
+// that depend on the line are not: placement, RHS/LHS/Ext, location and km — a signal
+// standing between two lines is on the right of one and the left of the other.
+const MAGNET_SYNC_FIELDS = [
+  'signal_type', 'signal_function', 'has_legend_board', 'visibility_distance_m',
+  'ri_left_arms', 'ri_right_arms', 'book_description', 'route_indicator_notes',
+];
+
+// What an RI string means — which arms, on which side, with which labels — independent
+// of how it is written ("RI:L1=S-72" and "RI: L1= S-72" mean the same).
+function riMeaning(text, leftCount, rightCount) {
+  const spec = parseRiSpec(text || '', leftCount, rightCount);
+  const t = s => String(s || '').replace(/\s+/g, ' ').trim().toUpperCase();
+  return JSON.stringify({ main: t(spec.main), left: spec.left.map(t), right: spec.right.map(t) });
+}
+
+// Carry this publish's changes to the signal's other copies. Copies that are in the
+// draft being published are skipped: the draft writes them itself. Returns the copies
+// touched, flagging those whose page has an unpublished draft (publishing that draft
+// later would put the old values back).
+async function syncMagnetCopies(conn, old, sigFields, draftSignalIds, userId, historyEntries) {
+  if (!old || !old.magnet_id) return [];
+  const norm = v => (v == null ? '' : String(v));
+  const riChanged = riMeaning(old.book_description, old.ri_left_arms, old.ri_right_arms)
+                !== riMeaning(sigFields.book_description, sigFields.ri_left_arms, sigFields.ri_right_arms);
+  const RI_FIELDS = ['book_description', 'ri_left_arms', 'ri_right_arms'];
+  const changed = MAGNET_SYNC_FIELDS.filter(k =>
+    RI_FIELDS.includes(k) ? riChanged && norm(old[k]) !== norm(sigFields[k]) : norm(old[k]) !== norm(sigFields[k]));
+  if (!changed.length) return [];
+
+  const [copies] = await conn.execute(
+    `SELECT s.*,
+            (SELECT COUNT(*) FROM div_signal_book_rows r
+               JOIN div_signal_section_drafts d ON d.section_id = r.book_section_id
+              WHERE r.signal_id = s.id) AS pending_drafts
+       FROM div_signals s
+      WHERE s.magnet_id = ? AND s.id <> ? AND s.is_active = 1`,
+    [old.magnet_id, old.id]
+  );
+  const synced = [];
+  for (const copy of copies) {
+    if (draftSignalIds.has(copy.id)) continue;
+    const fields = changed.filter(k => norm(copy[k]) !== norm(sigFields[k]));
+    if (!fields.length) continue;
+    await conn.execute(
+      `UPDATE div_signals SET ${fields.map(k => `\`${k}\` = ?`).join(', ')} WHERE id = ?`,
+      [...fields.map(k => sigFields[k]), copy.id]
+    );
+    if (fields.includes('book_description')) {
+      // The book row repeats the RI text; keep it in step unless that page shows
+      // something else in the cell (e.g. "FOR DN DIRECTION ONLY").
+      await conn.execute(
+        `UPDATE div_signal_book_rows SET display_description = ?
+          WHERE signal_id = ?
+            AND (display_description IS NULL OR display_description = ? OR display_description LIKE 'RI:%')`,
+        [sigFields.book_description, copy.id, copy.book_description || '']
+      );
+    }
+    historyEntries.push([copy.id, 'Other', null,
+      `Synced from ${old.section} ${old.line} copy: ${fields.join(', ')}`, userId]);
+    await queueSignalSnapshot(conn, copy.id, copy.signal_number, 'updated', userId);
+    synced.push({ id: copy.id, page: `${copy.section} ${copy.line}`, fields, pendingDraft: copy.pending_drafts > 0 });
+  }
+  return synced;
+}
+
 // POST /section/:code/publish — apply the draft to the live tables atomically.
 // Upserts signals (canonicalising RI arms), rebuilds book rows, flips
 // edit_source to 'ui', logs signal field changes, deletes the draft.
@@ -428,6 +496,8 @@ router.post('/section/:code/publish', async (req, res) => {
     await conn.beginTransaction();
     try {
       const historyEntries = [];
+      const copiesSynced = [];
+      const draftSignalIds = new Set(rows.filter(r => r.signal_id).map(r => r.signal_id));
 
       // Canonical partition for any newly-inserted signals: read it from an
       // existing signal in this section rather than parsing the section code.
@@ -458,11 +528,24 @@ router.post('/section/:code/publish', async (req, res) => {
         // CLA YD S-2 lost ri_left_arms=2 when only TMBY S-541 was edited).
         // An empty spec means "nothing to say", not "no arms": keep the stored values.
         const specEmpty = !arms || (!arms.main && !(arms.left || []).length && !(arms.right || []).length);
-        const riString = !specEmpty ? serializeRiSpec(arms)
-                                    : (sig.book_description || (old && old.book_description) || null);
-        const counts = !specEmpty ? armCounts(arms)
-                                  : { left:  sig.ri_left_arms  ?? (old ? old.ri_left_arms  : 0) ?? 0,
-                                      right: sig.ri_right_arms ?? (old ? old.ri_right_arms : 0) ?? 0 };
+        let riString = !specEmpty ? serializeRiSpec(arms)
+                                  : (sig.book_description || (old && old.book_description) || null);
+        let counts = !specEmpty ? armCounts(arms)
+                                : { left:  sig.ri_left_arms  ?? (old ? old.ri_left_arms  : 0) ?? 0,
+                                    right: sig.ri_right_arms ?? (old ? old.ri_right_arms : 0) ?? 0 };
+        // The editor parses every RI into arms on load, so serialising always yields the
+        // canonical form. When the RI still MEANS the same, keep the stored text and counts
+        // exactly: otherwise every untouched signal on the page is rewritten (formatting
+        // churn in history, the prod sync queue and other pages).
+        if (old && riMeaning(old.book_description, old.ri_left_arms, old.ri_right_arms)
+                === riMeaning(riString, counts.left, counts.right)) {
+          riString = old.book_description;
+          counts = { left: old.ri_left_arms, right: old.ri_right_arms };
+        } else if (old) {
+          // The RI really changed. The page draws it from the book row, which the editor
+          // does not update, so hand the new text to the row rebuild below.
+          r.riUpdate = { from: old.book_description, to: riString };
+        }
         const sigFields = {
           signal_number: sig.signal_number,
           normalized_signal_number: normalizeSignalNumber(sig.signal_number),
@@ -526,6 +609,7 @@ router.post('/section/:code/publish', async (req, res) => {
             if (old.ri_left_arms !== sigFields.ri_left_arms || old.ri_right_arms !== sigFields.ri_right_arms)
               historyEntries.push([r.signal_id, 'Other', `RI arms L${old.ri_left_arms}/R${old.ri_right_arms}`, `RI arms L${sigFields.ri_left_arms}/R${sigFields.ri_right_arms}`, userId]);
             await queueSignalSnapshot(conn, r.signal_id, old.signal_number, 'updated', userId);
+            copiesSynced.push(...await syncMagnetCopies(conn, old, sigFields, draftSignalIds, userId, historyEntries));
           }
         } else {
           const [ins] = await conn.execute(
@@ -549,24 +633,43 @@ router.post('/section/:code/publish', async (req, res) => {
       }
 
       // 2. Rebuild book rows for this section (atomic replace, like the importer).
+      // The editor model does not carry exclude_beats (rows hidden from some beats,
+      // e.g. CSMT PF-8+ starters kept off the suburban books), so read it before the
+      // rows are deleted and put it back on the same signal / PSR row.
+      const [prevRows] = await conn.execute(
+        `SELECT signal_id, psr_id, exclude_beats FROM div_signal_book_rows
+          WHERE book_section_id = ? AND exclude_beats IS NOT NULL`,
+        [section.id]
+      );
+      const prevExclude = new Map();
+      for (const p of prevRows) {
+        if (p.signal_id) prevExclude.set(`s${p.signal_id}`, p.exclude_beats);
+        else if (p.psr_id) prevExclude.set(`p${p.psr_id}`, p.exclude_beats);
+      }
       await conn.execute(`DELETE FROM div_signal_book_rows WHERE book_section_id = ?`, [section.id]);
       let order = 0;
       for (const r of rows) {
         order += 100;
+        const excludeBeats = r.exclude_beats !== undefined ? (r.exclude_beats || null)
+          : (r.signal_id ? prevExclude.get(`s${r.signal_id}`) : r.psr_id ? prevExclude.get(`p${r.psr_id}`) : null) || null;
+        // A changed RI replaces the row text when the row was showing the RI; a row that
+        // shows something else (e.g. "FOR DN DIRECTION ONLY") is left as it is.
+        let rowText = r.display_description || null;
+        if (r.riUpdate && (!rowText || rowText === r.riUpdate.from || /^RI:/i.test(rowText))) rowText = r.riUpdate.to;
         await conn.execute(
           `INSERT INTO div_signal_book_rows (
              book_section_id, row_order, row_type, row_source,
              signal_id, psr_id, neutral_section_id,
              display_signal_no, display_location, display_description,
              speed_kmph, km_range_text, station_code, station_name, station_km_text,
-             highlight_color, text_color, icon_type, remarks, is_active
-           ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1)`,
+             highlight_color, text_color, icon_type, remarks, exclude_beats, is_active
+           ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1)`,
           [section.id, order, r.row_type, 'ui',
            r.signal_id || null, r.psr_id || null, r.neutral_section_id || null,
-           r.display_signal_no || (r.signal && r.signal.signal_number) || null, r.display_location || null, r.display_description || null,
+           r.display_signal_no || (r.signal && r.signal.signal_number) || null, r.display_location || null, rowText,
            r.speed_kmph || null, r.km_range_text || null,
            r.station_code || null, r.station_name || null, r.station_km_text || null,
-           r.highlight_color || 'NONE', r.text_color || 'BLACK', r.icon_type || 'NONE', r.remarks || null]
+           r.highlight_color || 'NONE', r.text_color || 'BLACK', r.icon_type || 'NONE', r.remarks || null, excludeBeats]
         );
       }
 
@@ -595,7 +698,7 @@ router.post('/section/:code/publish', async (req, res) => {
       await conn.execute(`DELETE FROM div_signal_section_drafts WHERE section_id = ?`, [section.id]);
 
       await conn.commit();
-      res.json({ ok: true, signalsChanged: historyEntries.length, rowCount: rows.length });
+      res.json({ ok: true, signalsChanged: historyEntries.length, rowCount: rows.length, copiesSynced });
     } catch (txErr) {
       await conn.rollback();
       throw txErr;

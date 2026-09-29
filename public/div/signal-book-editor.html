@@ -310,7 +310,14 @@ async function publish() {
   if (!confirm('Publish this section to the live signal book? This becomes what drivers see.')) return;
   const r = await fetch(`/api/division/signal-book/section/${encodeURIComponent(state.code)}/publish`, { method: 'POST' });
   const j = await r.json();
-  if (j.ok) { toast(`Published — ${j.signalsChanged} signal change(s), ${j.rowCount} rows`); selectSection(state.code); loadSections(); }
+  if (j.ok) {
+    const copies = j.copiesSynced || [];
+    let msg = `Published — ${j.signalsChanged} signal change(s), ${j.rowCount} rows`;
+    if (copies.length) msg += `; also updated on other page(s): ${[...new Set(copies.map(c => c.page))].join(', ')}`;
+    const stale = [...new Set(copies.filter(c => c.pendingDraft).map(c => c.page))];
+    if (stale.length) msg += ` — note: an unpublished draft on ${stale.join(', ')} still holds the old values`;
+    toast(msg); selectSection(state.code); loadSections();
+  }
   else toast(j.error || 'Publish failed');
 }
 async function discard() {
