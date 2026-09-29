@@ -508,44 +508,59 @@ function groupSections(sections) {
 // RHS / Ext RHS / Ext LHS, page by page in booklet order. Built from the rows the
 // booklet itself prints, so exclude_beats and per-line placement are already applied.
 // A full-route book can pass the same segment twice: one entry per heading + signal.
-const PLACEMENT_SIDES = [['EXT_RHS', 'Ext RHS'], ['RHS', 'RHS'], ['EXT_LHS', 'Ext LHS']];
+const PLACEMENT_SIDES = [['EXT_RHS', 'Ext RHS'], ['RHS', 'RHS'], ['EXT_LHS', 'Ext LHS'], ['LHS', 'LHS']];
 
-function placementSide(row) {
+// Pages beyond Mumbai division (the report hides them unless asked for).
+const OUTSIDE_DIVISION = /^(IGP_MMR|MMR_BSL|MMR_SNSI|LNL_PUNE|ROHA_RN)_/;
+
+function placementSide(row, withLhs) {
   if (row.is_ext_rhs) return 'EXT_RHS';
   if (row.is_rhs) return 'RHS';
   if (row.is_ext_lhs) return 'EXT_LHS';
-  return null;
+  return withLhs ? 'LHS' : null;
 }
 
-function placementPageHtml(sections) {
-  const counts = { RHS: 0, EXT_RHS: 0, EXT_LHS: 0 };
+// report: the stand-alone filterable page. Also lists normal LHS signals, and tags
+// each page (line, direction, outside division) and row (side, beats that print it)
+// for the filters.
+function placementPageHtml(sections, { report = false } = {}) {
+  const counts = { RHS: 0, EXT_RHS: 0, EXT_LHS: 0, LHS: 0 };
   const blocks = [];
   for (const group of groupSections(sections)) {
     const seen = new Set();
     const items = [];
-    for (const row of group.sections.flatMap((s) => s.rows)) {
-      const side = row.row_type === 'SIGNAL' && placementSide(row);
-      if (!side) continue;
-      const key = row.signal_id || `${row.display_signal_no}|${row.display_location}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      counts[side]++;
-      items.push({ row, side });
+    for (const s of group.sections) {
+      for (const row of s.rows) {
+        const side = row.row_type === 'SIGNAL' && placementSide(row, report);
+        if (!side) continue;
+        const key = row.signal_id || `${row.display_signal_no}|${row.display_location}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        counts[side]++;
+        const excl = String(row.exclude_beats || '').split(',').map((b) => b.trim());
+        const beats = (s.beats || []).filter((b) => !excl.includes(b));
+        items.push({ row, side, beats });
+      }
     }
-    if (items.length) blocks.push({ title: group.title, items });
+    const first = group.sections[0];
+    if (items.length) blocks.push({ title: group.title, first, items });
   }
   if (!blocks.length) return '';
 
   const label = Object.fromEntries(PLACEMENT_SIDES);
   const summary = PLACEMENT_SIDES
     .filter(([k]) => counts[k])
-    .map(([k, l]) => `<span class="pl-side ${k}">${l}</span> ${counts[k]}`)
-    .join(' &nbsp;·&nbsp; ');
+    .map(([k, l]) => `<span class="pl-item" data-side="${k}"><span class="pl-side ${k}">${l}</span> <span class="pl-n">${counts[k]}</span></span>`)
+    .join('');
+  const blockAttrs = (b) => report
+    ? ` data-line="${esc(b.first.line || '')}" data-dir="${esc(b.first.direction || '')}" data-out="${OUTSIDE_DIVISION.test(b.first.section_code || '') ? 1 : 0}"`
+    : '';
+  const rowAttrs = (it) => report ? ` data-side="${it.side}" data-beats=",${esc(it.beats.join(','))},"` : '';
   const tables = blocks.map((b) => `
-  <div class="pl-block">
+  <div class="pl-block"${blockAttrs(b)}>
     <div class="pl-page">${esc(b.title)}</div>
     <table class="pl-table">
-${b.items.map(({ row, side }) => `      <tr><td class="pl-no">${esc(row.display_signal_no || '')}</td><td class="pl-loc">${esc(row.display_location || '')}</td><td><span class="pl-side ${side}">${label[side]}</span></td></tr>`).join('\n')}
+${b.items.map((it) => `      <tr${rowAttrs(it)}><td class="pl-no">${esc(it.row.display_signal_no || '')}</td><td class="pl-loc">${esc(it.row.display_location || '')}</td><td><span class="pl-side ${it.side}">${label[it.side]}</span></td></tr>`).join('\n')}
     </table>
   </div>`).join('\n');
 
@@ -553,10 +568,79 @@ ${b.items.map(({ row, side }) => `      <tr><td class="pl-no">${esc(row.display_
 <section class="book-section placement-list">
   <h2 class="section-title">RHS / Ext RHS / Ext LHS Signals</h2>
   <div class="pl-summary">${summary}</div>
+  <div class="pl-filters-note"></div>
   <div class="pl-wrap">
 ${tables}
   </div>
 </section>`;
+}
+
+// Filter bar + script for the stand-alone report (hidden when printing; the chosen
+// filters print under the title instead). Filters: beat, line, direction, side, and
+// pages outside Mumbai division (off by default). ?beat=CODE preselects a beat.
+function placementFiltersHtml(sections, beats) {
+  const lines = [...new Set(sections.map((s) => s.line).filter(Boolean))].sort();
+  const opt = (v, l) => `<option value="${esc(v)}">${esc(l)}</option>`;
+  return `
+  <div class="pl-filters">
+    <label>Beat <select id="f-beat"><option value="">All beats</option>${beats.map((b) => opt(b.beat_code, b.beat_name || b.beat_code)).join('')}</select></label>
+    <label>Line <select id="f-line"><option value="">All lines</option>${lines.map((l) => opt(l, l)).join('')}</select></label>
+    <label>Direction <select id="f-dir"><option value="">UP + DN</option>${opt('UP', 'UP')}${opt('DN', 'DN')}</select></label>
+    <span class="f-sides">
+      <label><input type="checkbox" class="f-side" value="RHS" checked> RHS</label>
+      <label><input type="checkbox" class="f-side" value="EXT_RHS" checked> Ext RHS</label>
+      <label><input type="checkbox" class="f-side" value="EXT_LHS" checked> Ext LHS</label>
+      <label><input type="checkbox" class="f-side" value="LHS"> LHS</label>
+    </span>
+    <label><input type="checkbox" id="f-out"> Include outside Mumbai division (IGP–BSL, MMR–SNSI, LNL–PUNE, ROHA–RN)</label>
+  </div>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var q = new URLSearchParams(location.search);
+  if (q.get('beat')) $('f-beat').value = q.get('beat');
+  if (q.get('outside') === '1') $('f-out').checked = true;
+  var LABEL = { RHS: 'RHS', EXT_RHS: 'Ext RHS', EXT_LHS: 'Ext LHS', LHS: 'LHS' };
+  function apply() {
+    var beat = $('f-beat').value, line = $('f-line').value, dir = $('f-dir').value, out = $('f-out').checked;
+    var sides = {};
+    [].forEach.call(document.querySelectorAll('.f-side'), function (c) { if (c.checked) sides[c.value] = 1; });
+    var counts = { RHS: 0, EXT_RHS: 0, EXT_LHS: 0, LHS: 0 }, total = 0;
+    [].forEach.call(document.querySelectorAll('.pl-block'), function (b) {
+      var pageOk = (!line || b.dataset.line === line) && (!dir || b.dataset.dir === dir) && (out || b.dataset.out !== '1');
+      var shown = 0;
+      [].forEach.call(b.querySelectorAll('tr'), function (tr) {
+        var ok = pageOk && sides[tr.dataset.side] && (!beat || tr.dataset.beats.indexOf(',' + beat + ',') !== -1);
+        tr.style.display = ok ? '' : 'none';
+        if (ok) { shown++; counts[tr.dataset.side]++; }
+      });
+      b.style.display = shown ? '' : 'none';
+      total += shown;
+    });
+    [].forEach.call(document.querySelectorAll('.pl-item'), function (it) {
+      it.querySelector('.pl-n').textContent = counts[it.dataset.side];
+      it.style.display = sides[it.dataset.side] ? '' : 'none';
+    });
+    var parts = [];
+    if (beat) parts.push('Beat: ' + $('f-beat').selectedOptions[0].text);
+    if (line) parts.push('Line: ' + line);
+    if (dir) parts.push(dir);
+    parts.push(Object.keys(sides).map(function (k) { return LABEL[k]; }).join(', ') || 'no side selected');
+    parts.push(out ? 'including outside Mumbai division' : 'Mumbai division only');
+    document.querySelector('.pl-filters-note').textContent = parts.join(' · ');
+    $('pl-total').textContent = total;
+    var u = new URL(location.href);
+    beat ? u.searchParams.set('beat', beat) : u.searchParams.delete('beat');
+    out ? u.searchParams.set('outside', '1') : u.searchParams.delete('outside');
+    history.replaceState(null, '', u);
+  }
+  [].forEach.call(document.querySelectorAll('.pl-filters select, .pl-filters input'), function (el) {
+    el.addEventListener('change', apply);
+  });
+  // The list comes after this script in the page.
+  document.addEventListener('DOMContentLoaded', apply);
+})();
+</script>`;
 }
 
 function renderHtml({ beat, sections }, opts = {}) {
@@ -586,8 +670,9 @@ ${rowsHtml}
 </section>`;
   }).join('\n');
 
-  const placementHtml = (opts.placementPage || opts.placementOnly) ? placementPageHtml(sections) : '';
-  const placementCount = (placementHtml.match(/<tr>/g) || []).length;
+  const placementHtml = (opts.placementPage || opts.placementOnly)
+    ? placementPageHtml(sections, { report: !!opts.report }) : '';
+  const placementCount = (placementHtml.match(/<tr[ >]/g) || []).length;
 
   return `<!doctype html>
 <html lang="en">
@@ -817,15 +902,29 @@ ${rowsHtml}
   .placement-list .pl-side { font-weight: 700; font-size: 8pt; white-space: nowrap; }
   .pl-side.RHS, .pl-side.EXT_RHS { color: #c2410c; }
   .pl-side.EXT_LHS { color: #1d4ed8; }
+  .pl-side.LHS { color: #374151; }
+  .placement-list .pl-item { margin: 0 8px; white-space: nowrap; }
+  @media screen { .placement-list { padding: 0 16px 16px; } }
+  .placement-list .pl-filters-note:empty { display: none; }
+  .placement-list .pl-filters-note { text-align: center; font-size: 8.5pt; color: #374151; margin: -4px 0 8px; }
+  .pl-filters {
+    display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center;
+    padding: 10px 16px; background: #f3f4f6; border-bottom: 1px solid #d1d5db; font-size: 12px;
+  }
+  .pl-filters select { font-size: 12px; padding: 3px 6px; margin-left: 4px; }
+  .pl-filters .f-sides { display: inline-flex; gap: 10px; }
+  .pl-filters label { white-space: nowrap; }
+  @media print { .pl-filters { display: none; } }
 </style>
 </head>
 <body>
   <div class="toolbar">
     <div><strong>${esc(beat.beat_name)}</strong> · ${opts.placementOnly
-      ? `RHS / Ext RHS / Ext LHS list · ${placementCount} signal${placementCount === 1 ? '' : 's'}`
+      ? `RHS / Ext RHS / Ext LHS list · <span id="pl-total">${placementCount}</span> signals`
       : `${sections.length} section${sections.length === 1 ? '' : 's'} · ${sections.reduce((n, s) => n + s.rows.length, 0)} rows`}</div>
     <button onclick="window.print()">Print / Save as PDF</button>
   </div>
+${opts.report ? placementFiltersHtml(sections, opts.report.beats || []) : ''}
 ${opts.placementOnly ? '' : `
   <div class="cover">
     <div class="title">SIGNAL LOCATION GUIDE</div>
@@ -839,8 +938,9 @@ ${opts.placementOnly ? '' : `
 </html>`;
 }
 
-// Division-wide book for the stand-alone RHS / Ext report: every active page, with
-// no beat filter (exclude_beats only hides a row from particular beats).
+// Division-wide data for the stand-alone RHS / Ext report: every signal row on every
+// active page (normal LHS too, for the LHS filter), each page's beats, and each row's
+// exclude_beats, so the page can filter by beat exactly as the booklets print.
 async function loadAllSections(providedConn) {
   const conn = providedConn || await getConnection();
   const ownConn = !providedConn;
@@ -849,20 +949,29 @@ async function loadAllSections(providedConn) {
       `SELECT id, section_code, section_title, direction, line
          FROM div_signal_book_sections WHERE is_active = 1 ORDER BY section_code`
     );
+    const [beats] = await conn.query(
+      `SELECT id, beat_code, beat_name FROM div_signal_beats WHERE is_active = 1 ORDER BY id`
+    );
+    const [links] = await conn.query(
+      `SELECT bs.section_id, b.beat_code
+         FROM div_signal_beat_sections bs JOIN div_signal_beats b ON b.id = bs.beat_id AND b.is_active = 1
+        WHERE bs.is_active = 1`
+    );
     const [rows] = await conn.query(
       `SELECT r.book_section_id, r.row_order, r.row_type, r.signal_id,
-              r.display_signal_no, r.display_location,
+              r.display_signal_no, r.display_location, r.exclude_beats,
               sg.is_rhs, sg.is_ext_rhs, sg.is_ext_lhs
          FROM div_signal_book_rows r
          JOIN div_signals sg ON sg.id = r.signal_id
         WHERE r.is_active = 1 AND r.row_type = 'SIGNAL'
-          AND (sg.is_rhs = 1 OR sg.is_ext_rhs = 1 OR sg.is_ext_lhs = 1)
         ORDER BY r.book_section_id, r.row_order`
     );
     const bySection = {};
     rows.forEach((r) => { (bySection[r.book_section_id] = bySection[r.book_section_id] || []).push(r); });
-    sections.forEach((s) => { s.rows = bySection[s.id] || []; });
-    return { beat: { beat_name: 'BB Division — all pages' }, sections };
+    const beatsBySection = {};
+    links.forEach((l) => { (beatsBySection[l.section_id] = beatsBySection[l.section_id] || []).push(l.beat_code); });
+    sections.forEach((s) => { s.rows = bySection[s.id] || []; s.beats = beatsBySection[s.id] || []; });
+    return { beat: { beat_name: 'BB Division' }, sections, beats };
   } finally {
     if (ownConn) await conn.end();
   }

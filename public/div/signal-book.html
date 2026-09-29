@@ -126,10 +126,10 @@
       Pick a beat or a full route below to open its signal book in a new tab. From the preview tab, press
       <strong>Cmd+P</strong> (or Ctrl+P on Windows) and choose <strong>Save as PDF</strong> to export.
       Section content is shared — editing one signal updates every beat and route that includes it.
-      Each booklet ends with its RHS / Ext RHS / Ext LHS signals; <strong>RHS / Ext list</strong> prints that page alone.
+      Each booklet ends with its RHS / Ext RHS / Ext LHS signals. <strong>RHS / Ext list</strong> opens them as a separate report you can filter and print.
     </div>
     <div class="actions" style="margin-bottom:14px;">
-      <a class="route-btn" style="margin-left:0" href="/api/division/signal-book/placement/preview" target="_blank">RHS / Ext list — whole division</a>
+      <a class="route-btn" style="margin-left:0" href="/api/division/signal-book/placement/preview" target="_blank">RHS / Ext list — filter by beat, line, direction</a>
     </div>
 
     <table id="beats-table">
@@ -192,7 +192,7 @@
         var href = '/api/division/signal-book/beat/' + encodeURIComponent(b.beat_code) + '/preview';
         var nRoutes = routeCountByBeat[b.beat_code] || 0;
         var placementBtn = hasData
-          ? '<a class="route-btn" href="/api/division/signal-book/beat/' + encodeURIComponent(b.beat_code) + '/placement/preview" target="_blank">RHS / Ext list</a>'
+          ? '<a class="route-btn" href="/api/division/signal-book/placement/preview?beat=' + encodeURIComponent(b.beat_code) + '" target="_blank">RHS / Ext list</a>'
           : '';
         var routeBtn = nRoutes > 0
           ? '<a class="route-btn" href="/api/division/signal-book/beat/' + encodeURIComponent(b.beat_code) + '/routes/preview" target="_blank">Full-route book (' + nRoutes + ')</a>'

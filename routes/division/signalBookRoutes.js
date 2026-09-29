@@ -145,36 +145,26 @@ router.get('/beat/:beatCode/preview', async (req, res) => {
   }
 });
 
-// GET /beat/:beatCode/placement/preview — the beat booklet's RHS / Ext RHS / Ext LHS
-// page on its own, for a separate print.
-router.get('/beat/:beatCode/placement/preview', async (req, res) => {
-  const beatCode = req.params.beatCode;
+// GET /placement/preview — the RHS / Ext RHS / Ext LHS report for the whole division,
+// with filters (beat, line, direction, side, pages outside Mumbai division).
+// ?beat=CODE opens it with that beat selected.
+router.get('/placement/preview', async (req, res) => {
   let conn;
   try {
     conn = await req.app.locals.pool.getConnection();
-    const book = await loadBook(beatCode, conn);
-    res.type('text/html').send(renderHtml(book, { placementOnly: true }));
+    const book = await loadAllSections(conn);
+    res.type('text/html').send(renderHtml(book, { placementOnly: true, report: { beats: book.beats } }));
   } catch (err) {
-    console.error(`signal-book placement list failed for ${beatCode}:`, err);
+    console.error('signal-book placement report failed:', err);
     res.status(500).type('text/html').send(`<h2>Render failed</h2><pre>${err.message}</pre>`);
   } finally {
     if (conn) conn.release();
   }
 });
 
-// GET /placement/preview — the same list for every page of the division.
-router.get('/placement/preview', async (req, res) => {
-  let conn;
-  try {
-    conn = await req.app.locals.pool.getConnection();
-    const book = await loadAllSections(conn);
-    res.type('text/html').send(renderHtml(book, { placementOnly: true }));
-  } catch (err) {
-    console.error('signal-book division placement list failed:', err);
-    res.status(500).type('text/html').send(`<h2>Render failed</h2><pre>${err.message}</pre>`);
-  } finally {
-    if (conn) conn.release();
-  }
+// GET /beat/:beatCode/placement/preview — the same report with the beat selected.
+router.get('/beat/:beatCode/placement/preview', (req, res) => {
+  res.redirect(`${req.baseUrl}/placement/preview?beat=${encodeURIComponent(req.params.beatCode)}`);
 });
 
 // ---------------------------------------------------------------------------
