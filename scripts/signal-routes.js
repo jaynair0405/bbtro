@@ -76,7 +76,7 @@ module.exports = {
     segments: [
       'TNA_TUH_DN_THB',                                    // THANE hdr, TNA S-62 (PF-9), TNA S-61 (PF-10), TN-01 -> TUH S-2
       'TUH_NEU_DN_THB',                                    // TUH S-11 -> ... -> NEU S-31 (PF-1), NEU S-32 (PF-2) -> RI to NEU S-41
-      { code: 'CSMT_PNVL_DN_HB', from: 'NEU S-41', to: 'PNVL S-403' }, // NEU S-41 -> ... -> Panvel (NEU S-33 URAN branch skipped)
+      { code: 'CSMT_PNVL_DN_HB', from: 'NEU S-41' },       // NEU S-41 -> ... -> PNVL S-403/S-404 + Panvel hdr (NEU S-33 URAN branch skipped)
     ],
   },
   'PNVL-TNA UP': {
