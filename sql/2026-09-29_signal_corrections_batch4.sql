@@ -36,3 +36,15 @@ COMMIT;
 SELECT r.row_order, r.row_type, COALESCE(s.signal_number, CONCAT(r.speed_kmph, ' KMPH ', r.km_range_text)) AS item
   FROM div_signal_book_rows r LEFT JOIN div_signals s ON s.id = r.signal_id
  WHERE r.book_section_id = (SELECT id FROM div_signal_book_sections WHERE section_code = 'TNA_TUH_DN_THB') AND r.row_order BETWEEN 200 AND 500 ORDER BY r.row_order;
+
+-- 4. NEU S-32 (TUH-NEU DN THB, only copy): right diversion to NEU S-43 (Uran/BSU line), main route to NEU S-41
+--    (Harbour line to Panvel). The signal record said "RI: R1= NEU S-41" and the page row "RI: R1= NEU S-43" —
+--    both now "RI: R1= NEU S-43; Y= NEU S-41" (counts 0 L / 1 R).  Undo: record "RI: R1= NEU S-41", row "RI: R1= NEU S-43".
+START TRANSACTION;
+SET @neu32 = (SELECT id FROM div_signals WHERE section='TUH-NEU' AND line='DN THB' AND signal_number='NEU S-32');
+UPDATE div_signals SET book_description = 'RI: R1= NEU S-43; Y= NEU S-41', ri_left_arms = 0, ri_right_arms = 1 WHERE id = @neu32;
+UPDATE div_signal_book_rows SET display_description = 'RI: R1= NEU S-43; Y= NEU S-41' WHERE signal_id = @neu32;
+SELECT ROW_COUNT() AS neu32_row_updated;                                         -- expect 1
+UPDATE div_signal_successors SET route_condition = 'Y'
+ WHERE from_signal_text = 'NEU S-32' AND to_signal_text = 'NEU S-41' AND route_condition = '';
+COMMIT;
