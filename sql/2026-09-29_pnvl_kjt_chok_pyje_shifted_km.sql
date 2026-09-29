@@ -12,3 +12,14 @@ UPDATE div_signal_book_rows SET display_location = CASE signal_id WHEN 3036 THEN
  WHERE signal_id IN (3036, 3037) AND display_location IN ('86/17', '85/33');
 COMMIT;
 SELECT s.id, s.signal_number, s.location_text, s.km_text, r.display_location FROM div_signals s JOIN div_signal_book_rows r ON r.signal_id = s.id WHERE s.id IN (3036, 3037, 3046);
+
+-- Also the DN signals shifted by the Chauk order (user, 2026-09-29):
+--   CHOK S-4  (3023, S/CO-4 DN home)      shifted towards Panvel -> OHE 83/20-83/21 -> 83/20  (was 84/02)
+--   CHOK S-16 (3027, DN advance starter)  shifted towards Karjat -> OHE 86/1-86/2   -> 86/01  (was 85/33)
+-- Undo: 3023 -> 84/02, 3027 -> 85/33 (location_text, km_text, display_location).
+START TRANSACTION;
+UPDATE div_signals SET location_text = '83/20', km_text = '83/20' WHERE id = 3023 AND km_text = '84/02';
+UPDATE div_signals SET location_text = '86/01', km_text = '86/01' WHERE id = 3027 AND km_text = '85/33';
+UPDATE div_signal_book_rows SET display_location = CASE signal_id WHEN 3023 THEN '83/20' WHEN 3027 THEN '86/01' END
+ WHERE signal_id IN (3023, 3027) AND display_location IN ('84/02', '85/33');
+COMMIT;
