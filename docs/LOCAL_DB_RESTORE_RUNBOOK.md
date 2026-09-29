@@ -251,6 +251,11 @@ Then (Claude can do these, no sudo):
   compare with the pilot file. By design it is a re-runnable import, not a live read. The
   temporary `rr_*` comparison tables were dropped from `bbtro_old`; the full old rrcms remains in
   `~/rrcms19/backups/old81-rrcms-2026-09-23.sql.gz`.
+- **Old 8.1 can no longer start at boot** (done 2026-09-29): `launchctl disable
+  system/com.oracle.oss.mysql.mysqld` and its plist moved to `/Library/LaunchDaemons.disabled/`.
+  (A plain `bootout` does not survive a restart, and with Rosetta back the 8.1 server would have
+  retaken 3306 at boot, pointing the apps at the 23 Sep data.) After any restart check
+  `lsof -nP -iTCP:3306 -sTCP:LISTEN` shows the Homebrew mysqld.
 - **None of this is on prod.** Prod has none of the 65 tables / 5 columns: moving a feature to prod
   = schema first (dated `sql/` file), then only the data the user picks, one feature at a time.
 
