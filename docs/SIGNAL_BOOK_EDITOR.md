@@ -52,10 +52,20 @@ Entry point: `/div/signal-book.html` → **✎ Edit signal book**, or directly
   arms/etc. updates this row. Because a signal belongs to one
   `(section, line, direction)` partition, an edit propagates to **every beat**
   whose book includes that section (e.g. editing `KYN S-9` updates `KYN_SUB`,
-  `CSMT_ML_MMR`, … at once — one physical signal, one row).
+  `CSMT_ML_MMR`, … at once).
+  A physical signal that prints on several pages (junction, platform and main/MID
+  copies) is one row PER PAGE, tied by `magnet_id`. On publish, the fields that describe
+  the signal itself — RI text and arm counts (only when the RI's meaning changes, not
+  its formatting), signal type/function, legend board, visibility, RI notes — are
+  carried to every other copy and its book row, logged in history and queued for the
+  prod sync. Placement, RHS/LHS/Ext, location and km stay per line (a signal between
+  two lines is right of one and left of the other). The publish result lists the
+  pages updated and warns when one of them has an unpublished draft (added 2026-09-29).
 - **`div_signal_book_rows`** — the ordered rows of a section's book (signals +
   station headers + PSRs + boards + neutral sections + notes). Reordering,
   adding and deleting rows happens here.
+  Publish rebuilds a section's rows; each row's `exclude_beats` (rows hidden from some
+  beats) is carried over by signal/PSR — before 2026-09-29 it was silently dropped.
 - **`div_signal_book_sections.edit_source`** — `import` (spreadsheet-owned) or
   `ui` (editor-owned). Set to `ui` on first publish.
 - **`div_signal_section_drafts`** — one row per section *while it has unpublished
