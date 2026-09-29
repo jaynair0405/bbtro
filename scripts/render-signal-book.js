@@ -243,12 +243,15 @@ async function loadBeatRoutes(beatCode, beatName, providedConn) {
       (n) => Array.isArray(routeDefs[n].beats) && routeDefs[n].beats.includes(beatCode)
     );
 
-    // section_codes consumed by the beat's routes — these get replaced by the routes.
+    // section_codes consumed WHOLE by the beat's routes — these get replaced by the
+    // routes. A route that uses only a slice of a section (from/to/exclude) does not
+    // replace it: the section is a line in its own right (e.g. CSMT-PNVL HB, of which
+    // the TNA-PNVL routes use only the NEU -> PNVL stretch) and was being dropped.
     const covered = new Set();
     for (const n of routeNames) {
       for (const seg of routeDefs[n].segments) {
-        const code = typeof seg === 'string' ? seg : seg.code;
-        if (code) covered.add(code);
+        if (typeof seg === 'string') { covered.add(seg); continue; }
+        if (seg.code && !seg.from && !seg.to && !seg.exclude) covered.add(seg.code);
       }
     }
 
