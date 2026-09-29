@@ -13,7 +13,7 @@
 
 const express = require('express');
 const router = express.Router();
-const { loadBook, loadRoute, loadBeatRoutes, renderHtml } = require('../../scripts/render-signal-book');
+const { loadBook, loadRoute, loadBeatRoutes, loadAllSections, renderHtml } = require('../../scripts/render-signal-book');
 const { parseRiSpec, serializeRiSpec, armCounts } = require('../../scripts/ri-spec');
 const signalRoutes = require('../../scripts/signal-routes');
 
@@ -134,10 +134,43 @@ router.get('/beat/:beatCode/preview', async (req, res) => {
       return;
     }
 
-    const html = renderHtml(book);
+    // Last page: the beat's RHS / Ext RHS / Ext LHS signals.
+    const html = renderHtml(book, { placementPage: true });
     res.type('text/html').send(html);
   } catch (err) {
     console.error(`signal-book preview failed for ${beatCode}:`, err);
+    res.status(500).type('text/html').send(`<h2>Render failed</h2><pre>${err.message}</pre>`);
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+// GET /beat/:beatCode/placement/preview — the beat booklet's RHS / Ext RHS / Ext LHS
+// page on its own, for a separate print.
+router.get('/beat/:beatCode/placement/preview', async (req, res) => {
+  const beatCode = req.params.beatCode;
+  let conn;
+  try {
+    conn = await req.app.locals.pool.getConnection();
+    const book = await loadBook(beatCode, conn);
+    res.type('text/html').send(renderHtml(book, { placementOnly: true }));
+  } catch (err) {
+    console.error(`signal-book placement list failed for ${beatCode}:`, err);
+    res.status(500).type('text/html').send(`<h2>Render failed</h2><pre>${err.message}</pre>`);
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+// GET /placement/preview — the same list for every page of the division.
+router.get('/placement/preview', async (req, res) => {
+  let conn;
+  try {
+    conn = await req.app.locals.pool.getConnection();
+    const book = await loadAllSections(conn);
+    res.type('text/html').send(renderHtml(book, { placementOnly: true }));
+  } catch (err) {
+    console.error('signal-book division placement list failed:', err);
     res.status(500).type('text/html').send(`<h2>Render failed</h2><pre>${err.message}</pre>`);
   } finally {
     if (conn) conn.release();
@@ -174,7 +207,7 @@ router.get('/beat/:beatCode/routes/preview', async (req, res) => {
         `<h2>${beatCode}: no full routes defined for this beat.</h2>`
       );
     }
-    res.type('text/html').send(renderHtml(book));
+    res.type('text/html').send(renderHtml(book, { placementPage: true }));
   } catch (err) {
     console.error(`signal-book beat-routes preview failed for ${beatCode}:`, err);
     res.status(500).type('text/html').send(`<h2>Render failed</h2><pre>${err.message}</pre>`);

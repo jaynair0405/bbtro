@@ -486,11 +486,11 @@ function stationLine(row) {
   return `${row.station_name}${code}${km}`;
 }
 
-function renderHtml({ beat, sections }) {
-  // Consolidate consecutive bound sections that share a display_group into ONE
-  // rendered block (one heading = the display_group, rows concatenated) so a route
-  // reads as a single continuous list. A NULL display_group renders standalone with
-  // its own section_title (each in its own group).
+// Consolidate consecutive bound sections that share a display_group into ONE
+// rendered block (one heading = the display_group, rows concatenated) so a route
+// reads as a single continuous list. A NULL display_group renders standalone with
+// its own section_title (each in its own group).
+function groupSections(sections) {
   const groups = [];
   for (const section of sections) {
     const key = section.display_group && String(section.display_group).trim();
@@ -501,8 +501,68 @@ function renderHtml({ beat, sections }) {
       groups.push({ key: key || null, title: key || section.section_title, sections: [section] });
     }
   }
+  return groups;
+}
 
-  const sectionsHtml = groups.map((group) => {
+// Last page of a booklet (and the stand-alone report): every signal printed on the
+// RHS / Ext RHS / Ext LHS, page by page in booklet order. Built from the rows the
+// booklet itself prints, so exclude_beats and per-line placement are already applied.
+// A full-route book can pass the same segment twice: one entry per heading + signal.
+const PLACEMENT_SIDES = [['EXT_RHS', 'Ext RHS'], ['RHS', 'RHS'], ['EXT_LHS', 'Ext LHS']];
+
+function placementSide(row) {
+  if (row.is_ext_rhs) return 'EXT_RHS';
+  if (row.is_rhs) return 'RHS';
+  if (row.is_ext_lhs) return 'EXT_LHS';
+  return null;
+}
+
+function placementPageHtml(sections) {
+  const counts = { RHS: 0, EXT_RHS: 0, EXT_LHS: 0 };
+  const blocks = [];
+  for (const group of groupSections(sections)) {
+    const seen = new Set();
+    const items = [];
+    for (const row of group.sections.flatMap((s) => s.rows)) {
+      const side = row.row_type === 'SIGNAL' && placementSide(row);
+      if (!side) continue;
+      const key = row.signal_id || `${row.display_signal_no}|${row.display_location}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      counts[side]++;
+      items.push({ row, side });
+    }
+    if (items.length) blocks.push({ title: group.title, items });
+  }
+  if (!blocks.length) return '';
+
+  const label = Object.fromEntries(PLACEMENT_SIDES);
+  const summary = PLACEMENT_SIDES
+    .filter(([k]) => counts[k])
+    .map(([k, l]) => `<span class="pl-side ${k}">${l}</span> ${counts[k]}`)
+    .join(' &nbsp;·&nbsp; ');
+  const tables = blocks.map((b) => `
+  <div class="pl-block">
+    <div class="pl-page">${esc(b.title)}</div>
+    <table class="pl-table">
+${b.items.map(({ row, side }) => `      <tr><td class="pl-no">${esc(row.display_signal_no || '')}</td><td class="pl-loc">${esc(row.display_location || '')}</td><td><span class="pl-side ${side}">${label[side]}</span></td></tr>`).join('\n')}
+    </table>
+  </div>`).join('\n');
+
+  return `
+<section class="book-section placement-list">
+  <h2 class="section-title">RHS / Ext RHS / Ext LHS Signals</h2>
+  <div class="pl-summary">${summary}</div>
+  <div class="pl-wrap">
+${tables}
+  </div>
+</section>`;
+}
+
+function renderHtml({ beat, sections }, opts = {}) {
+  const groups = groupSections(sections);
+
+  const sectionsHtml = opts.placementOnly ? '' : groups.map((group) => {
     const rowsHtml = group.sections.flatMap((s) => s.rows).map(renderRow).join('\n');
     // Lead-in / cross-reference captions ("From DCC S-3", "To DI S-5 for BSR")
     // carried on each binding, shown under the heading in book order.
@@ -526,11 +586,14 @@ ${rowsHtml}
 </section>`;
   }).join('\n');
 
+  const placementHtml = (opts.placementPage || opts.placementOnly) ? placementPageHtml(sections) : '';
+  const placementCount = (placementHtml.match(/<tr>/g) || []).length;
+
   return `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Signal Book — ${esc(beat.beat_name)}</title>
+<title>${opts.placementOnly ? 'RHS / Ext Signals' : 'Signal Book'} — ${esc(beat.beat_name)}</title>
 <style>
   @page { size: A4 portrait; margin: 10mm 8mm 12mm 8mm; }
   * { box-sizing: border-box; }
@@ -736,26 +799,76 @@ ${rowsHtml}
   .cover .title { font-size: 20pt; font-weight: 700; letter-spacing: 1px; }
   .cover .beat  { font-size: 16pt; margin-top: 8mm; color: #1e3a8a; }
   .cover .sub   { font-size: 11pt; margin-top: 4mm; color: #6b7280; }
+
+  /* RHS / Ext list page — compact, two page-columns of small tables. */
+  .placement-list .pl-summary { text-align: center; font-size: 9pt; margin: 2px 0 8px; }
+  .placement-list .pl-wrap { column-count: 2; column-gap: 8mm; }
+  .placement-list .pl-block { margin-bottom: 8px; }
+  .placement-list .pl-table tr { break-inside: avoid; page-break-inside: avoid; }
+  .placement-list .pl-page {
+    font-weight: 700; font-size: 8.5pt; color: #1e3a8a; text-transform: uppercase;
+    border-bottom: 1px solid #1e3a8a; padding: 2px 0; margin-bottom: 2px;
+    break-after: avoid; page-break-after: avoid;
+  }
+  .placement-list .pl-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  .placement-list .pl-table td { padding: 1.5px 4px; border-bottom: 1px solid #e5e7eb; font-size: 9pt; }
+  .placement-list .pl-no { font-weight: 700; width: 38%; overflow-wrap: anywhere; }
+  .placement-list .pl-loc { width: 42%; overflow-wrap: anywhere; }
+  .placement-list .pl-side { font-weight: 700; font-size: 8pt; white-space: nowrap; }
+  .pl-side.RHS, .pl-side.EXT_RHS { color: #c2410c; }
+  .pl-side.EXT_LHS { color: #1d4ed8; }
 </style>
 </head>
 <body>
   <div class="toolbar">
-    <div><strong>${esc(beat.beat_name)}</strong> · ${sections.length} section${sections.length === 1 ? '' : 's'} · ${sections.reduce((n, s) => n + s.rows.length, 0)} rows</div>
+    <div><strong>${esc(beat.beat_name)}</strong> · ${opts.placementOnly
+      ? `RHS / Ext RHS / Ext LHS list · ${placementCount} signal${placementCount === 1 ? '' : 's'}`
+      : `${sections.length} section${sections.length === 1 ? '' : 's'} · ${sections.reduce((n, s) => n + s.rows.length, 0)} rows`}</div>
     <button onclick="window.print()">Print / Save as PDF</button>
   </div>
-
+${opts.placementOnly ? '' : `
   <div class="cover">
     <div class="title">SIGNAL LOCATION GUIDE</div>
     <div class="beat">${esc(beat.beat_name)} BEAT</div>
     <div class="sub">BB Division · Mumbai · Auto-generated draft</div>
   </div>
-
+`}
   ${sectionsHtml}
+  ${placementHtml || (opts.placementOnly ? '<p style="padding:20px">No RHS / Ext RHS / Ext LHS signals in this book.</p>' : '')}
 </body>
 </html>`;
 }
 
-module.exports = { loadBook, loadRoute, loadBeatRoutes, renderHtml };
+// Division-wide book for the stand-alone RHS / Ext report: every active page, with
+// no beat filter (exclude_beats only hides a row from particular beats).
+async function loadAllSections(providedConn) {
+  const conn = providedConn || await getConnection();
+  const ownConn = !providedConn;
+  try {
+    const [sections] = await conn.query(
+      `SELECT id, section_code, section_title, direction, line
+         FROM div_signal_book_sections WHERE is_active = 1 ORDER BY section_code`
+    );
+    const [rows] = await conn.query(
+      `SELECT r.book_section_id, r.row_order, r.row_type, r.signal_id,
+              r.display_signal_no, r.display_location,
+              sg.is_rhs, sg.is_ext_rhs, sg.is_ext_lhs
+         FROM div_signal_book_rows r
+         JOIN div_signals sg ON sg.id = r.signal_id
+        WHERE r.is_active = 1 AND r.row_type = 'SIGNAL'
+          AND (sg.is_rhs = 1 OR sg.is_ext_rhs = 1 OR sg.is_ext_lhs = 1)
+        ORDER BY r.book_section_id, r.row_order`
+    );
+    const bySection = {};
+    rows.forEach((r) => { (bySection[r.book_section_id] = bySection[r.book_section_id] || []).push(r); });
+    sections.forEach((s) => { s.rows = bySection[s.id] || []; });
+    return { beat: { beat_name: 'BB Division — all pages' }, sections };
+  } finally {
+    if (ownConn) await conn.end();
+  }
+}
+
+module.exports = { loadBook, loadRoute, loadBeatRoutes, loadAllSections, renderHtml, placementPageHtml };
 
 // Allow running directly as a CLI script.
 if (require.main === module) {

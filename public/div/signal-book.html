@@ -126,6 +126,10 @@
       Pick a beat or a full route below to open its signal book in a new tab. From the preview tab, press
       <strong>Cmd+P</strong> (or Ctrl+P on Windows) and choose <strong>Save as PDF</strong> to export.
       Section content is shared — editing one signal updates every beat and route that includes it.
+      Each booklet ends with its RHS / Ext RHS / Ext LHS signals; <strong>RHS / Ext list</strong> prints that page alone.
+    </div>
+    <div class="actions" style="margin-bottom:14px;">
+      <a class="route-btn" style="margin-left:0" href="/api/division/signal-book/placement/preview" target="_blank">RHS / Ext list — whole division</a>
     </div>
 
     <table id="beats-table">
@@ -187,6 +191,9 @@
         var btnTxt = hasData ? 'Open preview' : 'No data';
         var href = '/api/division/signal-book/beat/' + encodeURIComponent(b.beat_code) + '/preview';
         var nRoutes = routeCountByBeat[b.beat_code] || 0;
+        var placementBtn = hasData
+          ? '<a class="route-btn" href="/api/division/signal-book/beat/' + encodeURIComponent(b.beat_code) + '/placement/preview" target="_blank">RHS / Ext list</a>'
+          : '';
         var routeBtn = nRoutes > 0
           ? '<a class="route-btn" href="/api/division/signal-book/beat/' + encodeURIComponent(b.beat_code) + '/routes/preview" target="_blank">Full-route book (' + nRoutes + ')</a>'
           : '';
@@ -197,7 +204,7 @@
           '  <td>' + (b.beat_category || '—') + '</td>' +
           '  <td><span class="' + sectionsCls + '">' + (b.section_count || 0) + '</span></td>' +
           '  <td><span class="' + rowsCls + '">' + (b.row_count || 0) + '</span></td>' +
-          '  <td class="actions"><a class="' + btnCls + '" href="' + href + '" target="_blank">' + btnTxt + '</a>' + routeBtn + '</td>' +
+          '  <td class="actions"><a class="' + btnCls + '" href="' + href + '" target="_blank">' + btnTxt + '</a>' + routeBtn + placementBtn + '</td>' +
           '</tr>'
         );
       }).join('');
