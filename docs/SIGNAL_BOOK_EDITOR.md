@@ -66,6 +66,10 @@ Entry point: `/div/signal-book.html` → **✎ Edit signal book**, or directly
   adding and deleting rows happens here.
   Publish rebuilds a section's rows; each row's `exclude_beats` (rows hidden from some
   beats) is carried over by signal/PSR — before 2026-09-29 it was silently dropped.
+  RI on publish (2026-09-29): a signal whose RI still MEANS the same keeps its stored text
+  and arm counts (no formatting rewrite of untouched signals); when it really changes,
+  the signal's book row text is updated too — the page draws the RI from the row, which
+  the editor UI never updated, so arm edits used not to show on the page.
 - **`div_signal_book_sections.edit_source`** — `import` (spreadsheet-owned) or
   `ui` (editor-owned). Set to `ui` on first publish.
 - **`div_signal_section_drafts`** — one row per section *while it has unpublished

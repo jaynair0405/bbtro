@@ -408,6 +408,14 @@ const MAGNET_SYNC_FIELDS = [
   'ri_left_arms', 'ri_right_arms', 'book_description', 'route_indicator_notes',
 ];
 
+// What an RI string means — which arms, on which side, with which labels — independent
+// of how it is written ("RI:L1=S-72" and "RI: L1= S-72" mean the same).
+function riMeaning(text, leftCount, rightCount) {
+  const spec = parseRiSpec(text || '', leftCount, rightCount);
+  const t = s => String(s || '').replace(/\s+/g, ' ').trim().toUpperCase();
+  return JSON.stringify({ main: t(spec.main), left: spec.left.map(t), right: spec.right.map(t) });
+}
+
 // Carry this publish's changes to the signal's other copies. Copies that are in the
 // draft being published are skipped: the draft writes them itself. Returns the copies
 // touched, flagging those whose page has an unpublished draft (publishing that draft
@@ -415,14 +423,6 @@ const MAGNET_SYNC_FIELDS = [
 async function syncMagnetCopies(conn, old, sigFields, draftSignalIds, userId, historyEntries) {
   if (!old || !old.magnet_id) return [];
   const norm = v => (v == null ? '' : String(v));
-  // Publishing re-serialises every RI string on the page into canonical form, so a
-  // string compare would report (and spread) formatting-only rewrites. Compare what
-  // the RI means instead: which arms, on which side, with which labels.
-  const riMeaning = (text, l, r) => {
-    const spec = parseRiSpec(text || '', l, r);
-    const t = s => String(s || '').replace(/\s+/g, ' ').trim().toUpperCase();
-    return JSON.stringify({ main: t(spec.main), left: spec.left.map(t), right: spec.right.map(t) });
-  };
   const riChanged = riMeaning(old.book_description, old.ri_left_arms, old.ri_right_arms)
                 !== riMeaning(sigFields.book_description, sigFields.ri_left_arms, sigFields.ri_right_arms);
   const RI_FIELDS = ['book_description', 'ri_left_arms', 'ri_right_arms'];
@@ -528,11 +528,24 @@ router.post('/section/:code/publish', async (req, res) => {
         // CLA YD S-2 lost ri_left_arms=2 when only TMBY S-541 was edited).
         // An empty spec means "nothing to say", not "no arms": keep the stored values.
         const specEmpty = !arms || (!arms.main && !(arms.left || []).length && !(arms.right || []).length);
-        const riString = !specEmpty ? serializeRiSpec(arms)
-                                    : (sig.book_description || (old && old.book_description) || null);
-        const counts = !specEmpty ? armCounts(arms)
-                                  : { left:  sig.ri_left_arms  ?? (old ? old.ri_left_arms  : 0) ?? 0,
-                                      right: sig.ri_right_arms ?? (old ? old.ri_right_arms : 0) ?? 0 };
+        let riString = !specEmpty ? serializeRiSpec(arms)
+                                  : (sig.book_description || (old && old.book_description) || null);
+        let counts = !specEmpty ? armCounts(arms)
+                                : { left:  sig.ri_left_arms  ?? (old ? old.ri_left_arms  : 0) ?? 0,
+                                    right: sig.ri_right_arms ?? (old ? old.ri_right_arms : 0) ?? 0 };
+        // The editor parses every RI into arms on load, so serialising always yields the
+        // canonical form. When the RI still MEANS the same, keep the stored text and counts
+        // exactly: otherwise every untouched signal on the page is rewritten (formatting
+        // churn in history, the prod sync queue and other pages).
+        if (old && riMeaning(old.book_description, old.ri_left_arms, old.ri_right_arms)
+                === riMeaning(riString, counts.left, counts.right)) {
+          riString = old.book_description;
+          counts = { left: old.ri_left_arms, right: old.ri_right_arms };
+        } else if (old) {
+          // The RI really changed. The page draws it from the book row, which the editor
+          // does not update, so hand the new text to the row rebuild below.
+          r.riUpdate = { from: old.book_description, to: riString };
+        }
         const sigFields = {
           signal_number: sig.signal_number,
           normalized_signal_number: normalizeSignalNumber(sig.signal_number),
@@ -639,6 +652,10 @@ router.post('/section/:code/publish', async (req, res) => {
         order += 100;
         const excludeBeats = r.exclude_beats !== undefined ? (r.exclude_beats || null)
           : (r.signal_id ? prevExclude.get(`s${r.signal_id}`) : r.psr_id ? prevExclude.get(`p${r.psr_id}`) : null) || null;
+        // A changed RI replaces the row text when the row was showing the RI; a row that
+        // shows something else (e.g. "FOR DN DIRECTION ONLY") is left as it is.
+        let rowText = r.display_description || null;
+        if (r.riUpdate && (!rowText || rowText === r.riUpdate.from || /^RI:/i.test(rowText))) rowText = r.riUpdate.to;
         await conn.execute(
           `INSERT INTO div_signal_book_rows (
              book_section_id, row_order, row_type, row_source,
@@ -649,7 +666,7 @@ router.post('/section/:code/publish', async (req, res) => {
            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1)`,
           [section.id, order, r.row_type, 'ui',
            r.signal_id || null, r.psr_id || null, r.neutral_section_id || null,
-           r.display_signal_no || (r.signal && r.signal.signal_number) || null, r.display_location || null, r.display_description || null,
+           r.display_signal_no || (r.signal && r.signal.signal_number) || null, r.display_location || null, rowText,
            r.speed_kmph || null, r.km_range_text || null,
            r.station_code || null, r.station_name || null, r.station_km_text || null,
            r.highlight_color || 'NONE', r.text_color || 'BLACK', r.icon_type || 'NONE', r.remarks || null, excludeBeats]
