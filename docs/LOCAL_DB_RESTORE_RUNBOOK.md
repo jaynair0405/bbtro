@@ -175,17 +175,25 @@ gzip -dc ~/rrcms19/backups/rrcms-prod-DATE.sql.gz | mysql -u jay -p rrcms
 cd ~/rrcms19/rrcms-app && node db/migrate.js status     # nothing pending
 ```
 
-## 7. What stays different from prod until prod is fixed
+## 7. Prod fixes — DONE 2026-09-29 (quiet window, scripts in `~/rrcms19/backups/prodfix-2026-09-29/`)
 
-| Item | Local (9.7) | Prod (8.0) | Fix |
-|---|---|---|---|
-| `div_ctr_legs.leg_fingerprint` | sha2, char(64) | md5, char(32) | change prod to sha2 (dated sql); it also blocks upgrading prod's MySQL |
-| `div_signal_aliases` | 2,662 rows | 2,683 (21 dupes) | delete the 18 re-imports; resolve the 3 Lonavala `div_signals` duplicates (signal numbers are unique — one record of each pair is wrong); rebuild |
-| view/procedure DEFINER | jay | railway_user | expected; nothing to do |
+Prod and local now match on both points below, so §3's md5 filter and §4's row-by-row alias
+load are no longer needed for a dump taken after 29 Sep.
 
-After those two prod fixes: re-dump, reload local with this runbook (§3's filter
-then becomes a no-op), rehearse a `--force`-free restore into a scratch database,
-and only then upgrade prod's MySQL.
+| Item | Done on prod | Evidence |
+|---|---|---|
+| `div_ctr_legs.leg_fingerprint` | md5 `char(32)` → sha2 `char(64)` (rehearsed on a scratch copy first; app only relies on the unique index) | 118,949 legs, 118,949 distinct, all 64 chars |
+| `div_signal_aliases` | 21 duplicate names removed: 18 re-imports (same signal) + LNL S-68/69/70 rows 2067–2069 (twin 2040–2042 → same magnet 2042–2044) | 2,662 rows = 2,662 distinct; rows kept in `div_signal_aliases_dupes_20260929` |
+
+Before-fix backup: prod `~/prodfix-2026-09-29/bbtro-before-fix.sql.gz` (+ aliases file), copied to the Mac
+folder above. Rollbacks: `02r_rollback_fingerprint.sql`, `03r_rollback_aliases.sql`.
+Lesson: `ALTER TABLE … ENGINE=InnoDB` re-checks unique keys — it fails (harmlessly, no change)
+while any duplicate remains.
+
+**Signal review (29 Sep):** no genuine duplicate signals. Repeated signal numbers are either unique
+with direction (distant / inner distant / gates), one physical signal on several lines (same
+`magnet_id`: TH/LOC, main/MID, junctions, Lonavala), or gates whose numbers restart per section.
+Open (display only, no data change): label distants like "SAPE DN DIST" and gates with their section.
 
 ## 8. Backups now
 
