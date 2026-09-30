@@ -328,7 +328,9 @@ function riGlyphSvg(spec) {
   const wL = Math.max(0, ...spec.left.map((s) => s.length)) * CHAR_W;
   const wR = Math.max(0, ...spec.right.map((s) => s.length)) * CHAR_W;
   const wM = (spec.main || '').length * CHAR_W;
-  const cx = 4 + wL + ARM_DX + 2;
+  // Stem far enough right for the left labels AND for half the centred main label
+  // (right-only signals were clipping the start of "Y=..." at the left edge).
+  const cx = Math.max(4 + wL + ARM_DX + 2, 4 + wM / 2);
   const W = Math.max(cx + ARM_DX + 2 + wR + 4, cx + wM / 2 + 4, 30);
 
   let svg = `<svg class="ri-glyph" width="${Math.round(W)}" height="${Math.round(H + TOP_PAD)}" viewBox="0 ${-TOP_PAD} ${Math.round(W)} ${Math.round(H + TOP_PAD)}">`;
