@@ -103,7 +103,7 @@ async function loadRoute(routeDef, providedConn) {
         const [sigs] = await conn.execute(
           `SELECT id, signal_number, location_text, book_description, route_indicator_notes,
                   ri_left_arms, ri_right_arms, is_rhs, is_ext_rhs, is_ext_lhs,
-                  on_curve, signal_type, signal_function
+                  on_curve, signal_type, signal_function, magnet_id
              FROM div_signals WHERE signal_number = ? AND is_active = 1`,
           [spec.signal]
         );
@@ -125,6 +125,7 @@ async function loadRoute(routeDef, providedConn) {
           route_indicator_notes: s.route_indicator_notes,
           is_rhs: s.is_rhs, is_ext_rhs: s.is_ext_rhs, is_ext_lhs: s.is_ext_lhs,
           on_curve: s.on_curve, signal_type: s.signal_type, signal_function: s.signal_function,
+          magnet_id: s.magnet_id,
         });
         sections.push({
           section_code: `SIG:${spec.signal}`, display_group: routeTitle, lead_in_note: null, rows: sigRows,
@@ -557,8 +558,7 @@ function placementPageHtml(sections, { report = false } = {}) {
         seen.add(k);
         done.add(k);
         counts[side]++;
-        const excl = String(row.exclude_beats || '').split(',').map((b) => b.trim());
-        const beats = (s.beats || []).filter((b) => !excl.includes(b));
+        const beats = row._beats || [];
         const also = report ? [] : (pagesOf.get(k) || []).filter((t) => t !== group.title);
         items.push({ row, side, beats, key: k, also });
       }
@@ -581,13 +581,13 @@ function placementPageHtml(sections, { report = false } = {}) {
     .filter(([k]) => counts[k])
     .map(([k, l]) => `<span class="pl-item" data-side="${k}"><span class="pl-side ${k}">${l}</span> <span class="pl-n">${counts[k]}</span></span>`)
     .join('');
-  const blockAttrs = (b) => report
-    ? ` data-line="${esc(b.first.line || '')}" data-dir="${esc(b.first.direction || '')}" data-out="${OUTSIDE_DIVISION.test(b.first.section_code || '') ? 1 : 0}"`
+  const rowAttrs = (it) => report
+    ? ` data-side="${it.side}" data-key="${esc(it.key)}" data-beats=",${esc(it.beats.join(','))},"` +
+      ` data-line="${esc(it.row._line || '')}" data-dir="${esc(it.row._dir || '')}" data-out="${it.row._out ? 1 : 0}"`
     : '';
-  const rowAttrs = (it) => report ? ` data-side="${it.side}" data-key="${esc(it.key)}" data-beats=",${esc(it.beats.join(','))},"` : '';
   const alsoHtml = (it) => `<span class="pl-also">${it.also.length ? `also on ${esc(it.also.join(', '))}` : ''}</span>`;
   const tables = blocks.map((b) => `
-  <div class="pl-block${b.items.length <= 80 ? ' pl-keep' : ''}"${blockAttrs(b)}>
+  <div class="pl-block${b.items.length <= 80 ? ' pl-keep' : ''}">
     <div class="pl-page"><span>${esc(b.title)}</span><span class="pl-cnt">${pageCount(b.items)}</span></div>
     <div class="pl-rows">
 ${b.items.map((it) => `      <div class="pl-row"${rowAttrs(it)}><span class="pl-no">${esc(it.row.display_signal_no || '')}</span><span class="pl-loc">${esc(it.row.display_location || '')}</span><span class="pl-side ${it.side}">${label[it.side]}</span>${alsoHtml(it)}</div>`).join('\n')}
@@ -608,8 +608,7 @@ ${tables}
 // Filter bar + script for the stand-alone report (hidden when printing; the chosen
 // filters print under the title instead). Filters: beat, line, direction, side, and
 // pages outside Mumbai division (off by default). ?beat=CODE preselects a beat.
-function placementFiltersHtml(sections, beats) {
-  const lines = [...new Set(sections.map((s) => s.line).filter(Boolean))].sort();
+function placementFiltersHtml(lines, beats) {
   const opt = (v, l) => `<option value="${esc(v)}">${esc(l)}</option>`;
   return `
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -645,7 +644,7 @@ function placementFiltersHtml(sections, beats) {
       var page = b.querySelector('.pl-page span').textContent;
       [].forEach.call(b.querySelectorAll('.pl-row'), function (tr) {
         ROWS.push({ el: tr, block: b, page: page, key: tr.dataset.key, side: tr.dataset.side, beats: tr.dataset.beats,
-                    line: b.dataset.line, dir: b.dataset.dir, out: b.dataset.out === '1' });
+                    line: tr.dataset.line, dir: tr.dataset.dir, out: tr.dataset.out === '1' });
       });
     });
     ['f-beat', 'f-line', 'f-dir'].forEach(function (id) {
@@ -766,10 +765,20 @@ function placementFiltersHtml(sections, beats) {
     if (!window.XLSX) { $('pl-xlsx').textContent = 'Excel library did not load — check internet'; return; }
     var note = document.querySelector('.pl-filters-note').textContent;
     var list = [['RHS / Ext RHS / Ext LHS signals — BB Division'], [note], [],
-                ['Page', 'Line', 'Direction', 'Signal No.', 'Location', 'Side', 'Also on']];
+                ['Route / page', 'Line', 'Direction', 'Signal No.', 'Location', 'Side', 'Also on']];
     var summary = [['Counts per page — BB Division'], [note], [],
-                   ['Page', 'Line', 'Direction', 'Total', 'Ext RHS', 'RHS', 'Ext LHS', 'LHS']];
+                   ['Route / page', 'Lines', 'Direction', 'Total', 'Ext RHS', 'RHS', 'Ext LHS', 'LHS']];
     var tot = { n: 0, EXT_RHS: 0, RHS: 0, EXT_LHS: 0, LHS: 0 };
+    // A route can run over several lines: list the lines / directions of what is shown.
+    function vals(b, k) {
+      var v = [];
+      [].forEach.call(b.querySelectorAll('.pl-row'), function (tr) {
+        if (tr.style.display !== 'none' && tr.dataset[k] && v.indexOf(tr.dataset[k]) === -1) v.push(tr.dataset[k]);
+      });
+      return v.join(', ');
+    }
+    function lines(b) { return vals(b, 'line'); }
+    function dirs(b) { return vals(b, 'dir'); }
     [].forEach.call(document.querySelectorAll('.pl-block'), function (b) {
       if (b.style.display === 'none') return;
       var page = b.querySelector('.pl-page span').textContent;
@@ -777,11 +786,11 @@ function placementFiltersHtml(sections, beats) {
       [].forEach.call(b.querySelectorAll('.pl-row'), function (tr) {
         if (tr.style.display === 'none') return;
         var td = tr.children;
-        list.push([page, b.dataset.line, b.dataset.dir, td[0].textContent, td[1].textContent, LABEL[tr.dataset.side],
+        list.push([page, tr.dataset.line, tr.dataset.dir, td[0].textContent, td[1].textContent, LABEL[tr.dataset.side],
                    td[3].textContent.replace(/^also on /, '')]);
         c.n++; c[tr.dataset.side]++;
       });
-      summary.push([page, b.dataset.line, b.dataset.dir, c.n, c.EXT_RHS, c.RHS, c.EXT_LHS, c.LHS]);
+      summary.push([page, lines(b), dirs(b), c.n, c.EXT_RHS, c.RHS, c.EXT_LHS, c.LHS]);
       Object.keys(tot).forEach(function (k) { tot[k] += c[k]; });
     });
     summary.push(['Total', '', '', tot.n, tot.EXT_RHS, tot.RHS, tot.EXT_LHS, tot.LHS]);
@@ -829,7 +838,7 @@ ${rowsHtml}
   }).join('\n');
 
   const placementHtml = (opts.placementPage || opts.placementOnly)
-    ? placementPageHtml(sections, { report: !!opts.report }) : '';
+    ? placementPageHtml(opts.placementSections || sections, { report: !!opts.report }) : '';
   const placementCount = (placementHtml.match(/class="pl-row"/g) || []).length;
 
   return `<!doctype html>
@@ -1094,7 +1103,7 @@ ${rowsHtml}
       : `${sections.length} section${sections.length === 1 ? '' : 's'} · ${sections.reduce((n, s) => n + s.rows.length, 0)} rows`}</div>
     <div>${opts.report ? '<button id="pl-xlsx" style="margin-right:8px">Export to Excel</button>' : ''}<button onclick="window.print()">Print / Save as PDF</button></div>
   </div>
-${opts.report ? placementFiltersHtml(sections, opts.report.beats || []) : ''}
+${opts.report ? placementFiltersHtml(opts.report.lines || [], opts.report.beats || []) : ''}
 ${opts.placementOnly ? '' : `
   <div class="cover">
     <div class="title">SIGNAL LOCATION GUIDE</div>
@@ -1108,56 +1117,65 @@ ${opts.placementOnly ? '' : `
 </html>`;
 }
 
-// Division-wide data for the stand-alone RHS / Ext report: every signal row on every
-// active page (normal LHS too, for the LHS filter), each page's beats, and each row's
-// exclude_beats, so the page can filter by beat exactly as the booklets print.
-async function loadAllSections(providedConn) {
+// Division-wide data for the stand-alone RHS / Ext report, stitched like the full-route
+// books: each beat's full-route composition (loadBeatRoutes), merged, one group per route
+// (or per page where a page is not part of a route). Each signal row carries the beats
+// whose book prints it, its line, direction and whether its page is outside Mumbai
+// division, since one route can run over several lines.
+async function loadStitchedDivision(providedConn) {
   const conn = providedConn || await getConnection();
   const ownConn = !providedConn;
   try {
-    const [sections] = await conn.query(
-      `SELECT id, section_code, section_title, direction, line
-         FROM div_signal_book_sections WHERE is_active = 1 ORDER BY section_code`
-    );
     const [beats] = await conn.query(
       `SELECT id, beat_code, beat_name FROM div_signal_beats WHERE is_active = 1 ORDER BY id`
     );
-    const [links] = await conn.query(
-      `SELECT bs.section_id, b.beat_code
-         FROM div_signal_beat_sections bs JOIN div_signal_beats b ON b.id = bs.beat_id AND b.is_active = 1
-        WHERE bs.is_active = 1`
+    // Pages that share a title (DIVA DN LINE x4 ...) are named by their stretch when shown on their own.
+    const [shared] = await conn.query(
+      `SELECT section_title FROM div_signal_book_sections WHERE is_active = 1
+        GROUP BY section_title HAVING COUNT(*) > 1`
     );
-    const [rows] = await conn.query(
-      `SELECT r.book_section_id, r.row_order, r.row_type, r.signal_id,
-              r.display_signal_no, r.display_location, r.exclude_beats,
-              sg.is_rhs, sg.is_ext_rhs, sg.is_ext_lhs, sg.magnet_id
-         FROM div_signal_book_rows r
-         JOIN div_signals sg ON sg.id = r.signal_id
-        WHERE r.is_active = 1 AND r.row_type = 'SIGNAL'
-        ORDER BY r.book_section_id, r.row_order`
-    );
-    const bySection = {};
-    rows.forEach((r) => { (bySection[r.book_section_id] = bySection[r.book_section_id] || []).push(r); });
-    const beatsBySection = {};
-    links.forEach((l) => { (beatsBySection[l.section_id] = beatsBySection[l.section_id] || []).push(l.beat_code); });
-    sections.forEach((s) => { s.rows = bySection[s.id] || []; s.beats = beatsBySection[s.id] || []; });
-    // Several pages share a title (DIVA DN LINE x4, BSR UP LINE x4...); the booklets
-    // tell them apart by their beat heading, the report by the stretch in the page code.
-    const titleUse = {};
-    sections.forEach((s) => { titleUse[s.section_title] = (titleUse[s.section_title] || 0) + 1; });
-    sections.forEach((s) => {
-      if (titleUse[s.section_title] > 1) {
-        const [from, to] = String(s.section_code).split('_');
-        s.section_title = `${s.section_title} (${from}–${to})`;
+    const sharedTitles = new Set(shared.map((r) => r.section_title));
+    const groups = new Map();
+    const lines = new Set();
+    for (const b of beats) {
+      let book;
+      try { book = await loadBeatRoutes(b.beat_code, b.beat_name, conn); } catch (e) { continue; }
+      for (const group of groupSections(book.sections)) {
+        let title = group.title;
+        const s0 = group.sections[0];
+        if (!group.key && sharedTitles.has(s0.section_title)) {
+          const [from, to] = String(s0.section_code).split('_');
+          title = `${s0.section_title} (${from}–${to})`;
+        }
+        if (!groups.has(title)) groups.set(title, { title, rows: new Map() });
+        const g = groups.get(title);
+        for (const s of group.sections) {
+          for (const row of s.rows) {
+            if (row.row_type !== 'SIGNAL') continue;
+            const k = row.signal_id || `${row.display_signal_no}|${row.display_location}`;
+            if (!g.rows.has(k)) {
+              g.rows.set(k, Object.assign({}, row, {
+                _beats: [], _line: s.line || '', _dir: s.direction || '',
+                _out: OUTSIDE_DIVISION.test(s.section_code || ''),
+              }));
+              if (s.line) lines.add(s.line);
+            }
+            const r = g.rows.get(k);
+            if (!r._beats.includes(b.beat_code)) r._beats.push(b.beat_code);
+          }
+        }
       }
-    });
-    return { beat: { beat_name: 'BB Division' }, sections, beats };
+    }
+    const sections = [...groups.values()].map((g) => ({
+      section_title: g.title, display_group: g.title, rows: [...g.rows.values()],
+    }));
+    return { beat: { beat_name: 'BB Division' }, sections, beats, lines: [...lines].sort() };
   } finally {
     if (ownConn) await conn.end();
   }
 }
 
-module.exports = { loadBook, loadRoute, loadBeatRoutes, loadAllSections, renderHtml, placementPageHtml };
+module.exports = { loadBook, loadRoute, loadBeatRoutes, loadStitchedDivision, renderHtml, placementPageHtml };
 
 // Allow running directly as a CLI script.
 if (require.main === module) {

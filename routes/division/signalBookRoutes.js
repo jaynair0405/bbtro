@@ -13,7 +13,7 @@
 
 const express = require('express');
 const router = express.Router();
-const { loadBook, loadRoute, loadBeatRoutes, loadAllSections, renderHtml } = require('../../scripts/render-signal-book');
+const { loadBook, loadRoute, loadBeatRoutes, loadStitchedDivision, renderHtml } = require('../../scripts/render-signal-book');
 const { parseRiSpec, serializeRiSpec, armCounts } = require('../../scripts/ri-spec');
 const signalRoutes = require('../../scripts/signal-routes');
 
@@ -134,8 +134,10 @@ router.get('/beat/:beatCode/preview', async (req, res) => {
       return;
     }
 
-    // Last page: the beat's RHS / Ext RHS / Ext LHS signals.
-    const html = renderHtml(book, { placementPage: true });
+    // Last page: the beat's RHS / Ext RHS / Ext LHS signals, grouped by the beat's
+    // full routes (pages stitched together as in the full-route book).
+    const routes = await loadBeatRoutes(beatCode, book.beat.beat_name, conn);
+    const html = renderHtml(book, { placementPage: true, placementSections: routes.sections });
     res.type('text/html').send(html);
   } catch (err) {
     console.error(`signal-book preview failed for ${beatCode}:`, err);
@@ -152,8 +154,8 @@ router.get('/placement/preview', async (req, res) => {
   let conn;
   try {
     conn = await req.app.locals.pool.getConnection();
-    const book = await loadAllSections(conn);
-    res.type('text/html').send(renderHtml(book, { placementOnly: true, report: { beats: book.beats } }));
+    const book = await loadStitchedDivision(conn);
+    res.type('text/html').send(renderHtml(book, { placementOnly: true, report: { beats: book.beats, lines: book.lines } }));
   } catch (err) {
     console.error('signal-book placement report failed:', err);
     res.status(500).type('text/html').send(`<h2>Render failed</h2><pre>${err.message}</pre>`);
