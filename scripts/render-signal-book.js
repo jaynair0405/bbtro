@@ -1091,6 +1091,16 @@ async function loadAllSections(providedConn) {
     const beatsBySection = {};
     links.forEach((l) => { (beatsBySection[l.section_id] = beatsBySection[l.section_id] || []).push(l.beat_code); });
     sections.forEach((s) => { s.rows = bySection[s.id] || []; s.beats = beatsBySection[s.id] || []; });
+    // Several pages share a title (DIVA DN LINE x4, BSR UP LINE x4...); the booklets
+    // tell them apart by their beat heading, the report by the stretch in the page code.
+    const titleUse = {};
+    sections.forEach((s) => { titleUse[s.section_title] = (titleUse[s.section_title] || 0) + 1; });
+    sections.forEach((s) => {
+      if (titleUse[s.section_title] > 1) {
+        const [from, to] = String(s.section_code).split('_');
+        s.section_title = `${s.section_title} (${from}–${to})`;
+      }
+    });
     return { beat: { beat_name: 'BB Division' }, sections, beats };
   } finally {
     if (ownConn) await conn.end();
