@@ -46,7 +46,7 @@ module.exports = {
     title: 'PNVL-DW UP LINE',
     segments: [
       'PNVL_DCC_DIVA_UP',                                  // full: PNVL -> DCC S-1 -> DATIVALI -> DCC S-3
-      'DCC_DIVA_DIVA_UP',                                  // DIVA S-69 -> DIVA station -> DIVA S-59
+      'DCC_DIVA_DIVA_UP',                                  // DW S-69 -> DIVA station -> DW S-59
     ],
   },
 
