@@ -602,6 +602,7 @@ function placementFiltersHtml(sections, beats) {
       <label><input type="checkbox" class="f-side" value="LHS"> LHS</label>
     </span>
     <label><input type="checkbox" id="f-out"> Include outside Mumbai division (IGP–BSL, MMR–SNSI, LNL–PUNE, ROHA–RN)</label>
+    <button type="button" id="f-clear">Clear filters</button>
   </div>
 <script>
 (function () {
@@ -610,10 +611,63 @@ function placementFiltersHtml(sections, beats) {
   if (q.get('beat')) $('f-beat').value = q.get('beat');
   if (q.get('outside') === '1') $('f-out').checked = true;
   var LABEL = { RHS: 'RHS', EXT_RHS: 'Ext RHS', EXT_LHS: 'Ext LHS', LHS: 'LHS' };
+
+  // Beat, line and direction lists narrow each other: each list offers only the
+  // choices that still show something with the other filters, with that count.
+  // If a combination shows nothing (e.g. after unticking outside division), the latest
+  // choice is kept and whichever older choice conflicts with it goes back to All.
+  var ROWS = null, BASE = {}, LAST = 'beat';
+  function index() {
+    ROWS = [];
+    [].forEach.call(document.querySelectorAll('.pl-block'), function (b) {
+      [].forEach.call(b.querySelectorAll('tr'), function (tr) {
+        ROWS.push({ side: tr.dataset.side, beats: tr.dataset.beats, line: b.dataset.line, dir: b.dataset.dir, out: b.dataset.out === '1' });
+      });
+    });
+    ['f-beat', 'f-line', 'f-dir'].forEach(function (id) {
+      BASE[id] = [].map.call($(id).options, function (o) { return { v: o.value, t: o.text }; });
+    });
+  }
+  function fits(r, f, skip) {
+    return f.sides[r.side] && (f.out || !r.out) &&
+      (skip === 'beat' || !f.beat || r.beats.indexOf(',' + f.beat + ',') !== -1) &&
+      (skip === 'line' || !f.line || r.line === f.line) &&
+      (skip === 'dir' || !f.dir || r.dir === f.dir);
+  }
+  function syncOptions(f) {
+    var order = [LAST].concat(['beat', 'line', 'dir'].filter(function (k) { return k !== LAST; }));
+    var want = { beat: f.beat, line: f.line, dir: f.dir };
+    f.beat = f.line = f.dir = '';
+    order.forEach(function (k) {
+      if (!want[k]) return;
+      f[k] = want[k];
+      if (!ROWS.some(function (r) { return fits(r, f); })) f[k] = '';
+    });
+    var facets = [['f-beat', 'beat'], ['f-line', 'line'], ['f-dir', 'dir']];
+    facets.forEach(function (fc) {
+      var id = fc[0], key = fc[1], cnt = {}, all = 0;
+      ROWS.forEach(function (r) {
+        if (!fits(r, f, key)) return;
+        all++;
+        if (key === 'beat') r.beats.split(',').forEach(function (b) { if (b) cnt[b] = (cnt[b] || 0) + 1; });
+        else cnt[r[key]] = (cnt[r[key]] || 0) + 1;
+      });
+      var sel = $(id), keep = f[key];
+      sel.innerHTML = BASE[id].filter(function (o) { return !o.v || cnt[o.v]; }).map(function (o) {
+        var n = o.v ? cnt[o.v] : all;
+        return '<option value="' + o.v + '">' + o.t + ' (' + n + ')</option>';
+      }).join('');
+      sel.value = keep;
+    });
+  }
+
   function apply() {
-    var beat = $('f-beat').value, line = $('f-line').value, dir = $('f-dir').value, out = $('f-out').checked;
+    if (!ROWS) index();
     var sides = {};
     [].forEach.call(document.querySelectorAll('.f-side'), function (c) { if (c.checked) sides[c.value] = 1; });
+    var f = { beat: $('f-beat').value, line: $('f-line').value, dir: $('f-dir').value, out: $('f-out').checked, sides: sides };
+    syncOptions(f);
+    var beat = f.beat, line = f.line, dir = f.dir, out = f.out;
     var counts = { RHS: 0, EXT_RHS: 0, EXT_LHS: 0, LHS: 0 }, total = 0;
     [].forEach.call(document.querySelectorAll('.pl-block'), function (b) {
       var pageOk = (!line || b.dataset.line === line) && (!dir || b.dataset.dir === dir) && (out || b.dataset.out !== '1');
@@ -636,7 +690,7 @@ function placementFiltersHtml(sections, beats) {
       it.style.display = sides[it.dataset.side] ? '' : 'none';
     });
     var parts = [];
-    if (beat) parts.push('Beat: ' + $('f-beat').selectedOptions[0].text);
+    if (beat) parts.push('Beat: ' + $('f-beat').selectedOptions[0].text.replace(/ \\(\\d+\\)$/, ''));
     if (line) parts.push('Line: ' + line);
     if (dir) parts.push(dir);
     parts.push(Object.keys(sides).map(function (k) { return LABEL[k]; }).join(', ') || 'no side selected');
@@ -649,10 +703,21 @@ function placementFiltersHtml(sections, beats) {
     history.replaceState(null, '', u);
   }
   [].forEach.call(document.querySelectorAll('.pl-filters select, .pl-filters input'), function (el) {
-    el.addEventListener('change', apply);
+    el.addEventListener('change', function () {
+      var k = { 'f-beat': 'beat', 'f-line': 'line', 'f-dir': 'dir' }[el.id];
+      if (k) LAST = k;
+      apply();
+    });
   });
   // The list comes after this script in the page.
-  document.addEventListener('DOMContentLoaded', apply);
+  document.addEventListener('DOMContentLoaded', function () {
+    apply();
+    $('f-clear').addEventListener('click', function () {
+      $('f-beat').value = ''; $('f-line').value = ''; $('f-dir').value = ''; $('f-out').checked = false;
+      [].forEach.call(document.querySelectorAll('.f-side'), function (c) { c.checked = c.value !== 'LHS'; });
+      apply();
+    });
+  });
 
   // Excel: exactly what the filters show. Sheet 1 every signal, sheet 2 counts per page.
   function exportXlsx() {
@@ -968,6 +1033,7 @@ ${rowsHtml}
   .pl-filters select { font-size: 12px; padding: 3px 6px; margin-left: 4px; }
   .pl-filters .f-sides { display: inline-flex; gap: 10px; }
   .pl-filters label { white-space: nowrap; }
+  .pl-filters #f-clear { font-size: 12px; padding: 3px 10px; cursor: pointer; }
   @media print { .pl-filters { display: none; } }
 </style>
 </head>
