@@ -15,6 +15,9 @@ User decisions (30 Sep 2026):
   - Functions by position at each station (first = Home, S-42/S-41 = Starter, loop/shunt = Starter (Loop),
     last = Advance Starter); diversion arms left for later; PDF sighting remarks kept.
   - A separate DFC beat.
+NOTE: this script produced the import as applied on 30 Sep 2026, with JNPN->MPRN labelled UP. The user then
+confirmed JNPN->UDNN->MPRN is DN; sql/2026-09-30_wdfc_direction_relabel.sql swaps the labels. Re-running this
+script regenerates the ORIGINAL import (UP/DN as first applied), not the relabelled book.
 Usage: python3 scripts/build-wdfc-signals.py > review.txt   (writes the two SQL files)
 """
 import json, re, subprocess, sys
