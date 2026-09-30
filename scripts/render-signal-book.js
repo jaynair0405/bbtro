@@ -565,11 +565,11 @@ function placementPageHtml(sections, { report = false } = {}) {
     : '';
   const rowAttrs = (it) => report ? ` data-side="${it.side}" data-beats=",${esc(it.beats.join(','))},"` : '';
   const tables = blocks.map((b) => `
-  <div class="pl-block"${blockAttrs(b)}>
+  <div class="pl-block${b.items.length <= 80 ? ' pl-keep' : ''}"${blockAttrs(b)}>
     <div class="pl-page"><span>${esc(b.title)}</span><span class="pl-cnt">${pageCount(b.items)}</span></div>
-    <table class="pl-table">
-${b.items.map((it) => `      <tr${rowAttrs(it)}><td class="pl-no">${esc(it.row.display_signal_no || '')}</td><td class="pl-loc">${esc(it.row.display_location || '')}</td><td><span class="pl-side ${it.side}">${label[it.side]}</span></td></tr>`).join('\n')}
-    </table>
+    <div class="pl-rows">
+${b.items.map((it) => `      <div class="pl-row"${rowAttrs(it)}><span class="pl-no">${esc(it.row.display_signal_no || '')}</span><span class="pl-loc">${esc(it.row.display_location || '')}</span><span class="pl-side ${it.side}">${label[it.side]}</span></div>`).join('\n')}
+    </div>
   </div>`).join('\n');
 
   return `
@@ -620,7 +620,7 @@ function placementFiltersHtml(sections, beats) {
   function index() {
     ROWS = [];
     [].forEach.call(document.querySelectorAll('.pl-block'), function (b) {
-      [].forEach.call(b.querySelectorAll('tr'), function (tr) {
+      [].forEach.call(b.querySelectorAll('.pl-row'), function (tr) {
         ROWS.push({ side: tr.dataset.side, beats: tr.dataset.beats, line: b.dataset.line, dir: b.dataset.dir, out: b.dataset.out === '1' });
       });
     });
@@ -672,7 +672,7 @@ function placementFiltersHtml(sections, beats) {
     [].forEach.call(document.querySelectorAll('.pl-block'), function (b) {
       var pageOk = (!line || b.dataset.line === line) && (!dir || b.dataset.dir === dir) && (out || b.dataset.out !== '1');
       var shown = 0, bc = {};
-      [].forEach.call(b.querySelectorAll('tr'), function (tr) {
+      [].forEach.call(b.querySelectorAll('.pl-row'), function (tr) {
         var ok = pageOk && sides[tr.dataset.side] && (!beat || tr.dataset.beats.indexOf(',' + beat + ',') !== -1);
         tr.style.display = ok ? '' : 'none';
         if (ok) { shown++; counts[tr.dataset.side]++; bc[tr.dataset.side] = (bc[tr.dataset.side] || 0) + 1; }
@@ -732,9 +732,9 @@ function placementFiltersHtml(sections, beats) {
       if (b.style.display === 'none') return;
       var page = b.querySelector('.pl-page span').textContent;
       var c = { n: 0, EXT_RHS: 0, RHS: 0, EXT_LHS: 0, LHS: 0 };
-      [].forEach.call(b.querySelectorAll('tr'), function (tr) {
+      [].forEach.call(b.querySelectorAll('.pl-row'), function (tr) {
         if (tr.style.display === 'none') return;
-        var td = tr.querySelectorAll('td');
+        var td = tr.children;
         list.push([page, b.dataset.line, b.dataset.dir, td[0].textContent, td[1].textContent, LABEL[tr.dataset.side]]);
         c.n++; c[tr.dataset.side]++;
       });
@@ -787,7 +787,7 @@ ${rowsHtml}
 
   const placementHtml = (opts.placementPage || opts.placementOnly)
     ? placementPageHtml(sections, { report: !!opts.report }) : '';
-  const placementCount = (placementHtml.match(/<tr[ >]/g) || []).length;
+  const placementCount = (placementHtml.match(/class="pl-row"/g) || []).length;
 
   return `<!doctype html>
 <html lang="en">
@@ -1002,22 +1002,27 @@ ${rowsHtml}
 
   /* RHS / Ext list page — compact, two page-columns of small tables. */
   .placement-list .pl-summary { text-align: center; font-size: 9pt; margin: 2px 0 8px; }
-  .placement-list .pl-wrap { column-count: 2; column-gap: 8mm; }
-  .placement-list .pl-block { margin-bottom: 8px; }
-  .placement-list .pl-table tr { break-inside: avoid; page-break-inside: avoid; }
+  /* Each page: heading across the full width, its signals in two columns below it. */
+  .placement-list .pl-block { margin-bottom: 10px; }
+  /* A page's list that fits on one sheet (~40 lines of two columns) is not split. */
+  .placement-list .pl-block.pl-keep { break-inside: avoid; page-break-inside: avoid; }
+  .placement-list .pl-rows { column-count: 2; column-gap: 8mm; column-rule: 1px solid #e5e7eb; }
+  .placement-list .pl-row {
+    display: grid; grid-template-columns: 38% 42% 20%;
+    padding: 1.5px 4px; border-bottom: 1px solid #e5e7eb; font-size: 9pt;
+    break-inside: avoid; page-break-inside: avoid;
+  }
   .placement-list .pl-page {
     font-weight: 700; font-size: 8.5pt; color: #1e3a8a; text-transform: uppercase;
-    border-bottom: 1px solid #1e3a8a; padding: 2px 0; margin-bottom: 2px;
+    border-bottom: 1px solid #1e3a8a; padding: 2px 4px; margin-bottom: 2px; background: #eef2ff;
     break-after: avoid; page-break-after: avoid;
     display: flex; justify-content: space-between; align-items: baseline; gap: 6px;
   }
   .placement-list .pl-cnt { font-size: 7.5pt; font-weight: 400; color: #374151; text-transform: none; white-space: nowrap; }
   .placement-list .pl-cnt b { color: #1e3a8a; }
   .placement-list .pl-cnt .pl-side { font-size: 7.5pt; }
-  .placement-list .pl-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-  .placement-list .pl-table td { padding: 1.5px 4px; border-bottom: 1px solid #e5e7eb; font-size: 9pt; }
-  .placement-list .pl-no { font-weight: 700; width: 38%; overflow-wrap: anywhere; }
-  .placement-list .pl-loc { width: 42%; overflow-wrap: anywhere; }
+  .placement-list .pl-no { font-weight: 700; overflow-wrap: anywhere; }
+  .placement-list .pl-loc { overflow-wrap: anywhere; }
   .placement-list .pl-side { font-weight: 700; font-size: 8pt; white-space: nowrap; }
   .pl-side.RHS, .pl-side.EXT_RHS { color: #c2410c; }
   .pl-side.EXT_LHS { color: #1d4ed8; }
