@@ -548,6 +548,14 @@ function placementPageHtml(sections, { report = false } = {}) {
   if (!blocks.length) return '';
 
   const label = Object.fromEntries(PLACEMENT_SIDES);
+  // Count beside each page heading: total, then per side (only sides present).
+  const pageCount = (items) => {
+    const c = {};
+    items.forEach((it) => { c[it.side] = (c[it.side] || 0) + 1; });
+    const parts = PLACEMENT_SIDES.filter(([k]) => c[k])
+      .map(([k, l]) => `<span class="pl-side ${k}">${l}</span> ${c[k]}`).join(' · ');
+    return `<b>${items.length}</b>${parts ? ` &nbsp;(${parts})` : ''}`;
+  };
   const summary = PLACEMENT_SIDES
     .filter(([k]) => counts[k])
     .map(([k, l]) => `<span class="pl-item" data-side="${k}"><span class="pl-side ${k}">${l}</span> <span class="pl-n">${counts[k]}</span></span>`)
@@ -558,7 +566,7 @@ function placementPageHtml(sections, { report = false } = {}) {
   const rowAttrs = (it) => report ? ` data-side="${it.side}" data-beats=",${esc(it.beats.join(','))},"` : '';
   const tables = blocks.map((b) => `
   <div class="pl-block"${blockAttrs(b)}>
-    <div class="pl-page">${esc(b.title)}</div>
+    <div class="pl-page"><span>${esc(b.title)}</span><span class="pl-cnt">${pageCount(b.items)}</span></div>
     <table class="pl-table">
 ${b.items.map((it) => `      <tr${rowAttrs(it)}><td class="pl-no">${esc(it.row.display_signal_no || '')}</td><td class="pl-loc">${esc(it.row.display_location || '')}</td><td><span class="pl-side ${it.side}">${label[it.side]}</span></td></tr>`).join('\n')}
     </table>
@@ -608,13 +616,18 @@ function placementFiltersHtml(sections, beats) {
     var counts = { RHS: 0, EXT_RHS: 0, EXT_LHS: 0, LHS: 0 }, total = 0;
     [].forEach.call(document.querySelectorAll('.pl-block'), function (b) {
       var pageOk = (!line || b.dataset.line === line) && (!dir || b.dataset.dir === dir) && (out || b.dataset.out !== '1');
-      var shown = 0;
+      var shown = 0, bc = {};
       [].forEach.call(b.querySelectorAll('tr'), function (tr) {
         var ok = pageOk && sides[tr.dataset.side] && (!beat || tr.dataset.beats.indexOf(',' + beat + ',') !== -1);
         tr.style.display = ok ? '' : 'none';
-        if (ok) { shown++; counts[tr.dataset.side]++; }
+        if (ok) { shown++; counts[tr.dataset.side]++; bc[tr.dataset.side] = (bc[tr.dataset.side] || 0) + 1; }
       });
       b.style.display = shown ? '' : 'none';
+      var parts = [];
+      ['EXT_RHS', 'RHS', 'EXT_LHS', 'LHS'].forEach(function (k) {
+        if (bc[k]) parts.push('<span class="pl-side ' + k + '">' + LABEL[k] + '</span> ' + bc[k]);
+      });
+      b.querySelector('.pl-cnt').innerHTML = '<b>' + shown + '</b>' + (parts.length ? ' &nbsp;(' + parts.join(' · ') + ')' : '');
       total += shown;
     });
     [].forEach.call(document.querySelectorAll('.pl-item'), function (it) {
@@ -894,7 +907,11 @@ ${rowsHtml}
     font-weight: 700; font-size: 8.5pt; color: #1e3a8a; text-transform: uppercase;
     border-bottom: 1px solid #1e3a8a; padding: 2px 0; margin-bottom: 2px;
     break-after: avoid; page-break-after: avoid;
+    display: flex; justify-content: space-between; align-items: baseline; gap: 6px;
   }
+  .placement-list .pl-cnt { font-size: 7.5pt; font-weight: 400; color: #374151; text-transform: none; white-space: nowrap; }
+  .placement-list .pl-cnt b { color: #1e3a8a; }
+  .placement-list .pl-cnt .pl-side { font-size: 7.5pt; }
   .placement-list .pl-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
   .placement-list .pl-table td { padding: 1.5px 4px; border-bottom: 1px solid #e5e7eb; font-size: 9pt; }
   .placement-list .pl-no { font-weight: 700; width: 38%; overflow-wrap: anywhere; }
