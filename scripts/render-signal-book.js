@@ -66,7 +66,7 @@ async function loadBook(beatCode, providedConn) {
                 r.station_code, r.station_name, r.station_km_text,
                 r.highlight_color, r.text_color, r.icon_type, r.remarks,
                 sg.ri_left_arms, sg.ri_right_arms, sg.route_indicator_notes,
-                sg.is_rhs, sg.is_ext_rhs, sg.is_ext_lhs, sg.on_curve,
+                sg.is_rhs, sg.is_ext_rhs, sg.is_ext_lhs, sg.on_curve, sg.magnet_id,
                 sg.signal_type, sg.signal_function
            FROM div_signal_book_rows r
            LEFT JOIN div_signals sg ON sg.id = r.signal_id
@@ -161,7 +161,7 @@ async function loadRoute(routeDef, providedConn) {
                 r.station_code, r.station_name, r.station_km_text,
                 r.highlight_color, r.text_color, r.icon_type, r.remarks,
                 sg.ri_left_arms, sg.ri_right_arms, sg.route_indicator_notes,
-                sg.is_rhs, sg.is_ext_rhs, sg.is_ext_lhs, sg.on_curve,
+                sg.is_rhs, sg.is_ext_rhs, sg.is_ext_lhs, sg.on_curve, sg.magnet_id,
                 sg.signal_type, sg.signal_function
            FROM div_signal_book_rows r
            LEFT JOIN div_signals sg ON sg.id = r.signal_id
@@ -524,22 +524,43 @@ function placementSide(row, withLhs) {
 // each page (line, direction, outside division) and row (side, beats that print it)
 // for the filters.
 function placementPageHtml(sections, { report = false } = {}) {
+  // One entry per physical signal (magnet) and side: the first page that prints it
+  // keeps it, the other pages are named under it ("also on ..."). A signal that is RHS
+  // on one line and LHS on another stays on both. The report (report = true) renders
+  // every page's entry and does the same thing in the browser after each filter change.
+  const physKey = (row, side) => `${row.magnet_id || row.signal_id || `${row.display_signal_no}|${row.display_location}`}|${side}`;
+  const groups = groupSections(sections);
+  const pagesOf = new Map();
+  if (!report) {
+    for (const group of groups) {
+      for (const row of group.sections.flatMap((s) => s.rows)) {
+        const side = row.row_type === 'SIGNAL' && placementSide(row, false);
+        if (!side) continue;
+        const k = physKey(row, side);
+        if (!pagesOf.has(k)) pagesOf.set(k, []);
+        if (!pagesOf.get(k).includes(group.title)) pagesOf.get(k).push(group.title);
+      }
+    }
+  }
   const counts = { RHS: 0, EXT_RHS: 0, EXT_LHS: 0, LHS: 0 };
   const blocks = [];
-  for (const group of groupSections(sections)) {
+  const done = new Set();
+  for (const group of groups) {
     const seen = new Set();
     const items = [];
     for (const s of group.sections) {
       for (const row of s.rows) {
         const side = row.row_type === 'SIGNAL' && placementSide(row, report);
         if (!side) continue;
-        const key = row.signal_id || `${row.display_signal_no}|${row.display_location}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
+        const k = physKey(row, side);
+        if (seen.has(k) || (!report && done.has(k))) continue;
+        seen.add(k);
+        done.add(k);
         counts[side]++;
         const excl = String(row.exclude_beats || '').split(',').map((b) => b.trim());
         const beats = (s.beats || []).filter((b) => !excl.includes(b));
-        items.push({ row, side, beats });
+        const also = report ? [] : (pagesOf.get(k) || []).filter((t) => t !== group.title);
+        items.push({ row, side, beats, key: k, also });
       }
     }
     const first = group.sections[0];
@@ -563,12 +584,13 @@ function placementPageHtml(sections, { report = false } = {}) {
   const blockAttrs = (b) => report
     ? ` data-line="${esc(b.first.line || '')}" data-dir="${esc(b.first.direction || '')}" data-out="${OUTSIDE_DIVISION.test(b.first.section_code || '') ? 1 : 0}"`
     : '';
-  const rowAttrs = (it) => report ? ` data-side="${it.side}" data-beats=",${esc(it.beats.join(','))},"` : '';
+  const rowAttrs = (it) => report ? ` data-side="${it.side}" data-key="${esc(it.key)}" data-beats=",${esc(it.beats.join(','))},"` : '';
+  const alsoHtml = (it) => `<span class="pl-also">${it.also.length ? `also on ${esc(it.also.join(', '))}` : ''}</span>`;
   const tables = blocks.map((b) => `
   <div class="pl-block${b.items.length <= 80 ? ' pl-keep' : ''}"${blockAttrs(b)}>
     <div class="pl-page"><span>${esc(b.title)}</span><span class="pl-cnt">${pageCount(b.items)}</span></div>
     <div class="pl-rows">
-${b.items.map((it) => `      <div class="pl-row"${rowAttrs(it)}><span class="pl-no">${esc(it.row.display_signal_no || '')}</span><span class="pl-loc">${esc(it.row.display_location || '')}</span><span class="pl-side ${it.side}">${label[it.side]}</span></div>`).join('\n')}
+${b.items.map((it) => `      <div class="pl-row"${rowAttrs(it)}><span class="pl-no">${esc(it.row.display_signal_no || '')}</span><span class="pl-loc">${esc(it.row.display_location || '')}</span><span class="pl-side ${it.side}">${label[it.side]}</span>${alsoHtml(it)}</div>`).join('\n')}
     </div>
   </div>`).join('\n');
 
@@ -620,8 +642,10 @@ function placementFiltersHtml(sections, beats) {
   function index() {
     ROWS = [];
     [].forEach.call(document.querySelectorAll('.pl-block'), function (b) {
+      var page = b.querySelector('.pl-page span').textContent;
       [].forEach.call(b.querySelectorAll('.pl-row'), function (tr) {
-        ROWS.push({ side: tr.dataset.side, beats: tr.dataset.beats, line: b.dataset.line, dir: b.dataset.dir, out: b.dataset.out === '1' });
+        ROWS.push({ el: tr, block: b, page: page, key: tr.dataset.key, side: tr.dataset.side, beats: tr.dataset.beats,
+                    line: b.dataset.line, dir: b.dataset.dir, out: b.dataset.out === '1' });
       });
     });
     ['f-beat', 'f-line', 'f-dir'].forEach(function (id) {
@@ -645,13 +669,19 @@ function placementFiltersHtml(sections, beats) {
     });
     var facets = [['f-beat', 'beat'], ['f-line', 'line'], ['f-dir', 'dir']];
     facets.forEach(function (fc) {
-      var id = fc[0], key = fc[1], cnt = {}, all = 0;
+      var id = fc[0], key = fc[1], cnt = {}, seen = {}, all = {};
+      // Counts are physical signals: a signal printed on several pages counts once.
+      function add(v, k) {
+        if ((seen[v] = seen[v] || {})[k]) return;
+        seen[v][k] = 1; cnt[v] = (cnt[v] || 0) + 1;
+      }
       ROWS.forEach(function (r) {
         if (!fits(r, f, key)) return;
-        all++;
-        if (key === 'beat') r.beats.split(',').forEach(function (b) { if (b) cnt[b] = (cnt[b] || 0) + 1; });
-        else cnt[r[key]] = (cnt[r[key]] || 0) + 1;
+        all[r.key] = 1;
+        if (key === 'beat') r.beats.split(',').forEach(function (b) { if (b) add(b, r.key); });
+        else add(r[key], r.key);
       });
+      all = Object.keys(all).length;
       var sel = $(id), keep = f[key];
       sel.innerHTML = BASE[id].filter(function (o) { return !o.v || cnt[o.v]; }).map(function (o) {
         var n = o.v ? cnt[o.v] : all;
@@ -669,13 +699,25 @@ function placementFiltersHtml(sections, beats) {
     syncOptions(f);
     var beat = f.beat, line = f.line, dir = f.dir, out = f.out;
     var counts = { RHS: 0, EXT_RHS: 0, EXT_LHS: 0, LHS: 0 }, total = 0;
+    // Each physical signal once: the first page (in list order) that passes the filters
+    // keeps it; the other pages are named under it.
+    var first = {};
+    ROWS.forEach(function (r) {
+      var ok = fits(r, f);
+      var lead = ok && first[r.key];
+      if (ok && !lead) { first[r.key] = r; r.also = []; }
+      else if (lead && lead.also.indexOf(r.page) === -1 && r.page !== lead.page) lead.also.push(r.page);
+      r.el.style.display = ok && !lead ? '' : 'none';
+      r.shown = ok && !lead;
+    });
+    ROWS.forEach(function (r) {
+      if (r.shown) r.el.querySelector('.pl-also').textContent = r.also.length ? 'also on ' + r.also.join(', ') : '';
+    });
     [].forEach.call(document.querySelectorAll('.pl-block'), function (b) {
-      var pageOk = (!line || b.dataset.line === line) && (!dir || b.dataset.dir === dir) && (out || b.dataset.out !== '1');
       var shown = 0, bc = {};
       [].forEach.call(b.querySelectorAll('.pl-row'), function (tr) {
-        var ok = pageOk && sides[tr.dataset.side] && (!beat || tr.dataset.beats.indexOf(',' + beat + ',') !== -1);
-        tr.style.display = ok ? '' : 'none';
-        if (ok) { shown++; counts[tr.dataset.side]++; bc[tr.dataset.side] = (bc[tr.dataset.side] || 0) + 1; }
+        if (tr.style.display === 'none') return;
+        shown++; counts[tr.dataset.side]++; bc[tr.dataset.side] = (bc[tr.dataset.side] || 0) + 1;
       });
       b.style.display = shown ? '' : 'none';
       var parts = [];
@@ -724,7 +766,7 @@ function placementFiltersHtml(sections, beats) {
     if (!window.XLSX) { $('pl-xlsx').textContent = 'Excel library did not load — check internet'; return; }
     var note = document.querySelector('.pl-filters-note').textContent;
     var list = [['RHS / Ext RHS / Ext LHS signals — BB Division'], [note], [],
-                ['Page', 'Line', 'Direction', 'Signal No.', 'Location', 'Side']];
+                ['Page', 'Line', 'Direction', 'Signal No.', 'Location', 'Side', 'Also on']];
     var summary = [['Counts per page — BB Division'], [note], [],
                    ['Page', 'Line', 'Direction', 'Total', 'Ext RHS', 'RHS', 'Ext LHS', 'LHS']];
     var tot = { n: 0, EXT_RHS: 0, RHS: 0, EXT_LHS: 0, LHS: 0 };
@@ -735,7 +777,8 @@ function placementFiltersHtml(sections, beats) {
       [].forEach.call(b.querySelectorAll('.pl-row'), function (tr) {
         if (tr.style.display === 'none') return;
         var td = tr.children;
-        list.push([page, b.dataset.line, b.dataset.dir, td[0].textContent, td[1].textContent, LABEL[tr.dataset.side]]);
+        list.push([page, b.dataset.line, b.dataset.dir, td[0].textContent, td[1].textContent, LABEL[tr.dataset.side],
+                   td[3].textContent.replace(/^also on /, '')]);
         c.n++; c[tr.dataset.side]++;
       });
       summary.push([page, b.dataset.line, b.dataset.dir, c.n, c.EXT_RHS, c.RHS, c.EXT_LHS, c.LHS]);
@@ -744,8 +787,8 @@ function placementFiltersHtml(sections, beats) {
     summary.push(['Total', '', '', tot.n, tot.EXT_RHS, tot.RHS, tot.EXT_LHS, tot.LHS]);
     var wb = XLSX.utils.book_new();
     var ws1 = XLSX.utils.aoa_to_sheet(list);
-    ws1['!cols'] = [{ wch: 30 }, { wch: 11 }, { wch: 9 }, { wch: 16 }, { wch: 20 }, { wch: 9 }];
-    ws1['!autofilter'] = { ref: 'A4:F' + list.length };
+    ws1['!cols'] = [{ wch: 30 }, { wch: 11 }, { wch: 9 }, { wch: 16 }, { wch: 20 }, { wch: 9 }, { wch: 40 }];
+    ws1['!autofilter'] = { ref: 'A4:G' + list.length };
     var ws2 = XLSX.utils.aoa_to_sheet(summary);
     ws2['!cols'] = [{ wch: 30 }, { wch: 11 }, { wch: 9 }, { wch: 7 }, { wch: 8 }, { wch: 6 }, { wch: 8 }, { wch: 6 }];
     XLSX.utils.book_append_sheet(wb, ws1, 'Signals');
@@ -1023,6 +1066,8 @@ ${rowsHtml}
   .placement-list .pl-cnt .pl-side { font-size: 7.5pt; }
   .placement-list .pl-no { font-weight: 700; overflow-wrap: anywhere; }
   .placement-list .pl-loc { overflow-wrap: anywhere; }
+  .placement-list .pl-also { grid-column: 1 / -1; font-size: 7.5pt; font-style: italic; color: #6b7280; }
+  .placement-list .pl-also:empty { display: none; }
   .placement-list .pl-side { font-weight: 700; font-size: 8pt; white-space: nowrap; }
   .pl-side.RHS, .pl-side.EXT_RHS { color: #c2410c; }
   .pl-side.EXT_LHS { color: #1d4ed8; }
@@ -1085,7 +1130,7 @@ async function loadAllSections(providedConn) {
     const [rows] = await conn.query(
       `SELECT r.book_section_id, r.row_order, r.row_type, r.signal_id,
               r.display_signal_no, r.display_location, r.exclude_beats,
-              sg.is_rhs, sg.is_ext_rhs, sg.is_ext_lhs
+              sg.is_rhs, sg.is_ext_rhs, sg.is_ext_lhs, sg.magnet_id
          FROM div_signal_book_rows r
          JOIN div_signals sg ON sg.id = r.signal_id
         WHERE r.is_active = 1 AND r.row_type = 'SIGNAL'
