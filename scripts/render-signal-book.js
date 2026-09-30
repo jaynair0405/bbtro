@@ -590,6 +590,7 @@ function placementFiltersHtml(sections, beats) {
   const lines = [...new Set(sections.map((s) => s.line).filter(Boolean))].sort();
   const opt = (v, l) => `<option value="${esc(v)}">${esc(l)}</option>`;
   return `
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <div class="pl-filters">
     <label>Beat <select id="f-beat"><option value="">All beats</option>${beats.map((b) => opt(b.beat_code, b.beat_name || b.beat_code)).join('')}</select></label>
     <label>Line <select id="f-line"><option value="">All lines</option>${lines.map((l) => opt(l, l)).join('')}</select></label>
@@ -652,6 +653,42 @@ function placementFiltersHtml(sections, beats) {
   });
   // The list comes after this script in the page.
   document.addEventListener('DOMContentLoaded', apply);
+
+  // Excel: exactly what the filters show. Sheet 1 every signal, sheet 2 counts per page.
+  function exportXlsx() {
+    if (!window.XLSX) { $('pl-xlsx').textContent = 'Excel library did not load — check internet'; return; }
+    var note = document.querySelector('.pl-filters-note').textContent;
+    var list = [['RHS / Ext RHS / Ext LHS signals — BB Division'], [note], [],
+                ['Page', 'Line', 'Direction', 'Signal No.', 'Location', 'Side']];
+    var summary = [['Counts per page — BB Division'], [note], [],
+                   ['Page', 'Line', 'Direction', 'Total', 'Ext RHS', 'RHS', 'Ext LHS', 'LHS']];
+    var tot = { n: 0, EXT_RHS: 0, RHS: 0, EXT_LHS: 0, LHS: 0 };
+    [].forEach.call(document.querySelectorAll('.pl-block'), function (b) {
+      if (b.style.display === 'none') return;
+      var page = b.querySelector('.pl-page span').textContent;
+      var c = { n: 0, EXT_RHS: 0, RHS: 0, EXT_LHS: 0, LHS: 0 };
+      [].forEach.call(b.querySelectorAll('tr'), function (tr) {
+        if (tr.style.display === 'none') return;
+        var td = tr.querySelectorAll('td');
+        list.push([page, b.dataset.line, b.dataset.dir, td[0].textContent, td[1].textContent, LABEL[tr.dataset.side]]);
+        c.n++; c[tr.dataset.side]++;
+      });
+      summary.push([page, b.dataset.line, b.dataset.dir, c.n, c.EXT_RHS, c.RHS, c.EXT_LHS, c.LHS]);
+      Object.keys(tot).forEach(function (k) { tot[k] += c[k]; });
+    });
+    summary.push(['Total', '', '', tot.n, tot.EXT_RHS, tot.RHS, tot.EXT_LHS, tot.LHS]);
+    var wb = XLSX.utils.book_new();
+    var ws1 = XLSX.utils.aoa_to_sheet(list);
+    ws1['!cols'] = [{ wch: 30 }, { wch: 11 }, { wch: 9 }, { wch: 16 }, { wch: 20 }, { wch: 9 }];
+    ws1['!autofilter'] = { ref: 'A4:F' + list.length };
+    var ws2 = XLSX.utils.aoa_to_sheet(summary);
+    ws2['!cols'] = [{ wch: 30 }, { wch: 11 }, { wch: 9 }, { wch: 7 }, { wch: 8 }, { wch: 6 }, { wch: 8 }, { wch: 6 }];
+    XLSX.utils.book_append_sheet(wb, ws1, 'Signals');
+    XLSX.utils.book_append_sheet(wb, ws2, 'Counts per page');
+    var beat = $('f-beat').value;
+    XLSX.writeFile(wb, 'RHS_Ext_Signals_' + (beat || 'BB_Division') + '_' + new Date().toISOString().slice(0, 10) + '.xlsx');
+  }
+  document.addEventListener('DOMContentLoaded', function () { $('pl-xlsx').addEventListener('click', exportXlsx); });
 })();
 </script>`;
 }
@@ -939,7 +976,7 @@ ${rowsHtml}
     <div><strong>${esc(beat.beat_name)}</strong> · ${opts.placementOnly
       ? `RHS / Ext RHS / Ext LHS list · <span id="pl-total">${placementCount}</span> signals`
       : `${sections.length} section${sections.length === 1 ? '' : 's'} · ${sections.reduce((n, s) => n + s.rows.length, 0)} rows`}</div>
-    <button onclick="window.print()">Print / Save as PDF</button>
+    <div>${opts.report ? '<button id="pl-xlsx" style="margin-right:8px">Export to Excel</button>' : ''}<button onclick="window.print()">Print / Save as PDF</button></div>
   </div>
 ${opts.report ? placementFiltersHtml(sections, opts.report.beats || []) : ''}
 ${opts.placementOnly ? '' : `
