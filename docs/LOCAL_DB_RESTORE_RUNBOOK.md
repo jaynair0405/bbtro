@@ -7,7 +7,8 @@ server.** See "What really happened" below. The databases were rebuilt from prod
 dumps (§1–§6); the original local data still exists and is recovered per §9.
 
 Local now: MySQL **9.7** (Homebrew, arm64, `/opt/homebrew/var/mysql`). Prod: MySQL
-**8.0.46** (Ubuntu 24.04 package `8.0.46-0ubuntu0.24.04.4`, checked 2026-09-29) on Ubuntu, reached only via `ssh railway@93.127.198.125`. Claude cannot ssh
+**9.7.2** since 2026-10-02 (Oracle APT repo, track `mysql-9.7-lts`; was Ubuntu 8.0.46 —
+see §11) on Ubuntu, reached only via `ssh railway@93.127.198.125`. Claude cannot ssh
 or sudo — the user runs those lines with `!`.
 
 ## What really happened on 2026-09-24
@@ -95,6 +96,10 @@ FLUSH PRIVILEGES;
 ```
 
 ## 3. Load bbtro — the four 9.7-vs-8.0 traps
+
+**Historical since 2026-10-02 — prod is 9.7 too.** The md5 row no longer occurs (fixed
+on prod 2026-09-29, §7). The DEFINER row still applies (`railway_user` exists only on
+prod), so keep stripping DEFINER. The views row only follows from an earlier stop.
 
 A plain `gzip -dc | mysql` of the prod dump **fails four times** on MySQL 9.x.
 Each stop is loud; none loses data if you restart from the top.
@@ -273,6 +278,31 @@ Then (Claude can do these, no sudo):
 is winding Rosetta down after macOS 27), and 8.1 was a short-lived innovation release
 that no longer gets fixes. Recovery (§9) only reads from it, then it is retired.
 
-The real gap is **prod 8.0 vs local 9.7** — that caused every trap in §3. Close it by
-upgrading prod (after the two prod fixes in §7), to 9.7 so both sides match. Until
-then, keep using §3's filter for prod → local copies.
+The gap was **prod 8.0 vs local 9.7** — that caused every trap in §3. Closed
+2026-10-02: prod upgraded to 9.7.2 (§11).
+
+## 11. Prod upgrade 8.0.46 → 8.4.11 → 9.7.2 (done 2026-10-02)
+
+Two hops because MySQL upgrades only LTS → next LTS. Both took ~5 s of upgrade and
+~10 min of downtime each, all 5 pm2 apps stopped meanwhile.
+
+1. **Pre-check** with MySQL Shell (standalone tarball in prod `~/mysqlsh`):
+   `sudo ~/mysqlsh/bin/mysqlsh --mysql --socket=/var/run/mysqld/mysqld.sock -u root --password= -- util check-for-server-upgrade --target-version=9.7`
+   (`--password=` because root is auth_socket; the JS `util.checkForServerUpgrade({...})`
+   form misreads its argument as connection options). Found and fixed: `car_sheds` /
+   `rake_types` missing on prod (`sql/2026-10-02_rake_lookup_tables_prod.sql`), and the
+   2.3 GB leftover `bbtro_restore_test` (dropped). Remaining warnings = default-value
+   changes and SUPER/SET_USER_ID notices; ignorable.
+2. **Dump** both DBs as root (`--single-transaction --routines --triggers --events`);
+   test-restore locally into `bbtro_rehearsal` (the only scratch DB `jay` may create).
+   Kept: prod `~/pre84`, `~/pre97`; Mac `~/rrcms19/backups/pre84-…`, `pre97-…`.
+3. **Repo:** `mysql-apt-config` **0.8.40** or newer (0.8.36 has no 9.7 track). In the menu
+   pick `mysql-8.4-lts` / `mysql-9.7-lts` — **not** `mysql-cluster-…` (NDB) nor
+   `innovation`. Re-pick with `sudo dpkg-reconfigure mysql-apt-config`; confirm with
+   `apt-cache policy mysql-server`.
+4. `pm2 stop all` → `sudo apt-get install mysql-server`: root password blank;
+   `mysqld.cnf` → **N** (keeps `local_infile=1`, `bind-address=127.0.0.1`).
+5. **Verify:** `SELECT VERSION(), @@local_infile, @@bind_address`, error log "Server upgrade
+   … completed", table/row counts, `pm2 start all`, log in to crtms.in and crtms.in/rrcms.
+
+Rollback (none needed): purge server, reinstall previous version, load the dump.
