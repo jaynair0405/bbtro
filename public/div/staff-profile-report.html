@@ -598,12 +598,12 @@
                 display: none !important;
             }
 
-            /* Ultra-compact content - 2 columns */
+            /* Stack report sections in the same order as the screen view. */
             body.concise-print .content {
                 padding: 4px 10px;
                 gap: 4px;
                 display: grid;
-                grid-template-columns: 1fr 1fr;
+                grid-template-columns: 1fr;
             }
 
             body.concise-print section {
@@ -679,11 +679,6 @@
 
             /* Limit family table rows */
             body.concise-print #familyTable tbody tr:nth-child(n+3) {
-                display: none;
-            }
-
-            /* Limit promotion table rows */
-            body.concise-print #promotionTable tbody tr:nth-child(n+3) {
                 display: none;
             }
 
@@ -1230,7 +1225,7 @@
             body.concise-print .content {
                 padding: 2.5mm 4mm 3mm;
                 gap: 2.2mm;
-                grid-template-columns: 1fr 1fr;
+                grid-template-columns: 1fr;
                 align-items: start;
             }
 
@@ -1255,9 +1250,12 @@
             body.concise-print .table-wrapper { margin-top: 1mm; margin-bottom: 1mm; }
 
             body.concise-print #personalSection { grid-column: 1; }
-            body.concise-print #serviceSection { grid-column: 2; }
-            body.concise-print #familySection { grid-column: 1; }
-            body.concise-print #trainingSection { grid-column: 2; }
+            body.concise-print #personalSection > .info-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+            body.concise-print #serviceSection { grid-column: 1; }
+            body.concise-print #familySection,
+            body.concise-print #awardsSection,
+            body.concise-print #punishmentsSection { display: none !important; }
+            body.concise-print #trainingSection { grid-column: 1; }
             body.concise-print #monitoringSection { grid-column: 1 / -1; }
             body.concise-print #monitoringSection .info-grid { display: grid !important; margin-bottom: 1.2mm; }
             body.concise-print #specialTrainingTable th:last-child,
@@ -1325,13 +1323,11 @@
             </div>
         </div>
 
-        <div class="quick-stats" id="quickStats"></div>
-
         <div class="content">
             <section id="personalSection">
                 <header>
                     <h2>Personal & Contact Overview</h2>
-                    <div class="section-subtitle">Personal details, contact information, and identity documents.</div>
+                    <div class="section-subtitle">Personal details, contact information, and address.</div>
                 </header>
 
                 <div class="info-grid">
@@ -1379,24 +1375,6 @@
                             <div class="info-item">
                                 <span class="info-label">Email</span>
                                 <span class="info-value" id="emailValue">—</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="info-card">
-                        <h3>Identity Documents</h3>
-                        <div class="info-list">
-                            <div class="info-item">
-                                <span class="info-label">Employee ID</span>
-                                <span class="info-value" id="idCardValue">—</span>
-                            </div>
-                            <div class="info-item">
-                                <span class="info-label">PAN Card</span>
-                                <span class="info-value" id="panCardValue">—</span>
-                            </div>
-                            <div class="info-item">
-                                <span class="info-label">Aadhaar Card</span>
-                                <span class="info-value" id="aadhaarCardValue">—</span>
                             </div>
                         </div>
                     </div>
@@ -1695,13 +1673,6 @@
                 detonatorBatch: '—',
                 spectacles: '—'
             },
-            quickStats: [
-                { label: 'CMS ID', value: '—' },
-                { label: 'Vision Grade', value: '—' },
-                { label: 'Marital Status', value: '—' },
-                { label: 'Last PME', value: '—' },
-                { label: 'Status', value: '—' }
-            ],
             promotions: [],
             family: [],
             trainings: [],
@@ -1855,32 +1826,6 @@
                 data.hrmsId = overrides.hrmsId;
             }
 
-            // Ensure quickStats exists
-            if (!data.quickStats || !Array.isArray(data.quickStats)) {
-                data.quickStats = staffProfile.quickStats;
-            }
-
-            const updateQuickStat = (label, value) => {
-                if (!value || !Array.isArray(data.quickStats)) return;
-                const idx = data.quickStats.findIndex(stat => stat.label === label);
-                if (idx >= 0) {
-                    data.quickStats[idx] = { ...data.quickStats[idx], value };
-                }
-            };
-
-            updateQuickStat('CMS ID', data.cmsId);
-            updateQuickStat('Vision Grade', data.vision);
-            updateQuickStat('Marital Status', data.marital_status || data.maritalStatus);
-            updateQuickStat('Status', data.status);
-
-            // Update Last PME from trainings data (training_id = 1 is PME)
-            if (data.trainings && Array.isArray(data.trainings)) {
-                const pmeTraining = data.trainings.find(t => t.training_id === 1);
-                if (pmeTraining && pmeTraining.done) {
-                    updateQuickStat('Last PME', formatDate(pmeTraining.done));
-                }
-            }
-
             document.getElementById('staffName').textContent = data.name;
             document.getElementById('staffDesignation').textContent = data.designation;
             document.getElementById('pfNo').textContent = data.pfNo;
@@ -1931,11 +1876,6 @@
             document.getElementById('alternateValue').textContent = data.alternate || '—';
             document.getElementById('emailValue').textContent = data.email || '—';
 
-            // Identity Documents Card
-            document.getElementById('idCardValue').textContent = data.id_card_no || data.idCardNo || '—';
-            document.getElementById('panCardValue').textContent = data.pan_card_no || data.panCardNo || '—';
-            document.getElementById('aadhaarCardValue').textContent = data.aadhar_card_no || data.aadhaarCardNo || '—';
-
             // Address Card
             document.getElementById('presentAddress').innerHTML = (data.presentAddress || 'Not available').replace(/\n/g, '<br/>');
             document.getElementById('permanentAddress').innerHTML = (data.permanentAddress || 'Not available').replace(/\n/g, '<br/>');
@@ -1953,19 +1893,6 @@
                 document.getElementById('cliNomination').textContent = data.cli;
             } else {
                 document.getElementById('cliNomination').textContent = '—';
-            }
-
-            // Quick stats
-            const quickStatsContainer = document.getElementById('quickStats');
-            if (data.quickStats && Array.isArray(data.quickStats)) {
-                quickStatsContainer.innerHTML = data.quickStats.map(stat => `
-                    <div class="stat-card">
-                        <div class="stat-label">${stat.label}</div>
-                        <div class="stat-value">${stat.value || '—'}</div>
-                    </div>
-                `).join('');
-            } else {
-                console.error('Quick stats data is missing or invalid');
             }
 
             // Promotions table
@@ -2114,7 +2041,7 @@
                     currentOffice: staff.office_name || staff.current_office_code || staffProfile.currentOffice,
                     currentOfficeCode: staff.current_office_code || null,
                     cmsId: staff.current_cms_id || staffProfile.cmsId,
-                    status: staff.status || staffProfile.quickStats?.find(q => q.label === 'Status')?.value,
+                    status: staff.status || '—',
                     pstoreLastUpdated: staff.pstore_last_updated || null,
                     pstoreNextDue: staff.pstore_next_due || null
                 };
