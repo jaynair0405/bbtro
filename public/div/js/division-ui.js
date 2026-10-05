@@ -722,8 +722,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
-            if (!/^[A-Za-z]+[0-9]+$/.test(newCmsId)) {
-                alert('Invalid CMS ID. Enter letters immediately followed by digits, for example PNVL5545. Spaces, hyphens and other symbols are not allowed.');
+            if (!/^[A-Za-z]+[0-9][A-Za-z0-9]*$/.test(newCmsId)) {
+                alert('Invalid CMS ID. Enter the office letters followed by the number, for example PNVL5545 or CSMT1ABR. Spaces, hyphens and other symbols are not allowed.');
                 return;
             }
 

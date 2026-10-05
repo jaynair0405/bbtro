@@ -291,7 +291,7 @@ router.put('/transfer-request/:id/accept', requireAuth, async (req, res) => {
             conn = null;
             if (err && err.code === 'INVALID_CMS') {
                 return res.status(400).json({
-                    error: 'Invalid CMS ID. Enter letters immediately followed by digits, for example PNVL5545. Spaces, hyphens and other symbols are not allowed.'
+                    error: 'Invalid CMS ID. Enter the office letters followed by the number, for example PNVL5545 or CSMT1ABR. Spaces, hyphens and other symbols are not allowed.'
                 });
             }
             if (err && err.code === 'NOT_FOUND') {

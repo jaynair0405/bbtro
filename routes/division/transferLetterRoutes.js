@@ -692,7 +692,7 @@ router.post('/:id/accept', requireDivisionAccess, async (req, res) => {
             } catch (err) {
                 try { await conn.rollback(); } catch (e) {}
                 let msg = 'Could not accept';
-                if (err && err.code === 'INVALID_CMS') msg = 'Invalid CMS ID (letters then digits, e.g. KYN1234)';
+                if (err && err.code === 'INVALID_CMS') msg = 'Invalid CMS ID (office letters then number, e.g. KYN1234 or CSMT1ABR)';
                 else if (err && err.code === 'CMS_TAKEN') msg = `CMS ID ${err.cms} already belongs to ${err.name}`;
                 else if (err && err.code === 'NOT_PENDING') msg = `Request already ${err.status}`;
                 else if (err && err.code === 'NOT_FOUND') msg = 'Transfer request not found';

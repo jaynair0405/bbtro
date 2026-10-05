@@ -86,7 +86,9 @@ async function acceptTransferRequest(conn, requestId, o) {
         throw { code: 'INVALID_CMS' };
     }
     const normalizedCmsId = new_cms_id.trim().toUpperCase();
-    if (new_cms_id !== new_cms_id.trim() || !/^[A-Z]+[0-9]+$/.test(normalizedCmsId)) {
+    // Office letters, then a digit, then digits/letters: KYN1234 and the new CMS
+    // series CSMT1ABR (issued from Oct 2026) both pass; a bare "KYN" does not.
+    if (new_cms_id !== new_cms_id.trim() || !/^[A-Z]+[0-9][A-Z0-9]*$/.test(normalizedCmsId)) {
         throw { code: 'INVALID_CMS' };
     }
 
