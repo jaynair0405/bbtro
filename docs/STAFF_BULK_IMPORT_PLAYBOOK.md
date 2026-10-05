@@ -151,6 +151,7 @@ row per (staff, training) where a done date exists.
 |------|-------|-------|--------|-----------|
 | 2026-07-01 | new_pnvl_alp Sheet1 | 63 ALP | PNVL-ML | cli+reporting UPDATE (cli was placeholder 145); 63 nominations; training PME/REF_IC/Automatic/WDG4G/DSLAC |
 | 2026-07-02 | new_pnvl_alp alp_2 | 11 ALP | PNVL-ML | cli+reporting already in CSV; 11 nominations (from=reporting_date); training PME/REF_IC/Automatic/WDG4G/DSLAC/WAG12 |
+| 2026-10-06 | new_staff_cms_2026_10 (from CMS crew reports csmt/kyn/pnvl_staff.csv) | 18 ALP (KYN5856-5879) + 15 SHT (CSMT47xx-49xx, CSMT4811) + 1 LPG (PNVL3578) = 34 | KYN-ML / CSMT-ML / PNVL-ML | Found as "not in master" while crediting MTC KYN Automatic letters. hrms_id from HRMS portal / CMS column / user; Rajnish Kumar PF blank in CMS → HRMS value. CLI from CMS "CLI Name" (all 15 names exact-matched one active cli_id). Mapping: NORM→Normal, NV/D→Both; mobile minus leading 91; ITI→ITI/NCTVT; **bare blood group "B" (CMS default for new entrants, 190 rows in KYN file) → NULL**. Reporting date/addresses/Aadhaar/PAN/caste not in CMS → NULL. 34 nominations from 2026-10-06 (none in any of 114 nomination letters, checked prod). Files in data/automatic_update/ (untracked); prod copies removed. Automatic credit to follow |
 
 All applied on **server + local**; import scripts removed from server.
 
