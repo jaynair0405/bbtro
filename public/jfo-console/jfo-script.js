@@ -8097,31 +8097,23 @@ async function loadMotormenForJFO(officeFilter = null, excludeMotorman = null) {
             // FIXED: Better CMS ID extraction from various formats
             let cmsIdToExclude = null;
             
-            // Try different patterns:
-            // "M J UBALE (1041)" -> extract "1041"
-            // "ARVIND KUMAR SHARMA (1745)" -> extract "1745"
-            // "M J UBALE (1041) (CSTS1041)" -> extract "1041"
-            
+            // The server compares excludeCmsId against the FULL motormen.cmsid, so send
+            // the full id whenever the label has one (old digits-only extraction never
+            // matched anything). New CMS series (CSTS1ABR) must be kept whole, not cut to "1".
+            // "M J UBALE (1041) (CSTS1041)" -> "CSTS1041"
+            // "M J UBALE (1041)"            -> "1041" (short form, as before)
+
             const patterns = [
-                /\((\d+)\)/,           // Match first number in parentheses
-                /\(([A-Z]+\d+)\)/,     // Match CMS ID like (CSTS1041)
-                /([A-Z]+\d+)/          // Match CMS ID without parentheses
+                /\(([A-Z]+[0-9][A-Z0-9]*)\)/,  // full CMS ID like (CSTS1041) or (CSTS1ABR)
+                /\(([0-9][A-Z0-9]{3})\)/,      // short form like (1041) or (1ABR)
+                /\b([A-Z]+[0-9][A-Z0-9]*)\b/   // full CMS ID without parentheses
             ];
-            
+
             for (const pattern of patterns) {
                 const match = excludeMotorman.match(pattern);
                 if (match) {
-                    // If it's just a number, use it directly
-                    if (/^\d+$/.test(match[1])) {
-                        cmsIdToExclude = match[1];
-                        break;
-                    }
-                    // If it's like CSTS1041, try to extract just the number
-                    const numberMatch = match[1].match(/\d+/);
-                    if (numberMatch) {
-                        cmsIdToExclude = numberMatch[0];
-                        break;
-                    }
+                    cmsIdToExclude = match[1];
+                    break;
                 }
             }
             

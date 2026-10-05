@@ -202,8 +202,9 @@ async function insertDutyRoster(entries, date, office, res) {
 
     for (const { detail, motorman } of entries) {
       try {
-        // Extract motorman ID if present (e.g., "Jayakumar M D (1765)" -> "CSMTS1765")
-        const idMatch = motorman.match(/\((\d{4})\)/);
+        // Extract motorman ID if present: "Jayakumar M D (1765)" -> "CSTS1765".
+        // The new CMS series is digit + 3 letters, so "(1ABR)" -> "CSTS1ABR".
+        const idMatch = motorman.match(/\(([0-9][A-Z0-9]{3})\)/i);
 
         // Office prefix map
         const officePrefixMap = {
@@ -213,7 +214,7 @@ async function insertDutyRoster(entries, date, office, res) {
         };
         
         const prefix = officePrefixMap[office] || `${office}S`;
-        const motormanId = idMatch ? `${prefix}${idMatch[1]}` : null;
+        const motormanId = idMatch ? `${prefix}${idMatch[1].toUpperCase()}` : null;
         
         // Use INSERT ... ON DUPLICATE KEY UPDATE to handle existing records
         const [result] = await conn.execute(
