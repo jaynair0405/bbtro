@@ -19,14 +19,19 @@ function esc(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g,
     (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
+function dataDateOf(r) {
+  const d = new Date(`${state.date}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - (r.dateOffset || 0));
+  return d.toISOString().slice(0, 10);
+}
 function isoToDDMMYYYY(iso) {
   const m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
   return m ? `${m[3]}-${m[2]}-${m[1]}` : '';
 }
 
-// Default to yesterday (IST): the position is compiled the morning after.
+// The SHEET date: today (IST). Each report's data date is this minus its dateOffset.
 (function presetDate() {
-  const ist = new Date(Date.now() + 5.5 * 60 * 60 * 1000 - 24 * 60 * 60 * 1000);
+  const ist = new Date(Date.now() + 5.5 * 60 * 60 * 1000);
   $('reportDate').value = ist.toISOString().slice(0, 10);
 })();
 
@@ -53,7 +58,7 @@ async function uploadFiles(files) {
   const firstLoad = state.reports.length === 0;
   if (firstLoad) {
     const date = $('reportDate').value;
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return showUploadErr('Choose the date these reports are for.');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return showUploadErr('Choose the sheet date.');
     state.date = date;
   }
 
@@ -115,7 +120,21 @@ function tableHtml(t) {
     return `<td class="n${cls}">${esc(v)}</td>`;
   };
 
-  const head = t.headers.map((h, i) => `<th class="${textCol[i] ? 'txt' : ''}">${esc(h)}</th>`).join('');
+  // Grouped header: a spanning top row, ungrouped columns fill both rows.
+  const g = Array.isArray(t.groups) && t.groups.some(Boolean) ? t.groups : null;
+  const th = (h, i, extra = '') => `<th class="${textCol[i] ? 'txt' : ''}"${extra}>${esc(h)}</th>`;
+  let head;
+  if (!g) head = `<tr>${t.headers.map((h, i) => th(h, i)).join('')}</tr>`;
+  else {
+    let top = '';
+    for (let i = 0; i < t.headers.length;) {
+      if (!g[i]) { top += th(t.headers[i], i, ' rowspan="2"'); i++; continue; }
+      let j = i; while (j < t.headers.length && g[j] === g[i]) j++;
+      top += `<th colspan="${j - i}">${esc(g[i])}</th>`; i = j;
+    }
+    const sub = t.headers.map((h, i) => (g[i] ? th(h, i) : '')).join('');
+    head = `<tr>${top}</tr><tr>${sub}</tr>`;
+  }
   const body = t.rows.length === 0
     ? `<tr><td colspan="${t.headers.length}" class="empty">${esc(t.emptyText || 'None.')}</td></tr>`
     : t.rows.map((r) => `<tr>${t.headers.map((_, i) => cell(r[i], i)).join('')}</tr>`).join('');
@@ -124,7 +143,7 @@ function tableHtml(t) {
 
   const note = t.note ? `<p class="tnote">${esc(t.note)}</p>` : '';
   return `<div class="rtable"><h3>${esc(t.title)}</h3>${note}
-    <div class="table-wrap"><table><thead><tr>${head}</tr></thead><tbody>${body}${total}</tbody></table></div></div>`;
+    <div class="table-wrap"><table><thead>${head}</thead><tbody>${body}${total}</tbody></table></div></div>`;
 }
 
 function render() {
@@ -142,7 +161,7 @@ function render() {
   $('reports').innerHTML = state.reports.map((r) => `
     <section class="report">
       <div class="report-head">
-        <h2>${esc(r.label)}<span class="src">${esc(r.file)}</span></h2>
+        <h2>${esc(r.label)} (${isoToDDMMYYYY(dataDateOf(r))})<span class="src">${esc(r.file)}</span></h2>
         <span class="report-export">
           <label class="detail-opt"><input type="checkbox" data-detail="${esc(r.key)}" /> Include detail tables</label>
           <button class="btn btn-export" data-xlsx="${esc(r.key)}">⬇ Excel</button>
@@ -155,7 +174,7 @@ function render() {
 // ---------- Export ----------
 // Exports print the daily-sheet block (each report's first table) unless the
 // caller asks for the detail tables too. The page itself always shows everything.
-const sheetOnly = (r) => ({ key: r.key, label: r.label, tables: r.tables.slice(0, 1) });
+const sheetOnly = (r) => ({ key: r.key, label: r.label, dataDate: dataDateOf(r), tables: r.tables.slice(0, 1) });
 async function exportAs(kind, reports, detail) {
   if (reports.length === 0) return;
   try {
@@ -164,7 +183,7 @@ async function exportAs(kind, reports, detail) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         date: state.date,
-        reports: reports.map((r) => (detail ? { key: r.key, label: r.label, tables: r.tables } : sheetOnly(r))),
+        reports: reports.map((r) => (detail ? { key: r.key, label: r.label, dataDate: dataDateOf(r), tables: r.tables } : sheetOnly(r))),
       }),
     });
     if (!res.ok) {

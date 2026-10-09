@@ -401,6 +401,8 @@ function readDailyBody(req) {
   if (!Array.isArray(reports) || reports.length === 0) throw new Error('Nothing to export.');
   reports.forEach((r) => {
     if (typeof r.label !== 'string' || !Array.isArray(r.tables)) throw new Error('Malformed report payload.');
+    const dd = safeISO(r.dataDate);
+    r.heading = dd ? `${r.label} (${isoToDDMMYYYY(dd)})` : r.label;
     r.tables.forEach((t) => {
       if (typeof t.title !== 'string' || !Array.isArray(t.headers) || !Array.isArray(t.rows)) {
         throw new Error('Malformed table payload.');
@@ -428,7 +430,7 @@ router.post('/daily/export/xlsx', async (req, res) => {
       const width = Math.max(...rep.tables.map((t) => t.headers.length), 2);
 
       ws.mergeCells(1, 1, 1, width);
-      ws.getCell(1, 1).value = `${rep.label} — ${isoToDDMMYYYY(date)}`;
+      ws.getCell(1, 1).value = rep.heading;
       ws.getCell(1, 1).font = { name: 'Arial', size: 13, bold: true };
       ws.getCell(1, 1).alignment = { horizontal: 'center' };
 
@@ -443,10 +445,29 @@ router.post('/daily/export/xlsx', async (req, res) => {
         const markAlerts = (row, cells) => alertCols.forEach((ci) => {
           if (leadingCount(cells[ci]) > 0) row.getCell(ci + 1).font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FFC8462F' } };
         });
-        const head = ws.addRow(t.headers);
-        head.font = { name: 'Arial', bold: true, color: { argb: 'FFFFFFFF' } };
-        head.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
-        head.eachCell((c) => { c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1F3A5F' } }; });
+        const styleHead = (row) => {
+          row.font = { name: 'Arial', bold: true, color: { argb: 'FFFFFFFF' } };
+          row.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+          for (let ci = 1; ci <= t.headers.length; ci++) {
+            row.getCell(ci).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1F3A5F' } };
+          }
+        };
+        const spans = groupSpans(t);
+        if (spans) {
+          const top = ws.addRow(t.headers.map((h, i) => (t.groups[i] ? '' : h)));
+          const sub = ws.addRow(t.headers.map((h, i) => (t.groups[i] ? h : '')));
+          styleHead(top); styleHead(sub);
+          spans.forEach((s) => {
+            if (s.label) {
+              top.getCell(s.start + 1).value = s.label;
+              if (s.len > 1) ws.mergeCells(top.number, s.start + 1, top.number, s.start + s.len);
+            } else {
+              for (let k = 0; k < s.len; k++) ws.mergeCells(top.number, s.start + k + 1, sub.number, s.start + k + 1);
+            }
+          });
+        } else {
+          styleHead(ws.addRow(t.headers));
+        }
         if (t.rows.length === 0) {
           ws.addRow([t.emptyText || 'None.']).font = { name: 'Arial', size: 10, italic: true };
         }
@@ -476,6 +497,20 @@ router.post('/daily/export/xlsx', async (req, res) => {
   }
 });
 
+// Runs of t.groups: [{ label|null, start, len }], or null when the table has no groups.
+function groupSpans(t) {
+  const g = Array.isArray(t.groups) && t.groups.some(Boolean) ? t.groups : null;
+  if (!g) return null;
+  const out = [];
+  t.headers.forEach((_, i) => {
+    const label = g[i] || null;
+    const last = out[out.length - 1];
+    if (last && last.label && last.label === label) last.len++;
+    else out.push({ label, start: i, len: 1 });
+  });
+  return out;
+}
+
 // "24" or "24 (2:22)" -> 24; anything else -> null. Keep in step with isCount in daily.js.
 function leadingCount(v) {
   const m = String(v == null ? '' : v).match(/^(\d+)(\s*\(.*\))?$/);
@@ -484,7 +519,7 @@ function leadingCount(v) {
 
 // Title + note + header + rows + total, in points. Keep in step with headH/rowH below.
 function dailyTableHeight(t) {
-  return 34 + 28 + 16 * (Math.max(t.rows.length, 1) + (Array.isArray(t.total) ? 1 : 0));
+  return 34 + 28 + (groupSpans(t) ? 16 : 0) + 16 * (Math.max(t.rows.length, 1) + (Array.isArray(t.total) ? 1 : 0));
 }
 
 // Draw one generic table at doc.y. Text columns are left-aligned and wider; counts centred.
@@ -512,7 +547,27 @@ function drawDailyTable(doc, t, { x, width, usableBottom }) {
   let y = doc.y;
   const alertCols = Array.isArray(t.alertCols) ? t.alertCols : [];
 
+  const spans = groupSpans(t);
+  const bandH = spans ? 16 : 0;
+  const colX = colW.reduce((a, w, i) => { a.push(a[i] + w); return a; }, [x]);
+  const headCell = (cx, cy, w, h, label) => {
+    doc.rect(cx, cy, w, h).fillAndStroke('#1F3A5F', '#FFFFFF');
+    doc.font('Helvetica-Bold').fontSize(8).fillColor('#FFFFFF')
+      .text(String(label), cx + 3, cy + 4, { width: w - 6, height: h - 5, align: 'center' });
+  };
   const drawHead = () => {
+    if (spans) {
+      // Group band on top; an ungrouped column's header fills band + head height.
+      spans.forEach((s) => {
+        const w = colX[s.start + s.len] - colX[s.start];
+        if (s.label) headCell(colX[s.start], y, w, bandH, s.label);
+        else for (let k = s.start; k < s.start + s.len; k++) headCell(colX[k], y, colW[k], bandH + headH, t.headers[k]);
+      });
+      t.headers.forEach((h, i) => { if (t.groups[i]) headCell(colX[i], y + bandH, colW[i], headH, h); });
+      doc.fillColor('#000');
+      y += bandH + headH;
+      return;
+    }
     let cx = x;
     t.headers.forEach((h, i) => {
       doc.rect(cx, y, colW[i], headH).fillAndStroke('#1F3A5F', '#FFFFFF');
@@ -571,7 +626,7 @@ router.post('/daily/export/pdf', (req, res) => {
       const firstH = 30 + (rep.tables[0] ? dailyTableHeight(rep.tables[0]) : 60);
       const pageH = usableBottom - doc.page.margins.top;
       if (doc.y + Math.min(firstH, pageH) > usableBottom) doc.addPage();
-      doc.font('Helvetica-Bold').fontSize(11.5).fillColor('#000').text(rep.label, x, doc.y);
+      doc.font('Helvetica-Bold').fontSize(11.5).fillColor('#000').text(rep.heading, x, doc.y);
       doc.moveTo(x, doc.y + 2).lineTo(x + width, doc.y + 2).stroke('#1F3A5F');
       doc.moveDown(0.5);
       rep.tables.forEach((t) => drawDailyTable(doc, t, { x, width, usableBottom }));
