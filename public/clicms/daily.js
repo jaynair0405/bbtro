@@ -11,6 +11,8 @@ const state = {
   date: '',        // ISO — typed by the user; the CMS files carry none
   catalogue: [],   // [{key,label,order}] every report the server knows
   reports: [],     // [{key,label,order,file,tables,warnings}] loaded so far
+  night: {},       // { n3?, n4?, n5? } File — continuous night working parts
+  nightSlot: 'n3', // the tab being filled
 };
 
 const $ = (id) => document.getElementById(id);
@@ -94,6 +96,60 @@ async function uploadFiles(files) {
   $('uploadStage').hidden = true;
   $('workStage').hidden = false;
   showRejected(rejected);
+  render();
+}
+
+// ---------- Continuous night working (3 / 4 / >4 slots) ----------
+// The three parts have identical headers, so the user says which is which by tab.
+// Every pick re-posts all the parts held; the answer replaces the whole report.
+$('nightTabs').addEventListener('click', (e) => {
+  const tab = e.target.closest('[data-slot]');
+  if (!tab) return;
+  state.nightSlot = tab.dataset.slot;
+  document.querySelectorAll('.night-tab').forEach((t) => t.classList.toggle('active', t === tab));
+  $('nightSlotName').textContent = tab.firstChild.textContent.trim();
+});
+$('nightInput').addEventListener('change', (ev) => {
+  const f = ev.target.files[0];
+  ev.target.value = '';
+  if (f) uploadNight(state.nightSlot, f);
+});
+
+function showNightErr(msg) {
+  $('nightErr').textContent = msg;
+  $('nightErr').hidden = !msg;
+}
+
+async function uploadNight(slot, file) {
+  showNightErr('');
+  if (state.reports.length === 0) {
+    const date = $('reportDate').value;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return showNightErr('Choose the sheet date first.');
+    state.date = date;
+  }
+  const next = { ...state.night, [slot]: file };
+  const fd = new FormData();
+  Object.entries(next).forEach(([k, f]) => fd.append(k, f));
+  let data;
+  try {
+    const res = await fetch(`${API_BASE}daily/upload-night`, { method: 'POST', body: fd });
+    if (res.redirected || !/json/i.test(res.headers.get('content-type') || '')) {
+      throw new Error('Your session has expired — log in again, then re-upload.');
+    }
+    data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Upload failed.');
+  } catch (err) {
+    return showNightErr(err.message);
+  }
+  state.night = next;
+  document.querySelectorAll('.night-tab').forEach((t) => {
+    t.querySelector('.nt-file').textContent = state.night[t.dataset.slot] ? `✓ ${state.night[t.dataset.slot].name}` : '';
+  });
+  state.reports = state.reports.filter((r) => r.key !== data.report.key).concat(data.report)
+    .sort((a, b) => a.order - b.order);
+  state.catalogue = data.catalogue || state.catalogue;
+  $('uploadStage').hidden = true;
+  $('workStage').hidden = false;
   render();
 }
 
@@ -214,6 +270,9 @@ $('reports').addEventListener('click', (e) => {
 
 $('newBtn').addEventListener('click', () => {
   state.reports = [];
+  state.night = {};
+  document.querySelectorAll('.night-tab .nt-file').forEach((s) => { s.textContent = ''; });
+  showNightErr('');
   $('workStage').hidden = true;
   $('uploadStage').hidden = false;
 });
