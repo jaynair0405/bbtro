@@ -153,6 +153,67 @@ async function uploadNight(slot, file) {
   render();
 }
 
+// ---------- Fill by hand ----------
+// Reports with a `manual` entry can be typed in; the server builds the same tables.
+async function loadManual() {
+  try {
+    const res = await fetch(`${API_BASE}daily/catalogue`, { method: 'POST' });
+    if (res.redirected || !/json/i.test(res.headers.get('content-type') || '')) return;
+    const data = await res.json();
+    if (state.catalogue.length === 0) state.catalogue = data.catalogue || [];
+    const list = (data.catalogue || []).filter((c) => c.manual);
+    $('manualBox').hidden = list.length === 0;
+    $('manualKey').innerHTML = list.map((c) => `<option value="${esc(c.key)}">${esc(c.label)}</option>`).join('');
+    showManualFields();
+  } catch (_) {
+    $('manualBox').hidden = true;
+  }
+}
+function showManualFields() {
+  const c = state.catalogue.find((x) => x.key === $('manualKey').value);
+  $('manualFields').innerHTML = !c || !c.manual ? '' : c.manual.map((f) =>
+    `<label>${esc(f.label)}<input type="number" min="0" step="1" inputmode="numeric" data-mkey="${esc(f.key)}" value="0" /></label>`).join('');
+}
+$('manualKey').addEventListener('change', showManualFields);
+
+function showManualErr(msg) {
+  $('manualErr').textContent = msg;
+  $('manualErr').hidden = !msg;
+}
+
+$('manualSave').addEventListener('click', async () => {
+  showManualErr('');
+  if (state.reports.length === 0) {
+    const date = $('reportDate').value;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return showManualErr('Choose the sheet date first.');
+    state.date = date;
+  }
+  const values = {};
+  $('manualFields').querySelectorAll('[data-mkey]').forEach((i) => { values[i.dataset.mkey] = i.value; });
+  let data;
+  try {
+    const res = await fetch(`${API_BASE}daily/manual`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: $('manualKey').value, values }),
+    });
+    if (res.redirected || !/json/i.test(res.headers.get('content-type') || '')) {
+      throw new Error('Your session has expired — log in again.');
+    }
+    data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Could not save.');
+  } catch (err) {
+    return showManualErr(err.message);
+  }
+  state.catalogue = data.catalogue || state.catalogue;
+  state.reports = state.reports.filter((r) => r.key !== data.report.key).concat(data.report)
+    .sort((a, b) => a.order - b.order);
+  $('uploadStage').hidden = true;
+  $('workStage').hidden = false;
+  render();
+});
+loadManual();
+
 function showRejected(list) {
   const el = $('rejected');
   el.hidden = list.length === 0;
