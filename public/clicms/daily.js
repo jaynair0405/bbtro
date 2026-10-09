@@ -176,20 +176,18 @@ function tableHtml(t) {
     return `<td class="n${cls}">${esc(v)}</td>`;
   };
 
-  // Grouped header: a spanning top row, ungrouped columns fill both rows.
-  const g = Array.isArray(t.groups) && t.groups.some(Boolean) ? t.groups : null;
+  // Grouped headings come pre-laid-out from the server (lib/cmsReports/headLayout.js).
   const th = (h, i, extra = '') => `<th class="${textCol[i] ? 'txt' : ''}"${extra}>${esc(h)}</th>`;
   let head;
-  if (!g) head = `<tr>${t.headers.map((h, i) => th(h, i)).join('')}</tr>`;
+  if (!t.head) head = `<tr>${t.headers.map((h, i) => th(h, i)).join('')}</tr>`;
   else {
-    let top = '';
-    for (let i = 0; i < t.headers.length;) {
-      if (!g[i]) { top += th(t.headers[i], i, ' rowspan="2"'); i++; continue; }
-      let j = i; while (j < t.headers.length && g[j] === g[i]) j++;
-      top += `<th colspan="${j - i}">${esc(g[i])}</th>`; i = j;
+    head = '';
+    for (let r = 0; r < t.head.rows; r++) {
+      head += '<tr>' + t.head.cells.filter((c) => c.r === r).map((c) => {
+        const span = (c.rs > 1 ? ` rowspan="${c.rs}"` : '') + (c.cs > 1 ? ` colspan="${c.cs}"` : '');
+        return c.cs === 1 ? th(c.label, c.c, span) : `<th${span}>${esc(c.label)}</th>`;
+      }).join('') + '</tr>';
     }
-    const sub = t.headers.map((h, i) => (g[i] ? th(h, i) : '')).join('');
-    head = `<tr>${top}</tr><tr>${sub}</tr>`;
   }
   const body = t.rows.length === 0
     ? `<tr><td colspan="${t.headers.length}" class="empty">${esc(t.emptyText || 'None.')}</td></tr>`
