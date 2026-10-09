@@ -13,7 +13,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <!-- ?v tags must match CACHE_VERSION in clicms-sw.js (see index.html). -->
   <link rel="stylesheet" href="clicms.css?v4" />
-  <link rel="stylesheet" href="daily.css?v4" />
+  <link rel="stylesheet" href="daily.css?v5" />
 </head>
 <body>
   <header class="topbar">
@@ -55,6 +55,26 @@
       <div class="err" id="uploadErr" hidden></div>
     </section>
 
+    <!-- Continuous night working: 3 parts with identical headers, so one slot each -->
+    <section id="nightBox" class="night-box">
+      <div class="night-head">
+        <strong>Continuous Night Working</strong>
+        <span class="date-note">CMS gives three files that look identical — upload each under its own tab.</span>
+      </div>
+      <div class="night-tabs" id="nightTabs">
+        <button type="button" class="night-tab active" data-slot="n3">3 nights<span class="nt-file"></span></button>
+        <button type="button" class="night-tab" data-slot="n4">4 nights<span class="nt-file"></span></button>
+        <button type="button" class="night-tab" data-slot="n5">&gt;4 nights<span class="nt-file"></span></button>
+      </div>
+      <div class="night-pick">
+        <label class="btn btn-ghost">
+          Choose the <span id="nightSlotName">3 nights</span> CSV
+          <input type="file" id="nightInput" accept=".csv,text/csv" hidden />
+        </label>
+        <span class="err" id="nightErr" hidden></span>
+      </div>
+    </section>
+
     <!-- Work stage -->
     <section id="workStage" hidden>
       <div class="day-bar">
@@ -78,7 +98,7 @@
     </section>
   </main>
 
-  <script src="daily.js?v4"></script>
+  <script src="daily.js?v5"></script>
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {

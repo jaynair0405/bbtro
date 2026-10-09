@@ -394,6 +394,23 @@ router.post('/daily/upload', upload.array('files', 20), (req, res) => {
   res.json({ catalogue: cmsReports.catalogue(), reports, rejected });
 });
 
+// Continuous night working: 3 / 4 / >4 parts posted by slot (their headers are identical).
+// The page re-posts every part it holds, so the answer is the whole report each time.
+router.post('/daily/upload-night', upload.fields([{ name: 'n3', maxCount: 1 }, { name: 'n4', maxCount: 1 }, { name: 'n5', maxCount: 1 }]), (req, res) => {
+  const got = req.files || {};
+  const files = {};
+  const names = {};
+  ['n3', 'n4', 'n5'].forEach((k) => {
+    if (got[k] && got[k][0]) { files[k] = got[k][0].buffer; names[k] = got[k][0].originalname; }
+  });
+  try {
+    const r = cmsReports.processNight(files);
+    res.json({ catalogue: cmsReports.catalogue(), report: { file: Object.values(names).join(', '), ...r } });
+  } catch (err) {
+    res.status(400).json({ error: err.message || 'Could not read the file.' });
+  }
+});
+
 function readDailyBody(req) {
   const date = safeISO((req.body || {}).date);
   if (!date) throw new Error('Missing report date.');
