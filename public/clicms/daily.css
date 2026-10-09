@@ -125,3 +125,9 @@
 .drill-panel .table-wrap { max-height: 360px; overflow: auto; }
 .drill-panel th.sortable { cursor: pointer; user-select: none; white-space: nowrap; }
 .drill-panel th.sortable:hover { text-decoration: underline; }
+.manual-grid { border-collapse: collapse; width: auto; }
+/* Column heads keep the shared navy header (white text); row heads read as labels. */
+.manual-grid thead th { font-size: 12.5px; padding: 6px 10px; text-align: center; position: static; }
+.manual-grid tbody th { font-size: 12.5px; padding: 4px 10px; text-align: left; white-space: nowrap; color: var(--navy); }
+.manual-grid td { padding: 3px 4px; }
+.manual-grid input { width: 64px; text-align: center; }
