@@ -227,14 +227,20 @@ function showRejected(list) {
 const isCount = (v) => /^\d+(\s*\(.*\))?$/.test(String(v));
 const countOf = (v) => Number(String(v).match(/^\d+/)[0]);
 
-function tableHtml(t) {
+// key/ti locate the table again when a drill-down count is clicked.
+function tableHtml(t, key, ti) {
   // A column is text when no body cell in it is a plain count.
   const textCol = t.headers.map((_, i) => t.rows.length > 0 && t.rows.every((r) => !isCount(r[i])));
   const alertCol = new Set(t.alertCols || []);
-  const cell = (v, i) => {
+  // Clickable counts: drill entries keyed "row,col" ("T,col" for the total row).
+  const drillAt = new Map((t.drill || []).map((d, di) => [`${d.r},${d.c}`, di]));
+  const cell = (v, i, r) => {
     if (textCol[i]) return `<td>${esc(v)}</td>`;
     const cls = String(v) === '0' ? ' zero' : (alertCol.has(i) && isCount(v) && countOf(v) > 0 ? ' alert' : '');
-    return `<td class="n${cls}">${esc(v)}</td>`;
+    const di = drillAt.get(`${r},${i}`);
+    const inner = di !== undefined && isCount(v) && countOf(v) > 0
+      ? `<a href="#" class="drill" data-k="${esc(key)}" data-t="${ti}" data-d="${di}">${esc(v)}</a>` : esc(v);
+    return `<td class="n${cls}">${inner}</td>`;
   };
 
   // Grouped headings come pre-laid-out from the server (lib/cmsReports/headLayout.js).
@@ -252,13 +258,14 @@ function tableHtml(t) {
   }
   const body = t.rows.length === 0
     ? `<tr><td colspan="${t.headers.length}" class="empty">${esc(t.emptyText || 'None.')}</td></tr>`
-    : t.rows.map((r) => `<tr>${t.headers.map((_, i) => cell(r[i], i)).join('')}</tr>`).join('');
+    : t.rows.map((r, ri) => `<tr>${t.headers.map((_, i) => cell(r[i], i, ri)).join('')}</tr>`).join('');
   const total = Array.isArray(t.total)
-    ? `<tr class="total">${t.headers.map((_, i) => cell(t.total[i], i)).join('')}</tr>` : '';
+    ? `<tr class="total">${t.headers.map((_, i) => cell(t.total[i], i, 'T')).join('')}</tr>` : '';
 
   const note = t.note ? `<p class="tnote">${esc(t.note)}</p>` : '';
   return `<div class="rtable"><h3>${esc(t.title)}</h3>${note}
-    <div class="table-wrap"><table><thead>${head}</thead><tbody>${body}${total}</tbody></table></div></div>`;
+    <div class="table-wrap"><table><thead>${head}</thead><tbody>${body}${total}</tbody></table></div>
+    <div class="drill-panel" hidden></div></div>`;
 }
 
 function render() {
@@ -282,14 +289,16 @@ function render() {
           <button class="btn btn-export" data-xlsx="${esc(r.key)}">⬇ Excel</button>
         </span>
       </div>
-      ${r.tables.map(tableHtml).join('')}
+      ${r.tables.map((t, ti) => tableHtml(t, r.key, ti)).join('')}
     </section>`).join('');
 }
 
 // ---------- Export ----------
 // Exports print the daily-sheet block (each report's first table) unless the
 // caller asks for the detail tables too. The page itself always shows everything.
-const sheetOnly = (r) => ({ key: r.key, label: r.label, dataDate: dataDateOf(r), tables: r.tables.slice(0, 1) });
+// Drill-down rows are for the page only; exports print the counts.
+const noDrill = (ts) => ts.map(({ drill, ...t }) => t);
+const sheetOnly = (r) => ({ key: r.key, label: r.label, dataDate: dataDateOf(r), tables: noDrill(r.tables.slice(0, 1)) });
 async function exportAs(kind, reports, detail) {
   if (reports.length === 0) return;
   try {
@@ -298,7 +307,7 @@ async function exportAs(kind, reports, detail) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         date: state.date,
-        reports: reports.map((r) => (detail ? { key: r.key, label: r.label, dataDate: dataDateOf(r), tables: r.tables } : sheetOnly(r))),
+        reports: reports.map((r) => (detail ? { key: r.key, label: r.label, dataDate: dataDateOf(r), tables: noDrill(r.tables) } : sheetOnly(r))),
       }),
     });
     if (!res.ok) {
@@ -325,6 +334,65 @@ $('reports').addEventListener('click', (e) => {
   if (!btn) return;
   const detail = $('reports').querySelector(`[data-detail="${btn.dataset.xlsx}"]`);
   exportAs('xlsx', state.reports.filter((r) => r.key === btn.dataset.xlsx), !!(detail && detail.checked));
+});
+
+// Drill-down: a clickable count lists the crew behind it under its table.
+$('reports').addEventListener('click', (e) => {
+  const close = e.target.closest('.drill-close');
+  if (close) { e.preventDefault(); close.closest('.drill-panel').hidden = true; return; }
+  const a = e.target.closest('a.drill');
+  if (!a) return;
+  e.preventDefault();
+  const rep = state.reports.find((x) => x.key === a.dataset.k);
+  const d = rep && rep.tables[+a.dataset.t] && rep.tables[+a.dataset.t].drill[+a.dataset.d];
+  if (!d) return;
+  const panel = a.closest('.rtable').querySelector('.drill-panel');
+  const id = `${a.dataset.k}|${a.dataset.t}|${a.dataset.d}`;
+  if (!panel.hidden && panel.dataset.id === id) { panel.hidden = true; return; }
+  panel.dataset.id = id;
+  panel._drill = d;
+  panel._sort = null;               // rows arrive in the report's own order
+  drawDrill(panel);
+  panel.hidden = false;
+});
+
+// Sort value: a number, a "dd-mm-yyyy hh:mm" / "dd-mm-yy hh:mm" time, else text.
+function sortKey(v) {
+  const s = String(v == null ? '' : v).trim();
+  if (/^-?\d+(\.\d+)?$/.test(s)) return Number(s);
+  const m = s.match(/^(\d{2})-(\d{2})-(\d{2,4})(?: (\d{2}):(\d{2}))?/);
+  if (m) return Number(`${m[3].length === 2 ? '20' + m[3] : m[3]}${m[2]}${m[1]}${m[4] || '00'}${m[5] || '00'}`);
+  return s.toUpperCase();
+}
+function drawDrill(panel) {
+  const d = panel._drill;
+  const sortable = new Set(d.sortCols || []);
+  let rows = d.rows;
+  if (panel._sort) {
+    const { c, dir } = panel._sort;
+    rows = [...rows].sort((a, b) => {
+      const x = sortKey(a[c]); const y = sortKey(b[c]);
+      return (x < y ? -1 : x > y ? 1 : 0) * dir;
+    });
+  }
+  const arrow = (i) => (panel._sort && panel._sort.c === i ? (panel._sort.dir > 0 ? ' ▲' : ' ▼') : (sortable.has(i) ? ' ⇅' : ''));
+  panel.innerHTML = `<div class="drill-head"><strong>${esc(d.title)}</strong> <span>${d.rows.length} row${d.rows.length === 1 ? '' : 's'}</span>
+      <a href="#" class="drill-close" title="Close">×</a></div>
+    ${d.note ? `<p class="tnote">${esc(d.note)}</p>` : ''}
+    <div class="table-wrap"><table><thead><tr>${d.headers.map((h, i) => (sortable.has(i)
+      ? `<th class="txt sortable" data-sc="${i}">${esc(h)}${arrow(i)}</th>` : `<th class="txt">${esc(h)}</th>`)).join('')}</tr></thead>
+    <tbody>${rows.map((r) => `<tr>${r.map((v) => `<td>${esc(v)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+// Header click: sort by that column; again to reverse. Numbers start high-to-low.
+$('reports').addEventListener('click', (e) => {
+  const th = e.target.closest('.drill-panel th.sortable');
+  if (!th) return;
+  const panel = th.closest('.drill-panel');
+  const c = +th.dataset.sc;
+  const numeric = panel._drill.rows.some((r) => typeof sortKey(r[c]) === 'number');
+  const dir = panel._sort && panel._sort.c === c ? -panel._sort.dir : (numeric ? -1 : 1);
+  panel._sort = { c, dir };
+  drawDrill(panel);
 });
 
 $('newBtn').addEventListener('click', () => {

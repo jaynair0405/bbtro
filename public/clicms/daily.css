@@ -111,3 +111,17 @@
   width: 80px; font-family: var(--mono); font-size: 14px; padding: 5px 6px;
   border: 1px solid var(--line); border-radius: 5px;
 }
+
+/* ---- Drill-down: click a count, see the crew ---- */
+.rtable td.n a.drill { color: inherit; text-decoration: underline dotted; text-underline-offset: 3px; cursor: pointer; }
+.rtable td.n a.drill:hover { text-decoration-style: solid; }
+.drill-panel {
+  margin-top: 8px; border: 1px solid var(--line); border-left: 4px solid var(--navy);
+  border-radius: 6px; padding: 8px 10px; background: #f7f9fc;
+}
+.drill-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 6px; }
+.drill-head span { color: var(--muted); font-size: 12.5px; }
+.drill-head .drill-close { margin-left: auto; font-size: 20px; line-height: 1; color: var(--muted); text-decoration: none; }
+.drill-panel .table-wrap { max-height: 360px; overflow: auto; }
+.drill-panel th.sortable { cursor: pointer; user-select: none; white-space: nowrap; }
+.drill-panel th.sortable:hover { text-decoration: underline; }

@@ -371,10 +371,11 @@ router.post('/export/summary/pdf', (req, res) => {
 // built from the tables the browser posts back. Paths keep "/upload" and
 // "/export" in them on purpose — that is what clicms-sw.js never caches.
 // =====================================================================
+const pool = require('../config/database');
 const { headLayout } = require('../lib/cmsReports/headLayout');
 const cmsReports = require('../lib/cmsReports');
 
-router.post('/daily/upload', upload.array('files', 20), (req, res) => {
+router.post('/daily/upload', upload.array('files', 20), async (req, res) => {
   const files = req.files || [];
   if (files.length === 0) return res.status(400).json({ error: 'No files uploaded (field name must be "files").' });
 
@@ -392,8 +393,43 @@ router.post('/daily/upload', upload.array('files', 20), (req, res) => {
     }
   });
   reports.sort((a, b) => a.order - b.order);
+  try {
+    await addDesignations(reports);
+  } catch (err) {
+    // The counts stand without it; say so rather than fail the upload.
+    reports.forEach((r) => r.warnings.push(`Designation lookup failed (${err.message}) — drill-down lists show none.`));
+  }
   res.json({ catalogue: cmsReports.catalogue(), reports, rejected });
 });
+
+/*
+ * CMS drill-down lists often carry no designation. Where a drill names its crew-id
+ * column (crewCol), look each id up in the staff master (current_cms_id) and insert
+ * a sortable "Desig." column after the name. One query for the whole upload.
+ */
+async function addDesignations(reports) {
+  const drills = reports.flatMap((r) => r.tables.flatMap((t) => t.drill || []))
+    .filter((d) => Number.isInteger(d.crewCol));
+  const ids = [...new Set(drills.flatMap((d) => d.rows.map((row) => String(row[d.crewCol] || '').toUpperCase())))].filter(Boolean);
+  if (ids.length === 0) return;
+  const [found] = await pool.query(
+    `SELECT s.current_cms_id AS cms, d.designation_code AS desig
+       FROM div_staff_master s JOIN designations d ON d.id = s.designation_id
+      WHERE s.current_cms_id IN (?)`, [ids]);
+  const desig = new Map(found.map((f) => [String(f.cms).toUpperCase(), f.desig]));
+  drills.forEach((d) => {
+    const at = d.crewCol + 2;                    // after crew id and name
+    d.headers = [...d.headers.slice(0, at), 'Desig.', ...d.headers.slice(at)]; // drills may share one array
+    let missing = 0;
+    d.rows.forEach((row) => {
+      const v = desig.get(String(row[d.crewCol] || '').toUpperCase());
+      if (!v) missing++;
+      row.splice(at, 0, v || '—');
+    });
+    d.sortCols = [...(d.sortCols || []).map((c) => (c >= at ? c + 1 : c)), at];
+    if (missing) d.note = `${missing} crew not found in the staff master (shown as —).`;
+  });
+}
 
 // Continuous night working: 3 / 4 / >4 parts posted by slot (their headers are identical).
 // The page re-posts every part it holds, so the answer is the whole report each time.
