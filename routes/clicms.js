@@ -371,6 +371,7 @@ router.post('/export/summary/pdf', (req, res) => {
 // built from the tables the browser posts back. Paths keep "/upload" and
 // "/export" in them on purpose — that is what clicms-sw.js never caches.
 // =====================================================================
+const { headLayout } = require('../lib/cmsReports/headLayout');
 const cmsReports = require('../lib/cmsReports');
 
 router.post('/daily/upload', upload.array('files', 20), (req, res) => {
@@ -469,18 +470,14 @@ router.post('/daily/export/xlsx', async (req, res) => {
             row.getCell(ci).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1F3A5F' } };
           }
         };
-        const spans = groupSpans(t);
-        if (spans) {
-          const top = ws.addRow(t.headers.map((h, i) => (t.groups[i] ? '' : h)));
-          const sub = ws.addRow(t.headers.map((h, i) => (t.groups[i] ? h : '')));
-          styleHead(top); styleHead(sub);
-          spans.forEach((s) => {
-            if (s.label) {
-              top.getCell(s.start + 1).value = s.label;
-              if (s.len > 1) ws.mergeCells(top.number, s.start + 1, top.number, s.start + s.len);
-            } else {
-              for (let k = 0; k < s.len; k++) ws.mergeCells(top.number, s.start + k + 1, sub.number, s.start + k + 1);
-            }
+        const lay = headLayout(t);
+        if (lay) {
+          const hrows = [];
+          for (let r = 0; r < lay.rows; r++) { hrows.push(ws.addRow([])); styleHead(hrows[r]); }
+          lay.cells.forEach((c) => {
+            const r0 = hrows[c.r].number;
+            hrows[c.r].getCell(c.c + 1).value = c.label;
+            if (c.rs > 1 || c.cs > 1) ws.mergeCells(r0, c.c + 1, r0 + c.rs - 1, c.c + c.cs);
           });
         } else {
           styleHead(ws.addRow(t.headers));
@@ -514,20 +511,6 @@ router.post('/daily/export/xlsx', async (req, res) => {
   }
 });
 
-// Runs of t.groups: [{ label|null, start, len }], or null when the table has no groups.
-function groupSpans(t) {
-  const g = Array.isArray(t.groups) && t.groups.some(Boolean) ? t.groups : null;
-  if (!g) return null;
-  const out = [];
-  t.headers.forEach((_, i) => {
-    const label = g[i] || null;
-    const last = out[out.length - 1];
-    if (last && last.label && last.label === label) last.len++;
-    else out.push({ label, start: i, len: 1 });
-  });
-  return out;
-}
-
 // "24" or "24 (2:22)" -> 24; anything else -> null. Keep in step with isCount in daily.js.
 function leadingCount(v) {
   const m = String(v == null ? '' : v).match(/^(\d+)(\s*\(.*\))?$/);
@@ -536,7 +519,8 @@ function leadingCount(v) {
 
 // Title + note + header + rows + total, in points. Keep in step with headH/rowH below.
 function dailyTableHeight(t) {
-  return 34 + 28 + (groupSpans(t) ? 16 : 0) + 16 * (Math.max(t.rows.length, 1) + (Array.isArray(t.total) ? 1 : 0));
+  const lay = headLayout(t);
+  return 34 + 28 + (lay ? 16 * (lay.rows - 1) : 0) + 16 * (Math.max(t.rows.length, 1) + (Array.isArray(t.total) ? 1 : 0));
 }
 
 // Draw one generic table at doc.y. Text columns are left-aligned and wider; counts centred.
@@ -564,8 +548,8 @@ function drawDailyTable(doc, t, { x, width, usableBottom }) {
   let y = doc.y;
   const alertCols = Array.isArray(t.alertCols) ? t.alertCols : [];
 
-  const spans = groupSpans(t);
-  const bandH = spans ? 16 : 0;
+  const lay = headLayout(t);
+  const bandH = 16;                 // each group level; the last row is headH tall
   const colX = colW.reduce((a, w, i) => { a.push(a[i] + w); return a; }, [x]);
   const headCell = (cx, cy, w, h, label) => {
     doc.rect(cx, cy, w, h).fillAndStroke('#1F3A5F', '#FFFFFF');
@@ -573,16 +557,17 @@ function drawDailyTable(doc, t, { x, width, usableBottom }) {
       .text(String(label), cx + 3, cy + 4, { width: w - 6, height: h - 5, align: 'center' });
   };
   const drawHead = () => {
-    if (spans) {
-      // Group band on top; an ungrouped column's header fills band + head height.
-      spans.forEach((s) => {
-        const w = colX[s.start + s.len] - colX[s.start];
-        if (s.label) headCell(colX[s.start], y, w, bandH, s.label);
-        else for (let k = s.start; k < s.start + s.len; k++) headCell(colX[k], y, colW[k], bandH + headH, t.headers[k]);
+    if (lay) {
+      // Group bands on top; a cell reaching the last row also takes its taller height.
+      const last = lay.rows - 1;
+      const rowY = (r) => y + bandH * r;
+      lay.cells.forEach((c) => {
+        const end = c.r + c.rs - 1;
+        const h = bandH * (Math.min(end, last - 1) - c.r + 1) * (c.r < last ? 1 : 0) + (end === last ? headH : 0);
+        headCell(colX[c.c], rowY(c.r), colX[c.c + c.cs] - colX[c.c], h, c.label);
       });
-      t.headers.forEach((h, i) => { if (t.groups[i]) headCell(colX[i], y + bandH, colW[i], headH, h); });
       doc.fillColor('#000');
-      y += bandH + headH;
+      y += bandH * last + headH;
       return;
     }
     let cx = x;
