@@ -171,8 +171,20 @@ async function loadManual() {
 }
 function showManualFields() {
   const c = state.catalogue.find((x) => x.key === $('manualKey').value);
-  $('manualFields').innerHTML = !c || !c.manual ? '' : c.manual.map((f) =>
-    `<label>${esc(f.label)}<input type="number" min="0" step="1" inputmode="numeric" data-mkey="${esc(f.key)}" value="0" /></label>`).join('');
+  const input = (key, value, label) =>
+    `<input type="number" min="0" step="1" inputmode="numeric" data-mkey="${esc(key)}" value="${esc(value)}" aria-label="${esc(label)}" />`;
+  if (!c || !c.manual) { $('manualFields').innerHTML = ''; return; }
+  if (!c.grid) {
+    $('manualFields').innerHTML = c.manual.map((f) => `<label>${esc(f.label)}${input(f.key, 0, f.label)}</label>`).join('');
+    return;
+  }
+  // Laid out as the sheet table. Pre-filled from the loaded report where it has a number.
+  const loaded = state.reports.find((r) => r.key === c.key);
+  const shown = loaded && loaded.tables[0] ? loaded.tables[0].rows : [];
+  const pre = (ri, ci) => { const v = shown[ri] && shown[ri][ci + 1]; return /^\d+$/.test(String(v)) ? v : 0; };
+  $('manualFields').innerHTML = `<table class="manual-grid"><thead><tr><th></th>${c.grid.cols.map((col) => `<th>${esc(col.label)}</th>`).join('')}</tr></thead>
+    <tbody>${c.grid.rows.map((row, ri) => `<tr><th>${esc(row.label)}</th>${c.grid.cols.map((col, ci) =>
+      `<td>${input(`${col.key}|${row.key}`, pre(ri, ci), `${col.label} ${row.label}`)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
 }
 $('manualKey').addEventListener('change', showManualFields);
 
@@ -270,6 +282,7 @@ function tableHtml(t, key, ti) {
 
 function render() {
   $('dayLabel').textContent = isoToDDMMYYYY(state.date);
+  showManualFields();            // a grid pre-fills from what is now loaded
 
   const loaded = new Set(state.reports.map((r) => r.key));
   $('checklist').innerHTML = state.catalogue.map((c) => (loaded.has(c.key)
