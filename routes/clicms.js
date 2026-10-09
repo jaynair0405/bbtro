@@ -412,6 +412,21 @@ router.post('/daily/upload-night', upload.fields([{ name: 'n3', maxCount: 1 }, {
   }
 });
 
+// The report list, for the page's "Fill by hand" picker before anything is uploaded.
+// POST so the service worker never caches it.
+router.post('/daily/catalogue', (req, res) => res.json({ catalogue: cmsReports.catalogue() }));
+
+// A count-only report typed in on the page (reports with a `manual` entry only).
+router.post('/daily/manual', (req, res) => {
+  const { key, values } = req.body || {};
+  try {
+    const r = cmsReports.processManual(String(key || ''), values);
+    res.json({ catalogue: cmsReports.catalogue(), report: { file: 'entered by hand', ...r } });
+  } catch (err) {
+    res.status(400).json({ error: err.message || 'Could not build the report.' });
+  }
+});
+
 function readDailyBody(req) {
   const date = safeISO((req.body || {}).date);
   if (!date) throw new Error('Missing report date.');

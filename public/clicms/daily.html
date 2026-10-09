@@ -13,7 +13,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <!-- ?v tags must match CACHE_VERSION in clicms-sw.js (see index.html). -->
   <link rel="stylesheet" href="clicms.css?v4" />
-  <link rel="stylesheet" href="daily.css?v5" />
+  <link rel="stylesheet" href="daily.css?v6" />
 </head>
 <body>
   <header class="topbar">
@@ -75,6 +75,20 @@
       </div>
     </section>
 
+    <!-- Reports that can be typed in instead of uploaded -->
+    <section id="manualBox" class="night-box">
+      <div class="night-head">
+        <strong>Fill by hand</strong>
+        <select id="manualKey"></select>
+        <span class="date-note">For a count you have but no CMS file for. Replaces that report if it is loaded.</span>
+      </div>
+      <div class="manual-fields" id="manualFields"></div>
+      <div class="night-pick">
+        <button type="button" class="btn btn-ghost" id="manualSave">Save</button>
+        <span class="err" id="manualErr" hidden></span>
+      </div>
+    </section>
+
     <!-- Work stage -->
     <section id="workStage" hidden>
       <div class="day-bar">
@@ -98,7 +112,7 @@
     </section>
   </main>
 
-  <script src="daily.js?v5"></script>
+  <script src="daily.js?v6"></script>
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
