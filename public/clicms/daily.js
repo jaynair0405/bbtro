@@ -294,11 +294,11 @@ function render() {
 }
 
 // ---------- Export ----------
-// Exports print the daily-sheet block (each report's first table) unless the
+// Exports print the daily-sheet block (each report's first table, plus any marked sheet) unless the
 // caller asks for the detail tables too. The page itself always shows everything.
 // Drill-down rows are for the page only; exports print the counts.
 const noDrill = (ts) => ts.map(({ drill, ...t }) => t);
-const sheetOnly = (r) => ({ key: r.key, label: r.label, dataDate: dataDateOf(r), tables: noDrill(r.tables.slice(0, 1)) });
+const sheetOnly = (r) => ({ key: r.key, label: r.label, dataDate: dataDateOf(r), tables: noDrill(r.tables.filter((t, i) => i === 0 || t.sheet)) });
 async function exportAs(kind, reports, detail) {
   if (reports.length === 0) return;
   try {
