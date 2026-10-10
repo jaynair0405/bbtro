@@ -11,8 +11,6 @@ const state = {
   date: '',        // ISO — typed by the user; the CMS files carry none
   catalogue: [],   // [{key,label,order}] every report the server knows
   reports: [],     // [{key,label,order,file,tables,warnings}] loaded so far
-  night: {},       // { n3?, n4?, n5? } File — continuous night working parts
-  nightSlot: 'n3', // the tab being filled
 };
 
 const $ = (id) => document.getElementById(id);
@@ -99,59 +97,69 @@ async function uploadFiles(files) {
   render();
 }
 
-// ---------- Continuous night working (3 / 4 / >4 slots) ----------
-// The three parts have identical headers, so the user says which is which by tab.
+// ---------- Slot uploads: reports whose files look alike ----------
+// Continuous night working (3 / 4 / >4) and suburban sign on/off without biometric
+// (summary + CSTS / KYNS / PNVS lists): the user says which file is which by tab.
 // Every pick re-posts all the parts held; the answer replaces the whole report.
-$('nightTabs').addEventListener('click', (e) => {
-  const tab = e.target.closest('[data-slot]');
-  if (!tab) return;
-  state.nightSlot = tab.dataset.slot;
-  document.querySelectorAll('.night-tab').forEach((t) => t.classList.toggle('active', t === tab));
-  $('nightSlotName').textContent = tab.firstChild.textContent.trim();
-});
-$('nightInput').addEventListener('change', (ev) => {
-  const f = ev.target.files[0];
-  ev.target.value = '';
-  if (f) uploadNight(state.nightSlot, f);
-});
-
-function showNightErr(msg) {
-  $('nightErr').textContent = msg;
-  $('nightErr').hidden = !msg;
-}
-
-async function uploadNight(slot, file) {
-  showNightErr('');
-  if (state.reports.length === 0) {
-    const date = $('reportDate').value;
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return showNightErr('Choose the sheet date first.');
-    state.date = date;
-  }
-  const next = { ...state.night, [slot]: file };
-  const fd = new FormData();
-  Object.entries(next).forEach(([k, f]) => fd.append(k, f));
-  let data;
-  try {
-    const res = await fetch(`${API_BASE}daily/upload-night`, { method: 'POST', body: fd });
-    if (res.redirected || !/json/i.test(res.headers.get('content-type') || '')) {
-      throw new Error('Your session has expired — log in again, then re-upload.');
-    }
-    data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Upload failed.');
-  } catch (err) {
-    return showNightErr(err.message);
-  }
-  state.night = next;
-  document.querySelectorAll('.night-tab').forEach((t) => {
-    t.querySelector('.nt-file').textContent = state.night[t.dataset.slot] ? `✓ ${state.night[t.dataset.slot].name}` : '';
+function slotBox(id, url, firstSlot) {
+  const box = { files: {}, slot: firstSlot };
+  const tabs = $(`${id}Tabs`);
+  const showErr = (msg) => { $(`${id}Err`).textContent = msg; $(`${id}Err`).hidden = !msg; };
+  const marks = () => tabs.querySelectorAll('.night-tab').forEach((t) => {
+    t.querySelector('.nt-file').textContent = box.files[t.dataset.slot] ? `✓ ${box.files[t.dataset.slot].name}` : '';
   });
-  state.reports = state.reports.filter((r) => r.key !== data.report.key).concat(data.report)
-    .sort((a, b) => a.order - b.order);
-  state.catalogue = data.catalogue || state.catalogue;
-  $('uploadStage').hidden = true;
-  $('workStage').hidden = false;
-  render();
+
+  tabs.addEventListener('click', (e) => {
+    const tab = e.target.closest('[data-slot]');
+    if (!tab) return;
+    box.slot = tab.dataset.slot;
+    tabs.querySelectorAll('.night-tab').forEach((t) => t.classList.toggle('active', t === tab));
+    $(`${id}SlotName`).textContent = tab.firstChild.textContent.trim();
+  });
+  $(`${id}Input`).addEventListener('change', (ev) => {
+    const f = ev.target.files[0];
+    ev.target.value = '';
+    if (f) upload(box.slot, f);
+  });
+
+  async function upload(slot, file) {
+    showErr('');
+    if (state.reports.length === 0) {
+      const date = $('reportDate').value;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return showErr('Choose the sheet date first.');
+      state.date = date;
+    }
+    const next = { ...box.files, [slot]: file };
+    const fd = new FormData();
+    Object.entries(next).forEach(([k, f]) => fd.append(k, f));
+    let data;
+    try {
+      const res = await fetch(`${API_BASE}${url}`, { method: 'POST', body: fd });
+      if (res.redirected || !/json/i.test(res.headers.get('content-type') || '')) {
+        throw new Error('Your session has expired — log in again, then re-upload.');
+      }
+      data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Upload failed.');
+    } catch (err) {
+      return showErr(err.message);
+    }
+    box.files = next;
+    marks();
+    state.reports = state.reports.filter((r) => r.key !== data.report.key).concat(data.report)
+      .sort((a, b) => a.order - b.order);
+    state.catalogue = data.catalogue || state.catalogue;
+    $('uploadStage').hidden = true;
+    $('workStage').hidden = false;
+    render();
+  }
+
+  box.reset = () => { box.files = {}; marks(); showErr(''); };
+  return box;
 }
+const slotBoxes = [
+  slotBox('night', 'daily/upload-night', 'n3'),
+  slotBox('nonbio', 'daily/upload-nonbio', 'sum'),
+];
 
 // ---------- Fill by hand ----------
 // Reports with a `manual` entry can be typed in; the server builds the same tables.
@@ -410,9 +418,7 @@ $('reports').addEventListener('click', (e) => {
 
 $('newBtn').addEventListener('click', () => {
   state.reports = [];
-  state.night = {};
-  document.querySelectorAll('.night-tab .nt-file').forEach((s) => { s.textContent = ''; });
-  showNightErr('');
+  slotBoxes.forEach((b) => b.reset());
   $('workStage').hidden = true;
   $('uploadStage').hidden = false;
 });
