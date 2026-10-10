@@ -448,9 +448,9 @@ router.post('/daily/upload-night', upload.fields([{ name: 'n3', maxCount: 1 }, {
   }
 });
 
-// Suburban sign on/off without biometric: lobby summary + CSTS / KYNS / PNVS crew
-// lists, posted by slot (the three lists share one header). Same contract as upload-night.
-const NONBIO_SLOTS = ['sum', 'csts', 'kyns', 'pnvs'];
+// Sign on/off without biometric: lobby summary + CSTS / KYNS / PNVS crew lists + the
+// D-1 44-column file for DR / LTT, posted by slot (look-alike headers). Same contract as upload-night.
+const NONBIO_SLOTS = ['sum', 'csts', 'kyns', 'pnvs', 'drltt'];
 router.post('/daily/upload-nonbio', upload.fields(NONBIO_SLOTS.map((name) => ({ name, maxCount: 1 }))), (req, res) => {
   const got = req.files || {};
   const files = {};
@@ -468,7 +468,8 @@ router.post('/daily/upload-nonbio', upload.fields(NONBIO_SLOTS.map((name) => ({ 
 
 // The report list, for the page's "Fill by hand" picker before anything is uploaded.
 // POST so the service worker never caches it.
-router.post('/daily/catalogue', (req, res) => res.json({ catalogue: cmsReports.catalogue() }));
+// Also the one-view layout, so the page lays its blocks out exactly as the PDF does.
+router.post('/daily/catalogue', (req, res) => res.json({ catalogue: cmsReports.catalogue(), layout: require('../lib/cmsReports/position').PAGES }));
 
 // A count-only report typed in on the page (reports with a `manual` entry only).
 router.post('/daily/manual', (req, res) => {
@@ -586,44 +587,53 @@ function leadingCount(v) {
   return m ? Number(m[1]) : null;
 }
 
-// Title + note + header + rows + total, in points. Keep in step with headH/rowH below.
-function dailyTableHeight(t) {
+// Table sizes in points. The one-view position export draws compact (POS_SIZE).
+const DAILY_SIZE = { headH: 28, rowH: 16, bandH: 16, font: 8.5, headFont: 8, titleFont: 10, titleH: 34, gap: 12 };
+const POS_SIZE = { headH: 20, rowH: 9.8, bandH: 10, font: 6.8, headFont: 6.3, titleFont: 7.5, titleH: 12, gap: 5, noNote: true };
+
+// Title + note + header + rows + total, in points. Keep in step with drawDailyTable.
+function dailyTableHeight(t, z = DAILY_SIZE) {
   const lay = headLayout(t);
-  return 34 + 28 + (lay ? 16 * (lay.rows - 1) : 0) + 16 * (Math.max(t.rows.length, 1) + (Array.isArray(t.total) ? 1 : 0));
+  const title = t.title ? z.titleH : (z === DAILY_SIZE ? z.titleH : 2);
+  return title + z.headH + (lay ? z.bandH * (lay.rows - 1) : 0) + z.rowH * (Math.max(t.rows.length, 1) + (Array.isArray(t.total) ? 1 : 0)) + z.gap;
 }
 
 // Draw one generic table at doc.y. Text columns are left-aligned and wider; counts centred.
-function drawDailyTable(doc, t, { x, width, usableBottom }) {
+function drawDailyTable(doc, t, { x, width, usableBottom, size = DAILY_SIZE }) {
+  const z = size;
   const n = t.headers.length;
   const isText = t.headers.map((_, i) =>
     t.rows.length > 0 && t.rows.every((r) => leadingCount(r[i]) === null));
-  const weights = isText.map((tx) => (tx ? 1.6 : 1));
+  // Text columns get room by their longest entry (1.6 .. 4 times a count column).
+  const longest = (i) => Math.max(...t.rows.map((r) => String(r[i] == null ? '' : r[i]).length), 1);
+  // A mixed column (Kiosk "Lobby Detail": 61 / "CSTS, DR, KYNS…") is sized by its text too.
+  const weights = isText.map((tx, i) => Math.min(4, Math.max(tx ? 1.6 : 1, longest(i) / 8)));
   const wSum = weights.reduce((a, b) => a + b, 0);
   const colW = weights.map((w) => (width * w) / wSum);
-  const headH = 28;
-  const rowH = 16;
+  const { headH, rowH } = z;
 
   // Keep a table whole: if it will not fit in what is left of this page but would fit
   // on a fresh one, start it there. Longer tables flow on, repeating their header.
-  const fullH = dailyTableHeight(t);
+  const fullH = dailyTableHeight(t, z);
   const pageH = usableBottom - doc.page.margins.top;
   const room = usableBottom - doc.y;
   if ((fullH > room && fullH <= pageH) || headH + rowH * 2 + 20 > room) doc.addPage();
-  doc.font('Helvetica-Bold').fontSize(10).fillColor('#1F3A5F').text(t.title, x, doc.y);
-  if (typeof t.note === 'string' && t.note) {
+  if (t.title) doc.font('Helvetica-Bold').fontSize(z.titleFont).fillColor('#1F3A5F').text(t.title, x, doc.y);
+  if (typeof t.note === 'string' && t.note && !z.noNote) {
     doc.font('Helvetica-Oblique').fontSize(8).fillColor('#5D6B7E').text(t.note, x, doc.y + 1, { width });
   }
-  doc.fillColor('#000').moveDown(0.25);
+  doc.fillColor('#000');
+  if (t.title || z === DAILY_SIZE) doc.moveDown(0.25); else doc.y += 2;
   let y = doc.y;
   const alertCols = Array.isArray(t.alertCols) ? t.alertCols : [];
 
   const lay = headLayout(t);
-  const bandH = 16;                 // each group level; the last row is headH tall
+  const bandH = z.bandH;            // each group level; the last row is headH tall
   const colX = colW.reduce((a, w, i) => { a.push(a[i] + w); return a; }, [x]);
   const headCell = (cx, cy, w, h, label) => {
     doc.rect(cx, cy, w, h).fillAndStroke('#1F3A5F', '#FFFFFF');
-    doc.font('Helvetica-Bold').fontSize(8).fillColor('#FFFFFF')
-      .text(String(label), cx + 3, cy + 4, { width: w - 6, height: h - 5, align: 'center' });
+    doc.font('Helvetica-Bold').fontSize(z.headFont).fillColor('#FFFFFF')
+      .text(String(label), cx + 2, cy + 2, { width: w - 4, height: h - 3, align: 'center' });
   };
   const drawHead = () => {
     if (lay) {
@@ -642,8 +652,8 @@ function drawDailyTable(doc, t, { x, width, usableBottom }) {
     let cx = x;
     t.headers.forEach((h, i) => {
       doc.rect(cx, y, colW[i], headH).fillAndStroke('#1F3A5F', '#FFFFFF');
-      doc.font('Helvetica-Bold').fontSize(8).fillColor('#FFFFFF')
-        .text(String(h), cx + 3, y + 5, { width: colW[i] - 6, height: headH - 6, align: 'center' });
+      doc.font('Helvetica-Bold').fontSize(z.headFont).fillColor('#FFFFFF')
+        .text(String(h), cx + 2, y + 3, { width: colW[i] - 4, height: headH - 4, align: 'center' });
       cx += colW[i];
     });
     doc.fillColor('#000');
@@ -656,9 +666,9 @@ function drawDailyTable(doc, t, { x, width, usableBottom }) {
       if (o.fill) doc.rect(cx, y, colW[i], rowH).fillAndStroke(o.fill, '#D0D5DD');
       else doc.rect(cx, y, colW[i], rowH).stroke('#D0D5DD');
       const alert = alertCols.includes(i) && leadingCount(cells[i]) > 0;
-      doc.font(o.bold || alert ? 'Helvetica-Bold' : 'Helvetica').fontSize(8.5).fillColor(alert ? '#C8462F' : '#000')
-        .text(String(cells[i] == null ? '' : cells[i]), cx + 4, y + 4,
-          { width: colW[i] - 8, height: rowH - 4, align: isText[i] ? 'left' : 'center', ellipsis: true });
+      doc.font(o.bold || alert ? 'Helvetica-Bold' : 'Helvetica').fontSize(z.font).fillColor(alert ? '#C8462F' : '#000')
+        .text(String(cells[i] == null ? '' : cells[i]), cx + 3, y + (rowH - z.font) / 2,
+          { width: colW[i] - 6, height: rowH - 2, align: isText[i] ? 'left' : 'center', ellipsis: true, lineBreak: false });
       cx += colW[i];
     }
     y += rowH;
@@ -667,14 +677,14 @@ function drawDailyTable(doc, t, { x, width, usableBottom }) {
   drawHead();
   if (t.rows.length === 0) {
     doc.rect(x, y, width, rowH).stroke('#D0D5DD');
-    doc.font('Helvetica-Oblique').fontSize(8.5).fillColor('#5D6B7E')
-      .text(t.emptyText || 'None.', x + 4, y + 4, { width: width - 8 });
+    doc.font('Helvetica-Oblique').fontSize(z.font).fillColor('#5D6B7E')
+      .text(t.emptyText || 'None.', x + 3, y + (rowH - z.font) / 2, { width: width - 6, lineBreak: false });
     doc.fillColor('#000');
     y += rowH;
   }
   t.rows.forEach((r) => drawRow(r));
   if (Array.isArray(t.total)) drawRow(t.total, { bold: true, fill: '#EEF2F7' });
-  doc.y = y + 12;
+  doc.y = y + z.gap;
 }
 
 router.post('/daily/export/pdf', (req, res) => {
@@ -705,6 +715,200 @@ router.post('/daily/export/pdf', (req, res) => {
 
     drawReportFooter(doc, x, istTodayISO(), usableBottom);
     doc.end();
+  } catch (err) {
+    if (!res.headersSent) res.status(400).json({ error: err.message || 'Export failed.' });
+  }
+});
+
+// ---- Position (one view): the whole day as the officers receive it ----
+// Blocks in left/right pairs on A4 portrait, per lib/cmsReports/position.js.
+const position = require('../lib/cmsReports/position');
+const POSITION_TITLE = (date) => `CSMT DIVISION CMS POSITION ${position.slashDate(date)}`;
+
+function readPositionBody(req) {
+  const { date, reports } = readDailyBody(req);
+  return { date, pages: position.layout(reports, cmsReports.catalogue()) };
+}
+
+router.post('/daily/export/position/pdf', (req, res) => {
+  try {
+    const { date, pages } = readPositionBody(req);
+    const doc = new PDFDocument({ size: 'A4', margin: 24 });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="CMS_position_${date}.pdf"`);
+    doc.pipe(res);
+
+    const z = POS_SIZE;
+    const left = doc.page.margins.left;
+    const fullW = doc.page.width - left - doc.page.margins.right;
+    const gutter = 10;
+    const halfW = (fullW - gutter) / 2;
+    const usableBottom = doc.page.height - doc.page.margins.bottom - 12;   // room for the footer
+    const blockH = (b) => 14 + (b.missing ? z.rowH + z.gap : b.tables.reduce((h, t) => h + dailyTableHeight(t, z), 0));
+    const sideH = (bs) => bs.reduce((h, b) => h + blockH(b), 0);
+
+    const pageHead = () => {
+      doc.font('Helvetica-Bold').fontSize(11).fillColor('#000')
+        .text(POSITION_TITLE(date), left, doc.page.margins.top, { width: fullW, align: 'center' });
+      doc.y += 4;
+    };
+    const drawBlock = (b, x, width) => {
+      const y0 = doc.y;
+      doc.rect(x, y0, width, 12).fill(b.missing ? '#C8CDD5' : '#BFD3EA');
+      doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#1F3A5F')
+        .text(b.heading, x + 3, y0 + 3, { width: width - 6, align: 'center', lineBreak: false, ellipsis: true });
+      doc.fillColor('#000');
+      doc.y = y0 + 14;
+      if (b.missing) {
+        doc.rect(x, doc.y, width, z.rowH).stroke('#D0D5DD');
+        doc.font('Helvetica-Oblique').fontSize(z.font).fillColor('#C8462F')
+          .text('Not uploaded', x + 3, doc.y + (z.rowH - z.font) / 2, { width: width - 6, lineBreak: false });
+        doc.fillColor('#000');
+        doc.y += z.rowH + z.gap;
+        return;
+      }
+      b.tables.forEach((t) => drawDailyTable(doc, t, { x, width, usableBottom, size: z }));
+    };
+
+    pages.forEach((rows, pi) => {
+      if (pi > 0) doc.addPage();
+      pageHead();
+      rows.forEach((row) => {
+        const h = row.full ? blockH(row.full) : Math.max(sideH(row.left), sideH(row.right));
+        if (doc.y + h > usableBottom) { doc.addPage(); pageHead(); }   // overflow: never split a row
+        const y0 = doc.y;
+        if (row.full) { drawBlock(row.full, left, fullW); return; }
+        row.left.forEach((b) => drawBlock(b, left, halfW));
+        const yl = doc.y;
+        doc.y = y0;
+        row.right.forEach((b) => drawBlock(b, left + halfW + gutter, halfW));
+        doc.y = Math.max(yl, doc.y);
+      });
+    });
+
+    doc.font('Helvetica-Oblique').fontSize(6.5).fillColor('#5D6B7E')
+      .text(REPORT_FOOTER(istTodayISO()), left, Math.min(doc.y + 4, usableBottom + 2), { lineBreak: false });
+    doc.end();
+  } catch (err) {
+    if (!res.headersSent) res.status(400).json({ error: err.message || 'Export failed.' });
+  }
+});
+
+// The same layout on ONE Excel sheet: left blocks from column A, right blocks after a
+// gap column, full-width blocks from A; a page break between the two pages, A4
+// portrait fit to one page wide, so it prints as the PDF does.
+router.post('/daily/export/position/xlsx', async (req, res) => {
+  try {
+    const { date, pages } = readPositionBody(req);
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('CMS Position', {
+      pageSetup: { paperSize: 9, orientation: 'portrait', fitToPage: true, fitToWidth: 1, fitToHeight: 0,
+        margins: { left: 0.3, right: 0.3, top: 0.4, bottom: 0.4, header: 0.2, footer: 0.2 } },
+    });
+    const widest = (side) => Math.max(1, ...pages.flat().filter((r) => !r.full)
+      .flatMap((r) => r[side]).flatMap((b) => b.tables.map((t) => t.headers.length)));
+    const L = widest('left');
+    const R0 = L + 2;                                   // right side's first column (1-based)
+    const GAP = L + 1;                                  // narrow column between the sides
+    // Full-width tables step over GAP, so they take one column more than they have.
+    const lastCol = Math.max(R0 + widest('right') - 1, ...pages.flat().filter((r) => r.full)
+      .flatMap((r) => r.full.tables.map((t) => t.headers.length + (t.headers.length > L ? 1 : 0))));
+
+    const thin = { style: 'thin', color: { argb: 'FFD0D5DD' } };
+    const box = { top: thin, left: thin, bottom: thin, right: thin };
+    const cell = (r, c) => ws.getRow(r).getCell(c);
+    const navy = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1F3A5F' } };
+
+    // One table at (row, col); returns the next free row. skip = a column to step over.
+    const putTable = (row, col0, t, skip = 0) => {
+      const at = (i) => col0 + i + (skip && col0 + i >= skip ? 1 : 0);
+      if (t.title) { const c = cell(row, col0); c.value = t.title; c.font = { name: 'Arial', size: 8, bold: true, color: { argb: 'FF1F3A5F' } }; row++; }
+      const lay = headLayout(t);
+      const hRows = lay ? lay.rows : 1;
+      for (let r = 0; r < hRows; r++) for (let i = 0; i < t.headers.length; i++) {
+        const c = cell(row + r, at(i));
+        c.fill = navy; c.border = box;
+        c.font = { name: 'Arial', size: 8, bold: true, color: { argb: 'FFFFFFFF' } };
+        c.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+      }
+      if (lay) {
+        lay.cells.forEach((h) => {
+          cell(row + h.r, at(h.c)).value = h.label;
+          if (h.rs > 1 || h.cs > 1) ws.mergeCells(row + h.r, at(h.c), row + h.r + h.rs - 1, at(h.c + h.cs - 1));
+        });
+      } else t.headers.forEach((h, i) => { cell(row, at(i)).value = h; });
+      ws.getRow(row + hRows - 1).height = 30;
+      row += hRows;
+      const alertCols = Array.isArray(t.alertCols) ? t.alertCols : [];
+      const body = [...t.rows.map((r) => ({ r })), ...(Array.isArray(t.total) ? [{ r: t.total, total: true }] : [])];
+      if (t.rows.length === 0) body.unshift({ r: [t.emptyText || 'None.'], empty: true });
+      body.forEach(({ r, total, empty }) => {
+        for (let i = 0; i < t.headers.length; i++) {
+          const c = cell(row, at(i));
+          if (!empty || i === 0) c.value = r[i] == null ? '' : r[i];
+          c.border = box;
+          c.alignment = { horizontal: i < 2 && typeof r[i] === 'string' ? 'left' : 'center' };
+          const alert = alertCols.includes(i) && leadingCount(r[i]) > 0;
+          c.font = { name: 'Arial', size: 8, bold: !!total || alert, italic: !!empty, color: alert ? { argb: 'FFC8462F' } : undefined };
+          if (total) c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEEF2F7' } };
+        }
+        row++;
+      });
+      return row + 1;
+    };
+    // A block: its heading bar across `width` columns, then its tables.
+    const putBlock = (row, col, width, b, skip = 0) => {
+      ws.mergeCells(row, col, row, col + width - 1);
+      const h = cell(row, col);
+      h.value = b.heading;
+      h.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FF1F3A5F' } };
+      h.alignment = { horizontal: 'center' };
+      h.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: b.missing ? 'FFC8CDD5' : 'FFBFD3EA' } };
+      row++;
+      if (b.missing) {
+        const c = cell(row, col); c.value = 'Not uploaded';
+        c.font = { name: 'Arial', size: 8, italic: true, color: { argb: 'FFC8462F' } };
+        return row + 2;
+      }
+      b.tables.forEach((t) => { row = putTable(row, col, t, t.headers.length > L ? skip : 0); });
+      return row;
+    };
+
+    let row = 1;
+    pages.forEach((rows, pi) => {
+      if (pi > 0) ws.getRow(row - 1).addPageBreak();
+      ws.mergeCells(row, 1, row, lastCol);
+      const t = cell(row, 1);
+      t.value = POSITION_TITLE(date);
+      t.font = { name: 'Arial', size: 12, bold: true };
+      t.alignment = { horizontal: 'center' };
+      row += 2;
+      rows.forEach((r) => {
+        if (r.full) { row = putBlock(row, 1, lastCol, r.full, GAP); return; }
+        let yl = row; let yr = row;
+        r.left.forEach((b) => { yl = putBlock(yl, 1, L, b); });
+        r.right.forEach((b) => { yr = putBlock(yr, R0, lastCol - R0 + 1, b); });
+        row = Math.max(yl, yr);
+      });
+      row += 1;
+    });
+    // Width by content: the longest value, or the longest WORD of a header (headers wrap).
+    const need = new Array(lastCol + 1).fill(6);
+    ws.eachRow((r) => r.eachCell((c, n) => {
+      if (c.isMerged) return;                    // headings / group bands span several columns
+      const v = String(c.value == null ? '' : c.value);
+      const len = c.fill === navy ? Math.max(...v.split(/\s+/).map((w) => w.length)) : v.length;
+      need[n] = Math.max(need[n], len + 2);
+    }));
+    for (let i = 1; i <= lastCol; i++) ws.getColumn(i).width = i === GAP ? 2 : Math.min(need[i], 40);
+    // After the widths: the footer line may run across columns.
+    cell(row, 1).value = REPORT_FOOTER(istTodayISO());
+    cell(row, 1).font = { name: 'Arial', size: 7, italic: true, color: { argb: 'FF5D6B7E' } };
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="CMS_position_${date}.xlsx"`);
+    await wb.xlsx.write(res);
+    res.end();
   } catch (err) {
     if (!res.headersSent) res.status(400).json({ error: err.message || 'Export failed.' });
   }

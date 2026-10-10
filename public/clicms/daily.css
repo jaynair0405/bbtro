@@ -131,3 +131,58 @@
 .manual-grid tbody th { font-size: 12.5px; padding: 4px 10px; text-align: left; white-space: nowrap; color: var(--navy); }
 .manual-grid td { padding: 3px 4px; }
 .manual-grid input { width: 64px; text-align: center; }
+
+/* ---- Position view: the one-view layout on screen (lib/cmsReports/position.js) ---- */
+/* Sticky strip of report chips: jump to a block; dashed = not uploaded, dot = warnings. */
+.checklist {
+  position: sticky; top: 0; z-index: 20; background: var(--bg);
+  padding: 8px 0; margin-bottom: 12px; border-bottom: 1px solid var(--line);
+  flex-wrap: wrap; gap: 5px 6px;          /* all 15 visible at once — no sideways scroll */
+}
+.checklist .chk { padding: 2px 9px; font-size: 12px; }
+a.chk { text-decoration: none; white-space: nowrap; display: inline-flex; align-items: center; gap: 5px; }
+a.chk:hover { border-color: var(--navy); }
+.wdot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--alert); flex: none; }
+.warnings summary { cursor: pointer; font-weight: 600; }
+
+.pos-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; align-items: start; }
+.pos-row.full { grid-template-columns: 1fr; }
+.pside { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.pblock {
+  background: var(--surface); border: 1px solid var(--line); border-top: 3px solid var(--navy);
+  border-radius: 8px; padding: 10px 12px 2px; scroll-margin-top: 64px;
+}
+.pblock.missing { border-top-color: #b3bcc8; border-style: dashed; border-top-style: solid; }
+.pblock-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.pblock-head h2 { font-family: "Barlow Semi Condensed", sans-serif; font-size: 16px; font-weight: 600; }
+.pdate { font-family: var(--mono); font-size: 12.5px; color: var(--muted); font-weight: 400; }
+.btn-details { padding: 4px 10px; font-size: 12.5px; display: inline-flex; align-items: center; gap: 6px; flex: none; }
+.pmissing { color: var(--alert); font-style: italic; font-size: 13px; padding-bottom: 10px; }
+.pblock .rtable { margin-bottom: 10px; }
+.pblock .rtable td, .pblock .rtable th { padding-top: 4px; padding-bottom: 4px; }
+.page-sep {
+  text-align: center; font-size: 12px; font-weight: 600; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 1px; margin: 22px 0 12px;
+  border-top: 1px dashed var(--line); padding-top: 8px;
+}
+
+/* ---- Details drawer: slides in from the right; the position view never moves ---- */
+.drawer-backdrop { position: fixed; inset: 0; background: rgba(15, 28, 45, .35); z-index: 40; }
+.drawer {
+  position: fixed; top: 0; right: 0; bottom: 0; width: min(760px, 92vw); z-index: 41;
+  background: var(--surface); box-shadow: -6px 0 24px rgba(0, 0, 0, .18);
+  overflow-y: auto; padding: 16px 18px 24px; animation: drawer-in .18s ease-out;
+}
+@keyframes drawer-in { from { transform: translateX(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+.drawer-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+.drawer-head h2 { font-family: "Barlow Semi Condensed", sans-serif; font-size: 19px; font-weight: 600; }
+.drawer-head .src { font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
+.drawer-close { font-size: 26px; line-height: 1; color: var(--muted); text-decoration: none; }
+.drawer-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 12px; }
+.drawer .warnings { margin-bottom: 12px; }
+body.drawer-open { overflow: hidden; }
+
+@media (max-width: 900px) {
+  .pos-row { grid-template-columns: 1fr; }
+  .drawer { width: 100vw; }
+}

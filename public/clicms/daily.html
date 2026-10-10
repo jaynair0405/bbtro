@@ -13,7 +13,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <!-- ?v tags must match CACHE_VERSION in clicms-sw.js (see index.html). -->
   <link rel="stylesheet" href="clicms.css?v4" />
-  <link rel="stylesheet" href="daily.css?v7" />
+  <link rel="stylesheet" href="daily.css?v9" />
 </head>
 <body>
   <header class="topbar">
@@ -79,13 +79,14 @@
     <section id="nonbioBox" class="night-box">
       <div class="night-head">
         <strong>Sign On/Sign Off without Biometric</strong>
-        <span class="date-note">The lobby summary, then each lobby's non-biometric crew list under its own tab.</span>
+        <span class="date-note">Previous day (D-1): the lobby summary, each lobby's non-biometric crew list, and the 44-column sign on/off file for DR / LTT — each under its own tab.</span>
       </div>
       <div class="night-tabs" id="nonbioTabs">
         <button type="button" class="night-tab active" data-slot="sum">Lobby summary<span class="nt-file"></span></button>
         <button type="button" class="night-tab" data-slot="csts">CSTS list<span class="nt-file"></span></button>
         <button type="button" class="night-tab" data-slot="kyns">KYNS list<span class="nt-file"></span></button>
         <button type="button" class="night-tab" data-slot="pnvs">PNVS list<span class="nt-file"></span></button>
+        <button type="button" class="night-tab" data-slot="drltt">DR / LTT<span class="nt-file"></span></button>
       </div>
       <div class="night-pick">
         <label class="btn btn-ghost">
@@ -122,6 +123,8 @@
           <label class="detail-opt"><input type="checkbox" id="dayDetail" /> Include detail tables</label>
           <button class="btn btn-export" id="dayXlsxBtn">⬇ Whole day — Excel</button>
           <button class="btn btn-export" id="dayPdfBtn">⬇ Whole day — PDF</button>
+          <button class="btn btn-export" id="posPdfBtn" title="Two A4 pages laid out as the sheet sent to officers">⬇ Position (one view) — PDF</button>
+          <button class="btn btn-export" id="posXlsxBtn" title="The same layout on one Excel sheet">⬇ Position (one view) — Excel</button>
           <button class="btn btn-ghost" id="newBtn">New day</button>
         </div>
       </div>
@@ -133,7 +136,7 @@
     </section>
   </main>
 
-  <script src="daily.js?v7"></script>
+  <script src="daily.js?v9"></script>
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {

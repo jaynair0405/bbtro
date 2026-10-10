@@ -11,6 +11,8 @@ const state = {
   date: '',        // ISO — typed by the user; the CMS files carry none
   catalogue: [],   // [{key,label,order}] every report the server knows
   reports: [],     // [{key,label,order,file,tables,warnings}] loaded so far
+  layout: null,    // one-view pages (lib/cmsReports/position.js PAGES), from daily/catalogue
+  drawer: null,    // key of the report whose details are open in the side drawer
 };
 
 const $ = (id) => document.getElementById(id);
@@ -169,6 +171,8 @@ async function loadManual() {
     if (res.redirected || !/json/i.test(res.headers.get('content-type') || '')) return;
     const data = await res.json();
     if (state.catalogue.length === 0) state.catalogue = data.catalogue || [];
+    state.layout = data.layout || null;
+    if (state.reports.length) render();
     const list = (data.catalogue || []).filter((c) => c.manual);
     $('manualBox').hidden = list.length === 0;
     $('manualKey').innerHTML = list.map((c) => `<option value="${esc(c.key)}">${esc(c.label)}</option>`).join('');
@@ -247,8 +251,12 @@ function showRejected(list) {
 const isCount = (v) => /^\d+(\s*\(.*\))?$/.test(String(v));
 const countOf = (v) => Number(String(v).match(/^\d+/)[0]);
 
-// key/ti locate the table again when a drill-down count is clicked.
-function tableHtml(t, key, ti) {
+// Every table on screen is registered here on render, so a clicked count finds its
+// drill-down list again whichever view (block or drawer) drew it.
+let shown = [];
+
+function tableHtml(t) {
+  const sid = shown.push(t) - 1;
   // A column is text when no body cell in it is a plain count.
   const textCol = t.headers.map((_, i) => t.rows.length > 0 && t.rows.every((r) => !isCount(r[i])));
   const alertCol = new Set(t.alertCols || []);
@@ -259,7 +267,7 @@ function tableHtml(t, key, ti) {
     const cls = String(v) === '0' ? ' zero' : (alertCol.has(i) && isCount(v) && countOf(v) > 0 ? ' alert' : '');
     const di = drillAt.get(`${r},${i}`);
     const inner = di !== undefined && isCount(v) && countOf(v) > 0
-      ? `<a href="#" class="drill" data-k="${esc(key)}" data-t="${ti}" data-d="${di}">${esc(v)}</a>` : esc(v);
+      ? `<a href="#" class="drill" data-s="${sid}" data-d="${di}">${esc(v)}</a>` : esc(v);
     return `<td class="n${cls}">${inner}</td>`;
   };
 
@@ -283,36 +291,122 @@ function tableHtml(t, key, ti) {
     ? `<tr class="total">${t.headers.map((_, i) => cell(t.total[i], i, 'T')).join('')}</tr>` : '';
 
   const note = t.note ? `<p class="tnote">${esc(t.note)}</p>` : '';
-  return `<div class="rtable"><h3>${esc(t.title)}</h3>${note}
+  return `<div class="rtable">${t.title ? `<h3>${esc(t.title)}</h3>` : ''}${note}
     <div class="table-wrap"><table><thead>${head}</thead><tbody>${body}${total}</tbody></table></div>
     <div class="drill-panel" hidden></div></div>`;
+}
+
+// The tables a report shows in its block: the sheet tables (as the one-view PDF).
+const sheetTables = (r) => r.tables.filter((t, i) => i === 0 || t.sheet);
+const detailTables = (r) => r.tables.filter((t, i) => !(i === 0 || t.sheet));
+
+// Change on Approval: one table, a Sign On and a Sign Off column, as the PDF prints it
+// (keep in step with mergeApproval in lib/cmsReports/position.js). Drill-downs move with
+// their column.
+function mergeApproval(ts) {
+  const [on, off] = ts;
+  if (!off) return ts;
+  const kind = (t) => t.title.split('—').pop().trim();
+  return [{
+    title: '',
+    headers: ['Sr No.', 'Lobby', kind(on), kind(off)],
+    rows: on.rows.map((r, i) => [...r, off.rows[i] ? off.rows[i][2] : '']),
+    total: Array.isArray(on.total) ? [...on.total, off.total ? off.total[2] : ''] : null,
+    alertCols: [2, 3],
+    drill: [...(on.drill || []), ...(off.drill || []).map((d) => ({ ...d, c: 3 }))],
+  }];
+}
+
+const labelOf = (key) => (state.catalogue.find((c) => c.key === key) || {}).label || key;
+
+function blockHtml(key) {
+  const r = state.reports.find((x) => x.key === key);
+  if (!r) {
+    return `<section class="pblock missing" id="blk-${esc(key)}">
+      <div class="pblock-head"><h2>${esc(labelOf(key))}</h2></div>
+      <p class="pmissing">Not uploaded</p></section>`;
+  }
+  let ts = sheetTables(r).map((t) => (t.title === r.label ? { ...t, title: '' } : t));
+  if (key === 'changeapproval') ts = mergeApproval(ts);
+  const warn = (r.warnings || []).length;
+  return `<section class="pblock" id="blk-${esc(key)}">
+    <div class="pblock-head">
+      <h2>${esc(r.label)} <span class="pdate">(${isoToDDMMYYYY(dataDateOf(r))})</span></h2>
+      <button class="btn btn-ghost btn-details" data-open="${esc(key)}">${warn ? `<span class="wdot" title="${warn} warning${warn > 1 ? 's' : ''}"></span>` : ''}Details ›</button>
+    </div>
+    ${ts.map((t) => tableHtml({ ...t, note: '' })).join('')}
+  </section>`;
+}
+
+// Details drawer: the report's source, warnings, detail tables and own Excel export.
+function drawerHtml() {
+  const r = state.reports.find((x) => x.key === state.drawer);
+  if (!r) return '';
+  const det = detailTables(r);
+  const warns = r.warnings || [];
+  return `<div class="drawer-backdrop" data-close="1"></div>
+  <aside class="drawer" role="dialog" aria-label="${esc(r.label)} details">
+    <div class="drawer-head">
+      <div><h2>${esc(r.label)} <span class="pdate">(${isoToDDMMYYYY(dataDateOf(r))})</span></h2>
+        <span class="src">${esc(r.file)}</span></div>
+      <a href="#" class="drawer-close" data-close="1" title="Close">×</a>
+    </div>
+    <div class="drawer-actions">
+      <label class="detail-opt"><input type="checkbox" data-detail="${esc(r.key)}" checked /> Include detail tables</label>
+      <button class="btn btn-export" data-xlsx="${esc(r.key)}">⬇ Excel</button>
+    </div>
+    ${warns.length ? `<div class="warnings"><ul>${warns.map((w) => `<li>${esc(w)}</li>`).join('')}</ul></div>` : ''}
+    ${sheetTables(r).map((t) => (t.note ? `<p class="tnote">${esc(t.title ? `${t.title}: ` : '')}${esc(t.note)}</p>` : '')).join('')}
+    ${det.length ? det.map((t) => tableHtml(t)).join('') : '<p class="tnote">No detail tables for this report.</p>'}
+  </aside>`;
 }
 
 function render() {
   $('dayLabel').textContent = isoToDDMMYYYY(state.date);
   showManualFields();            // a grid pre-fills from what is now loaded
+  shown = [];
 
-  const loaded = new Set(state.reports.map((r) => r.key));
-  $('checklist').innerHTML = state.catalogue.map((c) => (loaded.has(c.key)
-    ? `<span class="chk in">✓ ${esc(c.label)}</span>`
-    : `<span class="chk missing">${esc(c.label)} — not uploaded</span>`)).join('');
+  // Sticky strip: every report, in sheet order; green = in, dashed = missing, dot = warnings.
+  const byKey = new Map(state.reports.map((r) => [r.key, r]));
+  const order = state.layout
+    ? state.layout.flat().flatMap((row) => (Array.isArray(row) ? row.flat() : row.full))
+    : state.catalogue.map((c) => c.key);
+  state.catalogue.forEach((c) => { if (!order.includes(c.key)) order.push(c.key); });
+  $('checklist').innerHTML = order.map((k) => {
+    const r = byKey.get(k);
+    const dot = r && (r.warnings || []).length ? '<span class="wdot"></span>' : '';
+    return `<a href="#blk-${esc(k)}" class="chk ${r ? 'in' : 'missing'}">${dot}${r ? '✓ ' : ''}${esc(labelOf(k))}</a>`;
+  }).join('');
 
   const warns = state.reports.flatMap((r) => (r.warnings || []).map((w) => `${r.label}: ${w}`));
   $('warnings').hidden = warns.length === 0;
-  $('warnings').innerHTML = warns.length ? `<ul>${warns.map((w) => `<li>${esc(w)}</li>`).join('')}</ul>` : '';
+  $('warnings').innerHTML = warns.length
+    ? `<details><summary>${warns.length} warning${warns.length > 1 ? 's' : ''} — open a report's Details for its own</summary><ul>${warns.map((w) => `<li>${esc(w)}</li>`).join('')}</ul></details>` : '';
 
-  $('reports').innerHTML = state.reports.map((r) => `
-    <section class="report">
-      <div class="report-head">
-        <h2>${esc(r.label)} (${isoToDDMMYYYY(dataDateOf(r))})<span class="src">${esc(r.file)}</span></h2>
-        <span class="report-export">
-          <label class="detail-opt"><input type="checkbox" data-detail="${esc(r.key)}" /> Include detail tables</label>
-          <button class="btn btn-export" data-xlsx="${esc(r.key)}">⬇ Excel</button>
-        </span>
-      </div>
-      ${r.tables.map((t, ti) => tableHtml(t, r.key, ti)).join('')}
-    </section>`).join('');
+  // Main view: the one-view layout, blocks in left/right pairs.
+  const pages = state.layout || [state.catalogue.map((c) => ({ full: [c.key] }))];
+  const side = (keys) => `<div class="pside">${keys.map(blockHtml).join('')}</div>`;
+  const placed = new Set(pages.flat().flatMap((row) => (Array.isArray(row) ? row.flat() : row.full)));
+  const extra = state.reports.filter((r) => !placed.has(r.key));   // a report the layout does not name
+  $('reports').innerHTML = pages.map((rows, pi) => `
+    ${pi > 0 ? '<div class="page-sep">Page 2</div>' : ''}
+    ${rows.map((row) => (Array.isArray(row)
+    ? `<div class="pos-row">${side(row[0])}${side(row[1] || [])}</div>`
+    : `<div class="pos-row full">${side(row.full)}</div>`)).join('')}`).join('')
+    + (extra.length ? `<div class="pos-row full">${side(extra.map((r) => r.key))}</div>` : '')
+    + drawerHtml();
+  document.body.classList.toggle('drawer-open', !!state.drawer);
 }
+
+// Details drawer: open from a block, close by ×, backdrop or Esc.
+$('reports').addEventListener('click', (e) => {
+  const open = e.target.closest('[data-open]');
+  if (open) { state.drawer = open.dataset.open; render(); return; }
+  if (e.target.closest('[data-close]')) { e.preventDefault(); state.drawer = null; render(); }
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && state.drawer) { state.drawer = null; render(); }
+});
 
 // ---------- Export ----------
 // Exports print the daily-sheet block (each report's first table, plus any marked sheet) unless the
@@ -320,8 +414,10 @@ function render() {
 // Drill-down rows are for the page only; exports print the counts.
 const noDrill = (ts) => ts.map(({ drill, ...t }) => t);
 const sheetOnly = (r) => ({ key: r.key, label: r.label, dataDate: dataDateOf(r), tables: noDrill(r.tables.filter((t, i) => i === 0 || t.sheet)) });
+// kind = 'xlsx' | 'pdf' | 'position/xlsx' | 'position/pdf' (one view, sheet tables only).
 async function exportAs(kind, reports, detail) {
   if (reports.length === 0) return;
+  const ext = kind.split('/').pop();
   try {
     const res = await fetch(`${API_BASE}daily/export/${kind}`, {
       method: 'POST',
@@ -340,7 +436,9 @@ async function exportAs(kind, reports, detail) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `CMS_${reports.length === 1 ? reports[0].key : 'daily_position'}_${state.date}.${kind}`;
+    a.download = kind.startsWith('position/')
+      ? `CMS_position_${state.date}.${ext}`
+      : `CMS_${reports.length === 1 ? reports[0].key : 'daily_position'}_${state.date}.${ext}`;
     document.body.appendChild(a); a.click(); a.remove();
     URL.revokeObjectURL(url);
   } catch (err) {
@@ -349,6 +447,9 @@ async function exportAs(kind, reports, detail) {
 }
 $('dayXlsxBtn').addEventListener('click', () => exportAs('xlsx', state.reports, $('dayDetail').checked));
 $('dayPdfBtn').addEventListener('click', () => exportAs('pdf', state.reports, $('dayDetail').checked));
+// One view: always the sheet tables; a report not loaded prints as a "Not uploaded" block.
+$('posPdfBtn').addEventListener('click', () => exportAs('position/pdf', state.reports, false));
+$('posXlsxBtn').addEventListener('click', () => exportAs('position/xlsx', state.reports, false));
 // Delegated: #reports is rebuilt on every render.
 $('reports').addEventListener('click', (e) => {
   const btn = e.target.closest('[data-xlsx]');
@@ -364,11 +465,11 @@ $('reports').addEventListener('click', (e) => {
   const a = e.target.closest('a.drill');
   if (!a) return;
   e.preventDefault();
-  const rep = state.reports.find((x) => x.key === a.dataset.k);
-  const d = rep && rep.tables[+a.dataset.t] && rep.tables[+a.dataset.t].drill[+a.dataset.d];
+  const t = shown[+a.dataset.s];
+  const d = t && t.drill && t.drill[+a.dataset.d];
   if (!d) return;
   const panel = a.closest('.rtable').querySelector('.drill-panel');
-  const id = `${a.dataset.k}|${a.dataset.t}|${a.dataset.d}`;
+  const id = `${a.dataset.s}|${a.dataset.d}`;
   if (!panel.hidden && panel.dataset.id === id) { panel.hidden = true; return; }
   panel.dataset.id = id;
   panel._drill = d;
@@ -418,6 +519,8 @@ $('reports').addEventListener('click', (e) => {
 
 $('newBtn').addEventListener('click', () => {
   state.reports = [];
+  state.drawer = null;
+  document.body.classList.remove('drawer-open');
   slotBoxes.forEach((b) => b.reset());
   $('workStage').hidden = true;
   $('uploadStage').hidden = false;
