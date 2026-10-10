@@ -13,7 +13,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <!-- ?v tags must match CACHE_VERSION in clicms-sw.js (see index.html). -->
   <link rel="stylesheet" href="clicms.css?v4" />
-  <link rel="stylesheet" href="daily.css?v6" />
+  <link rel="stylesheet" href="daily.css?v7" />
 </head>
 <body>
   <header class="topbar">
@@ -75,6 +75,27 @@
       </div>
     </section>
 
+    <!-- Suburban sign on/off without biometric: lobby summary + 3 look-alike lobby lists -->
+    <section id="nonbioBox" class="night-box">
+      <div class="night-head">
+        <strong>Sign On/Sign Off without Biometric</strong>
+        <span class="date-note">The lobby summary, then each lobby's non-biometric crew list under its own tab.</span>
+      </div>
+      <div class="night-tabs" id="nonbioTabs">
+        <button type="button" class="night-tab active" data-slot="sum">Lobby summary<span class="nt-file"></span></button>
+        <button type="button" class="night-tab" data-slot="csts">CSTS list<span class="nt-file"></span></button>
+        <button type="button" class="night-tab" data-slot="kyns">KYNS list<span class="nt-file"></span></button>
+        <button type="button" class="night-tab" data-slot="pnvs">PNVS list<span class="nt-file"></span></button>
+      </div>
+      <div class="night-pick">
+        <label class="btn btn-ghost">
+          Choose the <span id="nonbioSlotName">Lobby summary</span> CSV
+          <input type="file" id="nonbioInput" accept=".csv,text/csv" hidden />
+        </label>
+        <span class="err" id="nonbioErr" hidden></span>
+      </div>
+    </section>
+
     <!-- Reports that can be typed in instead of uploaded -->
     <section id="manualBox" class="night-box">
       <div class="night-head">
@@ -112,7 +133,7 @@
     </section>
   </main>
 
-  <script src="daily.js?v6"></script>
+  <script src="daily.js?v7"></script>
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {

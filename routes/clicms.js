@@ -448,6 +448,24 @@ router.post('/daily/upload-night', upload.fields([{ name: 'n3', maxCount: 1 }, {
   }
 });
 
+// Suburban sign on/off without biometric: lobby summary + CSTS / KYNS / PNVS crew
+// lists, posted by slot (the three lists share one header). Same contract as upload-night.
+const NONBIO_SLOTS = ['sum', 'csts', 'kyns', 'pnvs'];
+router.post('/daily/upload-nonbio', upload.fields(NONBIO_SLOTS.map((name) => ({ name, maxCount: 1 }))), (req, res) => {
+  const got = req.files || {};
+  const files = {};
+  const names = [];
+  NONBIO_SLOTS.forEach((k) => {
+    if (got[k] && got[k][0]) { files[k] = got[k][0].buffer; names.push(got[k][0].originalname); }
+  });
+  try {
+    const r = cmsReports.processSlots('subsonoff', files);
+    res.json({ catalogue: cmsReports.catalogue(), report: { file: names.join(', '), ...r } });
+  } catch (err) {
+    res.status(400).json({ error: err.message || 'Could not read the file.' });
+  }
+});
+
 // The report list, for the page's "Fill by hand" picker before anything is uploaded.
 // POST so the service worker never caches it.
 router.post('/daily/catalogue', (req, res) => res.json({ catalogue: cmsReports.catalogue() }));
