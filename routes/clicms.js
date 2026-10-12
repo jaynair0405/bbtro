@@ -374,6 +374,31 @@ router.post('/export/summary/pdf', (req, res) => {
 const pool = require('../config/database');
 const { headLayout } = require('../lib/cmsReports/headLayout');
 const cmsReports = require('../lib/cmsReports');
+const store = require('../lib/cmsReports/store');
+
+/*
+ * Auto-save (lib/cmsReports/store.js): every report built by an upload or hand entry is
+ * saved for its data date (sheet date − dateOffset). A failed save never loses the
+ * upload — the report still comes back, with a warning that it was NOT saved.
+ * r.saved = { at, by, dataDate, replaced } tells the page what happened.
+ */
+async function autoSave(r, req, files, hand) {
+  const sheetDate = safeISO((req.body || {}).sheetDate);
+  if (!sheetDate) {
+    r.warnings.push('Not saved — this page did not send the sheet date. Reload the page (it may be an old copy) and load again.');
+    return r;
+  }
+  try {
+    const user = (req.session && req.session.user && req.session.user.username) || 'unknown';
+    const out = await store.saveLoad({ report: r, facts: r.facts, sheetDate, files, hand, user });
+    const at = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date()).replace(',', '');
+    r.saved = { id: out.id, dataDate: out.dataDate, by: user, at, replaced: out.replaced };
+  } catch (err) {
+    r.warnings.push(`Not saved (${err.message}) — the figures shown are fine; load again later to save them.`);
+  }
+  return r;
+}
 
 router.post('/daily/upload', upload.array('files', 20), async (req, res) => {
   const files = req.files || [];
@@ -387,7 +412,10 @@ router.post('/daily/upload', upload.array('files', 20), async (req, res) => {
       const dup = reports.find((x) => x.key === r.key);
       // Two files of one report are two different days — the file carries no date to tell which.
       if (dup) throw new Error(`Same report as "${dup.file}". Upload one day at a time.`);
-      reports.push({ file: f.originalname, ...r });
+      const out = { file: f.originalname, ...r };
+      Object.defineProperty(out, 'facts', { value: r.facts, enumerable: false });
+      Object.defineProperty(out, 'upload', { value: f, enumerable: false });
+      reports.push(out);
     } catch (err) {
       rejected.push({ file: f.originalname, error: err.message || 'Could not read the file.' });
     }
@@ -399,6 +427,8 @@ router.post('/daily/upload', upload.array('files', 20), async (req, res) => {
     // The counts stand without it; say so rather than fail the upload.
     reports.forEach((r) => r.warnings.push(`Designation lookup failed (${err.message}) — drill-down lists show none.`));
   }
+  // Saved after the designation lookup, so the stored tables match what is shown.
+  for (const r of reports) await autoSave(r, req, [{ name: r.upload.originalname, buffer: r.upload.buffer }], null);
   res.json({ catalogue: cmsReports.catalogue(), reports, rejected });
 });
 
@@ -433,7 +463,7 @@ async function addDesignations(reports) {
 
 // Continuous night working: 3 / 4 / >4 parts posted by slot (their headers are identical).
 // The page re-posts every part it holds, so the answer is the whole report each time.
-router.post('/daily/upload-night', upload.fields([{ name: 'n3', maxCount: 1 }, { name: 'n4', maxCount: 1 }, { name: 'n5', maxCount: 1 }]), (req, res) => {
+router.post('/daily/upload-night', upload.fields([{ name: 'n3', maxCount: 1 }, { name: 'n4', maxCount: 1 }, { name: 'n5', maxCount: 1 }]), async (req, res) => {
   const got = req.files || {};
   const files = {};
   const names = {};
@@ -442,7 +472,9 @@ router.post('/daily/upload-night', upload.fields([{ name: 'n3', maxCount: 1 }, {
   });
   try {
     const r = cmsReports.processNight(files);
-    res.json({ catalogue: cmsReports.catalogue(), report: { file: Object.values(names).join(', '), ...r } });
+    const out = { file: Object.values(names).join(', '), ...r };
+    await autoSave(withFactsOf(out, r), req, Object.keys(files).map((slot) => ({ slot, name: names[slot], buffer: files[slot] })), null);
+    res.json({ catalogue: cmsReports.catalogue(), report: out });
   } catch (err) {
     res.status(400).json({ error: err.message || 'Could not read the file.' });
   }
@@ -451,12 +483,16 @@ router.post('/daily/upload-night', upload.fields([{ name: 'n3', maxCount: 1 }, {
 // Sign on/off without biometric: lobby summary + CSTS / KYNS / PNVS crew lists + the
 // D-1 44-column file for DR / LTT, posted by slot (look-alike headers). Same contract as upload-night.
 const NONBIO_SLOTS = ['sum', 'csts', 'kyns', 'pnvs', 'drltt'];
-router.post('/daily/upload-nonbio', upload.fields(NONBIO_SLOTS.map((name) => ({ name, maxCount: 1 }))), (req, res) => {
+router.post('/daily/upload-nonbio', upload.fields(NONBIO_SLOTS.map((name) => ({ name, maxCount: 1 }))), async (req, res) => {
   const got = req.files || {};
   const files = {};
   const names = [];
+  const raw = [];
   NONBIO_SLOTS.forEach((k) => {
-    if (got[k] && got[k][0]) { files[k] = got[k][0].buffer; names.push(got[k][0].originalname); }
+    if (got[k] && got[k][0]) {
+      files[k] = got[k][0].buffer; names.push(got[k][0].originalname);
+      raw.push({ slot: k, name: got[k][0].originalname, buffer: got[k][0].buffer });
+    }
   });
   try {
     // DR / LTT typed in on the page (Fill by hand) comes as a JSON text field.
@@ -465,7 +501,9 @@ router.post('/daily/upload-nonbio', upload.fields(NONBIO_SLOTS.map((name) => ({ 
       names.push('DR / LTT by hand');
     }
     const r = cmsReports.processSlots('subsonoff', files);
-    res.json({ catalogue: cmsReports.catalogue(), report: { file: names.join(', '), ...r } });
+    const out = { file: names.join(', '), ...r };
+    await autoSave(withFactsOf(out, r), req, raw, files.drlttHand || null);
+    res.json({ catalogue: cmsReports.catalogue(), report: out });
   } catch (err) {
     res.status(400).json({ error: err.message || 'Could not read the file.' });
   }
@@ -476,12 +514,33 @@ router.post('/daily/upload-nonbio', upload.fields(NONBIO_SLOTS.map((name) => ({ 
 // Also the one-view layout, so the page lays its blocks out exactly as the PDF does.
 router.post('/daily/catalogue', (req, res) => res.json({ catalogue: cmsReports.catalogue(), layout: require('../lib/cmsReports/position').PAGES }));
 
+// A spread copy loses the non-enumerable facts; carry them over for saving.
+function withFactsOf(out, r) {
+  Object.defineProperty(out, 'facts', { value: r.facts, enumerable: false });
+  return out;
+}
+
+// A stored day: the current load of every report for this SHEET date (each report at
+// its own data date). Empty list = nothing stored for that date yet.
+router.post('/daily/day', async (req, res) => {
+  const sheetDate = safeISO((req.body || {}).sheetDate);
+  if (!sheetDate) return res.status(400).json({ error: 'Choose a valid sheet date.' });
+  try {
+    const reports = await store.loadDay(sheetDate, cmsReports.catalogue().filter((c) => !c.slotOf));
+    res.json({ catalogue: cmsReports.catalogue(), sheetDate, reports });
+  } catch (err) {
+    res.status(500).json({ error: `Could not read the stored day (${err.message}).` });
+  }
+});
+
 // A count-only report typed in on the page (reports with a `manual` entry only).
-router.post('/daily/manual', (req, res) => {
+router.post('/daily/manual', async (req, res) => {
   const { key, values } = req.body || {};
   try {
     const r = cmsReports.processManual(String(key || ''), values);
-    res.json({ catalogue: cmsReports.catalogue(), report: { file: 'entered by hand', ...r } });
+    const out = { file: 'entered by hand', ...r };
+    await autoSave(withFactsOf(out, r), req, [], values);
+    res.json({ catalogue: cmsReports.catalogue(), report: out });
   } catch (err) {
     res.status(400).json({ error: err.message || 'Could not build the report.' });
   }
