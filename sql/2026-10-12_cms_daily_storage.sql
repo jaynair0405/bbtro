@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS cms_daily_counts (
   load_id     INT UNSIGNED NOT NULL,
   report_key  VARCHAR(30)  NOT NULL,
   data_date   DATE         NOT NULL,
-  lobby       VARCHAR(20)  NOT NULL,               -- 'CSTM' for division-level figures
+  lobby       VARCHAR(20)  NOT NULL,               -- 'DIVISION' for division totals (CMS has a lobby named CSTM)
   measure     VARCHAR(60)  NOT NULL,               -- the report's own column, e.g. 'fsd_n', 'gt14'
   value       INT          NOT NULL,
   PRIMARY KEY (id),
