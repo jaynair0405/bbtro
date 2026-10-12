@@ -382,6 +382,21 @@ const store = require('../lib/cmsReports/store');
  * upload — the report still comes back, with a warning that it was NOT saved.
  * r.saved = { at, by, dataDate, replaced } tells the page what happened.
  */
+/*
+ * Slot reports: fill the parts this request did not bring from the day's stored load,
+ * so adding one file to a day opened from storage does not drop the others.
+ * got = { slot: { name, buffer } } (changed in place); returns the stored hand values.
+ */
+async function fillStoredParts(reportKey, req, got) {
+  const sheetDate = safeISO((req.body || {}).sheetDate);
+  if (!sheetDate) return null;
+  const report = cmsReports.catalogue().find((c) => c.key === reportKey);
+  const stored = await store.currentParts(reportKey, store.dataDateFor(sheetDate, report.dateOffset));
+  if (!stored) return null;
+  Object.entries(stored.files).forEach(([slot, f]) => { if (!got[slot]) got[slot] = f; });
+  return stored.hand;
+}
+
 async function autoSave(r, req, files, hand) {
   const sheetDate = safeISO((req.body || {}).sheetDate);
   if (!sheetDate) {
@@ -464,13 +479,14 @@ async function addDesignations(reports) {
 // Continuous night working: 3 / 4 / >4 parts posted by slot (their headers are identical).
 // The page re-posts every part it holds, so the answer is the whole report each time.
 router.post('/daily/upload-night', upload.fields([{ name: 'n3', maxCount: 1 }, { name: 'n4', maxCount: 1 }, { name: 'n5', maxCount: 1 }]), async (req, res) => {
-  const got = req.files || {};
+  const up = req.files || {};
+  const got = {};
+  ['n3', 'n4', 'n5'].forEach((k) => { if (up[k] && up[k][0]) got[k] = { name: up[k][0].originalname, buffer: up[k][0].buffer }; });
   const files = {};
   const names = {};
-  ['n3', 'n4', 'n5'].forEach((k) => {
-    if (got[k] && got[k][0]) { files[k] = got[k][0].buffer; names[k] = got[k][0].originalname; }
-  });
   try {
+    await fillStoredParts('contnight', req, got);
+    Object.entries(got).forEach(([k, f]) => { files[k] = f.buffer; names[k] = f.name; });
     const r = cmsReports.processNight(files);
     const out = { file: Object.values(names).join(', '), ...r };
     await autoSave(withFactsOf(out, r), req, Object.keys(files).map((slot) => ({ slot, name: names[slot], buffer: files[slot] })), null);
@@ -484,22 +500,29 @@ router.post('/daily/upload-night', upload.fields([{ name: 'n3', maxCount: 1 }, {
 // D-1 44-column file for DR / LTT, posted by slot (look-alike headers). Same contract as upload-night.
 const NONBIO_SLOTS = ['sum', 'csts', 'kyns', 'pnvs', 'drltt'];
 router.post('/daily/upload-nonbio', upload.fields(NONBIO_SLOTS.map((name) => ({ name, maxCount: 1 }))), async (req, res) => {
-  const got = req.files || {};
+  const up = req.files || {};
+  const got = {};
+  NONBIO_SLOTS.forEach((k) => { if (up[k] && up[k][0]) got[k] = { name: up[k][0].originalname, buffer: up[k][0].buffer }; });
   const files = {};
   const names = [];
   const raw = [];
-  NONBIO_SLOTS.forEach((k) => {
-    if (got[k] && got[k][0]) {
-      files[k] = got[k][0].buffer; names.push(got[k][0].originalname);
-      raw.push({ slot: k, name: got[k][0].originalname, buffer: got[k][0].buffer });
-    }
-  });
   try {
-    // DR / LTT typed in on the page (Fill by hand) comes as a JSON text field.
+    const storedHand = await fillStoredParts('subsonoff', req, got);
+    // DR / LTT now typed by hand replaces a DR / LTT file stored earlier (the newer wins).
+    if (req.body && req.body.drlttHand && !(up.drltt && up.drltt[0])) delete got.drltt;
+    NONBIO_SLOTS.forEach((k) => {
+      if (!got[k]) return;
+      files[k] = got[k].buffer; names.push(got[k].name);
+      raw.push({ slot: k, name: got[k].name, buffer: got[k].buffer });
+    });
+    // DR / LTT typed in on the page (Fill by hand) comes as a JSON text field; failing
+    // that, the hand values already stored for the day (unless a DR / LTT file came now).
     if (req.body && req.body.drlttHand) {
       try { files.drlttHand = JSON.parse(req.body.drlttHand); } catch (e) { throw new Error('DR / LTT hand entry could not be read.'); }
-      names.push('DR / LTT by hand');
+    } else if (storedHand && !(up.drltt && up.drltt[0])) {
+      files.drlttHand = storedHand;
     }
+    if (files.drlttHand) names.push('DR / LTT by hand');
     const r = cmsReports.processSlots('subsonoff', files);
     const out = { file: names.join(', '), ...r };
     await autoSave(withFactsOf(out, r), req, raw, files.drlttHand || null);

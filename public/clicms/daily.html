@@ -13,7 +13,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <!-- ?v tags must match CACHE_VERSION in clicms-sw.js (see index.html). -->
   <link rel="stylesheet" href="clicms.css?v5" />
-  <link rel="stylesheet" href="daily.css?v9" />
+  <link rel="stylesheet" href="daily.css?v10" />
 </head>
 <body>
   <header class="topbar">
@@ -40,6 +40,7 @@
         <label for="reportDate">Sheet date</label>
         <input type="date" id="reportDate" />
         <span class="date-note">The CMS downloads carry no date. Each report shows its own data date: sheet date minus 0, 1 or 2 days.</span>
+        <span class="date-note" id="dayStatus"></span>
       </div>
       <div class="dropzone" id="dropzone">
         <div class="dz-icon">⇪</div>
@@ -50,7 +51,8 @@
           <input type="file" id="fileInput" accept=".csv,text/csv" multiple hidden />
         </label>
         <p class="dz-note">Each file is recognised by its contents, so the file names do not matter.<br />
-          Nothing is stored on the server — files are processed in memory and discarded.</p>
+          Every report is saved for its data date. Picking a date that is already saved opens it;
+          loading a report again replaces the saved one (the earlier is kept as history).</p>
       </div>
       <div class="err" id="uploadErr" hidden></div>
     </section>
@@ -136,7 +138,7 @@
     </section>
   </main>
 
-  <script src="daily.js?v10"></script>
+  <script src="daily.js?v11"></script>
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {

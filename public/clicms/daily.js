@@ -37,6 +37,44 @@ function isoToDDMMYYYY(iso) {
   $('reportDate').value = ist.toISOString().slice(0, 10);
 })();
 
+// The sheet date every load is saved under. Before anything is shown it comes from the
+// date box; after that the shown day's date stays fixed until New day.
+function sheetDate() {
+  if (state.reports.length === 0) {
+    const date = $('reportDate').value;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error('Choose the sheet date first.');
+    state.date = date;
+  }
+  return state.date;
+}
+
+// Everything already saved for a sheet date: shown straight away, so a day can be
+// reopened, added to or exported later. Quietly does nothing if the date has none.
+async function openDay(date) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
+  $('dayStatus').textContent = 'Looking for a saved day…';
+  try {
+    const res = await fetch(`${API_BASE}daily/day`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sheetDate: date }),
+    });
+    if (res.redirected || !/json/i.test(res.headers.get('content-type') || '')) throw new Error('Your session has expired — log in again.');
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Could not read the saved day.');
+    if ($('reportDate').value !== date || state.reports.length) return;   // the user moved on meanwhile
+    if (data.reports.length === 0) { $('dayStatus').textContent = 'Nothing saved for this date yet.'; return; }
+    state.date = date;
+    state.catalogue = data.catalogue || state.catalogue;
+    state.reports = data.reports;
+    $('dayStatus').textContent = '';
+    $('uploadStage').hidden = true;
+    $('workStage').hidden = false;
+    render();
+  } catch (err) {
+    $('dayStatus').textContent = err.message;
+  }
+}
+$('reportDate').addEventListener('change', () => openDay($('reportDate').value));
+
 // ---------- Upload ----------
 const dropzone = $('dropzone');
 
@@ -58,13 +96,11 @@ async function uploadFiles(files) {
   if (files.length === 0) return;
 
   const firstLoad = state.reports.length === 0;
-  if (firstLoad) {
-    const date = $('reportDate').value;
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return showUploadErr('Choose the sheet date.');
-    state.date = date;
-  }
+  let date;
+  try { date = sheetDate(); } catch (err) { return showUploadErr(err.message); }
 
   const fd = new FormData();
+  fd.append('sheetDate', date);
   files.forEach((f) => fd.append('files', f));
   let data;
   try {
@@ -82,11 +118,10 @@ async function uploadFiles(files) {
 
   state.catalogue = data.catalogue || [];
   const rejected = [...(data.rejected || [])];
+  // A report loaded again for the same day replaces the shown one — and the saved one,
+  // which the server keeps as history (r.saved.replaced says so on the report).
   (data.reports || []).forEach((r) => {
-    const have = state.reports.find((x) => x.key === r.key);
-    // Never silently replace: a second file of the same report is another day's.
-    if (have) rejected.push({ file: r.file, error: `${r.label} is already loaded from "${have.file}". Use New day to start over.` });
-    else state.reports.push(r);
+    state.reports = state.reports.filter((x) => x.key !== r.key).concat(r);
   });
   state.reports.sort((a, b) => a.order - b.order);
 
@@ -132,12 +167,8 @@ function slotBox(id, url, firstSlot, reportKey) {
 
   // Throws on failure; the caller shows the message where the user is looking.
   async function post(next, hand, handField) {
-    if (state.reports.length === 0) {
-      const date = $('reportDate').value;
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error('Choose the sheet date first.');
-      state.date = date;
-    }
     const fd = new FormData();
+    fd.append('sheetDate', sheetDate());
     Object.entries(next).forEach(([k, f]) => fd.append(k, f));
     if (hand) fd.append(handField, JSON.stringify(hand));
     const res = await fetch(`${API_BASE}${url}`, { method: 'POST', body: fd });
@@ -215,11 +246,8 @@ function showManualErr(msg) {
 
 $('manualSave').addEventListener('click', async () => {
   showManualErr('');
-  if (state.reports.length === 0) {
-    const date = $('reportDate').value;
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return showManualErr('Choose the sheet date first.');
-    state.date = date;
-  }
+  let date;
+  try { date = sheetDate(); } catch (err) { return showManualErr(err.message); }
   const values = {};
   $('manualFields').querySelectorAll('[data-mkey]').forEach((i) => { values[i.dataset.mkey] = i.value; });
   // One part of a slot report (DR / LTT): saved with that report's files, not over them.
@@ -234,7 +262,7 @@ $('manualSave').addEventListener('click', async () => {
     const res = await fetch(`${API_BASE}daily/manual`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ key: $('manualKey').value, values }),
+      body: JSON.stringify({ key: $('manualKey').value, values, sheetDate: date }),
     });
     if (res.redirected || !/json/i.test(res.headers.get('content-type') || '')) {
       throw new Error('Your session has expired — log in again.');
@@ -334,6 +362,16 @@ function mergeApproval(ts) {
 
 const labelOf = (key) => (state.catalogue.find((c) => c.key === key) || {}).label || key;
 
+// "Saved 12-10 09:40 by clicms · replaced the 09:10 load" — or that it is NOT saved.
+function savedLine(r) {
+  const s = r.saved;
+  if (!s) return '<span class="saved no">Not saved</span>';
+  const at = String(s.at || '').replace(/^(\d{4})-(\d{2})-(\d{2})/, '$3-$2');
+  const prev = s.replaced ? ` · replaced the load of ${esc(s.replaced.loadedAt.slice(11))} by ${esc(s.replaced.loadedBy)}`
+    : s.earlier ? ` · ${s.earlier} earlier load${s.earlier > 1 ? 's' : ''} kept` : '';
+  return `<span class="saved">Saved ${esc(at)} by ${esc(s.by)}${prev}</span>`;
+}
+
 function blockHtml(key) {
   const r = state.reports.find((x) => x.key === key);
   if (!r) {
@@ -346,7 +384,7 @@ function blockHtml(key) {
   const warn = (r.warnings || []).length;
   return `<section class="pblock" id="blk-${esc(key)}">
     <div class="pblock-head">
-      <h2>${esc(r.label)} <span class="pdate">(${isoToDDMMYYYY(dataDateOf(r))})</span></h2>
+      <h2>${esc(r.label)} <span class="pdate">(${isoToDDMMYYYY(dataDateOf(r))})</span>${r.saved ? '' : ' <span class="saved no">Not saved</span>'}</h2>
       <button class="btn btn-ghost btn-details" data-open="${esc(key)}">${warn ? `<span class="wdot" title="${warn} warning${warn > 1 ? 's' : ''}"></span>` : ''}Details ›</button>
     </div>
     ${ts.map((t) => tableHtml({ ...t, note: '' })).join('')}
@@ -363,7 +401,7 @@ function drawerHtml() {
   <aside class="drawer" role="dialog" aria-label="${esc(r.label)} details">
     <div class="drawer-head">
       <div><h2>${esc(r.label)} <span class="pdate">(${isoToDDMMYYYY(dataDateOf(r))})</span></h2>
-        <span class="src">${esc(r.file)}</span></div>
+        <span class="src">${esc(r.file)}</span><br />${savedLine(r)}</div>
       <a href="#" class="drawer-close" data-close="1" title="Close">×</a>
     </div>
     <div class="drawer-actions">
@@ -539,7 +577,10 @@ $('newBtn').addEventListener('click', () => {
   slotBoxes.forEach((b) => b.reset());
   $('workStage').hidden = true;
   $('uploadStage').hidden = false;
+  $('dayStatus').textContent = '';
 });
+
+openDay($('reportDate').value);     // today's sheet, if anything is already saved for it
 
 // ---------- Topbar nav: Dashboard (admins) vs Logout (clicms user) ----------
 (async function setupTopbarNav() {
