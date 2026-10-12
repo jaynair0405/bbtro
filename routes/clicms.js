@@ -459,6 +459,11 @@ router.post('/daily/upload-nonbio', upload.fields(NONBIO_SLOTS.map((name) => ({ 
     if (got[k] && got[k][0]) { files[k] = got[k][0].buffer; names.push(got[k][0].originalname); }
   });
   try {
+    // DR / LTT typed in on the page (Fill by hand) comes as a JSON text field.
+    if (req.body && req.body.drlttHand) {
+      try { files.drlttHand = JSON.parse(req.body.drlttHand); } catch (e) { throw new Error('DR / LTT hand entry could not be read.'); }
+      names.push('DR / LTT by hand');
+    }
     const r = cmsReports.processSlots('subsonoff', files);
     res.json({ catalogue: cmsReports.catalogue(), report: { file: names.join(', '), ...r } });
   } catch (err) {

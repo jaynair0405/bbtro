@@ -103,8 +103,9 @@ async function uploadFiles(files) {
 // Continuous night working (3 / 4 / >4) and suburban sign on/off without biometric
 // (summary + CSTS / KYNS / PNVS lists): the user says which file is which by tab.
 // Every pick re-posts all the parts held; the answer replaces the whole report.
-function slotBox(id, url, firstSlot) {
-  const box = { files: {}, slot: firstSlot };
+function slotBox(id, url, firstSlot, reportKey) {
+  // hand = one part typed in (Fill by hand), posted as JSON with the files held.
+  const box = { files: {}, hand: null, handField: null, slot: firstSlot, reportKey };
   const tabs = $(`${id}Tabs`);
   const showErr = (msg) => { $(`${id}Err`).textContent = msg; $(`${id}Err`).hidden = !msg; };
   const marks = () => tabs.querySelectorAll('.night-tab').forEach((t) => {
@@ -124,28 +125,30 @@ function slotBox(id, url, firstSlot) {
     if (f) upload(box.slot, f);
   });
 
-  async function upload(slot, file) {
+  function upload(slot, file) {
     showErr('');
+    return post({ ...box.files, [slot]: file }, box.hand, box.handField).catch((err) => showErr(err.message));
+  }
+
+  // Throws on failure; the caller shows the message where the user is looking.
+  async function post(next, hand, handField) {
     if (state.reports.length === 0) {
       const date = $('reportDate').value;
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return showErr('Choose the sheet date first.');
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error('Choose the sheet date first.');
       state.date = date;
     }
-    const next = { ...box.files, [slot]: file };
     const fd = new FormData();
     Object.entries(next).forEach(([k, f]) => fd.append(k, f));
-    let data;
-    try {
-      const res = await fetch(`${API_BASE}${url}`, { method: 'POST', body: fd });
-      if (res.redirected || !/json/i.test(res.headers.get('content-type') || '')) {
-        throw new Error('Your session has expired — log in again, then re-upload.');
-      }
-      data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Upload failed.');
-    } catch (err) {
-      return showErr(err.message);
+    if (hand) fd.append(handField, JSON.stringify(hand));
+    const res = await fetch(`${API_BASE}${url}`, { method: 'POST', body: fd });
+    if (res.redirected || !/json/i.test(res.headers.get('content-type') || '')) {
+      throw new Error('Your session has expired — log in again, then re-upload.');
     }
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Upload failed.');
     box.files = next;
+    box.hand = hand;
+    box.handField = handField;
     marks();
     state.reports = state.reports.filter((r) => r.key !== data.report.key).concat(data.report)
       .sort((a, b) => a.order - b.order);
@@ -155,12 +158,13 @@ function slotBox(id, url, firstSlot) {
     render();
   }
 
-  box.reset = () => { box.files = {}; marks(); showErr(''); };
+  box.saveHand = (field, values) => post(box.files, values, field);
+  box.reset = () => { box.files = {}; box.hand = null; box.handField = null; marks(); showErr(''); };
   return box;
 }
 const slotBoxes = [
-  slotBox('night', 'daily/upload-night', 'n3'),
-  slotBox('nonbio', 'daily/upload-nonbio', 'sum'),
+  slotBox('night', 'daily/upload-night', 'n3', 'contnight'),
+  slotBox('nonbio', 'daily/upload-nonbio', 'sum', 'subsonoff'),
 ];
 
 // ---------- Fill by hand ----------
@@ -193,7 +197,11 @@ function showManualFields() {
   // Laid out as the sheet table. Pre-filled from the loaded report where it has a number.
   const loaded = state.reports.find((r) => r.key === c.key);
   const shown = loaded && loaded.tables[0] ? loaded.tables[0].rows : [];
-  const pre = (ri, ci) => { const v = shown[ri] && shown[ri][ci + 1]; return /^\d+$/.test(String(v)) ? v : 0; };
+  const held = c.slotOf ? (slotBoxes.find((b) => b.reportKey === c.slotOf) || {}).hand : null;
+  const pre = (ri, ci) => {
+    if (c.slotOf) return held ? held[`${c.grid.cols[ci].key}|${c.grid.rows[ri].key}`] : 0;
+    const v = shown[ri] && shown[ri][ci + 1]; return /^\d+$/.test(String(v)) ? v : 0;
+  };
   $('manualFields').innerHTML = `<table class="manual-grid"><thead><tr><th></th>${c.grid.cols.map((col) => `<th>${esc(col.label)}</th>`).join('')}</tr></thead>
     <tbody>${c.grid.rows.map((row, ri) => `<tr><th>${esc(row.label)}</th>${c.grid.cols.map((col, ci) =>
       `<td>${input(`${col.key}|${row.key}`, pre(ri, ci), `${col.label} ${row.label}`)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
@@ -214,6 +222,13 @@ $('manualSave').addEventListener('click', async () => {
   }
   const values = {};
   $('manualFields').querySelectorAll('[data-mkey]').forEach((i) => { values[i.dataset.mkey] = i.value; });
+  // One part of a slot report (DR / LTT): saved with that report's files, not over them.
+  const c = state.catalogue.find((x) => x.key === $('manualKey').value);
+  if (c && c.slotOf) {
+    const box = slotBoxes.find((b) => b.reportKey === c.slotOf);
+    try { await box.saveHand(c.field, values); } catch (err) { return showManualErr(err.message); }
+    return;
+  }
   let data;
   try {
     const res = await fetch(`${API_BASE}daily/manual`, {
@@ -370,8 +385,8 @@ function render() {
   const byKey = new Map(state.reports.map((r) => [r.key, r]));
   const order = state.layout
     ? state.layout.flat().flatMap((row) => (Array.isArray(row) ? row.flat() : row.full))
-    : state.catalogue.map((c) => c.key);
-  state.catalogue.forEach((c) => { if (!order.includes(c.key)) order.push(c.key); });
+    : state.catalogue.filter((c) => !c.slotOf).map((c) => c.key);
+  state.catalogue.forEach((c) => { if (!c.slotOf && !order.includes(c.key)) order.push(c.key); });
   $('checklist').innerHTML = order.map((k) => {
     const r = byKey.get(k);
     const dot = r && (r.warnings || []).length ? '<span class="wdot"></span>' : '';
@@ -384,7 +399,7 @@ function render() {
     ? `<details><summary>${warns.length} warning${warns.length > 1 ? 's' : ''} — open a report's Details for its own</summary><ul>${warns.map((w) => `<li>${esc(w)}</li>`).join('')}</ul></details>` : '';
 
   // Main view: the one-view layout, blocks in left/right pairs.
-  const pages = state.layout || [state.catalogue.map((c) => ({ full: [c.key] }))];
+  const pages = state.layout || [state.catalogue.filter((c) => !c.slotOf).map((c) => ({ full: [c.key] }))];
   const side = (keys) => `<div class="pside">${keys.map(blockHtml).join('')}</div>`;
   const placed = new Set(pages.flat().flatMap((row) => (Array.isArray(row) ? row.flat() : row.full)));
   const extra = state.reports.filter((r) => !placed.has(r.key));   // a report the layout does not name
