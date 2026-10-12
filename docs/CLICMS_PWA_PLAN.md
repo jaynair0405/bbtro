@@ -43,7 +43,10 @@ deploy. Local development testing works on `http://localhost:3000/clicms/`.
 
 ## 3. The golden rule for THIS tool: cache the shell, never the data
 
-The tool's core promise is **"nothing is stored — the CSV is processed in memory and discarded."**
+The Due List's core promise is **"nothing is stored — the CSV is processed in memory and discarded."**
+(Since 2026-10-12 the separate **Daily Position** page *does* save its reports on the server —
+in the database, never on the device; see clicmsREADME.md "Storage". The rule below is
+unchanged: the service worker caches no data for either page.)
 The PWA must keep that promise:
 
 - The service worker caches **only the app files** (`index.html`, `clicms.css`, `clicms.js`,

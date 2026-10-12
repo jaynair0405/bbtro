@@ -3,9 +3,10 @@
 HQ-CLI tool to upload a CMS Report CSV, view the **overdue** list for one
 parameter at a time, sort and trim it, and download it as Excel or PDF.
 
-**Nothing is stored.** The CSV is parsed in memory and discarded. Exports are
+**The Due List stores nothing.** The CSV is parsed in memory and discarded. Exports are
 built from the row set the browser posts back. This matches the requirement that
-the data is stale the next day and must not be persisted.
+the data is stale the next day and must not be persisted. (The Daily Position page
+*does* store its reports — see "Daily Position → Storage" below.)
 
 ## What it does
 
@@ -141,10 +142,54 @@ the CMS count/duty downloads.
   (`POST daily/upload-nonbio`); count-only reports are typed in (`POST daily/manual`).
 - Exports print each report's first (sheet) table unless "Include detail tables" is
   ticked; Position (one view) PDF/Excel prints the whole sheet.
-- **Nothing is stored** yet — the same as the Due List. Tables come later, together
-  with the lobby modules, at crew grain so every count can drill down to names.
 - Counts differing by 2-3 from a hand sheet are expected: a later CMS download picks
   up sign-offs done after the earlier one was taken.
 - Files must be the CSTM division (`DIV` is checked; a BSL download is refused).
 - Bump `CACHE_VERSION` in `clicms-sw.js` and the `?v` tags when shell files change;
   `daily.css`/`daily.js` carry their own `?v` (listed in SHELL).
+
+### Storage (Daily Position only)
+
+Every report loaded — uploaded file, slot part or Fill by hand — is **saved
+automatically** for its data date. Tables: `sql/2026-10-12_cms_daily_storage.sql`.
+
+| Table | One row per | Holds |
+|---|---|---|
+| `cms_daily_loads` | load of one report for one data date | report_key, data_date, sheet_date, source (file / hand / mixed), file names + sha256, **raw file** (one CSV, or a JSON bundle `{slot: {name, data(base64)}}` for slot reports), typed hand values, `tables_json` (exactly as shown), warnings, loaded_by / at, `is_current` |
+| `cms_daily_counts` | load × lobby × measure | `value` — every figure of the report, all lobbies and columns (the trend table) |
+| `cms_daily_crew` | load × crew × measure | cms_id, name, event_time, `detail` JSON — the names behind a figure (drill-down; lobby uploads will add here) |
+
+- **Code:** `lib/cmsReports/store.js` (`saveLoad`, `loadDay`, `currentParts`); each
+  report module's `facts(parsed)` returns its `{ counts, crew }`, attached to the
+  processed report as a non-enumerable `facts` so it is saved but never sent to the page.
+  Routes call `autoSave` after building; `POST daily/day` returns a saved sheet date.
+- **Data date** = sheet date − the report's `dateOffset`; the page sends `sheetDate`
+  with every load. No `sheetDate` (an old cached page) = not saved, with a warning.
+- **Replace, never delete:** a later load of the same report + data date becomes
+  current; the earlier stays with `is_current = 0`. Use this for late sign-offs.
+- **Slot reports** (night working, without biometric): parts not sent are filled from
+  the day's stored load, so adding one file to a reopened day keeps the others. For
+  DR / LTT the newer entry wins — a file replaces typed figures and vice versa.
+- **Division totals** are stored under lobby `DIVISION` — CMS has a real lobby named
+  CSTM, so that name cannot be used. CLI Monitoring stores one row per division code.
+- **Measures** are the report's own column keys (`n`, `over2`, `b8`,
+  `freight.wor.hq`, `drltt_on_nobio` …). Breakdown suffixes: `:<desig>` per designation,
+  `@<call lobby>` (WR / WOR HQ). A part or figure that was not loaded stores nothing,
+  never 0, so a gap is not mistaken for "none".
+- **A save failure** never loses the upload: the report is shown with a "Not saved"
+  warning and a red flag; load it again to save.
+- Opening the page, or picking a date, opens what is saved for that date.
+
+Useful queries:
+
+```sql
+-- FSD "N" for KYN, day by day
+SELECT data_date, value FROM cms_daily_counts c JOIN cms_daily_loads l ON l.id = c.load_id
+ WHERE l.is_current = 1 AND c.report_key = 'fsd' AND c.lobby = 'KYN' AND c.measure = 'n'
+ ORDER BY data_date;
+
+-- Crew who appear most often in PDD over 3 hours
+SELECT cms_id, crew_name, COUNT(*) n FROM cms_daily_crew r JOIN cms_daily_loads l ON l.id = r.load_id
+ WHERE l.is_current = 1 AND r.report_key = 'pdd' AND r.measure = 'over3'
+ GROUP BY cms_id, crew_name ORDER BY n DESC LIMIT 20;
+```
