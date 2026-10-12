@@ -184,9 +184,9 @@ Useful queries:
 
 ```sql
 -- FSD "N" for KYN, day by day
-SELECT data_date, value FROM cms_daily_counts c JOIN cms_daily_loads l ON l.id = c.load_id
+SELECT l.data_date, c.value FROM cms_daily_counts c JOIN cms_daily_loads l ON l.id = c.load_id
  WHERE l.is_current = 1 AND c.report_key = 'fsd' AND c.lobby = 'KYN' AND c.measure = 'n'
- ORDER BY data_date;
+ ORDER BY l.data_date;
 
 -- Crew who appear most often in PDD over 3 hours
 SELECT cms_id, crew_name, COUNT(*) n FROM cms_daily_crew r JOIN cms_daily_loads l ON l.id = r.load_id
