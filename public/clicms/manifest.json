@@ -1,7 +1,7 @@
 {
-  "name": "CMS Due List",
-  "short_name": "CMS Due",
-  "description": "HQ-CLI CMS Report due-list tool — overdue Foot Plate / Grading / Counselling",
+  "name": "CLI CMS",
+  "short_name": "CLI CMS",
+  "description": "HQ-CLI CMS tools — overdue due list (Foot Plate / Grading / Counselling) and the Daily Position sheet",
   "start_url": ".",
   "scope": ".",
   "display": "standalone",

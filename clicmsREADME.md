@@ -122,3 +122,29 @@ Once the page works, add `public/clicms/manifest.json` (scope `/clicms/`) and a
 service worker (`clicms-sw.js`) that caches only the app shell (index.html, css,
 js) — never the data. That makes it installable on the `clicms` user's phone.
 A second scoped PWA (e.g. `/admin/`) can be added later the same way.
+
+## Daily Position (`daily.html`)
+
+The second page of the same `/clicms/` app (one install, two pages; switch at the
+top). It builds the officers' daily CMS position sheet (15 blocks, 2-page A4) from
+the CMS count/duty downloads.
+
+- **Drop the files together.** CMS names every download `CMS  REPORT (n).csv`, so each
+  file is recognised by its **header row**. One module per report in
+  `lib/cmsReports/` plus one registry line; the page, Excel and PDF render generic
+  tables, so a new report needs no UI code. `lib/cmsReports/position.js` (`PAGES`)
+  is the sheet layout and drives both the page and the one-view export.
+- **Date box = SHEET date.** Each report has its own `dateOffset`: D-0 CLI Monitoring
+  Due, Kiosk; D-2 Working Hours (ML + Sub), PDD, Sign On/Off Biometric; D-1 the rest.
+- Special uploads: Continuous Night Working = three files via the 3 / 4 / >4 tabs
+  (`POST daily/upload-night`); Sign On/Off without Biometric = per-lobby slot files
+  (`POST daily/upload-nonbio`); count-only reports are typed in (`POST daily/manual`).
+- Exports print each report's first (sheet) table unless "Include detail tables" is
+  ticked; Position (one view) PDF/Excel prints the whole sheet.
+- **Nothing is stored** yet — the same as the Due List. Tables come later, together
+  with the lobby modules, at crew grain so every count can drill down to names.
+- Counts differing by 2-3 from a hand sheet are expected: a later CMS download picks
+  up sign-offs done after the earlier one was taken.
+- Files must be the CSTM division (`DIV` is checked; a BSL download is refused).
+- Bump `CACHE_VERSION` in `clicms-sw.js` and the `?v` tags when shell files change;
+  `daily.css`/`daily.js` carry their own `?v` (listed in SHELL).
