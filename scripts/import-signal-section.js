@@ -35,6 +35,7 @@ const fs = require('fs');
 const path = require('path');
 const xlsx = require('xlsx');
 const mysql = require('mysql2/promise');
+const readline = require('readline');
 
 const args = process.argv.slice(2);
 const sectionXlsxPath = args[0];
@@ -106,12 +107,12 @@ function parseSignalRow(raw, rowNo, errors) {
 
   const direction = clean(raw.direction) || 'UNKNOWN';
   const signalType = clean(raw.signal_type) || 'Automatic';
-  const placement = clean(raw.placement) || 'Unknown';
+  let placement = clean(raw.placement);
+  if (placement === 'Unknown') placement = '';  // there is no Unknown side; treated as not given
   const onCurve = clean(raw.on_curve) || 'Unknown';
 
   if (!ALLOWED_DIRECTION.includes(direction)) errors.push(`Signals row ${rowNo}: invalid direction "${direction}"`);
   if (!ALLOWED_SIGNAL_TYPE.includes(signalType)) errors.push(`Signals row ${rowNo}: invalid signal_type "${signalType}"`);
-  if (!ALLOWED_PLACEMENT.includes(placement)) errors.push(`Signals row ${rowNo}: invalid placement "${placement}"`);
   if (!ALLOWED_ON_CURVE.includes(onCurve)) errors.push(`Signals row ${rowNo}: invalid on_curve "${onCurve}"`);
 
   const boolCols = ['is_rhs', 'is_ext_rhs', 'is_lhs', 'is_ext_lhs', 'has_legend_board', 'has_calling_on', 'has_shunt_signal', 'is_active'];
@@ -125,6 +126,19 @@ function parseSignalRow(raw, rowNo, errors) {
       if (parsed === null) errors.push(`Signals row ${rowNo}: invalid bool for ${col} "${raw_val}"`);
       bools[col] = parsed;
     }
+  }
+
+  // Side (CLAUDE.md "Signal side"; the DB triggers enforce the same rule).
+  // A flag without a placement names the side. No placement and no flag: a NEW signal
+  // is saved as Left (LHS); an EXISTING one keeps its stored side (side_given = false).
+  const FLAG_PLACEMENT = { is_ext_rhs: 'Extreme Right', is_rhs: 'Right', is_ext_lhs: 'Extreme Left', is_lhs: 'Left' };
+  const flags = Object.keys(FLAG_PLACEMENT).filter((f) => bools[f] === 1);
+  if (flags.length > 1) errors.push(`Signals row ${rowNo}: only one of is_rhs / is_ext_rhs / is_lhs / is_ext_lhs can be 1`);
+  const sideGiven = placement !== '' || flags.length > 0;
+  if (!placement) placement = flags.length ? FLAG_PLACEMENT[flags[0]] : 'Left';
+  if (!sideGiven) bools.is_lhs = 1;
+  if (!ALLOWED_PLACEMENT.includes(placement) || placement === 'Unknown') {
+    errors.push(`Signals row ${rowNo}: invalid placement "${placement}"`);
   }
 
   const reqInts = { ri_left_arms: 0, ri_right_arms: 0 };
@@ -167,7 +181,8 @@ function parseSignalRow(raw, rowNo, errors) {
     route_indicator_notes: nullableString(raw.route_indicator_notes),
     technical_remarks: nullableString(raw.technical_remarks),
     visibility_distance_m: nullableInt(raw.visibility_distance_m),
-    sighting_remarks: nullableString(raw.sighting_remarks)
+    sighting_remarks: nullableString(raw.sighting_remarks),
+    side_given: sideGiven
   };
 }
 
@@ -262,6 +277,28 @@ async function getConnection() {
   });
 }
 
+async function existingSignalKeys(rows) {
+  const conn = await getConnection();
+  try {
+    const keys = new Set();
+    for (const r of rows) {
+      const [found] = await conn.execute(
+        'SELECT 1 FROM div_signals WHERE normalized_signal_number = ? AND section = ? AND line = ?',
+        [r.normalized_signal_number, r.section, r.line]
+      );
+      if (found.length) keys.add(`${r.normalized_signal_number}|${r.section}|${r.line}`);
+    }
+    return keys;
+  } finally {
+    await conn.end();
+  }
+}
+
+function confirm(question) {
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  return new Promise((resolve) => rl.question(question, (a) => { rl.close(); resolve(/^y(es)?$/i.test(a.trim())); }));
+}
+
 async function upsertSignal(conn, row) {
   const sql = `
     INSERT INTO div_signals (
@@ -285,10 +322,10 @@ async function upsertSignal(conn, row) {
       latitude = VALUES(latitude), longitude = VALUES(longitude),
       signal_type = VALUES(signal_type), signal_function = VALUES(signal_function),
       aspects = VALUES(aspects),
-      placement = VALUES(placement), on_curve = VALUES(on_curve),
+      placement = IF(?, VALUES(placement), placement), on_curve = VALUES(on_curve),
       curve_remarks = VALUES(curve_remarks),
-      is_rhs = VALUES(is_rhs), is_ext_rhs = VALUES(is_ext_rhs),
-      is_lhs = VALUES(is_lhs), is_ext_lhs = VALUES(is_ext_lhs),
+      is_rhs = IF(?, VALUES(is_rhs), is_rhs), is_ext_rhs = IF(?, VALUES(is_ext_rhs), is_ext_rhs),
+      is_lhs = IF(?, VALUES(is_lhs), is_lhs), is_ext_lhs = IF(?, VALUES(is_ext_lhs), is_ext_lhs),
       has_legend_board = VALUES(has_legend_board),
       has_calling_on = VALUES(has_calling_on),
       has_shunt_signal = VALUES(has_shunt_signal),
@@ -309,7 +346,9 @@ async function upsertSignal(conn, row) {
     row.has_legend_board, row.has_calling_on, row.has_shunt_signal,
     row.ri_left_arms, row.ri_right_arms,
     row.book_description, row.route_indicator_notes, row.technical_remarks,
-    row.visibility_distance_m, row.sighting_remarks, row.is_active
+    row.visibility_distance_m, row.sighting_remarks, row.is_active,
+    // ON DUPLICATE KEY UPDATE: keep an existing signal's side when the sheet gave none
+    ...Array(5).fill(row.side_given ? 1 : 0)
   ]);
   return res.insertId;
 }
@@ -598,8 +637,26 @@ async function main() {
     process.exit(1);
   }
 
+  // Signals with no side in the sheet: new ones become Left, existing ones keep theirs.
+  const noSide = parsedSignals.filter((r) => !r.side_given);
+  let noSideNew = [];
+  if (noSide.length > 0) {
+    const existing = await existingSignalKeys(noSide);
+    noSideNew = noSide.filter((r) => !existing.has(`${r.normalized_signal_number}|${r.section}|${r.line}`));
+    console.log(`\nPlacement not set for ${noSide.length} signal(s) — using LEFT as default for new signals; existing signals keep their side. You can edit them in the signal editor.`);
+    console.log(`  new (will be Left)  : ${noSideNew.length}`);
+    noSideNew.slice(0, 50).forEach((r) => console.log(`    - ${r.signal_number}  (${r.section} ${r.line})`));
+    if (noSideNew.length > 50) console.log(`    ... ${noSideNew.length - 50} more`);
+    console.log(`  existing (unchanged): ${noSide.length - noSideNew.length}`);
+  }
+
   if (!shouldCommit) {
     console.log('\nDry run successful. Re-run with --commit to write.');
+    return;
+  }
+
+  if (noSideNew.length > 0 && !(await confirm(`\n${noSideNew.length} new signal(s) will be saved as LEFT. Continue? (y/N) `))) {
+    console.log('Cancelled. No database changes made.');
     return;
   }
 
