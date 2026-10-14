@@ -296,20 +296,31 @@ function addRow(type) {
   document.querySelector('.main').scrollTop = document.querySelector('.main').scrollHeight;
 }
 
+// Never let a non-JSON reply (413, 502 during restart, login redirect) fail silently.
+async function readReply(r) {
+  try { return await r.json(); }
+  catch (e) {
+    if (r.redirected || r.status === 401) return { error: 'Session expired — please log in again' };
+    return { error: `Server returned ${r.status}${r.statusText ? ' ' + r.statusText : ''}` };
+  }
+}
+
 async function saveDraft() {
   const r = await fetch(`/api/division/signal-book/section/${encodeURIComponent(state.code)}/draft`, {
     method: 'PUT', headers: {'Content-Type':'application/json'},
     body: JSON.stringify({ rows: state.rows, section: state.section })
-  });
-  const j = await r.json();
-  if (j.ok) { state.dirty = false; state.hasDraft = true; renderStatus(); toast('Draft saved'); loadSections(); }
-  else toast(j.error || 'Save failed');
+  }).catch(() => null);
+  if (!r) { toast('Save failed — server not reachable'); return false; }
+  const j = await readReply(r);
+  if (j.ok) { state.dirty = false; state.hasDraft = true; renderStatus(); toast('Draft saved'); loadSections(); return true; }
+  toast('Save failed — ' + (j.error || 'unknown error')); return false;
 }
 async function publish() {
-  if (state.dirty) await saveDraft();
+  if (state.dirty && !(await saveDraft())) return;  // never publish an older draft than what is on screen
   if (!confirm('Publish this section to the live signal book? This becomes what drivers see.')) return;
-  const r = await fetch(`/api/division/signal-book/section/${encodeURIComponent(state.code)}/publish`, { method: 'POST' });
-  const j = await r.json();
+  const r = await fetch(`/api/division/signal-book/section/${encodeURIComponent(state.code)}/publish`, { method: 'POST' }).catch(() => null);
+  if (!r) return toast('Publish failed — server not reachable');
+  const j = await readReply(r);
   if (j.ok) {
     const copies = j.copiesSynced || [];
     let msg = `Published — ${j.signalsChanged} signal change(s), ${j.rowCount} rows`;
@@ -318,14 +329,15 @@ async function publish() {
     if (stale.length) msg += ` — note: an unpublished draft on ${stale.join(', ')} still holds the old values`;
     toast(msg); selectSection(state.code); loadSections();
   }
-  else toast(j.error || 'Publish failed');
+  else toast('Publish failed — ' + (j.error || 'unknown error'));
 }
 async function discard() {
   if (!confirm('Discard the draft and revert to the published version?')) return;
-  const r = await fetch(`/api/division/signal-book/section/${encodeURIComponent(state.code)}/discard`, { method: 'POST' });
-  const j = await r.json();
+  const r = await fetch(`/api/division/signal-book/section/${encodeURIComponent(state.code)}/discard`, { method: 'POST' }).catch(() => null);
+  if (!r) return toast('Discard failed — server not reachable');
+  const j = await readReply(r);
   if (j.ok) { toast('Draft discarded'); selectSection(state.code); loadSections(); }
-  else toast(j.error || 'Discard failed');
+  else toast('Discard failed — ' + (j.error || 'unknown error'));
 }
 
 document.getElementById('btnSave').onclick = saveDraft;
