@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Help · CLI CMS</title>
+
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#1f3a5f" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <!-- ?v tags must match CACHE_VERSION in clicms-sw.js (see index.html). -->
+  <link rel="stylesheet" href="clicms.css?v5" />
+  <link rel="stylesheet" href="daily.css?v10" /><!-- report switcher only -->
+  <style>
+    /* Help page only. Colours come from clicms.css. */
+    main.help { max-width: 1080px; margin: 0 auto; padding: 20px 16px 48px; }
+    .help-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+    .help-tab { padding: 8px 14px; border-radius: 6px; border: 1px solid var(--line); background: var(--surface);
+      font: 600 15px 'Barlow Semi Condensed', sans-serif; color: var(--ink); cursor: pointer; }
+    .help-tab.on { background: var(--navy); color: #fff; border-color: var(--navy); }
+    .intro { background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--signal-amber);
+      border-radius: 6px; padding: 10px 14px; margin-bottom: 16px; font-size: 14px; line-height: 1.5; }
+    .intro p { margin: 4px 0; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+    .card { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; }
+    .card h3 { margin: 0 0 8px; font: 600 16px 'Barlow Semi Condensed', sans-serif; }
+    .num { display: inline-block; background: var(--signal-amber); color: var(--ink); border-radius: 50%;
+      width: 24px; height: 24px; text-align: center; line-height: 24px; margin-right: 6px; font-size: 13px; }
+    .menu { display: inline-block; border: 1.5px solid var(--alert); color: var(--alert); font-weight: 700;
+      padding: 1px 8px; border-radius: 4px; font-size: 12px; }
+    .path { margin: 8px 0; font-size: 13px; }
+    .path b { color: var(--navy); }
+    .flow { list-style: none; margin: 8px 0; padding: 0; font-size: 13px; }
+    .flow li { border: 1px solid var(--line); background: var(--bg-panel); border-radius: 4px; padding: 5px 8px;
+      margin: 0 0 14px; position: relative; }
+    .flow li:not(:last-child)::after { content: "↓"; position: absolute; left: 14px; bottom: -15px; color: var(--muted); }
+    .flow .k { color: var(--muted); display: inline-block; min-width: 140px; }
+    .flow li.tbc { background: #fff4dc; border-color: var(--signal-amber); }
+    .tag { font-size: 11px; padding: 1px 7px; border-radius: 10px; background: #e3ebf5; color: var(--navy);
+      font-weight: 600; white-space: nowrap; }
+    .tag.hand { background: #f6e3de; color: var(--alert); }
+    .note { font-size: 12px; color: var(--muted); border-top: 1px dashed var(--line); padding-top: 8px; margin-top: 4px; line-height: 1.45; }
+    .steps { counter-reset: s; list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
+    .steps > li { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px 16px 12px 54px;
+      position: relative; font-size: 14px; line-height: 1.5; }
+    .steps > li::before { counter-increment: s; content: counter(s); position: absolute; left: 14px; top: 12px;
+      width: 28px; height: 28px; border-radius: 50%; background: var(--navy); color: #fff; text-align: center;
+      line-height: 28px; font-weight: 700; }
+    .steps h3 { margin: 0 0 4px; font: 600 16px 'Barlow Semi Condensed', sans-serif; }
+    .steps ul { margin: 4px 0; padding-left: 18px; }
+    .warn { border-left: 4px solid var(--alert) !important; }
+    table.dates { border-collapse: collapse; font-size: 13px; margin: 6px 0; }
+    table.dates td, table.dates th { border: 1px solid var(--line); padding: 4px 8px; text-align: left; vertical-align: top; }
+    table.dates th { background: var(--bg-panel); }
+    @media (max-width: 480px) { .flow .k { min-width: 0; display: block; } }
+    .help-print { margin-left: auto; padding: 8px 14px; border-radius: 6px; border: 1px solid var(--navy);
+      background: var(--surface); color: var(--navy); font: 600 15px 'Barlow Semi Condensed', sans-serif; cursor: pointer; }
+    .print-title, .print-foot { display: none; }
+
+    /* Download / Print: both parts, no screen chrome. "Save as PDF" in the dialog downloads it. */
+    @page { size: A4; margin: 12mm; }
+    @media print {
+      body { background: #fff; }
+      .topbar, .help-tabs { display: none !important; }
+      main.help { max-width: none; padding: 0; }
+      section[hidden] { display: block !important; }
+      .print-title { display: block; margin: 0 0 8px; font: 700 18px 'Barlow Semi Condensed', sans-serif; }
+      .part-head { display: block !important; font: 700 16px 'Barlow Semi Condensed', sans-serif; margin: 0 0 8px;
+        border-bottom: 2px solid var(--navy); padding-bottom: 3px; }
+      #tab-make { break-before: page; }
+      .grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+      .card, .steps > li, .intro { break-inside: avoid; }
+      * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .print-foot { display: block; margin-top: 12px; font-size: 11px; color: var(--muted); }
+    }
+    .part-head { display: none; }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">CR</span>
+      <div>
+        <h1>CLI CMS — Help</h1>
+        <p class="sub">Central Railway · Mumbai Division · HQ-CLI tool</p>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <nav class="report-switch">
+        <a href="./">Due List</a>
+        <a href="daily.html">Daily Position</a>
+        <a href="help.html" class="active">Help</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="help">
+    <div class="help-tabs">
+      <button type="button" class="help-tab on" data-tab="download">A. Downloading from CMS</button>
+      <button type="button" class="help-tab" data-tab="make">B. Making the Daily Position</button>
+      <button type="button" class="help-print" id="helpPrint" title="Opens the print dialog — choose Save as PDF to download">⬇ Download / Print</button>
+    </div>
+    <h1 class="print-title">CLI CMS — Help (Mumbai Division)</h1>
+
+    <!-- ================= A. Downloading ================= -->
+    <section id="tab-download">
+      <h2 class="part-head">A. Downloading from CMS</h2>
+      <div class="intro">
+        <p>Fifteen blocks make the CMS Position sheet. Each card below is one block: the <span class="menu">MENU</span>
+          in CMS, then the filters top to bottom, then <b>Show Report</b> and download as <b>CSV</b>.</p>
+        <p>File names do not matter — the Daily Position page recognises each file by its contents.
+          A date shaded <span style="background:#fff4dc;padding:0 4px">amber</span> is still to be confirmed.</p>
+      </div>
+
+      <div class="grid">
+        <div class="card"><h3><span class="num">1</span>Continuous Night Working <span class="tag">3 CSVs</span></h3>
+          <div class="path"><span class="menu">MANAGE</span> → <b>Continuous Night Working</b></div>
+          <ul class="flow">
+            <li><span class="k">Pilot</span>Select All w/o MMAN</li>
+            <li><span class="k">Report level</span>IR</li>
+            <li><span class="k">Month / Year</span>Current date</li>
+            <li><span class="k">Show Report</span>for each of (a), (b), (c)</li>
+          </ul>
+          <div class="note">Three downloads: (a) 03 continuous night duty, (b) 04, (c) more than 04. They look identical,
+            so upload each under its own tab (3 nights / 4 nights / &gt;4 nights).</div></div>
+
+        <div class="card"><h3><span class="num">2a</span>Sign On/Off without Biometric — Lobby summary <span class="tag">1 CSV</span></h3>
+          <div class="path"><span class="menu">SUBURBAN</span> → <b>Sign On/Off Report</b></div>
+          <ul class="flow">
+            <li><span class="k">Pilot</span>MMAN</li>
+            <li><span class="k">Report level</span>DIVISION</li>
+            <li><span class="k">Date</span>Yesterday</li>
+            <li><span class="k">Show Report</span></li>
+          </ul>
+          <div class="note">Upload under the <b>Lobby summary</b> tab.</div></div>
+
+        <div class="card"><h3><span class="num">2b</span>Sign On/Off without Biometric — CSTS / KYNS / PNVS lists <span class="tag">3 CSVs</span></h3>
+          <div class="path"><span class="menu">MISC</span> → <b>Breath Analyser → BA Analysis</b></div>
+          <ul class="flow">
+            <li><span class="k">Lobby</span>CSTS, then KYNS, then PNVS</li>
+            <li><span class="k">Designation</span>MOTORMAN</li>
+            <li><span class="k">Date</span>Yesterday</li>
+            <li><span class="k">Status</span>BOTH (Sign On / Sign Off)</li>
+            <li><span class="k">Show Report</span>once per lobby</li>
+          </ul>
+          <div class="note">One file per lobby — upload each under its own tab (CSTS list / KYNS list / PNVS list).</div></div>
+
+        <div class="card"><h3><span class="num">2c</span>DR / LTT without Biometric <span class="tag">1 CSV</span> <span class="tag hand">or fill by hand</span></h3>
+          <div class="path"><span class="menu">MISC</span> → <b>Breath Analyser → BA Analysis</b></div>
+          <ul class="flow">
+            <li><span class="k">Lobby</span>DR / LTT</li>
+            <li><span class="k">Designation</span>PILOT</li>
+            <li><span class="k">Date</span>Yesterday</li>
+            <li><span class="k">Status</span>—</li>
+            <li><span class="k">Show Report</span></li>
+          </ul>
+          <div class="note">Upload under the <b>DR / LTT</b> tab, or type the counts in <b>Fill by hand → DR / LTT (without Biometric)</b>.</div></div>
+
+        <div class="card"><h3><span class="num">3</span>PR Due <span class="tag hand">fill by hand</span></h3>
+          <div class="path"><span class="menu">LR/PR</span> → <b>Periodic Rest → Crew Due for PR</b></div>
+          <ul class="flow">
+            <li><span class="k">Pilot</span>Select ALL w/o MMAN</li>
+            <li><span class="k">Report level</span>DIVISION</li>
+            <li><span class="k">Show Report</span></li>
+          </ul>
+          <div class="note">Type the counts in <b>Fill by hand → PR Overdue</b> (the CSV can also be uploaded).</div></div>
+
+        <div class="card"><h3><span class="num">4</span>WR WOR Booking Lobby Wise <span class="tag">1 CSV</span></h3>
+          <div class="path"><span class="menu">MANAGE</span> → <b>Booked (WR/WOR)</b></div>
+          <ul class="flow">
+            <li><span class="k">Pilot</span>Select All w/o MMAN</li>
+            <li><span class="k">Working Type</span>Freight / Coaching</li>
+            <li><span class="k">Report level</span>DIVISION</li>
+            <li><span class="k">Departmental Cadre</span>ALL</li>
+            <li><span class="k">Crew Traction</span>ALL</li>
+            <li><span class="k">Date</span>Yesterday</li>
+            <li><span class="k">Booked WR/WOR</span>Call Book Lobby wise</li>
+            <li><span class="k">Show Report</span></li>
+          </ul></div>
+
+        <div class="card"><h3><span class="num">5</span>WR WOR Booking HQ Wise <span class="tag">1 CSV</span></h3>
+          <div class="path"><span class="menu">MANAGE</span> → <b>Booked (WR/WOR)</b></div>
+          <ul class="flow">
+            <li><span class="k">Filters</span>Same as card 4</li>
+            <li><span class="k">Booked WR/WOR</span>Crew HQ wise</li>
+            <li><span class="k">Show Report</span></li>
+          </ul>
+          <div class="note">Only the last choice differs from card 4.</div></div>
+
+        <div class="card"><h3><span class="num">6</span>Kiosk Detail <span class="tag">1 CSV</span></h3>
+          <div class="path"><span class="menu">MISC</span> → <b>IP Summary with BA/BIO/CAM</b></div>
+          <ul class="flow">
+            <li><span class="k">Detail level</span>Summary</li>
+            <li><span class="k">Report level</span>DIVISION</li>
+            <li class="tbc"><span class="k">Date</span>to be confirmed</li>
+            <li><span class="k">Show Report</span></li>
+          </ul></div>
+
+        <div class="card"><h3><span class="num">7</span>Lobbywise FSD Details <span class="tag">1 CSV</span></h3>
+          <div class="path"><span class="menu">RB-MONITORING</span> → <b>FSD Device</b></div>
+          <ul class="flow">
+            <li><span class="k">Pilot</span>Select All w/o MMAN</li>
+            <li><span class="k">Report level</span>DIVISION</li>
+            <li><span class="k">Crew HQ selection</span>ALL CREW AT HQ</li>
+            <li><span class="k">Date</span>Yesterday</li>
+            <li><span class="k">Show Report</span></li>
+          </ul>
+          <div class="note">Check every lobby is in the file — a wrong filter once dropped five lobbies; the page warns if so.</div></div>
+
+        <div class="card"><h3><span class="num">8</span>Working Hours Mainline + Suburban <span class="tag">1 CSV → 2 reports</span></h3>
+          <div class="path"><span class="menu">MANAGE</span> → <b>Working Hours</b></div>
+          <ul class="flow">
+            <li><span class="k">Pilot</span>Select ALL</li>
+            <li><span class="k">Working Hours Type</span>Continuous Duty</li>
+            <li><span class="k">Working Hours on</span>Sign on to Sign off</li>
+            <li><span class="k">Report level</span>DIVISION</li>
+            <li class="tbc"><span class="k">Date</span>to be confirmed</li>
+            <li><span class="k">Show Report</span></li>
+          </ul>
+          <div class="note">One file fills both Working Hours Mainline and Working Hours Suburban (cards 8 and 9 on the sheet).
+            For suburban names, the motorman duty list can be uploaded too — it replaces the suburban counts for that day.</div></div>
+
+        <div class="card"><h3><span class="num">10</span>PDD <span class="tag">1 CSV</span></h3>
+          <div class="path"><span class="menu">RUN</span> → <b>PDD</b></div>
+          <ul class="flow">
+            <li><span class="k">Pilot</span>Select All w/o MMAN</li>
+            <li><span class="k">Detail level</span>Summary</li>
+            <li><span class="k">Report level</span>DIVISION</li>
+            <li class="tbc"><span class="k">Date</span>to be confirmed</li>
+            <li><span class="k">Show Report</span></li>
+          </ul></div>
+
+        <div class="card"><h3><span class="num">11</span>Lobbywise Breach of Rest <span class="tag">1 CSV</span> <span class="tag hand">or fill by hand</span></h3>
+          <div class="path"><span class="menu">RUN</span> → <b>Breach of Rest (BOR)</b></div>
+          <ul class="flow">
+            <li><span class="k">Pilot</span>Select ALL w/o MMAN</li>
+            <li><span class="k">Report level</span>DIVISION</li>
+            <li class="tbc"><span class="k">Date</span>to be confirmed</li>
+            <li><span class="k">Show Report</span></li>
+          </ul>
+          <div class="note">Upload the CSV, or type the counts in <b>Fill by hand → Lobbywise Breach of Rest</b>.</div></div>
+
+        <div class="card"><h3><span class="num">12</span>CLI Monitoring Report <span class="tag">1 CSV</span></h3>
+          <div class="path"><span class="menu">RB-MONITORING</span> → <b>CLI Matrix</b></div>
+          <ul class="flow">
+            <li><span class="k">Pilot</span>Select All</li>
+            <li><span class="k">Report level</span>IR</li>
+            <li class="tbc"><span class="k">Date</span>to be confirmed</li>
+            <li><span class="k">Show Report</span></li>
+          </ul>
+          <div class="note">IR level on purpose: the page takes the CSTM row and the Central Railway divisions from it.</div></div>
+
+        <div class="card"><h3><span class="num">13</span>Monthly PME, REFT, ASIG Overdue <span class="tag">1 CSV</span></h3>
+          <div class="path"><span class="menu">CREW</span> → <b>Periodical Courses</b></div>
+          <ul class="flow">
+            <li><span class="k">Designation</span>PILOT</li>
+            <li><span class="k">Done / Due</span>SAFETY DUE</li>
+            <li><span class="k">Report level</span>DIVISION</li>
+            <li class="tbc"><span class="k">Date</span>to be confirmed</li>
+            <li><span class="k">Show Report</span></li>
+          </ul></div>
+
+        <div class="card"><h3><span class="num">14</span>Change on Approval <span class="tag">1 CSV</span></h3>
+          <div class="path"><span class="menu">MANAGE</span> → <b>Change on Approval</b></div>
+          <ul class="flow">
+            <li><span class="k">Pilot</span>ALL w/o MMAN</li>
+            <li><span class="k">Report level</span>DIVISION</li>
+            <li><span class="k">Status</span>BOTH (Sign On / Sign Off)</li>
+            <li><span class="k">Date</span>Yesterday</li>
+            <li><span class="k">Show Report</span></li>
+          </ul></div>
+
+        <div class="card"><h3><span class="num">15</span>Sign On – Sign Off Biometric <span class="tag">1 CSV</span></h3>
+          <div class="path"><span class="menu">MANAGE</span> → <b>Sign On/Off → Non-Continuous Duty/BA</b></div>
+          <ul class="flow">
+            <li><span class="k">Pilot</span>ALL w/o MMAN</li>
+            <li><span class="k">Report level</span>DIVISION</li>
+            <li class="tbc"><span class="k">Date</span>to be confirmed</li>
+            <li><span class="k">Show Report</span></li>
+          </ul>
+          <div class="note">Must be the Mumbai (CSTM) division — a download of another division is refused.</div></div>
+      </div>
+    </section>
+
+    <!-- ================= B. Making the Daily Position ================= -->
+    <section id="tab-make" hidden>
+      <h2 class="part-head">B. Making the Daily Position</h2>
+      <ol class="steps">
+        <li><h3>Pick the sheet date first</h3>
+          The date box on the Daily Position page is the date of the <b>sheet</b> (the day the position goes to officers).
+          The CMS files carry no date, so every report is saved under its own <b>data date</b>, worked out from the sheet date:
+          <table class="dates">
+            <tr><th>Data date</th><th>Reports</th></tr>
+            <tr><td>Sheet date (D-0)</td><td>CLI Monitoring Due, Kiosk Detail</td></tr>
+            <tr><td>Yesterday (D-1)</td><td>WR WOR Lobby Wise, WR WOR HQ Wise, FSD, Continuous Night Working, Change on Approval,
+              PME/REFT/ASIG Overdue, PR Overdue, Sign On/Off without Biometric, Breach of Rest</td></tr>
+            <tr><td>Day before (D-2)</td><td>Working Hours Mainline, Working Hours Suburban, PDD, Sign On – Sign Off Biometric</td></tr>
+          </table>
+          Each report's heading shows its data date in brackets — check it.</li>
+
+        <li class="warn"><h3>Check the date before adding files</h3>
+          If anything is already saved for today, the page opens today's day straight away. After the first file is loaded,
+          <b>+ Add files</b> always saves under the date shown at the top. For a different day, press <b>New day</b> and pick the date first.</li>
+
+        <li><h3>Drop all the ordinary downloads at once</h3>
+          Drag the CSV files onto the box, or <b>Choose CSV files</b>. File names do not matter. A file the page does not
+          recognise is listed with the reason; the rest still load.</li>
+
+        <li><h3>Files that look alike go in tabs</h3>
+          <ul>
+            <li><b>Continuous Night Working</b> — 3 nights / 4 nights / &gt;4 nights.</li>
+            <li><b>Sign On/Sign Off without Biometric</b> — Lobby summary / CSTS list / KYNS list / PNVS list / DR / LTT.</li>
+          </ul>
+          Pick the tab, then choose that file.</li>
+
+        <li><h3>Fill by hand when there is no file</h3>
+          <b>Fill by hand</b> → choose the report (PR Overdue, Lobbywise Breach of Rest, DR / LTT) → type the counts → <b>Save</b>.
+          It replaces that report if one is already loaded.</li>
+
+        <li><h3>Read the page</h3>
+          <ul>
+            <li>The chip strip at the top ticks each report loaded for the day; an unticked chip is a gap.</li>
+            <li><span style="color:var(--alert);font-weight:600">Red</span> figures are the ones to look at (e.g. FSD not carried, duty over 12 hours).</li>
+            <li>Warnings in the yellow box mean a total did not add up or a lobby is missing — usually a wrong CMS filter. Re-download.</li>
+            <li>Many counts can be clicked to list the crew behind them.</li>
+          </ul></li>
+
+        <li><h3>Saving and reloading</h3>
+          Every upload and hand entry is saved automatically. Loading the same report again for the same day replaces it
+          (the earlier one is kept as history) — normal when a later download catches late sign-offs. Picking a date that is
+          already saved opens it, so a day can be added to or exported later.</li>
+
+        <li><h3>Export</h3>
+          <ul>
+            <li><b>Position (one view) — PDF / Excel</b>: the two-page A4 sheet that goes to officers.</li>
+            <li><b>Whole day — PDF / Excel</b>: every report one after another; tick <b>Include detail tables</b> for the
+              extra tables, otherwise only the sheet blocks print.</li>
+          </ul></li>
+      </ol>
+    </section>
+    <p class="print-foot" id="printFoot"></p>
+  </main>
+
+  <script>
+    // Two tabs; the choice is kept in the URL hash so a link can open part B directly.
+    (function () {
+      const tabs = document.querySelectorAll('.help-tab');
+      function show(name) {
+        tabs.forEach((t) => t.classList.toggle('on', t.dataset.tab === name));
+        document.getElementById('tab-download').hidden = name !== 'download';
+        document.getElementById('tab-make').hidden = name !== 'make';
+      }
+      tabs.forEach((t) => t.addEventListener('click', () => { show(t.dataset.tab); history.replaceState(null, '', '#' + t.dataset.tab); }));
+      show(location.hash === '#make' ? 'make' : 'download');
+
+      // Print both parts; the footer carries the date it was printed.
+      document.getElementById('helpPrint').addEventListener('click', () => {
+        const d = new Date();
+        const dd = (n) => String(n).padStart(2, '0');
+        document.getElementById('printFoot').textContent =
+          `Printed ${dd(d.getDate())}-${dd(d.getMonth() + 1)}-${d.getFullYear()} from ${location.host}/clicms/help.html`;
+        window.print();
+      });
+    })();
+  </script>
+</body>
+</html>
