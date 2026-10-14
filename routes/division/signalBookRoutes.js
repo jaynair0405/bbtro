@@ -514,6 +514,35 @@ function resolveSide(sig) {
   return side;
 }
 
+// History for the fields the hand-written checks in publish do not cover (number,
+// location/KM, description and RI arms are logged there). Before 2026-10-14 a change
+// to only these — e.g. K-049's side flags — left no history at all.
+const SIDE_LABEL = { 'Left': 'LHS', 'Right': 'RHS', 'Extreme Right': 'Ext RHS', 'Extreme Left': 'Ext LHS', 'Gantry': 'Gantry' };
+function describeSide(sig) {
+  const side = resolveSide(sig);
+  const label = side ? SIDE_LABEL[side.placement] : '(none)';
+  const consistent = side && side.placement === sig.placement &&
+    SIDE_FLAGS.every(f => Number(side[f]) === Number(sig[f] ? 1 : 0));
+  // A row stored before the side rule may disagree with itself; say so rather than hide it.
+  return consistent ? label : `${label} (stored: ${sig.placement || 'none'}, flags ${SIDE_FLAGS.filter(f => sig[f]).join('+') || 'none'})`;
+}
+const LOGGED_OTHER_FIELDS = ['signal_function', 'on_curve', 'has_legend_board', 'visibility_distance_m', 'route_indicator_notes'];
+function logFieldChanges(signalId, old, sigFields, userId, historyEntries) {
+  const norm = v => (v == null ? '' : String(v));
+  if (old.placement !== sigFields.placement || SIDE_FLAGS.some(f => Number(old[f]) !== Number(sigFields[f]))) {
+    historyEntries.push([signalId, 'Placement Changed', describeSide(old), describeSide(sigFields), userId]);
+  }
+  if (norm(old.signal_type) !== norm(sigFields.signal_type)) {
+    historyEntries.push([signalId, 'Type Changed', old.signal_type, sigFields.signal_type, userId]);
+  }
+  const show = (k, v) => k === 'has_legend_board' ? (Number(v) ? 'Yes' : 'No') : (v == null || v === '' ? '(blank)' : String(v));
+  for (const k of LOGGED_OTHER_FIELDS) {
+    if (norm(old[k]) !== norm(sigFields[k])) {
+      historyEntries.push([signalId, 'Other', `${k}: ${show(k, old[k])}`, `${k}: ${show(k, sigFields[k])}`, userId]);
+    }
+  }
+}
+
 router.post('/section/:code/publish', async (req, res) => {
   let conn;
   try {
@@ -649,8 +678,7 @@ router.post('/section/:code/publish', async (req, res) => {
                  r.signal_id, old.signal_number, normalizeSignalNumber(old.signal_number)]
               );
             }
-            if (old.placement !== sigFields.placement)
-              historyEntries.push([r.signal_id, 'Placement Changed', old.placement, sigFields.placement, userId]);
+            logFieldChanges(r.signal_id, old, sigFields, userId, historyEntries);
             if ((old.location_text || '') !== (sigFields.location_text || '') || (old.km_text || '') !== (sigFields.km_text || ''))
               historyEntries.push([r.signal_id, 'Location Changed', `${old.location_text||''} / ${old.km_text||''}`, `${sigFields.location_text||''} / ${sigFields.km_text||''}`, userId]);
             if ((old.book_description || '') !== (sigFields.book_description || ''))
@@ -747,7 +775,9 @@ router.post('/section/:code/publish', async (req, res) => {
       await conn.execute(`DELETE FROM div_signal_section_drafts WHERE section_id = ?`, [section.id]);
 
       await conn.commit();
-      res.json({ ok: true, signalsChanged: historyEntries.length, rowCount: rows.length, copiesSynced });
+      // Count signals, not history rows: one signal can log several fields.
+      res.json({ ok: true, signalsChanged: new Set(historyEntries.map(h => h[0])).size,
+                 fieldsChanged: historyEntries.length, rowCount: rows.length, copiesSynced });
     } catch (txErr) {
       await conn.rollback();
       throw txErr;

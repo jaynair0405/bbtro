@@ -388,7 +388,9 @@ async function publish() {
   const j = await readReply(r);
   if (j.ok) {
     const copies = j.copiesSynced || [];
-    let msg = `Published — ${j.signalsChanged} signal change(s), ${j.rowCount} rows`;
+    const n = j.signalsChanged, f = j.fieldsChanged;
+    let msg = `Published — ${n} signal${n === 1 ? '' : 's'} changed` +
+              (f ? ` (${f} field${f === 1 ? '' : 's'})` : '') + `, ${j.rowCount} rows`;
     if (copies.length) msg += `; also updated on other page(s): ${[...new Set(copies.map(c => c.page))].join(', ')}`;
     const stale = [...new Set(copies.filter(c => c.pendingDraft).map(c => c.page))];
     if (stale.length) msg += ` — note: an unpublished draft on ${stale.join(', ')} still holds the old values`;
