@@ -495,6 +495,25 @@ async function syncMagnetCopies(conn, old, sigFields, draftSignalIds, userId, hi
 // Upserts signals (canonicalising RI arms), rebuilds book rows, flips
 // edit_source to 'ui', logs signal field changes, deletes the draft.
 // ---------------------------------------------------------------------------
+// One side per signal. placement and the four is_* flags are two encodings of the
+// same fact; the book prints from the flags, so the flags win when they disagree
+// (K-049, 2026-10-14: Ext RHS ticked, placement left at 'Left'). Mirrors
+// currentSide() in public/div/signal-book-editor.html. Returns null when no side.
+const SIDE_BY_PLACEMENT = {
+  'Left': 'is_lhs', 'Right': 'is_rhs', 'Extreme Right': 'is_ext_rhs', 'Extreme Left': 'is_ext_lhs', 'Gantry': null,
+};
+const SIDE_FLAGS = ['is_rhs', 'is_ext_rhs', 'is_lhs', 'is_ext_lhs'];
+function resolveSide(sig) {
+  let placement = ['is_ext_rhs', 'is_rhs', 'is_ext_lhs', 'is_lhs']
+    .map(f => sig[f] ? Object.keys(SIDE_BY_PLACEMENT).find(p => SIDE_BY_PLACEMENT[p] === f) : null)
+    .find(Boolean);
+  if (!placement && Object.prototype.hasOwnProperty.call(SIDE_BY_PLACEMENT, sig.placement)) placement = sig.placement;
+  if (!placement) return null;
+  const side = { placement };
+  SIDE_FLAGS.forEach(f => { side[f] = SIDE_BY_PLACEMENT[placement] === f ? 1 : 0; });
+  return side;
+}
+
 router.post('/section/:code/publish', async (req, res) => {
   let conn;
   try {
@@ -517,6 +536,13 @@ router.post('/section/:code/publish', async (req, res) => {
     if (!drafts.length) return res.status(400).json({ error: 'No draft to publish' });
     const model = JSON.parse(drafts[0].draft_json);
     const rows = model.rows || [];
+
+    // Refuse before writing anything: every signal must have a side (no 'Unknown').
+    const noSide = rows.filter(r => r.row_type === 'SIGNAL' && r.signal && !resolveSide(r.signal))
+                       .map(r => r.signal.signal_number || r.display_signal_no || '(unnumbered)');
+    if (noSide.length) {
+      return res.status(400).json({ error: `Side not set for: ${noSide.join(', ')} — pick LHS / RHS / Ext RHS / Ext LHS / Gantry` });
+    }
 
     await conn.beginTransaction();
     try {
@@ -576,10 +602,8 @@ router.post('/section/:code/publish', async (req, res) => {
           normalized_signal_number: normalizeSignalNumber(sig.signal_number),
           location_text: sig.location_text || null,
           km_text: sig.km_text || null,
-          placement: sig.placement || 'Unknown',
+          ...resolveSide(sig),  // placement + is_rhs/is_ext_rhs/is_lhs/is_ext_lhs, always consistent
           on_curve: sig.on_curve || 'Unknown',
-          is_rhs: sig.is_rhs ? 1 : 0, is_ext_rhs: sig.is_ext_rhs ? 1 : 0,
-          is_lhs: sig.is_lhs ? 1 : 0, is_ext_lhs: sig.is_ext_lhs ? 1 : 0,
           signal_type: sig.signal_type || 'Automatic',
           signal_function: sig.signal_function || null,
           has_legend_board: sig.has_legend_board ? 1 : 0,
