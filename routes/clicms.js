@@ -397,11 +397,40 @@ async function fillStoredParts(reportKey, req, got) {
   return stored.hand;
 }
 
+/*
+ * Working Hours Suburban can come from CMS's count report (no names) or the duty list
+ * (names). When a duty list replaces a stored counts-only load for the same day, say
+ * where the two disagree — the later download usually carries late sign-offs.
+ * Compares the sheet bands only (>09<=12, >12<=14, >14), lobby by lobby.
+ */
+const SUB_BANDS = [['>09<=12', ['b4', 'b5', 'b6']], ['>12<=14', ['b7']], ['>14', ['b8']]];
+async function compareSubhoursCounts(r, sheetDate) {
+  if (r.key !== 'subhours' || !r.facts || r.facts.crew.length === 0) return;
+  const report = cmsReports.catalogue().find((c) => c.key === 'subhours');
+  const prev = await store.currentCounts('subhours', store.dataDateFor(sheetDate, report.dateOffset));
+  if (!prev || prev.crew > 0) return;
+  const now = new Map(r.facts.counts.map((c) => [`${c.lobby}|${c.measure}`, c.value]));
+  const sum = (m, lobby, ms) => ms.reduce((s, x) => s + (m.get(`${lobby}|${x}`) || 0), 0);
+  const diffs = [];
+  ['CSTS', 'KYNS', 'PNVS'].forEach((lobby) => SUB_BANDS.forEach(([label, ms]) => {
+    const a = sum(prev.counts, lobby, ms), b = sum(now, lobby, ms);
+    if (a !== b) diffs.push(`${lobby} ${label}: ${a} → ${b}`);
+  }));
+  r.warnings.push(diffs.length
+    ? `Replaces the counts from the CMS count report for this day. Changed: ${diffs.join('; ')}.`
+    : 'Replaces the counts from the CMS count report for this day — same figures, now with names.');
+}
+
 async function autoSave(r, req, files, hand) {
   const sheetDate = safeISO((req.body || {}).sheetDate);
   if (!sheetDate) {
     r.warnings.push('Not saved — this page did not send the sheet date. Reload the page (it may be an old copy) and load again.');
     return r;
+  }
+  try {
+    await compareSubhoursCounts(r, sheetDate);
+  } catch (err) {
+    r.warnings.push(`Could not compare with the stored counts (${err.message}).`);
   }
   try {
     const user = (req.session && req.session.user && req.session.user.username) || 'unknown';
@@ -423,14 +452,19 @@ router.post('/daily/upload', upload.array('files', 20), async (req, res) => {
   const rejected = [];
   files.forEach((f) => {
     try {
-      const r = cmsReports.processFile(f.buffer);
-      const dup = reports.find((x) => x.key === r.key);
+      // One file can hold several reports (Working Hours: mainline + suburban lobbies).
+      const got = cmsReports.processFile(f.buffer);
       // Two files of one report are two different days — the file carries no date to tell which.
-      if (dup) throw new Error(`Same report as "${dup.file}". Upload one day at a time.`);
-      const out = { file: f.originalname, ...r };
-      Object.defineProperty(out, 'facts', { value: r.facts, enumerable: false });
-      Object.defineProperty(out, 'upload', { value: f, enumerable: false });
-      reports.push(out);
+      got.forEach((r) => {
+        const dup = reports.find((x) => x.key === r.key);
+        if (dup) throw new Error(`${r.label}: same report as "${dup.file}". Upload one day at a time.`);
+      });
+      got.forEach((r) => {
+        const out = { file: f.originalname, ...r };
+        Object.defineProperty(out, 'facts', { value: r.facts, enumerable: false });
+        Object.defineProperty(out, 'upload', { value: f, enumerable: false });
+        reports.push(out);
+      });
     } catch (err) {
       rejected.push({ file: f.originalname, error: err.message || 'Could not read the file.' });
     }
