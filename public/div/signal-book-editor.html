@@ -27,6 +27,9 @@
   .toolbar { position: sticky; top: 0; background: #fff; border-bottom: 1px solid #e5e7eb; padding: 10px 16px; display: flex; gap: 8px; align-items: center; z-index: 5; }
   .toolbar .title { font-weight: 600; font-size: 14px; }
   .toolbar .sp { flex: 1; }
+  .toolbar .search { font: inherit; font-size: 12.5px; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 5px; width: 220px; }
+  .rows.searching .move, .rows.searching .addbar { display: none; }  /* no reordering/adding beside hidden rows */
+  .toolbar .search-count { font-size: 12px; color: #6b7280; white-space: nowrap; }
   button { font-family: inherit; font-size: 12.5px; border: 1px solid #d1d5db; background: #fff; color: #1f2937; padding: 6px 12px; border-radius: 5px; cursor: pointer; }
   button:hover { background: #f9fafb; }
   button.primary { background: #1e3a8a; color: #fff; border-color: #1e3a8a; }
@@ -81,6 +84,8 @@
     <div class="toolbar" id="toolbar" style="display:none">
       <span class="title" id="secTitle"></span>
       <span id="secBadges"></span>
+      <input type="search" id="rowSearch" class="search" placeholder="Search signal, location, KM, station…" autocomplete="off">
+      <span id="searchCount" class="search-count"></span>
       <span class="sp"></span>
       <span class="status" id="status"></span>
       <button id="btnPreview">Open published ↗</button>
@@ -129,6 +134,8 @@ async function selectSection(code) {
   if (j.error) { toast(j.error); return; }
   state = { code, section: j.section, rows: j.rows, dirty: false, hasDraft: j.hasDraft };
   document.getElementById('toolbar').style.display = 'flex';
+  document.getElementById('rowSearch').value = '';
+  document.getElementById('searchCount').textContent = '';
   document.getElementById('secTitle').textContent = j.section.section_title;
   document.getElementById('secBadges').innerHTML =
     `<span class="badge ${j.section.edit_source}">${j.section.edit_source.toUpperCase()}</span>` +
@@ -146,12 +153,33 @@ function renderStatus(){
 function renderRows() {
   const host = document.getElementById('rows');
   host.innerHTML = '';
-  state.rows.forEach((row, i) => host.appendChild(renderRow(row, i)));
+  state.rows.forEach((row, i) => { const el = renderRow(row, i); el.dataset.idx = i; host.appendChild(el); });
   const bar = document.createElement('div');
   bar.className = 'addbar';
   bar.innerHTML = `<button data-add="SIGNAL">+ Signal</button><button data-add="STATION_HEADER">+ Station header</button><button data-add="PSR">+ PSR</button><button data-add="BOARD">+ Board</button><button data-add="NEUTRAL_SECTION">+ Neutral section</button><button data-add="TEXT_NOTE">+ Note</button>`;
   bar.querySelectorAll('button').forEach(b => b.onclick = () => addRow(b.dataset.add));
   host.appendChild(bar);
+  applySearch();
+}
+
+// Hides (never removes) non-matching rows: edits, row order and the saved draft are untouched.
+function rowSearchText(row) {
+  const sig = row.signal || {};
+  return [sig.signal_number, row.display_signal_no, sig.location_text, row.display_location,
+          sig.km_text, row.km_range_text, row.station_code, row.station_name, row.station_km_text]
+    .filter(Boolean).join(' ').toLowerCase();
+}
+function applySearch() {
+  const q = document.getElementById('rowSearch').value.trim().toLowerCase();
+  const count = document.getElementById('searchCount');
+  let shown = 0;
+  document.querySelectorAll('#rows .erow').forEach(el => {
+    const hit = !q || rowSearchText(state.rows[el.dataset.idx]).includes(q);
+    el.style.display = hit ? '' : 'none';
+    if (hit) shown++;
+  });
+  document.getElementById('rows').classList.toggle('searching', !!q);
+  count.textContent = q ? `${shown} of ${state.rows.length} rows` : '';
 }
 
 function field(label, value, oninput, type='text') {
@@ -175,8 +203,8 @@ function renderRow(row, i) {
   d.className = 'erow ' + row.row_type.toLowerCase();
   const head = document.createElement('div'); head.className = 'rowhead';
   head.innerHTML = `<span class="ord">${i+1}</span><span class="rtype">${row.row_type.replace('_',' ')}</span><span class="sp"></span>`;
-  const up = document.createElement('button'); up.className='iconbtn'; up.textContent='↑'; up.title='Move up'; up.onclick=()=>moveRow(i,-1);
-  const dn = document.createElement('button'); dn.className='iconbtn'; dn.textContent='↓'; dn.title='Move down'; dn.onclick=()=>moveRow(i,1);
+  const up = document.createElement('button'); up.className='iconbtn move'; up.textContent='↑'; up.title='Move up'; up.onclick=()=>moveRow(i,-1);
+  const dn = document.createElement('button'); dn.className='iconbtn move'; dn.textContent='↓'; dn.title='Move down'; dn.onclick=()=>moveRow(i,1);
   const del = document.createElement('button'); del.className='iconbtn'; del.textContent='✕'; del.title='Delete row'; del.onclick=()=>{ if(confirm('Delete this row?')){ state.rows.splice(i,1); markDirty(); renderRows(); } };
   head.append(up, dn, del);
   d.appendChild(head);
@@ -340,6 +368,10 @@ async function discard() {
   else toast('Discard failed — ' + (j.error || 'unknown error'));
 }
 
+const searchBox = document.getElementById('rowSearch');
+searchBox.addEventListener('input', applySearch);
+// Esc clears an active search from anywhere — the cursor is usually in a row field, not the search box.
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && searchBox.value) { searchBox.value = ''; applySearch(); } });
 document.getElementById('btnSave').onclick = saveDraft;
 document.getElementById('btnPublish').onclick = publish;
 document.getElementById('btnDiscard').onclick = discard;
