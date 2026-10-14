@@ -295,6 +295,42 @@ router.get('/sections', async (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
+// GET /find?q= — division-wide signal finder for the editor's left panel.
+// Searches the SIGNAL rows of active sections (published data, not drafts) and
+// lists every page a signal appears on, so magnet copies show up together.
+// ---------------------------------------------------------------------------
+router.get('/find', async (req, res) => {
+  let conn;
+  try {
+    const q = String(req.query.q || '').trim();
+    if (q.length < 2) return res.json({ matches: [] });
+    const like = `%${q.replace(/[\\%_]/g, c => '\\' + c)}%`;
+    conn = await req.app.locals.pool.getConnection();
+    const [rows] = await conn.execute(
+      `SELECT sec.section_code, sec.section_title, sec.line,
+              COALESCE(s.signal_number, r.display_signal_no) AS signal_number,
+              COALESCE(r.display_location, s.location_text) AS location,
+              s.km_text, r.station_name
+         FROM div_signal_book_rows r
+         JOIN div_signal_book_sections sec ON sec.id = r.book_section_id AND sec.is_active = 1
+         LEFT JOIN div_signals s ON s.id = r.signal_id
+        WHERE r.is_active = 1 AND r.row_type = 'SIGNAL'
+          AND (s.signal_number LIKE ? OR r.display_signal_no LIKE ? OR s.location_text LIKE ?
+               OR r.display_location LIKE ? OR s.km_text LIKE ? OR r.station_name LIKE ?)
+        ORDER BY signal_number, sec.section_code
+        LIMIT 51`,
+      [like, like, like, like, like, like]
+    );
+    res.json({ matches: rows.slice(0, 50), more: rows.length > 50 });
+  } catch (err) {
+    console.error('signal-book/find failed:', err);
+    res.status(500).json({ error: err.message });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+// ---------------------------------------------------------------------------
 // GET /section/:code/editable — load the editable model.
 // Returns the draft if one exists, else a fresh model built from live tables.
 // ---------------------------------------------------------------------------

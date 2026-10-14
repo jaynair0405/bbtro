@@ -19,6 +19,9 @@
   .sec-item.active { background: #eff6ff; border-left: 3px solid #1e3a8a; padding-left: 9px; }
   .sec-item .code { font-weight: 600; font-size: 12.5px; }
   .sec-item .meta { color: #6b7280; font-size: 11px; margin-top: 2px; }
+  .finder { padding: 10px 12px 6px; position: sticky; top: 0; background: #fff; z-index: 2; }
+  .finder input { width: 100%; box-sizing: border-box; font: inherit; font-size: 12.5px; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 5px; }
+  .find-note { padding: 6px 12px; font-size: 11.5px; color: #6b7280; }
   .badge { display: inline-block; font-size: 9.5px; font-weight: 700; padding: 1px 5px; border-radius: 3px; margin-left: 4px; vertical-align: middle; }
   .badge.ui { background: #dcfce7; color: #166534; }
   .badge.import { background: #e0e7ff; color: #3730a3; }
@@ -86,7 +89,11 @@
   <a href="/div/index.html">← Division Home</a>
 </header>
 <div class="layout">
-  <div class="sidebar" id="sidebar"><h2>Sections</h2><div id="secList"></div></div>
+  <div class="sidebar" id="sidebar">
+    <div class="finder"><input type="search" id="findBox" placeholder="Find a signal in all sections…" autocomplete="off"></div>
+    <div id="findResults" style="display:none"></div>
+    <div id="secPanel"><h2>Sections</h2><div id="secList"></div></div>
+  </div>
   <div class="main">
     <div class="toolbar" id="toolbar" style="display:none">
       <span class="title" id="secTitle"></span>
@@ -144,6 +151,40 @@ async function loadSections() {
       <div class="meta">${esc(s.section_title)} · ${s.row_count} rows<br>${esc(s.beats||'— no beats —')}</div>
     </div>`).join('');
   el.querySelectorAll('.sec-item').forEach(it => it.addEventListener('click', () => selectSection(it.dataset.code)));
+}
+
+// Division-wide finder: lists every page a signal is printed on; a click opens
+// that section with the in-section search filled in.
+let findTimer = null, findSeq = 0;
+function showFinder(on) {
+  document.getElementById('findResults').style.display = on ? '' : 'none';
+  document.getElementById('secPanel').style.display = on ? 'none' : '';
+}
+async function runFind() {
+  const q = document.getElementById('findBox').value.trim();
+  const out = document.getElementById('findResults');
+  if (q.length < 2) { showFinder(false); return; }
+  const seq = ++findSeq;
+  const r = await fetch(`/api/division/signal-book/find?q=${encodeURIComponent(q)}`).catch(() => null);
+  if (seq !== findSeq) return;  // a newer keystroke already answered
+  const j = r ? await readReply(r) : { error: 'server not reachable' };
+  showFinder(true);
+  if (j.error) { out.innerHTML = `<div class="find-note">Search failed — ${esc(j.error)}</div>`; return; }
+  const m = j.matches || [];
+  out.innerHTML = (m.length ? '' : '<div class="find-note">No signal found.</div>') +
+    m.map(x => `
+    <div class="sec-item" data-code="${esc(x.section_code)}" data-sig="${esc(x.signal_number)}">
+      <div class="code">${esc(x.signal_number)}</div>
+      <div class="meta">${esc(x.section_code)} · ${esc(x.location || x.km_text || '')}</div>
+    </div>`).join('') +
+    (j.more ? '<div class="find-note">More than 50 matches — type more to narrow.</div>' : '');
+  out.querySelectorAll('.sec-item').forEach(it => it.addEventListener('click', () => openFound(it.dataset.code, it.dataset.sig)));
+}
+async function openFound(code, sig) {
+  await selectSection(code);
+  if (state.code !== code) return;  // user kept unsaved edits in the current section
+  const box = document.getElementById('rowSearch');
+  box.value = sig; applySearch();
 }
 
 async function selectSection(code) {
@@ -407,6 +448,11 @@ async function discard() {
   else toast('Discard failed — ' + (j.error || 'unknown error'));
 }
 
+const findBox = document.getElementById('findBox');
+findBox.addEventListener('input', () => { clearTimeout(findTimer); findTimer = setTimeout(runFind, 200); });
+findBox.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { e.stopPropagation(); findBox.value = ''; findSeq++; showFinder(false); }
+});
 const searchBox = document.getElementById('rowSearch');
 searchBox.addEventListener('input', applySearch);
 // Esc clears an active search from anywhere — the cursor is usually in a row field, not the search box.
