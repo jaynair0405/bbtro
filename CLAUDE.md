@@ -191,6 +191,56 @@ The new detail book does, so a backfill is the thing that unblocks the relief
 graph report. 13 of the 19 R/T markers currently have their reciprocal R/B; the
 gaps are the backfill's to-do list.
 
+## Signal side (placement + flags)
+
+A signal stands on **one** side. `div_signals` records it twice — `placement` and four
+flags — and they must agree. The book and the RHS / Ext list print from the **flags**.
+
+| Side | `placement` | flag |
+|---|---|---|
+| LHS | Left | `is_lhs` |
+| RHS | Right | `is_rhs` |
+| Ext RHS | Extreme Right | `is_ext_rhs` |
+| Ext LHS | Extreme Left | `is_ext_lhs` |
+| Gantry | Gantry | (none) |
+
+There is no "Unknown" side. A signal with no side is **Left** — the 407 WDFC JNPN-MPRN
+signals (DFCCIL chart has no sides) were set Left on 2026-10-14
+(`sql/2026-10-14_wdfc_signals_placement_left.sql`).
+
+### Why it is enforced
+K-049 (2026-10-14): the editor had a Placement dropdown and four separate tick boxes; the
+user ticked Ext RHS and never touched the dropdown, leaving `Left` + `is_ext_rhs`. Seven
+older mismatches turned up the same way (`sql/2026-10-14_signal_side_mismatch_fix.sql`),
+two of them RHS signals flagged LHS, so the book was not printing their RHS tag.
+
+### Enforcement (do not remove)
+- **Editor** (`public/div/signal-book-editor.html`): one row of side buttons; a choice sets
+  `placement` and all four flags together. The selected side is read from the flags.
+- **Publish** (`resolveSide()` in `routes/division/signalBookRoutes.js`): derives placement
+  + flags from one side — **flags win** when they disagree — and refuses the whole publish,
+  naming the signals, if any has no side.
+- **Triggers** `trg_signals_side_ins` / `trg_signals_side_upd`
+  (`sql/2026-10-14_signals_side_triggers.sql`) for every other write path — imports, the
+  prod→local sync SQL, hand SQL:
+  - insert: a flag decides placement, else placement sets the flag;
+  - update: a placement-only edit moves the flags, otherwise flags win;
+  - no side → Left; **two flags → rejected** (an input error, not untidiness).
+
+### Gotchas
+- To make a signal Gantry by SQL, set `placement='Gantry'`. Clearing the flags alone gets
+  them put back, because placement still names a side.
+- **Prod needs MySQL root to create triggers** — binary logging is on, so the `.env` user
+  gets `ERROR 1419`. Run trigger files as `sudo mysql bbtro < sql/<file>.sql`.
+- A draft saved before a data fix still holds the old values and the editor loads it
+  instead of live data — discard it after fixing signals by SQL.
+
+### Rollback
+```sql
+DROP TRIGGER IF EXISTS trg_signals_side_ins;
+DROP TRIGGER IF EXISTS trg_signals_side_upd;
+```
+
 ## Waiting Details View (Spare Duties)
 
 ### What a "waiting" detail is

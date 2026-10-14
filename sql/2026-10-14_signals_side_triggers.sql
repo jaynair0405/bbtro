@@ -26,6 +26,9 @@
 -- Self-correcting rather than erroring (except two flags), like the WAITING
 -- triggers on trains, so one bad row never aborts a bulk import.
 --
+-- On prod run as MySQL root (`sudo mysql bbtro < sql/2026-10-14_signals_side_triggers.sql`):
+-- binary logging is on there, so the .env user gets ERROR 1419 on CREATE TRIGGER.
+--
 -- Rollback:
 --   DROP TRIGGER IF EXISTS trg_signals_side_ins;
 --   DROP TRIGGER IF EXISTS trg_signals_side_upd;
