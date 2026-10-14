@@ -13,6 +13,7 @@
  */
 
 const express = require('express');
+const crypto = require('crypto');
 const multer = require('multer');
 const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit');
@@ -422,6 +423,35 @@ async function compareSubhoursCounts(r, sheetDate) {
 }
 
 /*
+ * A mergeable report's files for this upload: the day's stored files first, then the
+ * new ones; a file sent again (same bytes) counts once. -> [{ name, buffer, parsed }]
+ * Body pddMode=replace leaves the stored files out.
+ */
+async function joinStoredFiles(r, req) {
+  const out = [];
+  const seen = new Set();
+  const add = (name, buffer, parsed) => {
+    const h = crypto.createHash('sha256').update(buffer).digest('hex');
+    if (seen.has(h)) return;
+    seen.add(h);
+    out.push({ name, buffer, parsed });
+  };
+  const sheetDate = safeISO((req.body || {}).sheetDate);
+  // pddMode=replace (the confirm box's "Replace saved"): only this upload's files.
+  if (sheetDate && (req.body || {}).pddMode !== 'replace') {
+    const stored = await store.currentParts(r.key, store.dataDateFor(sheetDate, r.dateOffset));
+    if (stored) {
+      Object.values(stored.files).forEach((f) => {
+        // A stored file that no longer reads is dropped, not fatal.
+        try { add(f.name, f.buffer, cmsReports.parseStored(r.key, f.buffer)); } catch (e) { /* skip */ }
+      });
+    }
+  }
+  r.uploads.forEach((f, i) => add(f.originalname, f.buffer, r.parts[i]));
+  return out;
+}
+
+/*
  * Check only (body check=1): the page's confirm box. Every upload route builds the report
  * as usual but saves nothing; r.check = { dataDate, existing: { by, at } | null } says where
  * it WOULD be saved and whether that replaces a saved one. The page then posts again to save.
@@ -436,7 +466,8 @@ async function autoSave(r, req, files, hand) {
   }
   if (isCheck(req)) {
     const dataDate = store.dataDateFor(sheetDate, r.dateOffset);
-    r.check = { dataDate, existing: null };
+    // mergeable: the page offers Add to saved / Replace saved instead of "replaces saved".
+    r.check = { dataDate, existing: null, mergeable: cmsReports.canMerge(r.key) };
     try { r.check.existing = await store.currentLoad(r.key, dataDate); } catch (err) { r.check.error = err.message; }
     return r;
   }
@@ -463,25 +494,58 @@ router.post('/daily/upload', upload.array('files', 20), async (req, res) => {
 
   const reports = [];
   const rejected = [];
+  const sheetDate = safeISO((req.body || {}).sheetDate);
   files.forEach((f) => {
     try {
       // One file can hold several reports (Working Hours: mainline + suburban lobbies).
       const got = cmsReports.processFile(f.buffer);
+      // A file that says which day it is (PDD: the crew's SIGN ON date) must be this
+      // sheet's data date — a wrong day would otherwise be joined in unnoticed.
+      got.forEach((r) => {
+        const own = r.parsed && r.parsed.signOnDate;
+        const want = sheetDate && store.dataDateFor(sheetDate, r.dateOffset);
+        if (own && want && own !== want) {
+          throw new Error(`${r.label}: crew signed on ${isoToDDMMYYYY(own)}, but this sheet's ${r.label} is for ` +
+            `${isoToDDMMYYYY(want)} (sheet date ${isoToDDMMYYYY(sheetDate)} − ${r.dateOffset} day${r.dateOffset === 1 ? '' : 's'}). Download the right day from CMS.`);
+        }
+      });
       // Two files of one report are two different days — the file carries no date to tell which.
+      // A mergeable report (PDD: summary + lobby lists) takes any number of files.
       got.forEach((r) => {
         const dup = reports.find((x) => x.key === r.key);
-        if (dup) throw new Error(`${r.label}: same report as "${dup.file}". Upload one day at a time.`);
+        if (dup && !cmsReports.canMerge(r.key)) throw new Error(`${r.label}: same report as "${dup.file}". Upload one day at a time.`);
       });
       got.forEach((r) => {
+        const dup = reports.find((x) => x.key === r.key);
+        if (dup) { dup.parts.push(r.parsed); dup.uploads.push(f); return; }
         const out = { file: f.originalname, ...r };
         Object.defineProperty(out, 'facts', { value: r.facts, enumerable: false });
-        Object.defineProperty(out, 'upload', { value: f, enumerable: false });
+        Object.defineProperty(out, 'uploads', { value: [f], enumerable: false });
+        Object.defineProperty(out, 'parts', { value: [r.parsed], enumerable: false });
         reports.push(out);
       });
     } catch (err) {
       rejected.push({ file: f.originalname, error: err.message || 'Could not read the file.' });
     }
   });
+  // Mergeable reports: join this upload's files with the day's stored ones.
+  for (let i = 0; i < reports.length; i++) {
+    const r = reports[i];
+    if (!cmsReports.canMerge(r.key)) continue;
+    try {
+      const all = await joinStoredFiles(r, req);
+      const built = cmsReports.mergeReport(r.key, all.map((x) => x.parsed));
+      const undated = all.filter((x) => x.parsed.signOnDate === null).map((x) => x.name);
+      if (undated.length) built.warnings.push(`${undated.join(', ')}: no sign-on date in the file (a summary, or a list with no crew) — its day could not be checked.`);
+      const out = { file: all.map((x) => x.name).join(', '), ...built };
+      Object.defineProperty(out, 'facts', { value: built.facts, enumerable: false });
+      Object.defineProperty(out, 'uploads', { value: all.map((x) => ({ originalname: x.name, buffer: x.buffer })), enumerable: false });
+      reports[i] = out;
+    } catch (err) {
+      rejected.push({ file: r.uploads.map((f) => f.originalname).join(', '), error: err.message || 'Could not read the files.' });
+      reports.splice(i--, 1);
+    }
+  }
   reports.sort((a, b) => a.order - b.order);
   try {
     await addDesignations(reports);
@@ -490,7 +554,11 @@ router.post('/daily/upload', upload.array('files', 20), async (req, res) => {
     reports.forEach((r) => r.warnings.push(`Designation lookup failed (${err.message}) — drill-down lists show none.`));
   }
   // Saved after the designation lookup, so the stored tables match what is shown.
-  for (const r of reports) await autoSave(r, req, [{ name: r.upload.originalname, buffer: r.upload.buffer }], null);
+  // A mergeable report keeps every file, numbered, so the next upload can join them again.
+  for (const r of reports) {
+    const many = r.uploads.length > 1 || cmsReports.canMerge(r.key);
+    await autoSave(r, req, r.uploads.map((f, i) => ({ name: f.originalname, buffer: f.buffer, slot: many ? `f${i + 1}` : undefined })), null);
+  }
   res.json({ catalogue: cmsReports.catalogue(), reports, rejected });
 });
 

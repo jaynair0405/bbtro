@@ -13,7 +13,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <!-- ?v tags must match CACHE_VERSION in clicms-sw.js (see index.html). -->
   <link rel="stylesheet" href="clicms.css?v5" />
-  <link rel="stylesheet" href="daily.css?v11" /><!-- report switcher only -->
+  <link rel="stylesheet" href="daily.css?v12" /><!-- report switcher only -->
   <style>
     /* Help page only. Colours come from clicms.css. */
     main.help { max-width: 1080px; margin: 0 auto; padding: 20px 16px 48px; }
@@ -223,15 +223,21 @@
           <div class="note">One file fills both Working Hours Mainline and Working Hours Suburban (cards 8 and 9 on the sheet).
             For suburban names, the motorman duty list can be uploaded too — it replaces the suburban counts for that day.</div></div>
 
-        <div class="card"><h3><span class="num">10</span>PDD <span class="tag">1 CSV</span></h3>
+        <div class="card"><h3><span class="num">10</span>PDD <span class="tag">1 + 10 CSVs</span></h3>
           <div class="path"><span class="menu">RUN</span> → <b>PDD</b></div>
           <ul class="flow">
             <li><span class="k">Pilot</span>Select All w/o MMAN</li>
             <li><span class="k">Detail level</span>Summary</li>
             <li><span class="k">Report level</span>DIVISION</li>
             <li class="tbc"><span class="k">Date</span>to be confirmed</li>
-            <li><span class="k">Show Report</span></li>
-          </ul></div>
+            <li><span class="k">Show Report</span>save as CSV (the summary)</li>
+            <li><span class="k">Then, per lobby</span>IGP, KYN, PNVL, JNPN, LNL: click the <b>&gt;02:00 AND ≤03:00</b> count, save as CSV; back, click the <b>&gt;03:00</b> count, save as CSV</li>
+          </ul>
+          <div class="note">11 files in all. Upload them together or a few at a time — they join into one PDD.
+            A lobby list with no crew is fine to upload. Total Cases is taken from the summary; the
+            &gt;2 and &gt;3 Hrs counts from the lobby lists (the portal's summary shows more than its own lists).
+            A list from the wrong day is refused (its SIGN ON date is checked). Adding PDD again the
+            same day asks: <b>Add to saved</b> or <b>Replace saved</b>.</div></div>
 
         <div class="card"><h3><span class="num">11</span>Lobbywise Breach of Rest <span class="tag">1 CSV</span> <span class="tag hand">or fill by hand</span></h3>
           <div class="path"><span class="menu">RUN</span> → <b>Breach of Rest (BOR)</b></div>

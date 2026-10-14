@@ -220,6 +220,8 @@ body.drawer-open { overflow: hidden; }
 .confirm-head .older { color: #a86b00; }
 .confirm-tbl .dim { color: var(--muted); font-size: 12.5px; text-align: right; white-space: nowrap; }
 .confirm-tbl .replaces { margin-top: 2px; }
+.merge-pick { display: block; font-size: 12px; margin-top: 4px; cursor: pointer; }
+.merge-pick input { vertical-align: -2px; }
 #workStage.drag { outline: 3px dashed var(--signal-amber); outline-offset: 6px; border-radius: 8px; }
 #workStage.drag::before { content: "Drop the CSV files to add them to this day"; display: block; text-align: center;
   font-weight: 600; color: var(--navy); background: #fff4dc; padding: 8px; margin-bottom: 10px; border-radius: 6px; }

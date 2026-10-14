@@ -121,7 +121,9 @@ async function call(url, opts) {
 // builds the reports without saving (check=1); the box lists the data date each one WOULD
 // be saved under and whether that replaces a saved one. The sheet date can be changed in
 // the box. Only Confirm saves (the same request again, check off).
-//   send(date, check) -> response JSON      apply(data) -> show the saved result
+//   send(date, check, opts) -> response JSON      apply(data) -> show the saved result
+// A report whose files join (PDD) and is already saved for the day asks instead:
+// Add to saved (default) or Replace saved — opts.mode = 'add' | 'replace'.
 function confirmSave(send, apply) {
   const dlg = $('confirmBox');
   const date = state.reports.length ? state.date : $('reportDate').value;
@@ -146,8 +148,13 @@ function confirmSave(send, apply) {
       // Grouped today / yesterday / day before, sheet order within each.
       reps.sort((a, b) => (a.dateOffset || 0) - (b.dateOffset || 0) || a.order - b.order);
       const dd = (iso) => isoToDDMMYYYY(iso).slice(0, 5);
-      const row = (r) => `<tr><td>${esc(r.label)}${r.check && r.check.existing
-        ? `<div class="replaces">⚠ replaces saved (${esc(r.check.existing.by)}, ${esc(r.check.existing.at)})</div>` : ''}</td>
+      const saved = (r) => `${esc(r.check.existing.by)}, ${esc(r.check.existing.at)}`;
+      const row = (r) => `<tr><td>${esc(r.label)}${!r.check || !r.check.existing ? ''
+        : r.check.mergeable
+          ? `<div class="replaces">⚠ ${esc(r.label)} already saved (${saved(r)})</div>
+             <label class="merge-pick"><input type="radio" name="mergeMode" value="add" checked> <strong>Add to saved ${esc(r.label)}</strong> — keeps the saved files, adds these</label>
+             <label class="merge-pick"><input type="radio" name="mergeMode" value="replace"> <strong>Replace saved ${esc(r.label)}</strong> — start again with only these files</label>`
+          : `<div class="replaces">⚠ replaces saved (${saved(r)})</div>`}</td>
         <td>${esc(dataWords(r.check.dataDate, date))}</td><td class="mono dim">${dd(r.check.dataDate)}</td></tr>`;
       $('confirmList').innerHTML =
         (reps.length ? `<table class="confirm-tbl"><tbody>${reps.map(row).join('')}</tbody></table>` : '') +
@@ -165,7 +172,8 @@ function confirmSave(send, apply) {
     $('confirmOk').disabled = true;
     let data;
     try {
-      data = await send(date, false);
+      const pick = $('confirmList').querySelector('input[name=mergeMode]:checked');
+      data = await send(date, false, { mode: pick ? pick.value : 'add' });
     } catch (err) {
       $('confirmList').insertAdjacentHTML('beforeend', `<p class="err">${esc(err.message)}</p>`);
       $('confirmOk').disabled = false;
@@ -208,10 +216,11 @@ function showUploadErr(msg) {
 function uploadFiles(files) {
   $('uploadErr').hidden = true;
   if (files.length === 0) return;
-  confirmSave((date, check) => {
+  confirmSave((date, check, opts) => {
     const fd = new FormData();
     fd.append('sheetDate', date);
     if (check) fd.append('check', '1');
+    if (opts && opts.mode === 'replace') fd.append('pddMode', 'replace');
     files.forEach((f) => fd.append('files', f));
     return call('daily/upload', { body: fd });
   }, showUploaded);
