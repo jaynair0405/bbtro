@@ -34,6 +34,8 @@
 }
 .day-title { font-family: "Barlow Semi Condensed", sans-serif; font-size: 22px; font-weight: 600; }
 .day-title strong { font-family: var(--mono); font-size: 19px; color: var(--navy); }
+.day-title input[type="date"] { font-family: var(--mono); font-size: 18px; color: var(--navy); padding: 2px 6px;
+  border: 1px solid var(--line); border-radius: 6px; background: var(--surface); }
 .day-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 /* Exports print the daily-sheet block only unless this is ticked. */
 .detail-opt { font-size: 13px; font-weight: 600; color: var(--muted); display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
@@ -190,3 +192,34 @@ body.drawer-open { overflow: hidden; }
 /* Saved-to-database line (drawer) and the "Not saved" flag (block head). */
 .saved { font-size: 11.5px; color: var(--muted); }
 .saved.no { color: #b42318; font-weight: 600; }
+
+/* ---- Confirm before saving ---- */
+.confirm-box { border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; width: min(680px, calc(100vw - 32px));
+  color: var(--ink); background: var(--surface); }
+.confirm-box::backdrop { background: rgba(15, 28, 45, .45); }
+.confirm-head { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; justify-content: space-between;
+  border-bottom: 1px solid var(--line); padding-bottom: 10px; margin-bottom: 10px; font-size: 17px; }
+.confirm-head input { font-family: var(--mono); font-size: 16px; padding: 2px 6px; margin-left: 6px; }
+.confirm-tbl { width: 100%; border-collapse: collapse; font-size: 14px; }
+.confirm-tbl td { padding: 6px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.confirm-tbl .mono { font-family: var(--mono); }
+.confirm-tbl .replaces { color: var(--alert); font-size: 12px; font-weight: 600; }
+.confirm-rej { margin-top: 10px; font-size: 13px; color: var(--alert); }
+.confirm-rej ul { margin: 4px 0; padding-left: 18px; }
+.confirm-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 14px; }
+.btn-move { margin-left: 8px; font: 500 11.5px Barlow, sans-serif; color: var(--navy); background: none;
+  border: 1px solid var(--line); border-radius: 4px; padding: 1px 7px; cursor: pointer; vertical-align: middle; }
+.btn-move:hover { border-color: var(--navy); }
+.move-pick { display: block; margin: 8px 0; font-size: 15px; }
+.move-pick input { font-family: var(--mono); font-size: 16px; padding: 2px 6px; margin-left: 6px; }
+@media print { .btn-move { display: none; } }
+.today-tag { font-weight: 600; color: var(--navy); }
+.older-link { font-size: 12.5px; color: var(--navy); margin-left: 6px; }
+.date-row input[type="date"]:disabled, .day-title input[type="date"]:disabled { background: transparent; border-color: transparent;
+  color: var(--navy); opacity: 1; padding-left: 0; }
+.confirm-head .older { color: #a86b00; }
+.confirm-tbl .dim { color: var(--muted); font-size: 12.5px; text-align: right; white-space: nowrap; }
+.confirm-tbl .replaces { margin-top: 2px; }
+#workStage.drag { outline: 3px dashed var(--signal-amber); outline-offset: 6px; border-radius: 8px; }
+#workStage.drag::before { content: "Drop the CSV files to add them to this day"; display: block; text-align: center;
+  font-weight: 600; color: var(--navy); background: #fff4dc; padding: 8px; margin-bottom: 10px; border-radius: 6px; }

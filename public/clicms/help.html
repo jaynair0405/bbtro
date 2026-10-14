@@ -13,7 +13,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <!-- ?v tags must match CACHE_VERSION in clicms-sw.js (see index.html). -->
   <link rel="stylesheet" href="clicms.css?v5" />
-  <link rel="stylesheet" href="daily.css?v10" /><!-- report switcher only -->
+  <link rel="stylesheet" href="daily.css?v11" /><!-- report switcher only -->
   <style>
     /* Help page only. Colours come from clicms.css. */
     main.help { max-width: 1080px; margin: 0 auto; padding: 20px 16px 48px; }
@@ -289,9 +289,10 @@
     <section id="tab-make" hidden>
       <h2 class="part-head">B. Making the Daily Position</h2>
       <ol class="steps">
-        <li><h3>Pick the sheet date first</h3>
-          The date box on the Daily Position page is the date of the <b>sheet</b> (the day the position goes to officers).
-          The CMS files carry no date, so every report is saved under its own <b>data date</b>, worked out from the sheet date:
+        <li><h3>The sheet date is today — set for you</h3>
+          <b>Position for: Today</b> is the date of the <b>sheet</b> (the day you download and send the position to officers).
+          It is filled in and locked; never set a report's own date there. The CMS files carry no date, so every report is
+          saved under its own <b>data date</b>, worked out from the sheet date:
           <table class="dates">
             <tr><th>Data date</th><th>Reports</th></tr>
             <tr><td>Sheet date (D-0)</td><td>CLI Monitoring Due, Kiosk Detail</td></tr>
@@ -299,15 +300,21 @@
               PME/REFT/ASIG Overdue, PR Overdue, Sign On/Off without Biometric, Breach of Rest</td></tr>
             <tr><td>Day before (D-2)</td><td>Working Hours Mainline, Working Hours Suburban, PDD, Sign On – Sign Off Biometric</td></tr>
           </table>
-          Each report's heading shows its data date in brackets — check it.</li>
+          Each report's heading shows its data date in brackets.
+          Making up a <b>missed day</b>? Press <b>Making an older sheet?</b> and pick the date that sheet was <b>due</b>
+          — still not the reports' dates.</li>
 
-        <li class="warn"><h3>Check the date before adding files</h3>
-          If anything is already saved for today, the page opens today's day straight away. After the first file is loaded,
-          <b>+ Add files</b> always saves under the date shown at the top. For a different day, press <b>New day</b> and pick the date first.</li>
+        <li class="warn"><h3>Check the confirm box</h3>
+          Nothing is saved straight away. Every upload — all files at once, <b>+ Add files</b>, a tab, or Fill by hand —
+          first shows a <b>Save these reports?</b> box listing each report recognised with whose data it is
+          (today's, yesterday's, day before yesterday), and
+          <span style="color:var(--alert);font-weight:600">⚠ replaces saved</span> where that day already has it.
+          Files it could not recognise are listed too. Nothing to choose — check and press <b>Confirm &amp; save</b>.</li>
 
         <li><h3>Drop all the ordinary downloads at once</h3>
           Drag the CSV files onto the box, or <b>Choose CSV files</b>. File names do not matter. A file the page does not
-          recognise is listed with the reason; the rest still load.</li>
+          recognise is listed with the reason; the rest still load. Once the day's reports are showing, more files can be
+          dropped anywhere on them, or added with <b>+ Add files</b>.</li>
 
         <li><h3>Files that look alike go in tabs</h3>
           <ul>
@@ -331,7 +338,13 @@
         <li><h3>Saving and reloading</h3>
           Every upload and hand entry is saved automatically. Loading the same report again for the same day replaces it
           (the earlier one is kept as history) — normal when a later download catches late sign-offs. Picking a date that is
-          already saved opens it, so a day can be added to or exported later.</li>
+          already saved opens it, so a day can be added to or exported later. To open an earlier day, use <b>Older sheet?</b>
+          at the top and pick that sheet's date; <b>Back to today</b> returns.</li>
+
+        <li><h3>A report saved under the wrong date</h3>
+          Press <b>Change date</b> next to the report's date, pick its correct <b>data date</b> (the box shows which sheet that
+          belongs to) and <b>Move</b>. If that date already has the report, you are asked before it is replaced. Nothing is
+          deleted — the earlier copies are kept as history. The button is on the page only, never in the PDF or Excel.</li>
 
         <li><h3>Export</h3>
           <ul>

@@ -13,7 +13,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <!-- ?v tags must match CACHE_VERSION in clicms-sw.js (see index.html). -->
   <link rel="stylesheet" href="clicms.css?v5" />
-  <link rel="stylesheet" href="daily.css?v10" />
+  <link rel="stylesheet" href="daily.css?v11" />
 </head>
 <body>
   <header class="topbar">
@@ -38,9 +38,12 @@
     <!-- Upload stage -->
     <section id="uploadStage" class="upload-stage">
       <div class="date-row">
-        <label for="reportDate">Sheet date</label>
-        <input type="date" id="reportDate" />
-        <span class="date-note">The CMS downloads carry no date. Each report shows its own data date: sheet date minus 0, 1 or 2 days.</span>
+        <label for="reportDate">Position for</label>
+        <span class="today-tag" id="todayTag">Today,</span>
+        <input type="date" id="reportDate" disabled />
+        <a href="#" class="older-link" data-older="1">Making an older sheet?</a>
+        <span class="date-note">This is the date of the Position sheet — normally today. Each report's own data
+          (today's, yesterday's, day before yesterday's) is worked out from it; never pick a report's date here.</span>
         <span class="date-note" id="dayStatus"></span>
       </div>
       <div class="dropzone" id="dropzone">
@@ -117,7 +120,9 @@
     <!-- Work stage -->
     <section id="workStage" hidden>
       <div class="day-bar">
-        <div class="day-title">Position for <strong id="dayLabel">—</strong></div>
+        <div class="day-title"><label for="dayDate">Position for</label> <span class="today-tag" id="dayTodayTag">Today,</span>
+          <input type="date" id="dayDate" disabled title="Sheet date — + Add files saves under this date" />
+          <a href="#" class="older-link" data-older="1">Older sheet?</a></div>
         <div class="day-actions">
           <label class="btn btn-ghost">
             + Add files
@@ -128,7 +133,6 @@
           <button class="btn btn-export" id="dayPdfBtn">⬇ Whole day — PDF</button>
           <button class="btn btn-export" id="posPdfBtn" title="Two A4 pages laid out as the sheet sent to officers">⬇ Position (one view) — PDF</button>
           <button class="btn btn-export" id="posXlsxBtn" title="The same layout on one Excel sheet">⬇ Position (one view) — Excel</button>
-          <button class="btn btn-ghost" id="newBtn">New day</button>
         </div>
       </div>
 
@@ -139,7 +143,33 @@
     </section>
   </main>
 
-  <script src="daily.js?v11"></script>
+  <!-- Confirm before saving: every way of adding a report comes through here -->
+  <dialog id="confirmBox" class="confirm-box">
+    <div class="confirm-head">
+      <strong>Save these reports?</strong>
+      <span id="confirmFor"></span>
+    </div>
+    <div id="confirmList"></div>
+    <div class="confirm-actions">
+      <button type="button" class="btn btn-ghost" id="confirmCancel">Cancel</button>
+      <button type="button" class="btn btn-primary" id="confirmOk" disabled>Confirm &amp; save</button>
+    </div>
+  </dialog>
+
+  <!-- Change date of one saved report (page only; exports never show it) -->
+  <dialog id="moveBox" class="confirm-box">
+    <div class="confirm-head"><strong id="moveTitle">Change date</strong></div>
+    <p class="tnote" id="moveNow"></p>
+    <label class="move-pick">Correct data date <input type="date" id="moveDate" /></label>
+    <p class="tnote" id="moveSheet"></p>
+    <div id="moveMsg"></div>
+    <div class="confirm-actions">
+      <button type="button" class="btn btn-ghost" id="moveCancel">Cancel</button>
+      <button type="button" class="btn btn-primary" id="moveOk">Move</button>
+    </div>
+  </dialog>
+
+  <script src="daily.js?v12"></script>
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {

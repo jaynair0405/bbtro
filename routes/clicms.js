@@ -421,10 +421,23 @@ async function compareSubhoursCounts(r, sheetDate) {
     : 'Replaces the counts from the CMS count report for this day — same figures, now with names.');
 }
 
+/*
+ * Check only (body check=1): the page's confirm box. Every upload route builds the report
+ * as usual but saves nothing; r.check = { dataDate, existing: { by, at } | null } says where
+ * it WOULD be saved and whether that replaces a saved one. The page then posts again to save.
+ */
+const isCheck = (req) => ['1', 'true', true].includes((req.body || {}).check);
+
 async function autoSave(r, req, files, hand) {
   const sheetDate = safeISO((req.body || {}).sheetDate);
   if (!sheetDate) {
     r.warnings.push('Not saved — this page did not send the sheet date. Reload the page (it may be an old copy) and load again.');
+    return r;
+  }
+  if (isCheck(req)) {
+    const dataDate = store.dataDateFor(sheetDate, r.dateOffset);
+    r.check = { dataDate, existing: null };
+    try { r.check.existing = await store.currentLoad(r.key, dataDate); } catch (err) { r.check.error = err.message; }
     return r;
   }
   try {
@@ -587,6 +600,31 @@ router.post('/daily/day', async (req, res) => {
     res.json({ catalogue: cmsReports.catalogue(), sheetDate, reports });
   } catch (err) {
     res.status(500).json({ error: `Could not read the stored day (${err.message}).` });
+  }
+});
+
+/*
+ * Change date of a saved report (store.moveLoad: copy to the new date, the old one kept as
+ * history). Body { loadId, dataDate, replace }: dataDate is the report's correct DATA date;
+ * its sheet date follows from the report's offset. 409 + conflict when that date already
+ * has the report and replace was not given.
+ */
+router.post('/daily/move', async (req, res) => {
+  const { loadId, replace } = req.body || {};
+  const dataDate = safeISO((req.body || {}).dataDate);
+  if (!Number.isInteger(Number(loadId)) || !dataDate) return res.status(400).json({ error: 'Choose a valid date.' });
+  try {
+    const [[row]] = await pool.query('SELECT report_key FROM cms_daily_loads WHERE id = ?', [Number(loadId)]);
+    const report = row && cmsReports.catalogue().find((c) => c.key === row.report_key && !c.slotOf);
+    if (!report) return res.status(404).json({ error: 'That saved report was not found.' });
+    // sheet = data + offset (dataDateFor with a negative offset adds days)
+    const sheetDate = store.dataDateFor(dataDate, -report.dateOffset);
+    const user = (req.session && req.session.user && req.session.user.username) || 'unknown';
+    const out = await store.moveLoad({ loadId: Number(loadId), newDataDate: dataDate, newSheetDate: sheetDate, user, replace: !!replace });
+    if (out.conflict) return res.status(409).json({ conflict: out.conflict, label: report.label, dataDate, sheetDate });
+    res.json({ ...out, label: report.label });
+  } catch (err) {
+    res.status(400).json({ error: err.message || 'Could not change the date.' });
   }
 });
 
