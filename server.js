@@ -84,6 +84,8 @@ const sessionStore = new MySQLStore(sessionStoreOptions);
 app.use((req, res, next) => {
   if (req.originalUrl.startsWith("/spm/rtis")) return next();
   if (req.originalUrl.startsWith("/spm/sub-spm")) return next();
+  // Signal-book editor saves a whole section (up to ~300 rows) per draft; it gets its own limit at its mount
+  if (req.originalUrl.startsWith("/api/division/signal-book")) return next();
   express.json()(req, res, next);
 });
 
@@ -975,7 +977,7 @@ app.use("/api/division/cvvrs", requireRealm('division'), cvvrsRoutes);
 app.use("/api/division/adas", requireRealm('division'), adasRoutes);
 app.use("/api/division/loco-link", requireRealm('division'), locoLinkRoutes);
 app.use("/api/division/aws", requireRealm('division'), awsUploadRoutes);
-app.use("/api/division/signal-book", requireRealm('division'), signalBookRoutes);
+app.use("/api/division/signal-book", requireRealm('division'), express.json({ limit: '5mb' }), signalBookRoutes);
 app.use("/api/division/signal-sync", requireRealm('division'), signalSyncRoutes); // admin check inside
 app.use("/api/division/documents", requireRealm('division'), documentRoutes);
 app.use("/api/division/transfer-letters", requireRealm('division'), transferLetterRoutes);
