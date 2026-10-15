@@ -495,8 +495,17 @@ router.post('/daily/upload', upload.array('files', 20), async (req, res) => {
   const reports = [];
   const rejected = [];
   const sheetDate = safeISO((req.body || {}).sheetDate);
+  const slotted = {};                 // slot reports' files dropped here: { key: { slot: file } }
   files.forEach((f) => {
     try {
+      // A slot report's file (BOR summary / Yesterday list) goes to its slot.
+      const place = sheetDate && cmsReports.dropSlot(f.buffer, sheetDate);
+      if (place) {
+        const held = slotted[place.key] || (slotted[place.key] = {});
+        if (held[place.slot]) throw new Error(`Same part as "${held[place.slot].name}" — upload one day at a time.`);
+        held[place.slot] = { name: f.originalname, buffer: f.buffer };
+        return;
+      }
       // One file can hold several reports (Working Hours: mainline + suburban lobbies).
       const got = cmsReports.processFile(f.buffer);
       // A file that says which day it is must fit this sheet (PDD: SIGN ON date = data
@@ -525,6 +534,13 @@ router.post('/daily/upload', upload.array('files', 20), async (req, res) => {
       rejected.push({ file: f.originalname, error: err.message || 'Could not read the file.' });
     }
   });
+  if (slotted.bor) {
+    try {
+      reports.push(await buildBor(req, slotted.bor));
+    } catch (err) {
+      rejected.push({ file: Object.values(slotted.bor).map((x) => x.name).join(', '), error: err.message || 'Could not read the file.' });
+    }
+  }
   // Mergeable reports: join this upload's files with the day's stored ones.
   for (let i = 0; i < reports.length; i++) {
     const r = reports[i];
@@ -553,6 +569,7 @@ router.post('/daily/upload', upload.array('files', 20), async (req, res) => {
   // Saved after the designation lookup, so the stored tables match what is shown.
   // A mergeable report keeps every file, numbered, so the next upload can join them again.
   for (const r of reports) {
+    if (r.slotFiles) { await autoSave(r, req, r.slotFiles, null); continue; }
     const many = r.uploads.length > 1 || cmsReports.canMerge(r.key);
     await autoSave(r, req, r.uploads.map((f, i) => ({ name: f.originalname, buffer: f.buffer, slot: many ? `f${i + 1}` : undefined })), null);
   }
@@ -638,6 +655,43 @@ router.post('/daily/upload-nonbio', upload.fields(NONBIO_SLOTS.map((name) => ({ 
     const r = cmsReports.processSlots('subsonoff', files);
     const out = { file: names.join(', '), ...r };
     await autoSave(withFactsOf(out, r), req, raw, files.drlttHand || null);
+    res.json({ catalogue: cmsReports.catalogue(), report: out });
+  } catch (err) {
+    res.status(400).json({ error: err.message || 'Could not read the file.' });
+  }
+});
+
+/*
+ * Breach of rest: summary + Yesterday / Last FN / Last Month crew lists (look-alike
+ * headers), posted by slot. Same contract as upload-nonbio. Also reached from the main
+ * upload for a dropped summary or Yesterday list (got = { slot: { name, buffer } }).
+ */
+const BOR_SLOTS = ['sum', 'y', 'fn', 'm'];
+async function buildBor(req, got) {
+  await fillStoredParts('bor', req, got);
+  // A summary stored on its own by an older load comes back unnamed.
+  if (got.file) { if (!got.sum) got.sum = got.file; delete got.file; }
+  const files = {};
+  const raw = [];
+  BOR_SLOTS.forEach((k) => {
+    if (!got[k]) return;
+    files[k] = got[k].buffer;
+    raw.push({ slot: k, name: got[k].name, buffer: got[k].buffer });
+  });
+  const sheetDate = safeISO((req.body || {}).sheetDate);
+  const report = cmsReports.catalogue().find((c) => c.key === 'bor');
+  const r = cmsReports.processSlots('bor', files, { dataDate: sheetDate ? store.dataDateFor(sheetDate, report.dateOffset) : null });
+  const out = withFactsOf({ file: raw.map((f) => f.name).join(', '), ...r }, r);
+  Object.defineProperty(out, 'slotFiles', { value: raw, enumerable: false });
+  return out;
+}
+router.post('/daily/upload-bor', upload.fields(BOR_SLOTS.map((name) => ({ name, maxCount: 1 }))), async (req, res) => {
+  const up = req.files || {};
+  const got = {};
+  BOR_SLOTS.forEach((k) => { if (up[k] && up[k][0]) got[k] = { name: up[k][0].originalname, buffer: up[k][0].buffer }; });
+  try {
+    const out = await buildBor(req, got);
+    await autoSave(out, req, out.slotFiles, null);
     res.json({ catalogue: cmsReports.catalogue(), report: out });
   } catch (err) {
     res.status(400).json({ error: err.message || 'Could not read the file.' });

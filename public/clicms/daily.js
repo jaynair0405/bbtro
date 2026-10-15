@@ -249,13 +249,19 @@ function showUploaded(data) {
 // Continuous night working (3 / 4 / >4) and suburban sign on/off without biometric
 // (summary + CSTS / KYNS / PNVS lists): the user says which file is which by tab.
 // Every pick re-posts all the parts held; the answer replaces the whole report.
-function slotBox(id, url, firstSlot, reportKey) {
+// status(slot, report) -> a tab's line when no file is held this session (BOR: what each
+// period still needs, read from the shown report — so a day opened from storage says too).
+function slotBox(id, url, firstSlot, reportKey, status) {
   // hand = one part typed in (Fill by hand), posted as JSON with the files held.
   const box = { files: {}, hand: null, handField: null, slot: firstSlot, reportKey };
   const tabs = $(`${id}Tabs`);
   const showErr = (msg) => { $(`${id}Err`).textContent = msg; $(`${id}Err`).hidden = !msg; };
   const marks = () => tabs.querySelectorAll('.night-tab').forEach((t) => {
-    t.querySelector('.nt-file').textContent = box.files[t.dataset.slot] ? `✓ ${box.files[t.dataset.slot].name}` : '';
+    const held = box.files[t.dataset.slot];
+    const line = held ? `✓ ${held.name}` : status ? status(t.dataset.slot, state.reports.find((r) => r.key === reportKey)) : '';
+    const el = t.querySelector('.nt-file');
+    el.textContent = line || '';
+    el.classList.toggle('need', !held && /add /.test(line || ''));
   });
 
   tabs.addEventListener('click', (e) => {
@@ -302,12 +308,27 @@ function slotBox(id, url, firstSlot, reportKey) {
   }
 
   box.saveHand = (field, values) => post(box.files, values, field);
+  box.marks = marks;
   box.reset = () => { box.files = {}; box.hand = null; box.handField = null; marks(); showErr(''); };
   return box;
+}
+// BOR tab lines from the shown report: its period rows ("?" = split still wanted) and
+// the division row (the summary's figures; blank without a summary).
+function borStatus(slot, r) {
+  const P = { y: 0, fn: 1, m: 2 };
+  const div = r && r.tables[1] && r.tables[1].rows[0];
+  const hasSum = div && div[1] !== '';
+  if (slot === 'sum') return hasSum ? '✓ saved' : '';
+  if (!hasSum) return 'add the summary first';
+  const fig = Number(div[P[slot] + 1]);
+  if (fig === 0) return '0 — no list needed';
+  const row = r.tables[0].rows[P[slot]];
+  return row.includes('?') ? `${fig} case${fig > 1 ? 's' : ''} — add the list` : `${fig} — split ✓`;
 }
 const slotBoxes = [
   slotBox('night', 'daily/upload-night', 'n3', 'contnight'),
   slotBox('nonbio', 'daily/upload-nonbio', 'sum', 'subsonoff'),
+  slotBox('bor', 'daily/upload-bor', 'sum', 'bor', borStatus),
 ];
 
 // ---------- Fill by hand ----------
@@ -518,6 +539,7 @@ function drawerHtml() {
 
 function render() {
   $('dayDate').value = state.date;
+  slotBoxes.forEach((b) => b.marks());          // BOR tabs say what each period needs
   showDateLock();
   showManualFields();            // a grid pre-fills from what is now loaded
   shown = [];

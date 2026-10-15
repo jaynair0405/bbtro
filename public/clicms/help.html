@@ -13,7 +13,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <!-- ?v tags must match CACHE_VERSION in clicms-sw.js (see index.html). -->
   <link rel="stylesheet" href="clicms.css?v5" />
-  <link rel="stylesheet" href="daily.css?v12" /><!-- report switcher only -->
+  <link rel="stylesheet" href="daily.css?v13" /><!-- report switcher only -->
   <style>
     /* Help page only. Colours come from clicms.css. */
     main.help { max-width: 1080px; margin: 0 auto; padding: 20px 16px 48px; }
@@ -237,15 +237,20 @@
             A list from the wrong day is refused (its SIGN ON date is checked). Adding PDD again the
             same day asks: <b>Add to saved</b> or <b>Replace saved</b>.</div></div>
 
-        <div class="card"><h3><span class="num">11</span>Lobbywise Breach of Rest <span class="tag">1 CSV</span> <span class="tag hand">or fill by hand</span></h3>
+        <div class="card"><h3><span class="num">11</span>Lobbywise Breach of Rest <span class="tag">1 CSV + a list per period</span> <span class="tag hand">or fill by hand</span></h3>
           <div class="path"><span class="menu">RUN</span> → <b>Breach of Rest (BOR)</b></div>
           <ul class="flow">
             <li><span class="k">Pilot</span>Select ALL w/o MMAN</li>
             <li><span class="k">Report level</span>DIVISION</li>
             <li><span class="k">Date</span>Yesterday</li>
-            <li><span class="k">Show Report</span></li>
+            <li><span class="k">Show Report</span>save as CSV (the summary: Yesterday / Last Fortnight / Last Month)</li>
+            <li><span class="k">Then</span>for each figure above 0: click it, save that crew list as CSV</li>
           </ul>
-          <div class="note">Upload the CSV, or type the counts in <b>Fill by hand → Lobbywise Breach of Rest</b>.</div></div>
+          <div class="note">The summary every day — it can go with the other files, or under <b>Summary</b> in the
+            Lobbywise Breach of Rest box. The three crew lists look alike, so each goes under its own tab:
+            <b>Yesterday list</b>, <b>Last FN list</b>, <b>Last Month list</b>. A period at 0 needs no list (each tab
+            says what it needs). A list from the wrong period is refused (Yesterday) or warned about (Last FN /
+            Last Month) by its sign-on dates. No list? Type the split in <b>Fill by hand → Lobbywise Breach of Rest</b>.</div></div>
 
         <div class="card"><h3><span class="num">12</span>CLI Monitoring Report <span class="tag">1 CSV</span></h3>
           <div class="path"><span class="menu">RB-MONITORING</span> → <b>CLI Matrix</b></div>
