@@ -38,7 +38,6 @@
       margin: 0 0 14px; position: relative; }
     .flow li:not(:last-child)::after { content: "↓"; position: absolute; left: 14px; bottom: -15px; color: var(--muted); }
     .flow .k { color: var(--muted); display: inline-block; min-width: 140px; }
-    .flow li.tbc { background: #fff4dc; border-color: var(--signal-amber); }
     .tag { font-size: 11px; padding: 1px 7px; border-radius: 10px; background: #e3ebf5; color: var(--navy);
       font-weight: 600; white-space: nowrap; }
     .tag.hand { background: #f6e3de; color: var(--alert); }
@@ -111,8 +110,7 @@
       <div class="intro">
         <p>Fifteen blocks make the CMS Position sheet. Each card below is one block: the <span class="menu">MENU</span>
           in CMS, then the filters top to bottom, then <b>Show Report</b> and download as <b>CSV</b>.</p>
-        <p>File names do not matter — the Daily Position page recognises each file by its contents.
-          A date shaded <span style="background:#fff4dc;padding:0 4px">amber</span> is still to be confirmed.</p>
+        <p>File names do not matter — the Daily Position page recognises each file by its contents.</p>
       </div>
 
       <div class="grid">
@@ -195,7 +193,7 @@
           <ul class="flow">
             <li><span class="k">Detail level</span>Summary</li>
             <li><span class="k">Report level</span>DIVISION</li>
-            <li class="tbc"><span class="k">Date</span>to be confirmed</li>
+            <li><span class="k">Date</span>Today</li>
             <li><span class="k">Show Report</span></li>
           </ul></div>
 
@@ -217,7 +215,7 @@
             <li><span class="k">Working Hours Type</span>Continuous Duty</li>
             <li><span class="k">Working Hours on</span>Sign on to Sign off</li>
             <li><span class="k">Report level</span>DIVISION</li>
-            <li class="tbc"><span class="k">Date</span>to be confirmed</li>
+            <li><span class="k">Date</span>Day before yesterday</li>
             <li><span class="k">Show Report</span></li>
           </ul>
           <div class="note">One file fills both Working Hours Mainline and Working Hours Suburban (cards 8 and 9 on the sheet).
@@ -229,7 +227,7 @@
             <li><span class="k">Pilot</span>Select All w/o MMAN</li>
             <li><span class="k">Detail level</span>Summary</li>
             <li><span class="k">Report level</span>DIVISION</li>
-            <li class="tbc"><span class="k">Date</span>to be confirmed</li>
+            <li><span class="k">Date</span>Day before yesterday</li>
             <li><span class="k">Show Report</span>save as CSV (the summary)</li>
             <li><span class="k">Then, per lobby</span>IGP, KYN, PNVL, JNPN, LNL: click the <b>&gt;02:00 AND ≤03:00</b> count, save as CSV; back, click the <b>&gt;03:00</b> count, save as CSV</li>
           </ul>
@@ -244,7 +242,7 @@
           <ul class="flow">
             <li><span class="k">Pilot</span>Select ALL w/o MMAN</li>
             <li><span class="k">Report level</span>DIVISION</li>
-            <li class="tbc"><span class="k">Date</span>to be confirmed</li>
+            <li><span class="k">Date</span>Yesterday</li>
             <li><span class="k">Show Report</span></li>
           </ul>
           <div class="note">Upload the CSV, or type the counts in <b>Fill by hand → Lobbywise Breach of Rest</b>.</div></div>
@@ -254,20 +252,25 @@
           <ul class="flow">
             <li><span class="k">Pilot</span>Select All</li>
             <li><span class="k">Report level</span>IR</li>
-            <li class="tbc"><span class="k">Date</span>to be confirmed</li>
+            <li><span class="k">Date</span>Today</li>
             <li><span class="k">Show Report</span></li>
           </ul>
           <div class="note">IR level on purpose: the page takes the CSTM row and the Central Railway divisions from it.</div></div>
 
-        <div class="card"><h3><span class="num">13</span>Monthly PME, REFT, ASIG Overdue <span class="tag">1 CSV</span></h3>
+        <div class="card"><h3><span class="num">13</span>Monthly PME, REFT, ASIG Overdue <span class="tag">4 CSVs</span></h3>
           <div class="path"><span class="menu">CREW</span> → <b>Periodical Courses</b></div>
           <ul class="flow">
             <li><span class="k">Designation</span>PILOT</li>
             <li><span class="k">Done / Due</span>SAFETY DUE</li>
             <li><span class="k">Report level</span>DIVISION</li>
-            <li class="tbc"><span class="k">Date</span>to be confirmed</li>
-            <li><span class="k">Show Report</span></li>
-          </ul></div>
+            <li><span class="k">Date</span>Today</li>
+            <li><span class="k">Month</span>one file per due month: this month and the 3 before it
+              (on an October sheet: July, August, September, October)</li>
+            <li><span class="k">Show Report</span>save as CSV, once for each month</li>
+          </ul>
+          <div class="note">The 4 files join into one report — upload them together or one at a time.
+            A month loaded again replaces that month. A month outside the sheet's 4 months is refused,
+            and a month not yet uploaded shows "file not loaded".</div></div>
 
         <div class="card"><h3><span class="num">14</span>Change on Approval <span class="tag">1 CSV</span></h3>
           <div class="path"><span class="menu">MANAGE</span> → <b>Change on Approval</b></div>
@@ -284,7 +287,7 @@
           <ul class="flow">
             <li><span class="k">Pilot</span>ALL w/o MMAN</li>
             <li><span class="k">Report level</span>DIVISION</li>
-            <li class="tbc"><span class="k">Date</span>to be confirmed</li>
+            <li><span class="k">Date</span>Day before yesterday</li>
             <li><span class="k">Show Report</span></li>
           </ul>
           <div class="note">Must be the Mumbai (CSTM) division — a download of another division is refused.</div></div>
@@ -301,9 +304,9 @@
           saved under its own <b>data date</b>, worked out from the sheet date:
           <table class="dates">
             <tr><th>Data date</th><th>Reports</th></tr>
-            <tr><td>Sheet date (D-0)</td><td>CLI Monitoring Due, Kiosk Detail</td></tr>
+            <tr><td>Sheet date (D-0)</td><td>CLI Monitoring Due, Kiosk Detail, PME/REFT/ASIG Overdue</td></tr>
             <tr><td>Yesterday (D-1)</td><td>WR WOR Lobby Wise, WR WOR HQ Wise, FSD, Continuous Night Working, Change on Approval,
-              PME/REFT/ASIG Overdue, PR Overdue, Sign On/Off without Biometric, Breach of Rest</td></tr>
+              PR Overdue, Sign On/Off without Biometric, Breach of Rest</td></tr>
             <tr><td>Day before (D-2)</td><td>Working Hours Mainline, Working Hours Suburban, PDD, Sign On – Sign Off Biometric</td></tr>
           </table>
           Each report's heading shows its data date in brackets.

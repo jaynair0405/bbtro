@@ -489,7 +489,7 @@ function blockHtml(key) {
       <h2>${esc(r.label)} <span class="pdate">(${isoToDDMMYYYY(dataDateOf(r))})</span>${r.saved ? '' : ' <span class="saved no">Not saved</span>'}${r.saved && r.saved.id ? ` <button type="button" class="btn-move" data-move="${esc(key)}" title="Saved under the wrong date? Move it to the right one">Change date</button>` : ''}</h2>
       <button class="btn btn-ghost btn-details" data-open="${esc(key)}">${warn ? `<span class="wdot" title="${warn} warning${warn > 1 ? 's' : ''}"></span>` : ''}Details ›</button>
     </div>
-    ${ts.map((t) => tableHtml({ ...t, note: '' })).join('')}
+    ${ts.map((t) => tableHtml({ ...t, note: t.noteOnSheet ? t.note : '' })).join('')}
   </section>`;
 }
 

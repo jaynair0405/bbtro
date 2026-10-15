@@ -428,15 +428,15 @@ async function compareSubhoursCounts(r, sheetDate) {
  * Body pddMode=replace leaves the stored files out.
  */
 async function joinStoredFiles(r, req) {
+  const sheetDate = safeISO((req.body || {}).sheetDate);
   const out = [];
   const seen = new Set();
   const add = (name, buffer, parsed) => {
     const h = crypto.createHash('sha256').update(buffer).digest('hex');
     if (seen.has(h)) return;
     seen.add(h);
-    out.push({ name, buffer, parsed });
+    out.push({ name, buffer, parsed, check: sheetDate ? cmsReports.checkFile(r.key, parsed, sheetDate) : null });
   };
-  const sheetDate = safeISO((req.body || {}).sheetDate);
   // pddMode=replace (the confirm box's "Replace saved"): only this upload's files.
   if (sheetDate && (req.body || {}).pddMode !== 'replace') {
     const stored = await store.currentParts(r.key, store.dataDateFor(sheetDate, r.dateOffset));
@@ -499,15 +499,12 @@ router.post('/daily/upload', upload.array('files', 20), async (req, res) => {
     try {
       // One file can hold several reports (Working Hours: mainline + suburban lobbies).
       const got = cmsReports.processFile(f.buffer);
-      // A file that says which day it is (PDD: the crew's SIGN ON date) must be this
-      // sheet's data date — a wrong day would otherwise be joined in unnoticed.
+      // A file that says which day it is must fit this sheet (PDD: SIGN ON date = data
+      // date; PME/REFT/ASIG: due month within the sheet's 4 months) — a wrong day would
+      // otherwise be joined in unnoticed.
       got.forEach((r) => {
-        const own = r.parsed && r.parsed.signOnDate;
-        const want = sheetDate && store.dataDateFor(sheetDate, r.dateOffset);
-        if (own && want && own !== want) {
-          throw new Error(`${r.label}: crew signed on ${isoToDDMMYYYY(own)}, but this sheet's ${r.label} is for ` +
-            `${isoToDDMMYYYY(want)} (sheet date ${isoToDDMMYYYY(sheetDate)} − ${r.dateOffset} day${r.dateOffset === 1 ? '' : 's'}). Download the right day from CMS.`);
-        }
+        const c = sheetDate && cmsReports.checkFile(r.key, r.parsed, sheetDate);
+        if (c && c.error) throw new Error(`${r.label}: ${c.error}`);
       });
       // Two files of one report are two different days — the file carries no date to tell which.
       // A mergeable report (PDD: summary + lobby lists) takes any number of files.
@@ -534,9 +531,9 @@ router.post('/daily/upload', upload.array('files', 20), async (req, res) => {
     if (!cmsReports.canMerge(r.key)) continue;
     try {
       const all = await joinStoredFiles(r, req);
-      const built = cmsReports.mergeReport(r.key, all.map((x) => x.parsed));
-      const undated = all.filter((x) => x.parsed.signOnDate === null).map((x) => x.name);
-      if (undated.length) built.warnings.push(`${undated.join(', ')}: no sign-on date in the file (a summary, or a list with no crew) — its day could not be checked.`);
+      const built = cmsReports.mergeReport(r.key, all.map((x) => x.parsed), safeISO((req.body || {}).sheetDate));
+      const unchecked = all.filter((x) => x.check && x.check.unchecked);
+      if (unchecked.length) built.warnings.push(`${unchecked.map((x) => x.name).join(', ')}: ${unchecked[0].check.unchecked}`);
       const out = { file: all.map((x) => x.name).join(', '), ...built };
       Object.defineProperty(out, 'facts', { value: built.facts, enumerable: false });
       Object.defineProperty(out, 'uploads', { value: all.map((x) => ({ originalname: x.name, buffer: x.buffer })), enumerable: false });
@@ -822,7 +819,9 @@ const POS_SIZE = { headH: 20, rowH: 9.8, bandH: 10, font: 6.8, headFont: 6.3, ti
 function dailyTableHeight(t, z = DAILY_SIZE) {
   const lay = headLayout(t);
   const title = t.title ? z.titleH : (z === DAILY_SIZE ? z.titleH : 2);
-  return title + z.headH + (lay ? z.bandH * (lay.rows - 1) : 0) + z.rowH * (Math.max(t.rows.length, 1) + (Array.isArray(t.total) ? 1 : 0)) + z.gap;
+  // A note the one view prints anyway (noteOnSheet): about two small lines.
+  const note = z.noNote && t.noteOnSheet && t.note ? z.rowH * 2 : 0;
+  return title + note + z.headH + (lay ? z.bandH * (lay.rows - 1) : 0) + z.rowH * (Math.max(t.rows.length, 1) + (Array.isArray(t.total) ? 1 : 0)) + z.gap;
 }
 
 // Draw one generic table at doc.y. Text columns are left-aligned and wider; counts centred.
@@ -846,8 +845,8 @@ function drawDailyTable(doc, t, { x, width, usableBottom, size = DAILY_SIZE }) {
   const room = usableBottom - doc.y;
   if ((fullH > room && fullH <= pageH) || headH + rowH * 2 + 20 > room) doc.addPage();
   if (t.title) doc.font('Helvetica-Bold').fontSize(z.titleFont).fillColor('#1F3A5F').text(t.title, x, doc.y);
-  if (typeof t.note === 'string' && t.note && !z.noNote) {
-    doc.font('Helvetica-Oblique').fontSize(8).fillColor('#5D6B7E').text(t.note, x, doc.y + 1, { width });
+  if (typeof t.note === 'string' && t.note && (!z.noNote || t.noteOnSheet)) {
+    doc.font('Helvetica-Oblique').fontSize(z.noNote ? z.font : 8).fillColor('#5D6B7E').text(t.note, x, doc.y + 1, { width });
   }
   doc.fillColor('#000');
   if (t.title || z === DAILY_SIZE) doc.moveDown(0.25); else doc.y += 2;
@@ -1050,6 +1049,16 @@ router.post('/daily/export/position/xlsx', async (req, res) => {
     const putTable = (row, col0, t, skip = 0) => {
       const at = (i) => col0 + i + (skip && col0 + i >= skip ? 1 : 0);
       if (t.title) { const c = cell(row, col0); c.value = t.title; c.font = { name: 'Arial', size: 8, bold: true, color: { argb: 'FF1F3A5F' } }; row++; }
+      if (t.noteOnSheet && t.note) {
+        // Across the table's own columns, wrapped — never spilling into the other side.
+        const c = cell(row, col0);
+        c.value = t.note;
+        c.font = { name: 'Arial', size: 7, italic: true, color: { argb: 'FF5D6B7E' } };
+        c.alignment = { wrapText: true, vertical: 'top' };
+        ws.mergeCells(row, col0, row, at(t.headers.length - 1));
+        ws.getRow(row).height = 30;
+        row++;
+      }
       const lay = headLayout(t);
       const hRows = lay ? lay.rows : 1;
       for (let r = 0; r < hRows; r++) for (let i = 0; i < t.headers.length; i++) {
