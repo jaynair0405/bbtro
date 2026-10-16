@@ -561,6 +561,14 @@ function drillList(cliKey, desig, cat) {
       btn.href = '/api/logout';
     }
     btn.hidden = false;
+    // Lobby users (jrcc / office_hr): the Due List is HQ's upload; they only read it.
+    if (['jrcc', 'office_hr'].includes(user.div_role)) {
+      $('dropzone').hidden = true;
+      const note = document.createElement('p');
+      note.className = 'dz-note';
+      note.textContent = 'Read-only for lobby users — the Due List is uploaded by CLI CMS (HQ). Your lists and remarks go on the Lobby page.';
+      $('uploadStage').appendChild(note);
+    }
   } catch (e) { /* leave hidden */ }
 })();
 

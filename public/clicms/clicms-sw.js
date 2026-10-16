@@ -15,7 +15,7 @@
  * silently misalign.
  */
 
-const CACHE_VERSION = 'v12';
+const CACHE_VERSION = 'v13';
 const CACHE_NAME = `clicms-shell-${CACHE_VERSION}`;
 
 // Paths are relative to the SW scope (/clicms/).
@@ -26,7 +26,7 @@ const SHELL = [
   `./clicms.js?${CACHE_VERSION}`,
   './daily.html',
   './daily.css?v13',
-  './daily.js?v15',
+  './daily.js?v16',
   './help.html',
   './lobby.html',
   './lobby.css?v1',

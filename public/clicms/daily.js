@@ -11,6 +11,7 @@ const state = {
   date: '',        // ISO — typed by the user; the CMS files carry none
   catalogue: [],   // [{key,label,order}] every report the server knows
   reports: [],     // [{key,label,order,file,tables,warnings}] loaded so far
+  readOnly: false, // lobby user (jrcc / office_hr): reads the sheet, writes on the Lobby page
   layout: null,    // one-view pages (lib/cmsReports/position.js PAGES), from daily/catalogue
   drawer: null,    // key of the report whose details are open in the side drawer
 };
@@ -507,7 +508,7 @@ function blockHtml(key) {
   const warn = (r.warnings || []).length;
   return `<section class="pblock" id="blk-${esc(key)}">
     <div class="pblock-head">
-      <h2>${esc(r.label)} <span class="pdate">(${isoToDDMMYYYY(dataDateOf(r))})</span>${r.saved ? '' : ' <span class="saved no">Not saved</span>'}${r.saved && r.saved.id ? ` <button type="button" class="btn-move" data-move="${esc(key)}" title="Saved under the wrong date? Move it to the right one">Change date</button>` : ''}</h2>
+      <h2>${esc(r.label)} <span class="pdate">(${isoToDDMMYYYY(dataDateOf(r))})</span>${r.saved ? '' : ' <span class="saved no">Not saved</span>'}${r.saved && r.saved.id && !state.readOnly ? ` <button type="button" class="btn-move" data-move="${esc(key)}" title="Saved under the wrong date? Move it to the right one">Change date</button>` : ''}</h2>
       <button class="btn btn-ghost btn-details" data-open="${esc(key)}">${warn ? `<span class="wdot" title="${warn} warning${warn > 1 ? 's' : ''}"></span>` : ''}Details ›</button>
     </div>
     ${ts.map((t) => tableHtml({ ...t, note: t.noteOnSheet ? t.note : '' })).join('')}
@@ -717,6 +718,7 @@ function clearDay() {
   }));
   stage.addEventListener('dragleave', (ev) => { if (!stage.contains(ev.relatedTarget)) stage.classList.remove('drag'); });
   stage.addEventListener('drop', (ev) => {
+    if (state.readOnly) { ev.preventDefault(); return; }
     if (!hasFiles(ev)) return;
     ev.preventDefault();
     stage.classList.remove('drag');
@@ -816,5 +818,19 @@ $('dayDate').addEventListener('change', () => {
       btn.href = '/api/logout';
     }
     btn.hidden = false;
+    // Lobby users (jrcc / office_hr) read the sheet; they upload and remark on the Lobby page.
+    // The server refuses their writes too (routes/clicms.js requireHqWriter).
+    if (['jrcc', 'office_hr'].includes(user.div_role)) setReadOnly();
   } catch (e) { /* leave hidden */ }
 })();
+
+function setReadOnly() {
+  state.readOnly = true;
+  ['dropzone', 'nightBox', 'nonbioBox', 'borBox', 'manualBox'].forEach((id) => { const el = $(id); if (el) el.hidden = true; });
+  document.querySelectorAll('[data-older]').forEach((a) => { a.hidden = true; });
+  const note = document.createElement('p');
+  note.className = 'date-note readonly-note';
+  note.textContent = 'Read-only: a lobby uploads its lists and writes remarks on the Lobby page.';
+  $('uploadStage').insertBefore(note, $('uploadStage').firstChild);
+  if (state.reports.length) render();
+}
