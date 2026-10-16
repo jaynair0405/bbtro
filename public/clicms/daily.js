@@ -829,9 +829,12 @@ function setReadOnly() {
   state.readOnly = true;
   ['dropzone', 'nightBox', 'nonbioBox', 'borBox', 'manualBox'].forEach((id) => { const el = $(id); if (el) el.hidden = true; });
   document.querySelectorAll('[data-older]').forEach((a) => { a.hidden = true; });
-  const note = document.createElement('p');
-  note.className = 'date-note readonly-note';
-  note.textContent = 'Read-only: a lobby uploads its lists and writes remarks on the Lobby page.';
-  $('uploadStage').insertBefore(note, $('uploadStage').firstChild);
+  const add = $('addInput'); if (add) add.closest('label').style.display = 'none';   // "+ Add files" (.btn sets display, so hidden alone loses)
+  ['uploadStage', 'workStage'].forEach((id) => {
+    const note = document.createElement('p');
+    note.className = 'date-note readonly-note';
+    note.textContent = 'Read-only: a lobby uploads its lists and writes remarks on the Lobby page.';
+    $(id).insertBefore(note, $(id).firstChild);
+  });
   if (state.reports.length) render();
 }
