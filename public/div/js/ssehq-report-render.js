@@ -109,10 +109,29 @@
         return [r.loco_number, r.loco_type, r.loco_base].filter(has).join('/');
     }
 
+    /* crew_rows (any number of LP / ALP rows) when the report has them —
+     * parsed by mysql2 on the server, a JSON string in the form's hidden box —
+     * else the legacy two boxes. One LP and one ALP print as before,
+     * "Mr. X ; ALP- Y"; a repeated role is numbered, "ALP-1 Y ; ALP-2 Z". */
     function crewLine(r) {
-        var lp = has(r.lp_name) ? 'Mr. ' + esc(r.lp_name) : '';
-        var alp = has(r.alp_name) ? 'ALP- ' + esc(r.alp_name) : '';
-        return [lp, alp].filter(Boolean).join(' ; ');
+        var rows = r.crew_rows;
+        if (typeof rows === 'string') { try { rows = JSON.parse(rows); } catch (e) { rows = null; } }
+        if (!Array.isArray(rows) || !rows.length) {
+            var lp = has(r.lp_name) ? 'Mr. ' + esc(r.lp_name) : '';
+            var alp = has(r.alp_name) ? 'ALP- ' + esc(r.alp_name) : '';
+            return [lp, alp].filter(Boolean).join(' ; ');
+        }
+        rows = rows.filter(function (x) { return x && has(x.name); });
+        var lps = rows.filter(function (x) { return x.role !== 'ALP'; });
+        var alps = rows.filter(function (x) { return x.role === 'ALP'; });
+        var parts = [];
+        lps.forEach(function (x, i) {
+            parts.push((lps.length > 1 ? 'LP-' + (i + 1) + ' ' : 'Mr. ') + esc(x.name));
+        });
+        alps.forEach(function (x, i) {
+            parts.push('ALP' + (alps.length > 1 ? '-' + (i + 1) + ' ' : '- ') + esc(x.name));
+        });
+        return parts.join(' ; ');
     }
 
     /* The Schedule row of the proforma reads "Major: - DOC:- " on one line and

@@ -8,6 +8,15 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,wght@0,400;0,600;0,700;1,400&family=Archivo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/div/css/ssehq-shell.css">
+<style>
+/* Crew table (Role / Name), same shape as the award note's staff table. */
+.stf { width:100%; border-collapse:collapse; margin-top:6px; }
+.stf td { padding:3px 3px 3px 0; vertical-align:top; }
+.stf td.role { width:84px; }
+.stf td.act { width:30px; }
+.stf input, .stf select { width:100%; }
+.stf td.search-wrap .search-drop { min-width:360px; }
+</style>
 </head>
 <body>
 
@@ -95,18 +104,12 @@
 
             <div class="panel"><h2><span class="n">4</span>Crew &amp; section</h2><div class="bd">
                 <div class="fld"><label>Load</label><input name="load_text" placeholder="22 coaches"></div>
-                <div class="fld search-wrap">
-                    <label>Loco Pilot</label>
-                    <input name="lp_name" data-picker="1" autocomplete="off" placeholder="name, PF, HRMS, CMS id or mobile">
-                    <input type="hidden" name="lp_staff_hrms_id">
-                    <div class="search-drop" id="lpDrop"></div>
-                </div>
-                <div class="fld search-wrap">
-                    <label>ALP</label>
-                    <input name="alp_name" data-picker="1" autocomplete="off" placeholder="name, PF, HRMS, CMS id or mobile">
-                    <input type="hidden" name="alp_staff_hrms_id">
-                    <div class="search-drop" id="alpDrop"></div>
-                </div>
+                <div class="fld"><label>Crew</label>
+                    <input type="hidden" name="crew_rows">
+                    <table class="stf"><tbody id="crewRows"></tbody></table>
+                    <button type="button" class="btn btn-ghost" id="crewAdd" style="margin-top:6px">&#65291; Add crew</button>
+                    <div class="hint">Any number of LP / ALP rows. Names come from the staff master — type a name,
+                        PF, HRMS, CMS id or mobile and pick. Choose "Not in staff master" for someone not yet on the roll.</div></div>
                 <div class="fld"><label>Section</label><input name="section_text" data-upper list="sectionList" placeholder="CSMT-PNVL"></div>
                 <div class="row">
                     <div class="fld"><label>Major</label><input name="major_text" data-upper list="sectionList"></div>
@@ -202,6 +205,70 @@
 document.getElementById('drawerClose').onclick = function () { document.body.classList.remove('drawer-open'); };
 document.getElementById('drawerVeil').onclick = function () { document.body.classList.remove('drawer-open'); };
 
+/* ── Crew table ────────────────────────────────────────────────────────────
+   Rows live in the hidden crew_rows box as JSON, which is what is saved and
+   what the preview reads; this grid is only a way of typing into it. Each Name
+   box is the shared staff picker (see ssehq-editor.js). */
+var $ = function (id) { return document.getElementById(id); };
+function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'); }
+function crewField() { return document.querySelector('[name="crew_rows"]'); }
+function readCrew() { try { return JSON.parse(crewField().value || '[]') || []; } catch (e) { return []; } }
+function writeCrew(rows) {
+    crewField().value = rows.length ? JSON.stringify(rows) : '';
+    SsehqEditor.setDirty(true);
+    SsehqEditor.render();
+}
+function drawCrew() {
+    var rows = readCrew();
+    $('crewRows').innerHTML = rows.map(function (r, i) {
+        return '<tr><td class="role"><select data-i="' + i + '" data-k="role">' +
+                '<option value="LP"'  + (r.role !== 'ALP' ? ' selected' : '') + '>LP</option>' +
+                '<option value="ALP"' + (r.role === 'ALP' ? ' selected' : '') + '>ALP</option></select></td>' +
+            '<td class="search-wrap"><input data-i="' + i + '" data-k="name" data-picker="1" autocomplete="off" placeholder="Name, PF, HRMS, CMS id or mobile" value="' + esc(r.name) + '">' +
+                '<input type="hidden" data-hrms="' + i + '" value="' + esc(r.hrms_id) + '">' +
+                '<div class="search-drop" id="crewDrop' + i + '"></div></td>' +
+            '<td class="act"><button type="button" class="rowbtn rm" data-rm="' + i + '" title="Remove">&times;</button></td></tr>';
+    }).join('');
+    $('crewRows').querySelectorAll('[data-k]').forEach(function (el) {
+        var handler = function () {
+            var rs = readCrew(); rs[Number(el.dataset.i)][el.dataset.k] = el.value;
+            if (el.dataset.k === 'name') { rs[Number(el.dataset.i)].hrms_id = ''; rs[Number(el.dataset.i)].temp = false; }
+            writeCrew(rs);
+        };
+        if (el.tagName === 'SELECT') el.onchange = handler; else el.oninput = handler;
+    });
+    $('crewRows').querySelectorAll('[data-k="name"]').forEach(function (input) {
+        var i = Number(input.dataset.i);
+        var hidden = $('crewRows').querySelector('[data-hrms="' + i + '"]');
+        var link = SsehqEditor.staffLink(input, hidden);
+        var r = rows[i] || {};
+        if (r.hrms_id) link.yes(r.hrms_id, r.is_cli); else if (r.temp) link.temp(); else link.unlink();
+        var origTemp = link.temp;
+        link.temp = function () {
+            origTemp();
+            var rs = readCrew(); rs[i].hrms_id = ''; rs[i].temp = true; writeCrew(rs);
+        };
+        SsehqEditor.attachStaffPicker(input, $('crewDrop' + i), link, function (s) {
+            var rs = readCrew();
+            rs[i].name = s.name || ''; rs[i].hrms_id = s.hrms_id || ''; rs[i].temp = false; rs[i].is_cli = !!s.is_cli;
+            writeCrew(rs);
+            input.value = rs[i].name;
+            link.yes(rs[i].hrms_id, s.is_cli);
+        });
+    });
+    $('crewRows').querySelectorAll('[data-rm]').forEach(function (el) {
+        el.onclick = function () { var rs = readCrew(); rs.splice(Number(el.dataset.rm), 1); writeCrew(rs); drawCrew(); };
+    });
+}
+$('crewAdd').onclick = function () {
+    var rs = readCrew();
+    // first row is the LP, every later one an ALP — the common case needs no clicks
+    rs.push({ role: rs.length ? 'ALP' : 'LP', name: '', hrms_id: '', temp: false });
+    writeCrew(rs); drawCrew();
+    var last = $('crewRows').querySelectorAll('[data-k="name"]');
+    if (last.length) last[last.length - 1].focus();
+};
+
 SsehqEditor.init({
     kind: 'opr',
     api: '/api/division/ssehq/opr',
@@ -212,7 +279,7 @@ SsehqEditor.init({
         'report_no', 'report_date', 'failure_date', 'division_railway',
         'train_no', 'loco_number', 'loco_type', 'loco_base', 'loco_commission_date',
         'last_schedule_type', 'last_schedule_date', 'last_inspection_type', 'last_inspection_date',
-        'load_text', 'lp_name', 'lp_staff_hrms_id', 'alp_name', 'alp_staff_hrms_id',
+        'load_text', 'crew_rows',
         'section_text', 'major_text', 'minor_text', 'detention_text',
         'repercussion_text', 'punctuality_text',
         'reported_text', 'reason_text', 'responsibility_text', 'copy_to_text',
@@ -223,11 +290,9 @@ SsehqEditor.init({
     serverDefaultsFrom: function (cfg) {
         return { copy_to_text: cfg.opr_copy_to_default };
     },
-    staffPickers: [
-        { name: 'lp_name',  hrms: 'lp_staff_hrms_id',  drop: 'lpDrop' },
-        { name: 'alp_name', hrms: 'alp_staff_hrms_id', drop: 'alpDrop' },
-    ],
     render: function (record, events, opts) { return SsehqReport.renderOprSheet(record, events, opts); },
+    // after a load or a New: redraw the crew grid
+    afterWrite: function () { drawCrew(); },
 });
 
 /* The note describing the same incident. Handing the OPR's id to the note page

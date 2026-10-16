@@ -136,7 +136,8 @@ const OPR_LIMITS = {
 };
 const OPR_DATES = ['report_date', 'failure_date', 'loco_commission_date',
                    'last_inspection_date', 'last_schedule_date'];
-const OPR_FIELDS = [...Object.keys(OPR_LIMITS), ...OPR_DATES];
+// crew_rows is JSON (see normaliseCrewRows), so it is added explicitly.
+const OPR_FIELDS = [...Object.keys(OPR_LIMITS), ...OPR_DATES, 'crew_rows'];
 
 const NOTE_LIMITS = {
     note_no: 80, subject_text: 500, train_no: 40,
@@ -180,6 +181,7 @@ function normaliseStaffRows(rows) {
         // link to div_staff_master, or temp=true for a name not yet on the roll
         hrms_id: asText(r && r.hrms_id, 10),
         temp: !!(r && r.temp) && !asText(r && r.hrms_id, 10),
+        is_cli: !!(r && r.is_cli) && !!asText(r && r.hrms_id, 10),   // picked from div_cli_master
     })).filter((r) => r.name || r.pf_number || r.designation_station);
     return out.length ? JSON.stringify(out) : null;
 }
@@ -194,12 +196,37 @@ const normaliseCli = (kinds) => (input = {}) => {
     return out;
 };
 
+/* The crew table on an OPR: any number of LP / ALP rows (a train can carry two
+ * ALPs). Each row links to the staff master by hrms_id or is temp. The legacy
+ * lp_* / alp_* columns are derived from the first row of each role so the
+ * history list, search and OPR -> DElogging prefill keep reading them. */
+function normaliseCrewRows(rows) {
+    if (typeof rows === 'string') { try { rows = JSON.parse(rows); } catch (_) { rows = null; } }
+    if (!Array.isArray(rows)) return null;
+    const out = rows.map((r) => ({
+        role: (r && String(r.role).toUpperCase() === 'ALP') ? 'ALP' : 'LP',
+        name: asText(r && r.name, 120),
+        hrms_id: asText(r && r.hrms_id, 10),
+        temp: !!(r && r.temp) && !asText(r && r.hrms_id, 10),
+        is_cli: !!(r && r.is_cli) && !!asText(r && r.hrms_id, 10),   // picked from div_cli_master
+    })).filter((r) => r.name);
+    return out.length ? out : null;
+}
+
 function normaliseOpr(input = {}) {
     const out = {};
     for (const [f, max] of Object.entries(OPR_LIMITS)) out[f] = asText(input[f], max);
     for (const f of OPR_DATES) out[f] = asDate(input[f]);
     out.report_date = out.report_date || today();
     out.division_railway = out.division_railway || 'Mumbai/CR';
+    const crew = normaliseCrewRows(input.crew_rows);
+    if (crew) {
+        const lp = crew.find((r) => r.role === 'LP');
+        const alp = crew.find((r) => r.role === 'ALP');
+        out.lp_name = lp ? lp.name : null;   out.lp_staff_hrms_id = lp ? lp.hrms_id : null;
+        out.alp_name = alp ? alp.name : null; out.alp_staff_hrms_id = alp ? alp.hrms_id : null;
+    }
+    out.crew_rows = crew ? JSON.stringify(crew) : null;
     return out;
 }
 

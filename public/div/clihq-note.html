@@ -215,7 +215,7 @@ function drawRows() {
             var rs = readRows();
             rs[i].name = s.name || '';
             rs[i].hrms_id = s.hrms_id || '';
-            rs[i].temp = false;
+            rs[i].temp = false; rs[i].is_cli = !!s.is_cli;
             if (!rs[i].pf_number) rs[i].pf_number = s.pf_number || '';
             if (!rs[i].designation_station) {
                 rs[i].designation_station = [s.designation_name, (s.current_office_code || '').replace(/-(SUB|ML)$/i, '')]
