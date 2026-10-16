@@ -7,9 +7,12 @@
  *   const clicms = require('./routes/clicms');
  *   app.use('/clicms', requireRole('aws_shed'... or your HQ-CLI role), clicms);
  *
- * NOTHING is persisted. Uploads are held in memory only for the duration of
- * the request and discarded. Exports are generated from the row set the client
- * posts back (already filtered to the overdue list and edited by the CLI).
+ * Due List (/upload): the combined CMS Report CSV is parsed and, since Oct 2026, STORED
+ * (lib/cmsReports/duelist.js — gzipped file + counts on cms_daily_loads, crew versions on
+ * cms_crew_monitoring; see sql/2026-10-17_cms_duelist_storage.sql). /duelist/current gives
+ * the stored report back so the page opens without a CSV. Exports are generated from the
+ * row set the client posts back (already filtered to the overdue list and edited by the CLI).
+ * Daily Position uploads (/daily/…) are stored by autoSave below.
  */
 
 const express = require('express');
@@ -18,8 +21,25 @@ const multer = require('multer');
 const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit');
 const { parseCmsReport, PARAMETERS, istTodayISO } = require('../lib/cmsReport');
+const duelist = require('../lib/cmsReports/duelist');
+const lobbies = require('../lib/cmsReports/lobbies');
 
 const router = express.Router();
+
+// HQ writes only. Lobby users (jrcc, office_hr) read the Daily Position / Due List and
+// write only under /lobby (routes/clicmsLobby.js). Applied inline on /upload (defined
+// before the Daily Position block) and by router.use on the /daily writes.
+const requireHqWriter = (req, res, next) => {
+  if (lobbies.isLobbyWriterRole(req.session && req.session.user)) {
+    return res.status(403).json({ error: 'Lobby users cannot change the Daily Position. Use the Lobby page.' });
+  }
+  next();
+};
+
+// "YYYY-MM-DD HH:MM" in IST — the saved-at stamp shown on the pages.
+const istNow = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit',
+  hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date()).replace(',', '');
+const sessionUser = (req) => (req.session && req.session.user && req.session.user.username) || 'unknown';
 
 // In-memory upload only; never written to disk. 10 MB ceiling (file is a few hundred KB).
 const upload = multer({
@@ -27,19 +47,42 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 },
 });
 
-// ---- Upload + parse ----
-router.post('/upload', upload.single('csv'), (req, res) => {
+// ---- Upload + parse + store ----
+// The file is stored as the report of the upload day (IST) — it carries no run date. A second
+// upload the same day replaces the earlier one (kept as history). A failed store never loses
+// the upload: the parsed report still comes back, with a warning that it was NOT stored.
+router.post('/upload', requireHqWriter, upload.single('csv'), async (req, res) => {
+  let result;
   try {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded (field name must be "csv").' });
-    const result = parseCmsReport(req.file.buffer);
-    res.json({
-      generatedAtIST: result.generatedAtIST,
-      warnings: result.warnings,
-      parameters: PARAMETERS,
-      rows: result.rows,
-    });
+    result = parseCmsReport(req.file.buffer);
   } catch (err) {
-    res.status(400).json({ error: err.message || 'Could not parse the file.' });
+    return res.status(400).json({ error: err.message || 'Could not parse the file.' });
+  }
+  const out = { generatedAtIST: result.generatedAtIST, warnings: result.warnings, parameters: PARAMETERS, rows: result.rows, stored: null };
+  const user = sessionUser(req);
+  try {
+    const dataDate = istTodayISO();
+    const saved = await duelist.saveUpload({ rows: result.rows, warnings: result.warnings,
+      file: { name: req.file.originalname, buffer: req.file.buffer }, user, dataDate });
+    out.stored = { id: saved.id, dataDate: saved.dataDate, by: user, at: istNow(), replaced: saved.replaced, monitoring: saved.monitoring };
+  } catch (err) {
+    out.warnings.push(err.loadId
+      ? `File stored (load ${err.loadId}) but the crew monitoring rows were not updated (${err.message}) — upload the file again to repair.`
+      : `Not stored (${err.message}) — the lists shown are fine; upload again later to store it.`);
+  }
+  res.json(out);
+});
+
+// The stored report (latest upload) in the same shape as /upload, for any CMS role.
+// { stored: null } when nothing has been stored yet.
+router.post('/duelist/current', async (req, res) => {
+  try {
+    const st = await duelist.currentState();
+    if (!st) return res.json({ stored: null });
+    res.json({ ...st, parameters: PARAMETERS });
+  } catch (err) {
+    res.status(500).json({ error: `Could not read the stored report (${err.message}).` });
   }
 });
 
@@ -376,16 +419,8 @@ const pool = require('../config/database');
 const { headLayout } = require('../lib/cmsReports/headLayout');
 const cmsReports = require('../lib/cmsReports');
 const store = require('../lib/cmsReports/store');
-const lobbies = require('../lib/cmsReports/lobbies');
 
-// The Daily Position writes are HQ's. Lobby users (jrcc, office_hr) read the page and
-// write only under /lobby (routes/clicmsLobby.js).
-const requireHqWriter = (req, res, next) => {
-  if (lobbies.isLobbyWriterRole(req.session && req.session.user)) {
-    return res.status(403).json({ error: 'Lobby users cannot change the Daily Position. Use the Lobby page.' });
-  }
-  next();
-};
+// The Daily Position writes are HQ's (requireHqWriter, top of file).
 router.use(['/daily/upload', '/daily/upload-night', '/daily/upload-nonbio', '/daily/upload-bor', '/daily/manual', '/daily/move'], requireHqWriter);
 router.use('/lobby', require('./clicmsLobby'));
 
@@ -489,11 +524,9 @@ async function autoSave(r, req, files, hand) {
     r.warnings.push(`Could not compare with the stored counts (${err.message}).`);
   }
   try {
-    const user = (req.session && req.session.user && req.session.user.username) || 'unknown';
+    const user = sessionUser(req);
     const out = await store.saveLoad({ report: r, facts: r.facts, sheetDate, files, hand, user });
-    const at = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit',
-      hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date()).replace(',', '');
-    r.saved = { id: out.id, dataDate: out.dataDate, by: user, at, replaced: out.replaced };
+    r.saved = { id: out.id, dataDate: out.dataDate, by: user, at: istNow(), replaced: out.replaced };
   } catch (err) {
     r.warnings.push(`Not saved (${err.message}) — the figures shown are fine; load again later to save them.`);
   }

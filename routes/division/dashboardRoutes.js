@@ -185,6 +185,29 @@ router.get('/staff-search/:search', async (req, res) => {
     }
 });
 
+// GET /api/division/staff-monitoring/:hrmsId — the crew's current CMS monitoring row
+// (foot plate / counselling / grading done+due, grade, CLI) from the stored Due List
+// (lib/cmsReports/duelist.js). Used by the bio-profile to pre-fill Last Foot Plate
+// Monitoring. { monitoring: null } when the staff has no CMS id or is not in the report.
+router.get('/staff-monitoring/:hrmsId', async (req, res) => {
+    try {
+        const [[staff]] = await req.app.locals.pool.query(
+            'SELECT current_cms_id, current_office_code, designation_id FROM div_staff_master WHERE hrms_id = ? LIMIT 1',
+            [req.params.hrmsId]);
+        if (!staff) return res.status(404).json({ error: 'Staff not found' });
+        const u = req.session.user || {};
+        if (!canAccessStaff(u.div_office_code, u.div_role, staff.current_office_code, staff.designation_id)) {
+            return res.status(403).json({ error: 'Access denied: staff of another office' });
+        }
+        if (!staff.current_cms_id) return res.json({ monitoring: null });
+        const monitoring = await require('../../lib/cmsReports/duelist').monitoringFor(staff.current_cms_id);
+        res.json({ monitoring });
+    } catch (error) {
+        console.error('Error reading staff monitoring:', error);
+        res.status(500).json({ error: 'Database error', details: error.message });
+    }
+});
+
 // GET /api/division/staff-sheet - Get staff with training dates for sheet view + custom report
 router.get('/staff-sheet', async (req, res) => {
     let conn;
