@@ -259,6 +259,9 @@
                 }).catch(fail);
             }, 250);
         });
+        /* Pressing on a row must not blur the box: the blur timer below would
+         * close the list before a slow click's mouseup, and the pick is lost. */
+        drop.addEventListener('mousedown', function (e) { e.preventDefault(); });
         input.addEventListener('blur', function () {
             setTimeout(function () { drop.classList.remove('open'); }, 180);
         });
