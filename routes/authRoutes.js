@@ -115,6 +115,9 @@ router.post('/login', async (req, res) => {
       } else if (user.div_role === 'jrcc') {
         // Lobby jrcc → the CLI CMS Lobby page (confined there in server.js).
         redirectUrl = '/clicms/lobby.html';
+      } else if (user.div_role === 'chiefos') {
+        // Chief OS → the D&AR desk (confined there in server.js).
+        redirectUrl = '/div/chiefos.html';
       } else {
         redirectUrl = '/div';
       }
