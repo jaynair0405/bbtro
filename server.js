@@ -720,7 +720,9 @@ const requireClicms = (req, res, next) => {
   if (!req.session.user) return res.redirect('/');
   if (req.session.user.realm !== 'division') return res.redirect('/');
   const role = req.session.user.div_role;
-  if (role !== 'clicms' && role !== 'division_admin') return res.redirect('/div');
+  // HQ (clicms, division_admin) and lobby users (jrcc, office_hr). Lobby users read the
+  // HQ pages and write only under /clicms/lobby — routes/clicms.js enforces that.
+  if (!['clicms', 'division_admin', 'jrcc', 'office_hr'].includes(role)) return res.redirect('/div');
   next();
 };
 const clicmsRouter = require('./routes/clicms');

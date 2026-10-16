@@ -376,6 +376,17 @@ const pool = require('../config/database');
 const { headLayout } = require('../lib/cmsReports/headLayout');
 const cmsReports = require('../lib/cmsReports');
 const store = require('../lib/cmsReports/store');
+const lobbies = require('../lib/cmsReports/lobbies');
+
+// The Daily Position writes are HQ's. Lobby users (jrcc, office_hr) read the page and
+// write only under /lobby (routes/clicmsLobby.js).
+const requireHqWriter = (req, res, next) => {
+  if (lobbies.isLobbyWriterRole(req.session && req.session.user)) {
+    return res.status(403).json({ error: 'Lobby users cannot change the Daily Position. Use the Lobby page.' });
+  }
+  next();
+};
+router.use(['/daily/upload', '/daily/upload-night', '/daily/upload-nonbio', '/daily/upload-bor', '/daily/manual', '/daily/move'], requireHqWriter);
 
 /*
  * Auto-save (lib/cmsReports/store.js): every report built by an upload or hand entry is
