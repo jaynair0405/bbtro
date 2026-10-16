@@ -198,6 +198,16 @@ const SSEHQ_HOME = '/div/ssehq.html';
 // Stylesheets, scripts and images the allowed pages pull in.
 const DIV_ASSET = /^\/(css|js|img|images|fonts|assets|vendor)\//i;
 
+// ✅ Chief OS (D&AR desk, account chiefostro) — same allowlist idea as SSE-HQ:
+//    its three pages, the Documents repository it files into, and the
+//    read-only Staff Bio-Profile report (the user asked that the Chief OS can
+//    look up a staff member's biodata). Nothing else under /div.
+const CHIEFOS_PAGES = new Set([
+  '/chiefos.html', '/chiefos-case.html', '/chiefos-letter.html',
+  '/staff-profile-report.html', '/documents.html',
+]);
+const CHIEFOS_HOME = '/div/chiefos.html';
+
 app.use('/div', (req, res, next) => {
   const role = req.session?.user?.div_role;
   if (['ctlc', 'ctlc_view'].includes(role)) {
@@ -209,6 +219,10 @@ app.use('/div', (req, res, next) => {
   if (role === 'ssehq') {
     if (DIV_ASSET.test(req.path) || SSEHQ_PAGES.has(req.path)) return next();
     return res.redirect(SSEHQ_HOME);
+  }
+  if (role === 'chiefos') {
+    if (DIV_ASSET.test(req.path) || CHIEFOS_PAGES.has(req.path)) return next();
+    return res.redirect(CHIEFOS_HOME);
   }
   next();
 });
@@ -605,7 +619,7 @@ app.use("/spm/rtis", (req, res, next) => {
   // and not the role, so without this line an ssehq login would reach RTIS by
   // typing the URL even with no link to it. Deferred, not refused — see
   // docs/SSEHQ_RTIS_PENDING.md.
-  if (user.div_role === "ssehq") return res.status(403).send("RTIS access denied");
+  if (user.div_role === "ssehq" || user.div_role === "chiefos") return res.status(403).send("RTIS access denied");
   next();
 });
 // Guard for Sub-SPM (division only)
@@ -974,6 +988,25 @@ app.use('/api/division', (req, res, next) => {
   return res.status(403).json({ error: 'Not available to the SSE-HQ desk' });
 });
 
+// ✅ Chief OS API surface, matching CHIEFOS_PAGES. Its own module and the
+//    Documents repository read-write; the endpoints behind the Staff
+//    Bio-Profile report (staff-search, promotions, training, family, awards /
+//    punishments, detonators) GET only — the Chief OS reads a service record,
+//    it does not edit one. designations/offices are the lookups the report
+//    page boots with.
+const CHIEFOS_API = [/^\/chiefos(\/|$)/, /^\/documents(\/|$)/];
+const CHIEFOS_API_READ = [
+  /^\/staff-search(\/|$)/, /^\/staff(\/|$)/, /^\/promotions(\/|$)/, /^\/training(\/|$)/,
+  /^\/family(\/|$)/, /^\/discipline(\/|$)/, /^\/detonators(\/|$)/,
+  /^\/designations(\/|$)/, /^\/offices(\/|$)/,
+];
+app.use('/api/division', (req, res, next) => {
+  if (req.session?.user?.div_role !== 'chiefos') return next();
+  if (CHIEFOS_API.some((re) => re.test(req.path))) return next();
+  if (req.method === 'GET' && CHIEFOS_API_READ.some((re) => re.test(req.path))) return next();
+  return res.status(403).json({ error: 'Not available to the Chief OS desk' });
+});
+
 app.use("/api/division/leave", requireRealm("division"), leaveRoutes); // mount early to avoid any catch-alls
 app.use("/api/division", requireRealm('division'), divisionDashboardRoutes);
 app.use("/api/division/training-types", requireRealm('division'), trainingTypesRoutes);
@@ -1005,6 +1038,7 @@ app.use("/api/division/documents", requireRealm('division'), documentRoutes);
 app.use("/api/division/transfer-letters", requireRealm('division'), transferLetterRoutes);
 app.use("/api/division/cadre-letters", requireRealm('division'), cadreLetterRoutes);
 app.use("/api/division/ssehq", requireRealm('division'), ssehqRoutes);
+app.use("/api/division/chiefos", requireRealm('division'), require('./routes/division/chiefOsRoutes'));
 app.use("/api/division/counselling", requireRealm('division'), counsellingRoutes);
 app.use("/api/division/suburban", requireRealm('division'), subCrewRoutes);
 

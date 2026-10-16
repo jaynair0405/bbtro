@@ -118,6 +118,9 @@ router.post('/login', async (req, res) => {
       } else if (user.div_role === 'trip_shed_operator' || user.div_role === 'trip_shed_supervisor') {
         // Trip Shed staff → straight to the shed dashboard (no division-menu link yet).
         redirectUrl = '/div/trip-shed.html';
+      } else if (user.div_role === 'chiefos') {
+        // Chief OS → the D&AR desk (confined there in server.js).
+        redirectUrl = '/div/chiefos.html';
       } else {
         redirectUrl = '/div';
       }
