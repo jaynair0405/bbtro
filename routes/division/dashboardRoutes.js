@@ -1,5 +1,10 @@
 const express = require('express');
 const router = express.Router();
+// Roles that read the whole division's staff, not one office's. The Chief OS
+// (D&AR desk, server.js allows it GET only on these routes) sits at CSMT-HQ but
+// its cases come from every lobby, so the bio-profile lookup must see them all.
+const DIVISION_WIDE_ROLES = new Set(['division_admin', 'chiefos']);
+
 const {
     isExitStatus,
     nominationStatusForExit,
@@ -46,7 +51,7 @@ function buildOfficeFilter(officeCode, tableAlias = 's') {
 // Check if user can access staff based on office rules
 function canAccessStaff(userOffice, userRole, staffOffice, staffDesignationId) {
     // Division admin can access all
-    if (userRole === 'division_admin') return true;
+    if (DIVISION_WIDE_ROLES.has(userRole)) return true;
 
     // Same office can access
     if (userOffice === staffOffice) return true;
@@ -161,7 +166,7 @@ router.get('/staff-search/:search', async (req, res) => {
         const params = [`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`];
 
         // Restrict to user's office for non-admin users
-        if (userRole !== 'division_admin') {
+        if (!DIVISION_WIDE_ROLES.has(userRole)) {
             query += ` AND s.current_office_code = ?`;
             params.push(userOffice);
         }
@@ -628,7 +633,7 @@ router.post('/staff', async (req, res) => {
         // Determine office code
         // Office users can only add to their office, admins can specify
         let officeCode = current_office_code;
-        if (userRole !== 'division_admin') {
+        if (!DIVISION_WIDE_ROLES.has(userRole)) {
             officeCode = userOffice;
         } else if (!officeCode) {
             officeCode = userOffice;
@@ -754,7 +759,7 @@ router.get('/dashboard-stats', async (req, res) => {
         let staffQuery = 'SELECT COUNT(*) as total_staff FROM div_staff_master s WHERE s.status IN ("Active", "Drafted/Ex-Cadre", "Deputation")';
         const staffParams = [];
 
-        if (userRole !== 'division_admin') {
+        if (!DIVISION_WIDE_ROLES.has(userRole)) {
             const filter = buildOfficeFilter(userOffice, 's');
             staffQuery += ' AND ' + filter.condition;
             staffParams.push(...filter.params);
@@ -773,7 +778,7 @@ router.get('/dashboard-stats', async (req, res) => {
         let pmeOfficeFilter = '';
 
         // Build office filter for PME
-        if (userRole !== 'division_admin') {
+        if (!DIVISION_WIDE_ROLES.has(userRole)) {
             const filter = buildOfficeFilter(userOffice, 's');
             pmeOfficeFilter = ' AND ' + filter.condition;
             pmeParams.push(...filter.params);
@@ -810,7 +815,7 @@ router.get('/dashboard-stats', async (req, res) => {
         const leaveParams = [];
 
         // Apply office filter
-        if (userRole !== 'division_admin') {
+        if (!DIVISION_WIDE_ROLES.has(userRole)) {
             leaveQuery += ' AND lt.office_code = ?';
             leaveParams.push(userOffice);
         } else if (office_code && office_code !== 'ALL') {
@@ -829,7 +834,7 @@ router.get('/dashboard-stats', async (req, res) => {
         const sanctionParams = [];
 
         // Apply office filter for sanction strength
-        if (userRole !== 'division_admin') {
+        if (!DIVISION_WIDE_ROLES.has(userRole)) {
             sanctionQuery += ' WHERE office_code = ?';
             sanctionParams.push(userOffice);
         } else if (office_code && office_code !== 'ALL') {
@@ -887,7 +892,7 @@ router.get('/pme-completed', async (req, res) => {
         const params = [];
 
         // Apply office filter
-        if (userRole !== 'division_admin') {
+        if (!DIVISION_WIDE_ROLES.has(userRole)) {
             const filter = buildOfficeFilter(userOffice, 's');
             query += ' AND ' + filter.condition;
             params.push(...filter.params);
@@ -903,7 +908,7 @@ router.get('/pme-completed', async (req, res) => {
         res.json({
             success: true,
             count: result[0].completed_pme,
-            isAdmin: userRole === 'division_admin'
+            isAdmin: DIVISION_WIDE_ROLES.has(userRole)
         });
 
     } catch (error) {
@@ -957,7 +962,7 @@ router.get('/decategorized-crew', async (req, res) => {
         const params = [];
 
         // Office-based access control
-        if (userRole !== 'division_admin') {
+        if (!DIVISION_WIDE_ROLES.has(userRole)) {
             const filter = buildOfficeFilter(userOffice, 's');
             query += ' AND ' + filter.condition;
             params.push(...filter.params);
@@ -1074,7 +1079,7 @@ router.get('/pstore-updates-today', async (req, res) => {
         const params = [];
 
         // Filter by office for non-admin users
-        if (userRole !== 'division_admin') {
+        if (!DIVISION_WIDE_ROLES.has(userRole)) {
             const filter = buildOfficeFilter(userOffice, 's');
             query += ' AND ' + filter.condition;
             params.push(...filter.params);
