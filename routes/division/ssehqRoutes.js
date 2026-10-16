@@ -554,8 +554,8 @@ router.get('/search-staff/:query', async (req, res) => {
                LEFT JOIN designations d ON s.designation_id = d.id
               WHERE s.status = 'Active'
                 AND (s.name LIKE ? OR s.hrms_id LIKE ? OR s.pf_number LIKE ?
-                     OR s.current_cms_id LIKE ?)
-              ORDER BY s.name LIMIT 40`, [q, q, q, q]
+                     OR s.current_cms_id LIKE ? OR s.cug_number LIKE ? OR s.phone_number LIKE ?)
+              ORDER BY s.name LIMIT 40`, [q, q, q, q, q, q]
         );
         res.json({ staff });
     } catch (e) {

@@ -101,6 +101,7 @@
             el.value = v;
         });
         if (typeof CFG.afterWrite === 'function') CFG.afterWrite(record);
+        STAFF_LINKS.forEach(function (l) { l.sync(); });
     }
     function clearForm() {
         CFG.fields.forEach(function (name) {
@@ -124,6 +125,7 @@
             if (el && !el.value) el.value = CFG.serverDefaults[field] || '';
         });
         if (typeof CFG.afterWrite === 'function') CFG.afterWrite(null);
+        STAFF_LINKS.forEach(function (l) { l.sync(); });
     }
 
     // ── Live preview ────────────────────────────────────────────────────────
@@ -206,32 +208,53 @@
     }
 
     // ── Pickers ─────────────────────────────────────────────────────────────
-    /* Free text is always allowed. A loco pilot who is not on the division's
-     * roll, or a loco not yet in div_locos, still has to appear on the report —
-     * the picker is a convenience, never a gate. */
-    function attachPicker(input, drop, url, rowHtml, onPick) {
+    /* Loco: free text is always allowed — a loco not yet in div_locos still
+     * has to appear on the report, so that picker is a convenience.
+     *
+     * Staff: the name must come from div_staff_master. A box is in one of
+     * three states, held in data-link on the visible input:
+     *   'yes'  picked from the master — the hidden *_hrms_id is set
+     *   'temp' the user said "not in staff master" — hrms stays empty
+     *   ''     typed but not decided — save is refused until it is
+     * Typing after a pick clears the hidden id, so a name never carries a
+     * stale HRMS. Records loaded with a name and no id are shown as temp
+     * rather than blocked: they predate the rule. */
+    var TEMP_OPT_HTML = '<div class="opt tmp"><b>Not in staff master</b>' +
+        '<span class="sub">keep the name as typed — marked temporary until the staff is added</span></div>';
+    // (a span, not <small>: clihq-letter.html reads <small> on a clicked row as "hrms · desg · office")
+
+    function attachPicker(input, drop, url, rowHtml, onPick, staff) {
         var timer = null;
         input.addEventListener('input', function () {
             clearTimeout(timer);
+            if (staff) staff.unlink();
             DIRTY = true; render();
             if (input.value.trim().length < 3) { drop.classList.remove('open'); return; }
             timer = setTimeout(function () {
                 api(url + encodeURIComponent(input.value.trim())).then(function (data) {
                     var rows = data.staff || data.locos || [];
+                    var html = rows.map(function (r, i) {
+                        return '<div class="opt" data-i="' + i + '">' + rowHtml(r) + '</div>';
+                    }).join('');
                     if (!rows.length) {
-                        drop.innerHTML = '<div class="empty">No match — type it in freely</div>';
-                    } else {
-                        drop.innerHTML = rows.map(function (r, i) {
-                            return '<div class="opt" data-i="' + i + '">' + rowHtml(r) + '</div>';
-                        }).join('');
-                        drop.querySelectorAll('.opt').forEach(function (el) {
-                            el.onclick = function () {
-                                onPick(rows[Number(el.dataset.i)]);
-                                drop.classList.remove('open');
-                                DIRTY = true; render();
-                            };
-                        });
+                        html = staff ? '<div class="empty">No match in the staff master</div>'
+                                     : '<div class="empty">No match — type it in freely</div>';
                     }
+                    if (staff) html += TEMP_OPT_HTML;
+                    drop.innerHTML = html;
+                    drop.querySelectorAll('.opt[data-i]').forEach(function (el) {
+                        el.onclick = function () {
+                            onPick(rows[Number(el.dataset.i)]);
+                            drop.classList.remove('open');
+                            DIRTY = true; render();
+                        };
+                    });
+                    var tmp = drop.querySelector('.opt.tmp');
+                    if (tmp) tmp.onclick = function () {
+                        staff.temp();
+                        drop.classList.remove('open');
+                        DIRTY = true; render();
+                    };
                     drop.classList.add('open');
                 }).catch(fail);
             }, 250);
@@ -239,6 +262,53 @@
         input.addEventListener('blur', function () {
             setTimeout(function () { drop.classList.remove('open'); }, 180);
         });
+    }
+
+    /* The link state of one staff box: the visible name input, its hidden
+     * hrms input and the tag under it. Exposed as SsehqEditor.staffLink so a
+     * page with its own name boxes (the award note's staff table) can share
+     * the picker and the save gate. */
+    function staffLink(input, hidden) {
+        var tag = input.parentNode.querySelector('.linktag');
+        if (!tag) {
+            tag = document.createElement('div');
+            tag.className = 'linktag';
+            input.parentNode.appendChild(tag);
+        }
+        function set(state) {
+            input.dataset.link = state;
+            tag.className = 'linktag ' + (state || 'open');
+            tag.textContent = !input.value.trim() ? '' :
+                state === 'yes'  ? '✓ staff master' + (hidden && hidden.value ? ' · ' + hidden.value : '') :
+                state === 'temp' ? 'temporary — not in staff master' :
+                                   'pick from the list, or choose "Not in staff master"';
+        }
+        var link = {
+            yes:    function (hrms) { if (hidden) hidden.value = hrms || ''; set('yes'); },
+            temp:   function ()     { if (hidden) hidden.value = ''; set('temp'); },
+            unlink: function ()     { if (hidden) hidden.value = ''; set(''); },
+            /* after a load: decide the state from what the record holds */
+            sync:   function ()     { set(!input.value.trim() ? '' : (hidden && hidden.value) ? 'yes' : 'temp'); },
+            undecided: function ()  { return !!input.value.trim() && !input.dataset.link; },
+            input: input,
+        };
+        STAFF_LINKS.push(link);
+        return link;
+    }
+    var STAFF_LINKS = [];
+
+    /* Refuse a save while any staff box holds a name that was neither picked
+     * nor marked temporary. Returns the offending link, or null. */
+    function undecidedStaff() {
+        for (var i = 0; i < STAFF_LINKS.length; i++) {
+            if (STAFF_LINKS[i].undecided() && document.body.contains(STAFF_LINKS[i].input)) return STAFF_LINKS[i];
+        }
+        return null;
+    }
+    function staffRowHtml(s) {
+        return '<b>' + escapeText(s.name) + '</b><small>' +
+            escapeText([s.hrms_id, s.designation_name, s.current_office_code, s.pf_number ? 'PF ' + s.pf_number : '']
+                .filter(Boolean).join(' · ')) + '</small>';
     }
 
     function markDerived(el, value) {
@@ -361,6 +431,12 @@
     }
 
     function save() {
+        var open = undecidedStaff();
+        if (open) {
+            open.input.focus();
+            return Promise.reject(new Error('"' + open.input.value.trim() + '" is not linked — pick the staff from the ' +
+                'list, or choose "Not in staff master" under the box.'));
+        }
         var payload = { id: RECORD_ID, record: readForm(), events: EVENTS };
         return api(CFG.api, { method: 'POST', body: JSON.stringify(payload) })
             .then(function (data) {
@@ -544,13 +620,9 @@
             var hidden = document.querySelector('[name="' + p.hrms + '"]');
             var drop = $(p.drop);
             if (!input || !drop) return;
-            attachPicker(input, drop, CFG.locoApi + '/search-staff/',
-                function (s) {
-                    return '<b>' + escapeText(s.name) + '</b><small>' +
-                        escapeText([s.hrms_id, s.designation_name, s.current_office_code].filter(Boolean).join(' · ')) +
-                        '</small>';
-                },
-                function (s) { input.value = s.name; if (hidden) hidden.value = s.hrms_id || ''; });
+            var link = staffLink(input, hidden);
+            attachPicker(input, drop, CFG.locoApi + '/search-staff/', staffRowHtml,
+                function (s) { input.value = s.name; link.yes(s.hrms_id); }, link);
         });
     }
 
@@ -617,5 +689,9 @@
         setDirty: function (v) { DIRTY = v; },
         getId: function () { return RECORD_ID; },
         needSaved: needSaved,
+        staffLink: staffLink,
+        attachStaffPicker: function (input, drop, link, onPick) {
+            attachPicker(input, drop, CFG.locoApi + '/search-staff/', staffRowHtml, onPick, link);
+        },
     };
 }(window, document));
