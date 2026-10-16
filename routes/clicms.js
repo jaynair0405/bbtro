@@ -585,8 +585,22 @@ router.post('/daily/upload', upload.array('files', 20), async (req, res) => {
     const many = r.uploads.length > 1 || cmsReports.canMerge(r.key);
     await autoSave(r, req, r.uploads.map((f, i) => ({ name: f.originalname, buffer: f.buffer, slot: many ? `f${i + 1}` : undefined })), null);
   }
+  await withLobbyDrill(reports, sheetDate);
   res.json({ catalogue: cmsReports.catalogue(), reports, rejected });
 });
+
+/*
+ * Lobby lists + remarks under the counts (lib/cmsReports/lobbyDrill.js). Read live, never
+ * saved with the report; a failure is a warning, never a failed day.
+ */
+async function withLobbyDrill(reports, sheetDate) {
+  if (!sheetDate) return;
+  try {
+    await require('../lib/cmsReports/lobbyDrill').attach(reports, sheetDate);
+  } catch (err) {
+    reports.forEach((r) => { (r.warnings = r.warnings || []).push(`Lobby lists could not be read (${err.message}).`); });
+  }
+}
 
 /*
  * CMS drill-down lists often carry no designation. Where a drill names its crew-id
@@ -728,6 +742,7 @@ router.post('/daily/day', async (req, res) => {
   if (!sheetDate) return res.status(400).json({ error: 'Choose a valid sheet date.' });
   try {
     const reports = await store.loadDay(sheetDate, cmsReports.catalogue().filter((c) => !c.slotOf));
+    await withLobbyDrill(reports, sheetDate);
     res.json({ catalogue: cmsReports.catalogue(), sheetDate, reports });
   } catch (err) {
     res.status(500).json({ error: `Could not read the stored day (${err.message}).` });

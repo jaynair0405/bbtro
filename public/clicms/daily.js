@@ -680,6 +680,7 @@ function drawDrill(panel) {
   panel.innerHTML = `<div class="drill-head"><strong>${esc(d.title)}</strong> <span>${d.rows.length} row${d.rows.length === 1 ? '' : 's'}</span>
       <a href="#" class="drill-close" title="Close">×</a></div>
     ${d.note ? `<p class="tnote">${esc(d.note)}</p>` : ''}
+    ${d.lobbyNote ? `<p class="tnote lobby-note">${esc(d.lobbyNote)}</p>` : ''}
     <div class="table-wrap"><table><thead><tr>${d.headers.map((h, i) => (sortable.has(i)
       ? `<th class="txt sortable" data-sc="${i}">${esc(h)}${arrow(i)}</th>` : `<th class="txt">${esc(h)}</th>`)).join('')}</tr></thead>
     <tbody>${rows.map((r) => `<tr>${r.map((v) => `<td>${esc(v)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
