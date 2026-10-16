@@ -1,6 +1,11 @@
 const express = require('express');
 const router = express.Router();
 
+// Roles that read the whole division's staff, not one office's. The Chief OS
+// (D&AR desk, server.js allows it GET only on these routes) sits at CSMT-HQ but
+// its cases come from every lobby, so the bio-profile lookup must see them all.
+const DIVISION_WIDE_ROLES = new Set(['division_admin', 'chiefos']);
+
 // Middleware to check authentication
 function requireAuth(req, res, next) {
     if (!req.session.user || req.session.user.realm !== 'division') {
@@ -57,7 +62,7 @@ router.get('/report', requireAuth, async (req, res) => {
         `;
         const params = [];
 
-        if (userRole !== 'division_admin') {
+        if (!DIVISION_WIDE_ROLES.has(userRole)) {
             const filter = buildOfficeFilter(userOffice, 's');
             query += ' AND ' + filter.condition;
             params.push(...filter.params);

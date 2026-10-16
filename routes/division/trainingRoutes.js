@@ -1,5 +1,10 @@
 const express = require('express');
 const router = express.Router();
+// Roles that read the whole division's staff, not one office's. The Chief OS
+// (D&AR desk, server.js allows it GET only on these routes) sits at CSMT-HQ but
+// its cases come from every lobby, so the bio-profile lookup must see them all.
+const DIVISION_WIDE_ROLES = new Set(['division_admin', 'chiefos']);
+
 console.log('*** trainingRoutes.js loaded ***');
 
 // Middleware to check authentication
@@ -45,7 +50,7 @@ function buildOfficeFilter(officeCode, tableAlias = 's') {
 
 // Check if user can access staff based on office rules
 function canAccessStaff(userOffice, userRole, staffOffice, staffDesignationId) {
-    if (userRole === 'division_admin') return true;
+    if (DIVISION_WIDE_ROLES.has(userRole)) return true;
     if (userOffice === staffOffice) return true;
     const accessRule = OFFICE_ACCESS_RULES[userOffice];
     if (accessRule && staffOffice === accessRule.accessOffice) {
@@ -118,7 +123,7 @@ router.get('/due-report', requireAuth, async (req, res) => {
         const commonParams = [];
 
         // Office-based access control using CMS prefix for VVH offices
-        if (userRole !== 'division_admin') {
+        if (!DIVISION_WIDE_ROLES.has(userRole)) {
             const filter = buildOfficeFilter(userOffice, 's');
             commonFilters += ' AND ' + filter.condition;
             commonParams.push(...filter.params);
@@ -226,7 +231,7 @@ router.get('/matrix', requireAuth, async (req, res) => {
             const params = [];
 
             // Apply office filter using CMS prefix for VVH offices
-            if (userRole !== 'division_admin' && userOffice) {
+            if (!DIVISION_WIDE_ROLES.has(userRole) && userOffice) {
                 const filter = buildOfficeFilter(userOffice, 's');
                 staffQuery += ' AND ' + filter.condition;
                 params.push(...filter.params);
