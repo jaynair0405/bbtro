@@ -15,7 +15,7 @@
  * silently misalign.
  */
 
-const CACHE_VERSION = 'v21';
+const CACHE_VERSION = 'v22';
 const CACHE_NAME = `clicms-shell-${CACHE_VERSION}`;
 
 // Paths are relative to the SW scope (/clicms/).

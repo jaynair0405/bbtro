@@ -81,6 +81,12 @@ main { max-width: 1280px; margin: 0 auto; padding: 24px; }
 .dz-title { font-size: 18px; font-weight: 600; margin-top: 12px; }
 .dz-or { color: var(--muted); margin: 8px 0; font-size: 13px; }
 .dz-note { color: var(--muted); font-size: 12.5px; margin-top: 18px; }
+/* Stored report box (above the dropzone) + the note after an upload */
+.stored-box { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+  background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--ok); border-radius: 10px; padding: 14px 18px; margin-bottom: 14px; }
+.stored-title { font-size: 15px; font-weight: 600; }
+.stored-meta { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+.stored-note { background: #eef7f1; border: 1px solid #bfdcc9; color: var(--ok); border-radius: 8px; padding: 8px 12px; font-size: 13px; margin-bottom: 10px; }
 
 /* ---- Buttons ---- */
 .btn {

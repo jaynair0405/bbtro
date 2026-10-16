@@ -47,6 +47,8 @@ async function uploadFile(file) {
     const data = await res.json();
     if (!res.ok) return showUploadErr(data.error || 'Upload failed.');
     initWorkStage(data);
+    showStoredNote(data.stored);
+    loadStored();           // the box above the dropzone now describes this upload
   } catch (err) {
     showUploadErr('Could not reach the server. ' + err.message);
   }
@@ -54,6 +56,41 @@ async function uploadFile(file) {
 function showUploadErr(msg) {
   const el = $('uploadErr');
   el.textContent = msg; el.hidden = false;
+}
+
+// ---------- Stored report ----------
+// The server keeps the latest upload (lib/cmsReports/duelist.js). The box above the
+// dropzone names it and opens it through initWorkStage — same shape as an upload, so
+// the counters, summary, table and exports work unchanged. Loaded at startup and after
+// every upload; lobby users (no dropzone) open the report only this way.
+let storedData = null;
+function ddmm(iso) { return /^\d{4}-\d{2}-\d{2}$/.test(iso || '') ? iso.split('-').reverse().join('-') : (iso || '—'); }
+async function loadStored() {
+  try {
+    const res = await fetch(`${API_BASE}duelist/current`, { method: 'POST', credentials: 'same-origin' });
+    const data = res.ok ? await res.json() : null;
+    storedData = data && data.stored ? data : null;
+  } catch (e) { storedData = null; }
+  const box = $('storedBox');
+  if (!storedData) { box.hidden = true; return; }
+  const st = storedData.stored;
+  $('storedDate').textContent = ddmm(st.dataDate);
+  $('storedMeta').textContent = `uploaded by ${st.by} at ${String(st.at || '').slice(11)}` +
+    ` · ${storedData.rows.length} crew` + (st.earlier ? ` · replaced ${st.earlier} earlier upload${st.earlier > 1 ? 's' : ''} that day` : '');
+  box.hidden = false;
+}
+$('openStoredBtn').addEventListener('click', () => { if (storedData) { initWorkStage(storedData); $('storedNote').hidden = true; } });
+loadStored();
+
+// After an HQ upload: what the server did with the file (data.stored from /upload).
+function showStoredNote(st) {
+  const el = $('storedNote');
+  if (!st) { el.hidden = true; return; }
+  const m = st.monitoring || {};
+  const parts = [st.replaced ? `Stored — replaced today's earlier upload (report of ${ddmm(st.dataDate)})` : `Stored as the report of ${ddmm(st.dataDate)}`];
+  if (m.added != null) parts.push(`${m.added} crew new, ${m.changed} changed, ${m.unchanged} unchanged` + (m.absent ? `, ${m.absent} not in this file` : ''));
+  el.textContent = parts.join(' · ');
+  el.hidden = false;
 }
 
 // ---------- Init work stage ----------
@@ -467,6 +504,8 @@ $('resetBtn').addEventListener('click', () => {
 });
 $('newBtn').addEventListener('click', () => {
   fileInput.value = '';
+  $('storedNote').hidden = true;
+  loadStored();
   $('workStage').hidden = true;
   $('asof').hidden = true;
   $('uploadStage').hidden = false;
@@ -566,7 +605,7 @@ function drillList(cliKey, desig, cat) {
       $('dropzone').hidden = true;
       const note = document.createElement('p');
       note.className = 'dz-note';
-      note.textContent = 'Read-only for lobby users — the Due List is uploaded by CLI CMS (HQ). Your lists and remarks go on the Lobby page.';
+      note.textContent = 'Read-only for lobby users — the Due List is uploaded by CLI CMS (HQ); open the stored report above. Your lists and remarks go on the Lobby page.';
       $('uploadStage').appendChild(note);
     }
   } catch (e) { /* leave hidden */ }

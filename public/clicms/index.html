@@ -18,7 +18,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <!-- ?v tag must match CACHE_VERSION in clicms-sw.js: it stops a cache-first service
        worker pairing a fresh index.html with a stale clicms.js (columns then misalign). -->
-  <link rel="stylesheet" href="clicms.css?v21" />
+  <link rel="stylesheet" href="clicms.css?v22" />
   <link rel="stylesheet" href="daily.css?v15" /><!-- report switcher only -->
 </head>
 <body>
@@ -45,6 +45,14 @@
   <main>
     <!-- Upload stage -->
     <section id="uploadStage" class="upload-stage">
+      <!-- The latest stored upload (POST duelist/current). Hidden until one exists. -->
+      <div class="stored-box" id="storedBox" hidden>
+        <div>
+          <p class="stored-title">Stored report of <strong id="storedDate">—</strong></p>
+          <p class="stored-meta" id="storedMeta"></p>
+        </div>
+        <button class="btn btn-primary" id="openStoredBtn">Open stored report</button>
+      </div>
       <div class="dropzone" id="dropzone">
         <div class="dz-icon">⇪</div>
         <p class="dz-title">Drop the CMS Report CSV here</p>
@@ -53,13 +61,14 @@
           Choose CSV file
           <input type="file" id="fileInput" accept=".csv,text/csv" hidden />
         </label>
-        <p class="dz-note">Nothing is stored on the server — the file is processed in memory and discarded.</p>
+        <p class="dz-note">The file is stored on the server as the report of the upload day. Uploading again the same day replaces it (the earlier copy is kept as history).</p>
       </div>
       <div class="err" id="uploadErr" hidden></div>
     </section>
 
     <!-- Work stage -->
     <section id="workStage" hidden>
+      <div class="stored-note" id="storedNote" hidden></div>
       <div class="warnings" id="warnings" hidden></div>
 
       <!-- Dashboard counters -->
@@ -157,7 +166,7 @@
     </section>
   </main>
 
-  <script src="clicms.js?v21"></script>
+  <script src="clicms.js?v22"></script>
   <script>
     // Register the PWA service worker (caches the app shell only).
     if ('serviceWorker' in navigator) {
