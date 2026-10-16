@@ -1,0 +1,22 @@
+'use strict';
+const assert = require('assert');
+const fs = require('fs');
+const path = require('path');
+const mod = require('../../lib/cmsReports/lobby/nightlist');
+const lists = require('../../lib/cmsReports/lobbyLists');
+const dir = path.join(__dirname, '../../data/cms-report/lobby-upload');
+
+const csmt = lists.processLobbyFile(fs.readFileSync(path.join(dir, 'CONTNIGHT_CSMT.csv')));
+assert.strictEqual(csmt.key, 'nightlist');
+let it = mod.items(csmt.parsed);
+assert.strictEqual(it.length, 1);
+assert.strictEqual(it[0].cmsId, 'CSMT6037');
+assert.strictEqual(it[0].lobby, 'CSMT');
+assert.strictEqual(it[0].measure, 'n5');
+assert.strictEqual(it[0].itemKey, '2026-10-07');
+assert.deepStrictEqual(it[0].cols, ['CSMT6037', '6', '07-10', '12-10']);
+const kyn = lists.processLobbyFile(fs.readFileSync(path.join(dir, 'CONTNIGHT_KYN.csv')));
+assert.deepStrictEqual(mod.items(kyn.parsed)[0].cols, ['KYN3889', '5', '11-10', '15-10']);
+assert.deepStrictEqual(mod.checkDate(csmt.parsed, { sheetDate: '2026-10-16' }), null);
+assert.ok(mod.checkDate(csmt.parsed, { sheetDate: '2026-11-02' }).error);
+console.log('nightlist.test.js OK');
