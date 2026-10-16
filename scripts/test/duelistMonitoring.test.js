@@ -24,10 +24,13 @@ const mkLoad = (date) => store.saveLoad({ report, facts: { counts: [], crew: [] 
   try {
     // Make sure no stale fixture rows exist (and no real 'duelist' loads on these dates)
     await pool.query("DELETE FROM cms_crew_monitoring WHERE cms_id LIKE 'ZZT%'");
+    // Real crew already stored locally (a browser test, prod data) count as absent from every fixture file.
+    const [[{ others }]] = await pool.query("SELECT COUNT(*) others FROM cms_crew_monitoring WHERE is_current = 1 AND cms_id NOT LIKE 'ZZT%'");
+    const abs = (n) => n + Number(others);
 
     const l1 = await mkLoad('2031-02-01'); loads.push(l1.id);
     let r = await dl.upsertMonitoring([mkRow('ZZT0001'), mkRow('ZZT0002'), mkRow('ZZT0003'), mkRow('ZZT0003')], l1.id, '2031-02-01');
-    assert.deepStrictEqual(r, { added: 3, changed: 0, unchanged: 0, absent: 0, dupes: 1 });
+    assert.deepStrictEqual(r, { added: 3, changed: 0, unchanged: 0, absent: abs(0), dupes: 1 });
     const [[a]] = await pool.query("SELECT DATE_FORMAT(prev_grade_date,'%Y-%m-%d') pgd, DATE_FORMAT(fp_due,'%Y-%m-%d') fp_due, status, lobby FROM cms_crew_monitoring WHERE cms_id='ZZT0001' AND is_current=1");
     assert.strictEqual(a.pgd, null);              // 31-02-2029 is not a date
     assert.strictEqual(a.fp_due, '2031-03-01'); assert.strictEqual(a.status, 'REST'); assert.strictEqual(a.lobby, 'ZZT');
@@ -35,14 +38,14 @@ const mkLoad = (date) => store.saveLoad({ report, facts: { counts: [], crew: [] 
     // Same tracked fields, different status -> no new version, last_seen moves
     const l2 = await mkLoad('2031-02-02'); loads.push(l2.id);
     r = await dl.upsertMonitoring([mkRow('ZZT0001', { status: 'SIGNON' }), mkRow('ZZT0002'), mkRow('ZZT0003')], l2.id, '2031-02-02');
-    assert.deepStrictEqual(r, { added: 0, changed: 0, unchanged: 3, absent: 0, dupes: 0 });
+    assert.deepStrictEqual(r, { added: 0, changed: 0, unchanged: 3, absent: abs(0), dupes: 0 });
     const [[b]] = await pool.query("SELECT COUNT(*) n, MAX(status) status, DATE_FORMAT(MAX(last_seen),'%Y-%m-%d') ls, MAX(last_load_id) ll FROM cms_crew_monitoring WHERE cms_id='ZZT0001'");
     assert.strictEqual(Number(b.n), 1); assert.strictEqual(b.status, 'SIGNON'); assert.strictEqual(b.ls, '2031-02-02'); assert.strictEqual(Number(b.ll), l2.id);
 
     // One crew's due date changes, one crew is absent from the file
     const l3 = await mkLoad('2031-02-03'); loads.push(l3.id);
     r = await dl.upsertMonitoring([mkRow('ZZT0001', { fpDue: '15-03-2031' }), mkRow('ZZT0002')], l3.id, '2031-02-03');
-    assert.deepStrictEqual(r, { added: 0, changed: 1, unchanged: 1, absent: 1, dupes: 0 });
+    assert.deepStrictEqual(r, { added: 0, changed: 1, unchanged: 1, absent: abs(1), dupes: 0 });
     const [hist] = await pool.query("SELECT id, is_current, DATE_FORMAT(fp_due,'%Y-%m-%d') fp_due, DATE_FORMAT(first_seen,'%Y-%m-%d') fs FROM cms_crew_monitoring WHERE cms_id='ZZT0001' ORDER BY id");
     assert.strictEqual(hist.length, 2);
     assert.deepStrictEqual(hist.map((h) => [Number(h.is_current), h.fp_due, h.fs]), [[0, '2031-03-01', '2031-02-01'], [1, '2031-03-15', '2031-02-03']]);

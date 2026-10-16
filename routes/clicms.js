@@ -31,7 +31,7 @@ const router = express.Router();
 // before the Daily Position block) and by router.use on the /daily writes.
 const requireHqWriter = (req, res, next) => {
   if (lobbies.isLobbyWriterRole(req.session && req.session.user)) {
-    return res.status(403).json({ error: 'Lobby users cannot upload here — the Due List and the Daily Position are HQ's. Use the Lobby page.' });
+    return res.status(403).json({ error: "Lobby users cannot upload here — the Due List and the Daily Position are HQ's. Use the Lobby page." });
   }
   next();
 };
