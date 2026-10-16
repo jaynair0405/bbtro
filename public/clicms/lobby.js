@@ -122,7 +122,7 @@ function remarkCell(i, writer) {
   }
   if (!writer) return '<span class="empty">—</span>';
   const text = i.draft != null ? i.draft : (i.remark ? i.remark.remark : '');
-  return `<input type="text" value="${esc(text)}" placeholder="Remark" maxlength="2000" />`;
+  return `<input type="text" value="${esc(text)}" placeholder="Remark" maxlength="2000" /><span class="copy" title="Write this remark into every empty box on this card">copy to blanks</span>`;
 }
 function findItem(td) {
   const c = state.day.cards.find((x) => x.key === td.dataset.key);
@@ -151,6 +151,17 @@ $('cards').addEventListener('click', async (e) => {
   if (ed) {
     const td = ed.closest('td.rem'); const it = findItem(td); it.editing = true;
     td.innerHTML = remarkCell(it, true); td.querySelector('input').focus(); return;
+  }
+  const cp = e.target.closest('.copy');
+  if (cp) {
+    // One remark for many names: fill every EMPTY box on this card with this box's text.
+    // Typed and saved remarks are left alone; Save remarks then writes them all.
+    const from = cp.closest('td.rem').querySelector('input'); const text = from.value.trim();
+    if (!text) { from.focus(); return; }
+    for (const inp of cp.closest('section').querySelectorAll('td.rem input')) {
+      if (inp !== from && !inp.value.trim()) { inp.value = text; findItem(inp.closest('td.rem')).draft = text; }
+    }
+    return;
   }
   const btn = e.target.closest('button[data-save]'); if (!btn) return;
   const sec = btn.closest('section');
