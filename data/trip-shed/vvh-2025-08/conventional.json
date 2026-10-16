@@ -1,0 +1,1482 @@
+[
+  {
+    "source_row": 3,
+    "section_name": "General / सामान्य",
+    "item_no": "i",
+    "label_en": "Check driver booking in log book; if any booking exists, inform shed via TLC.",
+    "label_hi": "लॉग बुक में ड्रायवर बुकिंग चेक करें और यदि कोई बुकिंग है तो टीएलसी द्वारा शेड को सूचित करें।",
+    "standard_value": "Checked",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 4,
+    "section_name": "General / सामान्य",
+    "item_no": "ii",
+    "label_en": "Check Fault Messages Logged in FDCS and Take appropriate action. Check screen for proper working, any breakage or cracks.",
+    "label_hi": "एफडीसीएस में दर्ज फॉल्ट संदेशों की जांच करें और उचित कार्रवाई करें। स्क्रीन के सही कार्य, किसी भी टूट-फूट या दरार की जाँच करें।",
+    "standard_value": "Normal",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 6,
+    "section_name": "Driver’S Seat",
+    "item_no": "i",
+    "label_en": "Check looseness, squaring, and cracks of all parts; repair any defective parts.",
+    "label_hi": "सभी पूर्जों की लूजनेंस , स्‍कोयरिंग तथा क्रैक की जॉच करें । यदि कोई खराब मिले तो उसे रिपेयर करें।",
+    "standard_value": "Intact",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 8,
+    "section_name": "Driver’S Desk",
+    "item_no": "i",
+    "label_en": "Check cleanliness & working of lamps and gauges on driver’s desk.",
+    "label_hi": "चालक की डेस्क पर लगे दीपकों और गेजों की सफाई और कार्यशीलता की जांच करें।",
+    "standard_value": "Normal",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 9,
+    "section_name": "Driver’S Desk",
+    "item_no": "ii",
+    "label_en": "Ensure BP, FP, MR, BC, AFI, U-meter, gauges readings are correct.",
+    "label_hi": "बीपी, एफपी, एमआर, बीसी, एएफआई गेजेस की रिडींग सही होना सुनिश्चित करें।",
+    "standard_value": "Normal",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 10,
+    "section_name": "Driver’S Desk",
+    "item_no": "iii",
+    "label_en": "Ensure emergency push button switch operates correctly.",
+    "label_hi": "एमरजेंसी पुश बटन स्विंच की सही कार्य कर रहा है सुनिश्चित करें ।",
+    "standard_value": "Working",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 11,
+    "section_name": "Driver’S Desk",
+    "item_no": "iv",
+    "label_en": "Check working of BPVG, PVEF, PVSA, PVCD etc.",
+    "label_hi": "BPVG, PVEF, PVSA, PVCD आदि के कार्य करने की स्थिति जांचें।",
+    "standard_value": "Normal",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 13,
+    "section_name": "Check The Availability Of Following Safety Items:",
+    "item_no": "8",
+    "label_en": "Wooden wedges (4 Nos. each)",
+    "label_hi": "लकडी के गुटके",
+    "standard_value": "Available",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 14,
+    "section_name": "Check The Availability Of Following Safety Items:",
+    "item_no": "9",
+    "label_en": "Fire extinguisher (4 Nos. each)",
+    "label_hi": "अग्निशमन (कुल सं. - 4)",
+    "standard_value": "Available",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 15,
+    "section_name": "Check The Availability Of Following Safety Items:",
+    "item_no": "10",
+    "label_en": "LV Board (01No.)",
+    "label_hi": "एल.वी. बोर्ड (कुल सं. - 1)",
+    "standard_value": "Available",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 16,
+    "section_name": "Check The Availability Of Following Safety Items:",
+    "item_no": "11",
+    "label_en": "Safety clamps (01 No.)",
+    "label_hi": "सेेफ्टी कलैम्प (कुल सं. - 1)",
+    "standard_value": "Available",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 17,
+    "section_name": "Check The Availability Of Following Safety Items:",
+    "item_no": "12",
+    "label_en": "Spare BP & FP hose pipe (01 No. each)",
+    "label_hi": "बीपी व एफपी पाइप (प्रत्येक-1)",
+    "standard_value": "Available",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 18,
+    "section_name": "Check The Availability Of Following Safety Items:",
+    "item_no": "13",
+    "label_en": "Screw coupling (01 No.)",
+    "label_hi": "स्क्रु कपलिंग (कुल सं. - 1)",
+    "standard_value": "Available",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 19,
+    "section_name": "Check The Availability Of Following Safety Items:",
+    "item_no": "14",
+    "label_en": "Check working of SPM & any abnormal report about SPM in defect log book, if not working same to attend.",
+    "label_hi": "गतिमापक यंत्र का कार्यरत होना सुनिश्चित करें, यदि खराब है तो ठीक करें",
+    "standard_value": "Working Normal.",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 20,
+    "section_name": "Check The Availability Of Following Safety Items:",
+    "item_no": "15",
+    "label_en": "Check availability of memory card",
+    "label_hi": "मेमोरी कार्ड की उपलब्धता जांचें।",
+    "standard_value": "Available/Replaced",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 21,
+    "section_name": "Check The Availability Of Following Safety Items:",
+    "item_no": "16",
+    "label_en": "Check the PG connection for proper tightness",
+    "label_hi": "पी जी के कनेेक्शन टाईटनैस चेक करें ।",
+    "standard_value": "Intact",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 22,
+    "section_name": "Check The Availability Of Following Safety Items:",
+    "item_no": "17",
+    "label_en": "Check working of cab heaters & cab AC",
+    "label_hi": "कैब हीटर व कैब एसी के कार्यरत होना सुनिश्चित करें",
+    "standard_value": "Working normal.",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 23,
+    "section_name": "Check The Availability Of Following Safety Items:",
+    "item_no": "18",
+    "label_en": "Check Look out Glass for condition & cleanliness.",
+    "label_hi": "लुक आउट ग्लास की स्थिति और साफ-सफाई की जाँच करें।",
+    "standard_value": "Intact/Clean",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 24,
+    "section_name": "Check The Availability Of Following Safety Items:",
+    "item_no": "19",
+    "label_en": "Check the condition of Door glass, Window glass & Sun wiser/Sun screen",
+    "label_hi": "डोर ग्लास, विंडो ग्लास और सन वाइजर/सन स्क्रीन की स्थिति की जांच करें।",
+    "standard_value": "Intact",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 25,
+    "section_name": "Check The Availability Of Following Safety Items:",
+    "item_no": "20",
+    "label_en": "Check door lock & door hinges",
+    "label_hi": "डोर लॉक और डोर हिंग्स की जांच करें।",
+    "standard_value": "Working",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 26,
+    "section_name": "Check The Availability Of Following Safety Items:",
+    "item_no": "21",
+    "label_en": "Check for any inflammable foreign material on loco.",
+    "label_hi": "ज्वलनशील बाहरी पदार्थ की जांच करें",
+    "standard_value": "Check & Removed",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 27,
+    "section_name": "Check The Availability Of Following Safety Items:",
+    "item_no": "xv.",
+    "label_en": "Check for any crackness & intactness of Foot steps & Doors",
+    "label_hi": "फुट स्टेप्स और दरवाजों में किसी भी दरार तथा उनकी मजबूती की जाँच करें।",
+    "standard_value": "Intact",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 28,
+    "section_name": "Check The Availability Of Following Safety Items:",
+    "item_no": "xvi",
+    "label_en": "Check the position of all program switches. i. e. 0/1/3. Attend if 0 or 3",
+    "label_hi": "सभी प्रोग्राम स्विच का कार्यरत होना सुनिश्चित करें जैसे 0/1/3 स्थिति । यदि 0/3 पर हो तो दुरुस्त करें ।",
+    "standard_value": "Normal position 1",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 29,
+    "section_name": "Check The Availability Of Following Safety Items:",
+    "item_no": "xvii",
+    "label_en": "Check the working of ZCPA programme switch for position.",
+    "label_hi": "जेडसीपीए स्विच का कार्यरत होना सुनिश्चित करें ।",
+    "standard_value": "ZCPA Operation & Baby Compressor working normal.",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 30,
+    "section_name": "Check The Availability Of Following Safety Items:",
+    "item_no": "xviii",
+    "label_en": "Check the proper fitment/tightness of BPP, BPR, BPT, BPSW, BPQD, BPQWC & ZLC switches in both cabs.",
+    "label_hi": "दोनों कैब में बीपीपी बीपीआर बीपीटी बीपीएसडब्ल्यू बीपीक्यूडी बीपीक्यूडब्ल्यूसी बीपीक्यूसी और ज़ेडएलसी स्विचों की सही फिटमेंट/कसाव की जांच करें।",
+    "standard_value": "Intact & working normal",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 33,
+    "section_name": "Lighting / लाईटिंग",
+    "item_no": "i",
+    "label_en": "Check all lighting, bulbs of cabs and corridors, cab fan if deficient or not working, attend accordingly.",
+    "label_hi": "कैब और गलियारों की सभी लाइटें बल्ब तथा कैब फैन की जाँच करें। यदि कोई कमी हो या काम न कर रहा हो, तो आवश्यकतानुसार ठीक करें।",
+    "standard_value": "Intact & is working condition.",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 34,
+    "section_name": "Lighting / लाईटिंग",
+    "item_no": "ii",
+    "label_en": "Check working of flasher, tail and marker light and clean glasses.",
+    "label_hi": "टेल लाईट, फ्लैशर लाईट व मार्कर लाईट को चैक करंे तथा उनके ग्लास को साफ करें ।",
+    "standard_value": "In working condition.",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 35,
+    "section_name": "Lighting / लाईटिंग",
+    "item_no": "iii",
+    "label_en": "Ensure working of both flasher lights on Auto/Manual position.",
+    "label_hi": "फ्लैशर लाईट का आटो/मैन्युल स्थिति में कार्यरत होना सुनिश्चित करें ।",
+    "standard_value": "In working condition.",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 36,
+    "section_name": "Lighting / लाईटिंग",
+    "item_no": "iv",
+    "label_en": "Check the working of head light with DC-DC converter positions",
+    "label_hi": "डीसी-डीसी कन्वर्टर की विभिन्न स्थितियों के साथ हेड लाइट के कार्य की जाँच करें। अ) मोड-1 ब) मोड-2",
+    "standard_value": "Both position working normal",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 37,
+    "section_name": "Lighting / लाईटिंग",
+    "item_no": "v",
+    "label_en": "Check the working of LV meter, Ammeter, CHBA Ammeter and Volt meter of loco.",
+    "label_hi": "एल वी मीटर, अमीटर, सीएचबीए, अमीटर तथा वोल्टमीटर की जाॅच करें ।",
+    "standard_value": "Working normal",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 38,
+    "section_name": "Lighting / लाईटिंग",
+    "item_no": "vi",
+    "label_en": "Check working of all wipers, replace blade if required.",
+    "label_hi": "सभी वाइपर के संचालन की जांच करें, आवश्यकता होने पर ब्लेड बदलें।",
+    "standard_value": "Working normal",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 39,
+    "section_name": "Lighting / लाईटिंग",
+    "item_no": "vii",
+    "label_en": "Check working of Horns (LV & HV)",
+    "label_hi": "सभी हार्न को कार्यरत होना सुनिश्चित करें । (एलवी/एचवी)",
+    "standard_value": "Working normal",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 40,
+    "section_name": "Lighting / लाईटिंग",
+    "item_no": "viii",
+    "label_en": "Check the operation of BL board keys, ZPT, reverser keys & switches for slackness.",
+    "label_hi": "बीएल, जेडपीटी त्था रिवर्सर की चाॅवी व स्विच की जाॅच करें । सुनिश्चित करें कि कोई स्विच स्लैक तो नहीं है ।",
+    "standard_value": "Free operation",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 41,
+    "section_name": "Lighting / लाईटिंग",
+    "item_no": "ix",
+    "label_en": "Check Hand brake & its operation.",
+    "label_hi": "हैंड ब्रेक और उसके संचालन की जांच करें।",
+    "standard_value": "Working normal",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 44,
+    "section_name": "Pantograph & Roof Equipments",
+    "item_no": "i",
+    "label_en": "inspect the entire upper structure of the pantograph assembly and check that the assembly horn, wear strip and support assembly have no cracks.",
+    "label_hi": "पैन्‍टोग्राफ असेंबली के पूरे ऊपरी ढॉचे की विजुअल जॉच करें तथा जॉच करें कि असेम्‍बली हॉर्न, विअर स्‍ट्रीप तथा सपोर्ट असेम्‍बली में कोई क्रेक नहीं।",
+    "standard_value": "No Crack",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 45,
+    "section_name": "Pantograph & Roof Equipments",
+    "item_no": "ii",
+    "label_en": "Check for bent or twisted pan, leakage in operating cylinder and correct condition of damper and pan spring.",
+    "label_hi": "बेंड या झुका पॅन, ऑपरेटिंग सिलींडर में लिकेज तथा डॅम्‍पर एवं पॅन स्‍प्रींग की सही स्थिति चेक करें ।",
+    "standard_value": "Normal",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 46,
+    "section_name": "Pantograph & Roof Equipments",
+    "item_no": "iii",
+    "label_en": "Check if pan head locking pin springs are properly installed. Verify pin movement in the frame; if not proper, check if the head is misaligned.",
+    "label_hi": "पैन हेड लॉकिंग पीन स्‍प्रीगस सही तरह से लगी हुई है या नहीं चेक करें। फ्रेम में पीन की मूवमेंट सही है या नहीं चेक करें यदि ना हो तो देखे हेड टेडा तो नहीं है ।",
+    "standard_value": "Normal",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 47,
+    "section_name": "Pantograph & Roof Equipments",
+    "item_no": "iv",
+    "label_en": "Check tightness of connecting shunt screw; if loose, fit a new screw. Inspect the shunt; it should be intact.",
+    "label_hi": "कनेक्टिंग शंट स्क्रू की टाइटनेस जांचें; यदि ढीला हो, तो नया स्क्रू लगाएं। शंट की जांच करें; वह सही स्थिति में (अक्षत) होना चाहिए।",
+    "standard_value": "Normal",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 48,
+    "section_name": "Pantograph & Roof Equipments",
+    "item_no": "v",
+    "label_en": "Check proper operation of pantograph including raising (in three steps) and lowering (in three steps). Adjust if needed.",
+    "label_hi": "पैंटोग्राफ की सही कार्यप्रणाली की जांच करें, जिसमें तीन चरणों में उठाना और तीन चरणों में नीचे करना शामिल है। आवश्यकता होने पर समायोजन करें।",
+    "standard_value": "Raising 6-9 sec, Lowering within 10 sec",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 49,
+    "section_name": "Pantograph & Roof Equipments",
+    "item_no": "vi",
+    "label_en": "check for any cracks.",
+    "label_hi": "फुट माऊंटिग इंसुलेटर को साफ करें और चेक करे कि कोई क्रेक तो नहीं है।",
+    "standard_value": "Clean/No crack",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 50,
+    "section_name": "Pantograph & Roof Equipments",
+    "item_no": "vii",
+    "label_en": "Check thickness of carbon strip of both pantographs. Ref:- RDSO/2007/EL/SPEC/0054, Rev. 3",
+    "label_hi": "दोनों पेंटोग्राफ की कार्बन पट्टी की मोटाई की जाँच करें।",
+    "standard_value": "13.5mm min (IR03) 26mm min (Schunk WBL-85 HS/HR) 24mm min",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 51,
+    "section_name": "Pantograph & Roof Equipments",
+    "item_no": "viii",
+    "label_en": "Check upper thrust of both the pantograph. IR03- On 7.0Kgf, Panto pan should not leave OHE while on 7.5Kgf, panto pan should leave OHE by a paper gap between OHE & Panto pan. HRPT- After putting 7.0Kgf, pull the panto pan towards lower side, it must be stop wherever pulling force removed. Similarly, during application of upper force, Panto pan should stop wherever upper force removed.",
+    "label_hi": "दोनों पेंटोग्राफ के ऊपरी थ्रस्ट की जाँच करें। दोनों पैंटोग्राफ की अपर थ्रस्ट की जांच करें। IR03 - 7.0 किलोग्राम-फोर्स (Kgf) पर पैंटो पैन को ओएचई (OHE) से अलग नहीं होना चाहिए, जबकि 7.5 किलोग्राम-फोर्स (Kgf) पर पैंटो पैन और ओएचई के बीच कागज़ की मोटाई जितना अंतर आ जाना चाहिए। HRPT - 7.0 किलोग्राम-फोर्स (Kgf) लगाने के बाद पैंटो पैन को नीचे की ओर खींचें, खींचने की ताकत हटते ही पैंटो पैन को वहीं रुक जाना चाहिए। इसी प्रकार, जब ऊपर की ओर बल लगाया जाए, तो बल हटते ही पैंटो पैन को वहीं रुक जाना चाहिए।",
+    "standard_value": "7.0 किलोग्राम / 7.0 kgf",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 52,
+    "section_name": "Pantograph & Roof Equipments",
+    "item_no": "ix",
+    "label_en": "Ensure PRV setting of HRPT Pantograph is within limit. Ref:- RDSO letter no. No. EL/2.2.1/High Reach/Faiveley)",
+    "label_hi": "सुनिश्चित करें कि एचआरपीटी पैंटोग्राफ की पीआरवी सेटिंग सीमा के भीतर है।",
+    "standard_value": "Within prescribed PRV setting limit",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 53,
+    "section_name": "Pantograph & Roof Equipments",
+    "item_no": "x",
+    "label_en": "If any crack observed in Panto pan, Panto horn, same panto pan to be replaced.",
+    "label_hi": "यदि पैंटो पैन या पैंटो हॉर्न में कोई दरार दिखाई दे, तो उसी पैंटो पैन को बदल दिया जाए।",
+    "standard_value": "Normal",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 54,
+    "section_name": "Pantograph & Roof Equipments",
+    "item_no": "xi",
+    "label_en": "Check ZPT selection of Pantograph 1&2 working",
+    "label_hi": "isaVks dk tsM ih टी fLop }kjk pquko lqfuf”pr djsa A",
+    "standard_value": "Normal.",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 55,
+    "section_name": "Pantograph & Roof Equipments",
+    "item_no": "xii",
+    "label_en": "Check roof bars, adopters for any crack/loose connection & replaced if required.",
+    "label_hi": "सभी रुफ बार, अडेपटर की क्रेकनेस/ढीला होने की जाॅच करें यदि आवश्यकता हो तो बदली करें ।",
+    "standard_value": "No cracks/loose connection.",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 56,
+    "section_name": "Pantograph & Roof Equipments",
+    "item_no": "xiii",
+    "label_en": "Check for any cracks on roof and roof joints",
+    "label_hi": "छत की व छत के जोडो पर दरार की जाॅच करें ।",
+    "standard_value": "No cracks",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 57,
+    "section_name": "Pantograph & Roof Equipments",
+    "item_no": "xiv",
+    "label_en": "Check ET 1 & 2 for proper gap and clean it with polish paper.",
+    "label_hi": "ई टी-1 व ई टी-2 के गेप नापे व पाॅलीश पेपर से साफ करें ।",
+    "standard_value": "ET-1: 210 ± 5.0 mm; ET-2: 85 to 90 mm",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 58,
+    "section_name": "Pantograph & Roof Equipments",
+    "item_no": "xv",
+    "label_en": "Check working of baby compressor for pressure building up",
+    "label_hi": "बेबी कम्प्रेशर द्वारा प्रेशर बनाने के कार्य को जाॅचे ।",
+    "standard_value": "Normal",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 60,
+    "section_name": "ई. एम. कान्टेक्टर म्ड ब्व्छज्।ब्ज्व्त्ै",
+    "item_no": "i",
+    "label_en": "Check visually EMC for any abnormality & ensure proper fitment of arc chute etc.",
+    "label_hi": "दृश्यक रूप से EMC में किसी असामान्यता की जाँच करें और आर्क च्यूट आदि की सही फिटमेंट सुनिश्चित करें।sa",
+    "standard_value": "Working normal",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 62,
+    "section_name": "Ep Contactor & Relays",
+    "item_no": "i",
+    "label_en": "Check visually all EPCs, for their proper functioning and air leakage.",
+    "label_hi": "lHkh bZ-ih- lh- ds dk;Z dks दृष्टिगत रूप से pSd djsa rFkk gok dk fjlko Hkh ns[ksa",
+    "standard_value": "No air leakage.",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 63,
+    "section_name": "Ep Contactor & Relays",
+    "item_no": "ii",
+    "label_en": "Check visually all EPC Archuite for proper fitment & tightness.",
+    "label_hi": "lHkh bZ-ih- lh- ds vkdZpwV dk fQVesaV o dlko दृष्टिगत रूप से pSd djsa",
+    "standard_value": "Available & Intact",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 64,
+    "section_name": "Ep Contactor & Relays",
+    "item_no": "iii",
+    "label_en": "Check visually all J-1, J-2, CTF 1,2,3, C-118, C-145 for their operation and their magnet valves.",
+    "label_hi": "lHkh fjolZj ts&1] ts&2] lh-Vh-,Q-1]2]3 lh&118 ds dk;Z o eSxusV okYo dks दृष्टिगत रूप से tkWp djsa",
+    "standard_value": "Intact & No leakage.",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 65,
+    "section_name": "Ep Contactor & Relays",
+    "item_no": "iv",
+    "label_en": "check the condition of all movable and fixed contacts of reverser, CTF, C-118 for flashing.",
+    "label_hi": "lHkh fjolZj] lh-Vh-,Q-lh&118 ds fQDl vkSj eqOgscy dkUVSDV ij QySf”kax dks दृष्टिगत रूप से tkWp djsa",
+    "standard_value": "No flashing.",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 66,
+    "section_name": "Ep Contactor & Relays",
+    "item_no": "v",
+    "label_en": "Check LV sequence and confirm proper working of EPC/EMC visually",
+    "label_hi": "lHkh bZ ih lh@bZ ,e lh ds lgh flDosal dks दृष्टिगत रूप से tkWpas",
+    "standard_value": "जाॅच किया बीमबामकण्",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 68,
+    "section_name": "व्ही सी बी टब्ठ",
+    "item_no": "i",
+    "label_en": "Check visually the condition of VCB jumper and confirm its proper locking.",
+    "label_hi": "Ogh lh ch ds tEij dh दृष्टिगत रूप से tkWp djsa rFkk bldh ykfdax lqfuf”pr djsa",
+    "standard_value": "Found intact & locked.",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 69,
+    "section_name": "व्ही सी बी टब्ठ",
+    "item_no": "ii",
+    "label_en": "Ensure there is no air leakage from VCB.",
+    "label_hi": "सुुनिश्चित करें कि डी.जे/वी सी बी से कोई हवा का रिसाव नहीे है।",
+    "standard_value": "No leakage",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 71,
+    "section_name": "एस एम जी आर/आर जी आर/सी जी आर ैडळत्ध्त्ळत्ध्ब्ळत्",
+    "item_no": "i",
+    "label_en": "Check the operation of SMGR manually by their operating handles for proper progression & regression. NB: First check manual operation and then check its operation via MP.",
+    "label_hi": "एस एम जी आर के कार्य की मैनयुअल आपरेटिंग हैण्डल लगाकर प्रोग्रेेशन व रिग्रेशन लेकर जाॅच करें । नोट - पहले मैनुअली चैक करें फिर एमपी तथा ई ई सी से",
+    "standard_value": "Found normal.",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 72,
+    "section_name": "एस एम जी आर/आर जी आर/सी जी आर ैडळत्ध्त्ळत्ध्ब्ळत्",
+    "item_no": "ii.",
+    "label_en": "Check control air pressure of SMGR.",
+    "label_hi": "एस एम जी आर के कंट्रोल प्रेशर की जाॅच करें",
+    "standard_value": "3.5 किग्रा/सेमी2 3.5 kg/cm²्",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 73,
+    "section_name": "एस एम जी आर/आर जी आर/सी जी आर ैडळत्ध्त्ळत्ध्ब्ळत्",
+    "item_no": "iii.",
+    "label_en": "Check pressure drop during progression & regression.",
+    "label_hi": "प्रोेग्रेशन व रिग्रेशन के दौरान प्रेशर रिसाव की जाॅच करें",
+    "standard_value": "Not more than 0.5 Kg/cm2",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 74,
+    "section_name": "एस एम जी आर/आर जी आर/सी जी आर ैडळत्ध्त्ळत्ध्ब्ळत्",
+    "item_no": "iv.",
+    "label_en": "Check RGR & CGR for any flash and any abnormality.",
+    "label_hi": "आर जी आर व सी जी आर की फ्लैशिंग व अन्य असामान्यता की जाॅच करें",
+    "standard_value": "Normal",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 75,
+    "section_name": "एस एम जी आर/आर जी आर/सी जी आर ैडळत्ध्त्ळत्ध्ब्ळत्",
+    "item_no": "v.",
+    "label_en": "Confirm that the arc chute of CGR is locked & latched properly.",
+    "label_hi": "सुनिश्चित करें कि सी जी आर के आर्कचूट भलीभाती लगे है ।",
+    "standard_value": "Intact",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 76,
+    "section_name": "एस एम जी आर/आर जी आर/सी जी आर ैडळत्ध्त्ळत्ध्ब्ळत्",
+    "item_no": "vi.",
+    "label_en": "Check intactness of SMGR cover.",
+    "label_hi": "सुनिश्चित करें कि एस एम जी आर कवर लगा है",
+    "standard_value": "Intact",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 78,
+    "section_name": "Arno",
+    "item_no": "i",
+    "label_en": "Check SIV for normal working.",
+    "label_hi": "एस आय युनिट के कार्य की जाॅच करें",
+    "standard_value": "Normal",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 79,
+    "section_name": "Arno",
+    "item_no": "ii",
+    "label_en": "Check the Indication lamp on SI unit by pushing test button, all LED must glow.",
+    "label_hi": "एस आय युनिट के डिस्प्ले पैनल की जाॅच टैस्ट पुश बटन के दबाने पर सभी एल ई डी जलने चाहिये ।",
+    "standard_value": "Indications are working normal.",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 80,
+    "section_name": "Arno",
+    "item_no": "iii",
+    "label_en": "Check ARNO for any Unusual noise, If ARNO available",
+    "label_hi": "यदि ARNO उपलब्ध हो तो उसमें किसी भी असामान्य शोर की जांच करें।",
+    "standard_value": "Normal",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 82,
+    "section_name": "Battery",
+    "item_no": "i",
+    "label_en": "Check the battery voltage, it should be minimum 90volt. If voltage found less, Electrolyte to be check.",
+    "label_hi": "बैटरी वोल्टेज की जाँच करें यह न्यूनतम 90 वोल्ट होना चाहिए। यदि वोल्टेज कम पाया जाए, तो इलेक्ट्रोलाइट की जाँच करें।",
+    "standard_value": "Record Battery voltage",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 83,
+    "section_name": "Battery",
+    "item_no": "ii",
+    "label_en": "Check battery charger voltage & charging current.",
+    "label_hi": "बैटरी चार्जर का वोल्टैज व चार्जिग करंट चैक करें",
+    "standard_value": "110 V, 4 to 6 Amp.",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 84,
+    "section_name": "Battery",
+    "item_no": "iii",
+    "label_en": "Check visually battery terminal connection, clean it, apply jelly on terminal.",
+    "label_hi": "बैटरी टर्मिनल कनेकशन को विजुअली जाॅचें, सफाई करें तथा जेली लगाये",
+    "standard_value": "Normal & jelly applied.",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 85,
+    "section_name": "Battery",
+    "item_no": "iv",
+    "label_en": "Record the battery voltage with switch HBA in “ON” condition (voltage should be 98 to 100V). If found battery voltage less, specific gravity to be check.",
+    "label_hi": "HBA स्विच ‘ON’ स्थिति में रखते हुए बैटरी वोल्टेज रिकॉर्ड करें (वोल्टेज 98 से 100 V होना चाहिए)। यदि वोल्टेज कम पाया जाए, तो विशिष्ट गुरुत्व (specific gravity) की जांच करें।",
+    "standard_value": "98-100 V",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 86,
+    "section_name": "Battery",
+    "item_no": "v",
+    "label_en": "leakage & condition of groumet.",
+    "label_hi": "cSVjh ds lSy और ग्रॉमेट की स्थिति dks pSd djsa & dzsd vFkok fydst u gks ब्ीमबा इंजजमतल बमसस वित ंदल बतंबा",
+    "standard_value": "No leakage & crack",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 87,
+    "section_name": "Battery",
+    "item_no": "vi",
+    "label_en": "Check the condition of battery box, bracket & for any crack/Bolt loose",
+    "label_hi": "बैटरी बॉक्स ब्रैकेट की स्थिति तथा किसी भी दरार/ढीले बोल्ट की जाँच करें।",
+    "standard_value": "अच्छी ळववक",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 89,
+    "section_name": "GR and TFP / जी आर और टी एफ पी",
+    "item_no": "i",
+    "label_en": "Check the oil level in GR & transformer",
+    "label_hi": "जीआर व ट्रान्सफार्मर में तेल स्तर की जाॅच करें ।",
+    "standard_value": "GR above 20 deg Celsius Transformer above +15 deg Celsius",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 90,
+    "section_name": "GR and TFP / जी आर और टी एफ पी",
+    "item_no": "ii",
+    "label_en": "Check for oil leakage from GR, Transformer, Radiator & its bushing, oil pump and its vicinity.",
+    "label_hi": "GR, ट्रांसफॉर्मर, रेडिएटर और उसके बुशिंग, तेल पंप एवं उसके आसपास के क्षेत्र से तेल रिसाव की जांच करें।",
+    "standard_value": "No leakage",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 91,
+    "section_name": "GR and TFP / जी आर और टी एफ पी",
+    "item_no": "iii",
+    "label_en": "if it has turned Pink.",
+    "label_hi": "सिलीका जेल यदि गुलाबी हो तो उसे बदल दें। त्मचसंबम ेपसपबं हमस",
+    "standard_value": "Blue",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 92,
+    "section_name": "GR and TFP / जी आर और टी एफ पी",
+    "item_no": "iv",
+    "label_en": "Check the condition of power bushing for any flash, oil leakage and any abnormality.",
+    "label_hi": "पवर बुशिंग में फ्लैशिंग, तेल रिसाव ओर अन्य असामान्यताओ की जाॅच करें",
+    "standard_value": "No flashing & leakage.",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 93,
+    "section_name": "GR and TFP / जी आर और टी एफ पी",
+    "item_no": "v",
+    "label_en": "Check the oil accumulation in Oil Trap Chamber.",
+    "label_hi": "ऑयल ट्रैप चैम्बर में तेल के जमाव की जांच करें।",
+    "standard_value": "No accumulation",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 94,
+    "section_name": "GR and TFP / जी आर और टी एफ पी",
+    "item_no": "vi",
+    "label_en": "Check main transformer and its tank for cracks, breakage, or leaks.",
+    "label_hi": "मुख्य ट्रांसफॉर्मर और उसका टैंक दरारों, टूट-फूट या रिसाव के लिए जांचें।",
+    "standard_value": "No Damage",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 95,
+    "section_name": "GR and TFP / जी आर और टी एफ पी",
+    "item_no": "vii",
+    "label_en": "Check A-33 bushing for any cracks, oil leakage & tightness of connection etc",
+    "label_hi": "A-33 बुशिंग में किसी भी दरार, तेल रिसाव तथा कनेक्शन की कसावट आदि की जाँच करें।",
+    "standard_value": "No leakage/No cracks",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 97,
+    "section_name": "HOM, HOBA, ECC / एच ओ एम, एच ओबी ए, ई सी सी",
+    "item_no": "i",
+    "label_en": "Check the operation of HOM",
+    "label_hi": "एच ओ एम के कार्य की जाच करें",
+    "standard_value": "सामान्य ैउववजी",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 98,
+    "section_name": "HOM, HOBA, ECC / एच ओ एम, एच ओबी ए, ई सी सी",
+    "item_no": "ii",
+    "label_en": "Check the position of HOBA, HQOP-1 & HQOP-2",
+    "label_hi": "एच ओ बी अे, एच क्यु ओ पी-1 तथा एच क्यु ओ पी-2 की स्थिति को जाचें",
+    "standard_value": "आॅन व्छ",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 99,
+    "section_name": "HOM, HOBA, ECC / एच ओ एम, एच ओबी ए, ई सी सी",
+    "item_no": "iii",
+    "label_en": "Check ECC for proper operation, check with HRC fuse.",
+    "label_hi": "ई सी सी की फ्युज लगाकर जाच करें",
+    "standard_value": "Working.",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 100,
+    "section_name": "HOM, HOBA, ECC / एच ओ एम, एच ओबी ए, ई सी सी",
+    "item_no": "iv",
+    "label_en": "Check the availability of spare fuses on tray, replace blown fuses (6A-05, 16A-03, 35A-2).",
+    "label_hi": "स्पेयर फ्युज की उपलब्धता सुनिश्चित करें व खराब फ्युज बदली करें ।",
+    "standard_value": "Spare fuse made available",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 102,
+    "section_name": "Auxiliary Machines & Sl",
+    "item_no": "i",
+    "label_en": "Check the working of MVMT-1&2, MCP-1,2,3, MVSL-1&2, MPH, MVRF, MVRH, MVSI-1&2 and observe for any abnormal sound.",
+    "label_hi": "MVMT-1 एवं 2, MCP-1, 2, 3, MVSL-1 एवं 2, MPH, MVRF, MVRH, MVSI-1 एवं 2 के कार्य की जाँच करें तथा किसी भी असामान्य ध्वनि पर ध्यान दें।",
+    "standard_value": "Working normal",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 103,
+    "section_name": "Auxiliary Machines & Sl",
+    "item_no": "ii",
+    "label_en": "Clean MVRF wire mesh jali, remove polythene bags, paper etc.",
+    "label_hi": "एसएल और एमवीआरएफ वायर मेष जाली को साफ करें पॉलिथीन बैग कागज आदि हटा दें।",
+    "standard_value": "Cleaned",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 104,
+    "section_name": "Auxiliary Machines & Sl",
+    "item_no": "iii",
+    "label_en": "Check foundation bolts of underslung Compressor & MVMT",
+    "label_hi": "अंडरस्लंग कंप्रेसर और MVMT के फाउंडेशन बोल्ट की जाँच करें।",
+    "standard_value": "Intact",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 106,
+    "section_name": "Traction Motors",
+    "item_no": "i",
+    "label_en": "Check the inspection covers of all TM for proper fitment any deficient latches. If found any deficiency replace the TM cover.",
+    "label_hi": "सभी टी.एम. के इंसपेंक्शन कवर का फिटमेंट जाचें यदि कोई कमी है तो बदले",
+    "standard_value": "Intact",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 107,
+    "section_name": "Traction Motors",
+    "item_no": "ii",
+    "label_en": "Check for proper securing of TM HV cables and cleat; confirm it is not rubbing with any metal parts. Check for availability of proper rubber packing.",
+    "label_hi": "सुनिश्चित करें कि टीएम की एच व्ही केबल ठिक प्रकार से बंधी है । किसी भी धातु के पार्ट से नही घिस रही है । रबर की पेकिंग की उपलब्धता सुनिश्चित करें",
+    "standard_value": "Intact",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 108,
+    "section_name": "Traction Motors",
+    "item_no": "iii",
+    "label_en": "Check the TMDDS stricker incase of bend or broken replaced it.",
+    "label_hi": "टीएमडीडीएस स्ट्राइकर की जांच करें, यदि वह मुड़ा हुआ या टूटा हुआ हो तो उसे बदल दें।",
+    "standard_value": "Intact",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 109,
+    "section_name": "Traction Motors",
+    "item_no": "iv",
+    "label_en": "Check the condition of cable securing cleat.",
+    "label_hi": "सभी केबल क्लीट की जाच करें",
+    "standard_value": "Intact",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 110,
+    "section_name": "Traction Motors",
+    "item_no": "v",
+    "label_en": "Clean the TM net.",
+    "label_hi": "टीएम नेट को साफ करें",
+    "standard_value": "Cleaned",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 111,
+    "section_name": "Traction Motors",
+    "item_no": "vi",
+    "label_en": "Check intactness of end shield bolt.",
+    "label_hi": "एन्डशील्ड के बौल्ट लगे होना सुनिश्चित करें",
+    "standard_value": "Intact",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 113,
+    "section_name": "Vigilance Control Device",
+    "item_no": "i",
+    "label_en": "Ensure vigilance control device works properly.",
+    "label_hi": "विजीलेंस कंट्रोल डिवाईस का सही कार्य करना सुनिश्चित करें",
+    "standard_value": "Working",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 114,
+    "section_name": "Vigilance Control Device",
+    "item_no": "ii",
+    "label_en": "Check whether VCD is isolated through isolating switch HVCD or through FDCS loggings.",
+    "label_hi": "जांच करें कि VCD को आइसोलेशन स्विच HVCD के माध्यम से या FDCS लॉगिंग्स के द्वारा आइसोलेट किया गया है या नहीं।",
+    "standard_value": "Normal",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 117,
+    "section_name": "Mechanical / यांत्रिक",
+    "item_no": "i",
+    "label_en": "Check condition of brake block and change if required. Adjust the piston stroke Check the gap between brake block & wheel in brake release condition 10mm & for WAG7 it should be 6mm).",
+    "label_hi": "ब्रे्रेक ब्लाक को चेक करें, यदि आवश्यकता हो तब बदली करे। पिस्टन स्ट्रोक का समायोजन करें। लोको ब्रेक रिलीज स्थिति में पहिये से ब्रेक ब्लॉक के बीच का अंतराल 10 मिमी और WAG7 के लिए 6 मिमी होना चाहिए।",
+    "standard_value": "Condemned brake block changed and brake piston stroke adjusted.",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 118,
+    "section_name": "Mechanical / यांत्रिक",
+    "item_no": "ii",
+    "label_en": "Ensure that there is no rubbing mark of brake blocks on wheel flange.",
+    "label_hi": "सुनिश्चित करें कि ब्रेक ब्लॉक की कोई रबिंग मार्क व्हील फ्लैन्ज़ पर न हो।",
+    "standard_value": "Normal",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 119,
+    "section_name": "Mechanical / यांत्रिक",
+    "item_no": "iii",
+    "label_en": "Check brake cylinder for proper operation, ensure no air leakage.",
+    "label_hi": "ब्रेक सिलींडर के कार्य को जाॅंचे व सुनिश्चित करे कि हवा का रिसाब नही है ।",
+    "standard_value": "No leakage, normal operation",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 120,
+    "section_name": "Mechanical / यांत्रिक",
+    "item_no": "iv",
+    "label_en": "Confirm brake pull rod and safety slings are intact.",
+    "label_hi": "सुनिश्चित करे कि ब्रेक पुल राॅड व सेप्टी स्ंिलग ठीक है ।",
+    "standard_value": "Intact",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 121,
+    "section_name": "Mechanical / यांत्रिक",
+    "item_no": "v",
+    "label_en": "Check TM bellows and its foundation bolts.",
+    "label_hi": "टी एम के बेलो व उनके फाउडेंशन बोल्ट जाॅंचे ।",
+    "standard_value": "Intact",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 122,
+    "section_name": "Mechanical / यांत्रिक",
+    "item_no": "vi",
+    "label_en": "Check all springs, compensating beams, equalizing beams, load pins and its cotter pins.",
+    "label_hi": "सभी स्ंिप्रग, कंपेनसेटिंग बीम, इक्वलाइजिंग बीम, लोड पिन और इसकी कोटर पीन को चेक करे ।",
+    "standard_value": "Intact",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 123,
+    "section_name": "Mechanical / यांत्रिक",
+    "item_no": "vii",
+    "label_en": "check the bogie frame, beams for any cracks etc.",
+    "label_hi": "बेगी फ्रेम, बीम की जाॅच कर कि उसमें कोई दरार तो नही है ।",
+    "standard_value": "Intact",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 124,
+    "section_name": "Mechanical / यांत्रिक",
+    "item_no": "viii",
+    "label_en": "Check cattle guard, rail guard, buffer foundation bolts, split pins etc for its intactness and tightness.",
+    "label_hi": "कॅटल गार्ड, रेल गार्ड, बफर फाउंडेशन बोल्ट, स्पलिट पीन इ. ठीक से लगे हो व उनका कसाव जाॅचे",
+    "standard_value": "Intact",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 125,
+    "section_name": "Mechanical / यांत्रिक",
+    "item_no": "ix",
+    "label_en": "Check the CBC screw coupling and its “D” shackle for proper functioning and lubricate it.",
+    "label_hi": "सीबीसी स्क्रू कपलिंग और उसके डी” शैकल की उचित कार्यप्रणाली की जांच करें और उसे लुब्रिकेट करें।",
+    "standard_value": "Normal",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 126,
+    "section_name": "Mechanical / यांत्रिक",
+    "item_no": "x",
+    "label_en": "Check any crack on CBC knukle and clevish & its proper operation from both cabs. Insert lock pin and checked CBC should not got open.",
+    "label_hi": "सीबीसी पोर और क्लीविश पर किसी भी दरार की जाँच करें और सुनिश्चित करें कि सीबीसी लॉक पिन ठीक से लगा हुआ है।",
+    "standard_value": "No crack & operation normal.",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 127,
+    "section_name": "Mechanical / यांत्रिक",
+    "item_no": "xi",
+    "label_en": "Check CBC height of both ends.",
+    "label_hi": "दोनों छोर की सीबीसी ऊंचाई की जांच करें।",
+    "standard_value": "1030 mm to 1105 mm",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 128,
+    "section_name": "Mechanical / यांत्रिक",
+    "item_no": "xii",
+    "label_en": "Check working of all sanders & condition of sand gear equipments.",
+    "label_hi": "सँडर व्यवस्था सभी सैंडर्स के कार्य एवं सैंड गियर उपकरणों की स्थिति की जांच करें। ैंदक ळमंत मुनपचउमदजे",
+    "standard_value": "Intact & Working",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 129,
+    "section_name": "Mechanical / यांत्रिक",
+    "item_no": "xiii",
+    "label_en": "Intactness of Cover bolts. Provision of split pin-----",
+    "label_hi": "एक्सल बाॅक्स ।गसम इवग कव्हर बोल्ट लगे है स्पलिट पिन लगी है एक्सल बाॅक्स टिल्ंिटग (डब्ल्यु अे पी 1 एवं 4 लोको",
+    "standard_value": "Intact Available",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 130,
+    "section_name": "Mechanical / यांत्रिक",
+    "item_no": "xiv",
+    "label_en": "Secondary Spring",
+    "label_hi": "प्र्राइमरी स्ंिप्रग च्तपउंतल ैचतपदह सेकंडरी स्ंिप्रग",
+    "standard_value": "Breakage/Shifting. Breakage/Shifting.",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 131,
+    "section_name": "Mechanical / यांत्रिक",
+    "item_no": "xv",
+    "label_en": "Bolster of WAP-4 & WAP-1 locos. Friction piston pin",
+    "label_hi": "डब्लुएपी 4, डब्लुएपी 1 लोको को बोल्टसर जाॅचे क्रॅक्र ब्तंबाण् फ्रिक्शन पिस्टन पिन लाइनर स्पदमत बतंबाण्",
+    "standard_value": "Intact No crack",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 132,
+    "section_name": "Mechanical / यांत्रिक",
+    "item_no": "xvi",
+    "label_en": "Check intactness of connection strap bolts at all wheels Check Trunion position at all wheels Ensure clearance between connections to guide strip in WAP-1 & WAP-4 locos. Ensure no rubbing of connection strap with wheel of WAP-1 & WAP-4 locos at all wheels Check vertical & lateral play of hangers Check intactness of brake hanger top pin, split pin & safety sling. Check Trunion locking with split pin & proper oiling in WAP-1 & WAP-4 locos. Ensure safety sling for connection strap in WAP-1 & WAP-4 locos.",
+    "label_hi": "डब्लुएपी 1, डब्लुएपी 4 की ब्रेक रिगिंग: सभी व्हील के कनेक्शन स्ट्रैप बोल्ट, ट्रुनियन स्थिति, गाइड स्ट्रिप क्लियरेंस, कनेक्शन स्ट्रैप रबिंग, हैंगर प्ले, ब्रेक हैंगर टॉप पिन, स्प्लिट पिन, सेफ्टी स्लिंग, ट्रुनियन लॉकिंग और ऑयलिंग की जाँच करें।",
+    "standard_value": "Intact Intact Intact Intact Intact Intact Intact Intact",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 134,
+    "section_name": "Fp Angle Cock And Hose Pipe",
+    "item_no": "111",
+    "label_en": "Check BP/FP angle cock operation, BP/FP flexible hoses and air leakage in both cabs.",
+    "label_hi": "दोनो कैब में लगे बीपी तथा एफपी एंगल कॉक की ओपन तथा क्लोज पोजीशन में कार्य-जाँच करें। बीपी तथा एफपी फ्लेक्सीबल होस तथा एंगल कॉक में एयर लीकेज की जाँच करें। बीपी/एफपी होज़ पाइप में कोई डैमेज न हो, यह सुनिश्चित करें।",
+    "standard_value": "Operation Normal",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 135,
+    "section_name": "Fp Angle Cock And Hose Pipe",
+    "item_no": "xviii",
+    "label_en": "Ensure all angle cocks have correct color coding.",
+    "label_hi": "सभी एंगल कॉक की सही कलर कोड सुनिश्चित करें।",
+    "standard_value": "Normal",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 136,
+    "section_name": "Fp Angle Cock And Hose Pipe",
+    "item_no": "xix",
+    "label_en": "Check visually MU washer of BP & FP Hose pipes.",
+    "label_hi": "BP एवं FP होज़ पाइप्स की MU वॉशर की दृश्य जांच करें।",
+    "standard_value": "Normal",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 137,
+    "section_name": "Fp Angle Cock And Hose Pipe",
+    "item_no": "xx",
+    "label_en": "In case of CRO, replace BP & FP hose pipes.",
+    "label_hi": "CRO की स्थिति में BP एवं FP होज़ पाइप्स को बदलें।",
+    "standard_value": "Checked",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 138,
+    "section_name": "Fp Angle Cock And Hose Pipe",
+    "item_no": "xxi",
+    "label_en": "Ensure protection guard is available on BP & FP angle cocks in both cabs. Also ensure that BP & FP hose pipes are not touching with available protection guard.",
+    "label_hi": "सुनिश्चित करें कि दोनों कैब में BP एवं FP एंगल कॉक्स पर प्रोटेक्शन गार्ड उपलब्ध है। साथ ही यह भी सुनिश्चित करें कि BP एवं FP होज़ पाइप्स उपलब्ध प्रोटेक्शन गार्ड से संपर्क में न हों।",
+    "standard_value": "Normal",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 139,
+    "section_name": "Fp Angle Cock And Hose Pipe",
+    "item_no": "xxii",
+    "label_en": "Ensure Additional BP & FP cock handle position is in open condition.",
+    "label_hi": "सुनिश्चित करें कि अतिरिक्त BP एवं FP कॉक हैंडल की स्थिति ओपन (खुली) अवस्था में हो।",
+    "standard_value": "Normal",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 140,
+    "section_name": "Fp Angle Cock And Hose Pipe",
+    "item_no": "xxiii",
+    "label_en": "Check the foundation of air reservoir.",
+    "label_hi": "एअर रिजर्वायर के फाउंडेशन की जाॅंच करे",
+    "standard_value": "Intact",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 141,
+    "section_name": "Fp Angle Cock And Hose Pipe",
+    "item_no": "xxiv",
+    "label_en": "Drain all air reservoirs and drain cocks.",
+    "label_hi": "सभी एअर रिजर्वायर व डेªन काॅक से हवा ड्रेन करे ।",
+    "standard_value": "डेªन किया क्तंपदमक",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 142,
+    "section_name": "Fp Angle Cock And Hose Pipe",
+    "item_no": "xxv",
+    "label_en": "Check the working of air dryer, for its proper purging and purging interval.",
+    "label_hi": "एअर ड्रायर के पर्जिग कार्य की जाॅच करे इसके पर्जिग अंतराल को भी जाॅचे",
+    "standard_value": "Normal",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 143,
+    "section_name": "Fp Angle Cock And Hose Pipe",
+    "item_no": "xxvi",
+    "label_en": "Check and adjust the height of the rail guard.",
+    "label_hi": "रेल गार्ड की ऊॅचाई की जॉच करें और समायोजित करें",
+    "standard_value": "Height within 105 to 120 mm.",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 145,
+    "section_name": "Under Frame Checking",
+    "item_no": "i",
+    "label_en": "Check temperature of MSU Bearings & TM Bearings (CE & PE) & Axle Box.",
+    "label_hi": "एक्सल बोक्स, एम.एस.यु. बीअरिंग और टीएम बीअरिंग (सीई व पी ई) के तापमान की जाॅच करें",
+    "standard_value": "परिवेश के तापमान ़27वब् से अधिक नही। छवज उवतम जींद ंउइपमदज जमउच ़27वब्ण्",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 146,
+    "section_name": "Under Frame Checking",
+    "item_no": "ii",
+    "label_en": "Check MSU bolts, gear case hex bolts and clamping bolts for availability and tightness.",
+    "label_hi": "एमएसयू के बोल्ट, गियर केस हैक्सा बोल्ट और क्लॅपिंग बोल्ट उपलब्ध हैं तथा कसे हुए हैं, यह जांच करें।",
+    "standard_value": "Intact",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 147,
+    "section_name": "Under Frame Checking",
+    "item_no": "iii",
+    "label_en": "Check under gear for any loose & hanging parts.",
+    "label_hi": "अंडर फ्रेम का निरीक्षण करे व सुनिश्चित करे कि कोइ पार्ट ढिला/लटका न हो ।",
+    "standard_value": "hanging parts",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 148,
+    "section_name": "Under Frame Checking",
+    "item_no": "iv",
+    "label_en": "scratch marks etc.",
+    "label_hi": "पहियों में स्किडींग के निशान/घिसने के निशानों को जाॅचे ब्ीमबा ूीममसे वित ेापककपदह",
+    "standard_value": "Normal",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 149,
+    "section_name": "Under Frame Checking",
+    "item_no": "v",
+    "label_en": "Top up Cardium compound in gear case.",
+    "label_hi": "गिअर केस में कार्डियम कंपाउंड भरे",
+    "standard_value": "Cardium compound added",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 150,
+    "section_name": "Under Frame Checking",
+    "item_no": "vi",
+    "label_en": "Check the temperature indicator strip on TM for any abnormal increase.",
+    "label_hi": "टीएम के तापमान में असामान्य वृद्धि के लिए तापमान संवेदन पट्टी की जाँच\" करे।",
+    "standard_value": "Checked normal",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 151,
+    "section_name": "Under Frame Checking",
+    "item_no": "vii",
+    "label_en": "Check proper earthing of all TMs visually and condition of Earthing cable, its terminal etc.",
+    "label_hi": "lHkh Vh ,e ds vfFkZx “kaV rFkk VfeZuy दृष्टिगत रूप से tkWps A",
+    "standard_value": "Intact",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 152,
+    "section_name": "Under Frame Checking",
+    "item_no": "viii",
+    "label_en": "Check all TM Nose Suspension, Sandwich and Transom Beam for any crack or Loosness",
+    "label_hi": "tkWap djs dh lHkh Vh ,e ukst lLisa”ku] lsanfop vkSj ट्रkalkse che es njkj ;k f<ykiu rks ugh gS A",
+    "standard_value": "Intact",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 153,
+    "section_name": "Under Frame Checking",
+    "item_no": "ix",
+    "label_en": "Check the gap between Sandwich mounting & TM nose lug.",
+    "label_hi": "सैंडविच माउंटिंग और टीएम नोज़ लग के बीच का अंतर जांचें।",
+    "standard_value": "U;q&3eheh- vf/k&6eheh Min-3mm, Max-6mm",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 154,
+    "section_name": "Under Frame Checking",
+    "item_no": "x",
+    "label_en": "Check oil leakage Ensure intactness of top and bottom bolt. Ensure tightness of all bolts. Check top and bottom boss crack in WAP-4 locos",
+    "label_hi": "गिअर केस d- तेल रिसाव की जाँच करें। [k½ ऊपर और नीचे के बोल्ट की मजबूती सुनिश्चित करें। x½ सभी बोल्ट की कसावट सुनिश्चित करें। बण् घ) डब्लु एपी 4 लोको मेे टाॅप व बाॅटम बाॅस की कॅ्रकनेस की जाॅच करें कण् ळमंत बंेमे",
+    "standard_value": "No leakage Intact Intact No cracks",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 155,
+    "section_name": "Under Frame Checking",
+    "item_no": "xi",
+    "label_en": "Bogie to bolster link of WAP-1 & WAP-4 locos",
+    "label_hi": "डब्लु एपी-1, डब्लु एपी-4 लोको का बोगी से बोलस्टर लिंक",
+    "standard_value": "Intactness of bolts.",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 156,
+    "section_name": "Under Frame Checking",
+    "item_no": "xii",
+    "label_en": "Centre pivot. Intactness of hooks & split pin. Intactness of dust guard.",
+    "label_hi": "सेंटर पीवोट क) हूक व स्प्लीट पीन लगे है ख) डस्ट गार्ड लगा है",
+    "standard_value": "Intact Intact",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 157,
+    "section_name": "Under Frame Checking",
+    "item_no": "xiii",
+    "label_en": "Measure the root wear, flange wear and tread wear of the loco wheel. Wheel wear measurement should be within given limit.",
+    "label_hi": "लोको के व्हील की रूट वियर] फ्लैंज वियर और ट्रेड वियर का माप लें। पहिये के घिसाव का माप इस सीमा के भीतर होना चाहिए।",
+    "standard_value": "Flange– below 3.0 mm Tread– below 6.5 mm",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 160,
+    "section_name": "Under Frame Checking",
+    "item_no": "a",
+    "label_en": "RS valve in emergency position",
+    "label_hi": "आर.एस वाल्व एमरजेंसी स्थिति में",
+    "standard_value": "AFL & Buzzer working and auto regression taking place.",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 161,
+    "section_name": "Under Frame Checking",
+    "item_no": "b",
+    "label_en": "BP test plug",
+    "label_hi": "बीपी टेस्ट प्लग",
+    "standard_value": "AFL & Buzzer working and auto regression taking place.",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 162,
+    "section_name": "Under Frame Checking",
+    "item_no": "136",
+    "label_en": "Check the working of Air flow gauge from both cabs.",
+    "label_hi": "दोनो केब की एयर फ्लो गेज का कार्यरत होना सुनिश्चित करें",
+    "standard_value": "Working",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 163,
+    "section_name": "Under Frame Checking",
+    "item_no": "ii",
+    "label_en": "Check the time taken by compressor to build from 0Kg/cm2 to cut-out with Air dryer & all compressors working If found abnormal, check the time taken by compressor to build 0Kg/cm2 to cut-out with Air dryer & one-by-one single compressor working",
+    "label_hi": "एयर ड्रायर के साथ और सभी कंप्रेसर कार्यरत स्थिति में, 0Kg/cm² से कट-आउट प्रेशर तक दबाव बनाने में कंप्रेसर द्वारा लिया गया समय जांचें। यदि समय असामान्य पाया जाए, तो एयर ड्रायर के साथ एक-एक करके केवल एक कंप्रेसर के कार्यरत होने पर 0Kg/cm² से कट-आउट प्रेशर तक दबाव बनाने में लिया गया समय जांचें।",
+    "standard_value": "Max 07 min. 1000L-Max 11 min. 1750-Max 07 min",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 165,
+    "section_name": "Under Frame Checking",
+    "item_no": "iv",
+    "label_en": "Check MR pressure cut in & cut out (8.5 kg/cm² to 10.0 kg/cm²) Ref:- RDSO letter No. EL/3.2.19 (G)",
+    "label_hi": ",e vkj izs”kj dV bu o dV vkmV tkp djsa (8.5 किग्रा/सेमी² से 10.0 किग्रा/सेमी²)",
+    "standard_value": "About 90 seconds",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 166,
+    "section_name": "Under Frame Checking",
+    "item_no": "v",
+    "label_en": "Check the blowing pressure of MR safety valve.",
+    "label_hi": "एम आर सेफ्टी वाल्व के ब्लोइंग प्रेशर की जाच करें",
+    "standard_value": "10.5 किग्रा/सेमी2 10.5 kg/cm²",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 168,
+    "section_name": "Ref:- Rdso Letter No. Rdso/2013/El/Ir/0159",
+    "item_no": "Reference",
+    "label_en": "Brake pressure reference table: BC pressure and application/release time",
+    "label_hi": "ब्रेक प्रेशर संदर्भ तालिका: बीसी प्रेशर और एप्लीकेशन/रिलीज समय",
+    "standard_value": "Reference row; no outcome required",
+    "is_required": 0,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 169,
+    "section_name": "Ref:- Rdso Letter No. Rdso/2013/El/Ir/0159",
+    "item_no": "A-9 Goods",
+    "label_en": "Brake via A-9 - C3W in Goods position",
+    "label_hi": null,
+    "standard_value": "BC pressure: 1.8 kg/cm²",
+    "is_required": 0,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 171,
+    "section_name": "Ref:- Rdso Letter No. Rdso/2013/El/Ir/0159",
+    "item_no": "A-9 Passenger",
+    "label_en": "Brake via A-9 - C3W in Passenger position",
+    "label_hi": null,
+    "standard_value": "BC pressure: 1.8 kg/cm²; application/release time as per source table",
+    "is_required": 0,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 173,
+    "section_name": "Ref:- Rdso Letter No. Rdso/2013/El/Ir/0159",
+    "item_no": "SA-9 Reference",
+    "label_en": "Brake via SA-9 - BC pressure reference",
+    "label_hi": null,
+    "standard_value": "Reference row; no outcome required",
+    "is_required": 0,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 175,
+    "section_name": "Brake pressure checks",
+    "item_no": "viii.",
+    "label_en": "BP Pressure - Normal BP Pressure – On test plug (with BPSW pressed condition)",
+    "label_hi": "बीपी प्रेशर – सामान्य बीपी प्रेशर – टेस्ट प्लग पर (BPSW दबाए जाने की स्थिति में)",
+    "standard_value": "Pressure not to drop below prescribed limit",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 176,
+    "section_name": "Brake pressure checks",
+    "item_no": "ix.",
+    "label_en": "FP Pressure - Normal FP Pressure – On test plug",
+    "label_hi": "एफ़पी प्रेशर – सामान्य एफ़पी प्रेशर – टेस्ट प्लग पर",
+    "standard_value": "Pressure not to drop below prescribed limit",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 177,
+    "section_name": "Brake pressure checks",
+    "item_no": "x",
+    "label_en": "Apply loco brake & test loco on power, loco should not move 80% of continuous rating",
+    "label_hi": "लोको में ब्रेक लगाकर ब्रेक पावर चेक करें। लोको 80% continuous rating पर नहीं हिलना चाहिए।",
+    "standard_value": "Loco must not move at 80% continuous rating",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 178,
+    "section_name": "।चचरू 8.12 ेमब त्मसरू 12.15 ेमब",
+    "item_no": "xi.",
+    "label_en": "Top up lubrication oil in all Compressors.",
+    "label_hi": "सभी कोमपे्रसर में तेल भरे",
+    "standard_value": "Oil filled up",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  },
+  {
+    "source_row": 179,
+    "section_name": "।चचरू 8.12 ेमब त्मसरू 12.15 ेमब",
+    "item_no": "xii.",
+    "label_en": "Check the working of unloader valve check for any leakage.",
+    "label_hi": "अनलोडर वाल्व के कार्य व हवा के रिसाव की जाॅच करे",
+    "standard_value": "Normal",
+    "is_required": 1,
+    "source_document": "Final Conv TI _17.08.25.doc"
+  }
+]
