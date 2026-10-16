@@ -3,10 +3,12 @@
 HQ-CLI tool to upload a CMS Report CSV, view the **overdue** list for one
 parameter at a time, sort and trim it, and download it as Excel or PDF.
 
-**The Due List stores nothing.** The CSV is parsed in memory and discarded. Exports are
-built from the row set the browser posts back. This matches the requirement that
-the data is stale the next day and must not be persisted. (The Daily Position page
-*does* store its reports — see "Daily Position → Storage" below.)
+**The Due List is stored** (since Oct 2026 — before that the CSV was parsed in memory
+and discarded). Each HQ upload is kept as the report of the upload day, so the page
+opens again without a CSV (**Open stored report**, any CMS role, lobby users read-only)
+and the stored foot plate DONE DATE pre-fills the bio-profile. Exports are still built
+from the row set the browser posts back. See "Storage (Due List)" below; the Daily
+Position has its own storage ("Daily Position → Storage").
 
 ## What it does
 
@@ -32,12 +34,19 @@ The catch is that `DONE DATE`, `DUE DATE`, `MODE` and `#` each appear **three ti
 — once per parameter block — so the repeated pairs are resolved by occurrence order:
 
 ```
-S.No. | CLI ID | CLI NAME | CREW ID | NAME | DESIG. | [STATUS] |
+S.No. | CLI ID | CLI NAME | CREW ID | NAME | [CLI_Alloted DATE] | DESIG. | [STATUS] |
 PREVIOUS DATE | PREVIOUS GRADE | DONE DATE | CURRENT GRADE | DUE DATE |  <- 1st pair = Grading
 # | MODE | DONE DATE | DUE DATE |                                       <- 2nd pair = Counselling
 # | REMARK-[SUBJECT] | MODE | DONE DATE | DUE DATE |                     <- 3rd pair = Foot Plate
-REMARK | MODE | PLAY DATE | SCORE
+REMARK | MODE | PLAY DATE | SCORE                                        <- REMARK = foot plate remark
 ```
+
+The 24-, 25- and 26-column exports all work (`CLI_Alloted DATE` arrived Oct 2026). Besides
+the due pairs the parser now also returns, per row, `cliAlloted`, `prevGrade`,
+`prevGradeDate`, `params.counselling.subject` (REMARK-[SUBJECT]) and
+`params.footplate.remark` (the first plain REMARK). These feed the storage; the page and
+the exports ignore them. Nothing is ever named `row.remark` — the exports use that for
+the remark the CLI types.
 
 `CURRENT GRADE` is the safety category (A/B/C/D, matching `div_staff_master.safety_category`). `STATUS` is the crew duty state
 (REST / SIGNON / LEAVE / …) — shown in the table and in both exports; it is blank
@@ -147,6 +156,60 @@ the CMS count/duty downloads.
 - Files must be the CSTM division (`DIV` is checked; a BSL download is refused).
 - Bump `CACHE_VERSION` in `clicms-sw.js` and the `?v` tags when shell files change;
   `daily.css`/`daily.js` carry their own `?v` (listed in SHELL).
+
+### Storage (Due List)
+
+`sql/2026-10-17_cms_duelist_storage.sql`. The Due List upload (`POST /clicms/upload`, HQ
+roles only — lobby roles get 403) is parsed as before and then stored by
+`lib/cmsReports/duelist.js saveUpload`:
+
+- **`cms_daily_loads`** — one row per upload, `report_key = 'duelist'`, `lobby NULL`,
+  `data_date = sheet_date =` the upload day (IST; the file carries no run date). A second
+  upload the same day becomes current, the earlier stays with `is_current = 0`.
+  `raw_file` is the CSV **gzipped** (1.4 MB a day otherwise): `file_names` ends `.csv.gz`
+  and the blob starts `1f 8b`; `duelist.gunzipIfNeeded()` reads it back. `'duelist'` is
+  not in the catalogue, so it never shows on the Daily Position, the Lobby page or the drill.
+- **`cms_daily_counts`** — per lobby (crew-id prefix: CSMT, KYN, CSTS …) and `DIVISION`:
+  `footplate|grading|counselling.overdue / .due30 / .total`, `grade.A|B|C|D|none`,
+  `crew.total`. Overdue is as on the data date (due ≤ data date); due30 = the next 30 days.
+- **`cms_daily_crew`** — only the overdue crew of that day (`<param>.overdue`, event_time =
+  due date, detail `{cli, cliName, desig, done, due}`).
+- **`cms_crew_monitoring`** — one row per crew per **version** of its tracked fields (CLI,
+  grade, previous grade + date, done/due dates, subject, foot plate remark). Each upload
+  compares every crew with its current row: unchanged → `last_seen`, `last_load_id`,
+  `status` move on; changed → the old row is retired (`is_current = 0`) and a new one
+  inserted; new crew → inserted. `status` (duty state) is **not** tracked, so daily churn
+  makes no versions. A crew absent from a file keeps its current row (could be a transfer).
+  One current row per crew is kept by the upsert transaction (`upsertMonitoring`).
+
+Endpoints: `POST /clicms/duelist/current` (any CMS role) returns the latest stored report in
+the `/upload` shape — `{stored: {id, dataDate, by, at, earlier}, generatedAtIST, rows,
+warnings, parameters}` or `{stored: null}`; `generatedAtIST` is the data date, so "overdue
+as on" is the report day, not today. `GET /api/division/staff-monitoring/:hrmsId` (division
+realm, office rule as `staff-search`) returns `{monitoring: {fpDone, fpDue, coDone, coDue,
+grDone, grDue, grade, cli, cliName, asOf}}` or `{monitoring: null}`; the bio-profile
+(`public/div/staff-profile-report.html`) uses it to pre-fill **Last Foot Plate Monitoring**
+when the box is empty, with a note "from CMS report of dd-mm-yyyy · CLI <name>". The box
+stays editable; nothing is written back.
+
+Failure never loses an upload: the parsed lists still come back, with a warning "Not stored
+(…)" — or, when the file was stored but the crew rows were not, a warning naming the load id;
+uploading the file again the same day repairs it. Tests: `duelistParse`, `duelistFacts`
+(pure), `duelistMonitoring` (local DB, fixture ids `ZZT…`, cleans up), `duelistRoute`.
+
+```sql
+-- Stored Due List uploads
+SELECT id, DATE_FORMAT(data_date,'%Y-%m-%d') d, loaded_by, loaded_at, is_current, file_names
+  FROM cms_daily_loads WHERE report_key = 'duelist' ORDER BY id DESC;
+-- One crew's monitoring history
+SELECT id, is_current, grade, cli_cms_id, fp_done, fp_due, first_seen, last_seen
+  FROM cms_crew_monitoring WHERE cms_id = 'CSMT2989' ORDER BY id;
+-- Division overdue trend
+SELECT DATE_FORMAT(l.data_date,'%Y-%m-%d') d, c.measure, c.value FROM cms_daily_counts c
+  JOIN cms_daily_loads l ON l.id = c.load_id
+ WHERE l.report_key = 'duelist' AND l.is_current = 1 AND c.lobby = 'DIVISION' AND c.measure LIKE '%.overdue'
+ ORDER BY d, c.measure;
+```
 
 ### Storage (Daily Position only)
 

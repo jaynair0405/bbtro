@@ -298,6 +298,13 @@
             <li><span class="k">Show Report</span></li>
           </ul>
           <div class="note">Must be the Mumbai (CSTM) division — a download of another division is refused.</div></div>
+
+        <div class="card"><h3><span class="num">16</span>Due List — Foot Plate / Grading / Counselling <span class="tag">1 CSV</span></h3>
+          <div class="path">The combined <b>CMS Report</b> (every crew of the division: CLI, grade, the three done / due pairs)</div>
+          <div class="note">Upload it on the <b>Due List</b> page, not the Daily Position. It is <b>stored</b> as the report of
+            the day you upload it (the file carries no date) and replaces that day's earlier upload. Anyone opening the Due
+            List later — HQ or a lobby — presses <b>Open stored report</b> instead of uploading again. The foot plate
+            DONE DATE also fills <b>Last Foot Plate Monitoring</b> on the crew's bio-profile.</div></div>
       </div>
     </section>
 
@@ -368,14 +375,21 @@
             <li><b>Whole day — PDF / Excel</b>: every report one after another; tick <b>Include detail tables</b> for the
               extra tables, otherwise only the sheet blocks print.</li>
           </ul></li>
+
+        <li><h3>The Due List (Foot Plate / Grading / Counselling)</h3>
+          Upload the CMS Report CSV once a day on the <b>Due List</b> page; a note says it is stored as that day's report
+          (and how many crew are new or changed). Opening the page later shows <b>Stored report of dd-mm-yyyy</b> above
+          the dropzone — press <b>Open stored report</b> and the overdue lists, summary and exports work as after an
+          upload. <b>New file</b> goes back to the dropzone. Overdue is counted as on the report's day.</li>
       </ol>
     </section>
     <!-- ================= C. Lobby page ================= -->
     <section id="tab-lobby" hidden>
       <h2 class="part-head">C. Lobby page — lists and remarks from the lobby</h2>
       <div class="intro">
-        <p>Every lobby has a <b>jrcc</b> login (the <b>srcc</b> login works the same). It opens the Due List and the
-          Daily Position <b>read-only</b>, and its own <b>Lobby</b> page: one card per block of the sheet that names
+        <p>Every lobby has a <b>jrcc</b> login (the <b>srcc</b> login works the same). It opens the Due List (press
+          <b>Open stored report</b> — the lobby cannot upload there) and the Daily Position <b>read-only</b>, and its
+          own <b>Lobby</b> page: one card per block of the sheet that names
           crew, with HQ's count for the lobby. Where HQ's download already carries the names (PME/REFT/ASIG, Change on
           Approval, Breach of Rest, Working Hours Suburban from the duty list) the names are shown at once; for the
           other blocks the lobby <b>uploads the CMS crew list</b> behind its count. Then a <b>remark per name</b>.</p>
