@@ -203,7 +203,10 @@ write a remark per name; HQ sees both in the Daily Position drill.
 - **Roles.** `jrcc` (new, one account per lobby, `<office>jrcc`) and `office_hr` (the
   srcc accounts) of an office write for that office's lobby; `clicms` / `division_admin`
   view any lobby. `requireClicms` in `server.js` admits all four; the HQ write routes
-  (`daily/upload*`, `daily/manual`, `daily/move`) return 403 to lobby roles.
+  (`daily/upload*`, `daily/manual`, `daily/move`) return 403 to lobby roles. `jrcc` is
+  **confined** to `/clicms` by its own allowlist block in `server.js` (same shape as the
+  `cli` and `clicms` blocks) and logs in straight to `lobby.html`; a later page for jrcc is
+  one more prefix in that block. `office_hr` is not confined (it uses the HR pages).
 - **Office → lobby** is one constant, `lib/cmsReports/lobbies.js`: CSMT-ML → CSMT (+DR),
   KYN-ML → KYN, PNVL-ML → PNVL (+JNPN, ROHA), IGP, LNL → LNLX (+LNL), VVH, NRL,
   CSMT-SUB → CSTS, KYN-SUB → KYNS, PNVL-SUB → PNVS.
@@ -229,6 +232,12 @@ write a remark per name; HQ sees both in the Daily Position drill.
 | PR Overdue | last PR datetime |
 | Change on Approval | approval datetime |
 
+- **Cards** (`lib/cmsReports/lobbyDay.js`): HQ's figure is `null` only when HQ has no
+  current load of that report for the day ("HQ has not loaded"); a load with no row for
+  the lobby is a figure of 0 ("Nothing against CSMT"), e.g. Working Hours Suburban for a
+  mainline lobby. One WR/WOR upload fills both WR/WOR cards and the two share one remark
+  per booking (TA). **copy to blanks** under a remark box writes its text into every empty
+  box on the card; written and saved boxes are left alone.
 - **Routes** (`routes/clicmsLobby.js`, all POST): `lobby/day` (cards, from
   `lib/cmsReports/lobbyDay.js`), `lobby/upload`, `lobby/remark`.
 - **HQ drill** (`lib/cmsReports/lobbyDrill.js`): attached live when a day is opened or
