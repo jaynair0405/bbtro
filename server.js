@@ -825,6 +825,11 @@ app.use('/api/wheel-movement', requireRole('admin'), wheelMovementRoutes);
 
 app.use('/api', authRoutes);
 
+// Mount Trip Shed before the generic /api/division routers.  Some legacy
+// division routers share the same prefix; this dedicated module must receive
+// its own /trip-shed/* paths first.
+app.use('/api/division/trip-shed', requireRealm('division'), require('./routes/division/tripShedRoutes'));
+
 // Root route - landing page and smart redirects
 app.get('/', (req, res) => {
   if (req.session.user) {

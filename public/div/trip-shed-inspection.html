@@ -1,0 +1,129 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Trip Shed inspection</title><link rel="stylesheet" href="/div/css/trip-shed.css"></head><body><header class="top"><div class="brand"><b id="brand">Trip Shed inspection</b><small>Draft · review · finalize</small></div><span class="spacer"></span><a href="/div/trip-shed.html">← Trip Shed</a></header><main class="main"><div class="heading"><div><h1 id="title">New inspection</h1><p id="state">Complete header and checklist outcomes.</p></div><div class="controls"><button class="btn" id="save">Save draft</button><button class="btn primary" id="finalize">Finalize</button></div></div><div class="grid" style="grid-template-columns:350px 1fr"><section class="card"><h2>Inspection header</h2><form id="header" class="formgrid"><label>Type<select name="template_id" id="type"></select></label><label>Date<input class="input" type="date" name="inspection_date" required></label><label>Shift<select name="shift_code"><option>00/08</option><option>08/16</option><option>16/24</option></select></label><label>Loco number<input class="input" name="loco_number" id="loco" required></label><label>Loco type<input class="input" name="loco_type" id="loco_type" readonly></label><label>Loco base<input class="input" name="loco_base" id="loco_base" readonly></label><label>Train no.<input class="input" name="train_no"></label><label>Incoming train<input class="input" name="incoming_train_no"></label><label>Technician<input class="input staff-name" name="technician_name" autocomplete="off"><input type="hidden" name="technician_hrms_id"><div class="staff-results" data-role="technician"></div><small class="staff-help">Search master by name/HRMS; manual name is allowed if no match is selected.</small></label><label>Supervisor<input class="input staff-name" name="supervisor_name" autocomplete="off"><input type="hidden" name="supervisor_hrms_id"><div class="staff-results" data-role="supervisor"></div><small class="staff-help">Search master by name/HRMS; manual name is allowed if no match is selected.</small></label><label class="wide">General remarks<textarea name="general_remarks"></textarea></label></form><p id="notice" role="status" aria-live="polite"></p></section><section class="card"><h2 id="checkTitle">Approved checklist</h2><div style="overflow:auto"><table><thead><tr><th>Section</th><th>Item</th><th>Check</th><th>Standard</th><th>Outcome</th><th>Observation</th></tr></thead><tbody id="items"></tbody></table></div></section></div></main><script>
+const API = '/api/division/trip-shed';
+const shedCode = new URLSearchParams(location.search).get('shed_code') || '';
+const scoped = path => shedCode ? path + (path.includes('?') ? '&' : '?') + 'shed_code=' + encodeURIComponent(shedCode) : path;
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let cfg, id = new URLSearchParams(location.search).get('id'), items = [], status = 'draft', busy = false, templateRequest = 0;
+const field = name => $('#header').elements.namedItem(name);
+const editable = () => cfg && !cfg.user.read_only && status === 'draft';
+async function request(path, body) {
+  const response = await fetch(API + scoped(path), body === undefined ? {} : {method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify(body)});
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw Error(data.error || `Request failed (${response.status})`);
+  return data;
+}
+function selectedTemplate() { return cfg?.templates?.find(t => String(t.id) === String($('#type').value)); }
+function isTiTemplate() { return /^TI_/.test(selectedTemplate()?.inspection_type || ''); }
+function syncTiHeaderFields(locked) {
+  const box = $('#tiHeaderFields');
+  if (!box) return;
+  const show = isTiTemplate();
+  box.hidden = !show;
+  box.querySelectorAll('input,select').forEach(x => x.disabled = !show || locked || busy);
+}
+function controls() {
+  const locked = !editable();
+  document.querySelectorAll('#header input,#header select,#header textarea,#items input,#items select').forEach(x => x.disabled = locked || busy);
+  syncTiHeaderFields(locked);
+  $('#type').disabled = locked || busy || !!id;
+  $('#save').hidden = !cfg || cfg.user.read_only || status === 'final';
+  $('#finalize').hidden = !cfg || !cfg.user.can_finalize || cfg.user.read_only || status === 'final';
+  $('#save').disabled = $('#finalize').disabled = locked || busy;
+  $('#state').textContent = status === 'final' ? 'Finalized inspection (locked)' : cfg?.user.read_only ? 'Read-only inspection' : 'Draft — complete required checklist outcomes before finalizing.';
+}
+function render() {
+  let last = null;
+  $('#items').innerHTML = items.map(x => {
+    const section = x.section_name !== last ? (last = x.section_name, `<tr><th colspan="6">${esc(last || 'Checklist')}</th></tr>`) : '';
+    const response = x.is_required ? `<td><select class="outcome" aria-label="Outcome for item ${esc(x.item_no)}"><option>NOT_CHECKED</option><option>OK</option><option>ATTENTION</option><option>NOT_APPLICABLE</option></select></td><td><input class="input observation" aria-label="Observation for item ${esc(x.item_no)}" value="${esc(x.observed_value || '')}"></td>` : '<td><span class="pill">Reference</span></td><td>—</td>';
+    return section + `<tr data-id="${x.template_item_id}" data-required="${x.is_required ? '1' : '0'}"><td>${esc(x.section_name || '')}</td><td>${esc(x.item_no)}</td><td>${esc(x.label_en)}${x.label_hi ? '<br><small>' + esc(x.label_hi) + '</small>' : ''}</td><td>${esc(x.standard_value || '—')}</td>${response}</tr>`;
+  }).join('');
+  items.forEach(x => { const outcome = $(`tr[data-id="${x.template_item_id}"] .outcome`); if (outcome) outcome.value = x.outcome || 'NOT_CHECKED'; });
+  controls();
+}
+async function loadTemplate() {
+  const token = ++templateRequest;
+  busy = true; controls();
+  try {
+    const data = await request('/template/' + $('#type').value);
+    if (token !== templateRequest) return;
+    items = data.items; render();
+  } catch (e) {
+    items = []; render(); $('#notice').textContent = e.message;
+  } finally { if (token === templateRequest) { busy = false; controls(); } }
+}
+function values() {
+  // Read values explicitly: saved templates are disabled to prevent changing versions.
+  const body = Object.fromEntries([...$('#header').elements].filter(x => x.name && !x.disabled).map(x => [x.name, x.value]));
+  body.id = id;
+  body.responses = [...document.querySelectorAll('tr[data-id][data-required="1"]')].map(tr => ({template_item_id:Number(tr.dataset.id), outcome:tr.querySelector('.outcome').value, observed_value:tr.querySelector('.observation').value}));
+  return body;
+}
+async function persist(finalize) {
+  if (!editable() || busy || (finalize && !cfg.user.can_finalize)) return;
+  const body = values();
+  if (!$('#header').reportValidity()) return;
+  if (!items.length) { $('#notice').textContent = 'Load a checklist before saving.'; return; }
+  if (finalize) {
+    const answers = new Map(body.responses.map(x => [x.template_item_id, x.outcome]));
+    const missing = items.filter(x => x.is_required && (!answers.get(x.template_item_id) || answers.get(x.template_item_id) === 'NOT_CHECKED'));
+    if (missing.length) { $('#notice').textContent = `Complete all required checklist items before finalizing (${missing.length} remaining)`; return; }
+  }
+  busy = true; controls();
+  try {
+    const saved = await request('/inspections', body);
+    id = saved.id; history.replaceState(null, '', '?id=' + id); $('#title').textContent = 'Inspection #' + id;
+    $('#notice').textContent = 'Draft saved';
+    if (finalize) { await request('/inspections/' + id + '/finalize', {}); status = 'final'; $('#notice').textContent = 'Inspection finalized'; }
+  } catch (e) { $('#notice').textContent = e.message; }
+  finally { busy = false; controls(); }
+}
+async function init() {
+  controls();
+  cfg = await request('/config');
+  // These fields are present in the approved TI source headers and are stored on inspection drafts.
+  const baseLabel = field('loco_base')?.parentElement;
+  if (baseLabel && !field('cab_leading')) baseLabel.insertAdjacentHTML('afterend', '<label>Cab leading<input class="input" name="cab_leading" maxlength="30"></label><label>Kms reading<input class="input" name="kms_reading" inputmode="decimal" pattern="\\d+(\\.\\d{1,2})?"></label><div id="tiHeaderFields" class="wide formgrid"><label>Traction converter make<input class="input" name="traction_converter_make" maxlength="80"></label><label>Auxiliary converter make<input class="input" name="auxiliary_converter_make" maxlength="80"></label><label>Brake system<input class="input" name="brake_system_make" maxlength="80"></label><label>HLC<input class="input" name="hlc_make" maxlength="80"></label><label>SPM<input class="input" name="spm_make" maxlength="80"></label><label>Energy consumed (KWH)<input class="input" name="energy_consumed_kwh" inputmode="decimal" pattern="\\d+(\\.\\d{1,2})?"></label><label>RTIS status<select name="rtis_status"><option value="">Not recorded</option><option value="WORKING">Working</option><option value="NOT_WORKING">Not working</option><option value="NOT_RECORDED">Not recorded</option></select></label><label>RTIS remarks<input class="input" name="rtis_remarks" maxlength="160"></label></div>');
+  $('#brand').textContent = cfg.shed.shed_code + ' Trip Shed inspection';
+  // Use the local calendar day, not the UTC date around midnight.
+  const now = new Date();
+  field('inspection_date').value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+  $('#type').innerHTML = cfg.templates.map(t => `<option value="${t.id}" ${t.entry_enabled ? '' : 'disabled'}>${esc(t.inspection_type)} — ${esc(t.title)}</option>`).join('');
+  if (id) {
+    const data = await request('/inspections/' + id);
+    if (![...$('#type').options].some(x => x.value === String(data.inspection.template_id))) $('#type').add(new Option('Historical template #' + data.inspection.template_id, data.inspection.template_id));
+    Object.entries(data.inspection).forEach(([key,value]) => { const input = field(key); if (input && value != null) input.value = value; });
+    items = data.items; status = data.inspection.status; $('#title').textContent = 'Inspection #' + id; render();
+  } else {
+    const template = cfg.templates.find(x => x.entry_enabled);
+    if (template) { $('#type').value = template.id; await loadTemplate(); }
+    else { items = []; render(); $('#notice').textContent = 'No inspection template is enabled for entry.'; }
+  }
+  $('#type').onchange = () => { syncTiHeaderFields(!editable()); loadTemplate(); };
+  $('#save').onclick = () => persist(false);
+  $('#finalize').onclick = () => persist(true);
+  $('#loco').onblur = async () => {
+    if (!editable() || busy) return;
+    const number = field('loco_number').value.trim(), date = field('inspection_date').value;
+    if (!number) return;
+    try {
+      const data = await request('/locos/' + encodeURIComponent(number) + '?date=' + date);
+      if (!editable() || field('loco_number').value.trim() !== number || field('inspection_date').value !== date) return;
+      field('loco_type').value = data.loco.loco_type || ''; field('loco_base').value = data.loco.home_shed || '';
+      if (data.incoming_trains.length === 1 && !field('incoming_train_no').value) field('incoming_train_no').value = data.incoming_trains[0];
+      $('#notice').textContent = 'Master values filled; manual values are retained.';
+    } catch (e) { $('#notice').textContent = e.message; }
+  };
+  controls();
+}
+function setupStaffSearch() {
+  const style = document.createElement('style'); style.textContent = '.staff-results{position:relative;z-index:4}.staff-results button{display:block;width:100%;text-align:left;background:#fff;border:1px solid #ccd5df;padding:6px;cursor:pointer}.staff-help{display:block;color:#687684;font-size:11px;margin-top:3px}'; document.head.appendChild(style);
+  ['technician','supervisor'].forEach(role => {
+    const name = field(role + '_name'), idField = field(role + '_hrms_id'), box = document.querySelector(`.staff-results[data-role="${role}"]`); let timer;
+    name.addEventListener('input', () => { idField.value = ''; clearTimeout(timer); const q = name.value.trim(); box.innerHTML = ''; if (q.length < 2 || !editable() || busy) return; timer = setTimeout(async () => { try { const data = await request(`/staff-search?q=${encodeURIComponent(q)}&role=${role}`); if (name.value.trim() !== q) return; box.innerHTML = data.rows.map(x => `<button type="button" data-hrms="${esc(x.hrms_id)}" data-name="${esc(x.name)}"><b>${esc(x.name)}</b> · ${esc(x.hrms_id)}<br><small>${esc(x.designation_name || '')} ${esc(x.office_name || x.office_code || '')}</small></button>`).join('') || '<small>No active master match; enter a manual name.</small>'; } catch (e) { box.textContent = 'Master lookup unavailable; manual name may be entered.'; } }, 220); });
+    box.addEventListener('click', e => { const pick = e.target.closest('button[data-hrms]'); if (!pick) return; name.value = pick.dataset.name; idField.value = pick.dataset.hrms; box.innerHTML = `<small>Selected master: ${esc(pick.dataset.hrms)}</small>`; });
+  });
+}
+init().then(setupStaffSearch).catch(e => { $('main').innerHTML = '<h2>Could not start inspection</h2><p>' + esc(e.message) + '</p>'; });
+</script></body></html>

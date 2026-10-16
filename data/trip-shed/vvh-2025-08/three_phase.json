@@ -1,0 +1,1632 @@
+[
+  {
+    "source_row": 3,
+    "section_name": "General / जनरल",
+    "item_no": "i",
+    "label_en": "Check driver booking in log book; if any booking exists, inform shed via TLC.",
+    "label_hi": "लॉग बुक में ड्रायवर बुकिंग चेक करें और यदि कोई बुकिंग है तो टीएलसी द्वारा शेड को सूचित करें।",
+    "standard_value": "Checked",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 4,
+    "section_name": "General / जनरल",
+    "item_no": "ii",
+    "label_en": "Check DDS logging for one round trip.",
+    "label_hi": "एक राउंड ट्रिप की DDS लॉगिंग की जांच करें।",
+    "standard_value": "Checked",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 5,
+    "section_name": "General / जनरल",
+    "item_no": "iii",
+    "label_en": "Check that there is no damage to the loco body structure.",
+    "label_hi": "लोको बॉडी स्‍ट्रक्‍चर में कोई डेंमेज नहीं है यह चेक करें।",
+    "standard_value": "No damage",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 7,
+    "section_name": "Rail Guard & Cattle Guard",
+    "item_no": "i",
+    "label_en": "Check and adjust the height of the rail guard.",
+    "label_hi": "रेल गार्ड की ऊॅचाई की जॉच करें और समायोजित करें",
+    "standard_value": "Height within 105 to 120 mm.",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 8,
+    "section_name": "Rail Guard & Cattle Guard",
+    "item_no": "ii",
+    "label_en": "Check the tightness of the nut and bolts of the cattle guard.",
+    "label_hi": "केटल गार्ड की नट- बोल्‍ट की टाईटनेस जॉच करें।",
+    "standard_value": "Intact",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 9,
+    "section_name": "Rail Guard & Cattle Guard",
+    "item_no": "iii",
+    "label_en": "Check Cattle guard for any crack or gap.",
+    "label_hi": "कैटल गार्ड में किसी भी दरार या अंतर की जांच करें।",
+    "standard_value": "Intact",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 11,
+    "section_name": "Driver’S Seat",
+    "item_no": "i",
+    "label_en": "Check looseness, squaring, and cracks of all parts; repair any defective parts.",
+    "label_hi": "सभी पूर्जों की लूजनेंस , स्‍कोयरिंग तथा क्रैक की जॉच करें । यदि कोई खराब मिले तो उसे रिपेयर करें।",
+    "standard_value": "Intact",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 13,
+    "section_name": "Driver’S Desk",
+    "item_no": "i",
+    "label_en": "Ensure transparent rubber caps on push buttons in driver’s cab.",
+    "label_hi": "ड्रायव्‍हर कैब में लगी पुश बंटन पर लगे ट्रान्‍सपरंट रबर कैप का होना सुनिश्चित करें।",
+    "standard_value": "Fitted",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 14,
+    "section_name": "Driver’S Desk",
+    "item_no": "ii",
+    "label_en": "Check cleanliness & working of switches, lamps and gauges on driver’s desk.",
+    "label_hi": "चालक की डेस्क पर लगे स्विच, दीपक और मीटर की सफाई और कार्यशीलता की जांच करें",
+    "standard_value": "Normal",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 15,
+    "section_name": "Driver’S Desk",
+    "item_no": "iii",
+    "label_en": "Ensure BP, FP, MR, BC, AFI, U-meter, gauges readings are correct.",
+    "label_hi": "बीपी, एफपी, एमआर, बीसी, एएफआई गेजेस की रिडींग सही होना सुनिश्चित करें।",
+    "standard_value": "Normal",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 16,
+    "section_name": "Driver’S Desk",
+    "item_no": "iv",
+    "label_en": "Ensure emergency push button switch operates correctly.",
+    "label_hi": "एमरजेंसी पुश बटन स्विंच की सही कार्य कर रहा है सुनिश्चित करें ।",
+    "standard_value": "Working",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 17,
+    "section_name": "Driver’S Desk",
+    "item_no": "v",
+    "label_en": "Check working of BPVG, PVEF, PVSA, PVCD etc.",
+    "label_hi": "BPVG, PVEF, PVSA, PVCD आदि के कार्य करने की स्थिति जांचें।",
+    "standard_value": "Normal",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 19,
+    "section_name": "Cab Heater, Cab Cooler Fan And Cab Ac",
+    "item_no": "i",
+    "label_en": "Check operation and effectiveness of cab heater, cab blower, cab fan, cab AC.",
+    "label_hi": "कैब हिटर/ब्लोअर, कैब कूलर फैन और कैब एसी की कार्य एवं कुशलता चेक करें।",
+    "standard_value": "Working",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 21,
+    "section_name": "स्‍पीडोमीटर ैच्म्म्क्व्डम्ज्म्त्",
+    "item_no": "i",
+    "label_en": "Note down Date, time, KM Earned and status of memory. Check display light & intactness of all connection.",
+    "label_hi": "तिथि, समय, अर्जित किलोमीटर एवं मेमोरी की स्थिति नोट करें। डिस्प्ले लाइट एवं सभी कनेक्शनों की सुदृढ़ता की जांच करें।",
+    "standard_value": "Checked",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 22,
+    "section_name": "स्‍पीडोमीटर ैच्म्म्क्व्डम्ज्म्त्",
+    "item_no": "ii",
+    "label_en": "Inspect pulse generator protection cover, cable and coupler for damage.",
+    "label_hi": "पल्‍स जनरेटर का प्रोटेक्‍शन कव्‍हर, केबल तथा कपलर के डॅमेज की जॉंच करें।",
+    "standard_value": "No Damage",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 24,
+    "section_name": "Check The Availability Of Following Safety Items",
+    "item_no": "i",
+    "label_en": "Wooden wedges (4 Nos. each)",
+    "label_hi": "लकडी के गुटके",
+    "standard_value": "Available",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 25,
+    "section_name": "Check The Availability Of Following Safety Items",
+    "item_no": "ii",
+    "label_en": "Fire extinguisher (4 Nos. each)",
+    "label_hi": "अग्निशमन (कुल सं. - 4)",
+    "standard_value": "Available",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 26,
+    "section_name": "Check The Availability Of Following Safety Items",
+    "item_no": "iii",
+    "label_en": "LV Board (01 No.)",
+    "label_hi": "एल.वी. बोर्ड (कुल सं. - 1)",
+    "standard_value": "Available",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 27,
+    "section_name": "Check The Availability Of Following Safety Items",
+    "item_no": "iv",
+    "label_en": "Screw coupling safety clamp (01 No.)",
+    "label_hi": "स्क्रू कपलिंग सेफ़्टी क्लैम्प (कुल सं. - 1)",
+    "standard_value": "Available",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 28,
+    "section_name": "Check The Availability Of Following Safety Items",
+    "item_no": "v",
+    "label_en": "Spare BP & FP Hose pipe (01 No. each)",
+    "label_hi": "अतिरिक्त BP एवं FP होज़ पाइप (प्रत्येक-1)",
+    "standard_value": "Available",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 30,
+    "section_name": "Doors And Footsteps",
+    "item_no": "i",
+    "label_en": "Check the operation of external door locks, Machine room door & its locks and inspect for any damage & attend accordingly.",
+    "label_hi": "दरवाजे के बाहरी ताले, मशीन रूम का दरवाज़ा और उसके ताले के कार्य की जॉच करें तथा कोई डॅमेज है या नही देखे एवं अनुसार कार्यवाही करें ।",
+    "standard_value": "Working",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 31,
+    "section_name": "Doors And Footsteps",
+    "item_no": "ii",
+    "label_en": "Check condition of all footsteps",
+    "label_hi": "सभी पायदानों की स्थिति की जांच करें।",
+    "standard_value": "Intact",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 33,
+    "section_name": "Look Out Glass And Side Window",
+    "item_no": "i",
+    "label_en": "Clean the lookout glass with detergent/water. Clean dust and debris from sliding window glass.",
+    "label_hi": "लुकआउट ग्लास को डिटर्जेंट/पानी से साफ करें। स्लाइडिंग विंडो ग्लास से धूल एवं मलबा साफ करें।",
+    "standard_value": "Cleaned",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 34,
+    "section_name": "Look Out Glass And Side Window",
+    "item_no": "ii",
+    "label_en": "Check operation of window screen and side window & their Locking features; replace if cracked or scratched. Also check condition of external standing plate for Look out glass.",
+    "label_hi": "विंडो स्क्रीन एवं साइड विंडो तथा उनके लॉकिंग फीचर्स की कार्य स्थिति जांचें; यदि दरार या खरोंच हो तो बदलें। साथ ही लुकआउट ग्लास के लिए बाहरी स्टैंडिंग प्लेट की स्थिति की भी जांच करें।",
+    "standard_value": "Intact",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 36,
+    "section_name": "परीक्षण ज्म्ैज्प्छळ",
+    "item_no": "i",
+    "label_en": "Perform HT testing of the locomotive and ensure all equipment is functioning properly & check for any unusual noise from Auxiliary Machines.",
+    "label_hi": "लोकोमोटिव का HT परीक्षण करें और सुनिश्चित करें कि सभी उपकरण सही तरीके से कार्य कर रहे हैं तथा सहायक मशीनों से किसी भी प्रकार की असामान्य आवाज़ की जांच करें।",
+    "standard_value": "Normal",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 38,
+    "section_name": "Horn And Horn Switch",
+    "item_no": "i",
+    "label_en": "Check LT & HT horn valves of both cabs and its operation.",
+    "label_hi": "दोनों कैब के LT एवं HT हॉर्न वाल्व तथा उनके संचालन की जांच करें।",
+    "standard_value": "Normal",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 40,
+    "section_name": "Washer/Wiper",
+    "item_no": "i",
+    "label_en": "Check all wiper parts for wear, looseness, cracks and its operation with manual handle and repair if faulty.",
+    "label_hi": "सभी वाइपर के पुर्जों की घिसावट, ढीलापन, दरार एवं उनके मैनुअल हैंडल से संचालन की जांच करें और खराब होने पर मरम्मत करें।",
+    "standard_value": "Working",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 41,
+    "section_name": "Washer/Wiper",
+    "item_no": "ii",
+    "label_en": "Check water tank level for wipers and refill as needed. Ensure washers are working properly.",
+    "label_hi": "वायपर्स के पानी की टंकी के पानी की मात्रा चेक करे तथा जरूरत होने पर भर दें वाशरर्स को सही तरह से कार्यरत होने के लिए चेक करें।",
+    "standard_value": "Water filled",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 43,
+    "section_name": "Lights / लाइट्स",
+    "item_no": "i",
+    "label_en": "Clean the glass of headlight lamps and marker lights.",
+    "label_hi": "हेड लाईट लॅम्‍प एवं मार्कर लाईट के कॉच साफ करें।",
+    "standard_value": "Cleaned",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 44,
+    "section_name": "Lights / लाइट्स",
+    "item_no": "ii",
+    "label_en": "Check operation of flasher light, marker light, headlight, cab light, desk light, and machine room light.",
+    "label_hi": "फ्लेशर लाईट मार्करलाईट हेड लाईट कैब लाईट डीस्‍क लाईट मशीनरूम लाईट का ऑपरेशन चेक करें।",
+    "standard_value": "Working Condition",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 46,
+    "section_name": "Simulation Mode",
+    "item_no": "31",
+    "label_en": "Check the working of the following: No Air leakage from VCB and SR contactors. Working of TE/BE up to Full traction and braking operation. Dropping of TE/BE through RS & A-9. Working of VCD through BPVG, foot switch, BPVR and application of penalty brakes from both cabs.",
+    "label_hi": "निम्नलिखित की कार्य स्थिति की जांच करें: a) VCB एवं SR कॉन्टैक्टर्स से किसी भी प्रकार का एयर लीकेज न हो।b) पूर्ण ट्रैक्शन एवं ब्रेकिंग ऑपरेशन तक TE/BE का सही तरीके से कार्य करना।c) RS एवं A-9 के माध्यम से TE/BE का ड्रॉप होना।d) BPVG, फुट स्विच, BPVR के माध्यम से VCD का कार्य करना तथा दोनों कैब से पेनाल्टी ब्रेक का लगना।",
+    "standard_value": "Checked",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 49,
+    "section_name": "Pantograph",
+    "item_no": "i",
+    "label_en": "inspect the entire upper structure of the pantograph assembly and check that the assembly horn, wear strip and support assembly have no cracks.",
+    "label_hi": "पैन्‍टोग्राफ असेंबली के पूरे ऊपरी ढॉचे की विजुअल जॉच करें तथा जॉच करें कि असेम्‍बली हॉर्न, विअर स्‍ट्रीप तथा सपोर्ट असेम्‍बली में कोई क्रेक नहीं।",
+    "standard_value": "No Crack",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 50,
+    "section_name": "Pantograph",
+    "item_no": "ii",
+    "label_en": "Check for bent or twisted pan, leakage in operating cylinder, and correct condition of damper and pan spring.",
+    "label_hi": "बेंड या झुका पॅन, ऑपरेटिंग सिलींडर में लिकेज तथा डॅम्‍पर एवं पॅन स्‍प्रींग की सही स्थिति चेक करें ।",
+    "standard_value": "Normal",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 51,
+    "section_name": "Pantograph",
+    "item_no": "iii",
+    "label_en": "Check if pan head locking pin springs are properly installed. Verify pin movement in the frame; if not proper, check if the head is misaligned.",
+    "label_hi": "पैन हेड लॉकिंग पीन स्‍प्रीगस सही तरह से लगी हुई है या नहीं चेक करें। फ्रेम में पीन की मूवमेंट सही है या नहीं चेक करें यदि ना हो तो देखे हेड टेडा तो नहीं है ।",
+    "standard_value": "Normal",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 52,
+    "section_name": "Pantograph",
+    "item_no": "iv",
+    "label_en": "Check tightness of connecting shunt screw; if loose, fit a new screw. Inspect the shunt; it should be intact.",
+    "label_hi": "कनेक्टिंग शंट स्क्रू की टाइटनेस जांचें; यदि ढीला हो, तो नया स्क्रू लगाएं। शंट की जांच करें; वह सही स्थिति में (अक्षत) होना चाहिए।",
+    "standard_value": "Normal",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 53,
+    "section_name": "Pantograph",
+    "item_no": "v",
+    "label_en": "Check proper operation of pantograph including raising (in three steps) and lowering (in three steps). Adjust if needed.",
+    "label_hi": "पैंटोग्राफ की सही कार्यप्रणाली की जांच करें, जिसमें तीन चरणों में उठाना और तीन चरणों में नीचे करना शामिल है। आवश्यकता होने पर समायोजन करें।",
+    "standard_value": "Raising 6-9 sec, Lowering within 10 sec",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 54,
+    "section_name": "Pantograph",
+    "item_no": "vi",
+    "label_en": "check for any cracks.",
+    "label_hi": "फुट माऊंटिग इंसुलेटर को साफ करें और चेक करे कि कोई क्रेक तो नहीं है । ब्समंद विवज उवनदजपदह पदेनसंजवत ंदक",
+    "standard_value": "Clean/No crack",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 55,
+    "section_name": "Pantograph",
+    "item_no": "vii",
+    "label_en": "Check thickness of carbon strip of both pantographs.",
+    "label_hi": "दोनों पेंटोग्राफ की कार्बन पट्टी की मोटाई की जाँच करें।",
+    "standard_value": "13.5mm min (IR03) 26mm min (Schunk WBL-85 HS/HR) 24mm min",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 56,
+    "section_name": "Pantograph",
+    "item_no": "viii",
+    "label_en": "Check upper thrust of both the pantograph. IR03- On 7.0Kgf, Panto pan should not leave OHE while on 7.5Kgf, panto pan should leave OHE by a paper gap between OHE & Panto pan. HRPT- After putting 7.0Kgf, pull the panto pan towards lower side, it must be stop wherever pulling force removed. Similarly, during application of upper force, Panto pan should stop wherever upper force removed.",
+    "label_hi": "दोनों पेंटोग्राफ के ऊपरी थ्रस्ट की जाँच करें। दोनों पैंटोग्राफ की अपर थ्रस्ट की जांच करें।IR03 - 7.0 किलोग्राम-फोर्स (Kgf) पर पैंटो पैन को ओएचई (OHE) से अलग नहीं होना चाहिए, जबकि 7.5 किलोग्राम-फोर्स (Kgf) पर पैंटो पैन और ओएचई के बीच कागज़ की मोटाई जितना अंतर आ जाना चाहिए।HRPT - 7.0 किलोग्राम-फोर्स (Kgf) लगाने के बाद पैंटो पैन को नीचे की ओर खींचें, खींचने की ताकत हटते ही पैंटो पैन को वहीं रुक जाना चाहिए। इसी प्रकार, जब ऊपर की ओर बल लगाया जाए, तो बल हटते ही पैंटो पैन को वहीं रुक जाना चाहिए।",
+    "standard_value": "7.0 किलोग्राम 7.0 kgf",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 57,
+    "section_name": "Pantograph",
+    "item_no": "ix",
+    "label_en": "Ensure PRV setting of HRPT Pantograph is within limit. Ref:- RDSO letter no. No. EL/2.2.1/High Reach/Faiveley)",
+    "label_hi": "सुनिश्चित करें कि एचआरपीटी पैंटोग्राफ की पीआरवी सेटिंग सीमा के भीतर है।",
+    "standard_value": "Within prescribed PRV setting limit",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 58,
+    "section_name": "Pantograph",
+    "item_no": "x",
+    "label_en": "If any crack observed in Panto pan, Panto horn, same panto to be replaced.",
+    "label_hi": "यदि पैंटो पैन या पैंटो हॉर्न में कोई दरार दिखाई दे, तो उसी पैंटो को बदल दिया जाए।",
+    "standard_value": "Normal",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 60,
+    "section_name": "Roof Equipment",
+    "item_no": "i",
+    "label_en": "Inspect pantograph insulator, high voltage bushing insulator, VCB surge arrester, primary voltage transformer insulator, roof bar insulator etc., for cracks, flash marks, or damage. Also checked intactness of mounting bolts of all insulators.",
+    "label_hi": "पेंटोग्राफ इंसुलेटर, हाई वोल्टेज बुशिंग इंसुलेटर, VCB सर्ज अरेस्टर, प्राइमरी वोल्टेज ट्रांसफॉर्मर इंसुलेटर, रूफ बार इंसुलेटर आदि में दरार, फ्लैश मार्क या क्षति की जांच करें। साथ ही सभी इंसुलेटर के माउंटिंग बोल्ट की सुदृढ़ता की भी जांच करें।",
+    "standard_value": "Intact",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 61,
+    "section_name": "Roof Equipment",
+    "item_no": "ii",
+    "label_en": "Clean roof insulators and remove foreign material, if present.",
+    "label_hi": "पेंटोग्राफ इंसुलेटर, हाई वोल्टेज बुशिंग इंसुलेटर, VCB सर्ज अरेस्टर, प्राइमरी वोल्टेज ट्रांसफॉर्मर इंसुलेटर, रूफ बार इंसुलेटर आदि को साफ करें तथा यदि तार, कपड़े के टुकड़े, पॉलिथीन आदि जैसे कोई बाहरी पदार्थ मौजूद हों तो उन्हें हटा दें।",
+    "standard_value": "Cleaned",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 62,
+    "section_name": "Roof Equipment",
+    "item_no": "iii",
+    "label_en": "Check for any cracks on roof and roof joints",
+    "label_hi": "छत की व छत के जोडो पर दरार की जाॅच करें ।",
+    "standard_value": "No cracks",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 63,
+    "section_name": "Roof Equipment",
+    "item_no": "iv",
+    "label_en": "Check for overheating and damage of harmonic filter resistor mounted on roof. Clean to remove any external debris & check intactness of mounting bolts.",
+    "label_hi": "छत के ऊपर लग हारमोनिक फिल्‍टर रजिस्‍टर की ओवर हीटिंग तथा डॅमेज की जॉंच करें । उसे साफ करें ताकि बाहरी कोई कचरा नही रहे और माउंटिंग बोल्ट की स्थिति की जाँच करें ।",
+    "standard_value": "Intact",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 65,
+    "section_name": "Main Transformer",
+    "item_no": "i",
+    "label_en": "Check the oil level indicator on the both conservators of Transformer and ensure there is no leakage. Ensure Oil level of both conservator of TFP should be between min and max level.",
+    "label_hi": "ट्रांसफॉर्मर के दोनों कंजरवेटर पर तेल स्तर संकेतक की जांच करें और सुनिश्चित करें कि कोई रिसाव न हो। TFP के दोनों कंजरवेटर का तेल स्तर न्यूनतम और अधिकतम स्तर के बीच होना चाहिए।",
+    "standard_value": "No Leakage/ level Between min and max",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 66,
+    "section_name": "Main Transformer",
+    "item_no": "ii",
+    "label_en": "Check main transformer and its cover for cracks, breakage, or leaks.",
+    "label_hi": "मेन ट्रान्‍सफार्मर एवं उसके कव्‍हर में क्रेक , टूटफूट या लिकेज की जॉच करें।",
+    "standard_value": "No Damage",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 67,
+    "section_name": "Main Transformer",
+    "item_no": "iii",
+    "label_en": "Check pipe couplings and flexible hose flanges fitted on transformer and conservator.",
+    "label_hi": "ट्रांन्‍सफॉर्मर तथा कंजरवेटर में लगे पाईप कपलिंग तथा फ्लेक्झिबल होस फ्लेज की जांच करें।",
+    "standard_value": "Intact",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 68,
+    "section_name": "Main Transformer",
+    "item_no": "iv",
+    "label_en": "Check the earthing cable.",
+    "label_hi": "अर्थिंग केबल की जांच करें।",
+    "standard_value": "Intact",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 69,
+    "section_name": "Main Transformer",
+    "item_no": "v",
+    "label_en": "if it has turned Pink.",
+    "label_hi": "सिलीका जेल यदि गुलाबी हो तो उसे बदल दें। त्मचसंबम ेपसपबं हमस",
+    "standard_value": "Blue",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 70,
+    "section_name": "Main Transformer",
+    "item_no": "vi",
+    "label_en": "Check both TFP oil pumps for oil leakage and abnormal noise; take corrective action as needed.",
+    "label_hi": "दोनों TFP ऑयल पंप में तेल रिसाव एवं असामान्य शोर की जांच करें; आवश्यकता अनुसार सुधारात्मक कार्यवाही करें।",
+    "standard_value": "No Leakage",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 72,
+    "section_name": "Traction Converter",
+    "item_no": "i",
+    "label_en": "Check the coolant level indicator on the both convertors and ensure there is no leakage. Ensure coolant level of both convertors should be between min and max level.",
+    "label_hi": "दोनों कन्वर्टर पर कूलेंट स्तर संकेतक की जांच करें और सुनिश्चित करें कि कोई रिसाव न हो। दोनों कन्वर्टर का कूलेंट स्तर न्यूनतम और अधिकतम स्तर के बीच होना चाहिए।",
+    "standard_value": "No Leakage/ level Between min and max",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 73,
+    "section_name": "Traction Converter",
+    "item_no": "ii",
+    "label_en": "Check SR coolant spy (level indicator) glass condition for any coolant leakage.",
+    "label_hi": "SR कूलेंट स्पाई (लेवल इंडिकेटर) ग्लास की स्थिति में किसी भी कूलेंट रिसाव की जांच करें।",
+    "standard_value": "No Leakage",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 74,
+    "section_name": "Traction Converter",
+    "item_no": "iii",
+    "label_en": "Check for loose or missing body cover screws and repair as needed.",
+    "label_hi": "कवर की लूज या निकल हुए स्‍कू की जॉच करें यदि जरूरत हो तो सुधारे।",
+    "standard_value": "No Leakage",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 75,
+    "section_name": "Traction Converter",
+    "item_no": "iv",
+    "label_en": "Check both flange joints of SR cooling pump for any oil leakage.",
+    "label_hi": "SR कूलिंग पंप के दोनों फ्लैंज जोड़ों की जांच करें कि कहीं ऑयल लीकेज तो नहीं है।",
+    "standard_value": "No Leakage",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 76,
+    "section_name": "Traction Converter",
+    "item_no": "v",
+    "label_en": "check for external damage & oil leakage from OCB radiator.",
+    "label_hi": "OCB रेडिएटर में किसी भी बाहरी क्षति एवं तेल रिसाव की दृश्य जांच करें।",
+    "standard_value": "No Leakage",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 77,
+    "section_name": "Traction Converter",
+    "item_no": "vi",
+    "label_en": "Check both SR coolant pumps for coolant leakage and abnormal noise; take corrective action as needed.",
+    "label_hi": "दोनों SR कूलेंट पंप में कूलेंट रिसाव एवं असामान्य शोर की जांच करें; आवश्यकता अनुसार सुधारात्मक कार्यवाही करें।",
+    "standard_value": "No Leakage",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 79,
+    "section_name": "Traction Motor",
+    "item_no": "i",
+    "label_en": "Inspect all traction motors for breakage, dents, or other defects; Ensure air vents are not blocked and TM Bellow is not Torn.",
+    "label_hi": "सभी टीएम की टूटफूट डेन्‍ट या अन्‍य खराबी की जॉच करें, यह सुनिश्चित करें कि हवा की निकासी ब्‍लॉक नहीं होनी चाहिए और TM बेलो फटा हुआ न हो।",
+    "standard_value": "No Damage",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 80,
+    "section_name": "Traction Motor",
+    "item_no": "ii",
+    "label_en": "Check the temperature indicator strip on TM for any abnormal temperature increase.",
+    "label_hi": "टीएम के तापमान में असामान्य वृद्धि के लिए तापमान संवेदन पट्टी की जाँच\" करे।",
+    "standard_value": "Checked normal",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 81,
+    "section_name": "Traction Motor",
+    "item_no": "iii",
+    "label_en": "Check traction motor power cable for any rubbing and overheating.",
+    "label_hi": "ट्रैक्शन मोटर पावर केबल में किसी भी प्रकार की रगड़ या अधिक गर्मी की जाँच करें।",
+    "standard_value": "No Damage",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 82,
+    "section_name": "Traction Motor",
+    "item_no": "iv",
+    "label_en": "Check condition of spheribloc TM1 to TM6 and ensure support arms are intact. Crack in spheriblocs should not be more than 180 Degrees",
+    "label_hi": "टी एम 1 से 6 तक के स्‍फेरीब्‍लॉक्‍स की स्थिति चेक करें तथा इनका सपोर्ट आर्म का ठीक होना सुनिश्चित करें| स्फेरिब्लॉक में क्रैक 180 डिग्री से अधिक नहीं होना चाहिए।",
+    "standard_value": "No Crack",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 83,
+    "section_name": "Traction Motor",
+    "item_no": "v",
+    "label_en": "Check TM mounting bogie nose for any crack & TM mounting nose foundation for welding off.",
+    "label_hi": "TM माउंटिंग बोगी नोज़ में किसी भी दरार एवं TM माउंटिंग नोज़ फाउंडेशन में वेल्डिंग के टूटने की जांच करें।",
+    "standard_value": "Normal",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 84,
+    "section_name": "Traction Motor",
+    "item_no": "vi",
+    "label_en": "Check condition of torque arm with nut bolt.",
+    "label_hi": "नट-बोल्ट सहित टॉर्क आर्म की स्थिति की जांच करें।",
+    "standard_value": "Normal",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 85,
+    "section_name": "Traction Motor",
+    "item_no": "vii",
+    "label_en": "Check intactness of nut bolts of spheri-bloc, TM mounting bogie nose for TM suspension, TM holding plate with bolt, TM holding plate J-Bracket with bolt.",
+    "label_hi": "स्फेरी-ब्लॉक के नट-बोल्ट, TM माउंटिंग बोगी नोज़ के TM सस्पेंशन हेतु, TM होल्डिंग प्लेट के बोल्ट, तथा TM होल्डिंग प्लेट J-ब्रैकेट के बोल्ट की सुदृढ़ता की जांच करें।",
+    "standard_value": "Normal",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 87,
+    "section_name": "Hb Panel, Sb Panel, Fb Cubicle & Auxiliary Machines Mounting",
+    "item_no": "i",
+    "label_en": "Check that all support plates, doors & mounting bolts fitted in SB, HB panels and FB cubicle are properly installed.",
+    "label_hi": "एसबी, एफबी तथा एचबी में लगे सभी सपोर्ट प्‍लेट, दरवाज़े एवं माउंटिंग बोल्ट सही तरह से लगे है , चेक करें ।",
+    "standard_value": "Normal",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 88,
+    "section_name": "Hb Panel, Sb Panel, Fb Cubicle & Auxiliary Machines Mounting",
+    "item_no": "ii",
+    "label_en": "Check all MCBs installed in SB and HB panels and ensure that the MCBs are set.",
+    "label_hi": "SB और HB पैनल में लगे सभी MCB की जांच करें और MCB सेट होने सुनिश्चित करें।",
+    "standard_value": "Normal",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 91,
+    "section_name": "Hotel Load",
+    "item_no": "i",
+    "label_en": "Check that both Hotel Load Converters (HLC) installed in the loco are in working condition and ensure that the input, output and healthy lamps on both HLCs are illuminated.",
+    "label_hi": "लोको में लगे दोनों होटल लोड कन्वर्टर (HLC) की कार्यशील स्थिति की जांच करें तथा दोनों HLC पर लगे इनपुट, आउटपुट और हेल्दी लैम्प का प्रकाशित होना सुनिश्चित करें।",
+    "standard_value": "Working",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 92,
+    "section_name": "Hotel Load",
+    "item_no": "ii",
+    "label_en": "Ensure the illumination of LSHO lamp and HLC-1, 2 ON command lamps installed on the driver desk.",
+    "label_hi": "ड्राइवर डेस्क पर लगे LSHO लैम्प और HLC -1, 2 ON कमांड लैम्प का प्रकाशित होना सुनिश्चित करें।",
+    "standard_value": "Working",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 93,
+    "section_name": "Hotel Load",
+    "item_no": "iii",
+    "label_en": "Check all fault messages logged in the HLC/Log book and take appropriate action.",
+    "label_hi": "HLC/लॉग बुक में दर्ज सभी दोषसंदेशों (fault messages) की जाँच करें और तदनुसार उचित कार्रवाई करें।",
+    "standard_value": "Checked",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 94,
+    "section_name": "Hotel Load",
+    "item_no": "iv",
+    "label_en": "Inspect the IVC and UIC couplers, its locking arrangement & its pins installed in the loco for any damage or breakage.",
+    "label_hi": "लोको में लगे IVC और UIC कपलर, उनके लॉकिंग प्रबंध एवं पिन की किसी भी प्रकार की क्षति या टूट-फूट के लिए जांच करें।",
+    "standard_value": "No damage",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 96,
+    "section_name": "Ocb (Oil Cooling Blower)",
+    "item_no": "i",
+    "label_en": "Record the air delivery measurements of OCB in under frame at middle of radiator side wall.",
+    "label_hi": "रेडिएटर साइड वॉल के मध्य में अंडरफ्रेम में स्थित OCB की एयर डिलीवरी माप को रिकॉर्ड करें।",
+    "standard_value": "Normal (8.0m/s)",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 98,
+    "section_name": "Vcd (Visual Control Device)",
+    "item_no": "i",
+    "label_en": "Check whether VCD is isolated through isolating switch 237.1 or through DDS loggings.",
+    "label_hi": "जांच करें कि VCD को आइसोलेशन स्विच 237.1 के माध्यम से या DDS लॉगिंग्स के द्वारा आइसोलेट किया गया है या नहीं।",
+    "standard_value": "Normal",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 99,
+    "section_name": "Vcd (Visual Control Device)",
+    "item_no": "ii",
+    "label_en": "Ensure vigilance control device works properly.",
+    "label_hi": "विजीलेंस कंट्रोल डिवाईस का सही कार्य करना सुनिश्चित करें।",
+    "standard_value": "Working",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 101,
+    "section_name": "Battery",
+    "item_no": "i",
+    "label_en": "inspect the battery box for any external damage, its hanging support & condition of battery cables.",
+    "label_hi": "बैटरी बॉक्स की किसी भी बाहरी क्षति, उसके हैंगिंग सपोर्ट एवं बैटरी केबलों की स्थिति की दृश्य जांच करें।",
+    "standard_value": "Intact",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 102,
+    "section_name": "Battery",
+    "item_no": "ii",
+    "label_en": "apply petroleum jelly if found dry.",
+    "label_hi": "बैटरी सेल के टर्मिनल को साफ करें, यदि सूखा पाया जाए तो पेट्रोलियम जेली लगाएँ। ब्समंद जीम जमतउपदंस व िइंजजमतल बमससए",
+    "standard_value": "Cleaned",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 103,
+    "section_name": "Battery",
+    "item_no": "iii",
+    "label_en": "Check locking of Battery box cover.",
+    "label_hi": "बैटरी बॉक्स कवर की लॉकिंग की जांच करें।",
+    "standard_value": "Normal",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 104,
+    "section_name": "Battery",
+    "item_no": "iv",
+    "label_en": "Record the battery voltage with switch 112.1 in “ON” at SB-2 panel in machine room (voltage should be 95 to 105V).",
+    "label_hi": "मशीन रूम में SB-2 पैनल पर स्विच 112.1 को “ON” स्थिति में रखकर बैटरी वोल्टेज रिकॉर्ड करें (वोल्टेज 95 से 105V के बीच होना चाहिए)।",
+    "standard_value": "95-105 V",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 105,
+    "section_name": "Battery",
+    "item_no": "v",
+    "label_en": "Record the on load voltage with MCPA working.",
+    "label_hi": "MCPA के कार्यरत होने पर ऑन लोड वोल्टेज रिकॉर्ड करें।",
+    "standard_value": "(अंतर 2 वोल्ट से अधिक नहीं होना चाहिए) (Difference should not be more than 2 Volts)",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 106,
+    "section_name": "Battery",
+    "item_no": "vi",
+    "label_en": "Record the CHBA voltage.",
+    "label_hi": "CHBA वोल्टेज रिकॉर्ड करें।",
+    "standard_value": "110 V",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 107,
+    "section_name": "Battery",
+    "item_no": "vii",
+    "label_en": "Check the function of MCPA with BL switch in “D” Mode.",
+    "label_hi": "BL स्विच को “D” मोड में रखकर MCPA के फंक्शन की जांच करें।",
+    "standard_value": "Checked",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 111,
+    "section_name": "Draft Gear And Coupler",
+    "item_no": "i",
+    "label_en": "Check both cabs transition screw coupling and apply general purpose grease to it.",
+    "label_hi": "लोकोमोटिव के दोनों ओर सीबीसी के ट्रांजिशन स्क्रू कपलिंग पर सामान्य प्रयोजन ग्रीस लगाएं।",
+    "standard_value": "Checked/ Grease Applied",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 112,
+    "section_name": "Draft Gear And Coupler",
+    "item_no": "ii",
+    "label_en": "Check the availability of CBC bottom support plate bolts.",
+    "label_hi": "सी.बी.सी. बॉटम सपोर्ट प्‍लेट बोल्‍ट की उपलब्‍धता की जॉच करें।",
+    "standard_value": "Intact",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 113,
+    "section_name": "Draft Gear And Coupler",
+    "item_no": "iii",
+    "label_en": "Check whether the CBC operating handle is functional.",
+    "label_hi": "सी.बी.सी.ऑपरेटिंग हैंडल कार्यरत है या नहीं जॉच करें।",
+    "standard_value": "Working",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 114,
+    "section_name": "Draft Gear And Coupler",
+    "item_no": "iv",
+    "label_en": "inspect the CBC striker casting assembly.",
+    "label_hi": "सी.बी.सी.स्‍ट्राइकर कॉस्‍टींग एसेंम्‍ब्‍ली व्हिजुयली चेंक करें।",
+    "standard_value": "Working",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 115,
+    "section_name": "Draft Gear And Coupler",
+    "item_no": "v",
+    "label_en": "Measure CBC height of both ends.",
+    "label_hi": "दोनों छोर की सीबीसी ऊंचाई मापें",
+    "standard_value": "1030 mm to 1105 mm",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 116,
+    "section_name": "Draft Gear And Coupler",
+    "item_no": "vi",
+    "label_en": "Check operation of both ends CBC & Ensure locking pin to be inserted & locking properly.",
+    "label_hi": "दोनों सिरों के CBC के संचालन की जांच करें और सुनिश्चित करें कि लॉकिंग पिन डाली गई हो और ठीक से लॉक हो रही हो। ।",
+    "standard_value": "Working",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 118,
+    "section_name": "Loco Side & Buffer",
+    "item_no": "i",
+    "label_en": "Apply general purpose grease on both side faces and head plunger of loco side buffer.",
+    "label_hi": "लोको साइड बफर के दोनो साइड फेस तथा हेडप्‍लांजर में जनरल परपस ग्रीस लगाए।",
+    "standard_value": "Grease Applied",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 119,
+    "section_name": "Loco Side & Buffer",
+    "item_no": "ii",
+    "label_en": "Check the foundation bolts of all buffers for tightness or any other defects noticed in buffer assembly.",
+    "label_hi": "सभी बफ़र्स के फाउंडेशन बोल्टों की कसावट या बफर असेंबली में देखे गए किसी अन्य दोष की जांच करें।",
+    "standard_value": "Tight & Intact",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 120,
+    "section_name": "Loco Side & Buffer",
+    "item_no": "iii",
+    "label_en": "Check visually the tightness of filters of MRB, TMB, HLC.",
+    "label_hi": "MRB, TMB, HLC के फिल्टरों की कसावट को दृष्टि परीक्षण द्वारा जांचें।",
+    "standard_value": "Intact",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 122,
+    "section_name": "Sanding Equipment",
+    "item_no": "i",
+    "label_en": "Check working of all sanders & condition of sand gear equipments & filled with dry sand.",
+    "label_hi": "सभी सैंडर्स के संचालन की जांच करें और सैंड गियर उपकरणों की स्थिति का परीक्षण करें—साथ ही यह सुनिश्चित करें कि वे सूखे रेत से भरे हों।",
+    "standard_value": "Filled & Working",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 124,
+    "section_name": "Suspension / सस्पेंशन",
+    "item_no": "i",
+    "label_en": "Check for cracks or damage in primary and secondary helical springs in between Bogie-Body & in between Axle box-Bogie.",
+    "label_hi": "बोगी-बॉडी के बीच एवं एक्सल बॉक्स-बोगी के बीच में प्राथमिक और द्वितीयक हेलिकल स्प्रिंग्स में दरार या क्षति की जांच करें।",
+    "standard_value": "No Crack/ No Damage",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 125,
+    "section_name": "Suspension / सस्पेंशन",
+    "item_no": "ii",
+    "label_en": "Check oil leakage and condition of nut bolt of all dampers.",
+    "label_hi": "सभी डॅम्‍परो का ऑइल लिंकेज तथा नट बोल्‍ट की स्थिति की जांच करें।",
+    "standard_value": "No Leakage/ Normal",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 126,
+    "section_name": "Suspension / सस्पेंशन",
+    "item_no": "iii",
+    "label_en": "Inspect spheribloc of axle guide links on wheels 1 to 12 for cracks. Crack in spheriblocs should not be more than 270 Degrees",
+    "label_hi": "एक्‍सल गार्डड लिंक की स्‍फेरीब्‍लाकों की स्थिति जॉच करें व्‍हील न.1 से 12 तक सभी स्‍फेरीब्‍लॉक चैक करें कि क्रेक नहीं हैं | स्फेरिब्लॉक में क्रैक 270 डिग्री से अधिक नहीं होना चाहिए।",
+    "standard_value": "No Crack",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 128,
+    "section_name": "Bogie Frame And Brake Gear",
+    "item_no": "i",
+    "label_en": "Check for looseness, wear and damaged parts in brake rigging.",
+    "label_hi": "ब्रेक रीगींग का लूजनेस, घीसाव तथा डॅमेज पार्ट का निरीक्षण करें।",
+    "standard_value": "No Loose/ Damage",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 129,
+    "section_name": "Bogie Frame And Brake Gear",
+    "item_no": "ii",
+    "label_en": "Inspect bogie frame and damper base for cracks or damage.",
+    "label_hi": "बोगी फ्रेम एवं या डॅम्‍पर बेस का क्रॅक अथवा डेंमेज के लिए निरीक्षण करें।",
+    "standard_value": "No Crack",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 130,
+    "section_name": "Bogie Frame And Brake Gear",
+    "item_no": "iii",
+    "label_en": "Check pneumatic pipeline system for air leakage.",
+    "label_hi": "न्‍युमेंटिक पाइप लाईन सिस्‍टम के लिकेज की जांच करें।",
+    "standard_value": "No Leakage",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 131,
+    "section_name": "Bogie Frame And Brake Gear",
+    "item_no": "iv",
+    "label_en": "Check earthing shunt fitted in between bogie and body.",
+    "label_hi": "बोगी और बॉडी के बीच फिट किया गया अर्थिंग शंट जांचें।",
+    "standard_value": "100 प्रतिशत 100%",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 132,
+    "section_name": "Bogie Frame And Brake Gear",
+    "item_no": "v",
+    "label_en": "Inspect brake gear for wear, looseness, damage, hanging and pulling parts with cotter pins.",
+    "label_hi": "ब्रेक गियर की घिसावट, ढीलापन, क्षति, लटकते एवं खिंचने वाले पुर्जों की कॉटर पिन सहित जांच करें।",
+    "standard_value": "Intact",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 133,
+    "section_name": "Bogie Frame And Brake Gear",
+    "item_no": "vi",
+    "label_en": "Check correct position of bogie-I and bogie-II, isolation cock.",
+    "label_hi": "बोगी। तथा बोगी-।। आयसोलेशन कॉक सही स्थिति में होने की जॉच करें।",
+    "standard_value": "Open",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 134,
+    "section_name": "Bogie Frame And Brake Gear",
+    "item_no": "vii",
+    "label_en": "Check all lock nuts on underframe (WAP-7).",
+    "label_hi": "अंडर फ्रेम में लगे सभी लॉक नटस् की जॉच करें (WAP-7)।",
+    "standard_value": "Intact",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 135,
+    "section_name": "Bogie Frame And Brake Gear",
+    "item_no": "viii",
+    "label_en": "Check safety slings of brake adjusting device & all brake hangers & check availability of locking plate on pins of all brake hangers.",
+    "label_hi": "ब्रेक एडजस्टिंग डिवाइस एवं सभी ब्रेक हैंगर्स के सेफ्टी स्लिंग्स की जांच करें तथा सभी ब्रेक हैंगर्स के पिन पर लॉकिंग प्लेट की उपलब्धता की जांच करें।",
+    "standard_value": "Available",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 136,
+    "section_name": "Bogie Frame And Brake Gear",
+    "item_no": "ix",
+    "label_en": "Check hole condition of pull rod according to wheel diameter, play of all brake hangers, all brake hanger for cracks and wear & intactness of all brake hanger tie bar with its safety sling. Also, ensure brake adjusting devices are correct & check if threaded bolts of adjusting equipment are bent & inspect mounting plate of adjusting equipment; if found abnormal, replace them.",
+    "label_hi": "व्हील डायामीटर के अनुसार पुल रॉड के छेद की स्थिति, सभी ब्रेक हैंगर का प्ले, सभी ब्रेक हैंगर में दरार एवं घिसावट तथा सभी ब्रेक हैंगर टाई बार की सुदृढ़ता एवं उनके सेफ्टी स्लिंग की जांच करें। साथ ही, यह सुनिश्चित करें कि ब्रेक एडजस्टिंग डिवाइस सही हैं और एडजस्टिंग उपकरण के थ्रेडेड बोल्ट मुड़े हुए तो नहीं हैं, इसकी जांच करें तथा एडजस्टिंग उपकरण की माउंटिंग प्लेट का निरीक्षण करें; यदि कोई असामान्यता पाई जाए तो उन्हें बदल दें।",
+    "standard_value": "Normal",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 137,
+    "section_name": "Bogie Frame And Brake Gear",
+    "item_no": "x",
+    "label_en": "Check condition of TBU & PBU (in WAP-5 & WAG-9).",
+    "label_hi": "TBU और PBU की स्थिति की जांच करें (WAP-5 एवं WAG-9 में)।",
+    "standard_value": "Intact",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 138,
+    "section_name": "Bogie Frame And Brake Gear",
+    "item_no": "xi",
+    "label_en": "Check the brake blocks for wear; replace if any block is below minimum limit (as per the marking).",
+    "label_hi": "ब्रेक ब्‍लॉक घिसा हुआ है या नहीं जॉंच करें। यदि कोई ब्रेक ब्‍लॉक न्‍यूनतम सीमा के नीचे पाए तो ब्रेक ब्‍लॉक बदले (निशान के अनुसार )।",
+    "standard_value": "Normal",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 140,
+    "section_name": "Wheel Set And Axle Box",
+    "item_no": "i",
+    "label_en": "If there is any crack that requires wheel replacement.",
+    "label_hi": "यदि कोई क्रैक हो जिसके लिए व्‍हील बदलना पडे।",
+    "standard_value": "No Crack",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 141,
+    "section_name": "Wheel Set And Axle Box",
+    "item_no": "ii",
+    "label_en": "If there is skidding observed or reported than checked for condition of wheel sets.",
+    "label_hi": "यदि स्किडिंग देखी या रिपोर्ट की गई हो, तो व्हील सेट्स की स्थिति की जांच करें।",
+    "standard_value": "No Skid",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 142,
+    "section_name": "Wheel Set And Axle Box",
+    "item_no": "iii",
+    "label_en": "Measure the root wear, flange wear and tread wear of the loco wheel. Wheel wear measurement should be within given limit.",
+    "label_hi": "लोको के व्हील की रूट वियर, फ्लैंज वियर और ट्रेड वियर का माप लें। पहिये के घिसाव का माप इस सीमा के भीतर होना चाहिए।",
+    "standard_value": "Flange wear – below 3.0 mm Root wear – Tread wear – below 6.5 mm",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 143,
+    "section_name": "Wheel Set And Axle Box",
+    "item_no": "iv",
+    "label_en": "Ensure axle cover bolts are properly installed and earthing return shunts are fitted from axle box to body and bogie to body.",
+    "label_hi": "एक्‍सल कव्‍हर बोल्‍ट सही तरीके से लगा होना सुनिश्चित करें तथा एक्‍सल बॉक्‍स से बॉडी और बोगी से बॉडी में अर्थ रिटर्न शंट लगा होना सुनिश्चित करें।",
+    "standard_value": "Intact",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 144,
+    "section_name": "Wheel Set And Axle Box",
+    "item_no": "v",
+    "label_en": "Check Axle box holder for proper fitment & ensure correct orientation of pin on middle axle box.",
+    "label_hi": "एक्सल बॉक्स होल्डर की उचित फिटमेंट जांचें और मध्य एक्सल बॉक्स पर पिन की सही दिशा सुनिश्चित करें।",
+    "standard_value": "Intact",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 147,
+    "section_name": "ट्रैक्‍शन बार ज्त्।ब्ज्प्व्छ ठ।त्",
+    "item_no": "i",
+    "label_en": "Check the push-pull rod pivot head for any damage in both ends of both Bogies.",
+    "label_hi": "दोनों बोगियों के दोनों सिरों पर पुश-पुल रॉड पिवट हेड में किसी भी प्रकार की क्षति की जांच करें।",
+    "standard_value": "Damage",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 148,
+    "section_name": "ट्रैक्‍शन बार ज्त्।ब्ज्प्व्छ ठ।त्",
+    "item_no": "ii",
+    "label_en": "Inspect the traction link assembly for any defects.",
+    "label_hi": "ट्रॅक्‍शन लिंक असेंब्‍ली का किसी भी खराबी के लिए निरीक्षण करें",
+    "standard_value": "Damage",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 149,
+    "section_name": "ट्रैक्‍शन बार ज्त्।ब्ज्प्व्छ ठ।त्",
+    "item_no": "iii",
+    "label_en": "Check the nuts and bolts securing the traction rod at both ends. If loose, replace them and tighten to the specified torque (26Kgcm). Ensure the locking plate is intact in both ends of both Bogies.",
+    "label_hi": "दोनों बोगियों के दोनों सिरों पर ट्रॅक्‍शन रॉड की सुरक्षा के लिए उसके दोनो छोर पर लगेू नट बोल्‍टस को चेंक करें। ढीले पाए जाने पर उन्‍हें नए लगाए तथा उन्‍हें निर्देशित टॉर्क (26किग्रा से.मी.) से टाइट करें। लॉकिंग प्‍लेट का ठीक होना सुनिश्चित करें।",
+    "standard_value": "Intact",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 150,
+    "section_name": "ट्रैक्‍शन बार ज्त्।ब्ज्प्व्छ ठ।त्",
+    "item_no": "iv",
+    "label_en": "Inspect safety slings, pins and R-clips for wear and damage.",
+    "label_hi": "सेफ्टी स्‍लींग , पीन तथा आर क्‍लीप के घीसाव एवं डॅमेंज का निरीक्षण करें।",
+    "standard_value": "In good condition",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 151,
+    "section_name": "ट्रैक्‍शन बार ज्त्।ब्ज्प्व्छ ठ।त्",
+    "item_no": "v",
+    "label_en": "Inspect the aclathan ring for cracks and shifting in both ends of both Bogies.",
+    "label_hi": "दोनों बोगियों के दोनों सिरों पर अॅक्‍लाथन रींग की क्रेंक एवं शिफ्टिंग का निरीक्षण करें ।",
+    "standard_value": "Intact",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 152,
+    "section_name": "ट्रैक्‍शन बार ज्त्।ब्ज्प्व्छ ठ।त्",
+    "item_no": "vi",
+    "label_en": "Check that all bolts of the inner (6 bolts) and outer (6 bolts) retaining ring of the aclathan ring housing & locking plates are in proper condition. If loose, replace them and tighten to the specified torque (08Kgcm) in both ends of both Bogies.",
+    "label_hi": "दोनों बोगियों के दोनों सिरों पर एक्लाथन रिंग हाउसिंग की इनर (6 बोल्ट) और आउटर (6 बोल्ट) रिटेनिंग रिंग तथा लॉकिंग प्लेट्स के सभी बोल्ट सही स्थिति में हैं या नहीं, इसकी जांच करें। यदि कोई ढीले हों, तो उन्हें बदलें और निर्दिष्ट टॉर्क (08 किग्रा से.मी.) तक कसें।",
+    "standard_value": "Intact",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 154,
+    "section_name": "Gear Case",
+    "item_no": "i",
+    "label_en": "ensure no oil leakage or external damage. Check that the protective cover of sight glass is properly fitted.",
+    "label_hi": "गियर केस तथा इसके स्पाई ग्लास बाहर से साफ करें और निरीक्षण करें कि कोई तेल का लीकेज नहीं है तथा बाहर से कोई डॅमेज नहीं है । स्‍पाई ग्‍लास के प्रो‍टेक्टिव कव्‍हर का ठीक से लगा होना सुनिश्चित करें। ब्समंद जीम हमंत बंेम ंदक पजे ेचल हसंेे मगजमतदंससलए",
+    "standard_value": "No Leakage Fitted properly",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 155,
+    "section_name": "Gear Case",
+    "item_no": "ii",
+    "label_en": "Check oil level from gear case spy glass; add oil if needed. Verify drain plug fitting, tightness and sealing.",
+    "label_hi": "गियर केस के स्पाई ग्लास से ऑइल लेवल की जॉच करें तथा जरूरत हो तो ऑईल डाले ड्रेन प्‍लग का सही तरह से लगा होना और उसकी टाईटनेस तथा सिलिंग चेक करें।",
+    "standard_value": "Checked",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 156,
+    "section_name": "Gear Case",
+    "item_no": "iii",
+    "label_en": "Inspect all nuts and bolts on the gear case and replace the broken bolts, if any.",
+    "label_hi": "गियर केस में लगे हुए सभी नट बोल्‍ट की जॉंच करें , यदि कोई बोल्‍ट टूटा मिले तो उसे बदल दे।",
+    "standard_value": "No Damage",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 157,
+    "section_name": "Gear Case",
+    "item_no": "iv",
+    "label_en": "Ensure intactness of Breather & its cap.",
+    "label_hi": "ब्रीदर और उसके कैप की अखंडता सुनिश्चित करें।",
+    "standard_value": "Intact",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 160,
+    "section_name": "Main Compressor",
+    "item_no": "i",
+    "label_en": "Check for vibration of the compressor, abnormal noise, proper operation, any external body damage & any damage in support bracket.",
+    "label_hi": "कंप्रेसर में वाइब्रेशन, असामान्य शोर, सही संचालन, बाहरी शरीर में कोई क्षति एवं सपोर्ट ब्रैकेट में कोई क्षति की जाँच करें।",
+    "standard_value": "Normal",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 161,
+    "section_name": "Main Compressor",
+    "item_no": "ii",
+    "label_en": "check pipes and support clamps for condition and leakage. Ensure protection guards on compressor are intact & safety slings are fitted on both compressors. Also, visually check compressor fan blades.",
+    "label_hi": "पाइप्स और सपोर्ट क्लैम्प्स की स्थिति एवं लीकेज की दृश्य जांच करें। सुनिश्चित करें कि कंप्रेसर पर लगे प्रोटेक्शन गार्ड सुरक्षित हैं और दोनों कंप्रेसरों पर सेफ्टी स्लिंग्स लगे हुए हैं। साथ ही, कंप्रेसर के फैन ब्लेड्स की भी दृश्य जांच करें।",
+    "standard_value": "No Damage/ No Leakage",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 162,
+    "section_name": "Main Compressor",
+    "item_no": "iii",
+    "label_en": "Check oil level and condition; top up as necessary.",
+    "label_hi": "आयल की लेवल एवं आयल की कंडिशन चेक करें जरूरत पडे तो आयल भरे ।",
+    "standard_value": "Normal",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 163,
+    "section_name": "Main Compressor",
+    "item_no": "iv",
+    "label_en": "Check the time taken by compressor to build from 0Kg/cm2 to cut-out with Air dryer & both compressors working If found abnormal, check the time taken by compressor to build 0Kg/cm2 to cut-out with Air dryer & one-by-one single compressor working",
+    "label_hi": "एयर ड्रायर के साथ और दोनों कंप्रेसर कार्यरत स्थिति में, 0Kg/cm² से कट-आउट प्रेशर तक दबाव बनाने में कंप्रेसर द्वारा लिया गया समय जांचें।यदि समय असामान्य पाया जाए, तो एयर ड्रायर के साथ एक-एक करके केवल एक कंप्रेसर के कार्यरत होने पर 0Kg/cm² से कट-आउट प्रेशर तक दबाव बनाने में लिया गया समय जांचें।",
+    "standard_value": "4 min (max) Only CP-1 working – 7 min (max) Only CP-2 working – 7 min (max)",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 164,
+    "section_name": "Main Compressor",
+    "item_no": "v",
+    "label_en": "Check the working of unloader valve and control air pressure pipe of NRV for any leakage.",
+    "label_hi": "अनलोडर वाल्व के कार्य एवं NRV की कंट्रोल एयर प्रेशर पाइप में किसी भी प्रकार की लीकेज की जांच करें।",
+    "standard_value": "Normal",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 165,
+    "section_name": "Main Compressor",
+    "item_no": "vi",
+    "label_en": "check BP drop & Auto-flasher working",
+    "label_hi": "RS वाल्व को संचालित करें और BP प्रेशर ड्रॉप तथा ऑटो-फ्लैशर की कार्यप्रणाली की जांच करें।",
+    "standard_value": "Working properly",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 167,
+    "section_name": "Auxiliary Compressor",
+    "item_no": "i",
+    "label_en": "Check oil level and condition; top up as needed.",
+    "label_hi": "आयल की लेवल एवं आयल की कंडिशन चेक करें जरूरत पडे तो आयल भरे।",
+    "standard_value": "Normal",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 168,
+    "section_name": "Auxiliary Compressor",
+    "item_no": "ii",
+    "label_en": "Check sufficient pressure build up by auxiliary compressor for raising of pantograph.",
+    "label_hi": "पेंटोग्राफ उठाने हेतु सहायक कंप्रेसर द्वारा पर्याप्त दबाव बनने की जांच करें।",
+    "standard_value": "Normal",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 169,
+    "section_name": "Auxiliary Compressor",
+    "item_no": "iii",
+    "label_en": "Check tightness of all foundation bolts and nuts.",
+    "label_hi": "सभी फाऊंडेशन बोल्‍ट एवं नट की टाईटनेस जॉच करें।",
+    "standard_value": "Normal",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 170,
+    "section_name": "Auxiliary Compressor",
+    "item_no": "iv",
+    "label_en": "Drain the Moisture from Auxiliary Compressor.",
+    "label_hi": "ऑक्‍झीलीयरी कंप्रेसर से मॉइश्चर को ड्रेन करें।",
+    "standard_value": "ड्रेन किया /Drained",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 172,
+    "section_name": "Air Dryer",
+    "item_no": "i",
+    "label_en": "Inspect air dryer for damage and check for air leakage in Air Dryer-CP pipeline.",
+    "label_hi": "डॅमेज हेतु एयर ड्रायर का निरीक्षण करें । एयर ड्रायर – सीपी पाईपलाईन से एयर लिकेज चेक करें।",
+    "standard_value": "No Leakage",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 173,
+    "section_name": "Air Dryer",
+    "item_no": "ii",
+    "label_en": "Check hanging support welding condition.",
+    "label_hi": "हॅगींग सपोर्ट की वेल्डिंग की सही स्थिति चेक करें।",
+    "standard_value": "Normal",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 174,
+    "section_name": "Air Dryer",
+    "item_no": "iii",
+    "label_en": "Check proper working of air dryer & position of its isolating cock ‘A’, ‘B’, ‘C’.",
+    "label_hi": "एयर ड्रायर के सही कार्य एवं उसके आइसोलेटिंग कॉक ‘A’, ‘B’, ‘C’ की स्थिति की जांच करें।",
+    "standard_value": "Normal",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 177,
+    "section_name": "A-9, SA-9 and RS Valve / A-9, SA-9 और RS वाल्व",
+    "item_no": "i",
+    "label_en": "Check operation of A-9 & SA-9 brakes.",
+    "label_hi": "A-9 एवं SA-9 ब्रेक के संचालन की जांच करें।",
+    "standard_value": "Working properly",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 178,
+    "section_name": "A-9, SA-9 and RS Valve / A-9, SA-9 और RS वाल्व",
+    "item_no": "ii",
+    "label_en": "Check free movement of brake controller.",
+    "label_hi": "ब्रेक कंट्रोलर की फ्री मूवमेंट चेक करें।",
+    "standard_value": "Working properly",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 179,
+    "section_name": "A-9, SA-9 and RS Valve / A-9, SA-9 और RS वाल्व",
+    "item_no": "iii",
+    "label_en": "Apply and release brakes repeatedly from both cabs and ensure BP, BC pressure build-up and drop correctly.",
+    "label_hi": "दोनों केब से ब्रेक को बार-बार लगाकर और छोड़कर जांचें, और सुनिश्चित करें कि BP एवं BC प्रेशर सही तरीके से बढ़ और घट रहे हैं।",
+    "standard_value": "Working properly",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 180,
+    "section_name": "A-9, SA-9 and RS Valve / A-9, SA-9 और RS वाल्व",
+    "item_no": "Reference",
+    "label_en": "Brake pressure reference table: Brake via A-9 full service/emergency by loco type",
+    "label_hi": "ब्रेक प्रेशर संदर्भ तालिका: लोको प्रकार अनुसार A-9 फुल सर्विस/इमरजेंसी",
+    "standard_value": "Reference row; no outcome required",
+    "is_required": 0,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 182,
+    "section_name": "A-9, SA-9 and RS Valve / A-9, SA-9 और RS वाल्व",
+    "item_no": "WAP-7",
+    "label_en": "A-9 full service/emergency - WAP-7",
+    "label_hi": null,
+    "standard_value": "BC pressure: 2.5 kg/cm²",
+    "is_required": 0,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 183,
+    "section_name": "A-9, SA-9 and RS Valve / A-9, SA-9 और RS वाल्व",
+    "item_no": "WAG-9",
+    "label_en": "A-9 full service/emergency - WAG-9",
+    "label_hi": null,
+    "standard_value": "BC pressure: 2.5 kg/cm²",
+    "is_required": 0,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 184,
+    "section_name": "A-9, SA-9 and RS Valve / A-9, SA-9 और RS वाल्व",
+    "item_no": "WAP-5",
+    "label_en": "A-9 full service/emergency - WAP-5",
+    "label_hi": null,
+    "standard_value": "BC pressure: 5.15 kg/cm²",
+    "is_required": 0,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 185,
+    "section_name": "A-9, SA-9 and RS Valve / A-9, SA-9 और RS वाल्व",
+    "item_no": "Reference",
+    "label_en": "Brake pressure reference table: Brake via SA-9 full applied by loco type",
+    "label_hi": "ब्रेक प्रेशर संदर्भ तालिका: लोको प्रकार अनुसार SA-9 फुल एप्लाइड",
+    "standard_value": "Reference row; no outcome required",
+    "is_required": 0,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 186,
+    "section_name": "A-9, SA-9 and RS Valve / A-9, SA-9 और RS वाल्व",
+    "item_no": "WAP-7/WAG-9",
+    "label_en": "SA-9 full applied - WAP-7/WAG-9",
+    "label_hi": null,
+    "standard_value": "BC pressure: 3.5 kg/cm²",
+    "is_required": 0,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 187,
+    "section_name": "A-9, SA-9 and RS Valve / A-9, SA-9 और RS वाल्व",
+    "item_no": "WAP-5",
+    "label_en": "SA-9 full applied - WAP-5",
+    "label_hi": null,
+    "standard_value": "BC pressure: 5.15 kg/cm²",
+    "is_required": 0,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 189,
+    "section_name": "A-9, SA-9 and RS Valve / A-9, SA-9 और RS वाल्व",
+    "item_no": "vi",
+    "label_en": "BP Pressure - Normal BP Pressure – On test plug Ref:- RDSO’s TECHNICAL CIRCULAR NO. RDSO/2012/EL/TC/0113, Rev.'0', Dated 29.03.2012.",
+    "label_hi": "बीपी प्रेशर – सामान्य बीपी प्रेशर – टेस्ट प्लग पर",
+    "standard_value": "Pressure not to drop below 4.0 kg/cm2 on 7.5mm hole T/P in 01 min.",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 190,
+    "section_name": "A-9, SA-9 and RS Valve / A-9, SA-9 और RS वाल्व",
+    "item_no": "vii",
+    "label_en": "FP Pressure - Normal FP Pressure – On test plug Ref:- RDSO’s TECHNICAL CIRCULAR NO. RDSO/2012/EL/TC/0113, Rev.'0', Dated 29.03.2012.",
+    "label_hi": "एफ़पी प्रेशर – सामान्य एफ़पी प्रेशर – टेस्ट प्लग पर",
+    "standard_value": "Pressure not to drop below 5.5 kg/cm2 on 5 mm hole T/P in 01 min.",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 191,
+    "section_name": "A-9, SA-9 and RS Valve / A-9, SA-9 और RS वाल्व",
+    "item_no": "viii",
+    "label_en": "Apply A9 to full service, the BC pressure should not exceed 2.5kg/cm², Press PVEF, the loco brakes should be released. Apply A9 to emergency, BC pressure should be 2.5 kg/cm², press PVEF, the loco brakes remain in applied condition.",
+    "label_hi": "लोको ब्रेक्स की संयोजन क्रिया की जांच करें: A9 को फुल सर्विस पोजीशन में लगाएं, BC प्रेशर 2.5 kg/cm² से अधिक नहीं होना चाहिए। PVEF दबाएं, लोको ब्रेक्स रिलीज हो जाने चाहिए। A9 को इमरजेंसी पोजीशन में लगाएं, BC प्रेशर 2.5 kg/cm² होना चाहिए। PVEF दबाएं, लोको ब्रेक्स लगे हुए ही रहने चाहिए।",
+    "standard_value": "Intact",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 193,
+    "section_name": "A-9, SA-9 and RS Valve / A-9, SA-9 और RS वाल्व",
+    "item_no": "a",
+    "label_en": "RS valve in emergency position",
+    "label_hi": "आर एस वाल्व एमरजेंसी स्थिति में",
+    "standard_value": "AFL & Buzzer working",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 194,
+    "section_name": "A-9, SA-9 and RS Valve / A-9, SA-9 और RS वाल्व",
+    "item_no": "b",
+    "label_en": "BP test plug",
+    "label_hi": "बीपी टेस्ट प्लग",
+    "standard_value": "AFL & Buzzer working",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 195,
+    "section_name": "A-9, SA-9 and RS Valve / A-9, SA-9 और RS वाल्व",
+    "item_no": "x",
+    "label_en": "Check MR pressure cut in & cut out from 8.0Kg/cm2 to 9.0Kg/cm2 Ref:- RDSO’s TECHNICAL CIRCULAR NO. RDSO/2012/EL/TC/0113, Rev.'0', Dated 29.03.2012.",
+    "label_hi": "MR प्रेशर का कट.इन एवं कट.आउट 8.0 Kg/cm² से 9.0 Kg/cm² तक जांचें।",
+    "standard_value": "अधिकतम 30 सेकंड Max 30sec",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 196,
+    "section_name": "A-9, SA-9 and RS Valve / A-9, SA-9 और RS वाल्व",
+    "item_no": "xi",
+    "label_en": "Check the blowing pressure of MR safety valve.",
+    "label_hi": "एम आर सेफ्टी वाल्व के ब्लोइंग प्रेशर की जाच करें",
+    "standard_value": "10.5 किग्रा/सेमी2 10.5 kg/cm²",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 197,
+    "section_name": "A-9, SA-9 and RS Valve / A-9, SA-9 और RS वाल्व",
+    "item_no": "xii",
+    "label_en": "Check temperature of MSU Bearings & TM Bearings (CE & PE) & Axle Bearings.",
+    "label_hi": "एक्सल बेरिंग, एम.एस.यु. बीअरिंग और टीएम बीअरिंग (सीई व पी ई) के तापमान की जाॅच करें",
+    "standard_value": "परिवेश के तापमान +27oC से अिध्ाक नही। Not more than ambient temp +27oC.",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 198,
+    "section_name": "A-9, SA-9 and RS Valve / A-9, SA-9 और RS वाल्व",
+    "item_no": "xiii",
+    "label_en": "Apply loco brake & test loco on power, loco should not move up to 150 KN",
+    "label_hi": "लोेको में ब्रेक लगाकर ब्रेक पावर चेक करें । लोकों 150 KN पर नही हिलना चाहिए",
+    "standard_value": "Not moved / स्थानांतरित नहीं हुआ",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 199,
+    "section_name": "A-9, SA-9 and RS Valve / A-9, SA-9 और RS वाल्व",
+    "item_no": "xiv",
+    "label_en": "Check the gap between brake block & wheel in brake release condition should be 10 mm). Ref:- RDSO’s SMI No.197-2001 Rev-1, Amendment dated 26/30-07-2001.",
+    "label_hi": "पिस्टन स्ट्रोक समायोजित करें। WAP-7/WAG-9 में ब्रेक रिलीज स्थिति में ब्रेक ब्लॉक और व्हील के बीच का गैप 10 मिमी होना चाहिए; पिस्टन स्ट्रोक 107 से 117 मिमी।",
+    "standard_value": "Condemned brake block changed and brake piston stroke adjusted.",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 201,
+    "section_name": "Pneumatic Panel",
+    "item_no": "i",
+    "label_en": "inspect the pneumatic panel for any air leakage.",
+    "label_hi": "वायु रिसाव के लिए न्यूमैटिक पैनल का दृश्यात्मक निरीक्षण करें।",
+    "standard_value": "No Leakage",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 202,
+    "section_name": "Pneumatic Panel",
+    "item_no": "ii",
+    "label_en": "Check position of cut-out and isolating cock.",
+    "label_hi": "कटआऊट तथा आयसोलेटिंग कॉक की सही पोजीशन की जॉच करें ।",
+    "standard_value": "Normal",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 203,
+    "section_name": "Pneumatic Panel",
+    "item_no": "iii",
+    "label_en": "Check position all Electro-Pneumatic connectors.",
+    "label_hi": "सभी इलेक्ट्रो-प्नीयूमैटिक कनेक्टर्स की स्थिति जांचें।",
+    "standard_value": "Intact",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 205,
+    "section_name": "Bogie Brake Isolating Cock",
+    "item_no": "i",
+    "label_en": "Check correct position of Bogie-1 &2 Isolating cocks & its protection cover.",
+    "label_hi": "बोगी-1 एवं बोगी-2 के आइसोलेटिंग कॉक और उनके प्रोटेक्शन कवर की सही स्थिति की जांच करें।",
+    "standard_value": "Intact",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 207,
+    "section_name": "Air Reservoir",
+    "item_no": "i",
+    "label_en": "Ensure no hit marks on Air reservoir and check the proper operation of the drain cock. Also, ensure air reservoir foundation bolts are tight and intact.",
+    "label_hi": "सुनिश्चित करें कि एयर रेसर्वायर पर कोई हिट मार्क न हो और ड्रेन कॉक के सही संचालन की जांच करें। साथ ही, एयर रेसर्वायर के फाउंडेशन बोल्ट सख्त और सुदृढ़ होने चाहिए।",
+    "standard_value": "No Damage",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 209,
+    "section_name": "Fp Angle Cock And Hose Pipe",
+    "item_no": "i",
+    "label_en": "Check BP/FP angle cock operation, BP/FP flexible hoses and air leakage in both cabs.",
+    "label_hi": "दोनो कैब में लगे बीपी तथा एफपी एंगल कॉक की ओपन तथा क्लोज पोजीशन में कार्य-जाँच करें। बीपी तथा एफपी फ्लेक्सीबल होस तथा एंगल कॉक में एयर लीकेज की जाँच करें। बीपी/एफपी होज़ पाइप में कोई डैमेज न हो, यह सुनिश्चित करें।",
+    "standard_value": "Operation Normal",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 210,
+    "section_name": "Fp Angle Cock And Hose Pipe",
+    "item_no": "ii",
+    "label_en": "Ensure all angle cocks have correct color coding.",
+    "label_hi": "सभी एंगल कॉक की सही कलर कोड सुनिश्चित करें।",
+    "standard_value": "Normal",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 211,
+    "section_name": "Fp Angle Cock And Hose Pipe",
+    "item_no": "iii",
+    "label_en": "Check visually MU washer of BP & FP Hose pipes.",
+    "label_hi": "BP एवं FP होज़ पाइप्स की MU वॉशर की दृश्य जांच करें।",
+    "standard_value": "Normal",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 212,
+    "section_name": "Fp Angle Cock And Hose Pipe",
+    "item_no": "iv",
+    "label_en": "In case of CRO, replace BP & FP hose pipes.",
+    "label_hi": "CRO की स्थिति में BP एवं FP होज़ पाइप्स को बदलें।",
+    "standard_value": "Checked",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 213,
+    "section_name": "Fp Angle Cock And Hose Pipe",
+    "item_no": "v",
+    "label_en": "Ensure protection guard is available on BP & FP angle cocks in both cabs. Also ensure that BP & FP hose pipes are not touching with available protection guard.",
+    "label_hi": "सुनिश्चित करें कि दोनों कैब में BP एवं FP एंगल कॉक्स पर प्रोटेक्शन गार्ड उपलब्ध है। साथ ही यह भी सुनिश्चित करें कि BP एवं FP होज़ पाइप्स उपलब्ध प्रोटेक्शन गार्ड से संपर्क में न हों।",
+    "standard_value": "Normal",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  },
+  {
+    "source_row": 214,
+    "section_name": "Fp Angle Cock And Hose Pipe",
+    "item_no": "vi",
+    "label_en": "Ensure Additional BP & FP cock handle position is in open condition.",
+    "label_hi": "सुनिश्चित करें कि अतिरिक्त BP एवं FP कॉक हैंडल की स्थिति ओपन (खुली) अवस्था में हो।",
+    "standard_value": "Normal",
+    "is_required": 1,
+    "source_document": "Final 3-Phase TI_17.08.25.docx"
+  }
+]
