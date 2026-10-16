@@ -1,12 +1,21 @@
 -- Restored 2026-09-25: this is the FULL v1 schema as it existed live (recovered from the
 -- feature/trip-shed worktree). The copy previously on master was a stripped-down cut that
 -- lacked cab_leading, kms_reading, *_staff_id, reopen_* and other columns, so steps 6-12
--- could not replay onto it. The div_role ENUM below is master's (it includes 'cli').
+-- could not replay onto it. The two Trip Shed roles are appended to whatever div_role
+-- ENUM is live, so this file never drops a role added later.
 -- CRTMS Trip Shed v1 — VVH is seeded first, but every record is shed-scoped.
 -- Run after div_locos and the Division user schema migrations.
 
-ALTER TABLE users
-  MODIFY div_role ENUM('division_admin','office_hr','trgcentre_admin','lpc','ctlc','clicms','ctlc_view','ssehq','trip_shed_operator','trip_shed_supervisor','cli') NULL;
+-- Add the two Trip Shed roles to users.div_role without restating the list.
+-- Appends only what is missing, so roles added later (jrcc, ...) are never dropped.
+SELECT COLUMN_TYPE INTO @div_role_type FROM information_schema.COLUMNS
+ WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'div_role';
+SET @div_role_type = IF(@div_role_type LIKE '%''trip_shed_operator''%', @div_role_type,
+    INSERT(@div_role_type, LENGTH(@div_role_type), 0, ',''trip_shed_operator'''));
+SET @div_role_type = IF(@div_role_type LIKE '%''trip_shed_supervisor''%', @div_role_type,
+    INSERT(@div_role_type, LENGTH(@div_role_type), 0, ',''trip_shed_supervisor'''));
+SET @sql = CONCAT('ALTER TABLE users MODIFY div_role ', @div_role_type, ' NULL');
+PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 
 CREATE TABLE IF NOT EXISTS div_trip_sheds (
   id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
