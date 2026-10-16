@@ -63,7 +63,11 @@ const mkLoad = (date) => store.saveLoad({ report, facts: { counts: [], crew: [] 
     assert.strictEqual(z1.params.footplate.overdue, false); assert.strictEqual(z1.params.footplate.remark, 'fp');
     assert.strictEqual(z1.params.counselling.subject, 'subj'); assert.strictEqual(z1.cliId, 'ZZCL01'); assert.strictEqual(z1.status, 'REST');   // the new version carries the third file's status
     assert.strictEqual(z1.prevGradeDate, '');
-    assert.ok(st.rows.find((x) => x.crewId === 'ZZT0003'));
+    // Absent from the latest file -> not in the stored report (a fresh upload would not list it either),
+    // but its current row stays for the bio-profile.
+    assert.ok(!st.rows.find((x) => x.crewId === 'ZZT0003'), 'absent crew must not be in the stored report');
+    assert.ok(st.rows.find((x) => x.crewId === 'ZZT0002'));
+    assert.strictEqual((await dl.monitoringFor('ZZT0003')).asOf, '2031-02-02');
     // Same-day re-upload of the latest load: `earlier` counts the retired one
     const l3b = await mkLoad('2031-02-03'); loads.push(l3b.id);
     assert.strictEqual((await dl.currentState()).stored.earlier, 1);

@@ -179,8 +179,10 @@ roles only — lobby roles get 403) is parsed as before and then stored by
   compares every crew with its current row: unchanged → `last_seen`, `last_load_id`,
   `status` move on; changed → the old row is retired (`is_current = 0`) and a new one
   inserted; new crew → inserted. `status` (duty state) is **not** tracked, so daily churn
-  makes no versions. A crew absent from a file keeps its current row (could be a transfer).
-  One current row per crew is kept by the upsert transaction (`upsertMonitoring`).
+  makes no versions. A crew absent from a file keeps its current row (could be a transfer) —
+  the bio-profile still finds it, but the stored report (`currentState`) lists only crew
+  confirmed by the latest load, as a fresh upload would. One current row per crew is kept by
+  the upsert transaction (`upsertMonitoring`).
 
 Endpoints: `POST /clicms/duelist/current` (any CMS role) returns the latest stored report in
 the `/upload` shape — `{stored: {id, dataDate, by, at, earlier}, generatedAtIST, rows,
