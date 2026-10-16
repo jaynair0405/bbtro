@@ -100,7 +100,8 @@ function card(c) {
 function uploadRow(c, quiet) {
   const d = state.day;
   if (!c.upload || !d.writer) return '';
-  if (quiet && !(c.hq && c.hq.value > 0)) return '';
+  // Shown even before HQ has loaded the report — the lobby may be first.
+  if (quiet && c.hq && c.hq.value === 0) return '';
   const wr = c.key === 'wrwor' || c.key === 'wrworhq';
   return `<div class="upload-row"><span class="what">${c.list ? 'Replace' : 'Upload'} the CMS ${esc(c.label)} list for ${esc(d.lobby)}</span>
       <label class="btn btn-primary">Choose CSV<input type="file" accept=".csv,text/csv" ${wr ? 'multiple' : ''} hidden data-up="${esc(c.key)}" /></label>

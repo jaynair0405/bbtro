@@ -114,7 +114,7 @@ router.post('/remark', express.json(), async (req, res) => {
   // checked at upload, so here the prefix only has to be one of the writer's lobbies.
   if (!s.lobbies.includes(id.replace(/\d.*$/, ''))) return res.status(403).json({ error: `${id} is not ${s.lobbies.join(' / ')} crew.` });
   try {
-    const out = await ls.saveRemark({ reportKey: key, lobby: s.lobby, cmsId: id, itemKey: String(itemKey).slice(0, 60), remark, user: s.user.username });
+    const out = await ls.saveRemark({ reportKey: lobbyDay.remarkKeyOf(key), lobby: s.lobby, cmsId: id, itemKey: String(itemKey).slice(0, 60), remark, user: s.user.username });
     res.json(out);
   } catch (err) {
     res.status(500).json({ error: `Could not save the remark (${err.message}).` });
