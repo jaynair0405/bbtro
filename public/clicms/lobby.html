@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CLI CMS — Lobby · CRTMS</title>
+
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#1f3a5f" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <!-- ?v tags must match CACHE_VERSION in clicms-sw.js (see index.html). -->
+  <link rel="stylesheet" href="clicms.css?v12" />
+  <link rel="stylesheet" href="daily.css?v13" />
+  <link rel="stylesheet" href="lobby.css?v1" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">CR</span>
+      <div>
+        <h1>CLI CMS — Lobby</h1>
+        <p class="sub">Central Railway · Mumbai Division · lobby view</p>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <nav class="report-switch">
+        <a href="./">Due List</a>
+        <a href="daily.html">Daily Position</a>
+        <a href="lobby.html" class="active">Lobby</a>
+        <a href="help.html">Help</a>
+      </nav>
+      <span class="who" id="who"></span>
+      <a class="topbar-btn" id="navBtn" hidden></a>
+    </div>
+  </header>
+
+  <main>
+    <div class="day-bar">
+      <div class="day-title">Position of <input type="date" id="sheetDate" />
+        <span class="lobby-tag" id="lobbyTag"></span> <span class="date-note" id="covers"></span></div>
+      <div class="day-actions">
+        <select id="lobbyPick" hidden></select>
+        <button type="button" class="btn btn-ghost" id="prevDay">◀ Previous day</button>
+        <button type="button" class="btn btn-ghost" id="nextDay">Next day ▶</button>
+      </div>
+    </div>
+    <div class="readonly" id="intro">Loading…</div>
+    <div class="err" id="err" hidden></div>
+    <div class="checklist" id="chips"></div>
+    <div id="cards"></div>
+  </main>
+
+  <script src="lobby.js?v1"></script>
+</body>
+</html>

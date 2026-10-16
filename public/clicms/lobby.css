@@ -1,0 +1,32 @@
+/* Lobby page. Loaded after clicms.css (shell) and daily.css (report cards, chips, tables);
+   only what those two lack is here. */
+.who { font-size: 12.5px; color: #d5deea; white-space: nowrap; }
+.who strong { font-family: var(--mono); color: #fff; }
+.lobby-tag { display: inline-block; font-family: var(--mono); font-size: 13px; background: var(--navy); color: #fff; padding: 2px 9px; border-radius: 4px; margin-left: 6px; vertical-align: middle; }
+.day-title input[type="date"] { font-family: var(--mono); font-size: 18px; color: var(--navy); padding: 2px 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); }
+#lobbyPick { font: inherit; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; }
+.readonly { background: #fff6e0; color: #8a5a00; border: 1px solid #f2b632; border-radius: 6px; padding: 8px 12px; font-size: 13px; margin-bottom: 14px; }
+.chk.done { border-color: var(--ok); color: var(--ok); background: #e3f1e8; }
+.chk.need { border-color: var(--alert); color: var(--alert); background: #fdf0ed; }
+.chk.part { border-color: #f2b632; color: #8a5a00; background: #fff6e0; }
+.chk.none { border-style: dashed; }
+.chk b { font-family: var(--mono); font-weight: 500; }
+.hqcount { font-size: 13px; color: var(--muted); }
+.hqcount b { font-family: var(--mono); font-size: 15px; color: var(--alert); }
+.hqcount b.zero { color: var(--ink); }
+.status { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 4px; white-space: nowrap; }
+.status.done { background: #e3f1e8; color: var(--ok); }
+.status.need { background: #fdf0ed; color: var(--alert); }
+.status.part { background: #fff6e0; color: #8a5a00; }
+.upload-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; background: var(--bg-panel); border: 1px dashed var(--line); border-radius: 6px; padding: 10px 12px; margin: 6px 0 10px; }
+.upload-row .what { font-weight: 600; }
+td.rem { white-space: normal; min-width: 260px; }
+.rem input { width: 100%; font: inherit; font-size: 13px; padding: 5px 7px; border: 1px solid var(--line); border-radius: 5px; box-sizing: border-box; }
+.rem .by { display: block; font-size: 11px; color: var(--muted); font-family: var(--mono); margin-top: 2px; }
+.rem .edit { font-size: 11.5px; color: var(--navy); text-decoration: underline dotted; margin-left: 6px; cursor: pointer; }
+.flag { font-size: 11px; font-weight: 600; padding: 1px 6px; border-radius: 3px; background: #fff6e0; color: #8a5a00; white-space: nowrap; }
+.empty { font-size: 13px; color: var(--muted); padding: 4px 0 6px; }
+.card-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 4px 0 8px; }
+.lobby-col { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.report .warnings { font-size: 12.5px; color: #8a5a00; margin: 0 0 8px; }
+@media (max-width: 720px) { .day-bar { align-items: flex-start; } .report-head { flex-direction: column; align-items: flex-start; } }

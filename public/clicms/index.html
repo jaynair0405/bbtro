@@ -18,7 +18,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <!-- ?v tag must match CACHE_VERSION in clicms-sw.js: it stops a cache-first service
        worker pairing a fresh index.html with a stale clicms.js (columns then misalign). -->
-  <link rel="stylesheet" href="clicms.css?v5" />
+  <link rel="stylesheet" href="clicms.css?v12" />
   <link rel="stylesheet" href="daily.css?v13" /><!-- report switcher only -->
 </head>
 <body>
@@ -35,6 +35,7 @@
       <nav class="report-switch">
         <a href="./" class="active">Due List</a>
         <a href="daily.html">Daily Position</a>
+        <a href="lobby.html">Lobby</a>
         <a href="help.html">Help</a>
       </nav>
       <a class="topbar-btn" id="navBtn" hidden></a>
@@ -156,7 +157,7 @@
     </section>
   </main>
 
-  <script src="clicms.js?v5"></script>
+  <script src="clicms.js?v12"></script>
   <script>
     // Register the PWA service worker (caches the app shell only).
     if ('serviceWorker' in navigator) {
