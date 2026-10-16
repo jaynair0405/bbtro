@@ -567,6 +567,30 @@ router.get('/search-staff/:query', async (req, res) => {
     }
 });
 
+/* CLIs are not in div_staff_master (the 123 active ones live only in
+ * div_cli_master), so the picker offers "Search CLI master instead". Same row
+ * shape as search-staff; the HRMS id lands in the same *_staff_hrms_id column. */
+router.get('/search-cli/:query', async (req, res) => {
+    const raw = String(req.params.query || '').trim();
+    if (raw.length < 3) return res.json({ staff: [] });
+    const q = `%${raw}%`;
+    try {
+        const [staff] = await req.app.locals.pool.query(
+            `SELECT c.cli_hrms_id AS hrms_id, NULL AS pf_number, c.cli_name AS name,
+                    c.cmsid AS current_cms_id, c.current_office_code,
+                    'CLI' AS designation_name, 1 AS is_cli
+               FROM div_cli_master c
+              WHERE c.is_active = 1
+                AND (c.cli_name LIKE ? OR c.cli_hrms_id LIKE ? OR c.cmsid LIKE ? OR c.cli_mobile LIKE ?)
+              ORDER BY c.cli_name LIMIT 40`, [q, q, q, q]
+        );
+        res.json({ staff });
+    } catch (e) {
+        console.error('ssehq cli search:', e);
+        res.status(500).json({ error: 'CLI search failed' });
+    }
+});
+
 /* What the loco master can and cannot fill in.
  *
  * commission_date is populated for every one of the 13,806 locos, so DOC

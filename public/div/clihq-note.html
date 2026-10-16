@@ -226,7 +226,7 @@ function drawRows() {
             tr.querySelector('[data-k="pf_number"]').value = rs[i].pf_number;
             tr.querySelector('[data-k="designation_station"]').value = rs[i].designation_station;
             input.value = rs[i].name;
-            link.yes(rs[i].hrms_id);
+            link.yes(rs[i].hrms_id, s.is_cli);
         });
     });
     $('stfRows').querySelectorAll('[data-rm]').forEach(function (el) {

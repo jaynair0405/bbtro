@@ -222,42 +222,53 @@
     var TEMP_OPT_HTML = '<div class="opt tmp"><b>Not in staff master</b>' +
         '<span class="sub">keep the name as typed — marked temporary until the staff is added</span></div>';
     // (a span, not <small>: clihq-letter.html reads <small> on a clicked row as "hrms · desg · office")
+    var CLI_OPT_HTML = '<div class="opt swap"><b>Search CLI master instead</b>' +
+        '<span class="sub">CLIs are kept in their own master</span></div>';
+    var STAFF_OPT_HTML = '<div class="opt swap"><b>Search staff master instead</b>' +
+        '<span class="sub">back to running staff</span></div>';
 
     function attachPicker(input, drop, url, rowHtml, onPick, staff) {
         var timer = null;
-        input.addEventListener('input', function () {
-            clearTimeout(timer);
-            if (staff) staff.unlink();
-            DIRTY = true; render();
-            if (input.value.trim().length < 3) { drop.classList.remove('open'); return; }
-            timer = setTimeout(function () {
-                api(url + encodeURIComponent(input.value.trim())).then(function (data) {
-                    var rows = data.staff || data.locos || [];
-                    var html = rows.map(function (r, i) {
-                        return '<div class="opt" data-i="' + i + '">' + rowHtml(r) + '</div>';
-                    }).join('');
-                    if (!rows.length) {
-                        html = staff ? '<div class="empty">No match in the staff master</div>'
-                                     : '<div class="empty">No match — type it in freely</div>';
-                    }
-                    if (staff) html += TEMP_OPT_HTML;
-                    drop.innerHTML = html;
-                    drop.querySelectorAll('.opt[data-i]').forEach(function (el) {
-                        el.onclick = function () {
-                            onPick(rows[Number(el.dataset.i)]);
-                            drop.classList.remove('open');
-                            DIRTY = true; render();
-                        };
-                    });
-                    var tmp = drop.querySelector('.opt.tmp');
-                    if (tmp) tmp.onclick = function () {
-                        staff.temp();
+        var cliMode = false;   // staff boxes only: which master the list shows
+        function search() {
+            var text = input.value.trim();
+            var endpoint = (staff && cliMode) ? url.replace('/search-staff/', '/search-cli/') : url;
+            api(endpoint + encodeURIComponent(text)).then(function (data) {
+                var rows = data.staff || data.locos || [];
+                var html = rows.map(function (r, i) {
+                    return '<div class="opt" data-i="' + i + '">' + rowHtml(r) + '</div>';
+                }).join('');
+                if (!rows.length) {
+                    html = staff ? '<div class="empty">No match in the ' + (cliMode ? 'CLI' : 'staff') + ' master</div>'
+                                 : '<div class="empty">No match — type it in freely</div>';
+                }
+                if (staff) html += (cliMode ? STAFF_OPT_HTML : CLI_OPT_HTML) + TEMP_OPT_HTML;
+                drop.innerHTML = html;
+                drop.querySelectorAll('.opt[data-i]').forEach(function (el) {
+                    el.onclick = function () {
+                        onPick(rows[Number(el.dataset.i)]);
                         drop.classList.remove('open');
                         DIRTY = true; render();
                     };
-                    drop.classList.add('open');
-                }).catch(fail);
-            }, 250);
+                });
+                var tmp = drop.querySelector('.opt.tmp');
+                if (tmp) tmp.onclick = function () {
+                    staff.temp();
+                    drop.classList.remove('open');
+                    DIRTY = true; render();
+                };
+                var swap = drop.querySelector('.opt.swap');
+                if (swap) swap.onclick = function () { cliMode = !cliMode; search(); };
+                drop.classList.add('open');
+            }).catch(fail);
+        }
+        input.addEventListener('input', function () {
+            clearTimeout(timer);
+            if (staff) staff.unlink();
+            cliMode = false;   // typing again starts from the staff master
+            DIRTY = true; render();
+            if (input.value.trim().length < 3) { drop.classList.remove('open'); return; }
+            timer = setTimeout(search, 250);
         });
         /* Pressing on a row must not blur the box: the blur timer below would
          * close the list before a slow click's mouseup, and the pick is lost. */
@@ -282,12 +293,13 @@
             input.dataset.link = state;
             tag.className = 'linktag ' + (state || 'open');
             tag.textContent = !input.value.trim() ? '' :
-                state === 'yes'  ? '✓ staff master' + (hidden && hidden.value ? ' · ' + hidden.value : '') :
+                state === 'yes'  ? '✓ ' + (input.dataset.cli === '1' ? 'CLI' : 'staff') + ' master' +
+                                   (hidden && hidden.value ? ' · ' + hidden.value : '') :
                 state === 'temp' ? 'temporary — not in staff master' :
                                    'pick from the list, or choose "Not in staff master"';
         }
         var link = {
-            yes:    function (hrms) { if (hidden) hidden.value = hrms || ''; set('yes'); },
+            yes:    function (hrms, isCli) { if (hidden) hidden.value = hrms || ''; input.dataset.cli = isCli ? '1' : ''; set('yes'); },
             temp:   function ()     { if (hidden) hidden.value = ''; set('temp'); },
             unlink: function ()     { if (hidden) hidden.value = ''; set(''); },
             /* after a load: decide the state from what the record holds */
@@ -625,7 +637,7 @@
             if (!input || !drop) return;
             var link = staffLink(input, hidden);
             attachPicker(input, drop, CFG.locoApi + '/search-staff/', staffRowHtml,
-                function (s) { input.value = s.name; link.yes(s.hrms_id); }, link);
+                function (s) { input.value = s.name; link.yes(s.hrms_id, s.is_cli); }, link);
         });
     }
 
