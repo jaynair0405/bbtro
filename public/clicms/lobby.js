@@ -73,7 +73,7 @@ function render() {
 function statusOf(c) {
   if (c.list) {
     if (c.source === 'hq') return { cls: c.state === 'done' ? 'done' : 'part', text: "names from HQ's file" };
-    let text = `your list: ${c.list.count} name${c.list.count === 1 ? '' : 's'}`;
+    let text = `${state.day.writer ? 'your list' : "lobby's list"}: ${c.list.count} name${c.list.count === 1 ? '' : 's'}`;
     if (c.hq) text += c.list.count === c.hq.value ? ', matches' : `, HQ counts ${c.hq.value}`;
     return { cls: c.state === 'done' ? 'done' : 'part', text };
   }

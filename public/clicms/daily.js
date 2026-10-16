@@ -683,7 +683,7 @@ function drawDrill(panel) {
     ${d.lobbyNote ? `<p class="tnote lobby-note">${esc(d.lobbyNote)}</p>` : ''}
     <div class="table-wrap"><table><thead><tr>${d.headers.map((h, i) => (sortable.has(i)
       ? `<th class="txt sortable" data-sc="${i}">${esc(h)}${arrow(i)}</th>` : `<th class="txt">${esc(h)}</th>`)).join('')}</tr></thead>
-    <tbody>${rows.map((r) => `<tr>${r.map((v) => `<td>${esc(v)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+    <tbody>${rows.map((r) => `<tr>${r.map((v, i) => `<td${d.headers[i] === 'Lobby remark' ? ' class="wrap"' : ''}>${esc(v)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
 }
 // Header click: sort by that column; again to reverse. Numbers start high-to-low.
 $('reports').addEventListener('click', (e) => {

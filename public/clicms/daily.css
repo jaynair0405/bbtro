@@ -226,3 +226,8 @@ body.drawer-open { overflow: hidden; }
 #workStage.drag { outline: 3px dashed var(--signal-amber); outline-offset: 6px; border-radius: 8px; }
 #workStage.drag::before { content: "Drop the CSV files to add them to this day"; display: block; text-align: center;
   font-weight: 600; color: var(--navy); background: #fff4dc; padding: 8px; margin-bottom: 10px; border-radius: 6px; }
+
+/* Lobby lists under a count carry a remark: it sits right after the name and wraps; the rest scroll sideways. */
+.drill-panel td.wrap { white-space: normal; min-width: 240px; }
+.drill-panel table { width: max-content; min-width: 100%; }
+.drill-panel .lobby-note { color: var(--navy); }
