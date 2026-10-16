@@ -194,7 +194,9 @@ grDone, grDue, grade, cli, cliName, asOf}}` or `{monitoring: null}`; the bio-pro
 when the box is empty, with a note "from CMS report of dd-mm-yyyy · CLI <name>". The box
 stays editable; nothing is written back.
 
-Failure never loses an upload: the parsed lists still come back, with a warning "Not stored
+Uploads are serialised by a MySQL named lock (`GET_LOCK('cms_duelist_upload')`, held
+for the load + crew update), so two HQ users uploading at once cannot leave crew rows
+pointing at a retired load. Failure never loses an upload: the parsed lists still come back, with a warning "Not stored
 (…)" — or, when the file was stored but the crew rows were not, a warning naming the load id;
 uploading the file again the same day repairs it. Tests: `duelistParse`, `duelistFacts`
 (pure), `duelistMonitoring` (local DB, fixture ids `ZZT…`, cleans up), `duelistRoute`.

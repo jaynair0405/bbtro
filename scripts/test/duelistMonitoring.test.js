@@ -79,6 +79,25 @@ const mkLoad = (date) => store.saveLoad({ report, facts: { counts: [], crew: [] 
     assert.strictEqual(await dl.monitoringFor('ZZT9999'), null);
     // Dates must be strings, never JS Dates
     assert.strictEqual(typeof m.fpDone, 'string');
+
+    // Two uploads at once (saveUpload serialises them): afterwards every current fixture row
+    // must point at the load that is current, never at the one it retired.
+    // Forced bad interleaving: the first saveLoad returns late, so without serialisation the
+    // second upload stores AND updates the crew before the first one's crew update runs.
+    const file = { name: 't.csv', buffer: Buffer.from('x') };
+    const realSave = store.saveLoad; let delayed = false;
+    store.saveLoad = async (a) => { const out = await realSave(a); if (!delayed) { delayed = true; await new Promise((r) => setTimeout(r, 400)); } return out; };
+    const [s1, s2] = await Promise.all([
+      dl.saveUpload({ rows: [mkRow('ZZT0001', { fpDue: '20-03-2031' }), mkRow('ZZT0002')], warnings: [], file, user: 'test', dataDate: '2031-02-04' }),
+      dl.saveUpload({ rows: [mkRow('ZZT0001', { fpDue: '21-03-2031' }), mkRow('ZZT0002')], warnings: [], file, user: 'test', dataDate: '2031-02-04' }),
+    ]);
+    store.saveLoad = realSave;
+    loads.push(s1.id, s2.id);
+    const [[cur]] = await pool.query("SELECT id FROM cms_daily_loads WHERE report_key = ? AND data_date = '2031-02-04' AND lobby IS NULL AND is_current = 1", [dl.KEY]);
+    const [bad] = await pool.query("SELECT cms_id, last_load_id FROM cms_crew_monitoring WHERE cms_id IN ('ZZT0001','ZZT0002') AND is_current = 1 AND last_load_id <> ?", [cur.id]);
+    assert.deepStrictEqual(bad, [], 'current crew rows must point at the current load');
+    const [[n1]] = await pool.query("SELECT COUNT(*) n FROM cms_crew_monitoring WHERE cms_id = 'ZZT0001' AND is_current = 1");
+    assert.strictEqual(Number(n1.n), 1);
   } finally {
     await pool.query("DELETE FROM cms_crew_monitoring WHERE cms_id LIKE 'ZZT%'");
     if (loads.length) await pool.query('DELETE FROM cms_daily_loads WHERE id IN (?)', [loads]);
