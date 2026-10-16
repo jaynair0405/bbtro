@@ -421,7 +421,7 @@ router.post('/letter/:id/finalize', async (req, res) => {
         if (rec.form_code === 'SF5' && !rec.f_articles) return res.status(400).json({ error: 'Annexure-I (Articles of Charge) is empty.' });
         if (rec.form_code === 'SF11' && !rec.f_imputation) return res.status(400).json({ error: 'The statement of imputation is empty.' });
         if (rec.form_code === 'SF4' && !rec.f_revoke_from) return res.status(400).json({ error: 'The date the suspension is revoked from is required.' });
-        if (rec.form_code === 'SF7' && rec.f_mode !== 'board' && !rec.f_io_name) return res.status(400).json({ error: 'Name the Inquiry Officer.' });
+        if (rec.form_code === 'SF7' && rec.f_io_mode !== 'board' && !rec.f_io_name) return res.status(400).json({ error: 'Name the Inquiry Officer.' });
 
         conn = await pool(req).getConnection();
         await conn.beginTransaction();

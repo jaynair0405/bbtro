@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BBTRO | Chief OS — D&amp;AR Letter</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,wght@0,400;0,600;0,700;1,400&family=Archivo:wght@400;500;600;700;800&family=Noto+Sans+Devanagari:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/div/css/ssehq-shell.css">
+<style>
+.panel[data-form] { display:none; }
+.panel[data-form].show { display:block; }
+.casebox { background:rgba(245,165,36,.07); border:1px solid rgba(245,165,36,.35); border-radius:10px; padding:10px 12px; font-size:12.5px; line-height:1.55; color:var(--text-mid); }
+.casebox b { color:#fff; }
+.casebox a { color:var(--amber); }
+.stf { width:100%; border-collapse:collapse; margin-top:6px; }
+.stf td { padding:3px 3px 3px 0; vertical-align:top; }
+.stf td.sr { width:26px; color:#5a7099; font-size:12px; padding-top:9px; }
+.stf td.act { width:30px; }
+.stf input { width:100%; }
+.seg { display:flex; gap:6px; }
+.seg button { flex:1; background:#0e1a33; border:1px solid var(--chrome-line); color:var(--text-mid); border-radius:8px; padding:7px; cursor:pointer; font:inherit; font-size:12.5px; font-weight:600; }
+.seg button.on { background:rgba(245,165,36,.16); border-color:var(--amber); color:var(--amber); }
+</style>
+</head>
+<body>
+
+<header class="appbar">
+    <a class="brand" href="/div/chiefos.html"><span class="mark">&#9878;&#65039;</span>
+        <span><b>Chief OS</b><small id="formTag">D&amp;AR letter</small></span></a>
+    <span class="spacer"></span>
+    <a class="back" href="/div/chiefos.html">Case register</a>
+    <a class="back" href="#" id="caseLink">&larr; This case</a>
+    <a class="back" href="#" id="btnHistory">Letters in case</a>
+    <a class="back" href="/div/documents.html?category=DAR_LETTER">Filed letters</a>
+    <a class="back" href="/div/" id="dashLink" style="display:none">&larr; Division</a>
+    <span class="who" id="who"></span>
+    <a class="back" href="/api/logout">Sign out</a>
+</header>
+
+<nav class="statusbar">
+    <span class="fam" id="stKind">Letter</span>
+    <span class="tname" id="stRef">unsaved</span>
+    <span class="chip draft" id="stChip">Draft</span>
+    <span class="spacer"></span>
+</nav>
+
+<main class="stage">
+    <section class="desk" id="desk">
+        <div class="ro-note" id="roNote"></div>
+        <div class="scroll">
+
+            <div class="panel"><h2><span class="n">1</span>Letter</h2><div class="bd">
+                <div class="casebox" id="caseBox">Loading the case&hellip;</div>
+                <input type="hidden" name="case_id">
+                <input type="hidden" name="form_code">
+                <div class="row" style="margin-top:10px">
+                    <div class="fld"><label>Letter No.</label><input name="letter_no" placeholder="BB.TRSO.DAR.ML.26.01"></div>
+                    <div class="fld"><label>Date</label><input type="date" name="letter_date"></div>
+                </div>
+                <div class="fld"><label>Place of issue</label><input name="place_of_issue" placeholder="Sr. DEE (TRO) CSMT office"></div>
+                <div class="fld"><label>Signing authority</label>
+                    <input name="signatory" list="signatoryList" placeholder="Name / Designation">
+                    <datalist id="signatoryList"></datalist>
+                    <div class="hint">Pick from the list or type <b>Name / Designation</b>. Only the designation prints when no name is given.</div></div>
+                <div class="fld" id="daysFld" style="display:none;max-width:200px"><label>Days to reply</label>
+                    <input name="f_days" placeholder="ten"></div>
+                <div class="fld" id="followsFld" style="display:none"><label id="followsLbl">Follows</label>
+                    <select name="follows_letter_id"><option value="">— none —</option></select>
+                    <div class="hint" id="followsHint"></div></div>
+            </div></div>
+
+            <!-- SF-1 -->
+            <div class="panel events-panel" data-form="SF1"><h2><span class="n">2</span>Suspension</h2><div class="bd">
+                <div class="fld"><label>Ground</label>
+                    <select name="f_mode">
+                        <option value="contemplated">Disciplinary proceeding is contemplated</option>
+                        <option value="pending">Disciplinary proceeding is pending</option>
+                        <option value="criminal">Criminal offence under investigation / inquiry / trial</option>
+                    </select></div>
+                <div class="row">
+                    <div class="fld"><label>Effective</label>
+                        <select name="f_effective"><option value="immediate">With immediate effect</option><option value="from">With effect from a date</option></select></div>
+                    <div class="fld"><label>Date (if from a date)</label><input type="date" name="f_effective_date"></div>
+                </div>
+                <div class="fld"><label>Authority wording <span class="hintlbl">— optional</span></label>
+                    <input name="f_authority_text" placeholder="the authority competent to place the Railway Servant under suspension in terms of Schedule II and III …">
+                    <div class="hint">Leave blank to print the form's own bracketed wording.</div></div>
+            </div></div>
+
+            <!-- SF-4 -->
+            <div class="panel events-panel" data-form="SF4"><h2><span class="n">2</span>Revocation</h2><div class="bd">
+                <div class="row">
+                    <div class="fld"><label>Suspension order dated</label><input type="date" name="f_susp_order_date">
+                        <div class="hint">Filled from the SF-1 chosen above; override if the order was made elsewhere.</div></div>
+                    <div class="fld"><label>Revoked with effect from</label><input type="date" name="f_revoke_from"></div>
+                </div>
+            </div></div>
+
+            <!-- SF-5 -->
+            <div class="panel events-panel" data-form="SF5"><h2><span class="n">2</span>Chargesheet</h2><div class="bd">
+                <div class="fld"><label>Annexure-I — Articles of Charge</label>
+                    <textarea name="f_articles" style="min-height:160px" placeholder="Article I&#10;That the said Shri … while working Train No. … on … failed to …&#10;&#10;Article II&#10;…"></textarea>
+                    <div class="hint">A blank line starts a new paragraph. One article per block.</div></div>
+                <div class="fld"><label>Annexure-II — Statement of imputations</label>
+                    <textarea name="f_imputations" style="min-height:160px" placeholder="The facts in support of each article …"></textarea></div>
+                <div class="fld"><label>Annexure-III — List of documents</label>
+                    <textarea name="f_documents" style="min-height:90px" placeholder="1. Speed chart of Loco No. …&#10;2. Statement of Shri …"></textarea></div>
+                <div class="fld"><label>Annexure-IV — List of witnesses</label>
+                    <textarea name="f_witnesses" style="min-height:90px" placeholder="1. Shri …, CLI/CSMT&#10;2. Shri …, SM/KYN"></textarea></div>
+            </div></div>
+
+            <!-- SF-7 -->
+            <div class="panel events-panel" data-form="SF7"><h2><span class="n">2</span>Inquiry</h2><div class="bd">
+                <div class="fld"><label>Appoint</label>
+                    <div class="seg" id="ioSeg"><button type="button" data-v="officer" class="on">An Inquiry Officer</button><button type="button" data-v="board">A Board of Inquiry</button></div>
+                    <input type="hidden" name="f_io_mode" value="officer" data-default="officer"></div>
+                <div id="ioOne">
+                    <div class="row">
+                        <div class="fld"><label>Inquiry Officer</label><input name="f_io_name" placeholder="name"></div>
+                        <div class="fld"><label>Designation</label><input name="f_io_designation" placeholder="ADEE (TRO) KYN"></div>
+                    </div>
+                </div>
+                <div id="ioBoard" style="display:none">
+                    <input type="hidden" name="f_board_rows">
+                    <table class="stf"><tbody id="boardRows"></tbody></table>
+                    <button type="button" class="btn btn-ghost" id="boardAdd" style="margin-top:6px">&#65291; Add member</button>
+                </div>
+            </div></div>
+
+            <!-- SF-11 -->
+            <div class="panel events-panel" data-form="SF11"><h2><span class="n">2</span>Memorandum</h2><div class="bd">
+                <div class="fld"><label>Statement of imputation of misconduct or misbehaviour</label>
+                    <textarea name="f_imputation" style="min-height:220px" placeholder="On …, while working Train No. …, Shri … was found …&#10;&#10;This amounts to …"></textarea>
+                    <div class="hint">Prints as the enclosed statement, after the memorandum. A blank line starts a new paragraph.</div></div>
+            </div></div>
+
+            <div class="panel"><h2><span class="n">3</span>Copies</h2><div class="bd">
+                <div class="fld"><label>Copy to</label>
+                    <textarea name="copy_to_text" style="min-height:70px" placeholder="C/- DRM (P) Loco & Sr. CC (ML) CSMT for inf. & necessary action."></textarea>
+                    <div class="hint">One line per copy. The charged official's copy prints by itself.</div></div>
+            </div></div>
+
+        </div>
+        <div class="actions">
+            <button class="btn btn-ghost" id="btnNew">&#65291; New</button>
+            <button class="btn btn-ghost" id="btnPrint">&#128424; Print</button>
+            <button class="btn btn-ghost" id="btnWord">&#11015; Word</button>
+            <button class="btn btn-ghost" id="btnFiled" style="display:none">&#128196; Filed copy</button>
+            <button class="btn btn-red" id="btnDelete">Delete</button>
+            <span class="spacer" style="flex:1"></span>
+            <button class="btn btn-ghost" id="btnReopen" style="display:none">&#8617; Reopen</button>
+            <button class="btn btn-amber" id="btnSave">Save draft</button>
+            <button class="btn btn-green" id="btnFile">&#10003; File it</button>
+        </div>
+    </section>
+
+    <section class="yard">
+        <div class="preview-tag">Live letter preview</div>
+        <div class="sheet" id="sheet"></div>
+    </section>
+</main>
+
+<div class="drawer-veil" id="drawerVeil"></div>
+<aside class="drawer">
+    <h3>Letters in this case <button type="button" id="drawerClose">&times;</button></h3>
+    <div class="filters">
+        <input class="wide" id="hSearch" placeholder="Letter no.">
+        <select id="hStatus" class="wide"><option value="">All</option><option value="draft">Drafts only</option><option value="final">Filed only</option></select>
+    </div>
+    <div class="list" id="hList"></div>
+</aside>
+
+<div class="modal-veil" id="modalVeil"><div class="modal">
+    <h4 id="mTitle"></h4><div id="mBody"></div>
+    <div class="btns"><button class="btn btn-ghost" id="mCancel">Cancel</button><button class="btn btn-amber" id="mOk">Confirm</button></div>
+</div></div>
+
+<div class="toast" id="toast"></div>
+
+<script src="/div/js/ssehq-report-render.js"></script>
+<script src="/div/js/chiefos-render.js"></script>
+<script src="/div/js/ssehq-editor.js"></script>
+<script>
+var $ = function (id) { return document.getElementById(id); };
+var esc = ChiefOsRender.escapeHtml;
+var params = new URLSearchParams(window.location.search);
+var CASE = null, FORM = null, CFG = null, CASE_LETTERS = [];
+var API = '/api/division/chiefos';
+
+document.getElementById('drawerClose').onclick = function () { document.body.classList.remove('drawer-open'); };
+document.getElementById('drawerVeil').onclick = function () { document.body.classList.remove('drawer-open'); };
+
+// the renderer's extra CSS for the preview (the editor injects SHEET_CSS itself)
+var st = document.createElement('style'); st.textContent = ChiefOsRender.DAR_CSS; document.head.appendChild(st);
+
+function field(n) { return document.querySelector('[name="' + n + '"]'); }
+
+/* The case the letter belongs to: fetched once, shown in the box, and merged
+   into every preview so the staff block prints before anything is typed. */
+function loadCase(id) {
+    return SsehqEditor.api(API + '/cases/' + id).then(function (d) {
+        CASE = d.case; CASE_LETTERS = d.letters;
+        $('caseLink').href = '/div/chiefos-case.html?id=' + CASE.id;
+        $('caseBox').innerHTML = '<b>Shri ' + esc(CASE.staff_name) + '</b>, ' +
+            esc([CASE.staff_designation, CASE.staff_office].filter(Boolean).join(', ')) +
+            (CASE.staff_pf ? ' · PF ' + esc(CASE.staff_pf) : '') + '<br>' +
+            esc(CASE.subject_text) + ' · <a href="/div/chiefos-case.html?id=' + CASE.id + '">case #' + CASE.id + '</a>' +
+            (CASE.status !== 'open' ? ' · <span class="pill grey">closed</span>' : '');
+        return CASE;
+    });
+}
+function caseFields() {
+    if (!CASE) return {};
+    return { staff_hrms_id: CASE.staff_hrms_id, staff_name: CASE.staff_name, staff_designation: CASE.staff_designation,
+             staff_pf: CASE.staff_pf, staff_office: CASE.staff_office, desk: CASE.desk, subject_text: CASE.subject_text };
+}
+function followsInfo() {
+    var sel = field('follows_letter_id');
+    var opt = sel && sel.selectedOptions[0];
+    return opt && opt.value ? { follows_no: opt.dataset.no || '', follows_date: opt.dataset.date || '' } : {};
+}
+
+/* Which form this page is editing: from the record, else from ?form=. */
+function applyForm(code) {
+    FORM = ChiefOsRender.FORMS[code] ? code : 'SF1';
+    var f = ChiefOsRender.FORMS[FORM];
+    field('form_code').value = FORM; field('form_code').dataset.default = FORM;
+    document.querySelectorAll('.panel[data-form]').forEach(function (p) { p.classList.toggle('show', p.dataset.form === FORM); });
+    $('formTag').textContent = f.short + ' — ' + f.label;
+    $('stKind').textContent = f.short;
+    document.title = 'BBTRO | Chief OS — ' + f.short;
+    $('daysFld').style.display = (FORM === 'SF5' || FORM === 'SF11') ? '' : 'none';
+    // follows: the letter this one acts on
+    var fld = $('followsFld'), sel = field('follows_letter_id');
+    if (f.follows) {
+        var prev = ChiefOsRender.FORMS[f.follows];
+        $('followsLbl').textContent = FORM === 'SF4' ? 'Revokes suspension order' : 'Follows ' + prev.short;
+        var opts = CASE_LETTERS.filter(function (l) { return l.form_code === f.follows; });
+        sel.innerHTML = '<option value="">— none —</option>' + opts.map(function (l) {
+            return '<option value="' + l.id + '" data-no="' + esc(l.letter_no || '') + '" data-date="' + esc(l.letter_date || '') + '">' +
+                esc((l.letter_no || prev.short) + ' · ' + ChiefOsRender.fmtDate(l.letter_date) + (l.status === 'final' ? '' : ' (draft)')) + '</option>';
+        }).join('');
+        $('followsHint').textContent = opts.length ? 'Its number and date print in this letter.' : 'No ' + prev.short + ' in this case yet.';
+        fld.style.display = '';
+    } else { fld.style.display = 'none'; sel.innerHTML = '<option value="">— none —</option>'; }
+}
+field('follows_letter_id').addEventListener('change', function () {
+    // SF-4: carry the suspension order's date into the box when it is blank
+    var info = followsInfo();
+    if (FORM === 'SF4' && info.follows_date && !field('f_susp_order_date').value) field('f_susp_order_date').value = info.follows_date;
+    SsehqEditor.setDirty(true); SsehqEditor.render();
+});
+
+/* SF-7: officer or board. */
+$('ioSeg').querySelectorAll('button').forEach(function (b) {
+    b.onclick = function () { setIoMode(b.dataset.v); SsehqEditor.setDirty(true); SsehqEditor.render(); };
+});
+function setIoMode(v) {
+    field('f_io_mode').value = v;
+    $('ioSeg').querySelectorAll('button').forEach(function (x) { x.classList.toggle('on', x.dataset.v === v); });
+    $('ioOne').style.display = v === 'board' ? 'none' : '';
+    $('ioBoard').style.display = v === 'board' ? '' : 'none';
+}
+function readBoard() { try { return JSON.parse(field('f_board_rows').value || '[]') || []; } catch (e) { return []; } }
+function writeBoard(rows) { field('f_board_rows').value = rows.length ? JSON.stringify(rows) : ''; SsehqEditor.setDirty(true); SsehqEditor.render(); }
+function drawBoard() {
+    var rows = readBoard();
+    $('boardRows').innerHTML = rows.map(function (r, i) {
+        return '<tr><td class="sr">' + (i + 1) + '</td>' +
+            '<td><input data-i="' + i + '" data-k="name" placeholder="Name of member" value="' + esc(r.name) + '"></td>' +
+            '<td><input data-i="' + i + '" data-k="designation" placeholder="Designation" value="' + esc(r.designation) + '"></td>' +
+            '<td class="act"><button type="button" class="rowbtn rm" data-rm="' + i + '" title="Remove">&times;</button></td></tr>';
+    }).join('');
+    $('boardRows').querySelectorAll('[data-k]').forEach(function (el) {
+        el.oninput = function () { var rs = readBoard(); rs[Number(el.dataset.i)][el.dataset.k] = el.value; writeBoard(rs); };
+    });
+    $('boardRows').querySelectorAll('[data-rm]').forEach(function (el) {
+        el.onclick = function () { var rs = readBoard(); rs.splice(Number(el.dataset.rm), 1); writeBoard(rs); drawBoard(); };
+    });
+}
+$('boardAdd').onclick = function () { var rs = readBoard(); rs.push({ name: '', designation: '' }); writeBoard(rs); drawBoard(); };
+
+/* Defaults for a new letter: place, signatory, copy-to by desk. */
+function applyDefaults() {
+    if (!field('place_of_issue').value) field('place_of_issue').value = CFG.place_default || '';
+    if (!field('signatory').value) field('signatory').value = (CFG.signatories || [])[0] || '';
+    if (!field('copy_to_text').value && CASE && CFG.desks[CASE.desk]) field('copy_to_text').value = CFG.desks[CASE.desk].copy_to || '';
+    if (!field('f_days').value) field('f_days').value = FORM === 'SF11' ? '10' : 'ten';
+}
+
+var CASE_ID = params.get('case');
+var boot = function () {
+    SsehqEditor.init({
+        kind: 'dar',
+        api: API + '/letter',
+        locoApi: API,
+        configApi: API + '/config',
+        label: 'Letter',
+        filedIn: 'D&AR Letters (Chief OS)',
+        bootName: 'The D&AR desk',
+        dateCol: 'letter_date',
+        numberCol: 'letter_no',
+        numberQuery: CASE_ID ? '?case_id=' + CASE_ID : '',
+        apiQuery: CASE_ID ? 'case_id=' + CASE_ID : '',
+        fields: [
+            'case_id', 'form_code', 'letter_no', 'letter_date', 'place_of_issue', 'signatory', 'follows_letter_id', 'copy_to_text',
+            'f_mode', 'f_effective', 'f_effective_date', 'f_authority_text',
+            'f_susp_order_date', 'f_revoke_from',
+            'f_days', 'f_articles', 'f_imputations', 'f_documents', 'f_witnesses',
+            'f_io_mode', 'f_io_name', 'f_io_designation', 'f_board_rows',
+            'f_imputation',
+        ],
+        render: function (record, events, opts) {
+            var rec = Object.assign({}, caseFields(), record, followsInfo());
+            rec.form_code = FORM || rec.form_code;
+            return ChiefOsRender.renderDarSheet(rec, opts);
+        },
+        serverDefaultsFrom: function (cfg) {
+            CFG = cfg;
+            $('signatoryList').innerHTML = (cfg.signatories || []).map(function (s) { return '<option value="' + esc(s) + '">'; }).join('');
+            return {};
+        },
+        afterWrite: function (record) {
+            var finish = function () {
+                applyForm(record ? record.form_code : (params.get('form') || 'SF1'));
+                if (record) {
+                    field('case_id').dataset.default = record.case_id;
+                    $('btnNew').onclick = function () {
+                        window.location = '/div/chiefos-letter.html?case=' + record.case_id + '&form=' + record.form_code;
+                    };
+                    SsehqEditor.setDirty(false);
+                } else {
+                    field('case_id').value = CASE ? CASE.id : (CASE_ID || '');
+                    applyDefaults();
+                }
+                setIoMode(field('f_io_mode').value || 'officer');
+                drawBoard();
+                SsehqEditor.render();
+                if (CASE && CASE.status !== 'open') $('roNote').textContent = 'This case is closed — reopen it from the case page to issue a letter.';
+            };
+            // a letter opened by ?id= tells us its case; a new one comes from ?case=
+            var cid = record ? record.case_id : CASE_ID;
+            if (cid && (!CASE || CASE.id !== Number(cid))) loadCase(cid).then(finish).catch(SsehqEditor.fail);
+            else finish();
+        },
+    });
+};
+if (CASE_ID) loadCase(CASE_ID).then(boot).catch(function (e) {
+    document.body.innerHTML = '<div class="bootfail"><h3>Case not found</h3><div class="why">' + esc(e.message) + '</div></div>';
+});
+else if (params.get('id')) boot();
+else window.location = '/div/chiefos.html';
+</script>
+</body>
+</html>

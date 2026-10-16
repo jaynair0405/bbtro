@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BBTRO | Chief OS — D&amp;AR Desk</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,wght@0,400;0,600;0,700&family=Archivo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/div/css/ssehq-shell.css">
+<style>
+.filters2 { display:flex; gap:8px; margin:0 0 12px; flex-wrap:wrap; }
+.filters2 input, .filters2 select { background:#0e1a33; border:1px solid var(--chrome-line); color:#e7edf7; border-radius:8px; padding:8px 10px; font:inherit; font-size:13px; }
+.filters2 input { flex:1; min-width:180px; }
+table.reg { width:100%; border-collapse:collapse; font-size:13px; }
+table.reg th { text-align:left; font-size:10.5px; letter-spacing:1px; text-transform:uppercase; color:var(--text-dim); padding:6px 8px; border-bottom:1px solid var(--chrome-line); }
+table.reg td { padding:8px; border-bottom:1px solid rgba(44,67,112,.4); vertical-align:top; }
+table.reg tr:hover td { background:rgba(245,165,36,.05); }
+table.reg a.nm { color:#fff; font-weight:700; text-decoration:none; }
+table.reg a.nm:hover { color:var(--amber); }
+table.reg .sub2 { color:var(--text-dim); font-size:12px; }
+.modal .fld label { display:block; font-size:10.5px; letter-spacing:1px; text-transform:uppercase; color:var(--text-dim); margin:0 0 4px; }
+.modal input, .modal select, .modal textarea { width:100%; background:#0e1a33; border:1px solid var(--chrome-line); color:#e7edf7; border-radius:8px; padding:8px 10px; font:inherit; font-size:13px; box-sizing:border-box; }
+.modal .fld { margin-bottom:10px; }
+.modal .row { display:flex; gap:10px; } .modal .row > * { flex:1; min-width:0; }
+.modal .search-wrap { position:relative; }
+.linktag { font-size:11px; margin-top:3px; min-height:13px; }
+.linktag.yes { color:#4ade80; } .linktag.temp { color:var(--amber); } .linktag.open { color:#f87171; }
+.deskbtns { display:flex; gap:6px; }
+.deskbtns button { flex:1; background:#0e1a33; border:1px solid var(--chrome-line); color:var(--text-mid); border-radius:8px; padding:8px; cursor:pointer; font:inherit; font-weight:600; }
+.deskbtns button.on { background:rgba(245,165,36,.16); border-color:var(--amber); color:var(--amber); }
+</style>
+</head>
+<body>
+
+<header class="appbar">
+    <a class="brand" href="/div/chiefos.html"><span class="mark">&#9878;&#65039;</span>
+        <span><b>Chief OS</b><small>D&amp;AR desk — Sr. DEE (TRO) BB</small></span></a>
+    <span class="spacer"></span>
+    <span class="who" id="who"></span>
+    <a class="back" href="/div/" id="dashLink" style="display:none">&larr; Division dashboard</a>
+    <a class="back" href="/api/logout">Sign out</a>
+</header>
+
+<main class="stage home">
+    <nav class="sidebar">
+        <h4>D&amp;AR</h4>
+        <a class="on" href="/div/chiefos.html"><span class="ic">&#9632;</span>Case register</a>
+        <a href="#" id="navNew"><span class="ic">&#65291;</span>New case</a>
+        <a href="/div/documents.html?category=DAR_LETTER"><span class="ic">&#128193;</span>Filed letters</a>
+        <h4>Staff</h4>
+        <a href="/div/staff-profile-report.html"><span class="ic">&#128100;</span>Bio-profile lookup</a>
+    </nav>
+
+    <section class="board">
+        <h1>D&amp;AR case register</h1>
+        <div class="sub" id="sub">Loading&hellip;</div>
+        <div class="tiles" id="tiles"></div>
+
+        <div class="card2" style="margin-bottom:16px">
+            <h3>Cases <a class="more" href="#" id="btnNewCase">&#65291; New case</a></h3>
+            <div class="bd2" style="padding:12px 14px">
+                <div class="filters2">
+                    <input id="fQ" placeholder="Search by name, HRMS, PF or subject">
+                    <select id="fStatus"><option value="open">Open cases</option><option value="closed">Closed cases</option><option value="">All</option></select>
+                    <select id="fDesk"><option value="">All desks</option><option value="ML">Mainline</option><option value="DSL">Diesel</option><option value="SUB">Suburban</option></select>
+                </div>
+                <table class="reg"><thead><tr><th>Opened</th><th>Staff</th><th>Subject</th><th>Desk</th><th>Letters</th><th>Last</th><th></th></tr></thead>
+                <tbody id="rows"><tr><td colspan="7" class="none2">Loading&hellip;</td></tr></tbody></table>
+            </div>
+        </div>
+    </section>
+</main>
+
+<!-- New case -->
+<div class="modal-veil" id="modalVeil"><div class="modal" style="width:620px">
+    <h4>Open a D&amp;AR case</h4>
+    <div class="fld"><label>Desk</label>
+        <div class="deskbtns" id="deskBtns">
+            <button type="button" data-desk="ML">Mainline</button>
+            <button type="button" data-desk="DSL">Diesel</button>
+            <button type="button" data-desk="SUB">Suburban</button>
+        </div></div>
+    <div class="fld search-wrap"><label>Staff (charged official)</label>
+        <input id="cStaff" autocomplete="off" placeholder="name, PF, HRMS, CMS id or mobile — pick from the master">
+        <div class="search-drop" id="cDrop"></div>
+        <div class="linktag open" id="cTag"></div></div>
+    <div class="row">
+        <div class="fld"><label>Designation</label><input id="cDesig" placeholder="Loco Pilot (Goods)"></div>
+        <div class="fld"><label>PF No.</label><input id="cPf" placeholder="00229816985"></div>
+        <div class="fld"><label>Office / HQ</label><input id="cOffice" placeholder="CSMT-ML"></div>
+    </div>
+    <div class="row">
+        <div class="fld"><label>Date of incident</label><input type="date" id="cIncident"></div>
+        <div class="fld"><label>Case opened on</label><input type="date" id="cOpened"></div>
+    </div>
+    <div class="fld"><label>Subject</label><input id="cSubject" placeholder="SPAD at KYN on 04.09.2026 while working Train No. 11021"></div>
+    <div class="btns"><button class="btn btn-ghost" id="mCancel">Cancel</button>
+        <button class="btn btn-amber" id="mOk">Open case</button></div>
+</div></div>
+
+<div class="toast" id="toast"></div>
+
+<script src="/div/js/chiefos-shell.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const { api, esc, fmtDate, toast, fail } = ChiefOs;
+let CFG = null;
+const STAFF = { hrms_id: '', is_cli: false, state: '' };   // 'yes' | 'temp' | ''
+
+function tiles(d) {
+    const t = [
+        { n: d.open_cases || 0, l: 'Open cases', x: `ML ${d.open_ml || 0} · DSL ${d.open_dsl || 0} · SUB ${d.open_sub || 0}` },
+        { n: d.under_suspension || 0, l: 'Under suspension', x: 'SF-1 filed, no SF-4 yet', cls: d.under_suspension ? 'warn' : '' },
+        { n: d.drafts || 0, l: 'Draft letters', x: 'not yet filed', cls: d.drafts ? 'warn' : '' },
+        { n: d.this_month || 0, l: 'Filed this month', x: 'all forms' },
+        { n: d.closed_cases || 0, l: 'Closed cases', x: 'in the register', cls: 'good' },
+    ];
+    $('tiles').innerHTML = t.map((x) => `<div class="tile ${x.cls || ''}"><div class="n">${esc(x.n)}</div><div class="l">${esc(x.l)}</div><div class="x">${esc(x.x)}</div></div>`).join('');
+}
+function lastCell(s) {
+    if (!s) return '<span class="sub2">—</span>';
+    const [code, status, date] = s.split('|');
+    return ChiefOs.formPill(code, status) + (date ? ` <span class="sub2">${esc(fmtDate(date))}</span>` : '');
+}
+async function loadCases() {
+    const p = new URLSearchParams();
+    if ($('fQ').value.trim()) p.set('q', $('fQ').value.trim());
+    if ($('fStatus').value) p.set('status', $('fStatus').value);
+    if ($('fDesk').value) p.set('desk', $('fDesk').value);
+    try {
+        const d = await api('/cases?' + p.toString());
+        if (!d.cases.length) { $('rows').innerHTML = '<tr><td colspan="7" class="none2">No cases match.</td></tr>'; return; }
+        $('rows').innerHTML = d.cases.map((c) => `<tr>
+            <td>${esc(fmtDate(c.opened_on))}${c.status === 'closed' ? '<br><span class="pill grey">closed ' + esc(fmtDate(c.closed_on)) + '</span>' : ''}</td>
+            <td><a class="nm" href="/div/chiefos-case.html?id=${c.id}">${esc(c.staff_name)}</a><br>
+                <span class="sub2">${esc([c.staff_designation, c.staff_office].filter(Boolean).join(', '))}${c.staff_hrms_id ? ' · ' + esc(c.staff_hrms_id) : ' · <i>not in master</i>'}</span></td>
+            <td>${esc(c.subject_text)}${c.incident_date ? '<br><span class="sub2">incident ' + esc(fmtDate(c.incident_date)) + '</span>' : ''}</td>
+            <td>${esc(c.desk)}</td>
+            <td>${c.letters}${c.drafts ? ` <span class="pill amber">${c.drafts} draft</span>` : ''}</td>
+            <td>${lastCell(c.last_letter)}</td>
+            <td><a class="btn-tiny primary" href="/div/chiefos-case.html?id=${c.id}">Open &rarr;</a></td></tr>`).join('');
+    } catch (e) { $('rows').innerHTML = `<tr><td colspan="7" class="none2">${esc(e.message)}</td></tr>`; }
+}
+
+// ── New case ────────────────────────────────────────────────────────────────
+let DESK = null;
+function setTag(state) {
+    STAFF.state = state;
+    const t = $('cTag');
+    t.className = 'linktag ' + (state || 'open');
+    t.textContent = !$('cStaff').value.trim() ? '' :
+        state === 'yes' ? '✓ ' + (STAFF.is_cli ? 'CLI' : 'staff') + ' master · ' + STAFF.hrms_id :
+        state === 'temp' ? 'temporary — not in staff master' : 'pick from the list, or choose "Not in staff master"';
+}
+ChiefOs.staffPicker($('cStaff'), $('cDrop'), function (s) {
+    if (s === undefined) { STAFF.hrms_id = ''; STAFF.is_cli = false; setTag(''); return; }
+    if (s === null) { STAFF.hrms_id = ''; STAFF.is_cli = false; setTag('temp'); return; }
+    $('cStaff').value = s.name || '';
+    STAFF.hrms_id = s.hrms_id || ''; STAFF.is_cli = !!s.is_cli;
+    if (!$('cDesig').value) $('cDesig').value = s.designation_name || '';
+    if (!$('cPf').value) $('cPf').value = s.pf_number || '';
+    if (!$('cOffice').value) $('cOffice').value = s.current_office_code || '';
+    setTag('yes');
+});
+$('deskBtns').querySelectorAll('button').forEach((b) => {
+    b.onclick = () => { DESK = b.dataset.desk; $('deskBtns').querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b)); };
+});
+function openModal() {
+    ['cStaff', 'cDesig', 'cPf', 'cOffice', 'cIncident', 'cSubject'].forEach((id) => { $(id).value = ''; });
+    $('cOpened').value = new Date().toISOString().slice(0, 10);
+    STAFF.hrms_id = ''; STAFF.is_cli = false; setTag('');
+    $('modalVeil').classList.add('open');
+    setTimeout(() => $('cStaff').focus(), 50);
+}
+$('btnNewCase').onclick = (e) => { e.preventDefault(); openModal(); };
+$('navNew').onclick = (e) => { e.preventDefault(); openModal(); };
+$('mCancel').onclick = () => $('modalVeil').classList.remove('open');
+$('mOk').onclick = async () => {
+    if (!DESK) return toast('Choose the desk.', 'err');
+    if (!$('cStaff').value.trim()) return toast('Pick the staff member.', 'err');
+    if (!STAFF.state) return toast('Pick the staff from the list, or choose "Not in staff master".', 'err');
+    if (!$('cSubject').value.trim()) return toast('A subject is required.', 'err');
+    try {
+        const d = await api('/cases', { method: 'POST', body: JSON.stringify({
+            desk: DESK, staff_hrms_id: STAFF.hrms_id || null, staff_is_cli: STAFF.is_cli,
+            staff_name: $('cStaff').value.trim(), staff_designation: $('cDesig').value.trim(),
+            staff_pf: $('cPf').value.trim(), staff_office: $('cOffice').value.trim(),
+            incident_date: $('cIncident').value || null, opened_on: $('cOpened').value, subject_text: $('cSubject').value.trim(),
+        }) });
+        window.location = '/div/chiefos-case.html?id=' + d.id;
+    } catch (e) { fail(e); }
+};
+
+// ── Boot ────────────────────────────────────────────────────────────────────
+['fQ', 'fStatus', 'fDesk'].forEach((id) => { $(id).addEventListener(id === 'fQ' ? 'input' : 'change', loadCases); });
+(async function boot() {
+    try { CFG = await api('/config'); }
+    catch (e) {
+        document.body.innerHTML = `<div class="bootfail"><h3>The D&amp;AR desk could not start</h3><p>The portal could not confirm your access.</p><div class="why">${esc(e.message)}</div></div>`;
+        return;
+    }
+    const u = CFG.user;
+    $('who').innerHTML = `<b>${esc(u.full_name || u.username)}</b><br>${esc(u.div_role)}`;
+    if (u.div_role !== 'chiefos') $('dashLink').style.display = '';
+    $('sub').textContent = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    try { tiles(await api('/dashboard')); } catch (e) { fail(e); }
+    loadCases();
+})();
+</script>
+</body>
+</html>
