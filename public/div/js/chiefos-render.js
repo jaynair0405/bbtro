@@ -63,7 +63,7 @@
         SF5:  { label: 'Chargesheet (major penalty)', short: 'SF-5', rule: 'Rule 9 of the Railway Servants (Discipline and Appeal) Rules, 1968', gf: '',
                 fields: ['f_days', 'f_articles', 'f_imputations', 'f_documents', 'f_witnesses'], follows: 'SF1' },
         SF7:  { label: 'Appointment of Inquiry Officer', short: 'SF-7', rule: 'Rule 9 (2) of the RS (D&A) Rules, 1968', gf: 'G. 536 F.',
-                fields: ['f_mode', 'f_io_name', 'f_io_designation', 'f_board_rows'], follows: 'SF5' },
+                fields: ['f_io_mode', 'f_io_name', 'f_io_designation', 'f_board_rows'], follows: 'SF5' },
         SF11: { label: 'Memorandum of charge (minor penalty)', short: 'SF-11', rule: 'Rule 11 of RS (D & A) Rules, 1968', gf: 'G. 540 F',
                 fields: ['f_days', 'f_imputation'], follows: null },
     };
@@ -200,7 +200,7 @@
         var board = r.f_board_rows;
         if (typeof board === 'string') { try { board = JSON.parse(board); } catch (e) { board = null; } }
         board = Array.isArray(board) ? board.filter(function (b) { return b && (has(b.name) || has(b.designation)); }) : [];
-        var isBoard = r.f_mode === 'board';
+        var isBoard = r.f_io_mode === 'board';
         var appoint;
         if (isBoard) {
             var rows = (board.length ? board : [{}, {}, {}]).map(function (b, i) {

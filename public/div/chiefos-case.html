@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BBTRO | Chief OS — Case</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,wght@0,400;0,600;0,700&family=Archivo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/div/css/ssehq-shell.css">
+<style>
+.casehead { display:grid; grid-template-columns: 1fr auto; gap:16px; align-items:start; margin-bottom:16px; }
+.casehead h1 { margin:0 0 4px; }
+.casehead .meta { color:var(--text-dim); font-size:13px; line-height:1.6; }
+.casehead .meta b { color:#e7edf7; }
+.casehead .acts { display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
+.forms { display:grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap:10px; margin-bottom:16px; }
+.formcard { background:rgba(255,255,255,.028); border:1px solid var(--chrome-line); border-radius:12px; padding:12px 14px; }
+.formcard .c { font-size:10.5px; letter-spacing:1.2px; text-transform:uppercase; color:var(--amber); font-weight:800; }
+.formcard .t { color:#fff; font-weight:700; margin:3px 0 2px; font-size:13.5px; }
+.formcard .r { color:var(--text-dim); font-size:11.5px; min-height:30px; }
+.formcard .btn-tiny { margin-top:8px; display:inline-block; }
+.formcard.done { border-color: rgba(76,201,138,.45); }
+table.reg { width:100%; border-collapse:collapse; font-size:13px; }
+table.reg th { text-align:left; font-size:10.5px; letter-spacing:1px; text-transform:uppercase; color:var(--text-dim); padding:6px 8px; border-bottom:1px solid var(--chrome-line); }
+table.reg td { padding:8px; border-bottom:1px solid rgba(44,67,112,.4); vertical-align:top; }
+table.reg a { color:#fff; text-decoration:none; font-weight:700; } table.reg a:hover { color:var(--amber); }
+.modal .fld label { display:block; font-size:10.5px; letter-spacing:1px; text-transform:uppercase; color:var(--text-dim); margin:0 0 4px; }
+.modal input, .modal textarea { width:100%; background:#0e1a33; border:1px solid var(--chrome-line); color:#e7edf7; border-radius:8px; padding:8px 10px; font:inherit; font-size:13px; box-sizing:border-box; }
+.modal .fld { margin-bottom:10px; } .modal .row { display:flex; gap:10px; } .modal .row > * { flex:1; min-width:0; }
+.modal p { color:#93a5c4; font-size:13px; margin:0 0 12px; }
+</style>
+</head>
+<body>
+
+<header class="appbar">
+    <a class="brand" href="/div/chiefos.html"><span class="mark">&#9878;&#65039;</span>
+        <span><b>Chief OS</b><small>D&amp;AR case</small></span></a>
+    <span class="spacer"></span>
+    <a class="back" href="/div/chiefos.html">&larr; Case register</a>
+    <a class="back" href="/div/documents.html?category=DAR_LETTER">Filed letters</a>
+    <span class="who" id="who"></span>
+    <a class="back" href="/api/logout">Sign out</a>
+</header>
+
+<main class="stage home">
+    <section class="board" style="max-width:none">
+        <div id="content"><div class="none2">Loading&hellip;</div></div>
+    </section>
+</main>
+
+<!-- Edit case -->
+<div class="modal-veil" id="editVeil"><div class="modal" style="width:620px">
+    <h4>Edit case</h4>
+    <div class="fld"><label>Staff name</label><input id="eName"></div>
+    <div class="row">
+        <div class="fld"><label>Designation</label><input id="eDesig"></div>
+        <div class="fld"><label>PF No.</label><input id="ePf"></div>
+        <div class="fld"><label>Office / HQ</label><input id="eOffice"></div>
+    </div>
+    <div class="row">
+        <div class="fld"><label>Date of incident</label><input type="date" id="eIncident"></div>
+        <div class="fld"><label>Case opened on</label><input type="date" id="eOpened"></div>
+    </div>
+    <div class="fld"><label>Subject</label><input id="eSubject"></div>
+    <div class="btns"><button class="btn btn-ghost" id="eCancel">Cancel</button><button class="btn btn-amber" id="eOk">Save</button></div>
+</div></div>
+
+<!-- Close case -->
+<div class="modal-veil" id="closeVeil"><div class="modal">
+    <h4>Close this case?</h4>
+    <p>Closing marks the action as concluded. Letters already filed stay in the repository; no new letter can be issued unless the case is reopened.</p>
+    <div class="fld"><label>Closed on</label><input type="date" id="xDate"></div>
+    <div class="fld"><label>Closing remarks (penalty imposed, exonerated, dropped …)</label><textarea id="xRemarks" style="min-height:80px"></textarea></div>
+    <div class="btns"><button class="btn btn-ghost" id="xCancel">Cancel</button><button class="btn btn-green" id="xOk">Close case</button></div>
+</div></div>
+
+<!-- Confirm -->
+<div class="modal-veil" id="modalVeil"><div class="modal">
+    <h4 id="mTitle"></h4><div id="mBody"></div>
+    <div class="btns"><button class="btn btn-ghost" id="mCancel">Cancel</button><button class="btn btn-red" id="mOk">Confirm</button></div>
+</div></div>
+
+<div class="toast" id="toast"></div>
+
+<script src="/div/js/chiefos-shell.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const { api, esc, fmtDate, toast, fail } = ChiefOs;
+const ID = new URLSearchParams(window.location.search).get('id');
+let CFG = null, CASE = null, LETTERS = [];
+
+function confirmModal(title, body, onOk) {
+    $('mTitle').textContent = title; $('mBody').innerHTML = body;
+    $('modalVeil').classList.add('open');
+    $('mOk').onclick = () => { $('modalVeil').classList.remove('open'); onOk(); };
+}
+$('mCancel').onclick = () => $('modalVeil').classList.remove('open');
+
+function render() {
+    const c = CASE, open = c.status === 'open';
+    const filed = (code) => LETTERS.filter((l) => l.form_code === code && l.status === 'final');
+    const drafts = (code) => LETTERS.filter((l) => l.form_code === code && l.status === 'draft');
+    const formCards = CFG.form_order.map((code) => {
+        const f = CFG.forms[code];
+        const done = filed(code), dr = drafts(code);
+        const status = done.length ? `filed ${done.map((l) => fmtDate(l.letter_date)).join(', ')}` : dr.length ? `${dr.length} draft` : 'not issued';
+        const btn = open ? `<a class="btn-tiny ${done.length ? '' : 'primary'}" href="/div/chiefos-letter.html?case=${c.id}&form=${code}">${done.length ? '&#65291; Another' : '&#65291; Issue'}</a>` : '';
+        return `<div class="formcard ${done.length ? 'done' : ''}"><div class="c">${esc(f.short)}</div><div class="t">${esc(f.label)}</div>
+            <div class="r">${esc(f.rule)}<br><b>${esc(status)}</b></div>${btn}</div>`;
+    }).join('');
+    const rows = LETTERS.length ? LETTERS.map((l) => {
+        const f = CFG.forms[l.form_code] || {};
+        const follows = l.follows_letter_id ? LETTERS.find((x) => x.id === l.follows_letter_id) : null;
+        return `<tr><td>${esc(fmtDate(l.letter_date))}</td>
+            <td><a href="/div/chiefos-letter.html?id=${l.id}">${esc(f.short || l.form_code)} — ${esc(f.label || '')}</a>${follows ? `<br><span style="color:var(--text-dim);font-size:12px">follows ${esc(follows.letter_no || follows.form_code)}</span>` : ''}</td>
+            <td>${esc(l.letter_no || '—')}</td><td>${esc(l.signatory || '—')}</td>
+            <td>${ChiefOs.formPill(l.status === 'final' ? 'Filed' : 'Draft', l.status)}</td>
+            <td style="white-space:nowrap">${l.status === 'final' ? `<a class="btn-tiny" href="${ChiefOs.API}/letter/${l.id}/print" target="_blank">Print</a> <a class="btn-tiny" href="${ChiefOs.API}/letter/${l.id}/word">Word</a>` : `<a class="btn-tiny primary" href="/div/chiefos-letter.html?id=${l.id}">Edit</a>`}</td></tr>`;
+    }).join('') : '<tr><td colspan="6" class="none2">No letter issued yet. Start with the form that applies above.</td></tr>';
+
+    $('content').innerHTML = `
+        <div class="casehead">
+            <div>
+                <div class="sub" style="margin:0 0 2px">Case #${c.id} · ${esc(CFG.desks[c.desk].label)} desk · ${open ? '<span class="pill amber">open</span>' : '<span class="pill grey">closed ' + esc(fmtDate(c.closed_on)) + '</span>'}</div>
+                <h1>Shri ${esc(c.staff_name)}</h1>
+                <div class="meta"><b>${esc([c.staff_designation, c.staff_office].filter(Boolean).join(', ') || '—')}</b>
+                    ${c.staff_pf ? ' · PF ' + esc(c.staff_pf) : ''}${c.staff_hrms_id ? ' · HRMS ' + esc(c.staff_hrms_id) + (c.staff_is_cli ? ' (CLI master)' : '') : ' · <i>not linked to the staff master</i>'}<br>
+                    <b>Subject:</b> ${esc(c.subject_text)}<br>
+                    ${c.incident_date ? '<b>Incident:</b> ' + esc(fmtDate(c.incident_date)) + ' · ' : ''}<b>Opened:</b> ${esc(fmtDate(c.opened_on))} by ${esc(c.created_by || '')}
+                    ${c.closing_remarks ? '<br><b>Closing remarks:</b> ' + esc(c.closing_remarks) : ''}</div>
+            </div>
+            <div class="acts">
+                ${c.staff_hrms_id && !c.staff_is_cli ? `<a class="btn btn-ghost" href="/div/staff-profile-report.html?hrms_id=${encodeURIComponent(c.staff_hrms_id)}" target="_blank">&#128100; Bio-profile</a>` : ''}
+                ${open ? '<button class="btn btn-ghost" id="bEdit">&#9998; Edit</button><button class="btn btn-green" id="bClose">&#10003; Close case</button>' : '<button class="btn btn-amber" id="bReopen">&#8617; Reopen</button>'}
+                ${LETTERS.some((l) => l.status === 'final') ? '' : '<button class="btn btn-red" id="bDelete">Delete</button>'}
+            </div>
+        </div>
+        <div class="forms">${formCards}</div>
+        <div class="card2"><h3>Letters in this case</h3><div class="bd2" style="padding:6px 14px 12px">
+            <table class="reg"><thead><tr><th>Date</th><th>Form</th><th>No.</th><th>Signed by</th><th>Status</th><th></th></tr></thead><tbody>${rows}</tbody></table>
+        </div></div>`;
+
+    if ($('bEdit')) $('bEdit').onclick = () => {
+        $('eName').value = c.staff_name || ''; $('eDesig').value = c.staff_designation || ''; $('ePf').value = c.staff_pf || '';
+        $('eOffice').value = c.staff_office || ''; $('eIncident').value = c.incident_date || ''; $('eOpened').value = c.opened_on || '';
+        $('eSubject').value = c.subject_text || '';
+        $('editVeil').classList.add('open');
+    };
+    if ($('bClose')) $('bClose').onclick = () => { $('xDate').value = new Date().toISOString().slice(0, 10); $('xRemarks').value = ''; $('closeVeil').classList.add('open'); };
+    if ($('bReopen')) $('bReopen').onclick = () => api(`/cases/${c.id}/reopen`, { method: 'POST' }).then(load).catch(fail);
+    if ($('bDelete')) $('bDelete').onclick = () => confirmModal('Delete this case?',
+        '<p>The case and its draft letters are removed. Nothing has been filed from it.</p>',
+        () => api(`/cases/${c.id}`, { method: 'DELETE' }).then(() => { window.location = '/div/chiefos.html'; }).catch(fail));
+}
+$('eCancel').onclick = () => $('editVeil').classList.remove('open');
+$('eOk').onclick = () => api(`/cases/${ID}`, { method: 'PUT', body: JSON.stringify({
+        staff_hrms_id: CASE.staff_hrms_id, staff_is_cli: CASE.staff_is_cli,
+        staff_name: $('eName').value, staff_designation: $('eDesig').value, staff_pf: $('ePf').value, staff_office: $('eOffice').value,
+        incident_date: $('eIncident').value || null, opened_on: $('eOpened').value, subject_text: $('eSubject').value,
+    }) }).then(() => { $('editVeil').classList.remove('open'); toast('Case updated.', 'ok'); load(); }).catch(fail);
+$('xCancel').onclick = () => $('closeVeil').classList.remove('open');
+$('xOk').onclick = () => api(`/cases/${ID}/close`, { method: 'POST', body: JSON.stringify({ closed_on: $('xDate').value, closing_remarks: $('xRemarks').value }) })
+    .then(() => { $('closeVeil').classList.remove('open'); toast('Case closed.', 'ok'); load(); }).catch(fail);
+
+async function load() {
+    try {
+        const d = await api(`/cases/${ID}`);
+        CASE = d.case; LETTERS = d.letters;
+        document.title = `BBTRO | Chief OS — ${CASE.staff_name}`;
+        render();
+    } catch (e) { $('content').innerHTML = `<div class="none2">${esc(e.message)}</div>`; }
+}
+(async function boot() {
+    try { CFG = await api('/config'); }
+    catch (e) {
+        document.body.innerHTML = `<div class="bootfail"><h3>The D&amp;AR desk could not start</h3><p>The portal could not confirm your access.</p><div class="why">${esc(e.message)}</div></div>`;
+        return;
+    }
+    $('who').innerHTML = `<b>${esc(CFG.user.full_name || CFG.user.username)}</b><br>${esc(CFG.user.div_role)}`;
+    if (!ID) { window.location = '/div/chiefos.html'; return; }
+    load();
+})();
+</script>
+</body>
+</html>
