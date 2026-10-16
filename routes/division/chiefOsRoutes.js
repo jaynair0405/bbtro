@@ -76,7 +76,7 @@ router.get('/config', (req, res) => {
     const u = req.session.user;
     res.json({
         user: { username: u.username, full_name: u.full_name, div_role: u.div_role, is_admin: isAdmin(req) },
-        desks: R.DESKS, forms: R.FORMS, form_order: R.FORM_ORDER,
+        desks: R.DESKS, forms: R.FORMS, form_order: R.FORM_ORDER, templates: R.TEMPLATES,
         signatories: R.SIGNATORIES, place_default: R.PLACE_DEFAULT,
     });
 });
