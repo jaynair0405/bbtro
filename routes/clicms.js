@@ -387,6 +387,7 @@ const requireHqWriter = (req, res, next) => {
   next();
 };
 router.use(['/daily/upload', '/daily/upload-night', '/daily/upload-nonbio', '/daily/upload-bor', '/daily/manual', '/daily/move'], requireHqWriter);
+router.use('/lobby', require('./clicmsLobby'));
 
 /*
  * Auto-save (lib/cmsReports/store.js): every report built by an upload or hand entry is
