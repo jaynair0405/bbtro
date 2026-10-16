@@ -69,7 +69,7 @@
       .print-title { display: block; margin: 0 0 8px; font: 700 18px 'Barlow Semi Condensed', sans-serif; }
       .part-head { display: block !important; font: 700 16px 'Barlow Semi Condensed', sans-serif; margin: 0 0 8px;
         border-bottom: 2px solid var(--navy); padding-bottom: 3px; }
-      #tab-make { break-before: page; }
+      #tab-make, #tab-lobby { break-before: page; }
       .grid { grid-template-columns: 1fr 1fr; gap: 10px; }
       .card, .steps > li, .intro { break-inside: avoid; }
       * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -101,6 +101,7 @@
     <div class="help-tabs">
       <button type="button" class="help-tab on" data-tab="download">A. Downloading from CMS</button>
       <button type="button" class="help-tab" data-tab="make">B. Making the Daily Position</button>
+      <button type="button" class="help-tab" data-tab="lobby">C. Lobby page</button>
       <button type="button" class="help-print" id="helpPrint" title="Opens the print dialog — choose Save as PDF to download">⬇ Download / Print</button>
     </div>
     <h1 class="print-title">CLI CMS — Help (Mumbai Division)</h1>
@@ -369,6 +370,81 @@
           </ul></li>
       </ol>
     </section>
+    <!-- ================= C. Lobby page ================= -->
+    <section id="tab-lobby" hidden>
+      <h2 class="part-head">C. Lobby page — lists and remarks from the lobby</h2>
+      <div class="intro">
+        <p>Every lobby has a <b>jrcc</b> login (the <b>srcc</b> login works the same). It opens the Due List and the
+          Daily Position <b>read-only</b>, and its own <b>Lobby</b> page: one card per block of the sheet that names
+          crew, with HQ's count for the lobby. Where HQ's download already carries the names (PME/REFT/ASIG, Change on
+          Approval, Breach of Rest, Working Hours Suburban from the duty list) the names are shown at once; for the
+          other blocks the lobby <b>uploads the CMS crew list</b> behind its count. Then a <b>remark per name</b>.</p>
+        <p>A remark stays with the crew and the item (that ASIG due, that booking, that duty) until it clears from
+          HQ's file — it is not retyped each day. HQ sees it by clicking the count on the Daily Position.</p>
+        <p>The count on the sheet is HQ's download; the lobby's list is taken later and may differ by one or two.
+          A list is never refused for that — only for another lobby's crew or a wrong date.</p>
+      </div>
+
+      <div class="grid">
+        <div class="card"><h3><span class="num">1</span>FSD not carried <span class="tag">1 CSV</span></h3>
+          <div class="path"><span class="menu">RB-MONITORING</span> → <b>FSD Device</b> → click the lobby's <b>N</b> count</div>
+          <ul class="flow">
+            <li><span class="k">Lobby</span>yours</li>
+            <li><span class="k">Date</span>yesterday (the card shows the data date)</li>
+            <li><span class="k">Download</span>the crew list as CSV</li>
+          </ul>
+          <div class="note">Sign-on dates must all be the data date. Lobby = SIGN ON STATION.</div></div>
+
+        <div class="card"><h3><span class="num">2</span>WR / WOR Booking — lobbywise and HQ-wise <span class="tag">up to 4 CSVs</span></h3>
+          <div class="path"><span class="menu">CALL BOOK</span> → <b>Lobby Wise</b> and <b>HQ Wise</b> → Booked (W/WO Rule) → click the <b>WOR</b> and <b>WR→WOR</b> counts</div>
+          <ul class="flow">
+            <li><span class="k">Lists</span>WOR list and WR→WOR list, from each screen</li>
+            <li><span class="k">Upload</span>all together on one card — one upload fills both WR/WOR blocks</li>
+          </ul>
+          <div class="note">The same booking in two lists is one row (joined by TA number). A crew of yours booked at another
+            lobby (e.g. RN) appears HQ-wise only — that is right.</div></div>
+
+        <div class="card"><h3><span class="num">3</span>Working Hours over 14 h <span class="tag">1 CSV</span></h3>
+          <div class="path"><span class="menu">Working Hours</span> → lobby → click the <b>&gt;14 Hours</b> count</div>
+          <ul class="flow">
+            <li><span class="k">Band</span>&gt;14 only — a 12–14 list is refused</li>
+            <li><span class="k">Date</span>day before yesterday (sign-on date)</li>
+          </ul>
+          <div class="note">One duty is several rows (one per leg); the page shows one row per duty. Suburban lobbies use the same list.</div></div>
+
+        <div class="card"><h3><span class="num">4</span>Continuous Night Duty, more than 4 nights <span class="tag">1 CSV per crew type</span></h3>
+          <div class="path"><span class="menu">More Than 4 Continuous Night Duty</span> → Lobby, Month-Year, Crew Type</div>
+          <ul class="flow">
+            <li><span class="k">Month</span>this month</li>
+            <li><span class="k">Crew type</span>one download per designation the count covers</li>
+          </ul>
+          <div class="note">The file has crew ids only — names come from the staff master. It is a month's record, so a
+            streak that ended days ago may still be listed.</div></div>
+
+        <div class="card"><h3><span class="num">5</span>PR Overdue — no PR in last 7 days <span class="tag">1 CSV</span></h3>
+          <div class="path"><span class="menu">PR Due</span> → lobby → the 7-day list</div>
+          <ul class="flow">
+            <li><span class="k">Lobby</span>yours (LOBBY CODE column)</li>
+          </ul>
+          <div class="note">The file carries no run date, so the date is not checked — upload the list taken for this sheet.</div></div>
+
+        <div class="card"><h3><span class="num">6</span>PME / REFT / ASIG, Change on Approval, Breach of Rest, Working Hours Suburban <span class="tag hand">no upload</span></h3>
+          <div class="note">HQ's own download names the crew. The card lists them; add the remark against each. Working Hours
+            Suburban shows names only when HQ loaded the duty list rather than the count file — otherwise upload the
+            &gt;14 h list as in card 3.</div></div>
+      </div>
+
+      <ol class="steps">
+        <li><h3>Open the Lobby tab</h3> The date is today's sheet; use <b>Previous day</b> for an earlier sheet. The chips at the
+          top say, per block: HQ's count and whether a list is still needed or remarks are pending.</li>
+        <li><h3>Upload the list</h3> <b>Choose CSV</b> on the card. The page checks it is that list, that every crew is
+          yours, and the date. A second upload replaces the first (the earlier is kept as history); remarks survive.</li>
+        <li><h3>Write the remarks, press Save remarks</h3> One box per name; saved remarks show your login and time, with
+          <b>edit</b>. Clear a box and save to withdraw a remark.</li>
+        <li><h3>HQ view</h3> CLI CMS and admins open the Lobby tab, pick a lobby and see the same cards without inputs; on the
+          Daily Position, a click on the count shows the lobby's names and remarks.</li>
+      </ol>
+    </section>
     <p class="print-foot" id="printFoot"></p>
   </main>
 
@@ -380,9 +456,10 @@
         tabs.forEach((t) => t.classList.toggle('on', t.dataset.tab === name));
         document.getElementById('tab-download').hidden = name !== 'download';
         document.getElementById('tab-make').hidden = name !== 'make';
+        document.getElementById('tab-lobby').hidden = name !== 'lobby';
       }
       tabs.forEach((t) => t.addEventListener('click', () => { show(t.dataset.tab); history.replaceState(null, '', '#' + t.dataset.tab); }));
-      show(location.hash === '#make' ? 'make' : 'download');
+      show(location.hash === '#make' ? 'make' : location.hash === '#lobby' ? 'lobby' : 'download');
 
       // Print both parts; the footer carries the date it was printed.
       document.getElementById('helpPrint').addEventListener('click', () => {

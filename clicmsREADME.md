@@ -193,3 +193,55 @@ SELECT cms_id, crew_name, COUNT(*) n FROM cms_daily_crew r JOIN cms_daily_loads 
  WHERE l.is_current = 1 AND r.report_key = 'pdd' AND r.measure = 'over3'
  GROUP BY cms_id, crew_name ORDER BY n DESC LIMIT 20;
 ```
+
+## Lobby page (`lobby.html`)
+
+Spec: `docs/superpowers/specs/2026-10-16-lobby-cms-design.md`. Lobby users read the HQ
+pages and, on their own page, upload the CMS crew list behind each of their counts and
+write a remark per name; HQ sees both in the Daily Position drill.
+
+- **Roles.** `jrcc` (new, one account per lobby, `<office>jrcc`) and `office_hr` (the
+  srcc accounts) of an office write for that office's lobby; `clicms` / `division_admin`
+  view any lobby. `requireClicms` in `server.js` admits all four; the HQ write routes
+  (`daily/upload*`, `daily/manual`, `daily/move`) return 403 to lobby roles.
+- **Office → lobby** is one constant, `lib/cmsReports/lobbies.js`: CSMT-ML → CSMT (+DR),
+  KYN-ML → KYN, PNVL-ML → PNVL (+JNPN, ROHA), IGP, LNL → LNLX (+LNL), VVH, NRL,
+  CSMT-SUB → CSTS, KYN-SUB → KYNS, PNVL-SUB → PNVS.
+- **Lobby lists** are their own registry, `lib/cmsReports/lobbyLists.js` → `lobby/*.js`
+  (fsdn, wrworlist, whlist, nightlist, prlist). An HQ file dropped there is refused and a
+  lobby list dropped on the Daily Position is refused — the two never share a header.
+  Each module: `matchesHeader`, `parse`, `items(parsed)` → rows with an **item key**
+  naming the event, `checkDate`, optional `merge`. A list is never refused for differing
+  from HQ's count (the lobby downloads later); only for another lobby's crew or a wrong date.
+- **Storage** (`sql/2026-10-16_lobby_cms.sql`): a lobby upload is a `cms_daily_loads` row
+  with `lobby` set (NULL = HQ's load; every HQ reader selects `lobby IS NULL`); its crew
+  rows carry `source = 'lobby'` and the item key + display columns in `detail`. Remarks
+  live in `cms_lobby_remarks`, one row per version (edit = new current row, old retired;
+  empty = withdrawn), keyed by report, lobby, crew and item key, so a remark follows the
+  item across sheets.
+
+| Report | item key |
+|---|---|
+| PME / REFT / ASIG | `<test>|<due date>` |
+| FSD N, Working Hours, Breach of Rest | sign-on datetime |
+| WR / WOR | TA number |
+| Continuous Night | first night date |
+| PR Overdue | last PR datetime |
+| Change on Approval | approval datetime |
+
+- **Routes** (`routes/clicmsLobby.js`, all POST): `lobby/day` (cards, from
+  `lib/cmsReports/lobbyDay.js`), `lobby/upload`, `lobby/remark`.
+- **HQ drill** (`lib/cmsReports/lobbyDrill.js`): attached live when a day is opened or
+  uploaded, never saved into `tables_json`. Counts-only reports gain a drill per lobby
+  count; names-from-HQ reports' drills gain "Lobby remark" / "By" columns.
+- **Tests:** `scripts/test/run-all.sh` (parsers against `data/cms-report/lobby-upload/`,
+  store and drill against the local DB; both clean up after themselves).
+
+```sql
+-- Current remarks for one lobby, newest first
+SELECT report_key, cms_id, item_key, remark, written_by, written_at FROM cms_lobby_remarks
+ WHERE lobby = 'CSMT' AND is_current = 1 ORDER BY written_at DESC;
+-- Lobby uploads per day
+SELECT data_date, lobby, report_key, loaded_by, loaded_at FROM cms_daily_loads
+ WHERE lobby IS NOT NULL AND is_current = 1 ORDER BY data_date DESC, lobby;
+```
