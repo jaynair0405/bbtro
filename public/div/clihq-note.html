@@ -73,7 +73,9 @@
                     <input type="hidden" name="staff_rows">
                     <table class="stf"><tbody id="stfRows"></tbody></table>
                     <button type="button" class="btn btn-ghost" id="stfAdd" style="margin-top:6px">&#65291; Add staff row</button>
-                    <div class="hint">Prints as Sr No / Name / PF No. / Desg-Stn. after the first paragraph.
+                    <div class="hint">Names come from the staff master — start typing a name, PF, HRMS, CMS id or mobile and pick;
+                        PF and Desg/Stn fill in. Choose "Not in staff master" for someone not yet on the roll.
+                        Prints as Sr No / Name / PF No. / Desg-Stn. after the first paragraph.
                         Put a line reading <b>{{staff}}</b> in the note to place it elsewhere.</div></div>
             </div></div>
 
@@ -179,22 +181,59 @@ function drawRows() {
     var rows = readRows();
     $('stfRows').innerHTML = rows.map(function (r, i) {
         return '<tr><td class="sr">' + (i + 1) + '</td>' +
-            '<td><input data-i="' + i + '" data-k="name" placeholder="Name" value="' + ClihqShell.esc(r.name) + '"></td>' +
+            '<td class="search-wrap"><input data-i="' + i + '" data-k="name" data-picker="1" autocomplete="off" placeholder="Name, PF, HRMS, CMS or mobile" value="' + ClihqShell.esc(r.name) + '">' +
+                '<input type="hidden" data-hrms="' + i + '" value="' + ClihqShell.esc(r.hrms_id) + '">' +
+                '<div class="search-drop" id="stfDrop' + i + '"></div></td>' +
             '<td><input data-i="' + i + '" data-k="pf_number" placeholder="PF No." value="' + ClihqShell.esc(r.pf_number) + '"></td>' +
             '<td><input data-i="' + i + '" data-k="designation_station" placeholder="Desg/Stn." value="' + ClihqShell.esc(r.designation_station) + '"></td>' +
             '<td class="act"><button type="button" class="rowbtn rm" data-rm="' + i + '" title="Remove">&times;</button></td></tr>';
     }).join('');
     $('stfRows').querySelectorAll('[data-k]').forEach(function (el) {
         el.oninput = function () {
-            var rs = readRows(); rs[Number(el.dataset.i)][el.dataset.k] = el.value; writeRows(rs);
+            var rs = readRows(); rs[Number(el.dataset.i)][el.dataset.k] = el.value;
+            // a name typed by hand is no longer the picked one — see the editor's staff rule
+            if (el.dataset.k === 'name') { rs[Number(el.dataset.i)].hrms_id = ''; rs[Number(el.dataset.i)].temp = false; }
+            writeRows(rs);
         };
+    });
+    /* Each Name box is a staff-master picker, like the LP/ALP boxes on the OPR:
+       picking fills PF and Desg/Stn from the master and keeps the HRMS id in the
+       row; "Not in staff master" keeps the typed name as temporary. */
+    $('stfRows').querySelectorAll('[data-k="name"]').forEach(function (input) {
+        var i = Number(input.dataset.i);
+        var hidden = $('stfRows').querySelector('[data-hrms="' + i + '"]');
+        var link = SsehqEditor.staffLink(input, hidden);
+        var r = rows[i] || {};
+        if (r.hrms_id) link.yes(r.hrms_id); else if (r.temp) link.temp(); else link.unlink();
+        var origTemp = link.temp;
+        link.temp = function () {
+            origTemp();
+            var rs = readRows(); rs[i].hrms_id = ''; rs[i].temp = true; writeRows(rs);
+        };
+        SsehqEditor.attachStaffPicker(input, $('stfDrop' + i), link, function (s) {
+            var rs = readRows();
+            rs[i].name = s.name || '';
+            rs[i].hrms_id = s.hrms_id || '';
+            rs[i].temp = false;
+            if (!rs[i].pf_number) rs[i].pf_number = s.pf_number || '';
+            if (!rs[i].designation_station) {
+                rs[i].designation_station = [s.designation_name, (s.current_office_code || '').replace(/-(SUB|ML)$/i, '')]
+                    .filter(Boolean).join('/');
+            }
+            writeRows(rs);
+            var tr = input.closest('tr');
+            tr.querySelector('[data-k="pf_number"]').value = rs[i].pf_number;
+            tr.querySelector('[data-k="designation_station"]').value = rs[i].designation_station;
+            input.value = rs[i].name;
+            link.yes(rs[i].hrms_id);
+        });
     });
     $('stfRows').querySelectorAll('[data-rm]').forEach(function (el) {
         el.onclick = function () { var rs = readRows(); rs.splice(Number(el.dataset.rm), 1); writeRows(rs); drawRows(); };
     });
 }
 $('stfAdd').onclick = function () {
-    var rs = readRows(); rs.push({ name: '', pf_number: '', designation_station: '' });
+    var rs = readRows(); rs.push({ name: '', pf_number: '', designation_station: '', hrms_id: '', temp: false });
     writeRows(rs); drawRows();
     var last = $('stfRows').querySelectorAll('[data-k="name"]');
     if (last.length) last[last.length - 1].focus();

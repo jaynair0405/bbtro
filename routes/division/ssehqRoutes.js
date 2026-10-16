@@ -177,6 +177,9 @@ function normaliseStaffRows(rows) {
         name: asText(r && r.name, 120),
         pf_number: asText(r && r.pf_number, 20),
         designation_station: asText(r && r.designation_station, 120),
+        // link to div_staff_master, or temp=true for a name not yet on the roll
+        hrms_id: asText(r && r.hrms_id, 10),
+        temp: !!(r && r.temp) && !asText(r && r.hrms_id, 10),
     })).filter((r) => r.name || r.pf_number || r.designation_station);
     return out.length ? JSON.stringify(out) : null;
 }
