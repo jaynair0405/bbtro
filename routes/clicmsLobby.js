@@ -78,7 +78,7 @@ router.post('/upload', upload.array('files', 6), async (req, res) => {
     const dataDate = store.dataDateFor(sheetDate, dateOffset);
     const chk = mod.checkDate(parsed, { dataDate, sheetDate });
     if (chk && chk.error) return res.status(400).json({ error: `${mod.label}: ${chk.error}` });
-    const items = mod.key === 'wrworlist' ? mod.items(parsed, { lobby: s.lobby }) : mod.items(parsed);
+    const items = mod.key === 'wrworlist' ? mod.items(parsed, { lobbies: s.lobbies }) : mod.items(parsed);
     const foreign = items.filter((i) => !s.lobbies.includes(i.lobby));
     if (foreign.length) {
       const some = [...new Set(foreign.map((i) => `${i.lobby} ${i.cmsId}`))].slice(0, 5).join(', ');

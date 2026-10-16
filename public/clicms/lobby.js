@@ -54,7 +54,16 @@ function stateLabel(c) {
   }
 }
 
+// Text typed but not yet saved: kept on the item, so a render (after an upload or another
+// card's Save) does not throw it away.
+function harvestDrafts() {
+  document.querySelectorAll('#cards td.rem').forEach((td) => {
+    const inp = td.querySelector('input'); if (!inp || !state.day) return;
+    const it = findItem(td); if (it) it.draft = inp.value;
+  });
+}
 function render() {
+  harvestDrafts();
   const d = state.day;
   $('lobbyTag').textContent = d.lobby;
   $('covers').textContent = d.covers.length ? `also ${d.covers.join(', ')}` : '';
@@ -112,7 +121,8 @@ function remarkCell(i, writer) {
     return `<span class="saved">${esc(i.remark.remark)}</span><span class="by">${esc(i.remark.by)} · ${esc(i.remark.at)}</span>${writer ? '<span class="edit">edit</span>' : ''}`;
   }
   if (!writer) return '<span class="empty">—</span>';
-  return `<input type="text" value="${esc(i.remark ? i.remark.remark : '')}" placeholder="Remark" maxlength="2000" />`;
+  const text = i.draft != null ? i.draft : (i.remark ? i.remark.remark : '');
+  return `<input type="text" value="${esc(text)}" placeholder="Remark" maxlength="2000" />`;
 }
 function findItem(td) {
   const c = state.day.cards.find((x) => x.key === td.dataset.key);
@@ -126,7 +136,10 @@ $('cards').addEventListener('change', async (e) => {
   [...inp.files].forEach((f) => fd.append('files', f));
   inp.disabled = true;
   try {
+    harvestDrafts();
+    const drafts = new Map(state.day.cards.flatMap((c) => c.items.filter((i) => i.draft != null).map((i) => [`${c.key}|${i.cmsId}|${i.itemKey}`, i.draft])));
     state.day = await post('lobby/upload', fd, true);
+    state.day.cards.forEach((c) => c.items.forEach((i) => { const v = drafts.get(`${c.key}|${i.cmsId}|${i.itemKey}`); if (v != null) i.draft = v; }));
     render();
     if (state.day.warnings && state.day.warnings.length) showErr(state.day.warnings.join(' '));
   } catch (err) { showErr(err.message); inp.disabled = false; inp.value = ''; }
@@ -148,12 +161,20 @@ $('cards').addEventListener('click', async (e) => {
       const it = findItem(td); const text = td.querySelector('input').value.trim();
       if ((it.remark ? it.remark.remark : '') === text) { it.editing = false; td.innerHTML = remarkCell(it, true); continue; }
       const out = await post('lobby/remark', { key: td.dataset.key, cmsId: td.dataset.cms, itemKey: td.dataset.item, remark: text });
-      it.remark = out.withdrawn ? null : { remark: text, by: out.by, at: out.at }; it.editing = false;
+      it.remark = out.withdrawn ? null : { remark: text, by: out.by, at: out.at }; it.editing = false; delete it.draft;
       td.innerHTML = remarkCell(it, true);
+      // The two WR/WOR cards share one remark per booking.
+      const twin = { wrwor: 'wrworhq', wrworhq: 'wrwor' }[td.dataset.key];
+      if (twin) {
+        const tc = state.day.cards.find((x) => x.key === twin);
+        const ti = tc && tc.items.find((i) => i.cmsId === it.cmsId && i.itemKey === it.itemKey);
+        if (ti) { ti.remark = it.remark; ti.editing = false; delete ti.draft; }
+      }
     }
-    const c = state.day.cards.find((x) => x.key === sec.dataset.card);
-    c.pending = c.items.filter((i) => !i.remark).length;
-    if (c.state === 'pending' || c.state === 'done') c.state = c.pending ? 'pending' : 'done';
+    state.day.cards.forEach((c) => {
+      c.pending = c.items.filter((i) => !i.remark).length;
+      if (c.state === 'pending' || c.state === 'done') c.state = c.pending ? 'pending' : 'done';
+    });
     render();
   } catch (err) { showErr(err.message); }
   finally { btn.disabled = false; }

@@ -39,3 +39,21 @@ assert.deepStrictEqual(mod.items(csmtHq.parsed, { lobby: 'RN' })[0].blocks, ['lo
 assert.deepStrictEqual(mod.checkDate(wor.parsed, { dataDate: '2026-10-15' }), null);
 assert.ok(mod.checkDate(wor.parsed, { dataDate: '2026-10-14' }).error);
 console.log('wrworlist.test.js OK');
+
+// --- Review fix: items() works for the office's lobby SET and never hides other lobbies' rows.
+{
+  const hdr = fs.readFileSync(path.join(dir, 'WRWOR_KYN.csv'), 'utf8').split(/\r?\n/)[0];
+  const row = (crew, hq, call) => `"1","${crew}","X","ALP","${hq}","TA-${crew}","15-10-2026 10:00","1","1","FGHT","${call}","WOR","WOR","PRDUE","PR DUE","15-10-2026 09:00","U","SU","U","U","SU","U","NA"`;
+  const buf = Buffer.from([hdr, row('PNVL0001', 'PNVL', 'JNPN'), row('KYN0002', 'KYN', 'KYN')].join('\n'));
+  const p = lists.processLobbyFile(buf).parsed;
+  const it = mod.items(p, { lobbies: ['PNVL', 'JNPN', 'ROHA'] });
+  assert.strictEqual(it.length, 2, 'every booking row is an item; the route decides what is foreign');
+  const jn = it.find((i) => i.cmsId === 'PNVL0001');
+  assert.strictEqual(jn.lobby, 'JNPN');                       // counted at the covered call lobby
+  assert.deepStrictEqual(jn.blocks, ['lobby', 'hq']);         // JNPN lobbywise AND PNVL HQ-wise
+  const ky = it.find((i) => i.cmsId === 'KYN0002');
+  assert.strictEqual(ky.lobby, 'KYN');                        // not ours -> the route refuses the file
+  // single-lobby form still works
+  assert.strictEqual(mod.items(p, { lobby: 'KYN' }).find((i) => i.cmsId === 'KYN0002').lobby, 'KYN');
+}
+console.log('wrworlist.test.js (lobby set) OK');
