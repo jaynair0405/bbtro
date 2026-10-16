@@ -135,7 +135,19 @@
                     <div class="hint">Prints as the enclosed statement, after the memorandum. A blank line starts a new paragraph.</div></div>
             </div></div>
 
-            <div class="panel"><h2><span class="n">3</span>Copies</h2><div class="bd">
+            <div class="panel"><h2><span class="n">3</span>Wording <span class="tag" id="wordingTag"></span></h2><div class="bd">
+                <div class="fld">
+                    <textarea name="f_body" style="min-height:260px"></textarea>
+                    <div class="hint">The standard text of the form, editable. A blank line starts a new paragraph.
+                        The curly tokens fill in live from the boxes above and the case:
+                        <b>{{name}}</b> Shri + name · <b>{{name_only}}</b> · <b>{{staff}}</b> name, designation, office ·
+                        <b>{{designation}}</b> · <b>{{office}}</b> · <b>{{pf}}</b> · <b>{{letter_no}}</b> · <b>{{date}}</b> ·
+                        <b>{{signatory_desig}}</b> · <b>{{days}}</b><span id="tokHelp"></span></div>
+                    <button type="button" class="btn btn-ghost" id="btnResetBody" style="margin-top:8px">&#8634; Reset to standard wording</button>
+                </div>
+            </div></div>
+
+            <div class="panel"><h2><span class="n">4</span>Copies</h2><div class="bd">
                 <div class="fld"><label>Copy to</label>
                     <textarea name="copy_to_text" style="min-height:70px" placeholder="C/- DRM (P) Loco & Sr. CC (ML) CSMT for inf. & necessary action."></textarea>
                     <div class="hint">One line per copy. The charged official's copy prints by itself.</div></div>
@@ -231,6 +243,11 @@ function applyForm(code) {
     $('stKind').textContent = f.short;
     document.title = 'BBTRO | Chief OS — ' + f.short;
     $('daysFld').style.display = (FORM === 'SF5' || FORM === 'SF11') ? '' : 'none';
+    var extra = { SF1: ' · <b>{{ground}}</b> · <b>{{authority}}</b> · <b>{{effective}}</b>',
+                  SF4: ' · <b>{{susp_date}}</b> · <b>{{follows_vide}}</b> · <b>{{revoke_from}}</b>',
+                  SF7: ' · <b>{{follows_vide}}</b> · <b>{{io_kind}}</b> · <b>{{io}}</b> (on its own line: the officer / board block)' };
+    $('tokHelp').innerHTML = extra[FORM] || '';
+    $('wordingTag').textContent = f.short + ' standard text';
     // follows: the letter this one acts on
     var fld = $('followsFld'), sel = field('follows_letter_id');
     if (f.follows) {
@@ -287,7 +304,12 @@ function applyDefaults() {
     if (!field('signatory').value) field('signatory').value = (CFG.signatories || [])[0] || '';
     if (!field('copy_to_text').value && CASE && CFG.desks[CASE.desk]) field('copy_to_text').value = CFG.desks[CASE.desk].copy_to || '';
     if (!field('f_days').value) field('f_days').value = FORM === 'SF11' ? '10' : 'ten';
+    if (!field('f_body').value) field('f_body').value = (CFG.templates || {})[FORM] || '';
 }
+$('btnResetBody').onclick = function () {
+    field('f_body').value = (CFG.templates || {})[FORM] || '';
+    SsehqEditor.setDirty(true); SsehqEditor.render();
+};
 
 var CASE_ID = params.get('case');
 var boot = function () {
@@ -309,7 +331,7 @@ var boot = function () {
             'f_susp_order_date', 'f_revoke_from',
             'f_days', 'f_articles', 'f_imputations', 'f_documents', 'f_witnesses',
             'f_io_mode', 'f_io_name', 'f_io_designation', 'f_board_rows',
-            'f_imputation',
+            'f_imputation', 'f_body',
         ],
         render: function (record, events, opts) {
             var rec = Object.assign({}, caseFields(), record, followsInfo());
@@ -325,6 +347,7 @@ var boot = function () {
             var finish = function () {
                 applyForm(record ? record.form_code : (params.get('form') || 'SF1'));
                 if (record) {
+                    if (!field('f_body').value && CFG) field('f_body').value = (CFG.templates || {})[record.form_code] || '';
                     field('case_id').dataset.default = record.case_id;
                     $('btnNew').onclick = function () {
                         window.location = '/div/chiefos-letter.html?case=' + record.case_id + '&form=' + record.form_code;
