@@ -146,6 +146,21 @@ app.use((req, res, next) => {
   return res.redirect('/clicms/');
 });
 
+// 🔒 Confine the lobby 'jrcc' accounts (one per CMS lobby) to the CLI CMS pages.
+//    Their realm is 'division', so without this they could open the whole division
+//    portal. Allowlist: /clicms/* + auth endpoints. The role WILL get more pages
+//    later: add each as a page prefix + its API prefix to the test below, nothing
+//    else changes. The srcc (office_hr) accounts are not confined — they use the
+//    HR pages.
+app.use((req, res, next) => {
+  if (req.session.user?.div_role !== 'jrcc') return next();
+  const p = req.path;
+  const authOk = new Set(['/api/current-user', '/api/logout', '/api/login', '/api/status', '/api/change-password']);
+  if (p.startsWith('/clicms') || p === '/favicon.ico' || authOk.has(p)) return next();
+  if (p.startsWith('/api/')) return res.status(403).json({ error: 'Access restricted to CLI CMS' });
+  return res.redirect('/clicms/lobby.html');
+});
+
 // ✅ Protect /index.html so only logged-in suburban users can open it
 app.get('/index.html', (req, res) => {
   // Not logged in → go to portal

@@ -112,6 +112,9 @@ router.post('/login', async (req, res) => {
         // Lobby CLI → the CLI PWA (its only destination; see the confinement
         // block in server.js).
         redirectUrl = '/cli/';
+      } else if (user.div_role === 'jrcc') {
+        // Lobby jrcc → the CLI CMS Lobby page (confined there in server.js).
+        redirectUrl = '/clicms/lobby.html';
       } else {
         redirectUrl = '/div';
       }
