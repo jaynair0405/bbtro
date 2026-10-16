@@ -1015,6 +1015,19 @@
                         if (el) el.style.display = '';
                         const cl = document.getElementById('clicms-link');
                         if (cl) cl.style.display = '';
+                    }
+                    // Lobby CMS users (jrcc) and office SRCCs: the Lobby page of CLI CMS,
+                    // where the lobby uploads its crew lists and writes remarks.
+                    if (user.div_role === 'jrcc' || user.div_role === 'office_hr') {
+                        const cl = document.getElementById('clicms-link');
+                        if (cl) {
+                            cl.style.display = '';
+                            const a = cl.querySelector('a');
+                            a.href = '/clicms/lobby.html';
+                            a.innerHTML = '<span class="icon">📋</span> CLI CMS — Lobby <span class="badge green">New</span>';
+                        }
+                    }
+                    if (user.div_role === 'division_admin') {
                         // CLI PWA (SPAD prevention counselling). HQ reviews and
                         // locks the consolidated sheet there; lobby CLIs never see
                         // this portal at all, they are confined to /cli.
