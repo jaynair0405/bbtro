@@ -215,6 +215,12 @@
             color: var(--text-muted);
         }
 
+        .fpm-source {
+            color: var(--text-muted);
+            font-size: 11.5px;
+            margin-top: 4px;
+        }
+
         .table-wrapper {
             border-radius: 16px;
             overflow: hidden;
@@ -1602,6 +1608,8 @@
                                 <span style="color: var(--text-muted); font-size: 12px;">Date:</span>
                                 <input type="date" id="fpmDate"
                                     style="width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; margin-top: 4px;">
+                                <!-- Pre-filled from the stored CLI CMS Due List (applyMonitoring); stays editable -->
+                                <div id="fpmSource" class="fpm-source" hidden></div>
                             </div>
                         </div>
                     </div>
@@ -2131,6 +2139,32 @@
             return 'Compliant';
         }
 
+        // Last foot plate monitoring from the stored CLI CMS Due List
+        // (GET /api/division/staff-monitoring/:hrmsId -> { monitoring: {fpDone, cliName, asOf, ...} | null }).
+        async function fetchMonitoring(hrmsId) {
+            try {
+                const response = await fetch(`/api/division/staff-monitoring/${encodeURIComponent(hrmsId)}`);
+                if (!response.ok) return null;
+                const payload = await response.json();
+                return payload?.monitoring || null;
+            } catch (error) {
+                console.error('Error fetching CMS monitoring:', error);
+                return null;
+            }
+        }
+
+        // Pre-fill the Last Foot Plate date only when the box is still empty (it stays editable),
+        // and say where the date came from.
+        function applyMonitoring(m) {
+            if (!m || !m.fpDone) return;
+            const input = document.getElementById('fpmDate');
+            const note = document.getElementById('fpmSource');
+            if (!input.value) input.value = m.fpDone;
+            const ddmm = (iso) => (iso ? iso.split('-').reverse().join('-') : '—');
+            note.textContent = `from CMS report of ${ddmm(m.asOf)}` + (m.cliName ? ` · CLI ${m.cliName}` : '');
+            note.hidden = false;
+        }
+
         async function fetchDetonatorData(hrmsId) {
             try {
                 const response = await fetch(`/api/division/detonators/${encodeURIComponent(hrmsId)}`);
@@ -2266,6 +2300,7 @@
                 overrides.isAdmin = punishmentsResult.isAdmin;
             }
             populateReport(overrides);
+            if (hrmsParam) applyMonitoring(await fetchMonitoring(hrmsParam));
         });
 
         function handleBack() {
