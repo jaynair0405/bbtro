@@ -112,9 +112,13 @@ function uploadRow(c, quiet) {
   // Shown even before HQ has loaded the report — the lobby may be first.
   if (quiet && c.hq && c.hq.value === 0) return '';
   const wr = c.key === 'wrwor' || c.key === 'wrworhq';
+  const pr = c.key === 'prdue';
+  const note = wr ? 'WOR and WR→WOR lists, lobbywise and HQ-wise, can go in together; one upload fills both WR/WOR blocks.'
+    : pr ? `The 7-day list and the 3-month list go in together (select both files); a lobby with 0 in 3 months needs only the 7-day list. Data of ${fmt(c.dataDate)}.`
+    : `Data of ${fmt(c.dataDate)}.`;
   return `<div class="upload-row"><span class="what">${c.list ? 'Replace' : 'Upload'} the CMS ${esc(c.label)} list for ${esc(d.lobby)}</span>
-      <label class="btn btn-primary">Choose CSV<input type="file" accept=".csv,text/csv" ${wr ? 'multiple' : ''} hidden data-up="${esc(c.key)}" /></label>
-      <span class="date-note">${wr ? 'WOR and WR→WOR lists, lobbywise and HQ-wise, can go in together; one upload fills both WR/WOR blocks.' : `Data of ${fmt(c.dataDate)}.`}</span></div>`;
+      <label class="btn btn-primary">Choose CSV<input type="file" accept=".csv,text/csv" ${wr || pr ? 'multiple' : ''} hidden data-up="${esc(c.key)}" /></label>
+      <span class="date-note">${note}</span></div>`;
 }
 function remarkCell(i, writer) {
   if (i.remark && !i.editing) {
