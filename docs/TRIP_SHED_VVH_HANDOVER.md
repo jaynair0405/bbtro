@@ -258,4 +258,20 @@ The 31 August 2026 records were a smoke test of the draft→final and defect flo
 
 `sql/2026-08-31_trip_shed_vvh.sql` no longer restates the `users.div_role` ENUM; it appends the two Trip Shed roles to whatever list is live, so it cannot drop roles added since (`jrcc`, `chiefos`).
 
-Prod (checked 16 October 2026): no `div_trip%` tables, code at origin/master, both Trip Shed roles already present in the enum. Deploy order when the module ships: merge `feature/trip-shed`, run the thirteen `sql/*trip_shed*` files in date and step order, `pm2 restart bbtro`, create a `trip_shed_supervisor` account and map it in `div_trip_shed_users`. The staff workbook `VVH STAFF COMPLETE DETAILS.xlsx` is intentionally not in git; its rows are carried by step 11.
+Prod (checked 16 October 2026): no `div_trip%` tables, code at origin/master, both Trip Shed roles already present in the enum. Deploy order when the module ships: merge `feature/trip-shed`, run the fourteen `sql/*trip_shed*` files in date and step order (see section 14), `pm2 restart bbtro`, create a `trip_shed_supervisor` account and map it in `div_trip_shed_users`. The staff workbook `VVH STAFF COMPLETE DETAILS.xlsx` is intentionally not in git; its rows are carried by step 11.
+
+## 14. SLAM loco-movement register (TS-037, 17 October 2026)
+
+SLAM is the railway's central application; its "Trip Shed Loco Movement" report is a CSV with two banner lines (title, "From Date … Up to …") and then one row per loco visit: Sno, Zone, LOCO, SHED (home shed), Purpose (GC/TI), SPM(KM), TRIPSHED, Received at, Loco Out, Defect, Action Taken, six area verdicts (Under Frame, H.T. Machine Room, Pneumatic, Others, Roof Equipment, Cab Equipment), HOGStatus1/2, CAB AC1/2, Remarks. Timestamps are `dd/mm/yyyy hh:mm`.
+
+- **Table** `div_trip_loco_movements` (`sql/2026-10-17_trip_shed_slam_movements.sql`), shed-scoped, natural key `(shed_id, loco_number, received_at)`, every row traceable to its staging batch and source row.
+- **Import** through the existing staging flow with `import_kind = SLAM_MOVEMENT` (Imports page, "SLAM loco movement (CSV)"). The header row is found by its LOCO and TRIPSHED cells, and the CSV is read as raw strings so a date is never misread as mm/dd. Columns are matched by name; order may change, a renamed header needs a one-line update to `SLAM_COLUMNS` in `tripShedRoutes.js`.
+- **Row flags.** INVALID (not loaded): `MISSING_LOCO`, `INVALID_RECEIVED_AT`, `OTHER_SHED` (TRIPSHED differs from the shed the user is working in), `DUPLICATE` (same loco and received time twice in the file). Warnings (still loaded, shown as chips): `LOCO_NOT_IN_MASTER`, `INVALID_SPM`, `INVALID_OUT_AT`, `EXISTING_VISIT`.
+- **Supervisor approval publishes** the READY rows, unlike the three legacy kinds. A visit already in the table is linked to the existing record, never duplicated, so re-uploading an overlapping date range is safe. The decision message states how many were published and how many were already present.
+- **Read side**: `GET /movements` (from, to, loco or home shed, purpose), export kind `movements` (CSV/XLSX), and the **Loco movement** tab on the dashboard. SPM values are stored as given; outliers are flagged, not corrected.
+- **Multi-shed**: a file is loaded in the context of the selected shed and rows for any other shed are rejected, so CSMT, IGP and LNL files are loaded in their own shed context. IGP and LNL do not yet have rows in `div_trip_sheds`; seed them (and map their users in `div_trip_shed_users`) before their first import.
+- **Tests**: 18 checks in `tests/trip-shed-inspections.integration.js`, including the real 24-row export kept as `tests/fixtures/slam_loco_movement_2026-09-21_23.csv`.
+- **First real import** on the local database: batch #1, 24 visits for VVH, 21–22 September 2026, approved 17 October 2026.
+
+Deploy note: the SQL list for prod is now fourteen `sql/*trip_shed*` files, in date and step order.
+
