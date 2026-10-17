@@ -194,6 +194,10 @@ grDone, grDue, grade, cli, cliName, asOf}}` or `{monitoring: null}`; the bio-pro
 when the box is empty, with a note "from CMS report of dd-mm-yyyy · CLI <name>". The box
 stays editable; nothing is written back.
 
+The upsert result also counts `cut` (crew ids longer than 15 characters, stored cut short)
+and `rollback` (crew whose done date in the file is earlier than the stored one — the sign
+of an older download uploaded by mistake; a genuine CMS correction can do it for one crew,
+so it warns, never refuses). Text is compared case-insensitively, as the collation is.
 Uploads are serialised by a MySQL named lock (`GET_LOCK('cms_duelist_upload')`, held
 for the load + crew update), so two HQ users uploading at once cannot leave crew rows
 pointing at a retired load. Failure never loses an upload: the parsed lists still come back, with a warning "Not stored
