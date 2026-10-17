@@ -166,7 +166,9 @@
             <li><span class="k">Report level</span>DIVISION</li>
             <li><span class="k">Show Report</span></li>
           </ul>
-          <div class="note">Type the counts in <b>Fill by hand → PR Overdue</b> (the CSV can also be uploaded).</div></div>
+          <div class="note">Type the counts in <b>Fill by hand → PR Overdue</b> (the CSV can also be uploaded). The sheet prints
+            both columns: <b>No PR in last 7 days</b> and <b>No PR in last 3 months</b>. By hand, the 3-month boxes may be left
+            blank (the row then prints blank for that lobby).</div></div>
 
         <div class="card"><h3><span class="num">4</span>WR WOR Booking Lobby Wise <span class="tag">1 CSV</span></h3>
           <div class="path"><span class="menu">MANAGE</span> → <b>Booked (WR/WOR)</b></div>
@@ -435,12 +437,16 @@
           <div class="note">The file has crew ids only — names come from the staff master. It is a month's record, so a
             streak that ended days ago may still be listed.</div></div>
 
-        <div class="card"><h3><span class="num">5</span>PR Overdue — no PR in last 7 days <span class="tag">1 CSV</span></h3>
-          <div class="path"><span class="menu">PR Due</span> → lobby → the 7-day list</div>
+        <div class="card"><h3><span class="num">5</span>PR Overdue — no PR in last 7 days / last 3 months <span class="tag">1–2 CSVs</span></h3>
+          <div class="path"><span class="menu">PR Due</span> → lobby → the <b>7-day</b> list, and the <b>3-month</b> list when that count is not 0</div>
           <ul class="flow">
             <li><span class="k">Lobby</span>yours (LOBBY CODE column)</li>
+            <li><span class="k">Both lists</span>select the two files together in one upload — the card's HQ count is the 7-day
+              and the 3-month figures added</li>
           </ul>
-          <div class="note">The file carries no run date, so the date is not checked — upload the list taken for this sheet.</div></div>
+          <div class="note">The two files look alike (same header); the page tells them apart by the rows ("Y/ n" days = 7-day list,
+            "-" = 3-month list) and shows <b>7 d</b> or <b>3 months</b> against each name. The file carries no run date, so the date
+            is not checked — upload the lists taken for this sheet.</div></div>
 
         <div class="card"><h3><span class="num">6</span>PME / REFT / ASIG, Change on Approval, Breach of Rest, Working Hours Suburban <span class="tag hand">no upload</span></h3>
           <div class="note">HQ's own download names the crew. The card lists them; add the remark against each. Working Hours

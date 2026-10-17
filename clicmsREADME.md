@@ -296,9 +296,14 @@ write a remark per name; HQ sees both in the Daily Position drill.
 | FSD N, Working Hours, Breach of Rest | sign-on datetime |
 | WR / WOR | TA number |
 | Continuous Night | first night date |
-| PR Overdue | last PR datetime |
+| PR Overdue | last PR datetime (`<crew>|none` for the 3-month list, which has none) |
 | Change on Approval | approval datetime |
 
+- **PR Overdue, two lists (17-10-2026):** CMS's "no PR in last 3 months" list has the same
+  header as the 7-day list; `lobby/prlist.js` reads the measure per row (`Y/ n` → `d7`,
+  `-` → `m3`, crew id prefix `@` or `#`) and merges both files into one upload. The card's
+  HQ figure is `d7 + m3`; the HQ sheet block prints both rows and the drill on each row
+  shows only that measure's crew. Hand entry has optional 3-month boxes (blank = not stored).
 - **Cards** (`lib/cmsReports/lobbyDay.js`): HQ's figure is `null` only when HQ has no
   current load of that report for the day ("HQ has not loaded"); a load with no row for
   the lobby is a figure of 0 ("Nothing against CSMT"), e.g. Working Hours Suburban for a
