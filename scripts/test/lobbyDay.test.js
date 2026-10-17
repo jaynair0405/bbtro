@@ -21,6 +21,18 @@ const day = require('../../lib/cmsReports/lobbyDay');
     assert.ok(csmt.loadedAt);
     // Truly not loaded: null.
     assert.strictEqual(await day.hqFigure(card, ['CSMT'], '2031-01-05'), null);
+    // PR Overdue: the lobby's figure is the 7-day AND the 3-month count (both lists go on the card).
+    const pr = await store.saveLoad({ report: { key: 'prdue', dateOffset: 1, tables: [], warnings: [] },
+      facts: { counts: [{ lobby: 'KYN', measure: 'd7', value: 71 }, { lobby: 'KYN', measure: 'm3', value: 3 }, { lobby: 'DIVISION', measure: 'd7', value: 71 }], crew: [] },
+      sheetDate: D, files: [{ name: 'pr.csv', buffer: Buffer.from('x') }], hand: null, user: 'test' });
+    try {
+      const prCard = day.CARDS.find((c) => c.key === 'prdue');
+      assert.deepStrictEqual(prCard.measures, ['d7', 'm3']);
+      assert.strictEqual((await day.hqFigure(prCard, ['KYN'], '2031-01-02')).value, 74);
+    } finally {
+      await pool.query('DELETE FROM cms_daily_counts WHERE load_id = ?', [pr.id]);
+      await pool.query('DELETE FROM cms_daily_loads WHERE id = ?', [pr.id]);
+    }
   } finally {
     await pool.query('DELETE FROM cms_daily_counts WHERE load_id = ?', [hq.id]);
     await pool.query('DELETE FROM cms_daily_loads WHERE id = ?', [hq.id]);

@@ -54,6 +54,20 @@ const drill = require('../../lib/cmsReports/lobbyDrill');
   assert.strictEqual(dDr.rows[0][2], 'DR remark', 'DR remark stored under CSMT is found');
   assert.match(dDr.lobbyNote, /csmtmljrcc/);
 
+  // (a2) PR Overdue: two sheet rows (7 days / 3 months) drill the lobby's list filtered by measure.
+  assert.deepStrictEqual(drill.COLS.prdue.rows([['No PR in last 7 days'], ['No PR in last 3 months']]), [{ r: 0, measure: 'd7' }, { r: 1, measure: 'm3' }]);
+  const prLoad = await store.saveLoad({ report: { key: 'prdue', dateOffset: 1, tables: [], warnings: [] }, facts: { counts: [], crew: [
+    { lobby: 'KYN', cmsId: 'KYN0001', name: 'P', measure: 'd7', eventTime: '2031-01-01 07:00:00', detail: { itemKey: '2031-01-01 07:00', cols: ['KYN0001', 'P', 'LPG', '7 d', '01-01 07:00', 'REST'] } },
+    { lobby: 'KYN', cmsId: 'KYN0002', name: 'Q', measure: 'm3', eventTime: null, detail: { itemKey: 'KYN0002|none', cols: ['KYN0002', 'Q', 'ALP', '3 months', '—', 'REST'] } },
+  ] }, sheetDate: D, files: [{ name: 'pr.csv', buffer: Buffer.from('p') }], hand: null, user: 'kynjrcc', lobby: 'KYN' });
+  const pr = [{ key: 'prdue', label: 'PR Overdue', dateOffset: 1, tables: [{ title: 'PR Overdue', headers: ['Crew / Lobby', 'CSMT', 'KYN'], rows: [['No PR in last 7 days', 0, 1], ['No PR in last 3 months', 0, 1]], total: null }] }];
+  await drill.attach(pr, D);
+  const p7 = pr[0].tables[0].drill.find((x) => x.r === 0 && x.c === 2);
+  const p3 = pr[0].tables[0].drill.find((x) => x.r === 1 && x.c === 2);
+  assert.ok(p7 && p3, 'both PR rows drill');
+  assert.deepStrictEqual(p7.rows.map((r) => r[0]), ['KYN0001']);
+  assert.deepStrictEqual(p3.rows.map((r) => r[0]), ['KYN0002']);
+
   // (b) Working Hours Sub: HQ's own duty-list drill is kept (remark columns added), not replaced.
   const sub = [{ key: 'subhours', label: 'Working Hours Suburban', dateOffset: 2, tables: [{ title: 'x', headers: ['Sr No.', 'Lobby', '>09<=12 Hours', '>12<=14 Hours', '>14 Hours'], rows: [[1, 'CSTS', 0, 0, 1]],
     drill: [{ r: 0, c: 4, title: 'CSTS over 14', headers: ['Crew ID', 'Name', 'Sign On', 'At', 'Sign Off', 'At', 'Duty Hrs', 'Duty Type', 'Train'], rows: [['CSTS2232', 'AMARNATH', '14-10 11:42', 'CSTS', '15-10 19:08', 'CSTS', '31:26', 'WR', 'P/GN37']], crewCol: 0 }] }] }];
@@ -63,7 +77,7 @@ const drill = require('../../lib/cmsReports/lobbyDrill');
   assert.strictEqual(ds.headers.length, 11, 'nine HQ columns + Lobby remark + By');
   assert.ok(!ds.lobbyNote || !/Lobby list from/.test(ds.lobbyNote), "HQ's file is not attributed to the lobby");
 
-  await pool.query('DELETE FROM cms_daily_loads WHERE id IN (?)', [[lb.id, lb2.id]]);
+  await pool.query('DELETE FROM cms_daily_loads WHERE id IN (?)', [[lb.id, lb2.id, prLoad.id]]);
   await pool.query("DELETE FROM cms_lobby_remarks WHERE cms_id = 'CSMT0009' AND report_key = 'fsd'");
   await pool.query("DELETE FROM cms_lobby_remarks WHERE cms_id IN ('CSMT0001','CSMT0002') AND report_key IN ('fsd','safetydue')");
   await pool.end();

@@ -356,7 +356,7 @@ function showManualFields() {
     `<input type="number" min="0" step="1" inputmode="numeric" data-mkey="${esc(key)}" value="${esc(value)}" aria-label="${esc(label)}" />`;
   if (!c || !c.manual) { $('manualFields').innerHTML = ''; return; }
   if (!c.grid) {
-    $('manualFields').innerHTML = c.manual.map((f) => `<label>${esc(f.label)}${input(f.key, 0, f.label)}</label>`).join('');
+    $('manualFields').innerHTML = c.manual.map((f) => `<label>${esc(f.label)}${input(f.key, f.blank ? '' : 0, f.label)}</label>`).join('');
     return;
   }
   // Laid out as the sheet table. Pre-filled from the loaded report where it has a number.
