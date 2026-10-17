@@ -10,7 +10,7 @@ require('dotenv').config({ quiet: true });
   const conn = await mysql.createConnection({ host:process.env.DB_HOST, user:process.env.DB_USER, password:process.env.DB_PASSWORD, database:process.env.DB_NAME, port:Number(process.env.DB_PORT || 3306) });
   let server;
   try {
-    const tables = ['div_trip_sheds','div_trip_inspection_templates','div_trip_inspection_template_items','div_trip_inspections','div_trip_inspection_responses','div_trip_defects','div_trip_defect_events','div_trip_overdue_entries','div_trip_import_batches','div_trip_import_staging_rows'];
+    const tables = ['div_trip_sheds','div_trip_inspection_templates','div_trip_inspection_template_items','div_trip_inspections','div_trip_inspection_responses','div_trip_defects','div_trip_defect_events','div_trip_overdue_entries','div_trip_import_batches','div_trip_import_staging_rows','div_trip_loco_movements'];
     for (const table of tables) {
       const [[definition]] = await conn.query('SHOW CREATE TABLE ' + table);
       const ddl = definition['Create Table'].replace(/^CREATE TABLE /, 'CREATE TEMPORARY TABLE ')
@@ -22,6 +22,8 @@ require('dotenv').config({ quiet: true });
     await conn.query("CREATE TEMPORARY TABLE div_trip_shed_staff (id INT AUTO_INCREMENT PRIMARY KEY,shed_id INT NOT NULL,staff_name VARCHAR(160) NOT NULL,pf_number VARCHAR(20),mobile_number VARCHAR(20),designation VARCHAR(60),hrms_id VARCHAR(20) NOT NULL,email VARCHAR(160),vvh_posting_year SMALLINT,is_active TINYINT(1) NOT NULL DEFAULT 1,source_file VARCHAR(255) NOT NULL DEFAULT 'test',source_sheet VARCHAR(120) NOT NULL DEFAULT 'test')");
     await conn.query("INSERT INTO div_trip_sheds(id,shed_code,shed_name,is_active) VALUES(1,'VVH','Temporary test shed',1),(2,'OTHER','Other test shed',1),(3,'CSMT','Temporary CSMT shed',1)");
     await conn.query("INSERT INTO div_trip_shed_staff(shed_id,staff_name,pf_number,designation,hrms_id) VALUES (1,'Test Technician','PF-T-1','M/F I','HR-T-001'),(1,'Test Supervisor','PF-S-1','SSE','HR-S-001')");
+    await conn.query("CREATE TEMPORARY TABLE div_locos (loco_number VARCHAR(20) PRIMARY KEY, loco_type VARCHAR(20), home_shed VARCHAR(30))");
+    await conn.query("INSERT INTO div_locos VALUES ('30790','WAP7','PADX'),('33678','WAG9','VTAD')");
     await conn.query("CREATE TEMPORARY TABLE div_trip_shed_users (user_id INT NOT NULL,shed_id INT NOT NULL,is_active TINYINT(1) NOT NULL DEFAULT 1,PRIMARY KEY(user_id,shed_id))");
     await conn.query("INSERT INTO div_trip_shed_users(user_id,shed_id) VALUES(990001,1)");
     await conn.query("INSERT INTO div_trip_inspection_templates(id,inspection_type,version_no,title,enabled,entry_enabled) VALUES(1,'GC','TEST','Test GC',1,1),(2,'TI_CONVENTIONAL','TEST','Test conventional',1,1),(3,'IA','TEST','Disabled test template',1,0),(4,'IB','TEST','Empty test template',1,0),(5,'IC','TEST','Inactive test template',1,0)");
@@ -146,6 +148,43 @@ require('dotenv').config({ quiet: true });
     await call('POST',`/imports/${staged.id}/decision`,{decision:'APPROVE'},403,'trip_shed_operator');
     await call('POST',`/imports/${staged.id}/decision`,{decision:'APPROVE'},200,'trip_shed_supervisor');
     const reviewed = await call('GET',`/imports/${staged.id}`,undefined,200); assert.equal(reviewed.batch.status,'APPROVED'); assert.equal(reviewed.batch.reviewed_by,990001); assert.ok(reviewed.batch.reviewed_at); assert.equal(reviewed.rows[0].status,'APPROVED'); assert.equal(reviewed.rows[1].status,'INVALID');
+    // ---- SLAM loco-movement import (TS-037) ----
+    const slamCsv = (rows) => ['Trip Shed Loco Movement,,,,,,,,,,,,,,,,,,,,,','From Date: 2026-09-21    Up to: 2026-09-23,,,,,,,,,,,,,,,,,,,,,',
+      'Sno,Zone,LOCO,SHED,Purpose,SPM(KM),TRIPSHED,Received at (Date/time),Loco Out (Date/time),Defect,Action Taken,Under Frame,H.T. Machine Room,Pneumatic,Others,Roof Equipment,Cab Equipment,HOGStatus1,HOGStatus2,CAB AC1,CAB AC2,Remarks', ...rows].join('\n');
+    const ok = 'CHECKED AND FOUND OK';
+    const slamRows = [
+      `1,CR,30790,PADX,GC,804321,VVH,22/09/2026 21:04,23/09/2026 04:00,N/A,--,${ok},${ok},${ok},${ok},N/A,${ok},Working,Working,Working,Working,RTIS WKG  HOG AAL`,
+      `2,CR,33678,VTAD,GC,40795,CSMT,22/09/2026 12:07,22/09/2026 23:35,LOCO SCH OVERDUE,INFORMED TO LPC,${ok},${ok},${ok},${ok},N/A,${ok},Working,Working,Working,Working,belongs to CSMT`,
+      `3,CR,39180,KYNE,GC,1354120,VVH,bad time,22/09/2026 21:45,CAB-1 WIPER NOT WKG,ATTENDED,${ok},${ok},${ok},${ok},N/A,${ok},Working,Working,Working,Working,bad received`,
+      `4,CR,99999,XXXX,TI,abc,VVH,21/09/2026 06:05,,N/A,--,${ok},${ok},${ok},${ok},N/A,${ok},Non HOG Loco,Non HOG Loco,Working,Working,not in master + bad spm`,
+      `5,CR,30790,PADX,GC,804321,VVH,22/09/2026 21:04,23/09/2026 04:00,N/A,--,${ok},${ok},${ok},${ok},N/A,${ok},Working,Working,Working,Working,duplicate of row 1`];
+    async function stageSlam(csvText, role='trip_shed_operator') { const form=new FormData(); form.append('import_kind','SLAM_MOVEMENT'); form.append('file',new Blob([csvText]),'Trip_Shed_Loco_Movement.csv'); const r=await fetch(base+'/imports/stage',{method:'POST',headers:{'x-test-role':role},body:form}); const d=await r.json(); assert.equal(r.status,200,JSON.stringify(d)); passed++; return d; }
+    const slamStaged = await stageSlam(slamCsv(slamRows));
+    assert.equal(slamStaged.row_count,5); assert.equal(slamStaged.ready_count,2); assert.equal(slamStaged.invalid_count,3); assert.equal(slamStaged.warning_count,1);
+    const slamBatch = await call('GET',`/imports/${slamStaged.id}`,undefined,200);
+    const j = v => typeof v === 'string' ? JSON.parse(v) : v, flagsOf = i => j(slamBatch.rows[i].validation_errors), warnOf = i => j(slamBatch.rows[i].normalized_json).warnings;
+    assert.equal(slamBatch.rows[0].status,'READY'); assert.deepEqual(flagsOf(0),[]); assert.deepEqual(warnOf(0),[]);
+    assert.equal(j(slamBatch.rows[0].normalized_json).record.received_at,'2026-09-22 21:04:00');
+    assert.ok(flagsOf(1).includes('OTHER_SHED')); assert.ok(flagsOf(2).includes('INVALID_RECEIVED_AT'));
+    assert.equal(slamBatch.rows[3].status,'READY'); assert.ok(warnOf(3).includes('LOCO_NOT_IN_MASTER')); assert.ok(warnOf(3).includes('INVALID_SPM'));
+    assert.ok(flagsOf(4).includes('DUPLICATE'));
+    await call('POST',`/imports/${slamStaged.id}/decision`,{decision:'APPROVE'},403,'trip_shed_operator');
+    const slamApproved = await call('POST',`/imports/${slamStaged.id}/decision`,{decision:'APPROVE'},200,'trip_shed_supervisor');
+    assert.equal(slamApproved.publication,'2 loco movement(s) published, 0 already present');
+    const slamReviewed = await call('GET',`/imports/${slamStaged.id}`,undefined,200); assert.ok(slamReviewed.rows[0].published_record_id); assert.ok(slamReviewed.rows[3].published_record_id); assert.equal(slamReviewed.rows[1].published_record_id,null);
+    const movements = await call('GET','/movements',undefined,200,'ctlc_view'); assert.equal(movements.rows.length,2); assert.equal(movements.rows[0].loco_number,'30790'); assert.equal(movements.rows[0].received_at,'2026-09-22 21:04'); assert.equal(movements.rows[0].loco_out_at,'2026-09-23 04:00'); assert.equal(movements.rows[0].spm_km,804321); assert.equal(movements.rows[1].spm_km,null);
+    assert.equal((await call('GET','/movements?loco=30790',undefined,200)).rows.length,1); assert.equal((await call('GET','/movements?purpose=ti',undefined,200)).rows.length,1); assert.equal((await call('GET','/movements?from=2026-09-22&to=2026-09-22',undefined,200)).rows.length,1); await call('GET','/movements?from=bad',undefined,400);
+    assert.equal((await call('GET','/movements?shed_code=CSMT',undefined,200,'division_admin')).rows.length,0,'CSMT context must not see VVH movements');
+    const slamAgain = await stageSlam(slamCsv(slamRows)); assert.equal(slamAgain.warning_count,2);
+    const againBatch = await call('GET',`/imports/${slamAgain.id}`,undefined,200); assert.ok(j(againBatch.rows[0].normalized_json).warnings.includes('EXISTING_VISIT'));
+    const againApproved = await call('POST',`/imports/${slamAgain.id}/decision`,{decision:'APPROVE'},200,'trip_shed_supervisor'); assert.equal(againApproved.publication,'0 loco movement(s) published, 2 already present');
+    assert.equal((await call('GET','/movements',undefined,200)).rows.length,2,'re-import must not duplicate visits');
+    await exportCheck('movements','csv','30790'); await exportCheck('movements','xlsx','30790');
+    const fixture = require('node:fs').readFileSync(path.join(__dirname,'fixtures/slam_loco_movement_2026-09-21_23.csv'),'utf8');
+    const real = await stageSlam(fixture); assert.equal(real.row_count,24); assert.equal(real.ready_count,24); assert.equal(real.invalid_count,0);
+    const realApproved = await call('POST',`/imports/${real.id}/decision`,{decision:'APPROVE'},200,'trip_shed_supervisor'); assert.equal(realApproved.publication,'23 loco movement(s) published, 1 already present');
+    assert.equal((await call('GET','/movements',undefined,200)).rows.length,25);
+    const [[{n: movementCount}]] = await conn.query('SELECT COUNT(*) n FROM div_trip_loco_movements'); assert.equal(movementCount,25);
     console.log(`PASS: ${passed} HTTP checks; rollback and final-record snapshots unchanged. All writes used temporary tables.`);
     if (process.argv.includes('--serve')) {
       console.log('Isolated browser fixture: http://127.0.0.1:3001/test/division_admin (also trip_shed_operator, trip_shed_supervisor, ctlc_view). Ctrl-C drops temporary data.');
