@@ -66,6 +66,8 @@ router.post('/upload', requireHqWriter, upload.single('csv'), async (req, res) =
     const saved = await duelist.saveUpload({ rows: result.rows, warnings: result.warnings,
       file: { name: req.file.originalname, buffer: req.file.buffer }, user, dataDate });
     out.stored = { id: saved.id, dataDate: saved.dataDate, by: user, at: istNow(), replaced: saved.replaced, monitoring: saved.monitoring };
+    const m = saved.monitoring || {};
+    if (m.cut) out.warnings.push(`${m.cut} crew id${m.cut > 1 ? 's were' : ' was'} longer than 15 characters and stored cut short — check the CMS export.`);
   } catch (err) {
     out.warnings.push(err.loadId
       ? `File stored (load ${err.loadId}) but the crew monitoring rows were not updated (${err.message}) — upload the file again to repair.`
