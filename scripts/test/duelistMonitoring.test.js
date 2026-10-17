@@ -87,6 +87,14 @@ const mkLoad = (date) => store.saveLoad({ report, facts: { counts: [], crew: [] 
     assert.strictEqual(r.added, 1);
     assert.ok(await dl.monitoringFor('ZZT000999999999'), 'stored under the first 15 characters');
 
+    // A change of letter case alone (MySQL compares case-insensitively) is not a new version.
+    const l5 = await mkLoad('2031-02-03'); loads.push(l5.id);
+    const lower = mkRow('ZZT0002'); lower.cliName = 'Test Cli'; lower.name = lower.name.toLowerCase();
+    r = await dl.upsertMonitoring([lower], l5.id, '2031-02-03');
+    assert.strictEqual(r.changed, 0, 'case-only change must not version'); assert.strictEqual(r.unchanged, 1);
+    const [[n2]] = await pool.query("SELECT COUNT(*) n FROM cms_crew_monitoring WHERE cms_id = 'ZZT0002'");
+    assert.strictEqual(Number(n2.n), 1);
+
     // Two uploads at once (saveUpload serialises them): afterwards every current fixture row
     // must point at the load that is current, never at the one it retired.
     // Forced bad interleaving: the first saveLoad returns late, so without serialisation the
