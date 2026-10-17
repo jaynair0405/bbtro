@@ -1,5 +1,7 @@
 # CRTMS Trip Shed Module — VVH Handover
 
+**17 October 2026 update:** the module is committed on `feature/trip-shed` (worktree `/Users/neeraja/bbtro-trip-shed`); prod has no Trip Shed tables or code yet. Template ids quoted in sections 11–12 (1, 346, 347, 348) are from the pre-rebuild local database and are **environment-specific** — see section 13 for the current ids and for the records that were not carried over.
+
 **16 September 2026 update:** Step 1 inspection safeguards are implemented and tested; see section 11. The original recovery notes below remain useful context. Exact checklist restoration, migration reconciliation and the other listed feature gaps remain outstanding.
 
 **Repository:** `/Users/neeraja/bbtro`  
@@ -235,3 +237,25 @@ TS-033 records the deferred v1 modules explicitly in the Trip Shed config and da
 TS-034 adds the dedicated `div_trip_shed_staff` source for VVH. It imports 42 active HRMS-identified rows from `data/trip-shed/vvh-2025-08/source/VVH STAFF COMPLETE DETAILS.xlsx`, excludes the row without an HRMS ID, and records the corrected `KHTLDH`/`WRBXYS` mapping using PF numbers. Trip Shed staff search now reads this shed-scoped table rather than the general Mumbai Division `div_staff_master`. Migration: `sql/2026-09-21_trip_shed_vvh_step11_staff_source.sql`.
 TS-035 adds `/div/trip-shed-staff.html` for the VVH staff register. It provides designation count cards, designation filtering, partial search across HRMS ID/name/PF/mobile, and role-protected add/edit forms requiring HRMS ID, name, PF number and designation. UI-added rows are tagged with `source_file='UI entry'`; mobile lookup/storage is additive through `sql/2026-09-21_trip_shed_vvh_step12_staff_page.sql`. Existing source rows remain unchanged unless an authorized user edits them.
 TS-036 clarifies that IA, IB and IC periodic maintenance are not conducted at Trip Shed level. The Trip Shed config now reports them as out-of-scope and excludes them from the selectable inspection templates.
+
+## 13. State after the September 2026 MySQL rebuild and the 17 October 2026 commit
+
+The local database was rebuilt from prod in late September 2026 (see `docs/LOCAL_DB_RESTORE_RUNBOOK.md`) and the twelve Trip Shed SQL files were replayed onto it. Consequences:
+
+| Item | Before (sections 11–12) | Now (local) |
+|---|---|---|
+| Source conventional TI template | id 346, 148 items | id 7, 148 items |
+| Source 3-phase TI template | id 347, 163 items | id 8, 163 items |
+| Source GC template | id 348, 33 items | id 9, 33 items |
+| Abbreviated templates 1, 2, 3 | 33 / 8 / 20 items | headers only, 0 items |
+| Finalised GC inspection #1, 33 responses, defect #1, 3 events | present | **not carried over** |
+
+Template ids are auto-increment values and will differ again on prod. Code and SQL must select templates by `inspection_type` + `version_no`, never by id.
+
+The 31 August 2026 records were a smoke test of the draft→final and defect flows (technician "abc", supervisor "xyz", a defect closed six minutes after creation, every response `OK`). They survive in the `bbtro_old` database on the local machine and were deliberately not restored; the integration test now provides the locked-record fixture with temporary tables.
+
+`sql/2026-10-17_trip_shed_abbreviated_templates_disable.sql` closes entry on the abbreviated TI templates (2 and 3), which had stayed `entry_enabled=1` with no items. Only the three `VVH-2025-08-SOURCE` templates are open for entry; the abbreviated headers remain `enabled=1` for reading.
+
+`sql/2026-08-31_trip_shed_vvh.sql` no longer restates the `users.div_role` ENUM; it appends the two Trip Shed roles to whatever list is live, so it cannot drop roles added since (`jrcc`, `chiefos`).
+
+Prod (checked 16 October 2026): no `div_trip%` tables, code at origin/master, both Trip Shed roles already present in the enum. Deploy order when the module ships: merge `feature/trip-shed`, run the thirteen `sql/*trip_shed*` files in date and step order, `pm2 restart bbtro`, create a `trip_shed_supervisor` account and map it in `div_trip_shed_users`. The staff workbook `VVH STAFF COMPLETE DETAILS.xlsx` is intentionally not in git; its rows are carried by step 11.
