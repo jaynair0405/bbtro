@@ -551,7 +551,9 @@ function render() {
     ? state.layout.flat().flatMap((row) => (Array.isArray(row) ? row.flat() : row.full))
     : state.catalogue.filter((c) => !c.slotOf).map((c) => c.key);
   state.catalogue.forEach((c) => { if (!c.slotOf && !order.includes(c.key)) order.push(c.key); });
-  $('checklist').innerHTML = order.map((k) => {
+  // "+ Add files" rides on this sticky strip so it is in reach however far down the sheet is
+  // (same input as the day bar's button; hidden for read-only users with it, see render()).
+  $('checklist').innerHTML = `<label class="btn btn-primary chk-add" for="addInput">+ Add files</label>` + order.map((k) => {
     const r = byKey.get(k);
     const dot = r && (r.warnings || []).length ? '<span class="wdot"></span>' : '';
     return `<a href="#blk-${esc(k)}" class="chk ${r ? 'in' : 'missing'}">${dot}${r ? '✓ ' : ''}${esc(labelOf(k))}</a>`;
@@ -830,6 +832,7 @@ function setReadOnly() {
   ['dropzone', 'nightBox', 'nonbioBox', 'borBox', 'manualBox'].forEach((id) => { const el = $(id); if (el) el.hidden = true; });
   document.querySelectorAll('[data-older]').forEach((a) => { a.hidden = true; });
   const add = $('addInput'); if (add) add.closest('label').style.display = 'none';   // "+ Add files" (.btn sets display, so hidden alone loses)
+  document.querySelectorAll('.chk-add').forEach((el) => { el.style.display = 'none'; });   // the copy on the sticky strip
   ['uploadStage', 'workStage'].forEach((id) => {
     const note = document.createElement('p');
     note.className = 'date-note readonly-note';
