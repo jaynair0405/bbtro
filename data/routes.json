@@ -8,7 +8,8 @@
       "CSV rows interpreted as ordered station sequences",
       "Aliases canonicalized: BMCT/NSPT/NSCIT -> JNPT",
       "Fork expanded: TKW/NNCN -> two route variants",
-      "Routes deduplicated by exact station sequence"
+      "Routes deduplicated by exact station sequence",
+      "2026-10-20: added JNPN_UDNN (Western DFC via HLY/DPL/PNVL, per Sr.DEE JNPN ROUTES letter + lobby) and BSR_TAPG (BIRD-TAPG legs); JNPN-UDNN excluded for KYN"
     ]
   },
   "aliases": {
@@ -127,6 +128,11 @@
           "from": "DPL",
           "to": "JNPT",
           "note": "JNPT branch"
+        },
+        {
+          "from": "JNPN",
+          "to": "UDNN",
+          "note": "Western DFC (PNVL crew only)"
         }
       ]
     }
@@ -1169,6 +1175,46 @@
         "KYN"
       ],
       "station_count": 16
+    },
+    {
+      "route_id": "JNPN_UDNN",
+      "from": "JNPN",
+      "to": "UDNN",
+      "variant": null,
+      "stations": [
+        "JNPN",
+        "HLY",
+        "DPL",
+        "PNVL",
+        "NIJN",
+        "KHBN",
+        "SAHN",
+        "PLGR",
+        "UBRN",
+        "PADN",
+        "ACLN",
+        "BHEN",
+        "UDNN"
+      ],
+      "station_count": 13
+    },
+    {
+      "route_id": "BSR_TAPG",
+      "from": "BSR",
+      "to": "TAPG",
+      "variant": null,
+      "stations": [
+        "BSR",
+        "KARD",
+        "KHBV",
+        "BIRD",
+        "KOPR",
+        "DTCC",
+        "DIVA",
+        "PSK",
+        "TAPG"
+      ],
+      "station_count": 9
     }
   ]
 }
