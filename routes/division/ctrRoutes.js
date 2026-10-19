@@ -46,6 +46,16 @@ try {
     console.error('[CTR] Failed to load lrd_beats.json:', err.message);
 }
 
+// Duty codes from the CMS "DETAIL OF SIGNON" export that the module keeps.
+// WORKING legs write LRD segment coverage; PILOTING legs are kept for the
+// "include piloting" view. Everything else (WT waiting, YR yard, ...) is dropped.
+//   WR = working, LR = road-learning trip (counts as working: it refreshes LRD)
+//   PL = piloting, SP = spare moved as pilot
+const WORKING_TYPES = ['WR', 'LR'];
+const PILOTING_TYPES = ['PL', 'SP'];
+const LRD_TYPES = [...WORKING_TYPES, ...PILOTING_TYPES];
+const LRD_TYPES_SQL = LRD_TYPES.map(t => `'${t}'`).join(', ');
+
 // Multer setup for file uploads
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
@@ -723,8 +733,8 @@ router.post('/upload', (req, res) => {
           const dutyType = row['DUTY TYPE'] || row['Duty Type'] || '';
           const routeKm = parseFloat(row['Route KM'] || row['KM'] || 0) || 0;
 
-          // Filter: Only WR and PL with KM > 0
-          if (!['WR', 'PL'].includes(dutyType.toUpperCase()) || routeKm <= 0) {
+          // Filter: only working / piloting legs with KM > 0
+          if (!LRD_TYPES.includes(dutyType.toUpperCase()) || routeKm <= 0) {
             continue;
           }
 
@@ -848,8 +858,8 @@ router.post('/upload', (req, res) => {
             );
             stats.legsCreated++;
 
-            // Update segment coverage for LRD tracking (only WR legs, not PL)
-            if (currentHrmsId && matchedSections && dutyType.toUpperCase() === 'WR') {
+            // Update segment coverage for LRD tracking (working legs only, not piloting)
+            if (currentHrmsId && matchedSections && WORKING_TYPES.includes(dutyType.toUpperCase())) {
               await updateSegmentCoverage(pool, currentHrmsId, matchedSections, currentDutyDate, currentDutyId);
             }
           } catch (legErr) {
@@ -1087,9 +1097,9 @@ router.post('/manual', async (req, res) => {
   ]
 );
 
-                // Update segment coverage for LRD tracking (only WR legs, not PL)
+                // Update segment coverage for LRD tracking (working legs only, not piloting)
                 const legDutyType = leg.dutyType?.toUpperCase() || 'WR';
-                if (staffHrmsId && matchedSections && legDutyType === 'WR') {
+                if (staffHrmsId && matchedSections && WORKING_TYPES.includes(legDutyType)) {
                     await updateSegmentCoverage(connection, staffHrmsId, matchedSections, dutyDate, dutyId);
                 }
             }
@@ -1822,7 +1832,7 @@ router.get('/lrd/staff-status/:hrmsId', async (req, res) => {
                 `SELECT l.from_station, l.to_station, d.duty_date
                  FROM div_ctr_legs l
                  JOIN div_ctr_duties d ON l.duty_id = d.id
-                 WHERE d.staff_hrms_id = ? AND l.duty_type = 'PL'
+                 WHERE d.staff_hrms_id = ? AND l.duty_type IN (${PILOTING_TYPES.map(t => `'${t}'`).join(', ')})
                    AND l.from_station IS NOT NULL AND l.to_station IS NOT NULL
                  ORDER BY d.duty_date DESC`,
                 [hrmsId]
@@ -2217,7 +2227,7 @@ router.post('/lrd/backfill', async (req, res) => {
             `SELECT id, from_station, to_station
              FROM div_ctr_legs
              WHERE matched_sections IS NULL
-               AND duty_type IN ('WR', 'PL')
+               AND duty_type IN (${LRD_TYPES_SQL})
                AND from_station IS NOT NULL
                AND to_station IS NOT NULL
              LIMIT ?`,
@@ -2261,7 +2271,7 @@ router.post('/lrd/backfill', async (req, res) => {
         const [remaining] = await pool.query(
             `SELECT COUNT(*) as cnt FROM div_ctr_legs
              WHERE matched_sections IS NULL
-               AND duty_type IN ('WR', 'PL')
+               AND duty_type IN (${LRD_TYPES_SQL})
                AND from_station IS NOT NULL
                AND to_station IS NOT NULL`
         );
