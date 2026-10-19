@@ -258,7 +258,7 @@ The 31 August 2026 records were a smoke test of the draft→final and defect flo
 
 `sql/2026-08-31_trip_shed_vvh.sql` no longer restates the `users.div_role` ENUM; it appends the two Trip Shed roles to whatever list is live, so it cannot drop roles added since (`jrcc`, `chiefos`).
 
-Prod (checked 16 October 2026): no `div_trip%` tables, code at origin/master, both Trip Shed roles already present in the enum. Deploy order when the module ships: merge `feature/trip-shed`, run the fifteen `sql/*trip_shed*` files in date and step order (see section 14), `pm2 restart bbtro`, create a `trip_shed_supervisor` account and map it in `div_trip_shed_users`. The staff workbook `VVH STAFF COMPLETE DETAILS.xlsx` is intentionally not in git; its rows are carried by step 11.
+Prod (checked 16 October 2026): no `div_trip%` tables, code at origin/master, both Trip Shed roles already present in the enum. Deploy order when the module ships: merge `feature/trip-shed`, run the sixteen `sql/*trip_shed*` files in date and step order (see section 14), `pm2 restart bbtro`, then set real passwords on the eight shed accounts (see section 15). The staff workbook `VVH STAFF COMPLETE DETAILS.xlsx` is intentionally not in git; its rows are carried by step 11.
 
 ## 14. SLAM loco-movement register (TS-037, 17 October 2026)
 
@@ -273,5 +273,13 @@ SLAM is the railway's central application; its "Trip Shed Loco Movement" report 
 - **Tests**: 18 checks in `tests/trip-shed-inspections.integration.js`, including the real 24-row export kept as `tests/fixtures/slam_loco_movement_2026-09-21_23.csv`.
 - **First real import** on the local database: batch #1, 24 visits for VVH, 21–22 September 2026, approved 17 October 2026.
 
-Deploy note: the SQL list for prod is now fifteen `sql/*trip_shed*` files, in date and step order.
+Deploy note: the SQL list for prod is now sixteen `sql/*trip_shed*` files, in date and step order.
+
+## 15. Shed accounts (20 October 2026, TS-039)
+
+`sql/2026-10-20_trip_shed_accounts.sql` creates one `trip_shed_operator` and one `trip_shed_supervisor` per shed, mapped in `div_trip_shed_users`: vvhtsop / vvhtssup, csmttsop / csmttssup, igptsop / igptssup, lnltsop / lnltssup. `div_office_code` carries the shed code. The password in the file is a placeholder for local testing with `must_change_password=1`; **set real passwords on prod straight after running the file**, because the division realm does not yet enforce the forced-change flag (only the CLI app does). Re-running the file never resets a password that has been changed.
+
+Verified locally (20 October): every account logs in; an operator is scoped to its own shed (shed list shows one shed, other-shed requests get 403), can upload but gets "Supervisor access required" on approval; a supervisor passes the role gate; the IGP operator sees its empty shed. Integration test 97 checks.
+
+Known small items from that check: (a) the generic division dashboard header falls back to CSMT-ML for these roles because the office picker does not know shed codes; (b) the imports page still renders Approve/Reject for an operator (server refuses); (c) no menu link to the module yet, so these users open `/div/trip-shed.html` by URL. All three belong with the menu-link work.
 
