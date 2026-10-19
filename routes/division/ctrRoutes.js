@@ -2380,21 +2380,14 @@ router.get('/lrd/due-report', async (req, res) => {
             });
         }
 
-        // Get all CTR legs for these staff (join with duties to get staff_hrms_id)
         const hrmsIds = staffList.map(s => s.hrms_id);
+        // Worked segments from the pre-computed coverage table (route-expanded
+        // adjacent pairs, WORKING legs only). Piloting is not counted here; it
+        // is only shown behind the "Include piloting" toggle on the LRD Status tab.
         const [allLegs] = await pool.query(
-            `SELECT
-                d.staff_hrms_id,
-                l.from_station,
-                l.to_station,
-                MAX(d.duty_date) as last_worked_date
-             FROM div_ctr_legs l
-             JOIN div_ctr_duties d ON l.duty_id = d.id
-             WHERE d.staff_hrms_id IN (?)
-               AND l.duty_type IN ('WR', 'PL')
-               AND l.from_station IS NOT NULL
-               AND l.to_station IS NOT NULL
-             GROUP BY d.staff_hrms_id, l.from_station, l.to_station`,
+            `SELECT staff_hrms_id, from_station, to_station, last_worked_date
+             FROM div_lrd_segment_coverage
+             WHERE staff_hrms_id IN (?)`,
             [hrmsIds]
         );
 
@@ -2601,16 +2594,13 @@ router.get('/lrd/staff-due/:hrmsId', async (req, res) => {
             return beatOffice === baseOffice || beatOffice === 'SHARED';
         });
 
-        // Get all CTR legs for this staff
+        // Worked segments from the pre-computed coverage table (route-expanded
+        // adjacent pairs, WORKING legs only). Piloting is not counted here; it
+        // is only shown behind the "Include piloting" toggle on the LRD Status tab.
         const [allLegs] = await pool.query(
-            `SELECT l.from_station, l.to_station, MAX(d.duty_date) as last_worked_date
-             FROM div_ctr_legs l
-             JOIN div_ctr_duties d ON l.duty_id = d.id
-             WHERE d.staff_hrms_id = ?
-               AND l.duty_type IN ('WR', 'PL')
-               AND l.from_station IS NOT NULL
-               AND l.to_station IS NOT NULL
-             GROUP BY l.from_station, l.to_station`,
+            `SELECT from_station, to_station, last_worked_date
+             FROM div_lrd_segment_coverage
+             WHERE staff_hrms_id = ?`,
             [hrmsId]
         );
 
@@ -2801,16 +2791,13 @@ router.get('/lrd/staff-checklist', async (req, res) => {
 
         const hrmsIds = staffList.map(s => s.hrms_id);
 
-        // Get all CTR legs for these staff
+        // Worked segments from the pre-computed coverage table (route-expanded
+        // adjacent pairs, WORKING legs only). Piloting is not counted here; it
+        // is only shown behind the "Include piloting" toggle on the LRD Status tab.
         const [allLegs] = await pool.query(
-            `SELECT d.staff_hrms_id, l.from_station, l.to_station, MAX(d.duty_date) as last_worked_date
-             FROM div_ctr_legs l
-             JOIN div_ctr_duties d ON l.duty_id = d.id
-             WHERE d.staff_hrms_id IN (?)
-               AND l.duty_type IN ('WR', 'PL')
-               AND l.from_station IS NOT NULL
-               AND l.to_station IS NOT NULL
-             GROUP BY d.staff_hrms_id, l.from_station, l.to_station`,
+            `SELECT staff_hrms_id, from_station, to_station, last_worked_date
+             FROM div_lrd_segment_coverage
+             WHERE staff_hrms_id IN (?)`,
             [hrmsIds]
         );
 
@@ -2980,16 +2967,13 @@ router.get('/lrd/section-checklist', async (req, res) => {
 
         const hrmsIds = staffList.map(s => s.hrms_id);
 
-        // Get all CTR legs for these staff
+        // Worked segments from the pre-computed coverage table (route-expanded
+        // adjacent pairs, WORKING legs only). Piloting is not counted here; it
+        // is only shown behind the "Include piloting" toggle on the LRD Status tab.
         const [allLegs] = await pool.query(
-            `SELECT d.staff_hrms_id, l.from_station, l.to_station, MAX(d.duty_date) as last_worked_date
-             FROM div_ctr_legs l
-             JOIN div_ctr_duties d ON l.duty_id = d.id
-             WHERE d.staff_hrms_id IN (?)
-               AND l.duty_type IN ('WR', 'PL')
-               AND l.from_station IS NOT NULL
-               AND l.to_station IS NOT NULL
-             GROUP BY d.staff_hrms_id, l.from_station, l.to_station`,
+            `SELECT staff_hrms_id, from_station, to_station, last_worked_date
+             FROM div_lrd_segment_coverage
+             WHERE staff_hrms_id IN (?)`,
             [hrmsIds]
         );
 
@@ -3178,16 +3162,13 @@ router.get('/lrd/matrix-view', async (req, res) => {
 
         const hrmsIds = staffList.map(s => s.hrms_id);
 
-        // Get all CTR legs for these staff
+        // Worked segments from the pre-computed coverage table (route-expanded
+        // adjacent pairs, WORKING legs only). Piloting is not counted here; it
+        // is only shown behind the "Include piloting" toggle on the LRD Status tab.
         const [allLegs] = await pool.query(
-            `SELECT d.staff_hrms_id, l.from_station, l.to_station, MAX(d.duty_date) as last_worked_date
-             FROM div_ctr_legs l
-             JOIN div_ctr_duties d ON l.duty_id = d.id
-             WHERE d.staff_hrms_id IN (?)
-               AND l.duty_type IN ('WR', 'PL')
-               AND l.from_station IS NOT NULL
-               AND l.to_station IS NOT NULL
-             GROUP BY d.staff_hrms_id, l.from_station, l.to_station`,
+            `SELECT staff_hrms_id, from_station, to_station, last_worked_date
+             FROM div_lrd_segment_coverage
+             WHERE staff_hrms_id IN (?)`,
             [hrmsIds]
         );
 
