@@ -1034,27 +1034,23 @@
                             <text x="400" y="440" text-anchor="middle" font-size="12" font-weight="700" fill="#16a34a">PNVL</text>
                         </g>
 
-                        <!-- PNVL to KJT/BVT (Ghat) -->
+                        <!-- PNVL to KJT/LNL (Ghat; BVT yard is reported as LNL in CTR) -->
                         <g id="route-pnvl-bvt" class="route-group">
                             <path id="seg-pnvl-mhpe-dn" d="M412 450 L450 455" stroke="#4a5568" stroke-width="3" fill="none"/>
                             <path id="seg-mhpe-chok-dn" d="M450 455 L500 458" stroke="#4a5568" stroke-width="3" fill="none"/>
                             <path id="seg-chok-kjt-dn" d="M500 458 L560 460" stroke="#4a5568" stroke-width="3" fill="none"/>
-                            <!-- DN direction (north/upper side) KJT to BVT -->
+                            <!-- DN direction (north/upper side) KJT to LNL -->
                             <path id="seg-kjt-pdi-dn" d="M580 457 L620 467" stroke="#4a5568" stroke-width="3" fill="none"/>
                             <path id="seg-pdi-jbc-dn" d="M620 467 L660 482" stroke="#4a5568" stroke-width="3" fill="none"/>
-                            <!-- TKW path (DN) - KJT→BVT direction goes via TKW -->
                             <path id="seg-jbc-tkw-dn" d="M660 482 L700 497" stroke="#4a5568" stroke-width="3" fill="none"/>
                             <path id="seg-tkw-mhlc-dn" d="M700 497 L740 512" stroke="#4a5568" stroke-width="3" fill="none"/>
                             <path id="seg-mhlc-kad-dn" d="M740 512 L780 532" stroke="#4a5568" stroke-width="3" fill="none"/>
                             <path id="seg-kad-lnl-dn" d="M780 532 L820 552" stroke="#4a5568" stroke-width="3" fill="none"/>
-                            <path id="seg-lnl-bvt-dn" d="M820 552 L860 572" stroke="#4a5568" stroke-width="3" fill="none"/>
-                            <!-- UP direction (south/lower side, +6 y offset) BVT to KJT -->
-                            <path id="seg-bvt-lnl-up" d="M860 584 L820 564" stroke="#4a5568" stroke-width="3" fill="none"/>
+                            <!-- UP direction (south/lower side, +6 y offset) LNL to KJT, same path via TKW -->
                             <path id="seg-lnl-kad-up" d="M820 564 L780 544" stroke="#4a5568" stroke-width="3" fill="none"/>
                             <path id="seg-kad-mhlc-up" d="M780 544 L746 524" stroke="#4a5568" stroke-width="3" fill="none"/>
-                            <!-- NNCN path (UP) - BVT→KJT direction goes via NNCN -->
-                            <path id="seg-mhlc-nncn-up" d="M746 524 L706 509" stroke="#4a5568" stroke-width="3" fill="none"/>
-                            <path id="seg-nncn-jbc-up" d="M706 509 L666 494" stroke="#4a5568" stroke-width="3" fill="none"/>
+                            <path id="seg-mhlc-tkw-up" d="M746 524 L706 509" stroke="#4a5568" stroke-width="3" fill="none"/>
+                            <path id="seg-tkw-jbc-up" d="M706 509 L666 494" stroke="#4a5568" stroke-width="3" fill="none"/>
                             <path id="seg-jbc-pdi-up" d="M666 494 L626 479" stroke="#4a5568" stroke-width="3" fill="none"/>
                             <path id="seg-pdi-kjt-up" d="M626 479 L580 463" stroke="#4a5568" stroke-width="3" fill="none"/>
                             <path id="seg-kjt-chok-up" d="M560 466 L500 464" stroke="#4a5568" stroke-width="3" fill="none"/>
@@ -1064,13 +1060,11 @@
                             <text x="500" y="450" font-size="7" fill="#a9b4d0">CHOK</text>
                             <text x="620" y="463" font-size="7" fill="#a9b4d0">PDI</text>
                             <text x="660" y="478" font-size="7" fill="#a9b4d0">JBC</text>
-                            <text x="700" y="493" font-size="7" fill="#ea580c">TKW↓</text>
-                            <text x="706" y="510" font-size="7" fill="#7c3aed">NNCN↑</text>
+                            <text x="700" y="493" font-size="7" fill="#a9b4d0">TKW</text>
                             <text x="740" y="508" font-size="7" fill="#a9b4d0">MHLC</text>
                             <text x="780" y="528" font-size="7" fill="#a9b4d0">KAD</text>
-                            <text x="820" y="548" font-size="7" fill="#a9b4d0">LNL</text>
-                            <circle cx="860" cy="578" r="8" fill="#dc2626" stroke="#991b1b" stroke-width="2"/>
-                            <text x="875" y="582" font-size="10" font-weight="600" fill="#dc2626">BVT</text>
+                            <circle cx="820" cy="558" r="8" fill="#dc2626" stroke="#991b1b" stroke-width="2"/>
+                            <text x="835" y="562" font-size="10" font-weight="600" fill="#dc2626">LNL</text>
                         </g>
 
                         <!-- PNVL to ROHA (South) -->
