@@ -4,7 +4,6 @@
  * Runtime resolver for CTR legs using prebuilt routes.json
  * - Same route works for both directions via index slicing
  * - Canonicalizes JNPT-complex aliases (BMCT/NSPT/NSCIT -> JNPT)
- * - Handles TKW vs NNCN fork on BVT->CSMT corridor using directional default
  * - Handles through lines (KLVA/MBQ) vs 5th/6th (PSK) between TNA and DIVA
  *   using the CTR Route Name, else the leg's far end
  * - Office exclusion checking for LRD credit
@@ -99,58 +98,6 @@ function slicePath(routeStations, fromSt, toSt) {
  */
 function pathSignature(stations) {
   return stations.join(">");
-}
-
-/**
- * Special tie-breaker for the TKW/NNCN fork on BVT->KJT corridor.
- *
- * Rule (based on actual train operations):
- * - DOWN direction (KJT -> BVT): uses TKW
- * - UP direction (BVT -> KJT): uses NNCN (99% of trains)
- *
- * We detect direction by checking if 'to' station is closer to BVT or KJT.
- */
-function chooseByTkwNncnDefault(candidatePaths, fromSt, toSt, index) {
-  const hasTKW = (p) => p.stations.includes("TKW");
-  const hasNNCN = (p) => p.stations.includes("NNCN");
-
-  const tkwPaths = candidatePaths.filter(p => hasTKW(p) && !hasNNCN(p));
-  const nncnPaths = candidatePaths.filter(p => hasNNCN(p) && !hasTKW(p));
-
-  // if no clean split, do nothing
-  if (tkwPaths.length === 0 && nncnPaths.length === 0) return null;
-
-  // If endpoints explicitly mention TKW or NNCN, that wins automatically.
-  if (fromSt === "TKW" || toSt === "TKW") {
-    if (tkwPaths.length === 1) return tkwPaths[0];
-  }
-  if (fromSt === "NNCN" || toSt === "NNCN") {
-    if (nncnPaths.length === 1) return nncnPaths[0];
-  }
-
-  // Stations on BVT side of the fork
-  const bvtSideStations = ['BVT', 'LNL', 'KAD', 'MHLC'];
-  // Stations on KJT side of the fork
-  const kjtSideStations = ['JBC', 'PDI', 'KJT', 'CHOK', 'MHPE', 'PNVL'];
-
-  const fromBvtSide = bvtSideStations.includes(fromSt);
-  const toBvtSide = bvtSideStations.includes(toSt);
-  const fromKjtSide = kjtSideStations.includes(fromSt);
-  const toKjtSide = kjtSideStations.includes(toSt);
-
-  // DOWN direction: from KJT side towards BVT side -> use TKW
-  if (fromKjtSide && toBvtSide) {
-    if (tkwPaths.length === 1) return tkwPaths[0];
-  }
-  // UP direction: from BVT side towards KJT side -> use NNCN
-  if (fromBvtSide && toKjtSide) {
-    if (nncnPaths.length === 1) return nncnPaths[0];
-  }
-
-  // Default to NNCN for UP direction (99% case)
-  if (nncnPaths.length === 1) return nncnPaths[0];
-
-  return null;
 }
 
 /**
@@ -338,8 +285,8 @@ function resolveLegWithRoutes(fromStationRaw, toStationRaw, ctx, hint) {
     };
   }
 
-  // Multiple different physical subpaths: only two tie-breakers are allowed.
-  // 1. KYN-CSMT corridor: through lines vs 5th/6th (may leave >1 path, e.g. TKW/NNCN as well)
+  // Multiple different physical subpaths: one tie-breaker is allowed.
+  // KYN-CSMT corridor: through lines vs 5th/6th
   let pool = unique;
   let corridorReason = null;
   const corridor = chooseByCsmtCorridor(pool, fromSt, toSt, routeName);
@@ -355,20 +302,6 @@ function resolveLegWithRoutes(fromStationRaw, toStationRaw, ctx, hint) {
         reason: corridorReason,
       };
     }
-  }
-
-  // 2. TKW/NNCN fork directional default
-  const tiebreak = chooseByTkwNncnDefault(pool, fromSt, toSt, ctx);
-  if (tiebreak) {
-    return {
-      status: "OK",
-      stations: tiebreak.stations,
-      adjacent_pairs: stationsToAdjacentPairs(tiebreak.stations),
-      route_id: tiebreak.route_id,
-      reason: corridorReason
-        ? `${corridorReason}; TKW/NNCN directional default`
-        : "Resolved by TKW/NNCN directional default",
-    };
   }
 
   return {
