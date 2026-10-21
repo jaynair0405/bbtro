@@ -10,7 +10,8 @@
       "Fork expanded: TKW/NNCN -> two route variants",
       "Routes deduplicated by exact station sequence",
       "2026-10-20: added JNPN_UDNN (Western DFC via HLY/DPL/PNVL, per Sr.DEE JNPN ROUTES letter + lobby) and BSR_TAPG (BIRD-TAPG legs); JNPN-UDNN excluded for KYN",
-      "2026-10-21: 5th/6th-line routes (NGSM family) now DIVA,PSK,TNA — TAPG line leaves at PSK; BY,SNRD,WB everywhere; SIN renamed SION"
+      "2026-10-21: 5th/6th-line routes (NGSM family) now DIVA,PSK,TNA — TAPG line leaves at PSK; BY,SNRD,WB everywhere; SIN renamed SION",
+      "2026-10-21: JNPN_UDNN is the DFC line only (JNPN, NIJN ... UDNN); the IR connections at JNPN and UDNN are not modelled so DFC and IR coverage never mix"
     ]
   },
   "aliases": {
@@ -1195,9 +1196,6 @@
       "variant": null,
       "stations": [
         "JNPN",
-        "HLY",
-        "DPL",
-        "PNVL",
         "NIJN",
         "KHBN",
         "SAHN",
@@ -1208,7 +1206,7 @@
         "BHEN",
         "UDNN"
       ],
-      "station_count": 13
+      "station_count": 10
     },
     {
       "route_id": "BSR_TAPG",
