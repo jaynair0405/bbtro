@@ -314,6 +314,16 @@
             color: #94a3b8;
         }
 
+        .badge-success {
+            background: rgba(34, 197, 94, 0.2);
+            color: #22c55e;
+        }
+
+        /* Valid sections listed below the due ones, greyed */
+        tr.row-valid td {
+            opacity: 0.55;
+        }
+
         /* Days column */
         .days-negative {
             color: var(--danger);
@@ -1099,7 +1109,7 @@
 
                 // Update stats
                 document.getElementById('statsRow').style.display = 'flex';
-                document.getElementById('statTotal').textContent = reportData.length;
+                document.getElementById('statTotal').textContent = data.summary?.total ?? reportData.filter(r => r.status !== 'VALID').length;
                 document.getElementById('statExpired').textContent = data.summary?.expired || 0;
                 document.getElementById('statExpiring').textContent = data.summary?.expiring || 0;
 
@@ -1151,13 +1161,17 @@
                 const daysClass = row.days !== null && row.days < 0 ? 'days-negative' : 'days-positive';
                 const daysDisplay = row.days !== null ? (row.days > 0 ? `+${row.days}` : row.days) : '-';
                 const coverage = row.coverage ? `${row.coverage.valid}/${row.coverage.total}` : '-';
+                const isValid = row.status === 'VALID';
+                const rangeCell = isValid
+                    ? (row.due_on ? `Valid till ${formatDueDate(row.due_on)}` : 'Valid')
+                    : (row.problem_range || '-');
 
                 return `
-                    <tr>
+                    <tr class="${isValid ? 'row-valid' : ''}">
                         <td>${idx + 1}</td>
                         <td><strong>${row.section}</strong></td>
                         <td>${statusBadge}</td>
-                        <td>${row.problem_range || '-'}</td>
+                        <td>${rangeCell}</td>
                         <td class="${daysClass}">${daysDisplay}</td>
                         <td>${coverage}</td>
                     </tr>
@@ -1278,8 +1292,15 @@
             }).join('');
         }
 
+        // "2026-11-02" -> "02-11-2026" (string split, no Date parsing: avoids timezone shifts)
+        function formatDueDate(iso) {
+            const [y, m, d] = String(iso).split('-');
+            return (y && m && d) ? `${d}-${m}-${y}` : iso;
+        }
+
         function getStatusBadge(status) {
             const map = {
+                'VALID': '<span class="badge badge-success">Valid</span>',
                 'EXPIRED': '<span class="badge badge-danger">Expired</span>',
                 'PARTIAL_EXPIRED': '<span class="badge badge-danger">Partial Expired</span>',
                 'EXPIRING': '<span class="badge badge-warning">Expiring</span>',

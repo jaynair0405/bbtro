@@ -2668,7 +2668,30 @@ router.get('/lrd/staff-due/:hrmsId', async (req, res) => {
                 s.status === 'EXPIRED' || s.status === 'EXPIRING' || s.status === 'NEVER_WORKED'
             );
 
-            if (problemSegs.length === 0) continue; // All valid, skip
+            // Earliest expiry among worked segments: the date this section falls due
+            const dueOn = segmentAnalysis
+                .filter(seg => seg.days !== null)
+                .reduce((min, seg) => (min === null || seg.days < min) ? seg.days : min, null);
+            let dueOnDate = null;
+            if (dueOn !== null) {
+                const d = new Date(today);
+                d.setDate(d.getDate() + dueOn);
+                dueOnDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+            }
+
+            // All valid: still returned (greyed on the page), with its due date
+            if (problemSegs.length === 0) {
+                dueResults.push({
+                    section: `${beat.stations[0]}-${beat.stations[beat.stations.length - 1]}`,
+                    section_id: beat.beat_id,
+                    status: 'VALID',
+                    problem_range: '',
+                    days: dueOn,
+                    due_on: dueOnDate,
+                    coverage: { total: totalSegs, valid: totalSegs, expired: 0, expiring: 0, never_worked: 0 }
+                });
+                continue;
+            }
 
             const validCount = segmentAnalysis.filter(s => s.status === 'VALID').length;
             const expiredCount = segmentAnalysis.filter(s => s.status === 'EXPIRED').length;
@@ -2703,6 +2726,7 @@ router.get('/lrd/staff-due/:hrmsId', async (req, res) => {
                 status: overallStatus,
                 problem_range: problemRanges.join(', '),
                 days: worstDays === Infinity ? null : worstDays,
+                due_on: dueOnDate,
                 coverage: {
                     total: totalSegs,
                     valid: validCount,
@@ -2717,7 +2741,8 @@ router.get('/lrd/staff-due/:hrmsId', async (req, res) => {
         const statusOrder = {
             'EXPIRED': 0, 'PARTIAL_EXPIRED': 1,
             'EXPIRING': 2, 'PARTIAL_EXPIRING': 3,
-            'NEVER_WORKED': 4, 'PARTIAL_NEVER': 5
+            'NEVER_WORKED': 4, 'PARTIAL_NEVER': 5,
+            'VALID': 6
         };
         dueResults.sort((a, b) => {
             if (statusOrder[a.status] !== statusOrder[b.status]) {
@@ -2742,7 +2767,8 @@ router.get('/lrd/staff-due/:hrmsId', async (req, res) => {
                 expiring_threshold_days: expiringThreshold
             },
             summary: {
-                total: dueResults.length,
+                total: dueResults.filter(s => s.status !== 'VALID').length,
+                valid: dueResults.filter(s => s.status === 'VALID').length,
                 expired: dueResults.filter(s => s.status.includes('EXPIRED')).length,
                 expiring: dueResults.filter(s => s.status.includes('EXPIRING')).length
             },
