@@ -242,13 +242,13 @@
       "beat_id": "JNPN_UDNN",
       "name": "JNPN to Udhna (Western DFC)",
       "office": "PNVL",
-      "stations": ["JNPN", "NIJN", "KHBN", "SAHN", "PLGR", "UBRN", "PADN", "ACLN", "BHEN", "UDNN"]
+      "stations": ["JNPN", "NIJN", "KHBN", "SAHN", "PLGR", "UBRN", "AFAS", "PADN", "ACLN", "BHEN", "UDNN"]
     },
     {
       "beat_id": "UDNN_JNPN",
       "name": "Udhna to JNPN (Western DFC)",
       "office": "PNVL",
-      "stations": ["UDNN", "BHEN", "ACLN", "PADN", "UBRN", "PLGR", "SAHN", "KHBN", "NIJN", "JNPN"]
+      "stations": ["UDNN", "BHEN", "ACLN", "PADN", "AFAS", "UBRN", "PLGR", "SAHN", "KHBN", "NIJN", "JNPN"]
     }
   ]
 }
