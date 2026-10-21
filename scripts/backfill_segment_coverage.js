@@ -2,11 +2,17 @@
 /**
  * backfill_segment_coverage.js
  *
- * Populates div_lrd_segment_coverage from existing CTR legs
+ * Rebuilds div_lrd_segment_coverage from existing CTR legs
  * Extracts adjacent station pairs from matched_sections
  *
- * Usage:
- *   node scripts/backfill_segment_coverage.js
+ * Same rule as the upload path in routes/division/ctrRoutes.js:
+ *   working legs only (WR, LR), route_km > 0, matched_sections set.
+ * CTR-derived rows are cleared first so a re-resolve of matched_sections
+ * (routes/beats change) is reflected; road-learning rows (last_duty_id = 0)
+ * are kept.
+ *
+ * Usage (LOCAL):
+ *   set -a; . ./.env; set +a; node scripts/backfill_segment_coverage.js
  */
 
 const mysql = require('mysql2/promise');
@@ -62,8 +68,14 @@ async function backfillSegmentCoverage() {
             }
         }
 
-        // Get legs with matched_sections
-        console.log('\nFetching legs with matched_sections...');
+        // Clear CTR-derived coverage; keep road learning (last_duty_id = 0)
+        const [cleared] = await pool.query(
+            `DELETE FROM div_lrd_segment_coverage WHERE last_duty_id IS NULL OR last_duty_id <> 0`
+        );
+        console.log(`\nCleared ${cleared.affectedRows} CTR-derived coverage rows (road learning kept).`);
+
+        // Get working legs with matched_sections
+        console.log('\nFetching working legs with matched_sections...');
         const [legs] = await pool.query(
             `SELECT
                 l.id as leg_id,
@@ -77,7 +89,8 @@ async function backfillSegmentCoverage() {
              FROM div_ctr_legs l
              JOIN div_ctr_duties d ON l.duty_id = d.id
              WHERE l.matched_sections IS NOT NULL
-               AND l.duty_type = 'WR'
+               AND l.duty_type IN ('WR', 'LR')
+               AND l.route_km > 0
              ORDER BY d.duty_date ASC`
         );
 
