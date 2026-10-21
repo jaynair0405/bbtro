@@ -285,3 +285,17 @@ Verified locally (20 October): every account logs in; an operator is scoped to i
 
 Known small items from that check: (a) the generic division dashboard header falls back to CSMT-ML for these roles because the office picker does not know shed codes; (b) the imports page still renders Approve/Reject for an operator (server refuses); (c) no menu link to the module yet, so these users open `/div/trip-shed.html` by URL. All three belong with the menu-link work.
 
+## 16. Shed dashboard — requirements (21 October 2026)
+
+The Dashboard tab of `/div/trip-shed.html` becomes the login landing page for `trip_shed_operator` and `trip_shed_supervisor`. Division admins and readers keep a division-menu link and a "back to division dashboard" link. Tiles asked for:
+
+1. Total TI this week / this month / this year, and GC done counts for the same periods (SLAM register purpose, cross-checked with finalized inspections).
+2. TI split: CR loco vs foreign loco (`div_locos.railway_zone = 'CR'` vs other; SLAM home shed as fallback when the loco is not in the master).
+3. Timely-out vs late-out locos. Every train has a designated shed-departure time; the list will be supplied. Default until then: **one hour before the train's departure**. Late = loco out after that. Needs the loco link (train to departure time).
+4. Current locos in shed (SLAM rows with no out time) and sick locos. The Control Office already records sick locos in `div_loco_sick_records` (loco-link module; `fit_from` NULL = currently sick). Decision: the shed is the authority, so the trip shed gets a mark-sick / mark-fit option writing the same table with `sick_at_shed` = shed code; Control Office marks only when the shed says so.
+5. On-duty supervisor per shift (00/08, 08/16, 16/24) from a month roster, editable by the shed in-charge. A sample roster will be supplied; until then the tile shows "roster not entered".
+6. Total expected locos of the day.
+7. TI-required locos by train — depends on the loco link, to be discussed.
+
+Phase 1 builds items 1, 2, 4 (in-shed and sick read-only), 6, the landing redirect, menu/back links, and hides approve controls from operators; items 3, 5, 7 and shed-side mark-sick are phase 2 after the departure list, sample roster and link discussion. The checklist review (legacy-font headings, §13) is deferred until after this dashboard work.
+
