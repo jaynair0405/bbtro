@@ -2340,7 +2340,7 @@ router.get('/staff-analysis', async (req, res) => {
             office_code,
             date,
             shift,  // 0=Night, 1=Day, 2=Evening
-            sections = '',  // Comma-separated beat_ids: "PNVL_KJT,KJT_BVT"
+            sections = '',  // Comma-separated beat_ids: "PNVL_KJT,KJT_LNL"
             trainings = ''  // Comma-separated training_ids: "15,13"
         } = req.query;
 

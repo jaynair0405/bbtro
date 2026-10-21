@@ -203,16 +203,16 @@
       "stations": ["VDLR", "GTBN", "CNF", "CLA", "VVH", "GC", "VK", "BND", "NGSM", "MLND", "TNA", "PSK", "DIVA", "DI", "KYN"]
     },
     {
-      "beat_id": "KJT_BVT",
-      "name": "Karjat to Bhivpuri (Ghat)",
+      "beat_id": "KJT_LNL",
+      "name": "Karjat to Lonavala (Ghat, BVT yard is reported as LNL)",
       "office": "SHARED",
-      "stations": ["KJT", "PDI", "JBC", "TKW", "MHLC", "KAD", "LNL", "BVT"]
+      "stations": ["KJT", "PDI", "JBC", "TKW", "MHLC", "KAD", "LNL"]
     },
     {
-      "beat_id": "BVT_KJT",
-      "name": "Bhivpuri to Karjat (Ghat)",
+      "beat_id": "LNL_KJT",
+      "name": "Lonavala to Karjat (Ghat, BVT yard is reported as LNL)",
       "office": "SHARED",
-      "stations": ["BVT", "LNL", "KAD", "MHLC", "NNCN", "JBC", "PDI", "KJT"]
+      "stations": ["LNL", "KAD", "MHLC", "TKW", "JBC", "PDI", "KJT"]
     },
     {
       "beat_id": "PNVL_DIVA",

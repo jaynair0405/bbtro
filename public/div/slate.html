@@ -598,7 +598,7 @@
         function renderSectionCheckboxes() {
             const container = document.getElementById('sectionCheckboxes');
             // Default selections: KJT sections and ghat sections
-            const defaultSections = ['PNVL_KJT', 'KJT_PNVL', 'KJT_BVT', 'BVT_KJT'];
+            const defaultSections = ['PNVL_KJT', 'KJT_PNVL', 'KJT_LNL', 'LNL_KJT'];
 
             container.innerHTML = availableSections.slice(0, 12).map(s => `
                 <label class="analysis-checkbox">
