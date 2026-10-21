@@ -5,12 +5,14 @@
  * - Same route works for both directions via index slicing
  * - Canonicalizes JNPT-complex aliases (BMCT/NSPT/NSCIT -> JNPT)
  * - Handles TKW vs NNCN fork on BVT->CSMT corridor using directional default
+ * - Handles through lines (KLVA/MBQ) vs 5th/6th (PSK) between TNA and DIVA
+ *   using the CTR Route Name, else the leg's far end
  * - Office exclusion checking for LRD credit
  *
  * Exported:
  *   loadRoutesJson(routesJsonPath)
  *   buildRouteIndex(routeDb)
- *   resolveLegWithRoutes(from, to, ctx)
+ *   resolveLegWithRoutes(from, to, ctx, { routeName })
  *   checkOfficeExclusion(from, to, office, ctx)
  *   stationsToAdjacentPairs(stations)
  */
@@ -152,6 +154,51 @@ function chooseByTkwNncnDefault(candidatePaths, fromSt, toSt, index) {
 }
 
 /**
+ * Tie-breaker for the KYN-CSMT corridor between TNA and DIVA.
+ *
+ * Two physical routes exist (lobby, 2026-10-21):
+ *   - Through lines (DN/UP through + local): TNA - KLVA - MBQ - DIVA
+ *   - 5th/6th lines:                         TNA - PSK - DIVA (via Parsik),
+ *     with NGSM goods yard just after MLND and the TAPG line leaving at PSK
+ * routes.json carries both: the CSMT routes run the through lines, the
+ * TMBY/LTT/VDLR routes run the 5th/6th. A leg such as KYN-CLA slices both.
+ *
+ * The CMS "Route Name" on the CTR row names which route the lobby booked,
+ * so it decides first. Without it: an end beyond CLA towards CSMT means the
+ * through lines, otherwise the 5th/6th (goods between KYN and CLA/TMBY/LTT/
+ * VDLR run there).
+ */
+const CSMT_SIDE_STATIONS = ["SION", "MTN", "DR", "PR", "BY", "SNRD", "WB", "CSMT"];
+
+function chooseByCsmtCorridor(candidatePaths, fromSt, toSt, routeName) {
+  const isThrough = (p) => p.baseRouteStations.includes("KLVA") || p.baseRouteStations.includes("MBQ");
+  const isParsik = (p) => !isThrough(p) &&
+    (p.baseRouteStations.includes("PSK") || p.baseRouteStations.includes("NGSM"));
+
+  const throughPaths = candidatePaths.filter(isThrough);
+  const parsikPaths = candidatePaths.filter(isParsik);
+
+  // Only acts on a clean split between the two families
+  if (throughPaths.length === 0 || parsikPaths.length === 0) return null;
+  if (throughPaths.length + parsikPaths.length !== candidatePaths.length) return null;
+
+  const name = String(routeName || "").toUpperCase();
+  const nameThrough = /CSMT/.test(name);
+  const nameParsik = /TMBY|NGSM|LTT|VDLR/.test(name);
+  if (nameThrough && !nameParsik) {
+    return { paths: throughPaths, reason: `CSMT corridor: through lines (KLVA/MBQ) per Route Name "${routeName}"` };
+  }
+  if (nameParsik && !nameThrough) {
+    return { paths: parsikPaths, reason: `CSMT corridor: 5th/6th line (PSK) per Route Name "${routeName}"` };
+  }
+
+  if (CSMT_SIDE_STATIONS.includes(fromSt) || CSMT_SIDE_STATIONS.includes(toSt)) {
+    return { paths: throughPaths, reason: "CSMT corridor: through lines (KLVA/MBQ), leg reaches beyond CLA" };
+  }
+  return { paths: parsikPaths, reason: "CSMT corridor: 5th/6th line (PSK) default for KYN-CLA/TMBY/LTT/VDLR" };
+}
+
+/**
  * Check if a leg segment falls within an office's excluded sections
  *
  * @param {string} fromStation - Leg start station
@@ -216,7 +263,8 @@ function checkOfficeExclusion(fromStation, toStation, resolvedStations, office, 
  *    candidates?: string[]   // route_ids or signatures for debugging
  *  }
  */
-function resolveLegWithRoutes(fromStationRaw, toStationRaw, ctx) {
+function resolveLegWithRoutes(fromStationRaw, toStationRaw, ctx, hint) {
+  const routeName = hint && hint.routeName ? hint.routeName : null;
   const { routes, aliasMap, stationToRoutes } = ctx;
 
   const fromSt = canonStation(fromStationRaw, aliasMap);
@@ -290,22 +338,43 @@ function resolveLegWithRoutes(fromStationRaw, toStationRaw, ctx) {
     };
   }
 
-  // Multiple different physical subpaths: try the ONLY allowed tie-breaker (TKW/NNCN default)
-  const tiebreak = chooseByTkwNncnDefault(unique, fromSt, toSt, ctx);
+  // Multiple different physical subpaths: only two tie-breakers are allowed.
+  // 1. KYN-CSMT corridor: through lines vs 5th/6th (may leave >1 path, e.g. TKW/NNCN as well)
+  let pool = unique;
+  let corridorReason = null;
+  const corridor = chooseByCsmtCorridor(pool, fromSt, toSt, routeName);
+  if (corridor) {
+    pool = corridor.paths;
+    corridorReason = corridor.reason;
+    if (pool.length === 1) {
+      return {
+        status: "OK",
+        stations: pool[0].stations,
+        adjacent_pairs: stationsToAdjacentPairs(pool[0].stations),
+        route_id: pool[0].route_id,
+        reason: corridorReason,
+      };
+    }
+  }
+
+  // 2. TKW/NNCN fork directional default
+  const tiebreak = chooseByTkwNncnDefault(pool, fromSt, toSt, ctx);
   if (tiebreak) {
     return {
       status: "OK",
       stations: tiebreak.stations,
       adjacent_pairs: stationsToAdjacentPairs(tiebreak.stations),
       route_id: tiebreak.route_id,
-      reason: "Resolved by TKW/NNCN directional default",
+      reason: corridorReason
+        ? `${corridorReason}; TKW/NNCN directional default`
+        : "Resolved by TKW/NNCN directional default",
     };
   }
 
   return {
     status: "AMBIGUOUS",
     reason: "Multiple distinct subpaths across routes",
-    candidates: unique.map(u => `${u.route_id}:${u.sig}`),
+    candidates: pool.map(u => `${u.route_id}:${u.sig}`),
   };
 }
 
@@ -318,8 +387,8 @@ function resolveLegWithRoutes(fromStationRaw, toStationRaw, ctx) {
  * @param {object} ctx - Route context
  * @returns {object} Resolution result with exclusion info
  */
-function resolveLegForOffice(fromStation, toStation, office, ctx) {
-  const resolved = resolveLegWithRoutes(fromStation, toStation, ctx);
+function resolveLegForOffice(fromStation, toStation, office, ctx, hint) {
+  const resolved = resolveLegWithRoutes(fromStation, toStation, ctx, hint);
 
   if (resolved.status !== "OK") {
     return {

@@ -830,7 +830,7 @@ router.post('/upload', (req, res) => {
           // Resolve route match using LRD resolver
           let matchedSections = null;
           if (routeCtx && fromStation && toStation) {
-            const resolved = resolveLegWithRoutes(fromStation, toStation, routeCtx);
+            const resolved = resolveLegWithRoutes(fromStation, toStation, routeCtx, { routeName });
             if (resolved.status === 'OK' && resolved.route_id) {
               matchedSections = JSON.stringify([{
                 route_id: resolved.route_id,
@@ -1063,7 +1063,7 @@ router.post('/manual', async (req, res) => {
                 const legToStation = leg.toStation?.toUpperCase();
                 let matchedSections = null;
                 if (routeCtx && legFromStation && legToStation) {
-                    const resolved = resolveLegWithRoutes(legFromStation, legToStation, routeCtx);
+                    const resolved = resolveLegWithRoutes(legFromStation, legToStation, routeCtx, { routeName: leg.routeName || null });
                     if (resolved.status === 'OK' && resolved.route_id) {
                         matchedSections = JSON.stringify([{
                             route_id: resolved.route_id,
@@ -2224,7 +2224,7 @@ router.post('/lrd/backfill', async (req, res) => {
 
         // Get legs without matched_sections
         const [legs] = await pool.query(
-            `SELECT id, from_station, to_station
+            `SELECT id, from_station, to_station, route_name
              FROM div_ctr_legs
              WHERE matched_sections IS NULL
                AND duty_type IN (${LRD_TYPES_SQL})
@@ -2245,7 +2245,7 @@ router.post('/lrd/backfill', async (req, res) => {
         let matched = 0, unmapped = 0, ambiguous = 0;
 
         for (const leg of legs) {
-            const resolved = resolveLegWithRoutes(leg.from_station, leg.to_station, routeCtx);
+            const resolved = resolveLegWithRoutes(leg.from_station, leg.to_station, routeCtx, { routeName: leg.route_name || null });
 
             let matchedSections = null;
             if (resolved.status === 'OK' && resolved.route_id) {

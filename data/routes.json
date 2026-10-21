@@ -9,7 +9,8 @@
       "Aliases canonicalized: BMCT/NSPT/NSCIT -> JNPT",
       "Fork expanded: TKW/NNCN -> two route variants",
       "Routes deduplicated by exact station sequence",
-      "2026-10-20: added JNPN_UDNN (Western DFC via HLY/DPL/PNVL, per Sr.DEE JNPN ROUTES letter + lobby) and BSR_TAPG (BIRD-TAPG legs); JNPN-UDNN excluded for KYN"
+      "2026-10-20: added JNPN_UDNN (Western DFC via HLY/DPL/PNVL, per Sr.DEE JNPN ROUTES letter + lobby) and BSR_TAPG (BIRD-TAPG legs); JNPN-UDNN excluded for KYN",
+      "2026-10-21: 5th/6th-line routes (NGSM family) now DIVA,PSK,TNA — TAPG line leaves at PSK; BY,SNRD,WB everywhere; SIN renamed SION"
     ]
   },
   "aliases": {
@@ -326,15 +327,16 @@
         "GC",
         "VVH",
         "CLA",
-        "SIN",
+        "SION",
         "MTN",
         "DR",
         "PR",
         "BY",
+        "SNRD",
         "WB",
         "CSMT"
       ],
-      "station_count": 34
+      "station_count": 35
     },
     {
       "route_id": "BVT_CSMT__TKW",
@@ -369,15 +371,16 @@
         "GC",
         "VVH",
         "CLA",
-        "SIN",
+        "SION",
         "MTN",
         "DR",
         "PR",
         "BY",
+        "SNRD",
         "WB",
         "CSMT"
       ],
-      "station_count": 34
+      "station_count": 35
     },
     {
       "route_id": "BVT_LTT",
@@ -403,6 +406,7 @@
         "KYN",
         "DI",
         "DIVA",
+        "PSK",
         "TNA",
         "MLND",
         "NGSM",
@@ -412,7 +416,7 @@
         "VVH",
         "LTT"
       ],
-      "station_count": 26
+      "station_count": 27
     },
     {
       "route_id": "BVT_TAPG",
@@ -467,6 +471,7 @@
         "KYN",
         "DI",
         "DIVA",
+        "PSK",
         "TNA",
         "MLND",
         "NGSM",
@@ -477,7 +482,7 @@
         "CLA",
         "TMBY"
       ],
-      "station_count": 27
+      "station_count": 28
     },
     {
       "route_id": "BVT_TMBY__TKW",
@@ -503,6 +508,7 @@
         "KYN",
         "DI",
         "DIVA",
+        "PSK",
         "TNA",
         "MLND",
         "NGSM",
@@ -513,7 +519,7 @@
         "CLA",
         "TMBY"
       ],
-      "station_count": 27
+      "station_count": 28
     },
     {
       "route_id": "BVT_VDLR",
@@ -539,6 +545,7 @@
         "KYN",
         "DI",
         "DIVA",
+        "PSK",
         "TNA",
         "MLND",
         "NGSM",
@@ -551,7 +558,7 @@
         "GTBN",
         "VDLR"
       ],
-      "station_count": 29
+      "station_count": 30
     },
     {
       "route_id": "CSMT_BVT",
@@ -566,7 +573,7 @@
         "PR",
         "DR",
         "MTN",
-        "SIN",
+        "SION",
         "CLA",
         "VVH",
         "GC",
@@ -610,7 +617,7 @@
         "PR",
         "DR",
         "MTN",
-        "SIN",
+        "SION",
         "CLA",
         "VVH",
         "GC",
@@ -654,7 +661,7 @@
         "PR",
         "DR",
         "MTN",
-        "SIN",
+        "SION",
         "CLA",
         "VVH",
         "GC",
@@ -728,6 +735,7 @@
         "KYN",
         "DI",
         "DIVA",
+        "PSK",
         "TNA",
         "MLND",
         "NGSM",
@@ -737,7 +745,7 @@
         "VVH",
         "LTT"
       ],
-      "station_count": 26
+      "station_count": 27
     },
     {
       "route_id": "IGP_PNVL",
@@ -824,6 +832,7 @@
         "KYN",
         "DI",
         "DIVA",
+        "PSK",
         "TNA",
         "MLND",
         "NGSM",
@@ -834,7 +843,7 @@
         "CLA",
         "TMBY"
       ],
-      "station_count": 27
+      "station_count": 28
     },
     {
       "route_id": "IGP_VDLR",
@@ -860,6 +869,7 @@
         "KYN",
         "DI",
         "DIVA",
+        "PSK",
         "TNA",
         "MLND",
         "NGSM",
@@ -872,7 +882,7 @@
         "GTBN",
         "VDLR"
       ],
-      "station_count": 29
+      "station_count": 30
     },
     {
       "route_id": "JNPT_BSR",
@@ -970,6 +980,7 @@
         "NIIJ",
         "DTVL",
         "DIVA",
+        "PSK",
         "TNA",
         "MLND",
         "NGSM",
@@ -979,7 +990,7 @@
         "VVH",
         "LTT"
       ],
-      "station_count": 14
+      "station_count": 15
     },
     {
       "route_id": "PNVL_TAPG",
@@ -1010,6 +1021,7 @@
         "NIIJ",
         "DTVL",
         "DIVA",
+        "PSK",
         "TNA",
         "MLND",
         "NGSM",
@@ -1022,7 +1034,7 @@
         "GTBN",
         "VDLR"
       ],
-      "station_count": 17
+      "station_count": 18
     },
     {
       "route_id": "ROHA_BSR",

@@ -146,37 +146,37 @@
       "beat_id": "KYN_CSMT",
       "name": "Kalyan to CSMT",
       "office": "KYN",
-      "stations": ["KYN", "DI", "DIVA", "MBQ", "KLVA", "TNA", "MLND", "BND", "VK", "GC", "VVH", "CLA", "SIN", "MTN", "DR", "PR", "BY", "SNRD", "WB", "CSMT"]
+      "stations": ["KYN", "DI", "DIVA", "MBQ", "KLVA", "TNA", "MLND", "BND", "VK", "GC", "VVH", "CLA", "SION", "MTN", "DR", "PR", "BY", "SNRD", "WB", "CSMT"]
     },
     {
       "beat_id": "CSMT_KYN",
       "name": "CSMT to Kalyan",
       "office": "KYN",
-      "stations": ["CSMT", "WB", "SNRD", "BY", "PR", "DR", "MTN", "SIN", "CLA", "VVH", "GC", "VK", "BND", "MLND", "TNA", "KLVA", "MBQ", "DIVA", "DI", "KYN"]
+      "stations": ["CSMT", "WB", "SNRD", "BY", "PR", "DR", "MTN", "SION", "CLA", "VVH", "GC", "VK", "BND", "MLND", "TNA", "KLVA", "MBQ", "DIVA", "DI", "KYN"]
     },
     {
       "beat_id": "KYN_TMBY",
       "name": "Kalyan to Trombay",
       "office": "KYN",
-      "stations": ["KYN", "DI", "DIVA", "TNA", "MLND", "NGSM", "BND", "VK", "GC", "VVH", "CLA", "TMBY"]
+      "stations": ["KYN", "DI", "DIVA", "PSK", "TNA", "MLND", "NGSM", "BND", "VK", "GC", "VVH", "CLA", "TMBY"]
     },
     {
       "beat_id": "TMBY_KYN",
       "name": "Trombay to Kalyan",
       "office": "KYN",
-      "stations": ["TMBY", "CLA", "VVH", "GC", "VK", "BND", "NGSM", "MLND", "TNA", "DIVA", "DI", "KYN"]
+      "stations": ["TMBY", "CLA", "VVH", "GC", "VK", "BND", "NGSM", "MLND", "TNA", "PSK", "DIVA", "DI", "KYN"]
     },
     {
       "beat_id": "KYN_LTT",
       "name": "Kalyan to Lokmanya Tilak Terminus",
       "office": "KYN",
-      "stations": ["KYN", "DI", "DIVA", "TNA", "MLND", "NGSM", "BND", "VK", "GC", "VVH", "LTT"]
+      "stations": ["KYN", "DI", "DIVA", "PSK", "TNA", "MLND", "NGSM", "BND", "VK", "GC", "VVH", "LTT"]
     },
     {
       "beat_id": "LTT_KYN",
       "name": "Lokmanya Tilak Terminus to Kalyan",
       "office": "KYN",
-      "stations": ["LTT", "VVH", "GC", "VK", "BND", "NGSM", "MLND", "TNA", "DIVA", "DI", "KYN"]
+      "stations": ["LTT", "VVH", "GC", "VK", "BND", "NGSM", "MLND", "TNA", "PSK", "DIVA", "DI", "KYN"]
     },
     {
       "beat_id": "KYN_TAPG",
@@ -194,13 +194,13 @@
       "beat_id": "KYN_VDLR",
       "name": "Kalyan to Vadala Road",
       "office": "KYN",
-      "stations": ["KYN", "DI", "DIVA", "TNA", "MLND", "NGSM", "BND", "VK", "GC", "VVH", "CLA", "CNF", "GTBN", "VDLR"]
+      "stations": ["KYN", "DI", "DIVA", "PSK", "TNA", "MLND", "NGSM", "BND", "VK", "GC", "VVH", "CLA", "CNF", "GTBN", "VDLR"]
     },
     {
       "beat_id": "VDLR_KYN",
       "name": "Vadala Road to Kalyan",
       "office": "KYN",
-      "stations": ["VDLR", "GTBN", "CNF", "CLA", "VVH", "GC", "VK", "BND", "NGSM", "MLND", "TNA", "DIVA", "DI", "KYN"]
+      "stations": ["VDLR", "GTBN", "CNF", "CLA", "VVH", "GC", "VK", "BND", "NGSM", "MLND", "TNA", "PSK", "DIVA", "DI", "KYN"]
     },
     {
       "beat_id": "KJT_BVT",
