@@ -12,7 +12,8 @@
       "2026-10-20: added JNPN_UDNN (Western DFC via HLY/DPL/PNVL, per Sr.DEE JNPN ROUTES letter + lobby) and BSR_TAPG (BIRD-TAPG legs); JNPN-UDNN excluded for KYN",
       "2026-10-21: 5th/6th-line routes (NGSM family) now DIVA,PSK,TNA — TAPG line leaves at PSK; BY,SNRD,WB everywhere; SIN renamed SION",
       "2026-10-21: JNPN_UDNN is the DFC line only (JNPN, NIJN ... UDNN); the IR connections at JNPN and UDNN are not modelled so DFC and IR coverage never mix",
-      "2026-10-21: AFAS added between UBRN and PADN on JNPN_UDNN (CTR km: JNPN-UBRN 180, JNPN-AFAS 190, JNPN-PADN 221); AFAS IR connection not modelled"
+      "2026-10-21: AFAS added between UBRN and PADN on JNPN_UDNN (CTR km: JNPN-UBRN 180, JNPN-AFAS 190, JNPN-PADN 221); AFAS IR connection not modelled",
+      "2026-10-21: TKW/NNCN fork removed — the ghat KJT-LNL is one path via TKW for LRD (lobby: PNVL and KYN crews differ only up to KJT, the ghat is the same for both); NNCN variants of BVT_BSR/BVT_CSMT/BVT_TMBY deleted, TKW twins keep the plain ids"
     ]
   },
   "aliases": {
@@ -22,12 +23,7 @@
     "DRT": "BPCL",
     "HSD": "BPCL"
   },
-  "forks": {
-    "TKW/NNCN": [
-      "TKW",
-      "NNCN"
-    ]
-  },
+  "forks": {},
   "office_exclusions": {
     "PNVL": {
       "description": "PNVL staff do NOT work these sections",
@@ -235,41 +231,10 @@
       "station_count": 7
     },
     {
-      "route_id": "BVT_BSR__NNCN",
+      "route_id": "BVT_BSR",
       "from": "BVT",
       "to": "BSR",
-      "variant": "NNCN",
-      "stations": [
-        "BVT",
-        "LNL",
-        "KAD",
-        "MHLC",
-        "NNCN",
-        "JBC",
-        "PDI",
-        "KJT",
-        "BVS",
-        "NRL",
-        "VGI",
-        "BUD",
-        "ABH",
-        "ULNR",
-        "VLDI",
-        "KYN",
-        "DI",
-        "KOPR",
-        "BIRD",
-        "KHBV",
-        "KARD",
-        "BSR"
-      ],
-      "station_count": 22
-    },
-    {
-      "route_id": "BVT_BSR__TKW",
-      "from": "BVT",
-      "to": "BSR",
-      "variant": "TKW",
+      "variant": null,
       "stations": [
         "BVT",
         "LNL",
@@ -297,54 +262,10 @@
       "station_count": 22
     },
     {
-      "route_id": "BVT_CSMT__NNCN",
+      "route_id": "BVT_CSMT",
       "from": "BVT",
       "to": "CSMT",
-      "variant": "NNCN",
-      "stations": [
-        "BVT",
-        "LNL",
-        "KAD",
-        "MHLC",
-        "NNCN",
-        "JBC",
-        "PDI",
-        "KJT",
-        "BVS",
-        "NRL",
-        "VGI",
-        "BUD",
-        "ABH",
-        "ULNR",
-        "VLDI",
-        "KYN",
-        "DI",
-        "DIVA",
-        "MBQ",
-        "KLVA",
-        "TNA",
-        "MLND",
-        "BND",
-        "VK",
-        "GC",
-        "VVH",
-        "CLA",
-        "SION",
-        "MTN",
-        "DR",
-        "PR",
-        "BY",
-        "SNRD",
-        "WB",
-        "CSMT"
-      ],
-      "station_count": 35
-    },
-    {
-      "route_id": "BVT_CSMT__TKW",
-      "from": "BVT",
-      "to": "CSMT",
-      "variant": "TKW",
+      "variant": null,
       "stations": [
         "BVT",
         "LNL",
@@ -450,47 +371,10 @@
       "station_count": 20
     },
     {
-      "route_id": "BVT_TMBY__NNCN",
+      "route_id": "BVT_TMBY",
       "from": "BVT",
       "to": "TMBY",
-      "variant": "NNCN",
-      "stations": [
-        "BVT",
-        "LNL",
-        "KAD",
-        "MHLC",
-        "NNCN",
-        "JBC",
-        "PDI",
-        "KJT",
-        "BVS",
-        "NRL",
-        "VGI",
-        "BUD",
-        "ABH",
-        "ULNR",
-        "VLDI",
-        "KYN",
-        "DI",
-        "DIVA",
-        "PSK",
-        "TNA",
-        "MLND",
-        "NGSM",
-        "BND",
-        "VK",
-        "GC",
-        "VVH",
-        "CLA",
-        "TMBY"
-      ],
-      "station_count": 28
-    },
-    {
-      "route_id": "BVT_TMBY__TKW",
-      "from": "BVT",
-      "to": "TMBY",
-      "variant": "TKW",
+      "variant": null,
       "stations": [
         "BVT",
         "LNL",
