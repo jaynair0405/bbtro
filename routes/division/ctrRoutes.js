@@ -46,15 +46,18 @@ try {
     console.error('[CTR] Failed to load lrd_beats.json:', err.message);
 }
 
-// Duty codes from the CMS "DETAIL OF SIGNON" export that the module keeps.
+// Duty codes from the CMS "DETAIL OF SIGNON" export.
 // WORKING legs write LRD segment coverage; PILOTING legs are kept for the
-// "include piloting" view. Everything else (WT waiting, YR yard, ...) is dropped.
+// "include piloting" view. WT (waiting) and YR (yard) legs are stored on the
+// duty so sign-off, duty hours and leg counts are complete, but every LRD
+// query filters on LRD_TYPES so they never count. Any other code is skipped.
 //   WR = working, LR = road-learning trip (counts as working: it refreshes LRD)
 //   PL = piloting, SP = spare moved as pilot
 const WORKING_TYPES = ['WR', 'LR'];
 const PILOTING_TYPES = ['PL', 'SP'];
 const LRD_TYPES = [...WORKING_TYPES, ...PILOTING_TYPES];
 const LRD_TYPES_SQL = LRD_TYPES.map(t => `'${t}'`).join(', ');
+const KEPT_TYPES = [...LRD_TYPES, 'WT', 'YR'];
 
 // Multer setup for file uploads
 const storage = multer.diskStorage({
@@ -707,6 +710,8 @@ router.post('/upload', (req, res) => {
         dutiesCreated: 0,
         legsCreated: 0,
         duplicatesSkipped: 0,
+        skippedRows: 0,      // unknown duty type, or duty older than the cutoff
+        orphanLegs: 0,       // dashed rows whose dated first row was skipped
         errorsCount: 0,
         unmappedCmsIds: new Set()
       };
@@ -730,13 +735,8 @@ router.post('/upload', (req, res) => {
 
         try {
           // Get duty type and route km
-          const dutyType = row['DUTY TYPE'] || row['Duty Type'] || '';
+          const dutyType = (row['DUTY TYPE'] || row['Duty Type'] || '').toString().trim().toUpperCase();
           const routeKm = parseFloat(row['Route KM'] || row['KM'] || 0) || 0;
-
-          // Filter: only working / piloting legs with KM > 0
-          if (!LRD_TYPES.includes(dutyType.toUpperCase()) || routeKm <= 0) {
-            continue;
-          }
 
           const sno = row['S.No.'] || row['SNo'] || row['SNO'];
           const cmsId = row['CREW ID'] || row['Crew ID'] || row['CMS ID'];
@@ -748,9 +748,23 @@ router.post('/upload', (req, res) => {
           // Check if this is a new duty (sign on date is not "-")
           const isNewDuty = signOnDateTime && signOnDateRaw !== '-';
 
+          // The export has one row per leg; only the first leg of a duty carries
+          // the sign-on date, the rest show "-". Whenever a DATED row is skipped,
+          // the duty is forgotten so the dashed rows that follow are counted as
+          // orphans instead of being glued onto whichever duty came before
+          // (that glue gave duties with legs from other dates and a sign-off
+          // before the sign-on).
+          if (!KEPT_TYPES.includes(dutyType)) {
+            stats.skippedRows++;
+            if (isNewDuty) currentDutyId = null;
+            continue;
+          }
+
           if (isNewDuty) {
             // Check date restriction
             if (signOnDateTime < cutoffDate) {
+              stats.skippedRows++;
+              currentDutyId = null;
               continue; // Skip old entries
             }
 
@@ -811,8 +825,11 @@ router.post('/upload', (req, res) => {
             }
           }
 
-          // Skip if no current duty
-          if (!currentDutyId) continue;
+          // Dashed row with no duty to belong to
+          if (!currentDutyId) {
+            stats.orphanLegs++;
+            continue;
+          }
 
           // Insert leg
           legSequence++;
@@ -853,13 +870,13 @@ router.post('/upload', (req, res) => {
                 formatMySQLDateTime(arrival),
                 formatMySQLDateTime(cto),
                 formatMySQLDateTime(cmo),
-                routeKm, dutyType.toUpperCase(), trainNo || null, locoNo || null
+                routeKm, dutyType, trainNo || null, locoNo || null
               ]
             );
             stats.legsCreated++;
 
-            // Update segment coverage for LRD tracking (working legs only, not piloting)
-            if (currentHrmsId && matchedSections && WORKING_TYPES.includes(dutyType.toUpperCase())) {
+            // Update segment coverage for LRD tracking (working legs with km only, not piloting/WT/YR)
+            if (currentHrmsId && matchedSections && routeKm > 0 && WORKING_TYPES.includes(dutyType)) {
               await updateSegmentCoverage(pool, currentHrmsId, matchedSections, currentDutyDate, currentDutyId);
             }
           } catch (legErr) {

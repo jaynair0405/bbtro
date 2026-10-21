@@ -1597,6 +1597,8 @@
                 <div class="result-item"><i class="fa-solid fa-check success"></i> Duties created: <strong>${stats.dutiesCreated}</strong></div>
                 <div class="result-item"><i class="fa-solid fa-check success"></i> Legs stored: <strong>${stats.legsCreated}</strong></div>
                 ${stats.duplicatesSkipped > 0 ? `<div class="result-item"><i class="fa-solid fa-exclamation-triangle warning"></i> Duplicates skipped: <strong>${stats.duplicatesSkipped}</strong></div>` : ''}
+                ${stats.orphanLegs > 0 ? `<div class="result-item"><i class="fa-solid fa-exclamation-triangle warning"></i> Orphan legs not stored (their duty's first row was skipped): <strong>${stats.orphanLegs}</strong></div>` : ''}
+                ${stats.skippedRows > 0 ? `<div class="result-item"><i class="fa-solid fa-circle-info"></i> Rows skipped (unknown duty type or older than 30 days): <strong>${stats.skippedRows}</strong></div>` : ''}
                 ${stats.errorsCount > 0 ? `<div class="result-item"><i class="fa-solid fa-times-circle error"></i> Errors: <strong>${stats.errorsCount}</strong></div>` : ''}
                 ${stats.unmappedCmsIds?.length > 0 ? `
                     <div class="result-item"><i class="fa-solid fa-exclamation-triangle warning"></i> Unmapped CMS IDs: <strong>${stats.unmappedCmsIds.length}</strong></div>
