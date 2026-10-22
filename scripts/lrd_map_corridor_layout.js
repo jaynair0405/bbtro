@@ -101,16 +101,21 @@ const join = lerp(P.VVH, P.CLA, 0.55);
 out.push(ind + line("seg-vvh-cla-up-l56", pt("VVH", fu), off(join, nA, K.tu), true));
 out.push(ind + line("seg-cla-vvh-dn-l56", off(join, nA, K.td), pt("VVH", fd), true));
 // NGSM stub: tiny loop off the pair between MLND and BND
-const NA = lerp(P.MLND, P.BND, 0.3), NB = lerp(P.MLND, P.BND, 0.7), NG = off(lerp(P.MLND, P.BND, 0.5), nA, 36);
-out.push(ind + line("seg-mlnd-ngsm-up", off(NA, nA, fu), [r1(NG[0] - 3), r1(NG[1] - 2)]));
-out.push(ind + line("seg-ngsm-bnd-up", [r1(NG[0] - 3), r1(NG[1] - 2)], off(NB, nA, fu)));
-out.push(ind + line("seg-bnd-ngsm-dn", off(NB, nA, fd), [r1(NG[0] + 3), r1(NG[1] + 2)]));
-out.push(ind + line("seg-ngsm-mlnd-dn", [r1(NG[0] + 3), r1(NG[1] + 2)], off(NA, nA, fd)));
+const NA = lerp(P.MLND, P.BND, 0.3), NB = lerp(P.MLND, P.BND, 0.7), NG = off(lerp(P.MLND, P.BND, 0.5), nA, 38); // longer stub so the direction reads (lobby, 2026-10-23)
+// the two loops sit side by side across the stub (offset along the corridor direction), not one
+// behind the other along it (lobby, 2026-10-23)
+const uC = unit(P.MLND, P.BND);
+const NGu = [r1(NG[0] - 3 * uC[0]), r1(NG[1] - 3 * uC[1])], NGd = [r1(NG[0] + 3 * uC[0]), r1(NG[1] + 3 * uC[1])];
+out.push(ind + line("seg-mlnd-ngsm-up", off(NA, nA, fu), NGu));
+out.push(ind + line("seg-ngsm-bnd-up", NGu, off(NB, nA, fu)));
+out.push(ind + line("seg-bnd-ngsm-dn", off(NB, nA, fd), NGd));
+out.push(ind + line("seg-ngsm-mlnd-dn", NGd, off(NA, nA, fd)));
 // TAPG branch from PSK (lower right)
 const TAPG = [PSKmid[0] + 30, PSKmid[1] + 34];
 out.push(ind + `<g id="branch-tapg">`);
-out.push(ind + "    " + line("seg-psk-tapg-dn", [PSKmid[0] - 3, PSKmid[1] + 3], [TAPG[0] - 3, TAPG[1] + 3]));
-out.push(ind + "    " + line("seg-tapg-psk-up", [TAPG[0] + 3, TAPG[1] - 3], [PSKmid[0] + 3, PSKmid[1] - 3]));
+// heading down-right to TAPG a train's left is the upper-right side: PSK -> TAPG is the upper line (lobby, 2026-10-23)
+out.push(ind + "    " + line("seg-psk-tapg-dn", [PSKmid[0] + 3, PSKmid[1] - 3], [TAPG[0] + 3, TAPG[1] - 3]));
+out.push(ind + "    " + line("seg-tapg-psk-up", [TAPG[0] - 3, TAPG[1] + 3], [PSKmid[0] - 3, PSKmid[1] + 3]));
 out.push(ind + "    " + `<circle cx="${TAPG[0]}" cy="${TAPG[1]}" r="5" fill="#f59e0b" stroke="#d97706" stroke-width="1"/>`);
 out.push(ind + "    " + text(TAPG[0] + 8, TAPG[1] + 4, "TAPG", 8, "#f59e0b"));
 out.push(ind + `</g>`);
