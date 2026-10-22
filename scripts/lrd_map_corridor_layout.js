@@ -20,8 +20,8 @@ function normal(a, b) { const [ux, uy] = unit(a, b); let n = [uy, -ux]; if (n[0]
 function off(p, n, k) { return [r1(p[0] + n[0] * k), r1(p[1] + n[1] * k)]; }
 const REVIEW = true; // 5th/6th lines: sky-blue dashed base look (lobby choice, 2026-10-21); status colours still apply
 const is56 = (id) => id.endsWith("-l56") || /^seg-(diva-psk|psk-tna|tna-psk|psk-diva|mlnd-ngsm|ngsm-bnd|bnd-ngsm|ngsm-mlnd|psk-tapg|tapg-psk)-/.test(id);
-function attrs(id) { return (REVIEW && is56(id)) ? ' data-base="#38bdf8" stroke-dasharray="5 3" stroke="#38bdf8"' : ' stroke="#4a5568"'; }
-function line(id, a, b) { return `<path id="${id}" d="M${a[0]} ${a[1]} L${b[0]} ${b[1]}"${attrs(id)} stroke-width="3" fill="none"/>`; }
+function attrs(id, solid) { return (REVIEW && is56(id)) ? ` data-base="#38bdf8"${solid ? "" : ' stroke-dasharray="5 3"'} stroke="#38bdf8"` : ' stroke="#4a5568"'; }
+function line(id, a, b, solid) { return `<path id="${id}" d="M${a[0]} ${a[1]} L${b[0]} ${b[1]}"${attrs(id, solid)} stroke-width="3" fill="none"/>`; }
 function quad(id, a, c, b) { return `<path id="${id}" d="M${a[0]} ${a[1]} Q${c[0]} ${c[1]} ${b[0]} ${b[1]}"${attrs(id)} stroke-width="3" fill="none"/>`; }
 function text(x, y, s, size = 7, fill = "#a9b4d0", extra = "") { return `<text x="${r1(x)}" y="${r1(y)}" font-size="${size}" fill="${fill}"${extra}>${s}</text>`; }
 
@@ -38,8 +38,9 @@ segB.forEach((s, i) => P[s] = lerp(CLA, CSMT, i / (segB.length - 1)));
 const nA = normal(DIVA, CLA), nB = normal(CLA, CSMT);
 const nOf = (s) => segB.includes(s) && s !== "CLA" ? nB : nA;
 
-// track offsets along the normal (lower-right): through up 0, through dn 6, 5th/6th up 15, dn 21
-const K = { tu: 0, td: 6, fu: 15, fd: 21 };
+// track offsets along the normal (lower-right): through up 0, through dn 6; 5th/6th pair the other way
+// round (lobby, 2026-10-22): dn (CLA -> KYN) on top at 15, up (KYN -> CLA) below at 21
+const K = { tu: 0, td: 6, fu: 21, fd: 15 };
 const pt = (s, k) => off(P[s], nOf(s), k);
 
 const out = [];
@@ -58,10 +59,10 @@ out.push(ind + line("seg-di-diva-up", [385, 228], [256, 306]));
 out.push(ind + line("seg-diva-di-dn", [256, 300], [370, 226]));
 const nKD = normal(KYN, DI), nDD = normal(DI, DIVA);
 out.push(ind + `<!-- KYN - DI - DIVA, 5th/6th pair -->`);
-out.push(ind + line("seg-kyn-di-up-l56", [444, 195], off(DI, nKD, 14)));
-out.push(ind + line("seg-di-kyn-dn-l56", off(DI, nKD, 20), [449, 197]));
-out.push(ind + line("seg-di-diva-up-l56", off(DI, nDD, 14), off(DIVA, nDD, 14)));
-out.push(ind + line("seg-diva-di-dn-l56", off(DIVA, nDD, 20), off(DI, nDD, 20)));
+out.push(ind + line("seg-kyn-di-up-l56", [449, 197], off(DI, nKD, 20)));
+out.push(ind + line("seg-di-kyn-dn-l56", off(DI, nKD, 14), [444, 195]));
+out.push(ind + line("seg-di-diva-up-l56", off(DI, nDD, 20), off(DIVA, nDD, 20)));
+out.push(ind + line("seg-diva-di-dn-l56", off(DIVA, nDD, 14), off(DI, nDD, 14)));
 
 // through pair DIVA..CSMT
 out.push(ind + `<!-- through lines DIVA .. CSMT -->`);
@@ -93,10 +94,10 @@ for (let i = straight.length - 1; i > 0; i--) {
   const a = straight[i], b = straight[i - 1];
   out.push(ind + line(`seg-${a.toLowerCase()}-${b.toLowerCase()}-dn-l56`, pt(a, fd), pt(b, fd)));
 }
-// merge into the through line between VVH and CLA
+// merge into the through line between VVH and CLA: solid stubs, each ending on its own through track
 const join = lerp(P.VVH, P.CLA, 0.55);
-out.push(ind + line("seg-vvh-cla-up-l56", pt("VVH", fu), off(join, nA, K.tu)));
-out.push(ind + line("seg-cla-vvh-dn-l56", off(join, nA, K.td), pt("VVH", fd)));
+out.push(ind + line("seg-vvh-cla-up-l56", pt("VVH", fu), off(join, nA, K.tu), true));
+out.push(ind + line("seg-cla-vvh-dn-l56", off(join, nA, K.td), pt("VVH", fd), true));
 // NGSM stub: tiny loop off the pair between MLND and BND
 const NA = lerp(P.MLND, P.BND, 0.3), NB = lerp(P.MLND, P.BND, 0.7), NG = off(lerp(P.MLND, P.BND, 0.5), nA, 36);
 out.push(ind + line("seg-mlnd-ngsm-up", off(NA, nA, fu), [r1(NG[0] - 3), r1(NG[1] - 2)]));
@@ -131,7 +132,7 @@ out.push(ind + `<circle cx="${r1(CSMT[0] + 3)}" cy="${r1(CSMT[1] + 4)}" r="8" fi
 out.push(ind + text(CSMT[0] - 20, CSMT[1] + 22, "CSMT", 10, "#dc2626", ' font-weight="600"'));
 
 // branches LTT (from VVH), TMBY and VDLR (from CLA), hanging below the 5th/6th pair
-const VVHb = pt("VVH", K.fd + 2), CLAb = pt("CLA", K.td + 2);
+const VVHb = pt("VVH", Math.max(K.fu, K.fd) + 2), CLAb = pt("CLA", K.td + 2);
 out.push(ind + `<g id="branch-ltt">`);
 out.push(ind + "    " + line("seg-vvh-ltt-dn", [VVHb[0] - 3, VVHb[1]], [VVHb[0] - 3, VVHb[1] + 30]));
 out.push(ind + "    " + line("seg-ltt-vvh-up", [VVHb[0] + 3, VVHb[1] + 30], [VVHb[0] + 3, VVHb[1]]));
