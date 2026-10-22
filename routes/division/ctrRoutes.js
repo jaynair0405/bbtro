@@ -21,7 +21,8 @@ const {
     buildRouteIndex,
     resolveLegWithRoutes,
     resolveLegForOffice,
-    getRoutesForOffice
+    getRoutesForOffice,
+    crewOfficeFromCmsId
 } = require('./lrd_route_resolver');
 
 // Load routes.json at startup
@@ -791,6 +792,7 @@ router.post('/upload', (req, res) => {
                 );
               }
               currentDutyId = existing[0].id; // Use existing for legs
+              currentCmsId = cmsId;
               currentHrmsId = hrmsId || existing[0].staff_hrms_id;
               currentDutyDate = formatMySQLDate(signOnDateTime);
               legSequence = 0;
@@ -847,7 +849,7 @@ router.post('/upload', (req, res) => {
           // Resolve route match using LRD resolver
           let matchedSections = null;
           if (routeCtx && fromStation && toStation) {
-            const resolved = resolveLegWithRoutes(fromStation, toStation, routeCtx, { routeName });
+            const resolved = resolveLegWithRoutes(fromStation, toStation, routeCtx, { routeName, crewOffice: crewOfficeFromCmsId(currentCmsId) });
             if (resolved.status === 'OK' && resolved.route_id) {
               matchedSections = JSON.stringify([{
                 route_id: resolved.route_id,
@@ -1080,7 +1082,7 @@ router.post('/manual', async (req, res) => {
                 const legToStation = leg.toStation?.toUpperCase();
                 let matchedSections = null;
                 if (routeCtx && legFromStation && legToStation) {
-                    const resolved = resolveLegWithRoutes(legFromStation, legToStation, routeCtx, { routeName: leg.routeName || null });
+                    const resolved = resolveLegWithRoutes(legFromStation, legToStation, routeCtx, { routeName: leg.routeName || null, crewOffice: crewOfficeFromCmsId(staffCmsId) });
                     if (resolved.status === 'OK' && resolved.route_id) {
                         matchedSections = JSON.stringify([{
                             route_id: resolved.route_id,
@@ -2241,12 +2243,13 @@ router.post('/lrd/backfill', async (req, res) => {
 
         // Get legs without matched_sections
         const [legs] = await pool.query(
-            `SELECT id, from_station, to_station, route_name
-             FROM div_ctr_legs
-             WHERE matched_sections IS NULL
-               AND duty_type IN (${LRD_TYPES_SQL})
-               AND from_station IS NOT NULL
-               AND to_station IS NOT NULL
+            `SELECT l.id, l.from_station, l.to_station, l.route_name, d.staff_cms_id
+             FROM div_ctr_legs l
+             JOIN div_ctr_duties d ON d.id = l.duty_id
+             WHERE l.matched_sections IS NULL
+               AND l.duty_type IN (${LRD_TYPES_SQL})
+               AND l.from_station IS NOT NULL
+               AND l.to_station IS NOT NULL
              LIMIT ?`,
             [parseInt(limit)]
         );
@@ -2262,7 +2265,7 @@ router.post('/lrd/backfill', async (req, res) => {
         let matched = 0, unmapped = 0, ambiguous = 0;
 
         for (const leg of legs) {
-            const resolved = resolveLegWithRoutes(leg.from_station, leg.to_station, routeCtx, { routeName: leg.route_name || null });
+            const resolved = resolveLegWithRoutes(leg.from_station, leg.to_station, routeCtx, { routeName: leg.route_name || null, crewOffice: crewOfficeFromCmsId(leg.staff_cms_id) });
 
             let matchedSections = null;
             if (resolved.status === 'OK' && resolved.route_id) {

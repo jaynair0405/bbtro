@@ -6,12 +6,15 @@
  * - Canonicalizes JNPT-complex aliases (BMCT/NSPT/NSCIT -> JNPT)
  * - Handles through lines (KLVA/MBQ) vs 5th/6th (PSK) between TNA and DIVA
  *   using the CTR Route Name, else the leg's far end
+ * - Handles via-PNVL vs via-KYN between the ghat side and KYN/BSR/DIVA
+ *   using the CTR Route Name (PNVL or KYN named), else the crew's office
  * - Office exclusion checking for LRD credit
  *
  * Exported:
  *   loadRoutesJson(routesJsonPath)
  *   buildRouteIndex(routeDb)
- *   resolveLegWithRoutes(from, to, ctx, { routeName })
+ *   resolveLegWithRoutes(from, to, ctx, { routeName, crewOffice })
+ *   crewOfficeFromCmsId(cmsId)
  *   checkOfficeExclusion(from, to, office, ctx)
  *   stationsToAdjacentPairs(stations)
  */
@@ -98,6 +101,46 @@ function slicePath(routeStations, fromSt, toSt) {
  */
 function pathSignature(stations) {
   return stations.join(">");
+}
+
+/**
+ * Crew office from a CMS id prefix: "PNVL3341" -> "PNVL", "KYN5633" -> "KYN".
+ * The duty's source_office is empty on older uploads; the CMS id is always there.
+ */
+function crewOfficeFromCmsId(cmsId) {
+  const m = String(cmsId || "").toUpperCase().match(/^([A-Z]+)/);
+  return m ? m[1] : null;
+}
+
+/**
+ * Tie-breaker between the ghat side (LNL..KJT, CHOK, MHPE) and KYN / BSR / DIVA.
+ *
+ * Two physical routes exist (lobby, 2026-10-22):
+ *   - via PNVL:      KJT - CHOK - MHPE - PNVL - KLMG - TPND - NIIJ - ... (PNVL crews)
+ *   - via main line: KJT - BVS - NRL - VGI - BUD - ABH - ULNR - VLDI - KYN - ... (KYN crews)
+ *
+ * Decided by the CTR Route Name when it names exactly one of PNVL / KYN
+ * (e.g. "PUNE-BSR-KJT-PNVL" vs "PUNE-BSR-UP-LNL-KYN"); when it names both or
+ * neither (e.g. "PUNE-IGP-UP-KJT-PNVL-KYN", "KYN-LNL-UP") the crew's office
+ * decides: PNVL via PNVL, KYN or CSMT via the main line. Otherwise undecided.
+ *
+ * Returns { paths: [one path], reason } or null.
+ */
+function chooseByPnvlCrew(candidatePaths, routeName, crewOffice) {
+  if (candidatePaths.length !== 2) return null;
+  const viaPnvl = candidatePaths.filter(p => p.stations.includes("PNVL"));
+  const viaMain = candidatePaths.filter(p => !p.stations.includes("PNVL") && p.stations.includes("KYN"));
+  if (viaPnvl.length !== 1 || viaMain.length !== 1) return null;
+
+  const tokens = new Set(String(routeName || "").toUpperCase().split(/[^A-Z0-9]+/).filter(Boolean));
+  const namesPnvl = tokens.has("PNVL"), namesKyn = tokens.has("KYN");
+  if (namesPnvl && !namesKyn) return { paths: viaPnvl, reason: "via PNVL: route name names PNVL" };
+  if (namesKyn && !namesPnvl) return { paths: viaMain, reason: "via KYN: route name names KYN" };
+
+  const office = String(crewOffice || "").toUpperCase();
+  if (office === "PNVL") return { paths: viaPnvl, reason: "via PNVL: PNVL crew" };
+  if (office === "KYN" || office === "CSMT") return { paths: viaMain, reason: `via KYN: ${office} crew` };
+  return null;
 }
 
 /**
@@ -212,6 +255,7 @@ function checkOfficeExclusion(fromStation, toStation, resolvedStations, office, 
  */
 function resolveLegWithRoutes(fromStationRaw, toStationRaw, ctx, hint) {
   const routeName = hint && hint.routeName ? hint.routeName : null;
+  const crewOffice = hint && hint.crewOffice ? hint.crewOffice : null;
   const { routes, aliasMap, stationToRoutes } = ctx;
 
   const fromSt = canonStation(fromStationRaw, aliasMap);
@@ -285,8 +329,8 @@ function resolveLegWithRoutes(fromStationRaw, toStationRaw, ctx, hint) {
     };
   }
 
-  // Multiple different physical subpaths: one tie-breaker is allowed.
-  // KYN-CSMT corridor: through lines vs 5th/6th
+  // Multiple different physical subpaths: two tie-breakers are allowed.
+  // 1. KYN-CSMT corridor: through lines vs 5th/6th
   let pool = unique;
   let corridorReason = null;
   const corridor = chooseByCsmtCorridor(pool, fromSt, toSt, routeName);
@@ -302,6 +346,18 @@ function resolveLegWithRoutes(fromStationRaw, toStationRaw, ctx, hint) {
         reason: corridorReason,
       };
     }
+  }
+
+  // 2. Ghat side to KYN/BSR/DIVA: via PNVL vs via the main line
+  const pnvl = chooseByPnvlCrew(pool, routeName, crewOffice);
+  if (pnvl && pnvl.paths.length === 1) {
+    return {
+      status: "OK",
+      stations: pnvl.paths[0].stations,
+      adjacent_pairs: stationsToAdjacentPairs(pnvl.paths[0].stations),
+      route_id: pnvl.paths[0].route_id,
+      reason: corridorReason ? `${corridorReason}; ${pnvl.reason}` : pnvl.reason,
+    };
   }
 
   return {
@@ -400,6 +456,7 @@ module.exports = {
   buildRouteIndex,
   canonStation,
   resolveLegWithRoutes,
+  crewOfficeFromCmsId,
   resolveLegForOffice,
   checkOfficeExclusion,
   getRoutesForOffice,
