@@ -292,6 +292,12 @@ Route gated in `server.js` via `requireControlOffice`; dashboard card added to `
 were inferred from the LPC narrative + page-4 pictorial (20103 d1 → 20104 d4 → 12167 d5 → 12168 d9
 → … cycle_days 17). Confirm/adjust in the seed file. Memory: `loco_link_roster_module`.
 
+**Corrected 22 October 2026 — `ti_after`:** the link PDF marks TI on only three Link 1 departures
+(12167, 15017, 18520), so TI at LTT happens after arriving on **20104, 12168, 15018** only. Legs
+18519 and 12142 go straight out on 12141 / 20103 and now carry `ti_after=0` (the seed had all
+five returns at 1). The Trip Shed dashboard's "TI required today" tile reads these legs, so this
+SQL must run on prod before that tile shows data.
+
 **Phase 2 (deferred):** links 2..69 (via the admin editor or a verified bulk PDF parse),
 day-of-week-aware matching for non-daily links, BYPASS/other-shed patterns, richer views
 (today's-returns dashboard, per-loco trace).

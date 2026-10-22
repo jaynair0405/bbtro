@@ -17,6 +17,11 @@
 -- checkpoint legs and compares logged loco numbers at the right dates.
 --
 -- IDEMPOTENT: safe to re-run.  No changes to any existing table.
+--
+-- 2026-10-22 correction: the link PDF puts the TI marker on only three Link 1
+-- departures (12167, 15017, 18520), i.e. TI at LTT after arriving on 20104,
+-- 12168 and 15018. Legs 18519 and 12142 go straight out and now carry
+-- ti_after=0 (they were wrongly seeded with 1).
 -- ============================================================================
 
 -- ── Header: one row per link (mirrors the PDF summary table) ───────────────
@@ -99,8 +104,8 @@ JOIN (
     SELECT 5,               '15017',             'DN',              10,              0,            'LTT-GKR KASHI (out)'                      UNION ALL
     SELECT 6,               '15018',             'UP',              12,              1,            'GKR-LTT KASHI (back); TI @ LTT'           UNION ALL
     SELECT 7,               '18520',             'DN',              13,              0,            'LTT-VSKP (out)'                           UNION ALL
-    SELECT 8,               '18519',             'UP',              15,              1,            'VSKP-LTT (back); TI @ LTT'                UNION ALL
+    SELECT 8,               '18519',             'UP',              15,              0,            'VSKP-LTT (back); no TI, straight out on 12141' UNION ALL
     SELECT 9,               '12141',             'DN',              16,              0,            'LTT-PPTA (out)'                           UNION ALL
-    SELECT 10,              '12142',             'UP',              17,              1,            'PPTA-LTT (back); TI @ LTT; link repeats'
+    SELECT 10,              '12142',             'UP',              17,              0,            'PPTA-LTT (back); no TI, straight out on 20103; link repeats'
 ) t
 WHERE r.link_no = '1';
