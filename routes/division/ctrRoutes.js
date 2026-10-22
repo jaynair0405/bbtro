@@ -849,7 +849,7 @@ router.post('/upload', (req, res) => {
           // Resolve route match using LRD resolver
           let matchedSections = null;
           if (routeCtx && fromStation && toStation) {
-            const resolved = resolveLegWithRoutes(fromStation, toStation, routeCtx, { routeName, crewOffice: crewOfficeFromCmsId(currentCmsId) });
+            const resolved = resolveLegWithRoutes(fromStation, toStation, routeCtx, { routeName, crewOffice: crewOfficeFromCmsId(currentCmsId), trainNo: trainNo || null });
             if (resolved.status === 'OK' && resolved.route_id) {
               matchedSections = JSON.stringify([{
                 route_id: resolved.route_id,
@@ -1082,7 +1082,7 @@ router.post('/manual', async (req, res) => {
                 const legToStation = leg.toStation?.toUpperCase();
                 let matchedSections = null;
                 if (routeCtx && legFromStation && legToStation) {
-                    const resolved = resolveLegWithRoutes(legFromStation, legToStation, routeCtx, { routeName: leg.routeName || null, crewOffice: crewOfficeFromCmsId(staffCmsId) });
+                    const resolved = resolveLegWithRoutes(legFromStation, legToStation, routeCtx, { routeName: leg.routeName || null, crewOffice: crewOfficeFromCmsId(staffCmsId), trainNo: leg.trainNo || null });
                     if (resolved.status === 'OK' && resolved.route_id) {
                         matchedSections = JSON.stringify([{
                             route_id: resolved.route_id,
@@ -1844,11 +1844,15 @@ router.get('/lrd/staff-status/:hrmsId', async (req, res) => {
             [hrmsId]
         );
 
-        // If include_piloting is true, also get coverage from PL duties via CTR legs
+        // If include_piloting is true, also get coverage from PL duties via CTR legs.
+        // A piloting leg DIVA -> PNVL is expanded into its adjacent station pairs
+        // (DIVA-DTVL, DTVL-NIIJ, ...) through matched_sections, exactly as working
+        // legs are when coverage is built; a leg with no match falls back to its
+        // raw from-to pair (lobby, 2026-10-23: the raw pair never lit any map line).
         let pilotingSegments = [];
         if (includePiloting) {
             const [plLegs] = await pool.query(
-                `SELECT l.from_station, l.to_station, d.duty_date
+                `SELECT l.from_station, l.to_station, l.matched_sections, d.duty_date
                  FROM div_ctr_legs l
                  JOIN div_ctr_duties d ON l.duty_id = d.id
                  WHERE d.staff_hrms_id = ? AND l.duty_type IN (${PILOTING_TYPES.map(t => `'${t}'`).join(', ')})
@@ -1856,7 +1860,18 @@ router.get('/lrd/staff-status/:hrmsId', async (req, res) => {
                  ORDER BY d.duty_date DESC`,
                 [hrmsId]
             );
-            pilotingSegments = plLegs;
+            for (const leg of plLegs) {
+                let matched = leg.matched_sections;
+                if (typeof matched === 'string') { try { matched = JSON.parse(matched); } catch (e) { matched = null; } }
+                const stations = Array.isArray(matched) && matched[0] && Array.isArray(matched[0].stations) ? matched[0].stations : null;
+                if (stations && stations.length >= 2) {
+                    for (let i = 0; i < stations.length - 1; i++) {
+                        pilotingSegments.push({ from_station: stations[i], to_station: stations[i + 1], duty_date: leg.duty_date });
+                    }
+                } else {
+                    pilotingSegments.push({ from_station: leg.from_station, to_station: leg.to_station, duty_date: leg.duty_date });
+                }
+            }
         }
 
         // Build map: "FROM-TO" -> { last_worked_date, work_count, is_road_learning }
@@ -2243,7 +2258,7 @@ router.post('/lrd/backfill', async (req, res) => {
 
         // Get legs without matched_sections
         const [legs] = await pool.query(
-            `SELECT l.id, l.from_station, l.to_station, l.route_name, d.staff_cms_id
+            `SELECT l.id, l.from_station, l.to_station, l.route_name, l.train_no, d.staff_cms_id
              FROM div_ctr_legs l
              JOIN div_ctr_duties d ON d.id = l.duty_id
              WHERE l.matched_sections IS NULL
@@ -2265,7 +2280,7 @@ router.post('/lrd/backfill', async (req, res) => {
         let matched = 0, unmapped = 0, ambiguous = 0;
 
         for (const leg of legs) {
-            const resolved = resolveLegWithRoutes(leg.from_station, leg.to_station, routeCtx, { routeName: leg.route_name || null, crewOffice: crewOfficeFromCmsId(leg.staff_cms_id) });
+            const resolved = resolveLegWithRoutes(leg.from_station, leg.to_station, routeCtx, { routeName: leg.route_name || null, crewOffice: crewOfficeFromCmsId(leg.staff_cms_id), trainNo: leg.train_no || null });
 
             let matchedSections = null;
             if (resolved.status === 'OK' && resolved.route_id) {

@@ -8,12 +8,15 @@
  *   using the CTR Route Name, else the leg's far end
  * - Handles via-PNVL vs via-KYN between the ghat side and KYN/BSR/DIVA
  *   using the CTR Route Name (PNVL or KYN named), else the crew's office
+ * - Same-station legs (PNVL -> PNVL) with a route name of the form X-X-FAR
+ *   resolve as out-and-back X -> FAR -> X, unless the train number marks a
+ *   shunting / yard / tower-wagon / departmental / waiting row
  * - Office exclusion checking for LRD credit
  *
  * Exported:
  *   loadRoutesJson(routesJsonPath)
  *   buildRouteIndex(routeDb)
- *   resolveLegWithRoutes(from, to, ctx, { routeName, crewOffice })
+ *   resolveLegWithRoutes(from, to, ctx, { routeName, crewOffice, trainNo })
  *   crewOfficeFromCmsId(cmsId)
  *   checkOfficeExclusion(from, to, office, ctx)
  *   stationsToAdjacentPairs(stations)
@@ -101,6 +104,101 @@ function slicePath(routeStations, fromSt, toSt) {
  */
 function pathSignature(stations) {
   return stations.join(">");
+}
+
+/**
+ * Train-number markers of same-station rows that are not line working
+ * (lobby, 2026-10-23): tower wagon (TW, T/W), yard (YARD, YD), shunting
+ * (PNVL/STG), departmental train (BTN), waiting (WTG, WAIT, WAITING, W/SAFE),
+ * period break (PERIOD/BREAK and its spellings), counselling, special duty,
+ * hospital, spare, exam. Such rows must not update LRD.
+ */
+const NON_WORKING_TOKENS = new Set([
+  "TW", "YARD", "YD", "STG", "BTN", "WTG", "WAIT", "WAITING", "WATTING", "SAFE", "SAFF",
+  "PERIOD", "PRIOD", "PIROD", "PIRED", "PIREDBREK", "BREAK", "BRAKE", "BRACK",
+  "COUNCLING", "COUNSELLING", "SPL", "DUTY", "HOSPITAL", "SPARMV", "WORKING", "EXAM",
+]);
+function trainNoTokens(trainNo) {
+  return String(trainNo || "").toUpperCase().replace(/\bT[\/ ]W\b/g, "TW").replace(/YARD/g, " YARD ").split(/[^A-Z0-9]+/).filter(Boolean);
+}
+function isNonWorkingTrainNo(trainNo) {
+  return trainNoTokens(trainNo).some(tok => NON_WORKING_TOKENS.has(tok));
+}
+
+/**
+ * Road learning written into the train number of a same-station row
+ * (lobby, 2026-10-23): "ROHA LRD", "LRD/ROHA", "KYN/LRD", "DIVA/ROHA/LRD" on a
+ * PNVL -> PNVL leg mean the crew went out to that station and back for road
+ * learning; the route name on such rows is boilerplate (PNVL-PNVL-JNPT/200).
+ * Returns the named stations known to the route index, or [] when the label
+ * does not say LRD or names no station.
+ */
+function lrdStationsFromTrainNo(trainNo, ctx) {
+  const toks = trainNoTokens(trainNo);
+  if (!toks.some(t => /^L?LRD$/.test(t))) return [];
+  const out = [];
+  for (const t of toks) {
+    const st = canonStation(t, ctx.aliasMap);
+    if (!/^L?LRD$/.test(t) && !NON_WORKING_TOKENS.has(t) && ctx.stationToRoutes.has(st) && !out.includes(st)) out.push(st);
+  }
+  return out;
+}
+
+/**
+ * Same-station leg (X -> X) whose CTR route name reads Y-Y-A[-B...], Y usually X:
+ * the crew went out to A and came back (e.g. PNVL-PNVL-JNPT/200 = 59.7 km,
+ * twice PNVL-JNPT; PNVL-PNVL-JNPT-BSR = a JNPT trip then a BSR trip).
+ * Each far token that is a known station becomes an out-and-back from X and
+ * the station lists are chained, so both directions get coverage. Numeric
+ * suffixes (/120, /200) and UP/DN are ignored.
+ *
+ * Returns a resolved object, or null when the rule does not apply.
+ */
+function resolveOutAndBack(fromSt, routeName, ctx, hint) {
+  const { aliasMap, stationToRoutes } = ctx;
+  const trainNo = hint && hint.trainNo;
+  // 1. road learning named in the train number wins over the boilerplate route name
+  let fars = lrdStationsFromTrainNo(trainNo, ctx).filter(st => st !== fromSt);
+  let source = "road learning from train number";
+  if (!fars.length) {
+    // 2. shunting / yard / tower wagon / waiting / break rows: no line working
+    if (trainNo && isNonWorkingTrainNo(trainNo)) return null;
+    // 3. the route name must be a round-trip form (X-X-...). X is usually the
+    // leg's own station, but a Pen shuttle crew booked PNVL-PNVL-PPDP-JSWD may
+    // sign a PEN -> PEN or RSYI -> RSYI leg; the far points are taken from the
+    // leg's station either way (24.9 km = twice PEN-JSWD).
+    const tokens = String(routeName || "").toUpperCase().split(/[^A-Z0-9]+/).filter(Boolean);
+    if (tokens.length < 3) return null;
+    if (canonStation(tokens[0], aliasMap) !== canonStation(tokens[1], aliasMap)) return null;
+    for (const tok of tokens.slice(2)) {
+      if (/^\d+$/.test(tok) || tok === "UP" || tok === "DN") continue;
+      const st = canonStation(tok, aliasMap);
+      if (st !== fromSt && stationToRoutes.has(st) && !fars.includes(st)) fars.push(st);
+    }
+    source = "out-and-back from route name";
+  }
+  if (!fars.length) return null;
+
+  const stations = [fromSt];
+  const legHint = { routeName, crewOffice: hint && hint.crewOffice };
+  let routeId = null;
+  const done = [];
+  for (const far of fars) {
+    const out = resolveLegWithRoutes(fromSt, far, ctx, legHint);
+    if (out.status !== "OK" || !out.route_id) continue;
+    routeId = routeId || out.route_id;
+    done.push(far);
+    for (let i = 1; i < out.stations.length; i++) stations.push(out.stations[i]);           // out
+    for (let i = out.stations.length - 2; i >= 0; i--) stations.push(out.stations[i]);      // back
+  }
+  if (!done.length) return null;
+  return {
+    status: "OK",
+    stations,
+    adjacent_pairs: stationsToAdjacentPairs(stations),
+    route_id: routeId,
+    reason: `${source}: ${fromSt} to ${done.join(", ")} and back`,
+  };
 }
 
 /**
@@ -265,6 +363,8 @@ function resolveLegWithRoutes(fromStationRaw, toStationRaw, ctx, hint) {
     return { status: "UNMAPPED", reason: "Missing from/to station" };
   }
   if (fromSt === toSt) {
+    const oab = resolveOutAndBack(fromSt, routeName, ctx, hint);
+    if (oab) return oab;
     return {
       status: "OK",
       stations: [fromSt],
@@ -457,6 +557,7 @@ module.exports = {
   canonStation,
   resolveLegWithRoutes,
   crewOfficeFromCmsId,
+  isNonWorkingTrainNo,
   resolveLegForOffice,
   checkOfficeExclusion,
   getRoutesForOffice,
