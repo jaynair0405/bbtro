@@ -185,6 +185,43 @@ require('dotenv').config({ quiet: true });
     const realApproved = await call('POST',`/imports/${real.id}/decision`,{decision:'APPROVE'},200,'trip_shed_supervisor'); assert.equal(realApproved.publication,'23 loco movement(s) published, 1 already present');
     assert.equal((await call('GET','/movements',undefined,200)).rows.length,25);
     const [[{n: movementCount}]] = await conn.query('SELECT COUNT(*) n FROM div_trip_loco_movements'); assert.equal(movementCount,25);
+    // TI required today, by train (TS-040): shed's own list, WTT scheduled arrival, CO loco with shed override, SLAM status
+    await conn.query("CREATE TEMPORARY TABLE div_trip_ti_trains (id INT AUTO_INCREMENT PRIMARY KEY, shed_id INT NOT NULL, train_no VARCHAR(20) NOT NULL, arrival_station VARCHAR(10) NOT NULL, departs_as VARCHAR(60), link_no VARCHAR(10), source VARCHAR(60), remark VARCHAR(255), is_active TINYINT(1) NOT NULL DEFAULT 1, created_by INT, UNIQUE KEY uq (shed_id, train_no))");
+    await conn.query("CREATE TEMPORARY TABLE div_trip_ti_train_locos (id INT AUTO_INCREMENT PRIMARY KEY, shed_id INT NOT NULL, service_date DATE NOT NULL, train_no VARCHAR(20) NOT NULL, loco_number VARCHAR(20) NOT NULL, entered_by INT, UNIQUE KEY uq (shed_id, service_date, train_no))");
+    await conn.query("CREATE TEMPORARY TABLE div_trains (train_id INT AUTO_INCREMENT PRIMARY KEY, train_no VARCHAR(20), train_name VARCHAR(80), from_station VARCHAR(10), to_station VARCHAR(10), run_days VARCHAR(30), is_active TINYINT(1) DEFAULT 1)");
+    await conn.query("CREATE TEMPORARY TABLE div_train_stops (id INT AUTO_INCREMENT PRIMARY KEY, train_id INT, station_code VARCHAR(10), arrival_time TIME, day_offset INT DEFAULT 0)");
+    await conn.query("CREATE TEMPORARY TABLE div_loco_link_log (id INT AUTO_INCREMENT PRIMARY KEY, working_date DATE, train_no VARCHAR(20), actual_loco_no VARCHAR(20))");
+    await conn.query("CREATE TEMPORARY TABLE div_loco_link_master (id INT AUTO_INCREMENT PRIMARY KEY, train_no VARCHAR(20), direction VARCHAR(8), run_days VARCHAR(30), active TINYINT(1) DEFAULT 1)");
+    await conn.query("INSERT INTO div_loco_link_master(train_no,direction,run_days,active) VALUES ('11006','UP','2,4',1),('11006','UP','5',1),('11006','DN','1',1),('15018','UP','1',0),('12168','UP',NULL,1)"); // sheet days win: 11006 Tue/Thu/Fri (train master says Tue only); inactive and NULL rows ignored
+    await conn.query("CREATE TEMPORARY TABLE div_loco_link_roster (id INT AUTO_INCREMENT PRIMARY KEY, link_no VARCHAR(10), ti_locations VARCHAR(60), active TINYINT(1) DEFAULT 1)");
+    await conn.query("CREATE TEMPORARY TABLE div_loco_link_roster_legs (id INT AUTO_INCREMENT PRIMARY KEY, roster_id INT, train_no VARCHAR(20), ti_after TINYINT(1))");
+    await conn.query("INSERT INTO div_trip_ti_trains(shed_id,train_no,arrival_station,is_active) VALUES (1,'20104','LTT',1),(1,'12168','LTT',1),(1,'15018','LTT',1),(1,'11006','DR',1),(1,'22184','LTT',1),(1,'99998','LTT',0),(3,'11010','CSMT',1)");
+    await conn.query("INSERT INTO div_trains(train_id,train_no,train_name,from_station,to_station,run_days) VALUES (1,'20104','LTT-GKP EXP','IGP','LTT','DAILY'),(2,'12168','LTT-BNPRS EXP','IGP','LTT','2,5'),(3,'15018','KASHI EXP','IGP','LTT','1,3'),(4,'11006','CHALUKYA','PUNE','DR','2'),(5,'22184','SAKET','IGP','LTT',NULL),(6,'11010','CSMT TRAIN','PUNE','CSMT','DAILY'),(7,'99998','INACTIVE','IGP','LTT','DAILY')");
+    await conn.query("INSERT INTO div_train_stops(train_id,station_code,arrival_time,day_offset) VALUES (1,'IGP','02:10:00',1),(1,'LTT','04:35:00',1),(2,'LTT','12:45:00',0),(4,'DR','05:45:00',0),(4,'CSMT','06:20:00',0)");
+    await conn.query("INSERT INTO div_loco_link_log(working_date,train_no,actual_loco_no) VALUES ('2026-10-20','20104','T1'),('2026-10-20','12168','T2'),('2026-10-19','22184','T9')");
+    await conn.query("INSERT INTO div_loco_link_roster(id,link_no,ti_locations,active) VALUES (1,'1','GKP AND LTT',1),(2,'X','CSMT',1)");
+    await conn.query("INSERT INTO div_loco_link_roster_legs(roster_id,train_no,ti_after) VALUES (1,'20104',1),(1,'18519',0),(1,'77777',1),(2,'11010',1)");
+    await conn.query("INSERT INTO div_trip_loco_movements(shed_id,loco_number,purpose,received_at,loco_out_at,created_by) VALUES (1,'T1','TI','2026-10-20 01:00:00','2026-10-20 06:00:00',990001),(1,'T2','TI','2026-10-20 10:30:00',NULL,990001),(2,'T9','TI','2026-10-20 03:00:00',NULL,990001),(1,'T5','TI','2026-10-20 06:00:00','2026-10-20 11:00:00',990001)");
+    const tiTue = await call('GET','/ti-trains?date=2026-10-20',undefined,200); // Tuesday
+    assert.equal(tiTue.configured,true); assert.deepEqual(tiTue.counts,{expected:4,done:1,in_shed:1,awaited:2,listed:5});
+    assert.deepEqual(tiTue.rows.map(x=>[x.train_no,x.arrival_station,x.sched_arrival,x.loco_number,x.loco_source,x.status]),[['20104','LTT','04:35','T1','CONTROL_OFFICE','DONE'],['11006','DR','05:45',null,null,'AWAITED'],['12168','LTT','12:45','T2','CONTROL_OFFICE','IN_SHED'],['22184','LTT',null,null,null,'AWAITED']],'Tuesday trains ordered by WTT arrival at the arrival station; 15018 (Mon/Wed) and the inactive 99998 excluded');
+    assert.deepEqual(tiTue.roster_only.map(r=>r.train_no),['77777'],'roster TI leg missing from the shed list is reported; 18519 (no TI) and CSMT roster are not');
+    const tiThu = await call('GET','/ti-trains?date=2026-10-22',undefined,200); assert.deepEqual(tiThu.rows.map(x=>x.train_no),['20104','11006','22184'],'Thursday: 11006 runs per the link-master sheet days although the train master says Tuesday only');
+    const tiMon = await call('GET','/ti-trains?date=2026-10-19',undefined,200); assert.deepEqual(tiMon.rows.map(x=>x.train_no),['20104','15018','22184']); assert.equal(tiMon.rows[2].loco_number,'T9'); assert.equal(tiMon.rows[2].status,'AWAITED','a visit at another shed does not count');
+    await call('PUT','/ti-trains/11006/loco',{date:'2026-10-20',loco_number:'T5'},400,'trip_shed_operator'); // not 4-6 digits
+    await call('PUT','/ti-trains/11006/loco',{date:'2026-10-20',loco_number:'39001'},403,'ctlc_view');
+    await call('PUT','/ti-trains/55555/loco',{date:'2026-10-20',loco_number:'39001'},404,'trip_shed_operator');
+    await call('PUT','/ti-trains/11006/loco',{date:'2026-10-20',loco_number:'39001'},200,'trip_shed_operator');
+    await conn.query("INSERT INTO div_trip_loco_movements(shed_id,loco_number,purpose,received_at,loco_out_at,created_by) VALUES (1,'39001','TI','2026-10-20 06:30:00',NULL,990001)");
+    await call('PUT','/ti-trains/20104/loco',{date:'2026-10-20',loco_number:'39002'},200,'trip_shed_supervisor'); // shed override beats CO entry
+    const tiAfter = await call('GET','/ti-trains?date=2026-10-20',undefined,200);
+    assert.deepEqual(tiAfter.rows.map(x=>[x.train_no,x.loco_number,x.loco_source,x.status]),[['20104','39002','SHED','AWAITED'],['11006','39001','SHED','IN_SHED'],['12168','T2','CONTROL_OFFICE','IN_SHED'],['22184',null,null,'AWAITED']]);
+    await call('PUT','/ti-trains/20104/loco',{date:'2026-10-20',loco_number:''},200,'trip_shed_operator'); // empty clears the override
+    assert.equal((await call('GET','/ti-trains?date=2026-10-20',undefined,200)).rows[0].loco_number,'T1');
+    const tiCsmt = await call('GET','/ti-trains?date=2026-10-20&shed_code=CSMT',undefined,200,'division_admin'); assert.deepEqual(tiCsmt.rows.map(x=>x.train_no),['11010']); assert.deepEqual(tiCsmt.roster_only,[]);
+    await call('GET','/ti-trains?date=2026-10-20&shed_code=CSMT',undefined,403,'trip_shed_operator');
+    assert.equal((await call('GET','/ti-trains?date=2026-10-20&shed_code=OTHER',undefined,200,'division_admin')).configured,false,'shed without a list is not configured');
+    assert.equal((await call('GET','/ti-trains?date=2026-10-20',undefined,200,'ctlc_view')).counts.expected,4,'readers may view the TI tile');
     console.log(`PASS: ${passed} HTTP checks; rollback and final-record snapshots unchanged. All writes used temporary tables.`);
     if (process.argv.includes('--serve')) {
       console.log('Isolated browser fixture: http://127.0.0.1:3001/test/division_admin (also trip_shed_operator, trip_shed_supervisor, ctlc_view). Ctrl-C drops temporary data.');
