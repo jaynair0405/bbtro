@@ -13,7 +13,8 @@
       "2026-10-21: 5th/6th-line routes (NGSM family) now DIVA,PSK,TNA — TAPG line leaves at PSK; BY,SNRD,WB everywhere; SIN renamed SION",
       "2026-10-21: JNPN_UDNN is the DFC line only (JNPN, NIJN ... UDNN); the IR connections at JNPN and UDNN are not modelled so DFC and IR coverage never mix",
       "2026-10-21: AFAS added between UBRN and PADN on JNPN_UDNN (CTR km: JNPN-UBRN 180, JNPN-AFAS 190, JNPN-PADN 221); AFAS IR connection not modelled",
-      "2026-10-21: TKW/NNCN fork removed — the ghat KJT-LNL is one path via TKW for LRD (lobby: PNVL and KYN crews differ only up to KJT, the ghat is the same for both); NNCN variants of BVT_BSR/BVT_CSMT/BVT_TMBY deleted, TKW twins keep the plain ids"
+      "2026-10-21: TKW/NNCN fork removed — the ghat KJT-LNL is one path via TKW for LRD (lobby: PNVL and KYN crews differ only up to KJT, the ghat is the same for both); NNCN variants of BVT_BSR/BVT_CSMT/BVT_TMBY deleted, TKW twins keep the plain ids",
+      "2026-10-22: via-PNVL routes from the ghat side (BVT_BSR__PNVL, BVT_KYN__PNVL, BVT_DIVA__PNVL: LNL..KJT,CHOK,MHPE,PNVL then the PNVL onward stations). PNVL crews reach BSR/KYN/DIVA via PNVL, KYN crews via the main line (BVT_BSR etc.); the resolver picks by CTR route name (PNVL vs KYN named), else by crew office. Alias PYJE -> MHPE (Mohope renamed; CTR still writes MHPE)."
     ]
   },
   "aliases": {
@@ -21,7 +22,8 @@
     "NSPT": "JNPT",
     "NSCIT": "JNPT",
     "DRT": "BPCL",
-    "HSD": "BPCL"
+    "HSD": "BPCL",
+    "PYJE": "MHPE"
   },
   "forks": {},
   "office_exclusions": {
@@ -1111,6 +1113,88 @@
         "TAPG"
       ],
       "station_count": 9
+    },
+    {
+      "route_id": "BVT_BSR__PNVL",
+      "from": "BVT",
+      "to": "BSR",
+      "variant": "PNVL",
+      "stations": [
+        "BVT",
+        "LNL",
+        "KAD",
+        "MHLC",
+        "TKW",
+        "JBC",
+        "PDI",
+        "KJT",
+        "CHOK",
+        "MHPE",
+        "PNVL",
+        "KLMG",
+        "TPND",
+        "NIIJ",
+        "DTVL",
+        "DTCC",
+        "KOPR",
+        "BIRD",
+        "KHBV",
+        "KARD",
+        "BSR"
+      ],
+      "station_count": 21
+    },
+    {
+      "route_id": "BVT_KYN__PNVL",
+      "from": "BVT",
+      "to": "KYN",
+      "variant": "PNVL",
+      "stations": [
+        "BVT",
+        "LNL",
+        "KAD",
+        "MHLC",
+        "TKW",
+        "JBC",
+        "PDI",
+        "KJT",
+        "CHOK",
+        "MHPE",
+        "PNVL",
+        "KLMG",
+        "TPND",
+        "NIIJ",
+        "DTVL",
+        "DTCC",
+        "DI",
+        "KYN"
+      ],
+      "station_count": 18
+    },
+    {
+      "route_id": "BVT_DIVA__PNVL",
+      "from": "BVT",
+      "to": "DIVA",
+      "variant": "PNVL",
+      "stations": [
+        "BVT",
+        "LNL",
+        "KAD",
+        "MHLC",
+        "TKW",
+        "JBC",
+        "PDI",
+        "KJT",
+        "CHOK",
+        "MHPE",
+        "PNVL",
+        "KLMG",
+        "TPND",
+        "NIIJ",
+        "DTVL",
+        "DIVA"
+      ],
+      "station_count": 16
     }
   ]
 }
