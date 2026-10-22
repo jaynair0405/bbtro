@@ -258,7 +258,7 @@ The 31 August 2026 records were a smoke test of the draft→final and defect flo
 
 `sql/2026-08-31_trip_shed_vvh.sql` no longer restates the `users.div_role` ENUM; it appends the two Trip Shed roles to whatever list is live, so it cannot drop roles added since (`jrcc`, `chiefos`).
 
-Prod (checked 16 October 2026): no `div_trip%` tables, code at origin/master, both Trip Shed roles already present in the enum. Deploy order when the module ships: merge `feature/trip-shed`, run the eighteen `sql/*trip_shed*` files in date and step order (see section 14), `pm2 restart bbtro`, then set real passwords on the eight shed accounts (see section 15). The staff workbook `VVH STAFF COMPLETE DETAILS.xlsx` is intentionally not in git; its rows are carried by step 11.
+Prod (checked 16 October 2026): no `div_trip%` tables, code at origin/master, both Trip Shed roles already present in the enum. Deploy order when the module ships: merge `feature/trip-shed`, run the nineteen `sql/*trip_shed*` files in date and step order (see section 14), `pm2 restart bbtro`, then set real passwords on the eight shed accounts (see section 15). The staff workbook `VVH STAFF COMPLETE DETAILS.xlsx` is intentionally not in git; its rows are carried by step 11.
 
 Template-id trap, fixed 21 October 2026: the step 3 and step 4 files (`sql/2026-09-18_trip_shed_vvh_step3_display_cleanup.sql`, `..._step4_source_rows_brake_tables.sql`) addressed the two TI source templates by the hard-coded ids 346 and 347 of the September database. After the MySQL rebuild the same templates are ids 7 and 8 locally, and on prod they will be whatever AUTO_INCREMENT gives, so both files updated zero rows. They now resolve the id by `inspection_type` + `version_no` like step 2 does, and were applied locally (11 reference rows, brake table rendering verified on the form). No other trip-shed SQL file hard-codes an environment id. Rule: never key a trip-shed SQL file on a template, shed or user id.
 
@@ -275,7 +275,7 @@ SLAM is the railway's central application; its "Trip Shed Loco Movement" report 
 - **Tests**: 18 checks in `tests/trip-shed-inspections.integration.js`, including the real 24-row export kept as `tests/fixtures/slam_loco_movement_2026-09-21_23.csv`.
 - **First real import** on the local database: batch #1, 24 visits for VVH, 21–22 September 2026, approved 17 October 2026.
 
-Deploy note: the SQL list for prod is now eighteen `sql/*trip_shed*` files, in date and step order.
+Deploy note: the SQL list for prod is now nineteen `sql/*trip_shed*` files, in date and step order.
 
 ## 15. Shed accounts (20 October 2026, TS-039)
 
@@ -309,5 +309,9 @@ Dashboard card + metric on `/div/trip-shed.html`, API `GET /ti-trains?date=` and
 - **Loco**: the Control Office daily sheet entry for that train and date; when blank the shed fills it (`div_trip_ti_train_locos`, writers only, 4 to 6 digits, empty clears, shown as "(shed)"). Trip Shed never writes Control Office tables.
 - **Status is what actually happened** (user, 22 October): the list is the expectation; the chip shows the SLAM visit for that loco on that date with its purpose ("GC done", "In shed · TI"), "Awaited" today, "No visit" on past dates. On 22 September 2026 the 12 listed trains produced 4 GC visits and 8 no-visits, while the 6 TI visits that day came off trains mostly not on the list (22311, 16352, 12224, 12102, 22512 + one unknown). 22512 resolved (user, 23 October): it arrives LTT Monday 21:30 and the LPC logged it on Monday 21 September; running late it reached the shed at 08:10 Tuesday. The status lookup therefore covers visits from the arrival date through the next day, earliest first.
 - Tests: `tests/trip-shed-inspections.integration.js` TS-040 block (temporary tables for the list, fill-in, train master, WTT halts, link master, CO sheet and roster), 112 checks in all.
-- Prod deploy needs nothing beyond the eighteen SQL files; the card works without the link-maintenance roster tables.
+- Prod deploy needs nothing beyond the nineteen SQL files; the card works without the link-maintenance roster tables.
+
+## 18. Shed in-charge account and direct landing (23 October 2026, TS-041)
+
+`ssevvhts` (SSE VVH Trip Shed, `trip_shed_supervisor`, mapped to VVH, `sql/2026-10-23_trip_shed_ssevvhts.sql`) is the shed in-charge login with read/write on every shed page; its password was set by the user and is kept (the file holds only the hash). Login for `trip_shed_operator` and `trip_shed_supervisor` now redirects to `/div/trip-shed.html` (`routes/authRoutes.js`), so shed staff never see the division dashboard; division admins and readers still open the module by URL until a menu link exists. First prod deploy of the module planned the same day for VVH.
 
