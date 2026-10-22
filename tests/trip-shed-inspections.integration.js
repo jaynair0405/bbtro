@@ -218,6 +218,12 @@ require('dotenv').config({ quiet: true });
     assert.deepEqual(tiAfter.rows.map(x=>[x.train_no,x.loco_number,x.loco_source,x.status]),[['20104','39002','SHED','AWAITED'],['11006','39001','SHED','IN_SHED'],['12168','T2','CONTROL_OFFICE','IN_SHED'],['22184',null,null,'AWAITED']]);
     await call('PUT','/ti-trains/20104/loco',{date:'2026-10-20',loco_number:''},200,'trip_shed_operator'); // empty clears the override
     assert.equal((await call('GET','/ti-trains?date=2026-10-20',undefined,200)).rows[0].loco_number,'T1');
+    await call('PUT','/ti-trains/22184/loco',{date:'2026-10-20',loco_number:'39003'},200,'trip_shed_operator');
+    await conn.query("INSERT INTO div_trip_loco_movements(shed_id,loco_number,purpose,received_at,loco_out_at,created_by) VALUES (1,'39003','TI','2026-10-21 02:00:00','2026-10-21 07:00:00',990001),(1,'39003','GC','2026-10-22 02:00:00',NULL,990001)");
+    const tiOvernight = await call('GET','/ti-trains?date=2026-10-20',undefined,200); const ov = tiOvernight.rows.find(x=>x.train_no==='22184');
+    assert.deepEqual([ov.loco_number,ov.status,ov.visit_purpose,ov.received_at],['39003','DONE','TI','2026-10-21 02:00'],'a visit on the morning after the arrival date counts; the one two days later does not');
+    assert.equal((await call('GET','/ti-trains?date=2026-10-19',undefined,200)).rows.find(x=>x.train_no==='22184').status,'AWAITED','the Tuesday-night visit is not pulled back onto Monday (T9 has no visit in Mon..Tue)');
+    await call('PUT','/ti-trains/22184/loco',{date:'2026-10-20',loco_number:''},200,'trip_shed_operator');
     const tiCsmt = await call('GET','/ti-trains?date=2026-10-20&shed_code=CSMT',undefined,200,'division_admin'); assert.deepEqual(tiCsmt.rows.map(x=>x.train_no),['11010']); assert.deepEqual(tiCsmt.roster_only,[]);
     await call('GET','/ti-trains?date=2026-10-20&shed_code=CSMT',undefined,403,'trip_shed_operator');
     assert.equal((await call('GET','/ti-trains?date=2026-10-20&shed_code=OTHER',undefined,200,'division_admin')).configured,false,'shed without a list is not configured');
