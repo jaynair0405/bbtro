@@ -996,23 +996,24 @@
 
                         <!-- KYN to KJT Route (East) -->
                         <g id="route-kyn-kjt" class="route-group">
-                            <path id="seg-kyn-vldi-dn" d="M462 185 L500 210" stroke="#4a5568" stroke-width="3" fill="none"/>
-                            <path id="seg-vldi-ulnr-dn" d="M500 210 L540 235" stroke="#4a5568" stroke-width="3" fill="none"/>
-                            <path id="seg-ulnr-abh-dn" d="M540 235 L570 265" stroke="#4a5568" stroke-width="3" fill="none"/>
-                            <path id="seg-abh-bud-dn" d="M570 265 L590 300" stroke="#4a5568" stroke-width="3" fill="none"/>
-                            <path id="seg-bud-vgi-dn" d="M590 300 L600 340" stroke="#4a5568" stroke-width="3" fill="none"/>
-                            <path id="seg-vgi-nrl-dn" d="M600 340 L600 380" stroke="#4a5568" stroke-width="3" fill="none"/>
-                            <path id="seg-nrl-bvs-dn" d="M600 380 L590 420" stroke="#4a5568" stroke-width="3" fill="none"/>
-                            <path id="seg-bvs-kjt-dn" d="M590 420 L570 450" stroke="#4a5568" stroke-width="3" fill="none"/>
+                            <!-- KYN-KJT pair: DN on the outer (right-hand) line going down from KYN, trains keep left (lobby, 2026-10-23) -->
+                            <path id="seg-kyn-vldi-dn" d="M468 185 L506 210" stroke="#4a5568" stroke-width="3" fill="none"/>
+                            <path id="seg-vldi-ulnr-dn" d="M506 210 L546 235" stroke="#4a5568" stroke-width="3" fill="none"/>
+                            <path id="seg-ulnr-abh-dn" d="M546 235 L576 265" stroke="#4a5568" stroke-width="3" fill="none"/>
+                            <path id="seg-abh-bud-dn" d="M576 265 L596 300" stroke="#4a5568" stroke-width="3" fill="none"/>
+                            <path id="seg-bud-vgi-dn" d="M596 300 L606 340" stroke="#4a5568" stroke-width="3" fill="none"/>
+                            <path id="seg-vgi-nrl-dn" d="M606 340 L606 380" stroke="#4a5568" stroke-width="3" fill="none"/>
+                            <path id="seg-nrl-bvs-dn" d="M606 380 L596 420" stroke="#4a5568" stroke-width="3" fill="none"/>
+                            <path id="seg-bvs-kjt-dn" d="M596 420 L576 450" stroke="#4a5568" stroke-width="3" fill="none"/>
                             <!-- DN direction -->
-                            <path id="seg-kjt-bvs-up" d="M576 450 L596 420" stroke="#4a5568" stroke-width="3" fill="none"/>
-                            <path id="seg-bvs-nrl-up" d="M596 420 L606 380" stroke="#4a5568" stroke-width="3" fill="none"/>
-                            <path id="seg-nrl-vgi-up" d="M606 380 L606 340" stroke="#4a5568" stroke-width="3" fill="none"/>
-                            <path id="seg-vgi-bud-up" d="M606 340 L596 300" stroke="#4a5568" stroke-width="3" fill="none"/>
-                            <path id="seg-bud-abh-up" d="M596 300 L576 265" stroke="#4a5568" stroke-width="3" fill="none"/>
-                            <path id="seg-abh-ulnr-up" d="M576 265 L546 235" stroke="#4a5568" stroke-width="3" fill="none"/>
-                            <path id="seg-ulnr-vldi-up" d="M546 235 L506 210" stroke="#4a5568" stroke-width="3" fill="none"/>
-                            <path id="seg-vldi-kyn-up" d="M506 210 L468 185" stroke="#4a5568" stroke-width="3" fill="none"/>
+                            <path id="seg-kjt-bvs-up" d="M570 450 L590 420" stroke="#4a5568" stroke-width="3" fill="none"/>
+                            <path id="seg-bvs-nrl-up" d="M590 420 L600 380" stroke="#4a5568" stroke-width="3" fill="none"/>
+                            <path id="seg-nrl-vgi-up" d="M600 380 L600 340" stroke="#4a5568" stroke-width="3" fill="none"/>
+                            <path id="seg-vgi-bud-up" d="M600 340 L590 300" stroke="#4a5568" stroke-width="3" fill="none"/>
+                            <path id="seg-bud-abh-up" d="M590 300 L570 265" stroke="#4a5568" stroke-width="3" fill="none"/>
+                            <path id="seg-abh-ulnr-up" d="M570 265 L540 235" stroke="#4a5568" stroke-width="3" fill="none"/>
+                            <path id="seg-ulnr-vldi-up" d="M540 235 L500 210" stroke="#4a5568" stroke-width="3" fill="none"/>
+                            <path id="seg-vldi-kyn-up" d="M500 210 L462 185" stroke="#4a5568" stroke-width="3" fill="none"/>
                             <text x="500" y="225" font-size="7" fill="#a9b4d0">VLDI</text>
                             <text x="545" y="248" font-size="7" fill="#a9b4d0">ULNR</text>
                             <text x="575" y="278" font-size="7" fill="#a9b4d0">ABH</text>
@@ -1036,9 +1037,11 @@
 
                         <!-- PNVL to KJT/LNL (Ghat; BVT yard is reported as LNL in CTR) -->
                         <g id="route-pnvl-bvt" class="route-group">
-                            <path id="seg-pnvl-mhpe-dn" d="M412 450 L450 455" stroke="#4a5568" stroke-width="3" fill="none"/>
-                            <path id="seg-mhpe-chok-dn" d="M450 455 L500 458" stroke="#4a5568" stroke-width="3" fill="none"/>
-                            <path id="seg-chok-kjt-dn" d="M500 458 L560 460" stroke="#4a5568" stroke-width="3" fill="none"/>
+                            <!-- PNVL-KJT is a single line: the two directions are drawn as touching 3px stripes 1.5px either side
+                                 of the centre so they read as one 6px line, split lengthwise when their status differs (lobby, 2026-10-23) -->
+                            <path id="seg-pnvl-mhpe-dn" d="M412 451.5 L450 456.5" stroke="#4a5568" stroke-width="3" fill="none"/>
+                            <path id="seg-mhpe-chok-dn" d="M450 456.5 L500 459.5" stroke="#4a5568" stroke-width="3" fill="none"/>
+                            <path id="seg-chok-kjt-dn" d="M500 459.5 L560 461.5" stroke="#4a5568" stroke-width="3" fill="none"/>
                             <!-- DN direction (north/upper side) KJT to LNL -->
                             <path id="seg-kjt-pdi-dn" d="M580 457 L620 467" stroke="#4a5568" stroke-width="3" fill="none"/>
                             <path id="seg-pdi-jbc-dn" d="M620 467 L660 482" stroke="#4a5568" stroke-width="3" fill="none"/>
@@ -1053,9 +1056,9 @@
                             <path id="seg-tkw-jbc-up" d="M706 509 L666 494" stroke="#4a5568" stroke-width="3" fill="none"/>
                             <path id="seg-jbc-pdi-up" d="M666 494 L626 479" stroke="#4a5568" stroke-width="3" fill="none"/>
                             <path id="seg-pdi-kjt-up" d="M626 479 L580 463" stroke="#4a5568" stroke-width="3" fill="none"/>
-                            <path id="seg-kjt-chok-up" d="M560 466 L500 464" stroke="#4a5568" stroke-width="3" fill="none"/>
-                            <path id="seg-chok-mhpe-up" d="M500 464 L450 461" stroke="#4a5568" stroke-width="3" fill="none"/>
-                            <path id="seg-mhpe-pnvl-up" d="M450 461 L412 456" stroke="#4a5568" stroke-width="3" fill="none"/>
+                            <path id="seg-kjt-chok-up" d="M560 464.5 L500 462.5" stroke="#4a5568" stroke-width="3" fill="none"/>
+                            <path id="seg-chok-mhpe-up" d="M500 462.5 L450 459.5" stroke="#4a5568" stroke-width="3" fill="none"/>
+                            <path id="seg-mhpe-pnvl-up" d="M450 459.5 L412 454.5" stroke="#4a5568" stroke-width="3" fill="none"/>
                             <text x="450" y="448" font-size="7" fill="#a9b4d0">MHPE</text>
                             <text x="500" y="450" font-size="7" fill="#a9b4d0">CHOK</text>
                             <text x="620" y="463" font-size="7" fill="#a9b4d0">PDI</text>
@@ -1160,7 +1163,7 @@
                             <path id="seg-niij-dtvl-up" d="M407 378 L405 360" stroke="#4a5568" stroke-width="3" fill="none"/>
                             <path id="seg-dtvl-dtcc-up" d="M405 360 L400 280" stroke="#4a5568" stroke-width="3" fill="none"/>
                             <path id="seg-dtcc-di-up" d="M400 280 L370 226" stroke="#4a5568" stroke-width="3" fill="none"/>
-                            <path id="seg-dtcc-dtvl-dn" d="M406 268 L411 360" stroke="#4a5568" stroke-width="3" fill="none"/>
+                            <path id="seg-dtcc-dtvl-dn" d="M406 280 L411 360" stroke="#4a5568" stroke-width="3" fill="none"/>
                             <path id="seg-di-dtcc-dn" d="M382 226 L406 280" stroke="#4a5568" stroke-width="3" fill="none"/>
                             <path id="seg-dtvl-niij-dn" d="M411 360 L413 373" stroke="#4a5568" stroke-width="3" fill="none"/>
                             <path id="seg-niij-tpnd-dn" d="M413 373 L411 397" stroke="#4a5568" stroke-width="3" fill="none"/>
@@ -1178,15 +1181,15 @@
                         <!-- DTCC to KOPR (for PNVL-BSR chordline) -->
                         <g id="route-dtcc-kopr" class="route-group">
                             <path id="seg-dtcc-kopr-up" d="M400 280 L326 230" stroke="#4a5568" stroke-width="3" fill="none"/>
-                            <path id="seg-kopr-dtcc-dn" d="M318 206 L406 268" stroke="#4a5568" stroke-width="3" fill="none"/>
+                            <path id="seg-kopr-dtcc-dn" d="M318 206 L406 280" stroke="#4a5568" stroke-width="3" fill="none"/>
                             <text x="310" y="195" font-size="8" fill="#a9b4d0">KOPR</text>
                         </g>
 
                         <!-- DIVA connections (circle rendered later for z-order) -->
                         <g id="diva-connections">
-                            <!-- DIVA to DTCC connection (touches dtvl-dtcc line) -->
-                            <path id="seg-diva-dtcc-dn" d="M256 306 Q330 320 402 300" stroke="#4a5568" stroke-width="3" fill="none"/>
-                            <path id="seg-dtcc-diva-up" d="M408 306 Q330 326 256 312" stroke="#4a5568" stroke-width="3" fill="none"/>
+                            <!-- DIVA to DTCC connection, ending on the DTCC node of each chord track (2026-10-23) -->
+                            <path id="seg-diva-dtcc-dn" d="M256 306 Q330 318 400 280" stroke="#4a5568" stroke-width="3" fill="none"/>
+                            <path id="seg-dtcc-diva-up" d="M406 280 Q330 324 256 312" stroke="#4a5568" stroke-width="3" fill="none"/>
                             <!-- DIVA to DTVL connection. Same convention as DIVA-DTCC above: DN (DIVA -> DTVL)
                                  on top, UP (DTVL -> DIVA) below; each joins its own track on the chord at DTVL
                                  (lobby, 2026-10-23: the pair was drawn the other way round and the UP end missed DIVA). -->
@@ -1204,10 +1207,10 @@
                             <path id="seg-di-diva-up" d="M385 228 L256 306" stroke="#4a5568" stroke-width="3" fill="none"/>
                             <path id="seg-diva-di-dn" d="M256 300 L370 226" stroke="#4a5568" stroke-width="3" fill="none"/>
                             <!-- KYN - DI - DIVA, 5th/6th pair -->
-                            <path id="seg-kyn-di-up-l56" d="M449 197 L388.9 243.7" data-base="#38bdf8" stroke-dasharray="5 3" stroke="#38bdf8" stroke-width="3" fill="none"/>
-                            <path id="seg-di-kyn-dn-l56" d="M385.7 238.7 L444 195" data-base="#38bdf8" stroke-dasharray="5 3" stroke="#38bdf8" stroke-width="3" fill="none"/>
-                            <path id="seg-di-diva-up-l56" d="M388.3 244.1 L260.3 321.1" data-base="#38bdf8" stroke-dasharray="5 3" stroke="#38bdf8" stroke-width="3" fill="none"/>
-                            <path id="seg-diva-di-dn-l56" d="M257.2 316 L385.2 239" data-base="#38bdf8" stroke-dasharray="5 3" stroke="#38bdf8" stroke-width="3" fill="none"/>
+                            <path id="seg-kyn-di-up-l56" d="M449 197 L388.9 243.7" data-base="#94a3b8" stroke-dasharray="5 3" stroke="#94a3b8" stroke-width="3" fill="none"/>
+                            <path id="seg-di-kyn-dn-l56" d="M385.7 238.7 L444 195" data-base="#94a3b8" stroke-dasharray="5 3" stroke="#94a3b8" stroke-width="3" fill="none"/>
+                            <path id="seg-di-diva-up-l56" d="M388.3 244.1 L260.3 321.1" data-base="#94a3b8" stroke-dasharray="5 3" stroke="#94a3b8" stroke-width="3" fill="none"/>
+                            <path id="seg-diva-di-dn-l56" d="M257.2 316 L385.2 239" data-base="#94a3b8" stroke-dasharray="5 3" stroke="#94a3b8" stroke-width="3" fill="none"/>
                             <!-- through lines DIVA .. CSMT -->
                             <path id="seg-diva-mbq-up" d="M253.9 308.5 L238.6 321.8" stroke="#4a5568" stroke-width="3" fill="none"/>
                             <path id="seg-mbq-klva-up" d="M238.6 321.8 L223.3 335.1" stroke="#4a5568" stroke-width="3" fill="none"/>
@@ -1244,29 +1247,29 @@
                             <path id="seg-klva-mbq-dn" d="M219.4 330.5 L234.7 317.3" stroke="#4a5568" stroke-width="3" fill="none"/>
                             <path id="seg-mbq-diva-dn" d="M234.7 317.3 L250 304" stroke="#4a5568" stroke-width="3" fill="none"/>
                             <!-- 5th/6th lines DIVA - PSK - TNA - MLND (NGSM stub) - BND .. VVH, merging before CLA -->
-                            <path id="seg-diva-psk-up" d="M263.8 319.9 Q258.8 337.4 247.3 347.3" data-base="#38bdf8" stroke-dasharray="5 3" stroke="#38bdf8" stroke-width="3" fill="none"/>
-                            <path id="seg-psk-tna-up" d="M247.3 347.3 Q235.9 357.3 217.8 359.7" data-base="#38bdf8" stroke-dasharray="5 3" stroke="#38bdf8" stroke-width="3" fill="none"/>
-                            <path id="seg-tna-psk-dn" d="M213.9 355.1 Q231.9 352.7 243.4 342.8" data-base="#38bdf8" stroke-dasharray="5 3" stroke="#38bdf8" stroke-width="3" fill="none"/>
-                            <path id="seg-psk-diva-dn" d="M243.4 342.8 Q254.9 332.8 259.8 315.3" data-base="#38bdf8" stroke-dasharray="5 3" stroke="#38bdf8" stroke-width="3" fill="none"/>
-                            <path id="seg-tna-mlnd-up-l56" d="M217.8 359.7 L202.5 372.9" data-base="#38bdf8" stroke-dasharray="5 3" stroke="#38bdf8" stroke-width="3" fill="none"/>
-                            <path id="seg-mlnd-bnd-up-l56" d="M202.5 372.9 L187.2 386.2" data-base="#38bdf8" stroke-dasharray="5 3" stroke="#38bdf8" stroke-width="3" fill="none"/>
-                            <path id="seg-bnd-vk-up-l56" d="M187.2 386.2 L171.9 399.5" data-base="#38bdf8" stroke-dasharray="5 3" stroke="#38bdf8" stroke-width="3" fill="none"/>
-                            <path id="seg-vk-gc-up-l56" d="M171.9 399.5 L156.6 412.7" data-base="#38bdf8" stroke-dasharray="5 3" stroke="#38bdf8" stroke-width="3" fill="none"/>
-                            <path id="seg-gc-vvh-up-l56" d="M156.6 412.7 L141.3 426" data-base="#38bdf8" stroke-dasharray="5 3" stroke="#38bdf8" stroke-width="3" fill="none"/>
-                            <path id="seg-vvh-gc-dn-l56" d="M137.4 421.5 L152.7 408.2" data-base="#38bdf8" stroke-dasharray="5 3" stroke="#38bdf8" stroke-width="3" fill="none"/>
-                            <path id="seg-gc-vk-dn-l56" d="M152.7 408.2 L168 394.9" data-base="#38bdf8" stroke-dasharray="5 3" stroke="#38bdf8" stroke-width="3" fill="none"/>
-                            <path id="seg-vk-bnd-dn-l56" d="M168 394.9 L183.3 381.7" data-base="#38bdf8" stroke-dasharray="5 3" stroke="#38bdf8" stroke-width="3" fill="none"/>
-                            <path id="seg-bnd-mlnd-dn-l56" d="M183.3 381.7 L198.6 368.4" data-base="#38bdf8" stroke-dasharray="5 3" stroke="#38bdf8" stroke-width="3" fill="none"/>
-                            <path id="seg-mlnd-tna-dn-l56" d="M198.6 368.4 L213.9 355.1" data-base="#38bdf8" stroke-dasharray="5 3" stroke="#38bdf8" stroke-width="3" fill="none"/>
-                            <path id="seg-vvh-cla-up-l56" d="M141.3 426 L116.3 427.8" data-base="#38bdf8" stroke="#38bdf8" stroke-width="3" fill="none"/>
-                            <path id="seg-cla-vvh-dn-l56" d="M112.4 423.3 L137.4 421.5" data-base="#38bdf8" stroke="#38bdf8" stroke-width="3" fill="none"/>
-                            <path id="seg-mlnd-ngsm-up" d="M197.9 376.9 L201.7 388.9" data-base="#38bdf8" stroke-dasharray="5 3" stroke="#38bdf8" stroke-width="3" fill="none"/>
-                            <path id="seg-ngsm-bnd-up" d="M201.7 388.9 L191.8 382.2" data-base="#38bdf8" stroke-dasharray="5 3" stroke="#38bdf8" stroke-width="3" fill="none"/>
-                            <path id="seg-bnd-ngsm-dn" d="M187.9 377.7 L207.7 392.9" data-base="#38bdf8" stroke-dasharray="5 3" stroke="#38bdf8" stroke-width="3" fill="none"/>
-                            <path id="seg-ngsm-mlnd-dn" d="M207.7 392.9 L194 372.4" data-base="#38bdf8" stroke-dasharray="5 3" stroke="#38bdf8" stroke-width="3" fill="none"/>
+                            <path id="seg-diva-psk-up" d="M263.8 319.9 Q258.8 337.4 247.3 347.3" data-base="#94a3b8" stroke-dasharray="5 3" stroke="#94a3b8" stroke-width="3" fill="none"/>
+                            <path id="seg-psk-tna-up" d="M247.3 347.3 Q235.9 357.3 217.8 359.7" data-base="#94a3b8" stroke-dasharray="5 3" stroke="#94a3b8" stroke-width="3" fill="none"/>
+                            <path id="seg-tna-psk-dn" d="M213.9 355.1 Q231.9 352.7 243.4 342.8" data-base="#94a3b8" stroke-dasharray="5 3" stroke="#94a3b8" stroke-width="3" fill="none"/>
+                            <path id="seg-psk-diva-dn" d="M243.4 342.8 Q254.9 332.8 259.8 315.3" data-base="#94a3b8" stroke-dasharray="5 3" stroke="#94a3b8" stroke-width="3" fill="none"/>
+                            <path id="seg-tna-mlnd-up-l56" d="M217.8 359.7 L202.5 372.9" data-base="#94a3b8" stroke-dasharray="5 3" stroke="#94a3b8" stroke-width="3" fill="none"/>
+                            <path id="seg-mlnd-bnd-up-l56" d="M202.5 372.9 L187.2 386.2" data-base="#94a3b8" stroke-dasharray="5 3" stroke="#94a3b8" stroke-width="3" fill="none"/>
+                            <path id="seg-bnd-vk-up-l56" d="M187.2 386.2 L171.9 399.5" data-base="#94a3b8" stroke-dasharray="5 3" stroke="#94a3b8" stroke-width="3" fill="none"/>
+                            <path id="seg-vk-gc-up-l56" d="M171.9 399.5 L156.6 412.7" data-base="#94a3b8" stroke-dasharray="5 3" stroke="#94a3b8" stroke-width="3" fill="none"/>
+                            <path id="seg-gc-vvh-up-l56" d="M156.6 412.7 L141.3 426" data-base="#94a3b8" stroke-dasharray="5 3" stroke="#94a3b8" stroke-width="3" fill="none"/>
+                            <path id="seg-vvh-gc-dn-l56" d="M137.4 421.5 L152.7 408.2" data-base="#94a3b8" stroke-dasharray="5 3" stroke="#94a3b8" stroke-width="3" fill="none"/>
+                            <path id="seg-gc-vk-dn-l56" d="M152.7 408.2 L168 394.9" data-base="#94a3b8" stroke-dasharray="5 3" stroke="#94a3b8" stroke-width="3" fill="none"/>
+                            <path id="seg-vk-bnd-dn-l56" d="M168 394.9 L183.3 381.7" data-base="#94a3b8" stroke-dasharray="5 3" stroke="#94a3b8" stroke-width="3" fill="none"/>
+                            <path id="seg-bnd-mlnd-dn-l56" d="M183.3 381.7 L198.6 368.4" data-base="#94a3b8" stroke-dasharray="5 3" stroke="#94a3b8" stroke-width="3" fill="none"/>
+                            <path id="seg-mlnd-tna-dn-l56" d="M198.6 368.4 L213.9 355.1" data-base="#94a3b8" stroke-dasharray="5 3" stroke="#94a3b8" stroke-width="3" fill="none"/>
+                            <path id="seg-vvh-cla-up-l56" d="M141.3 426 L116.3 427.8" data-base="#94a3b8" stroke="#94a3b8" stroke-width="3" fill="none"/>
+                            <path id="seg-cla-vvh-dn-l56" d="M112.4 423.3 L137.4 421.5" data-base="#94a3b8" stroke="#94a3b8" stroke-width="3" fill="none"/>
+                            <path id="seg-mlnd-ngsm-up" d="M197.9 376.9 L201.7 388.9" data-base="#94a3b8" stroke-dasharray="5 3" stroke="#94a3b8" stroke-width="3" fill="none"/>
+                            <path id="seg-ngsm-bnd-up" d="M201.7 388.9 L191.8 382.2" data-base="#94a3b8" stroke-dasharray="5 3" stroke="#94a3b8" stroke-width="3" fill="none"/>
+                            <path id="seg-bnd-ngsm-dn" d="M187.9 377.7 L207.7 392.9" data-base="#94a3b8" stroke-dasharray="5 3" stroke="#94a3b8" stroke-width="3" fill="none"/>
+                            <path id="seg-ngsm-mlnd-dn" d="M207.7 392.9 L194 372.4" data-base="#94a3b8" stroke-dasharray="5 3" stroke="#94a3b8" stroke-width="3" fill="none"/>
                             <g id="branch-tapg">
-                                <path id="seg-psk-tapg-dn" d="M242.4 348.1 L272.4 382.1" data-base="#38bdf8" stroke-dasharray="5 3" stroke="#38bdf8" stroke-width="3" fill="none"/>
-                                <path id="seg-tapg-psk-up" d="M278.4 376.1 L248.4 342.1" data-base="#38bdf8" stroke-dasharray="5 3" stroke="#38bdf8" stroke-width="3" fill="none"/>
+                                <path id="seg-psk-tapg-dn" d="M242.4 348.1 L272.4 382.1" data-base="#94a3b8" stroke-dasharray="5 3" stroke="#94a3b8" stroke-width="3" fill="none"/>
+                                <path id="seg-tapg-psk-up" d="M278.4 376.1 L248.4 342.1" data-base="#94a3b8" stroke-dasharray="5 3" stroke="#94a3b8" stroke-width="3" fill="none"/>
                                 <circle cx="275.4" cy="379.1" r="5" fill="#f59e0b" stroke="#d97706" stroke-width="1"/>
                                 <text x="283.4" y="383.1" font-size="8" fill="#f59e0b">TAPG</text>
                             </g>

@@ -18,9 +18,9 @@ function unit(a, b) { const dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(d
 // normal pointing to the lower-right of a line running down-left
 function normal(a, b) { const [ux, uy] = unit(a, b); let n = [uy, -ux]; if (n[0] + n[1] < 0) n = [-n[0], -n[1]]; return n; }
 function off(p, n, k) { return [r1(p[0] + n[0] * k), r1(p[1] + n[1] * k)]; }
-const REVIEW = true; // 5th/6th lines: sky-blue dashed base look (lobby choice, 2026-10-21); status colours still apply
+const REVIEW = true; // 5th/6th lines: light slate dashed base look (lobby, 2026-10-23; sky blue clashed with green status lines); status colours still apply
 const is56 = (id) => id.endsWith("-l56") || /^seg-(diva-psk|psk-tna|tna-psk|psk-diva|mlnd-ngsm|ngsm-bnd|bnd-ngsm|ngsm-mlnd|psk-tapg|tapg-psk)-/.test(id);
-function attrs(id, solid) { return (REVIEW && is56(id)) ? ` data-base="#38bdf8"${solid ? "" : ' stroke-dasharray="5 3"'} stroke="#38bdf8"` : ' stroke="#4a5568"'; }
+function attrs(id, solid) { return (REVIEW && is56(id)) ? ` data-base="#94a3b8"${solid ? "" : ' stroke-dasharray="5 3"'} stroke="#94a3b8"` : ' stroke="#4a5568"'; }
 function line(id, a, b, solid) { return `<path id="${id}" d="M${a[0]} ${a[1]} L${b[0]} ${b[1]}"${attrs(id, solid)} stroke-width="3" fill="none"/>`; }
 function quad(id, a, c, b) { return `<path id="${id}" d="M${a[0]} ${a[1]} Q${c[0]} ${c[1]} ${b[0]} ${b[1]}"${attrs(id)} stroke-width="3" fill="none"/>`; }
 function text(x, y, s, size = 7, fill = "#a9b4d0", extra = "") { return `<text x="${r1(x)}" y="${r1(y)}" font-size="${size}" fill="${fill}"${extra}>${s}</text>`; }
