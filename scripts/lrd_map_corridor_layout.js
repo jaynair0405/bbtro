@@ -38,9 +38,10 @@ segB.forEach((s, i) => P[s] = lerp(CLA, CSMT, i / (segB.length - 1)));
 const nA = normal(DIVA, CLA), nB = normal(CLA, CSMT);
 const nOf = (s) => segB.includes(s) && s !== "CLA" ? nB : nA;
 
-// track offsets along the normal (lower-right): through up 0, through dn 6; 5th/6th pair the other way
-// round (lobby, 2026-10-22): dn (CLA -> KYN) on top at 15, up (KYN -> CLA) below at 21
-const K = { tu: 0, td: 6, fu: 21, fd: 15 };
+// track offsets along the normal (lower-right). Trains keep left, so looking from CSMT towards KYN
+// the DN line (CSMT -> KYN) is the upper-left one of each pair (lobby, 2026-10-23, matching the
+// hand-placed DIVA-DI pair): through dn 0, through up 6; 5th/6th dn 15, up 21.
+const K = { tu: 6, td: 0, fu: 21, fd: 15 };
 const pt = (s, k) => off(P[s], nOf(s), k);
 
 const out = [];
@@ -94,7 +95,8 @@ for (let i = straight.length - 1; i > 0; i--) {
   const a = straight[i], b = straight[i - 1];
   out.push(ind + line(`seg-${a.toLowerCase()}-${b.toLowerCase()}-dn-l56`, pt(a, fd), pt(b, fd)));
 }
-// merge into the through line between VVH and CLA: solid stubs, each ending on its own through track
+// merge into the through line between VVH and CLA: solid stubs, each joining its own direction
+// (dn 15 -> dn 0 above, up 21 -> up 6 below), so they do not cross each other (lobby, 2026-10-23)
 const join = lerp(P.VVH, P.CLA, 0.55);
 out.push(ind + line("seg-vvh-cla-up-l56", pt("VVH", fu), off(join, nA, K.tu), true));
 out.push(ind + line("seg-cla-vvh-dn-l56", off(join, nA, K.td), pt("VVH", fd), true));
@@ -132,24 +134,28 @@ out.push(ind + `<circle cx="${r1(CSMT[0] + 3)}" cy="${r1(CSMT[1] + 4)}" r="8" fi
 out.push(ind + text(CSMT[0] - 20, CSMT[1] + 22, "CSMT", 10, "#dc2626", ' font-weight="600"'));
 
 // branches LTT (from VVH), TMBY and VDLR (from CLA), hanging below the 5th/6th pair
-const VVHb = pt("VVH", Math.max(K.fu, K.fd) + 2), CLAb = pt("CLA", K.td + 2);
+const VVHb = pt("VVH", Math.max(K.fu, K.fd) + 2), CLAb = pt("CLA", Math.max(K.tu, K.td) + 2);
 out.push(ind + `<g id="branch-ltt">`);
-out.push(ind + "    " + line("seg-vvh-ltt-dn", [VVHb[0] - 3, VVHb[1]], [VVHb[0] - 3, VVHb[1] + 30]));
-out.push(ind + "    " + line("seg-ltt-vvh-up", [VVHb[0] + 3, VVHb[1] + 30], [VVHb[0] + 3, VVHb[1]]));
+// heading down the screen a train's left is the viewer's right, so VVH -> LTT is the right-hand
+// line of the pair (lobby, 2026-10-23)
+out.push(ind + "    " + line("seg-vvh-ltt-dn", [VVHb[0] + 3, VVHb[1]], [VVHb[0] + 3, VVHb[1] + 30]));
+out.push(ind + "    " + line("seg-ltt-vvh-up", [VVHb[0] - 3, VVHb[1] + 30], [VVHb[0] - 3, VVHb[1]]));
 out.push(ind + "    " + `<circle cx="${VVHb[0]}" cy="${r1(VVHb[1] + 35)}" r="5" fill="#f59e0b" stroke="#d97706" stroke-width="1"/>`);
 out.push(ind + "    " + text(VVHb[0] + 7, VVHb[1] + 40, "LTT", 8, "#f59e0b"));
 out.push(ind + `</g>`);
 out.push(ind + `<g id="branch-tmby">`);
 // TMBY starts at the CLA junction itself (same start as VDLR) and angles right
-out.push(ind + "    " + line("seg-cla-tmby-dn", [CLAb[0] - 3, CLAb[1] - 2], [CLAb[0] + 25, CLAb[1] + 40]));
-out.push(ind + "    " + line("seg-tmby-cla-up", [CLAb[0] + 32, CLAb[1] + 38], [CLAb[0] + 4, CLAb[1] - 4]));
+// down the screen a train's left is the viewer's right: CLA -> TMBY is the right-hand line (lobby, 2026-10-23)
+out.push(ind + "    " + line("seg-cla-tmby-dn", [CLAb[0] + 4, CLAb[1] - 4], [CLAb[0] + 32, CLAb[1] + 38]));
+out.push(ind + "    " + line("seg-tmby-cla-up", [CLAb[0] + 25, CLAb[1] + 40], [CLAb[0] - 3, CLAb[1] - 2]));
 out.push(ind + "    " + `<circle cx="${r1(CLAb[0] + 30)}" cy="${r1(CLAb[1] + 45)}" r="5" fill="#f59e0b" stroke="#d97706" stroke-width="1"/>`);
 out.push(ind + "    " + text(CLAb[0] + 38, CLAb[1] + 49, "TMBY", 8, "#f59e0b"));
 out.push(ind + `</g>`);
 out.push(ind + `<g id="branch-vdlr">`);
 // VDLR leaves CLA to the right (down-left would sit on the CSMT line)
-out.push(ind + "    " + line("seg-cla-vdlr-dn", [CLAb[0] - 3, CLAb[1]], [CLAb[0] - 3, CLAb[1] + 44]));
-out.push(ind + "    " + line("seg-vdlr-cla-up", [CLAb[0] + 3, CLAb[1] + 44], [CLAb[0] + 3, CLAb[1]]));
+// same rule: CLA -> VDLR on the right (lobby, 2026-10-23)
+out.push(ind + "    " + line("seg-cla-vdlr-dn", [CLAb[0] + 3, CLAb[1]], [CLAb[0] + 3, CLAb[1] + 44]));
+out.push(ind + "    " + line("seg-vdlr-cla-up", [CLAb[0] - 3, CLAb[1] + 44], [CLAb[0] - 3, CLAb[1]]));
 out.push(ind + "    " + `<circle cx="${CLAb[0]}" cy="${r1(CLAb[1] + 49)}" r="5" fill="#f59e0b" stroke="#d97706" stroke-width="1"/>`);
 out.push(ind + "    " + text(CLAb[0] + 7, CLAb[1] + 54, "VDLR", 8, "#f59e0b"));
 out.push(ind + `</g>`);
