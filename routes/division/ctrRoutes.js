@@ -127,12 +127,17 @@ function parseExcelDateTime(value, dateContext = null) {
 /**
  * Format date for MySQL
  */
+// The parser builds Dates from the file's own numbers as LOCAL time, so they are
+// written back from local components. toISOString converted to UTC first, which
+// is a no-op on the UTC prod server but put every time 5:30 early on an IST
+// machine (seen on LOCAL, 2026-10-23).
+const pad2 = (n) => String(n).padStart(2, '0');
 function formatMySQLDateTime(date) {
     if (!date) return null;
     if (!(date instanceof Date)) date = new Date(date);
     if (isNaN(date)) return null;
-    
-    return date.toISOString().slice(0, 19).replace('T', ' ');
+
+    return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())} ${pad2(date.getHours())}:${pad2(date.getMinutes())}:${pad2(date.getSeconds())}`;
 }
 
 /**
@@ -142,8 +147,8 @@ function formatMySQLDate(date) {
     if (!date) return null;
     if (!(date instanceof Date)) date = new Date(date);
     if (isNaN(date)) return null;
-    
-    return date.toISOString().slice(0, 10);
+
+    return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
 }
 
 /**
@@ -204,10 +209,13 @@ function extractAdjacentPairs(stations) {
  * @param {Object} pool - Database pool
  * @param {string} hrmsId - Staff HRMS ID
  * @param {string} matchedSectionsJson - JSON string of matched_sections
- * @param {Date|string} dutyDate - Date the leg was worked
+ * @param {Date|string} workDate - the day the leg was run (its departure date; the
+ *        duty date only when the leg has no departure). Coverage is dated from the
+ *        leg, not the duty header, because legs glued onto the wrong duty by the
+ *        old parser carry the right time of their own (lobby, 2026-10-23).
  * @param {number} dutyId - ID of the duty
  */
-async function updateSegmentCoverage(pool, hrmsId, matchedSectionsJson, dutyDate, dutyId) {
+async function updateSegmentCoverage(pool, hrmsId, matchedSectionsJson, workDate, dutyId) {
     if (!hrmsId || !matchedSectionsJson) return;
 
     try {
@@ -221,10 +229,10 @@ async function updateSegmentCoverage(pool, hrmsId, matchedSectionsJson, dutyDate
         // Extract adjacent pairs
         const pairs = extractAdjacentPairs(stations);
 
-        // Format duty date
-        const dutyDateStr = dutyDate instanceof Date
-            ? dutyDate.toISOString().slice(0, 10)
-            : String(dutyDate).slice(0, 10);
+        // Format the work date (local components, see formatMySQLDate)
+        const dutyDateStr = workDate instanceof Date
+            ? formatMySQLDate(workDate)
+            : String(workDate).slice(0, 10);
 
         // Insert/update each pair
         for (const [fromStn, toStn] of pairs) {
@@ -879,7 +887,7 @@ router.post('/upload', (req, res) => {
 
             // Update segment coverage for LRD tracking (working legs with km only, not piloting/WT/YR)
             if (currentHrmsId && matchedSections && routeKm > 0 && WORKING_TYPES.includes(dutyType)) {
-              await updateSegmentCoverage(pool, currentHrmsId, matchedSections, currentDutyDate, currentDutyId);
+              await updateSegmentCoverage(pool, currentHrmsId, matchedSections, departure ? formatMySQLDate(departure) : currentDutyDate, currentDutyId);
             }
           } catch (legErr) {
             // Duplicate leg (uniq_leg_fingerprint)
@@ -1119,7 +1127,7 @@ router.post('/manual', async (req, res) => {
                 // Update segment coverage for LRD tracking (working legs only, not piloting)
                 const legDutyType = leg.dutyType?.toUpperCase() || 'WR';
                 if (staffHrmsId && matchedSections && WORKING_TYPES.includes(legDutyType)) {
-                    await updateSegmentCoverage(connection, staffHrmsId, matchedSections, dutyDate, dutyId);
+                    await updateSegmentCoverage(connection, staffHrmsId, matchedSections, depDateTime ? formatMySQLDate(depDateTime) : dutyDate, dutyId);
                 }
             }
         }
@@ -1852,12 +1860,13 @@ router.get('/lrd/staff-status/:hrmsId', async (req, res) => {
         let pilotingSegments = [];
         if (includePiloting) {
             const [plLegs] = await pool.query(
-                `SELECT l.from_station, l.to_station, l.matched_sections, d.duty_date
+                `SELECT l.from_station, l.to_station, l.matched_sections,
+                        COALESCE(DATE(l.departure_datetime), d.duty_date) AS duty_date
                  FROM div_ctr_legs l
                  JOIN div_ctr_duties d ON l.duty_id = d.id
                  WHERE d.staff_hrms_id = ? AND l.duty_type IN (${PILOTING_TYPES.map(t => `'${t}'`).join(', ')})
                    AND l.from_station IS NOT NULL AND l.to_station IS NOT NULL
-                 ORDER BY d.duty_date DESC`,
+                 ORDER BY duty_date DESC`,
                 [hrmsId]
             );
             for (const leg of plLegs) {

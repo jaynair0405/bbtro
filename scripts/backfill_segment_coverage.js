@@ -82,7 +82,7 @@ async function backfillSegmentCoverage() {
                 l.matched_sections,
                 l.from_station,
                 l.to_station,
-                d.duty_date,
+                COALESCE(DATE(l.departure_datetime), d.duty_date) AS work_date,
                 d.id as duty_id,
                 d.staff_hrms_id,
                 d.staff_cms_id
@@ -91,8 +91,11 @@ async function backfillSegmentCoverage() {
              WHERE l.matched_sections IS NOT NULL
                AND l.duty_type IN ('WR', 'LR')
                AND l.route_km > 0
-             ORDER BY d.duty_date ASC`
+             ORDER BY work_date ASC`
         );
+        // work_date: the leg's own departure date, the duty date only when the leg has no
+        // departure. Legs glued onto the wrong duty by the old parser (fixed 05667fc) carry
+        // the right time of their own, so coverage is dated from the leg (lobby, 2026-10-23).
 
         console.log(`Found ${legs.length} legs with matched_sections`);
 
@@ -167,7 +170,7 @@ async function backfillSegmentCoverage() {
                              ELSE last_duty_id
                            END,
                            work_count = work_count + 1`,
-                        [hrmsId, fromStn, toStn, leg.duty_date, leg.duty_id]
+                        [hrmsId, fromStn, toStn, leg.work_date, leg.duty_id]
                     );
 
                     if (result.affectedRows === 1) {
