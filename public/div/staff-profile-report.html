@@ -1616,17 +1616,25 @@
 
                     <div class="info-card">
                         <div class="info-label">Learning Road Sections</div>
-                        <div class="info-value">
-                            <div style="margin-bottom: 8px;">
-                                <span style="color: var(--text-muted); font-size: 12px;">Section 1:</span>
-                                <input type="text" id="learningSection1" placeholder="Enter section..."
-                                    style="width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; margin-top: 4px;">
+                        <div class="info-value" style="display: flex; gap: 10px; align-items: stretch;">
+                            <div style="flex: 1 1 50%; min-width: 0;">
+                                <div style="margin-bottom: 8px;">
+                                    <span style="color: var(--text-muted); font-size: 12px;">Section 1:</span>
+                                    <input type="text" id="learningSection1" placeholder="Enter section..."
+                                        style="width: 100%; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; margin-top: 4px;">
+                                </div>
+                                <div>
+                                    <span style="color: var(--text-muted); font-size: 12px;">Section 2:</span>
+                                    <input type="text" id="learningSection2" placeholder="Enter section..."
+                                        style="width: 100%; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; margin-top: 4px;">
+                                </div>
                             </div>
-                            <div>
-                                <span style="color: var(--text-muted); font-size: 12px;">Section 2:</span>
-                                <input type="text" id="learningSection2" placeholder="Enter section..."
-                                    style="width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; margin-top: 4px;">
-                            </div>
+                            <!-- LRD route chart thumbnail: the live map coloured for this crew, served as SVG by
+                                 /api/division/ctr/lrd/chart/<hrms>.svg; opens the CTR page (2026-10-23) -->
+                            <a id="lrdThumbLink" href="/div/ctr-management.html" target="_blank" title="LRD route coverage - open the CTR page"
+                               style="flex: 1 1 50%; min-width: 0; display: block; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; background: #fff;">
+                                <img id="lrdThumb" alt="LRD route coverage chart" style="display: block; width: 100%; height: 100%; object-fit: contain;">
+                            </a>
                         </div>
                     </div>
                 </div>
@@ -1838,6 +1846,9 @@
             document.getElementById('staffDesignation').textContent = data.designation;
             document.getElementById('pfNo').textContent = data.pfNo;
             document.getElementById('hrmsId').textContent = data.hrmsId;
+            if (data.hrmsId && data.hrmsId !== '—') {
+                document.getElementById('lrdThumb').src = `/api/division/ctr/lrd/chart/${encodeURIComponent(data.hrmsId)}.svg`;
+            }
             document.getElementById('headerCmsId').textContent = data.cmsId || '—';
             document.getElementById('cliName').textContent = data.cli;
 

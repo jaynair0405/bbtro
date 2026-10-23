@@ -1891,6 +1891,64 @@ router.get('/lrd/beats', (req, res) => {
  * Get LRD status for a specific staff - shows section validity based on segment coverage
  * Each section is VALID only if ALL its segments were worked within 90 days
  */
+/**
+ * GET /api/ctr/lrd/chart/:hrmsId.svg
+ * The LRD route map as a standalone light SVG, coloured for one crew from
+ * div_lrd_segment_coverage (same validity rule as staff-status), for use as an
+ * <img> elsewhere: the staff bio profile shows it as a thumbnail (lobby,
+ * 2026-10-23). The drawing itself is taken from ctr-management.html so there is
+ * one map; re-read when that file changes.
+ */
+let chartSvgCache = { mtime: 0, svg: null };
+function chartSvgTemplate() {
+    const file = path.join(__dirname, '../../public/div/ctr-management.html');
+    const mtime = fs.statSync(file).mtimeMs;
+    if (chartSvgCache.svg && chartSvgCache.mtime === mtime) return chartSvgCache.svg;
+    const html = fs.readFileSync(file, 'utf8');
+    const start = html.indexOf('<svg id="lrdRouteSvg"'), end = html.indexOf('</svg>', start);
+    if (start < 0 || end < 0) throw new Error('map svg not found in ctr-management.html');
+    chartSvgCache = { mtime, svg: html.slice(start, end + 6) };
+    return chartSvgCache.svg;
+}
+router.get('/lrd/chart/:hrmsId.svg', async (req, res) => {
+    const pool = req.app.locals.pool;
+    try {
+        const hrmsId = req.params.hrmsId;
+        const [rows] = await pool.query(
+            `SELECT from_station, to_station, last_worked_date FROM div_lrd_segment_coverage WHERE staff_hrms_id = ?`, [hrmsId]);
+        const [[staff]] = await pool.query(`SELECT name, current_cms_id FROM div_staff_master WHERE hrms_id = ? LIMIT 1`, [hrmsId]);
+        const validityDays = beatsData?.config?.validity_days || 90;
+        const expiringThreshold = beatsData?.config?.expiring_threshold_days || 15;
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        const colours = { VALID: '#22c55e', EXPIRING_SOON: '#eab308', EXPIRED: '#ef4444' };
+        const status = new Map();
+        for (const r of rows) {
+            const exp = new Date(r.last_worked_date); exp.setDate(exp.getDate() + validityDays);
+            const days = Math.ceil((exp - today) / 86400000);
+            status.set(`${r.from_station}-${r.to_station}`.toUpperCase(), days < 0 ? 'EXPIRED' : days <= expiringThreshold ? 'EXPIRING_SOON' : 'VALID');
+        }
+        let svg = chartSvgTemplate();
+        const vbm = svg.match(/viewBox="([^"]+)"/); const vb = (vbm ? vbm[1] : '0 0 1000 700').split(/\s+/).map(Number);
+        svg = svg.replace(/<svg id="lrdRouteSvg"[^>]*>/, `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vb.join(' ')}" width="${vb[2]}" height="${vb[3]}"><rect x="${vb[0]}" y="${vb[1]}" width="${vb[2]}" height="${vb[3]}" fill="#ffffff"/>`);
+        // segment colours by direction key, light base otherwise
+        svg = svg.replace(/<path id="seg-([a-z0-9]+)-([a-z0-9]+)-[^"]*"([^>]*?)stroke="([^"]+)"/g, (m, a, b, mid, stroke) => {
+            const st = status.get(`${a}-${b}`.toUpperCase());
+            const base = stroke === '#4a5568' ? '#94a3b8' : stroke === '#94a3b8' ? '#64748b' : stroke;
+            return `<path id="seg-${a}-${b}-x"${mid}stroke="${st ? colours[st] : base}"`;
+        });
+        svg = svg.replace(/<text /g, '<text data-l="1" ').replace(/(<text data-l="1" [^>]*?)fill="[^"]*"/g, '$1fill="#1e293b"').replace(/ data-l="1"/g, '');
+        svg = svg.replace(/<rect ([^>]*?)fill="#1a2240"([^>]*)stroke="[^"]*"/g, '<rect $1fill="#f1f5f9"$2stroke="#cbd5e1"');
+        const caption = `${staff ? `${staff.name} (${staff.current_cms_id || hrmsId})` : hrmsId}  |  LRD route coverage  |  ${today.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`;
+        svg = svg.replace('</svg>', `<text x="${vb[0] + 12}" y="${vb[1] + vb[3] - 8}" font-size="9" fill="#475569">${caption.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</text></svg>`);
+        res.set('Content-Type', 'image/svg+xml; charset=utf-8');
+        res.set('Cache-Control', 'no-store');
+        res.send(svg);
+    } catch (err) {
+        console.error('LRD chart svg error:', err);
+        res.status(500).send(`<svg xmlns="http://www.w3.org/2000/svg" width="400" height="60"><text x="10" y="35" font-size="12" fill="#b91c1c">chart unavailable: ${String(err.message).replace(/</g, '&lt;')}</text></svg>`);
+    }
+});
+
 router.get('/lrd/staff-status/:hrmsId', async (req, res) => {
     const pool = req.app.locals.pool;
     const { hrmsId } = req.params;

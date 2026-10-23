@@ -539,6 +539,28 @@
             .filters-bar { flex-direction: column; }
             .filter-group { width: 100%; }
         }
+
+        /* ---- Chart export: print only the map, on white (lobby, 2026-10-23) ---- */
+        @media print {
+            @page { size: A4 landscape; margin: 8mm; }
+            body * { visibility: hidden !important; }
+            #lrdMapContainer, #lrdMapContainer * { visibility: visible !important; }
+            #lrdMapContainer { position: absolute !important; left: 0; top: 0; width: 100%; margin: 0; border: 0; box-shadow: none; background: #fff !important; }
+            #lrdMapContainer .card-header { display: none !important; }
+            #lrdMapBody { padding: 0 !important; overflow: visible !important; }
+            #lrdRouteSvg { width: 100% !important; min-width: 0 !important; max-height: 180mm; }
+            #lrdPrintCaption { display: block !important; }
+            .chart-tools { display: none !important; }
+        }
+        #lrdPrintCaption { display: none; font: 600 12px/1.4 -apple-system, "Segoe UI", sans-serif; color: #1e293b; margin: 0 0 4px 2px; }
+        /* light rendering of the chart (print, PNG): white canvas, dark text, darker grey lines; status colours unchanged */
+        svg.chart-light { background: #ffffff !important; }
+        svg.chart-light text { fill: #1e293b !important; }
+        svg.chart-light path[stroke="#4a5568"] { stroke: #94a3b8 !important; }
+        svg.chart-light path[stroke="#94a3b8"] { stroke: #64748b !important; }
+        svg.chart-light rect[fill="#1a2240"] { fill: #f1f5f9 !important; stroke: #cbd5e1 !important; }
+        .chart-tools { display: flex; gap: 6px; margin-left: auto; margin-right: 12px; }
+        .chart-tools .btn { padding: 4px 10px; font-size: 12px; }
     </style>
 </head>
 <body>
@@ -869,9 +891,15 @@
             <div id="lrdMapContainer" class="card" style="margin-bottom: 15px; display: none;">
                 <div class="card-header" style="cursor: pointer;" onclick="toggleLrdMap()">
                     <span class="card-title"><i class="fa-solid fa-map"></i> Route Coverage Map - Goods Beat - BB Division</span>
+                    <span class="chart-tools" onclick="event.stopPropagation()">
+                        <button class="btn btn-outline" onclick="printChart()" title="Print the chart only, on white"><i class="fa-solid fa-print"></i> Print</button>
+                        <button class="btn btn-outline" onclick="copyChartPng()" title="Copy the chart to the clipboard as an image"><i class="fa-regular fa-copy"></i> Copy</button>
+                        <button class="btn btn-outline" onclick="downloadChartPng()" title="Download the chart as a PNG"><i class="fa-solid fa-download"></i> PNG</button>
+                    </span>
                     <i class="fa-solid fa-chevron-down" id="lrdMapToggleIcon"></i>
                 </div>
                 <div class="card-body" id="lrdMapBody" style="padding: 10px; overflow-x: auto;">
+                    <div id="lrdPrintCaption"></div>
                     <svg id="lrdRouteSvg" viewBox="0 -260 1000 960" style="width: 100%; min-width: 800px; height: auto; background: #0d1430; border-radius: 8px;">
                         <!-- Definitions for markers and gradients -->
                         <defs>
@@ -1600,6 +1628,87 @@
         // ========================================
         // Toast Notifications
         // ========================================
+        // ---- Chart export: print / copy / download the map as it is coloured on screen ----
+        function chartCaption() {
+            const s = selectedLRDStaff;
+            const who = s ? `${s.name || ''} (${s.cmsId || s.hrmsId || ''})` : 'no crew selected';
+            const pl = document.getElementById('lrdIncludePiloting')?.checked ? ', piloting included' : '';
+            return `LRD Route Coverage - Goods Beat - BB Division  |  ${who}${pl}  |  ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`;
+        }
+        function printChart() {
+            document.getElementById('lrdPrintCaption').textContent = chartCaption();
+            window.print();
+        }
+        const svgEl = () => document.getElementById('lrdRouteSvg');
+        window.addEventListener('beforeprint', () => svgEl().classList.add('chart-light'));
+        window.addEventListener('afterprint', () => svgEl().classList.remove('chart-light'));
+
+        // standalone light copy of the SVG: CSS does not travel into an <img>, so the light
+        // colours are written as attributes (status colours stay as on screen)
+        function lightSvgMarkup() {
+            const src = svgEl();
+            const c = src.cloneNode(true);
+            c.removeAttribute('style'); c.removeAttribute('class');
+            c.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+            const vb = (c.getAttribute('viewBox') || '0 0 1000 700').split(/\s+/).map(Number);
+            c.setAttribute('width', vb[2]); c.setAttribute('height', vb[3]);
+            const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+            bg.setAttribute('x', vb[0]); bg.setAttribute('y', vb[1]); bg.setAttribute('width', vb[2]); bg.setAttribute('height', vb[3]); bg.setAttribute('fill', '#ffffff');
+            c.insertBefore(bg, c.firstChild);
+            c.querySelectorAll('text').forEach(t => t.setAttribute('fill', '#1e293b'));
+            c.querySelectorAll('path[stroke="#4a5568"]').forEach(p => p.setAttribute('stroke', '#94a3b8'));
+            c.querySelectorAll('path[stroke="#94a3b8"][data-base="#94a3b8"]').forEach(p => p.setAttribute('stroke', '#64748b'));
+            c.querySelectorAll('rect[fill="#1a2240"]').forEach(r => { r.setAttribute('fill', '#f1f5f9'); r.setAttribute('stroke', '#cbd5e1'); });
+            const cap = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            cap.setAttribute('x', vb[0] + 12); cap.setAttribute('y', vb[1] + vb[3] - 8); cap.setAttribute('font-size', '9'); cap.setAttribute('fill', '#475569');
+            cap.textContent = chartCaption();
+            c.appendChild(cap);
+            return new XMLSerializer().serializeToString(c);
+        }
+        function chartToPngBlob(scale = 2) {
+            return new Promise((resolve, reject) => {
+                const markup = lightSvgMarkup();
+                const vb = (svgEl().getAttribute('viewBox') || '0 0 1000 700').split(/\s+/).map(Number);
+                const img = new Image();
+                const url = URL.createObjectURL(new Blob([markup], { type: 'image/svg+xml;charset=utf-8' }));
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = vb[2] * scale; canvas.height = vb[3] * scale;
+                    const ctx = canvas.getContext('2d');
+                    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    URL.revokeObjectURL(url);
+                    canvas.toBlob(b => b ? resolve(b) : reject(new Error('PNG encode failed')), 'image/png');
+                };
+                img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('SVG render failed')); };
+                img.src = url;
+            });
+        }
+        function chartFileName() {
+            const s = selectedLRDStaff;
+            return `lrd-chart${s ? '-' + (s.cmsId || s.hrmsId) : ''}-${new Date().toISOString().slice(0, 10)}.png`;
+        }
+        async function downloadChartPng() {
+            try {
+                const blob = await chartToPngBlob(2);
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob); a.download = chartFileName();
+                document.body.appendChild(a); a.click(); a.remove();
+                setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+            } catch (e) { showToast('Could not render the chart: ' + e.message, 'error'); }
+        }
+        async function copyChartPng() {
+            try {
+                if (!navigator.clipboard || !window.ClipboardItem) throw new Error('clipboard images not supported here; use PNG');
+                const blob = await chartToPngBlob(2);
+                await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+                showToast('Chart copied to the clipboard');
+            } catch (e) {
+                showToast('Copy failed (' + e.message + '). Downloading instead.', 'error');
+                downloadChartPng();
+            }
+        }
+
         function showToast(message, type = 'success') {
             const toast = document.getElementById('toast');
             toast.textContent = message;
