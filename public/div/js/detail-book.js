@@ -2060,8 +2060,11 @@ function addStaffToSlate(staff) {
                 // Reuse existing adhoc row for this slot (LP and ALP share same row)
                 slotRow = existingAdhocRow;
             } else {
+                // Create the adhoc row, then fall through so the cell gets its
+                // dataset + click handler (otherwise the name is dead text and
+                // the exception/remove modal never opens for adhoc entries)
                 slotRow = createAdhocRow(date, time, name, type, slotId);
-                return true;
+                if (!slotRow) return false;
             }
         }
     }
