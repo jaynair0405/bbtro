@@ -16,7 +16,8 @@
       "2026-10-21: TKW/NNCN fork removed — the ghat KJT-LNL is one path via TKW for LRD (lobby: PNVL and KYN crews differ only up to KJT, the ghat is the same for both); NNCN variants of BVT_BSR/BVT_CSMT/BVT_TMBY deleted, TKW twins keep the plain ids",
       "2026-10-22: via-PNVL routes from the ghat side (BVT_BSR__PNVL, BVT_KYN__PNVL, BVT_DIVA__PNVL: LNL..KJT,CHOK,MHPE,PNVL then the PNVL onward stations). PNVL crews reach BSR/KYN/DIVA via PNVL, KYN crews via the main line (BVT_BSR etc.); the resolver picks by CTR route name (PNVL vs KYN named), else by crew office. Alias PYJE -> MHPE (Mohope renamed; CTR still writes MHPE).",
       "2026-10-23: DFC route JNPN_UDNN extended to PNVL as PNVL_UDNN (PNVL,DPL,JSLE,HLY,JNPT then JNPN..UDNN). The CMS Section text for JNPN-PNVL legs reads JNPN-JNPT-JSLE-PNVL and the km agree (35.5 = 6.6 + 28.9); UDNN-UDN is a taxi hop (SP) and is not modelled. Beats JNPN_UDNN / UDNN_JNPN unchanged.",
-      "2026-10-23: alias DWJN -> DIVA (CMS code some PNVL crews write for Diva Jn; every DWJN distance equals the DIVA one, e.g. PNVL-DWJN 25.67 = PNVL-DIVA)."
+      "2026-10-23: alias DWJN -> DIVA (CMS code some PNVL crews write for Diva Jn; every DWJN distance equals the DIVA one, e.g. PNVL-DWJN 25.67 = PNVL-DIVA).",
+      "2026-10-23: aliases KLMC -> KLMG (Kalamboli, JSLE-KLMC 21.6 = 15.9 + 5.7) and DDCL -> DI (Dombivli, DDCL-KYN 6.2), both PNVL crews on the JSLE-KYN run."
     ]
   },
   "aliases": {
@@ -26,7 +27,9 @@
     "DRT": "BPCL",
     "HSD": "BPCL",
     "PYJE": "MHPE",
-    "DWJN": "DIVA"
+    "DWJN": "DIVA",
+    "KLMC": "KLMG",
+    "DDCL": "DI"
   },
   "forks": {},
   "office_exclusions": {
