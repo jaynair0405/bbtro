@@ -138,13 +138,17 @@ out.push(ind + text(150, 304, "through lines (MBQ/KLVA)", 6, "#6b7a99"));
 out.push(ind + `<circle cx="${r1(CSMT[0] + 3)}" cy="${r1(CSMT[1] + 4)}" r="8" fill="#dc2626" stroke="#991b1b" stroke-width="2"/>`);
 out.push(ind + text(CSMT[0] - 20, CSMT[1] + 22, "CSMT", 10, "#dc2626", ' font-weight="600"'));
 
-// branches LTT (from VVH), TMBY and VDLR (from CLA), hanging below the 5th/6th pair
+// branches LTT (from VVH), TMBY and VDLR (from CLA)
+// LTT: the pair starts on the through line at VVH (the lower, UP track) and drops straight
+// down across the 5th/6th pair to the LTT circle, so it reads as reachable from both the
+// through lines and the 6th line (lobby, 2026-10-23); the circle stays where it was
+const VVHt = pt("VVH", Math.max(K.tu, K.td));
 const VVHb = pt("VVH", Math.max(K.fu, K.fd) + 2), CLAb = pt("CLA", Math.max(K.tu, K.td) + 2);
 out.push(ind + `<g id="branch-ltt">`);
 // heading down the screen a train's left is the viewer's right, so VVH -> LTT is the right-hand
 // line of the pair (lobby, 2026-10-23)
-out.push(ind + "    " + line("seg-vvh-ltt-dn", [VVHb[0] + 3, VVHb[1]], [VVHb[0] + 3, VVHb[1] + 30]));
-out.push(ind + "    " + line("seg-ltt-vvh-up", [VVHb[0] - 3, VVHb[1] + 30], [VVHb[0] - 3, VVHb[1]]));
+out.push(ind + "    " + line("seg-vvh-ltt-dn", [VVHt[0] + 3, VVHt[1]], [VVHb[0] + 3, VVHb[1] + 30]));
+out.push(ind + "    " + line("seg-ltt-vvh-up", [VVHb[0] - 3, VVHb[1] + 30], [VVHt[0] - 3, VVHt[1]]));
 out.push(ind + "    " + `<circle cx="${VVHb[0]}" cy="${r1(VVHb[1] + 35)}" r="5" fill="#f59e0b" stroke="#d97706" stroke-width="1"/>`);
 out.push(ind + "    " + text(VVHb[0] + 7, VVHb[1] + 40, "LTT", 8, "#f59e0b"));
 out.push(ind + `</g>`);
