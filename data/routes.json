@@ -15,7 +15,8 @@
       "2026-10-21: AFAS added between UBRN and PADN on JNPN_UDNN (CTR km: JNPN-UBRN 180, JNPN-AFAS 190, JNPN-PADN 221); AFAS IR connection not modelled",
       "2026-10-21: TKW/NNCN fork removed — the ghat KJT-LNL is one path via TKW for LRD (lobby: PNVL and KYN crews differ only up to KJT, the ghat is the same for both); NNCN variants of BVT_BSR/BVT_CSMT/BVT_TMBY deleted, TKW twins keep the plain ids",
       "2026-10-22: via-PNVL routes from the ghat side (BVT_BSR__PNVL, BVT_KYN__PNVL, BVT_DIVA__PNVL: LNL..KJT,CHOK,MHPE,PNVL then the PNVL onward stations). PNVL crews reach BSR/KYN/DIVA via PNVL, KYN crews via the main line (BVT_BSR etc.); the resolver picks by CTR route name (PNVL vs KYN named), else by crew office. Alias PYJE -> MHPE (Mohope renamed; CTR still writes MHPE).",
-      "2026-10-23: DFC route JNPN_UDNN extended to PNVL as PNVL_UDNN (PNVL,DPL,JSLE,HLY,JNPT then JNPN..UDNN). The CMS Section text for JNPN-PNVL legs reads JNPN-JNPT-JSLE-PNVL and the km agree (35.5 = 6.6 + 28.9); UDNN-UDN is a taxi hop (SP) and is not modelled. Beats JNPN_UDNN / UDNN_JNPN unchanged."
+      "2026-10-23: DFC route JNPN_UDNN extended to PNVL as PNVL_UDNN (PNVL,DPL,JSLE,HLY,JNPT then JNPN..UDNN). The CMS Section text for JNPN-PNVL legs reads JNPN-JNPT-JSLE-PNVL and the km agree (35.5 = 6.6 + 28.9); UDNN-UDN is a taxi hop (SP) and is not modelled. Beats JNPN_UDNN / UDNN_JNPN unchanged.",
+      "2026-10-23: alias DWJN -> DIVA (CMS code some PNVL crews write for Diva Jn; every DWJN distance equals the DIVA one, e.g. PNVL-DWJN 25.67 = PNVL-DIVA)."
     ]
   },
   "aliases": {
@@ -24,7 +25,8 @@
     "NSCIT": "JNPT",
     "DRT": "BPCL",
     "HSD": "BPCL",
-    "PYJE": "MHPE"
+    "PYJE": "MHPE",
+    "DWJN": "DIVA"
   },
   "forks": {},
   "office_exclusions": {
