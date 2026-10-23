@@ -1617,7 +1617,7 @@
                     <div class="info-card">
                         <div class="info-label">Learning Road Sections</div>
                         <div class="info-value" style="display: flex; gap: 10px; align-items: stretch;">
-                            <div style="flex: 1 1 50%; min-width: 0;">
+                            <div id="learningSectionsFields" style="flex: 1 1 50%; min-width: 0;">
                                 <div style="margin-bottom: 8px;">
                                     <span style="color: var(--text-muted); font-size: 12px;">Section 1:</span>
                                     <input type="text" id="learningSection1" placeholder="Enter section..."
@@ -1846,7 +1846,18 @@
             document.getElementById('staffDesignation').textContent = data.designation;
             document.getElementById('pfNo').textContent = data.pfNo;
             document.getElementById('hrmsId').textContent = data.hrmsId;
-            if (data.hrmsId && data.hrmsId !== '—') {
+            // LRD chart thumbnail only for the lobbies whose CTR is uploaded (KYN-ML, PNVL-ML)
+            // and the running crew grades ALP (1), Sr.ALP (2), LPG (5); for others the two
+            // section fields take the full width (lobby, 2026-10-23)
+            const lrdOffices = new Set(['KYN-ML', 'PNVL-ML']);
+            const lrdGrades = new Set([1, 2, 5]);
+            const showLrd = data.hrmsId && data.hrmsId !== '—'
+                && lrdOffices.has(String(data.currentOfficeCode || '').trim().toUpperCase())
+                && lrdGrades.has(Number(data.designation_id));
+            const thumbLink = document.getElementById('lrdThumbLink');
+            thumbLink.style.display = showLrd ? 'block' : 'none';
+            document.getElementById('learningSectionsFields').style.flex = showLrd ? '1 1 50%' : '1 1 100%';
+            if (showLrd) {
                 document.getElementById('lrdThumb').src = `/api/division/ctr/lrd/chart/${encodeURIComponent(data.hrmsId)}.svg`;
             }
             document.getElementById('headerCmsId').textContent = data.cmsId || '—';
