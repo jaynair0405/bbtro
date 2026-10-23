@@ -35,43 +35,47 @@ const unit = (a, b) => { const d = sub(b, a), L = len(d); return [d[0] / L, d[1]
 // left-hand normal of a direction, in screen coordinates (y down): rotate -90deg
 const leftOf = (u) => [u[1], -u[0]];
 
-const COLOR = "#a16207";          // dull amber
+const COLOR = "#a16207";          // dull amber line
+const STN = "#60a5fa", STN_EDGE = "#1d4ed8";   // station circles: blue, so they read apart from the amber line
 const GAP = 6;                    // stripe spacing
 
 // ---- centre line of the DFC, following the lobby description
 // IR JNPT-PNVL pair centre: JNPT (140,540) .. PNVL (389,459); DFC 17px on its upper side
 const JNPT = [140, 540], PNVLb = [389, 459];
 const uBranch = unit(JNPT, PNVLb), nUp = leftOf(uBranch);       // up-left of the branch
-const OFF = 17;
+const OFF = 28;                   // clear of the IR station labels (10-15 units off their line)
 const A0 = add(JNPT, mul(nUp, OFF));                            // JNPN, beside JNPT
 const A1 = add([366, 465], mul(nUp, OFF));                      // end of the parallel run, west of PNVL
 // passes the PNVL circle on its west side, climbs beside the chord's UP track, then crosses the
 // chord (tracks at x 400 / 406 .. 413) just below KLMG (418) to its right-hand side
-const X0 = [383, 440], X1 = [385, 428], X2 = [424, 421];
-// up the right-hand side of the chord (dn track x 406..413, DTCC at 406,280)
-const C = [[424, 421], [430, 398], [430, 360], [425, 296]];
-// lower side of the DTCC .. BSR diagonal (dn track 406,280 -> 318,206 -> 280,190 -> 230,170 -> 180,150 -> 130,130)
+const X0 = [378, 442], X1 = [380, 430], X2 = [436, 421];
+// up the right-hand side of the chord (dn track x 406..413, DTCC at 406,280), clear of the labels
+const C = [[436, 421], [441, 398], [441, 360], [436, 296]];
+// the DTCC .. BSR diagonal (dn track 406,280 -> 318,206 -> 280,190 -> 230,170 -> 180,150 -> 130,130):
+// the DFC stays on the same side of the IR line as on the chord (east, i.e. the upper-right
+// side of this diagonal), so it never crosses the IR line again after KLMG
 const diag = [[406, 280], [318, 206], [280, 190], [230, 170], [180, 150], [130, 130]];
-const uD = unit(diag[0], diag[1]), nLow = leftOf(uD);                   // below the diagonal (screen y grows downwards)
-const D = diag.map(p => add(p, mul(nLow, OFF)));
-// new line past BSR: up the left of BSR, then east along the top
-const E = [[112, 125], [100, 95], [100, 48], [160, 40], [620, 40]];
+const uD = unit(diag[0], diag[1]), nEast = [-leftOf(uD)[0], -leftOf(uD)[1]];
+const D = diag.map(p => add(p, mul(nEast, OFF)));
+// new line past BSR: north, into the canvas space added above the old top edge
+// (viewBox starts at y = -260); UDNN at -200 leaves room above it for MKPR
+const E = [[140, 86], [140, -200]];
 
 const centre = [A0, A1, X0, X1, X2, ...C.slice(1), ...D.slice(1), ...E];
 
 // stations along the centre line (index into `centre` or explicit points)
 const stations = [
   { code: "JNPN", at: A0, label: [-8, -8] },
-  { code: "NIJN", at: [430, 340], label: [10, 3] },
-  { code: "KHBN", at: D[3], label: [-30, 14] },
-  { code: "SAHN", at: [100, 70], label: [-36, 3] },
-  { code: "PLGR", at: [230, 40], label: [-14, -7] },
-  { code: "UBRN", at: [300, 40], label: [-14, -7] },
-  { code: "AFAS", at: [370, 40], label: [-14, -7] },
-  { code: "PADN", at: [440, 40], label: [-14, -7] },
-  { code: "ACLN", at: [510, 40], label: [-14, -7] },
-  { code: "BHEN", at: [570, 40], label: [-14, -7] },
-  { code: "UDNN", at: [620, 40], label: [10, 4], hub: true },
+  { code: "NIJN", at: [441, 378], label: [10, 3] },   // level with the IR NIIJ label
+  { code: "KHBN", at: D[3], label: [-10, -9] },
+  { code: "SAHN", at: [140, 60], label: [12, 3] },
+  { code: "PLGR", at: [140, 20], label: [12, 3] },
+  { code: "UBRN", at: [140, -20], label: [12, 3] },
+  { code: "AFAS", at: [140, -60], label: [12, 3] },
+  { code: "PADN", at: [140, -95], label: [12, 3] },
+  { code: "ACLN", at: [140, -130], label: [12, 3] },
+  { code: "BHEN", at: [140, -165], label: [12, 3] },
+  { code: "UDNN", at: [140, -200], label: [14, 4], hub: true },
 ];
 const order = ["JNPN", "NIJN", "KHBN", "SAHN", "PLGR", "UBRN", "AFAS", "PADN", "ACLN", "BHEN", "UDNN"];
 
@@ -122,14 +126,23 @@ for (let i = 0; i < order.length - 1; i++) {
 }
 for (const m of marks) {
   if (m.hub) {
-    out.push(ind + `<circle cx="${r1(m.q[0])}" cy="${r1(m.q[1])}" r="7" fill="${COLOR}" stroke="#78350f" stroke-width="2"/>`);
+    out.push(ind + `<circle cx="${r1(m.q[0])}" cy="${r1(m.q[1])}" r="7" fill="${STN}" stroke="${STN_EDGE}" stroke-width="2"/>`);
     out.push(ind + `<text x="${r1(m.q[0] + m.label[0])}" y="${r1(m.q[1] + m.label[1])}" font-size="10" font-weight="600" fill="${COLOR}">${m.code}</text>`);
   } else {
-    out.push(ind + `<circle cx="${r1(m.q[0])}" cy="${r1(m.q[1])}" r="3" fill="${COLOR}" stroke="#78350f" stroke-width="1"/>`);
+    out.push(ind + `<circle cx="${r1(m.q[0])}" cy="${r1(m.q[1])}" r="3.5" fill="${STN}" stroke="${STN_EDGE}" stroke-width="1"/>`);
     out.push(ind + `<text x="${r1(m.q[0] + m.label[0])}" y="${r1(m.q[1] + m.label[1])}" font-size="7" fill="#d6a85c">${m.code}</text>`);
   }
 }
-out.push(ind + `<text x="700" y="44" font-size="7" fill="#6b7a99">(to MKPR)</text>`);
+out.push(ind + `<text x="130" y="-232" font-size="7" fill="#6b7a99">(to MKPR)</text>`);
+out.push(`                        </g>`);
+// line-type legend, top right of the enlarged canvas (viewBox starts at y = -260)
+out.push(`                        <g id="legend-lines" transform="translate(690, -250)">`);
+out.push(ind + `<rect x="0" y="0" width="295" height="90" fill="#1a2240" stroke="rgba(255,255,255,0.1)" rx="4"/>`);
+out.push(ind + `<line x1="10" y1="16" x2="40" y2="16" stroke="#4a5568" stroke-width="3"/><text x="48" y="19" font-size="9" fill="#eaf0ff">Through lines</text>`);
+out.push(ind + `<line x1="10" y1="32" x2="40" y2="32" stroke="#94a3b8" stroke-width="3" stroke-dasharray="5 3"/><text x="48" y="35" font-size="9" fill="#eaf0ff">5th / 6th line</text>`);
+out.push(ind + `<line x1="10" y1="46" x2="40" y2="46" stroke="${COLOR}" stroke-width="3"/><line x1="10" y1="51" x2="40" y2="51" stroke="${COLOR}" stroke-width="3"/><text x="48" y="52" font-size="9" fill="#eaf0ff">DFC (WDFC)</text>`);
+out.push(ind + `<text x="10" y="68" font-size="7.5" fill="#a9b4d0">Not to scale.</text>`);
+out.push(ind + `<text x="10" y="80" font-size="7.5" fill="#a9b4d0">Schematic layout of the sections, not the actual alignment.</text>`);
 out.push(`                        </g>`, END);
 const block = out.join("\n") + "\n";
 
@@ -145,10 +158,8 @@ if (s >= 0 && e > s) {
 
 // ---- legend to the bottom right, with a DFC entry
 html = html.replace(/<g transform="translate\(10, 10\)">\n(\s*)<rect x="0" y="0" width="200" height="70"/, (m, sp) => `<g transform="translate(790, 620)">\n${sp}<rect x="0" y="0" width="200" height="70"`);
-if (!html.includes('>DFC</text>')) {
-  html = html.replace(/(<text x="35" y="56" font-size="10" fill="#eaf0ff">Never Worked<\/text>)/,
-    `$1\n                            <line x1="140" y1="52" x2="160" y2="52" stroke="${COLOR}" stroke-width="4"/><text x="165" y="56" font-size="10" fill="#eaf0ff">DFC</text>`);
-}
+// the status legend keeps status colours only; the line types live in legend-lines above
+html = html.replace(/\n\s*<line x1="140" y1="52" x2="160" y2="52" stroke="#a16207" stroke-width="4"\/><text x="165" y="56" font-size="10" fill="#eaf0ff">DFC<\/text>/, '');
 fs.writeFileSync(f, html);
 const ids = [...block.matchAll(/id="(seg-[^"]+)"/g)].map(m => m[1]);
 console.log("DFC block written:", ids.length, "paths;", stations.length, "stations; legend at bottom right");
