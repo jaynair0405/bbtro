@@ -332,10 +332,15 @@ async function parseExcel(filePath) {
 }
 
 /**
- * Parse CSV file and return rows
+ * Parse CSV file and return rows.
+ * raw: true keeps every cell as text. Without it the library guesses dates in a CSV
+ * and reads "01-02-2026" the American way as 2 January (only when the day is 12 or
+ * less; "15-02-2026" stays text), so the February 2026 CSV uploads stored swapped
+ * day/month on every such date (lobby, 2026-10-23). parseExcelDateTime handles the
+ * DD-MM-YYYY text itself, and the numeric columns are parsed with parseFloat.
  */
 async function parseCsv(filePath) {
-  const workbook = xlsx.readFile(filePath);
+  const workbook = xlsx.readFile(filePath, { raw: true });
   const sheetName = workbook.SheetNames[0];
   const sheet = workbook.Sheets[sheetName];
   // Skip first 2 header rows
