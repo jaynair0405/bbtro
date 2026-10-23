@@ -614,7 +614,7 @@
             </div>
 
             <div id="uploadResult" class="upload-result">
-                <h4 style="margin: 0 0 16px;"><i class="fa-solid fa-check-circle" style="color: var(--success);"></i> Upload Complete</h4>
+                <h4 style="margin: 0 0 16px;" id="uploadResultTitle"><i class="fa-solid fa-check-circle" style="color: var(--success);"></i> Upload Complete</h4>
                 <div id="resultDetails"></div>
             </div>
 
@@ -1600,39 +1600,112 @@
             document.getElementById('uploadResult').classList.remove('show');
         }
 
-        async function uploadFile() {
-            if (!selectedFile) return;
+        // The upload answers at once with a batch id and the server processes the rows
+        // after the response; the page polls /upload-status until the batch is done.
+        // The old single request took a minute or more on a big file, the proxy timed
+        // out, the page said "failed" and users uploaded the same file again and again,
+        // each retry logging zero duties (lobby, 2026-10-23).
+        let uploadWatch = null;
 
+        function lockUpload(locked, label) {
             const btn = document.getElementById('uploadBtn');
-            btn.disabled = true;
-            btn.innerHTML = '<i class="fa-solid fa-spinner spinner"></i> Processing...';
+            btn.disabled = locked;
+            btn.innerHTML = locked ? `<i class="fa-solid fa-spinner spinner"></i> ${label || 'Processing...'}` : '<i class="fa-solid fa-upload"></i> Process File';
+            const zone = document.getElementById('dropZone');
+            zone.style.pointerEvents = locked ? 'none' : '';
+            zone.style.opacity = locked ? '0.5' : '';
+        }
+
+        async function uploadFile() {
+            if (!selectedFile || uploadWatch) return;
+            lockUpload(true, 'Uploading...');
 
             const formData = new FormData();
             formData.append('file', selectedFile);
             formData.append('office', document.getElementById('uploadOffice').value);
 
             try {
-                const res = await fetch('/api/division/ctr/upload', {
-                    method: 'POST',
-                    body: formData
-                });
-                
+                const res = await fetch('/api/division/ctr/upload', { method: 'POST', body: formData });
                 const data = await res.json();
-                
-                if (data.success) {
-                    showUploadResult(data.stats);
+                if (data.batch_id) {
+                    if (!data.success) showToast(data.message, 'error');   // 409: already processing, watch it
+                    watchUpload(data.batch_id);
+                } else if (data.success && data.stats) {
+                    showUploadResult(data.stats);                          // small file answered in one go
                     showToast('File processed successfully!');
                     loadUploadHistory();
+                    lockUpload(false);
                 } else {
                     showToast(data.message || 'Upload failed', 'error');
+                    lockUpload(false);
                 }
             } catch (err) {
                 console.error(err);
                 showToast('Upload failed: ' + err.message, 'error');
-            } finally {
-                btn.disabled = false;
-                btn.innerHTML = '<i class="fa-solid fa-upload"></i> Process File';
+                lockUpload(false);
             }
+        }
+
+        function statsFromBatch(b) {
+            return {
+                totalRows: b.total_rows || 0,
+                dutiesCreated: b.duties_created || 0,
+                legsCreated: b.legs_created || 0,
+                duplicatesSkipped: b.duplicates_skipped || 0,
+                orphanLegs: b.orphan_legs || 0,
+                skippedRows: b.skipped_rows || 0,
+                errorsCount: b.errors_count || 0,
+                unmappedCmsIds: (b.unmapped_cms_ids || '').split(',').filter(Boolean),
+            };
+        }
+
+        function watchUpload(batchId) {
+            if (uploadWatch) clearInterval(uploadWatch);
+            const title = document.getElementById('uploadResultTitle');
+            const details = document.getElementById('resultDetails');
+            const box = document.getElementById('uploadResult');
+            const tick = async () => {
+                try {
+                    const res = await fetch(`/api/division/ctr/upload-status/${encodeURIComponent(batchId)}`);
+                    const data = await res.json();
+                    const b = data.batch;
+                    if (!b) return;
+                    if (b.status === 'PROCESSING') {
+                        const done = b.progress_rows || 0, total = b.total_rows || 0;
+                        lockUpload(true, `Processing ${done.toLocaleString()} of ${total.toLocaleString()} rows...`);
+                        title.innerHTML = '<i class="fa-solid fa-spinner spinner"></i> Processing ' + (b.filename || '');
+                        details.innerHTML = `<div class="result-item">${done.toLocaleString()} of ${total.toLocaleString()} rows done. This page keeps watching; do not upload the file again.</div>`;
+                        box.classList.add('show');
+                        return;
+                    }
+                    clearInterval(uploadWatch); uploadWatch = null;
+                    lockUpload(false);
+                    if (b.status === 'COMPLETED') {
+                        title.innerHTML = '<i class="fa-solid fa-check-circle" style="color: var(--success);"></i> Upload Complete';
+                        showUploadResult(statsFromBatch(b));
+                        showToast('File processed successfully!');
+                    } else {
+                        title.innerHTML = '<i class="fa-solid fa-times-circle" style="color: var(--danger);"></i> Upload Failed';
+                        details.innerHTML = `<div class="result-item">${b.error_message || 'Failed'}</div>`;
+                        box.classList.add('show');
+                        showToast('Upload failed: ' + (b.error_message || ''), 'error');
+                    }
+                    loadUploadHistory();
+                } catch (err) {
+                    console.error('upload status', err);
+                }
+            };
+            uploadWatch = setInterval(tick, 3000);
+            tick();
+        }
+
+        // On load: if a batch is still processing (page reloaded mid-upload), watch it
+        async function resumeUploadWatch() {
+            try {
+                const res = await fetch('/api/division/ctr/upload-status/current');
+                const data = await res.json();
+                if (data.batch) watchUpload(data.batch.batch_id);
+            } catch (e) { /* ignore */ }
         }
 
         function showUploadResult(stats) {
@@ -2745,8 +2818,9 @@
             document.getElementById('filterStartDate').value = lastWeek.toISOString().slice(0, 10);
             document.getElementById('filterEndDate').value = today.toISOString().slice(0, 10);
 
-            // Load upload history
+            // Load upload history, and resume watching a batch still being processed
             loadUploadHistory();
+            resumeUploadWatch();
         });
 
         // Close dropdowns on outside click

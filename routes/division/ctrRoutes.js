@@ -313,6 +313,19 @@ function fixInlineStrings(filePath, sheet) {
 }
 
 /**
+ * Row index of the column-header line: the CMS export carries two title lines
+ * before it, a file saved from a spreadsheet may start with it. Looks for the
+ * CREW ID cell in the first ten rows; falls back to the third row (index 2).
+ */
+function headerRowIndex(sheet) {
+  const probe = xlsx.utils.sheet_to_json(sheet, { header: 1, range: 0, defval: null });
+  for (let i = 0; i < Math.min(10, probe.length); i++) {
+    if ((probe[i] || []).some(c => String(c || '').trim().toUpperCase() === 'CREW ID')) return i;
+  }
+  return 2;
+}
+
+/**
  * Parse Excel file and return rows
  */
 async function parseExcel(filePath) {
@@ -326,8 +339,8 @@ async function parseExcel(filePath) {
     console.log(`[CTR] Fixed ${fixedCount} inline string cells in ${path.basename(filePath)}`);
   }
 
-  // Skip first 2 header rows
-  const rows = xlsx.utils.sheet_to_json(sheet, { range: 2, defval: null });
+  // Rows start at the column-header line (two title lines above it in the CMS export)
+  const rows = xlsx.utils.sheet_to_json(sheet, { range: headerRowIndex(sheet), defval: null });
   return rows;
 }
 
@@ -343,8 +356,7 @@ async function parseCsv(filePath) {
   const workbook = xlsx.readFile(filePath, { raw: true });
   const sheetName = workbook.SheetNames[0];
   const sheet = workbook.Sheets[sheetName];
-  // Skip first 2 header rows
-  const rows = xlsx.utils.sheet_to_json(sheet, { range: 2, defval: null });
+  const rows = xlsx.utils.sheet_to_json(sheet, { range: headerRowIndex(sheet), defval: null });
   return rows;
 }
 
@@ -689,6 +701,7 @@ router.post('/upload', (req, res) => {
         ? crypto.randomUUID()
         : crypto.randomBytes(16).toString('hex')
     );
+    let responded = false;
 
     /* ===============================
        4. Main processing block
@@ -710,14 +723,39 @@ router.post('/upload', (req, res) => {
       }
 
       /* ===============================
+         Refuse a second copy of a file still being processed (users clicked
+         again when the old synchronous upload gave no sign of life)
+         =============================== */
+      const [[running]] = await pool.query(
+        `SELECT batch_id FROM div_ctr_upload_log
+         WHERE filename = ? AND status = 'PROCESSING' AND uploaded_at > NOW() - INTERVAL 15 MINUTE
+         ORDER BY id DESC LIMIT 1`,
+        [req.file.originalname]
+      );
+      if (running) {
+        return res.status(409).json({
+          success: false,
+          batch_id: running.batch_id,
+          message: 'This file is still being processed from an earlier upload. Watch its progress instead of uploading again.'
+        });
+      }
+      /* ===============================
          Upload log entry
          =============================== */
       await pool.query(
         `INSERT INTO div_ctr_upload_log
-         (batch_id, filename, source_office, uploaded_by, status)
-         VALUES (?, ?, ?, ?, 'PROCESSING')`,
-        [batchId, req.file.originalname, office, userId]
+         (batch_id, filename, source_office, uploaded_by, status, total_rows)
+         VALUES (?, ?, ?, ?, 'PROCESSING', ?)`,
+        [batchId, req.file.originalname, office, userId, rows.length]
       );
+      /* ===============================
+         Answer now; the rows are processed after the response and the page
+         polls /upload-status/:batchId. The old single request took a minute
+         or more on a big file, the proxy timed out, the page said "failed"
+         and the user uploaded again (lobby, 2026-10-23).
+         =============================== */
+      res.json({ success: true, batch_id: batchId, status: 'PROCESSING', total_rows: rows.length });
+      responded = true;
 
       let stats = {
         totalRows: rows.length,
@@ -746,6 +784,9 @@ router.post('/upload', (req, res) => {
 
       for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
+        if (i > 0 && i % 200 === 0) {
+          pool.query(`UPDATE div_ctr_upload_log SET progress_rows = ? WHERE batch_id = ?`, [i, batchId]).catch(() => {});
+        }
 
         try {
           // Get duty type and route km
@@ -948,6 +989,9 @@ router.post('/upload', (req, res) => {
              legs_created=?,
              duplicates_skipped=?,
              errors_count=?,
+             orphan_legs=?,
+             skipped_rows=?,
+             progress_rows=?,
              unmapped_cms_ids=?
          WHERE batch_id=?`,
         [
@@ -956,21 +1000,24 @@ router.post('/upload', (req, res) => {
           stats.legsCreated,
           stats.duplicatesSkipped,
           stats.errorsCount,
+          stats.orphanLegs,
+          stats.skippedRows,
+          stats.totalRows,
           Array.from(stats.unmappedCmsIds).join(','),
           batchId
         ]
       );
+      console.log(`[CTR] Upload ${batchId} done: ${stats.dutiesCreated} duties, ${stats.legsCreated} legs, ${stats.duplicatesSkipped} duplicates`);
 
       /* ===============================
          Respond SUCCESS
          =============================== */
-      return res.json({
-        success: true,
-        stats: {
-          ...stats,
-          unmappedCmsIds: Array.from(stats.unmappedCmsIds)
-        }
-      });
+      if (!responded) {
+        return res.json({
+          success: true,
+          stats: { ...stats, unmappedCmsIds: Array.from(stats.unmappedCmsIds) }
+        });
+      }
 
     } catch (err) {
       console.error('CTR Upload Error:', err);
@@ -989,12 +1036,37 @@ router.post('/upload', (req, res) => {
         console.error('CTR Upload Log Update Failed:', logErr);
       }
 
-      return res.status(500).json({
-        success: false,
-        message: err.message
-      });
+      if (!responded) {
+        return res.status(500).json({
+          success: false,
+          message: err.message
+        });
+      }
     }
   });
+});
+
+/**
+ * GET /api/ctr/upload-status/:batchId
+ * The upload log row the page polls while a file is processed, plus the newest
+ * PROCESSING batch when called as /upload-status/current.
+ */
+router.get('/upload-status/:batchId', async (req, res) => {
+  const pool = req.app.locals.pool;
+  try {
+    const where = req.params.batchId === 'current'
+      ? `status = 'PROCESSING' AND uploaded_at > NOW() - INTERVAL 15 MINUTE ORDER BY id DESC`
+      : `batch_id = ?`;
+    const [rows] = await pool.query(
+      `SELECT batch_id, filename, source_office, status, total_rows, progress_rows, duties_created, legs_created,
+              duplicates_skipped, errors_count, orphan_legs, skipped_rows, unmapped_cms_ids, error_message, uploaded_at, completed_at
+       FROM div_ctr_upload_log WHERE ${where} LIMIT 1`,
+      req.params.batchId === 'current' ? [] : [req.params.batchId]
+    );
+    res.json({ success: true, batch: rows[0] || null });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
 });
 
 
@@ -1304,13 +1376,15 @@ router.get('/upload-history', async (req, res) => {
     const isAdmin = (user?.role || '').toLowerCase() === 'admin';
 
     try {
-        let query = `SELECT * FROM div_ctr_upload_log`;
+        // Uploads that stored nothing (a repeat of a file already loaded) are kept in
+        // the log but not listed (lobby, 2026-10-23)
+        let query = `SELECT * FROM div_ctr_upload_log WHERE NOT (status = 'COMPLETED' AND duties_created = 0 AND legs_created = 0)`;
         let params = [];
 
         // Non-admin users only see their office uploads
         // Match if source_office is prefix of user's office code (e.g., PNVL matches PNVL-ML)
         if (!isAdmin && userOffice) {
-            query += ` WHERE ? LIKE CONCAT(source_office, '%')`;
+            query += ` AND ? LIKE CONCAT(source_office, '%')`;
             params.push(userOffice);
         }
 
