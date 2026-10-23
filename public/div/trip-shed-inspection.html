@@ -99,10 +99,11 @@ async function init() {
   // Use the local calendar day, not the UTC date around midnight.
   const now = new Date();
   field('inspection_date').value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
-  $('#type').innerHTML = cfg.templates.map(t => `<option value="${t.id}" ${t.entry_enabled ? '' : 'disabled'}>${esc(t.inspection_type)} — ${esc(t.title)}</option>`).join('');
+  // Only templates open for entry are offered; retired versions stay in cfg.templates so saved inspections still resolve their type.
+  $('#type').innerHTML = cfg.templates.filter(t => t.entry_enabled).map(t => `<option value="${t.id}">${esc(t.inspection_type)} — ${esc(t.title)}</option>`).join('');
   if (id) {
     const data = await request('/inspections/' + id);
-    if (![...$('#type').options].some(x => x.value === String(data.inspection.template_id))) $('#type').add(new Option('Historical template #' + data.inspection.template_id, data.inspection.template_id));
+    if (![...$('#type').options].some(x => x.value === String(data.inspection.template_id))) { const old = cfg.templates.find(t => String(t.id) === String(data.inspection.template_id)); $('#type').add(new Option(old ? `${old.inspection_type} — ${old.title} (retired)` : 'Historical template #' + data.inspection.template_id, data.inspection.template_id)); }
     Object.entries(data.inspection).forEach(([key,value]) => { const input = field(key); if (input && value != null) input.value = value; });
     items = data.items; status = data.inspection.status; $('#title').textContent = 'Inspection #' + id; render();
   } else {
