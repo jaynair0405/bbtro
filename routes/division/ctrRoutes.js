@@ -2285,40 +2285,49 @@ router.get('/lrd/summary', async (req, res) => {
 });
 
 /**
- * POST /api/ctr/lrd/backfill
- * Backfill matched_sections for existing legs (one-time operation)
+ * POST /api/ctr/lrd/backfill   { limit, after_id }
+ * Resolve matched_sections for legs that have none, in id order from after_id,
+ * and credit coverage for each matched working leg (dated from the leg), so a
+ * routes/alias change needs only backfill calls and no coverage rebuild.
+ * Unresolvable legs stay NULL, so callers continue from the returned last_id;
+ * a plain LIMIT used to hand back the same unresolvable legs every call
+ * (lobby, 2026-10-23).
  */
 router.post('/lrd/backfill', async (req, res) => {
     const pool = req.app.locals.pool;
-    const { limit = 1000 } = req.body;
+    const { limit = 1000, after_id = 0 } = req.body;
 
     try {
         if (!routeCtx) {
             return res.status(500).json({ success: false, message: 'Route data not loaded' });
         }
 
-        // Get legs without matched_sections
+        // Get legs without matched_sections, in id order from the cursor
         const [legs] = await pool.query(
-            `SELECT l.id, l.from_station, l.to_station, l.route_name, l.train_no, d.staff_cms_id
+            `SELECT l.id, l.from_station, l.to_station, l.route_name, l.train_no, l.duty_type,
+                    l.route_km, l.departure_datetime, l.duty_id,
+                    d.staff_cms_id, d.staff_hrms_id, d.duty_date
              FROM div_ctr_legs l
              JOIN div_ctr_duties d ON d.id = l.duty_id
              WHERE l.matched_sections IS NULL
+               AND l.id > ?
                AND l.duty_type IN (${LRD_TYPES_SQL})
                AND l.from_station IS NOT NULL
                AND l.to_station IS NOT NULL
+             ORDER BY l.id
              LIMIT ?`,
-            [parseInt(limit)]
+            [parseInt(after_id) || 0, parseInt(limit)]
         );
 
         if (legs.length === 0) {
             return res.json({
                 success: true,
                 message: 'No legs to backfill',
-                stats: { processed: 0, matched: 0, unmapped: 0 }
+                stats: { processed: 0, matched: 0, unmapped: 0, ambiguous: 0, coverage_credited: 0, last_id: parseInt(after_id) || 0, remaining: 0 }
             });
         }
 
-        let matched = 0, unmapped = 0, ambiguous = 0;
+        let matched = 0, unmapped = 0, ambiguous = 0, credited = 0;
 
         for (const leg of legs) {
             const resolved = resolveLegWithRoutes(leg.from_station, leg.to_station, routeCtx, { routeName: leg.route_name || null, crewOffice: crewOfficeFromCmsId(leg.staff_cms_id), trainNo: leg.train_no || null });
@@ -2341,25 +2350,37 @@ router.post('/lrd/backfill', async (req, res) => {
                 `UPDATE div_ctr_legs SET matched_sections = ? WHERE id = ?`,
                 [matchedSections, leg.id]
             );
+
+            // Credit coverage as the upload does: working legs with km, dated from the leg
+            if (matchedSections && leg.staff_hrms_id && WORKING_TYPES.includes(leg.duty_type) && Number(leg.route_km) > 0) {
+                const workDate = leg.departure_datetime ? formatMySQLDate(leg.departure_datetime) : leg.duty_date;
+                await updateSegmentCoverage(pool, leg.staff_hrms_id, matchedSections, workDate, leg.duty_id);
+                credited++;
+            }
         }
+        const lastId = legs[legs.length - 1].id;
 
         // Check remaining
         const [remaining] = await pool.query(
             `SELECT COUNT(*) as cnt FROM div_ctr_legs
              WHERE matched_sections IS NULL
+               AND id > ?
                AND duty_type IN (${LRD_TYPES_SQL})
                AND from_station IS NOT NULL
-               AND to_station IS NOT NULL`
+               AND to_station IS NOT NULL`,
+            [lastId]
         );
 
         res.json({
             success: true,
-            message: `Backfilled ${legs.length} legs`,
+            message: `Backfilled ${legs.length} legs (ids up to ${lastId})`,
             stats: {
                 processed: legs.length,
                 matched,
                 unmapped,
                 ambiguous,
+                coverage_credited: credited,
+                last_id: lastId,
                 remaining: remaining[0].cnt
             }
         });
