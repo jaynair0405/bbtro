@@ -7,9 +7,13 @@
  *
  * Same rule as the upload path in routes/division/ctrRoutes.js:
  *   working legs only (WR, LR), route_km > 0, matched_sections set.
- * CTR-derived rows are cleared first so a re-resolve of matched_sections
- * (routes/beats change) is reflected; road-learning rows (last_duty_id = 0)
- * are kept.
+ * Builds into a staging copy (div_lrd_segment_coverage_new: the road-learning
+ * rows, last_duty_id = 0, copied over, then every CTR-derived pair) and swaps it
+ * in with one atomic RENAME at the end, so the live table is never half built.
+ * Until 2026-10-23 it cleared the live table first and refilled it over several
+ * minutes, during which the LRD page showed crews as overdue or missing.
+ * Normally not needed after a routes/alias change any more: the backfill
+ * endpoint credits coverage for the legs it resolves.
  *
  * Usage (LOCAL):
  *   set -a; . ./.env; set +a; node scripts/backfill_segment_coverage.js
@@ -17,6 +21,9 @@
 
 const mysql = require('mysql2/promise');
 const path = require('path');
+
+const LIVE = 'div_lrd_segment_coverage';
+const STAGING = 'div_lrd_segment_coverage_new';
 
 // Load database config
 const dbConfig = {
@@ -68,11 +75,15 @@ async function backfillSegmentCoverage() {
             }
         }
 
-        // Clear CTR-derived coverage; keep road learning (last_duty_id = 0)
-        const [cleared] = await pool.query(
-            `DELETE FROM div_lrd_segment_coverage WHERE last_duty_id IS NULL OR last_duty_id <> 0`
+        // Staging table: same keys as the live one; road learning (last_duty_id = 0) carried over
+        await pool.query(`DROP TABLE IF EXISTS ${STAGING}`);
+        await pool.query(`CREATE TABLE ${STAGING} LIKE ${LIVE}`);
+        const [kept] = await pool.query(
+            `INSERT INTO ${STAGING} (staff_hrms_id, from_station, to_station, last_worked_date, last_duty_id, work_count)
+             SELECT staff_hrms_id, from_station, to_station, last_worked_date, last_duty_id, work_count
+             FROM ${LIVE} WHERE last_duty_id = 0`
         );
-        console.log(`\nCleared ${cleared.affectedRows} CTR-derived coverage rows (road learning kept).`);
+        console.log(`\nStaging table ${STAGING} created; ${kept.affectedRows} road-learning rows carried over. Live table untouched until the swap.`);
 
         // Get working legs with matched_sections
         console.log('\nFetching working legs with matched_sections...');
@@ -155,7 +166,7 @@ async function backfillSegmentCoverage() {
                 // Insert/update each pair
                 for (const [fromStn, toStn] of pairs) {
                     const [result] = await pool.query(
-                        `INSERT INTO div_lrd_segment_coverage
+                        `INSERT INTO ${STAGING}
                          (staff_hrms_id, from_station, to_station, last_worked_date, last_duty_id, work_count)
                          VALUES (?, ?, ?, ?, ?, 1)
                          ON DUPLICATE KEY UPDATE
@@ -206,12 +217,18 @@ async function backfillSegmentCoverage() {
         console.log(`  Skipped (no HRMS): ${skippedNoHrms}`);
         console.log(`  Errors: ${errors}`);
 
+        // Swap: one atomic rename, then drop the old copy
+        await pool.query(`DROP TABLE IF EXISTS ${LIVE}_old`);
+        await pool.query(`RENAME TABLE ${LIVE} TO ${LIVE}_old, ${STAGING} TO ${LIVE}`);
+        await pool.query(`DROP TABLE ${LIVE}_old`);
+        console.log(`  Swapped ${STAGING} into ${LIVE} (atomic rename).`);
+
         // Show stats
         const [stats] = await pool.query(
             `SELECT COUNT(DISTINCT staff_hrms_id) as staff_count,
                     COUNT(*) as total_segments,
                     COUNT(DISTINCT CONCAT(from_station, '-', to_station)) as unique_segments
-             FROM div_lrd_segment_coverage`
+             FROM ${LIVE}`
         );
         console.log(`\nDatabase stats:`);
         console.log(`  Staff with segments: ${stats[0].staff_count}`);
@@ -223,6 +240,7 @@ async function backfillSegmentCoverage() {
 
     } catch (err) {
         console.error('\nFatal error:', err);
+        try { await pool.query(`DROP TABLE IF EXISTS ${STAGING}`); console.log(`Staging table ${STAGING} dropped; live table untouched.`); } catch (e) { /* ignore */ }
         await pool.end();
         process.exit(1);
     }
