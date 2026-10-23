@@ -78,6 +78,10 @@ require('dotenv').config({ quiet: true });
     const ti = await call('POST','/inspections',tiDraft,200,'trip_shed_operator');
     const loadedTi = await call('GET','/inspections/'+ti.id,undefined,200);
     assert.equal(loadedTi.inspection.traction_converter_make,'ABB');
+    const convSaved = await call('POST','/inspections',{...tiDraft,loco_number:'CONV-HDR',si_unit_arno_make:'BHEL ARNO',fdcs_make:'Medha FDCS'},200,'trip_shed_operator'); // TS-042: conventional header makes
+    const convLoaded = await call('GET','/inspections/'+convSaved.id,undefined,200); assert.equal(convLoaded.inspection.si_unit_arno_make,'BHEL ARNO'); assert.equal(convLoaded.inspection.fdcs_make,'Medha FDCS');
+    const gcMakes = await call('POST','/inspections',{template_id:1,inspection_date:'2026-09-16',shift_code:'08/16',loco_number:'GC-MAKES',traction_converter_make:'ABB',auxiliary_converter_make:'Medha',responses:[{template_item_id:1,outcome:'OK'}]},200,'trip_shed_operator'); // officer: optional on GC
+    const gcLoaded = await call('GET','/inspections/'+gcMakes.id,undefined,200); assert.equal(gcLoaded.inspection.traction_converter_make,'ABB'); assert.equal(gcLoaded.inspection.auxiliary_converter_make,'Medha'); assert.equal(gcLoaded.inspection.si_unit_arno_make,null);
     assert.equal(loadedTi.inspection.auxiliary_converter_make,'Medha');
     assert.equal(loadedTi.inspection.brake_system_make,'Knorr');
     assert.equal(loadedTi.inspection.hlc_make,'HLC-A');
