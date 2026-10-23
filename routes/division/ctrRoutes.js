@@ -1926,6 +1926,37 @@ router.get('/lrd/staff-status/:hrmsId', async (req, res) => {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
+        // Status of one worked pair under the validity rule (shared by the office
+        // sections below and the all-coverage list for the map)
+        const statusOf = (segData) => {
+            if (!segData || !segData.last_worked) return { status: 'NEVER_WORKED', lastWorked: null, expiresOn: null, daysRemaining: null };
+            const lastWorked = new Date(segData.last_worked);
+            const expiresOn = new Date(lastWorked);
+            expiresOn.setDate(expiresOn.getDate() + validityDays);
+            const daysRemaining = Math.ceil((expiresOn - today) / (1000 * 60 * 60 * 24));
+            const status = daysRemaining < 0 ? 'EXPIRED' : daysRemaining <= expiringThreshold ? 'EXPIRING_SOON' : 'VALID';
+            return { status, lastWorked, expiresOn, daysRemaining };
+        };
+
+        // Every pair the crew has ever worked, whatever office they sit in now. The
+        // sections list stays scoped to the current office (what they are due for),
+        // but the map colours from this, so a transferred crew keeps their history
+        // visible: a PNVL crew moved to KYN still shows BSR, KJT-LNL, JNPT ... and the
+        // KYN lobby need only give LRD for the rest (lobby, 2026-10-23).
+        const coverageSegments = [];
+        for (const [key, segData] of segmentMap) {
+            const [from, to] = key.split('-');
+            const s = statusOf(segData);
+            coverageSegments.push({
+                from, to,
+                status: s.status,
+                last_worked: s.lastWorked ? s.lastWorked.toISOString().split('T')[0] : null,
+                expires_on: s.expiresOn ? s.expiresOn.toISOString().split('T')[0] : null,
+                days_remaining: s.daysRemaining,
+                is_road_learning: segData?.is_road_learning || false
+            });
+        }
+
         // Calculate status for each beat/section
         const sectionStatuses = applicableBeats.map(beat => {
             // Extract adjacent pairs from this section's stations
@@ -2062,7 +2093,8 @@ router.get('/lrd/staff-status/:hrmsId', async (req, res) => {
                 include_piloting: includePiloting
             },
             summary,
-            sections: sectionStatuses
+            sections: sectionStatuses,
+            coverage_segments: coverageSegments
         });
 
     } catch (err) {

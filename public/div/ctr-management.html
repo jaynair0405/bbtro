@@ -2141,9 +2141,10 @@
                 // Render table
                 renderLRDTable(lrdRouteData);
 
-                // Show map and color segments
+                // Show map and color segments: every pair the crew has worked (any office),
+                // plus the office sections (same statuses, kept for safety)
                 document.getElementById('lrdMapContainer').style.display = 'block';
-                colorLrdMapSegments(lrdRouteData);
+                colorLrdMapSegments(lrdRouteData, data.coverage_segments || []);
 
             } catch (err) {
                 console.error('Load LRD Status Error:', err);
@@ -2165,7 +2166,7 @@
         }
 
         // Color SVG map segments based on staff's LRD coverage data
-        function colorLrdMapSegments(sections) {
+        function colorLrdMapSegments(sections, coverageSegments) {
             // Reset all segments to default color first
             const svg = document.getElementById('lrdRouteSvg');
             const allPaths = svg.querySelectorAll('path[id^="seg-"]');
@@ -2187,6 +2188,14 @@
             // Build a map of segment coverage: "FROM-TO" -> status
             // Each direction is tracked separately (directional coverage)
             const segmentMap = new Map();
+
+            // all worked pairs, whatever office the crew is in now
+            for (const seg of (coverageSegments || [])) {
+                const key = `${seg.from.toUpperCase()}-${seg.to.toUpperCase()}`;
+                if (!segmentMap.has(key) || statusPriorityMap[seg.status] > statusPriorityMap[segmentMap.get(key)]) {
+                    segmentMap.set(key, seg.status);
+                }
+            }
 
             for (const section of sections) {
                 if (!section.segments) continue;
