@@ -1140,15 +1140,12 @@
                             <text x="115" y="550" font-size="9" font-weight="500" fill="#f59e0b">JNPT</text>
                         </g>
 
-                        <!-- JSLE to BPCL branch (below JNPT) via DRT -->
+                        <!-- JSLE to BPCL branch (below JNPT). DRT lies on it but the CTR never records a
+                             leg to DRT (crews sign JSLE/JNPT; routes.json aliases DRT to BPCL), so it is not
+                             drawn and the pair keys JSLE-BPCL as the routes resolve it (lobby, 2026-10-23). -->
                         <g id="route-jsle-bpcl" class="route-group">
-                            <path id="seg-jsle-drt-dn" d="M230 503 L186 550" stroke="#4a5568" stroke-width="3" fill="none"/>
-                            <path id="seg-drt-jsle-up" d="M180 550 L230 497" stroke="#4a5568" stroke-width="3" fill="none"/>
-                            <path id="seg-drt-bpcl-dn" d="M186 550 L130 594" stroke="#4a5568" stroke-width="3" fill="none"/>
-                            <path id="seg-bpcl-drt-up" d="M120 594 L180 550" stroke="#4a5568" stroke-width="3" fill="none"/>
-                            <!-- DRT station -->
-                            <circle cx="183" cy="550" r="5" fill="#a9b4d0" stroke="#475569" stroke-width="1"/>
-                            <text x="195" y="555" font-size="7" fill="#a9b4d0">DRT</text>
+                            <path id="seg-jsle-bpcl-dn" d="M230 503 L186 550 L130 594" stroke="#4a5568" stroke-width="3" fill="none"/>
+                            <path id="seg-bpcl-jsle-up" d="M120 594 L180 550 L230 497" stroke="#4a5568" stroke-width="3" fill="none"/>
                             <!-- BPCL station -->
                             <circle cx="125" cy="598" r="6" fill="#f59e0b" stroke="#d97706" stroke-width="1"/>
                             <text x="105" y="608" font-size="9" font-weight="500" fill="#f59e0b">BPCL</text>
