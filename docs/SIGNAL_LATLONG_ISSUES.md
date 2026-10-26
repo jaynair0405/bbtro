@@ -45,6 +45,7 @@ Per-line progress (counts, source file, notes): `docs/signal_latlong_progress.cs
 | GATE INN DIST (IGP-MMR DN, 214/29) | name lacks the gate number — should be GATE-98 INN DIST |
 | BSR DN order vs km | GATE-10 (79/17) sits before BSR IBS DIST (80/15); coordinates agree with the order, so one km is wrong |
 | IGP S-26/27/28/29/37 (KSRA-IGP UP) | no location_text |
+| NEU S-44, NU-2, NU-4 (NEU-KILLE UP BSU) | no location_text |
 | DW S-16 / DW S-19 | 2 m apart (PF-7 / PF-8 starters) — verify |
 | CSMT-KYN DN LOC location_text | most rows empty in master; source csmt_kyn_dn_loc.csv has them all (and differs on PR S-19, DR S-20, L-043, CLA S-8, VVH S-29, VVH S-56, VK S-3, L-089, L-3511 where master says 'PF-1 STR' etc.) — fill from source |
 | CSMT S-3/4/5/6 DN TH vs DN LOC | same magnet_id; DN TH (earlier load) and DN LOC (csmt_kyn_dn_loc.csv) coords differ 3–10 m — pick one |
