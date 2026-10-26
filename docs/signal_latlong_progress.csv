@@ -66,7 +66,7 @@ PNVL-ROHA,UP KR,UP,62,61,1,partial,data/PNVL_ROHA/pnvl_roha_up.csv,
 ROHA-RN,DN KR,DN,108,0,108,not started,,
 ROHA-RN,UP KR,UP,106,0,106,not started,,
 TNA-TUH,DN THB,DN,20,20,0,complete,data/TNA_VSH/tna-tuh_dn.csv,
-TNA-TUH,UP THB,UP,19,0,19,not started,,
+TNA-TUH,UP THB,UP,19,19,0,complete,data/TNA_VSH/tna_tuh_up.csv,TNA S-53/54 PF swapped in master location_text
 TUH-NEU,DN THB,DN,8,0,8,not started,,
 TUH-NEU,UP THB,UP,9,0,9,not started,,
 TUH-VSH,DN THB,DN,5,5,0,complete,data/TNA_VSH/tuh_vsh_dn.csv,"source uses old VSH numbers (S-4=S-29, S-19=S-21)"

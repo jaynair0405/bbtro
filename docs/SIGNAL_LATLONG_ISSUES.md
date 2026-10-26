@@ -47,6 +47,7 @@ Per-line progress (counts, source file, notes): `docs/signal_latlong_progress.cs
 | IGP S-26/27/28/29/37 (KSRA-IGP UP) | no location_text |
 | NEU S-44, NU-2, NU-4 (NEU-KILLE UP BSU) | no location_text |
 | VSH S-8 (TUH-VSH UP THB) | no location_text — source gives 29/T239 |
+| TNA S-53 / S-54 (TNA-TUH UP THB) | location_text swapped: master S-53 = PF-10, S-54 = PF-9; correct is S-53 = PF-9 STR, S-54 = PF-10 STR (confirmed by user) |
 | URAN S-7/SH-7, S-8/SH-8 (PF-1/PF-2 STR, DN BSU) | in source uran_dn.csv with coords (18.87828/72.95087, 18.87844/72.95087) but not in div_signals — add as signals |
 | DW S-16 / DW S-19 | 2 m apart (PF-7 / PF-8 starters) — verify |
 | CSMT-KYN DN LOC location_text | most rows empty in master; source csmt_kyn_dn_loc.csv has them all (and differs on PR S-19, DR S-20, L-043, CLA S-8, VVH S-29, VVH S-56, VK S-3, L-089, L-3511 where master says 'PF-1 STR' etc.) — fill from source |
