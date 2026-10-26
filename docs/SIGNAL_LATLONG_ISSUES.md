@@ -24,6 +24,7 @@ Per-line progress (counts, source file, notes): `docs/signal_latlong_progress.cs
 | KOPAR-BSR BSR DN | BSR S-44/46/56/58/60/62/66, loop/UDL starters at BIRD/KHBV/KARD (14 total) | not in source |
 | KOPAR-BSR BSR UP | KHBV S-1, KHBV S-5, BIRD S-3, BIRD S-4, KARD S-3 | not in source |
 | DAT-DCC DIVA DN | DCC S-22 (loop starter) | not in source |
+| TUH-NEU UP THB | NEU S-26 (PF-1 STR) | not in source |
 | CSMT-KYN DN LOC | CLA S-9, CLA S-10, KLVA S-10, L-4001 REP, DI S-38 | blank in source |
 | CSMT-KYN DN LOC | KYN S-49/52/53/54 (DN PF starters), VVH S-5 | not in source |
 | CSMT-KYN UP LOC | KYN S-35/14/16/36, TNA S-58/31/44/8, VVH S-55, CLA S-27 | blank in source |
