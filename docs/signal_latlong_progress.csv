@@ -22,7 +22,7 @@ DCC-KYN,DIVA DN,DN,9,0,9,not started,,
 DCC-KYN,DIVA UP,UP,10,0,10,not started,,
 DW-DCC,BSR UP,UP,8,6,2,partial,,
 IGP-MMR,DN NE,DN,108,98,10,partial,data/IGP_MMR/igp_mmr_dn_new.csv (+ igp_mmr_dn.csv),automatics from retired inner distants; LT IBS x3 + ODHA DIST/INN pending
-IGP-MMR,UP NE,UP,102,0,102,not started,,
+IGP-MMR,UP NE,UP,102,96,6,partial,data/IGP_MMR/igp_mmr_up_new.csv,automatics from retired distants; 6 blank in source
 JNPN-MPRN,WDFC DN,DN,236,0,236,not started,,
 JNPN-MPRN,WDFC UP,UP,171,0,171,not started,,
 KILLE-URAN,DN BSU,DN,23,23,0,complete,data/BSU_LINE/uran_dn.csv,KHKR in source = KARP; URAN S-7/S-8 not in master
@@ -46,7 +46,7 @@ KYN-KSRA,DN NE,DN,73,73,0,complete,,
 KYN-KSRA,UP NE,UP,74,74,0,complete,,
 LNL-PUNE,DN SE,DN,92,92,0,complete,data/LNL-PUNE/lnl_pune_dn.csv,
 LNL-PUNE,UP SE,UP,94,84,10,partial,data/LNL-PUNE/lnl_pune_up.csv,10 blank in source
-MMR-BSL,DN NE,DN,159,0,159,not started,,
+MMR-BSL,DN NE,DN,159,1,158,partial,,
 MMR-BSL,UP NE,UP,164,0,164,not started,,
 MMR-SNSI,SNSI DN,DN,41,1,40,partial,,
 MMR-SNSI,SNSI UP,UP,41,0,41,not started,,
