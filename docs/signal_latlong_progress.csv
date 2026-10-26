@@ -8,7 +8,7 @@ CLA-TMBY,UP TMBY,UP,17,0,17,not started,,
 CLA-VDLR,BPT DN,DN,14,8,6,partial,,
 CLA-VDLR,BPT UP,UP,15,0,15,not started,,
 CSMT-KYN,DN LOC,DN,134,124,10,partial,data/CSMT_KYN/csmt_kyn_dn_loc.csv,L-025 lat typo fixed; KYN DN PF starters missing
-CSMT-KYN,DN TH,DN,136,114,22,partial,,
+CSMT-KYN,DN TH,DN,136,115,21,partial,,
 CSMT-KYN,UP LOC,UP,128,117,11,partial,data/CSMT_KYN/csmt_kyn_up_loc.csv,10 blank in source; KLVA S-22 missing
 CSMT-KYN,UP TH,DN,124,115,9,partial,,
 CSMT-PNVL,DN HB,DN,111,100,11,partial,,
@@ -40,9 +40,9 @@ KSRA-IGP,DN NE MID,DN,13,2,11,partial,,
 KSRA-IGP,UP NE,UP,22,13,9,partial,data/KSRA-IGP/ksra_igp_up.csv,IGP yard signals later
 KSRA-IGP,UP NE MID,UP,22,2,20,partial,,
 KYN-BSR,BSR UP,UP,12,1,11,partial,,
-KYN-KJT,DN SE,DN,71,61,10,partial,,
+KYN-KJT,DN SE,DN,71,62,9,partial,,
 KYN-KJT,UP SE,DN,70,62,8,partial,,
-KYN-KSRA,DN NE,DN,73,72,1,partial,,
+KYN-KSRA,DN NE,DN,73,73,0,complete,,
 KYN-KSRA,UP NE,UP,74,74,0,complete,,
 LNL-PUNE,DN SE,DN,92,92,0,complete,data/LNL-PUNE/lnl_pune_dn.csv,
 LNL-PUNE,UP SE,UP,94,84,10,partial,data/LNL-PUNE/lnl_pune_up.csv,10 blank in source
