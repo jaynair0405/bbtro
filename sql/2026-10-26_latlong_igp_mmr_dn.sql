@@ -8,7 +8,7 @@
 -- LS IBS DIST / LS IBS INN DIST from the older file ('GATE 106' / 'LS IBS I/DIST'): the new file's points lie behind LS station.
 -- MMR S-88 (PF-4 STR) lives on MMR-SNSI SNSI DN; from the older file's 'MMR PF4 STR'.
 -- MMR S-66 (PF-2 STR): source row carried the PF-4 point; correct value 20.25097/74.4411 given by user. Also its MMR-BSL DN NE copy.
--- Left NULL: LT IBS DIST/INN DIST/S-16 (gate 84 data pending), ODHA DIST/INN DIST, IGP S-61/62/63/69/71, MMR S-66.
+-- Left NULL: LT IBS DIST/INN DIST/S-16 (gate 84 data pending), ODHA DIST/INN DIST, IGP S-61/62/63/69/71.
 
 UPDATE div_signals SET latitude=19.69439, longitude=73.56543 WHERE signal_number='IGP S-64' AND section='IGP-MMR' AND line='DN NE' AND direction='DN' AND is_active=1 AND (latitude IS NULL OR longitude IS NULL);
 UPDATE div_signals SET latitude=19.6944, longitude=73.56505 WHERE signal_number='IGP S-66' AND section='IGP-MMR' AND line='DN NE' AND direction='DN' AND is_active=1 AND (latitude IS NULL OR longitude IS NULL);
