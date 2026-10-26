@@ -9,8 +9,8 @@ CLA-VDLR,BPT DN,DN,14,8,6,partial,,
 CLA-VDLR,BPT UP,UP,15,0,15,not started,,
 CSMT-KYN,DN LOC,DN,134,124,10,partial,data/CSMT_KYN/csmt_kyn_dn_loc.csv,L-025 lat typo fixed; KYN DN PF starters missing
 CSMT-KYN,DN TH,DN,136,114,22,partial,,
-CSMT-KYN,UP LOC,UP,128,0,128,not started,,
-CSMT-KYN,UP TH,DN,124,113,11,partial,,
+CSMT-KYN,UP LOC,UP,128,117,11,partial,data/CSMT_KYN/csmt_kyn_up_loc.csv,10 blank in source; KLVA S-22 missing
+CSMT-KYN,UP TH,DN,124,115,9,partial,,
 CSMT-PNVL,DN HB,DN,111,100,11,partial,,
 CSMT-PNVL,UP HB,UP,108,104,4,partial,data/CSMT_PNVL/ upload_lat_long_csmt_pnvl_up_hb.csv,
 DAT-DCC,DIVA DN,DN,3,2,1,partial,,

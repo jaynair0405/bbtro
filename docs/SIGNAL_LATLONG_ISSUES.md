@@ -26,6 +26,8 @@ Per-line progress (counts, source file, notes): `docs/signal_latlong_progress.cs
 | DAT-DCC DIVA DN | DCC S-22 (loop starter) | not in source |
 | CSMT-KYN DN LOC | CLA S-9, CLA S-10, KLVA S-10, L-4001 REP, DI S-38 | blank in source |
 | CSMT-KYN DN LOC | KYN S-49/52/53/54 (DN PF starters), VVH S-5 | not in source |
+| CSMT-KYN UP LOC | KYN S-35/14/16/36, TNA S-58/31/44/8, VVH S-55, CLA S-27 | blank in source |
+| CSMT-KYN UP LOC | KLVA S-22 | not in source |
 | KJT-LNL (all lines) | KJT station signals (S-16, 21, 22, 28, 38/39, 42, 61/62) | not in any source yet |
 | IGP-MMR DN, MMR-IGP UP | whole line | source names did not match master — user to redo with proper signal numbers |
 
@@ -53,4 +55,4 @@ Per-line progress (counts, source file, notes): `docs/signal_latlong_progress.cs
 - `bsr_dw_up.csv` first arrived holding the DN direction (renamed `bsr_dw_dn.csv`).
 - Stale rows: LX 20 on PNVL-ROHA UP (gate removed); "LX2" label for GATE-4.
 - `kjt-lnl-ml-DN.csv` was dropped in `data/trip-shed/` (moved).
-- `csmt_kyn_dn_loc.csv`: L-025 lat typed 8.99111 (corrected to 18.99111); names 'L 057', 'L -4401', 'KLV' for KLVA.
+- `csmt_kyn_dn_loc.csv`: L-025 lat typed 8.99111 (corrected to 18.99111); names 'L 057', 'L -4401', 'KLV' for KLVA (also in csmt_kyn_up_loc.csv).
