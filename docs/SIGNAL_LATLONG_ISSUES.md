@@ -24,6 +24,8 @@ Per-line progress (counts, source file, notes): `docs/signal_latlong_progress.cs
 | KOPAR-BSR BSR DN | BSR S-44/46/56/58/60/62/66, loop/UDL starters at BIRD/KHBV/KARD (14 total) | not in source |
 | KOPAR-BSR BSR UP | KHBV S-1, KHBV S-5, BIRD S-3, BIRD S-4, KARD S-3 | not in source |
 | DAT-DCC DIVA DN | DCC S-22 (loop starter) | not in source |
+| CSMT-KYN DN LOC | CLA S-9, CLA S-10, KLVA S-10, L-4001 REP, DI S-38 | blank in source |
+| CSMT-KYN DN LOC | KYN S-49/52/53/54 (DN PF starters), VVH S-5 | not in source |
 | KJT-LNL (all lines) | KJT station signals (S-16, 21, 22, 28, 38/39, 42, 61/62) | not in any source yet |
 | IGP-MMR DN, MMR-IGP UP | whole line | source names did not match master — user to redo with proper signal numbers |
 
@@ -42,6 +44,8 @@ Per-line progress (counts, source file, notes): `docs/signal_latlong_progress.cs
 | BSR DN order vs km | GATE-10 (79/17) sits before BSR IBS DIST (80/15); coordinates agree with the order, so one km is wrong |
 | IGP S-26/27/28/29/37 (KSRA-IGP UP) | no location_text |
 | DW S-16 / DW S-19 | 2 m apart (PF-7 / PF-8 starters) — verify |
+| CSMT-KYN DN LOC location_text | most rows empty in master; source csmt_kyn_dn_loc.csv has them all (and differs on PR S-19, DR S-20, L-043, CLA S-8, VVH S-29, VVH S-56, VK S-3, L-089, L-3511 where master says 'PF-1 STR' etc.) — fill from source |
+| CSMT S-3/4/5/6 DN TH vs DN LOC | same magnet_id; DN TH (earlier load) and DN LOC (csmt_kyn_dn_loc.csv) coords differ 3–10 m — pick one |
 
 ## C. Source-file quirks (for whoever prepares the sheets)
 
@@ -49,3 +53,4 @@ Per-line progress (counts, source file, notes): `docs/signal_latlong_progress.cs
 - `bsr_dw_up.csv` first arrived holding the DN direction (renamed `bsr_dw_dn.csv`).
 - Stale rows: LX 20 on PNVL-ROHA UP (gate removed); "LX2" label for GATE-4.
 - `kjt-lnl-ml-DN.csv` was dropped in `data/trip-shed/` (moved).
+- `csmt_kyn_dn_loc.csv`: L-025 lat typed 8.99111 (corrected to 18.99111); names 'L 057', 'L -4401', 'KLV' for KLVA.
