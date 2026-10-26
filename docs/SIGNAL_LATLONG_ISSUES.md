@@ -57,4 +57,5 @@ Per-line progress (counts, source file, notes): `docs/signal_latlong_progress.cs
 - `bsr_dw_up.csv` first arrived holding the DN direction (renamed `bsr_dw_dn.csv`).
 - Stale rows: LX 20 on PNVL-ROHA UP (gate removed); "LX2" label for GATE-4.
 - `kjt-lnl-ml-DN.csv` was dropped in `data/trip-shed/` (moved).
+- `tuh_vsh_dn.csv`: old signal numbers — VSH S-4 is now S-29, VSH S-19 is now S-21 (renumbered; sheets should be updated).
 - `csmt_kyn_dn_loc.csv`: L-025 lat typed 8.99111 (corrected to 18.99111); names 'L 057', 'L -4401', 'KLV' for KLVA (also in csmt_kyn_up_loc.csv).

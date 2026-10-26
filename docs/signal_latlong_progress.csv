@@ -69,7 +69,7 @@ TNA-TUH,DN THB,DN,20,20,0,complete,data/TNA_VSH/tna-tuh_dn.csv,
 TNA-TUH,UP THB,UP,19,0,19,not started,,
 TUH-NEU,DN THB,DN,8,0,8,not started,,
 TUH-NEU,UP THB,UP,9,0,9,not started,,
-TUH-VSH,DN THB,DN,5,1,4,partial,data/TNA_VSH/tna-tuh_dn.csv,
+TUH-VSH,DN THB,DN,5,5,0,complete,data/TNA_VSH/tuh_vsh_dn.csv,"source uses old VSH numbers (S-4=S-29, S-19=S-21)"
 TUH-VSH,UP THB,UP,6,0,6,not started,,
 VDLR-GMN,DN HB,DN,35,2,33,partial,,
 VDLR-GMN,UP HB,UP,36,0,36,not started,,
