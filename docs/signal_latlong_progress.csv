@@ -47,7 +47,7 @@ KYN-KSRA,UP NE,UP,74,74,0,complete,,
 LNL-PUNE,DN SE,DN,92,92,0,complete,data/LNL-PUNE/lnl_pune_dn.csv,
 LNL-PUNE,UP SE,UP,94,84,10,partial,data/LNL-PUNE/lnl_pune_up.csv,10 blank in source
 MMR-BSL,DN NE,DN,159,1,158,partial,,
-MMR-BSL,UP NE,UP,164,0,164,not started,,
+MMR-BSL,UP NE,UP,164,1,163,partial,,
 MMR-SNSI,SNSI DN,DN,41,1,40,partial,,
 MMR-SNSI,SNSI UP,UP,41,0,41,not started,,
 NEU-KILLE,DN BSU,DN,5,5,0,complete,data/NEU-KILLE/neu_kille_dn.csv,
