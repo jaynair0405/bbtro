@@ -40,8 +40,8 @@ KSRA-IGP,DN NE MID,DN,13,2,11,partial,,
 KSRA-IGP,UP NE,UP,22,13,9,partial,data/KSRA-IGP/ksra_igp_up.csv,IGP yard signals later
 KSRA-IGP,UP NE MID,UP,22,2,20,partial,,
 KYN-BSR,BSR UP,UP,12,1,11,partial,,
-KYN-KJT,DN SE,DN,71,62,9,partial,,
-KYN-KJT,UP SE,DN,70,62,8,partial,,
+KYN-KJT,DN SE,DN,71,71,0,complete,,Sept additions from data/KYN_KJT/kyn_kjt_kyn_missing.csv
+KYN-KJT,UP SE,DN,70,70,0,complete,,Sept additions from data/KYN_KJT/kyn_kjt_kyn_missing.csv
 KYN-KSRA,DN NE,DN,73,73,0,complete,,
 KYN-KSRA,UP NE,UP,74,74,0,complete,,
 LNL-PUNE,DN SE,DN,92,92,0,complete,data/LNL-PUNE/lnl_pune_dn.csv,
