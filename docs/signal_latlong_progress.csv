@@ -25,7 +25,7 @@ IGP-MMR,DN NE,DN,117,3,114,partial,,redo with proper signal numbers
 IGP-MMR,UP NE,UP,111,0,111,not started,,redo with proper signal numbers
 JNPN-MPRN,WDFC DN,DN,236,0,236,not started,,
 JNPN-MPRN,WDFC UP,UP,171,0,171,not started,,
-KILLE-URAN,DN BSU,DN,23,0,23,not started,,
+KILLE-URAN,DN BSU,DN,23,23,0,complete,data/BSU_LINE/uran_dn.csv,KHKR in source = KARP; URAN S-7/S-8 not in master
 KILLE-URAN,UP BSU,UP,24,24,0,complete,data/BSU_LINE/uran_kille_up.csv,KHKR in source = KARP
 KJT-KHPI,DN KHPI,DN,26,7,19,partial,data/KJT-KHPI/kjt_khpi_lat_long.csv,
 KJT-KHPI,UP KHPI,UP,25,16,9,partial,data/KJT-KHPI/kjt_khpi_lat_long.csv,
