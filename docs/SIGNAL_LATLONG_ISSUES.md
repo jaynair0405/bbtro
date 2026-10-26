@@ -46,6 +46,7 @@ Per-line progress (counts, source file, notes): `docs/signal_latlong_progress.cs
 | BSR DN order vs km | GATE-10 (79/17) sits before BSR IBS DIST (80/15); coordinates agree with the order, so one km is wrong |
 | IGP S-26/27/28/29/37 (KSRA-IGP UP) | no location_text |
 | NEU S-44, NU-2, NU-4 (NEU-KILLE UP BSU) | no location_text |
+| VSH S-8 (TUH-VSH UP THB) | no location_text — source gives 29/T239 |
 | URAN S-7/SH-7, S-8/SH-8 (PF-1/PF-2 STR, DN BSU) | in source uran_dn.csv with coords (18.87828/72.95087, 18.87844/72.95087) but not in div_signals — add as signals |
 | DW S-16 / DW S-19 | 2 m apart (PF-7 / PF-8 starters) — verify |
 | CSMT-KYN DN LOC location_text | most rows empty in master; source csmt_kyn_dn_loc.csv has them all (and differs on PR S-19, DR S-20, L-043, CLA S-8, VVH S-29, VVH S-56, VK S-3, L-089, L-3511 where master says 'PF-1 STR' etc.) — fill from source |
@@ -58,4 +59,5 @@ Per-line progress (counts, source file, notes): `docs/signal_latlong_progress.cs
 - Stale rows: LX 20 on PNVL-ROHA UP (gate removed); "LX2" label for GATE-4.
 - `kjt-lnl-ml-DN.csv` was dropped in `data/trip-shed/` (moved).
 - `tuh_vsh_dn.csv`: old signal numbers — VSH S-4 is now S-29, VSH S-19 is now S-21 (renumbered; sheets should be updated).
+- `tuh_vsh_up.csv`: old numbers alongside new — old S-11/S-12/S-16 are now VSH S-3/S-4/S-8.
 - `csmt_kyn_dn_loc.csv`: L-025 lat typed 8.99111 (corrected to 18.99111); names 'L 057', 'L -4401', 'KLV' for KLVA (also in csmt_kyn_up_loc.csv).
