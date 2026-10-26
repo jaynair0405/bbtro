@@ -51,7 +51,7 @@ MMR-BSL,UP NE,UP,174,0,174,not started,,
 MMR-SNSI,SNSI DN,DN,41,0,41,not started,,
 MMR-SNSI,SNSI UP,UP,41,0,41,not started,,
 NEU-KILLE,DN BSU,DN,5,5,0,complete,data/NEU-KILLE/neu_kille_dn.csv,
-NEU-KILLE,UP BSU,UP,3,0,3,not started,,
+NEU-KILLE,UP BSU,UP,3,3,0,complete,data/NEU-KILLE/kille_neu_up.csv,no location_text in master
 PEN-TVSG,DN TVSG,DN,19,1,18,partial,,
 PEN-TVSG,UP TVSG,UP,18,3,15,partial,,
 PNVL-DCC,DIVA DN,DN,36,34,2,partial,data/PNVL_DVA/pnvl_diva_dn.csv,DCC chord signals missing
