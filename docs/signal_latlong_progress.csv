@@ -22,7 +22,7 @@ DCC-KYN,DIVA DN,DN,9,0,9,not started,,
 DCC-KYN,DIVA UP,UP,10,0,10,not started,,
 DW-DCC,BSR UP,UP,8,6,2,partial,,
 IGP-MMR,DN NE,DN,108,98,10,partial,data/IGP_MMR/igp_mmr_dn_new.csv (+ igp_mmr_dn.csv),automatics from retired inner distants; LT IBS x3 + ODHA DIST/INN pending
-IGP-MMR,UP NE,UP,102,96,6,partial,data/IGP_MMR/igp_mmr_up_new.csv,automatics from retired distants; 6 blank in source
+IGP-MMR,UP NE,UP,102,98,4,partial,data/IGP_MMR/igp_mmr_up_new.csv,automatics from retired distants; LS DIST + DVL IBS x3 blank
 JNPN-MPRN,WDFC DN,DN,236,0,236,not started,,
 JNPN-MPRN,WDFC UP,UP,171,0,171,not started,,
 KILLE-URAN,DN BSU,DN,23,23,0,complete,data/BSU_LINE/uran_dn.csv,KHKR in source = KARP; URAN S-7/S-8 not in master
