@@ -1,6 +1,6 @@
 section,line,direction,total,with_latlong,left,status,source_file,notes
 BEPR-KILLE,DN BSU,DN,4,4,0,complete,data/BEPR-KILLE/bepr_kille_dn.csv,
-BEPR-KILLE,UP BSU,UP,2,0,2,not started,,
+BEPR-KILLE,UP BSU,UP,2,2,0,complete,data/BEPR-KILLE/kille_bepr_up.csv,
 CLA-KYN,5TH,DN,65,1,64,partial,,
 CLA-KYN,6TH,UP,59,0,59,not started,,
 CLA-TMBY,DN TMBY,DN,19,0,19,not started,,
@@ -26,7 +26,7 @@ IGP-MMR,UP NE,UP,111,0,111,not started,,redo with proper signal numbers
 JNPN-MPRN,WDFC DN,DN,236,0,236,not started,,
 JNPN-MPRN,WDFC UP,UP,171,0,171,not started,,
 KILLE-URAN,DN BSU,DN,23,0,23,not started,,
-KILLE-URAN,UP BSU,UP,24,0,24,not started,,
+KILLE-URAN,UP BSU,UP,24,1,23,partial,data/BEPR-KILLE/kille_bepr_up.csv,
 KJT-KHPI,DN KHPI,DN,26,7,19,partial,data/KJT-KHPI/kjt_khpi_lat_long.csv,
 KJT-KHPI,UP KHPI,UP,25,16,9,partial,data/KJT-KHPI/kjt_khpi_lat_long.csv,
 KJT-LNL,DN SE,DN,28,19,9,partial,data/KJT-LNL/kjt-lnl-ml-DN.csv,
