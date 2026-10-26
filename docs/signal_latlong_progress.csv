@@ -1,5 +1,5 @@
 section,line,direction,total,with_latlong,left,status,source_file,notes
-BEPR-KILLE,DN BSU,DN,4,0,4,not started,,
+BEPR-KILLE,DN BSU,DN,4,4,0,complete,data/BEPR-KILLE/bepr_kille_dn.csv,
 BEPR-KILLE,UP BSU,UP,2,0,2,not started,,
 CLA-KYN,5TH,DN,65,1,64,partial,,
 CLA-KYN,6TH,UP,59,0,59,not started,,
