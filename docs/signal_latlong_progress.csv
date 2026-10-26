@@ -11,7 +11,7 @@ CSMT-KYN,DN LOC,DN,134,124,10,partial,data/CSMT_KYN/csmt_kyn_dn_loc.csv,L-025 la
 CSMT-KYN,DN TH,DN,136,115,21,partial,,
 CSMT-KYN,UP LOC,UP,128,117,11,partial,data/CSMT_KYN/csmt_kyn_up_loc.csv,10 blank in source; KLVA S-22 missing
 CSMT-KYN,UP TH,DN,124,115,9,partial,,
-CSMT-PNVL,DN HB,DN,111,100,11,partial,,
+CSMT-PNVL,DN HB,DN,111,102,9,partial,,
 CSMT-PNVL,UP HB,UP,108,104,4,partial,data/CSMT_PNVL/ upload_lat_long_csmt_pnvl_up_hb.csv,
 DAT-DCC,DIVA DN,DN,3,2,1,partial,,
 DAT-DCC,DIVA UP,UP,3,1,2,partial,,
@@ -71,5 +71,5 @@ TUH-NEU,DN THB,DN,8,8,0,complete,data/TNA_VSH/tuh_neu_dn.csv,NEU S-31/S-32 48 m 
 TUH-NEU,UP THB,UP,9,9,0,complete,data/TNA_VSH/tuh_neu_up.csv,
 TUH-VSH,DN THB,DN,5,5,0,complete,data/TNA_VSH/tuh_vsh_dn.csv,"source uses old VSH numbers (S-4=S-29, S-19=S-21)"
 TUH-VSH,UP THB,UP,6,6,0,complete,data/TNA_VSH/tuh_vsh_up.csv,source uses old VSH numbers (S-11/12/16 = S-3/4/8)
-VDLR-GMN,DN HB,DN,35,2,33,partial,,
+VDLR-GMN,DN HB,DN,35,35,0,complete,data/vdlr_gmn/vdlr_gmn_dn.csv,3 master locations are Excel date serials
 VDLR-GMN,UP HB,UP,36,0,36,not started,,
