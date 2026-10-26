@@ -68,7 +68,7 @@ ROHA-RN,UP KR,UP,106,0,106,not started,,
 TNA-TUH,DN THB,DN,20,20,0,complete,data/TNA_VSH/tna-tuh_dn.csv,
 TNA-TUH,UP THB,UP,19,19,0,complete,data/TNA_VSH/tna_tuh_up.csv,TNA S-53/54 PF swapped in master location_text
 TUH-NEU,DN THB,DN,8,8,0,complete,data/TNA_VSH/tuh_neu_dn.csv,NEU S-31/S-32 48 m apart - check
-TUH-NEU,UP THB,UP,9,8,1,partial,data/TNA_VSH/tuh_neu_up.csv,NEU S-26 missing
+TUH-NEU,UP THB,UP,9,9,0,complete,data/TNA_VSH/tuh_neu_up.csv,
 TUH-VSH,DN THB,DN,5,5,0,complete,data/TNA_VSH/tuh_vsh_dn.csv,"source uses old VSH numbers (S-4=S-29, S-19=S-21)"
 TUH-VSH,UP THB,UP,6,6,0,complete,data/TNA_VSH/tuh_vsh_up.csv,source uses old VSH numbers (S-11/12/16 = S-3/4/8)
 VDLR-GMN,DN HB,DN,35,2,33,partial,,
