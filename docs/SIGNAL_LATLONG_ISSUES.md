@@ -3,6 +3,7 @@
 Found while loading signal coordinates on 2026-10-26 (sql/2026-10-26_latlong_*.sql).
 Every load only fills NULL coordinates, so none of these were overwritten — they are
 left for a separate pass. Tick off as resolved.
+Per-line progress (counts, source file, notes): `docs/signal_latlong_progress.csv`.
 
 ## A. Coordinates missing or suspect (need a fresh reading)
 
