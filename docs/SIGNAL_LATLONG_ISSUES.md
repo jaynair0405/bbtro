@@ -3,7 +3,7 @@
 Found while loading signal coordinates on 2026-10-26 (sql/2026-10-26_latlong_*.sql).
 Every load only fills NULL coordinates, so none of these were overwritten — they are
 left for a separate pass. Tick off as resolved.
-Per-line progress (counts, source file, notes): `docs/signal_latlong_progress.csv`.
+Per-line progress (counts of ACTIVE signals, source file, notes): `docs/signal_latlong_progress.csv`.
 
 ## A. Coordinates missing or suspect (need a fresh reading)
 
@@ -42,7 +42,7 @@ Per-line progress (counts, source file, notes): `docs/signal_latlong_progress.cs
 | NILJ S-3 location (PNVL-DCC DN) | source 47/18, master 47/22 |
 | KHBV DIST (KOPAR-BSR UP) | source 61/28, master 61/20 |
 | KHBV S-2 (KOPAR-BSR UP) | source 63/24, master 63/34 |
-| GATE INN DIST (IGP-MMR DN, 214/29) | name lacks the gate number — should be GATE-98 INN DIST |
+| GATE INN DIST (IGP-MMR DN, 214/29) | retired 2026-10-02 (automatic block) — moot |
 | BSR DN order vs km | GATE-10 (79/17) sits before BSR IBS DIST (80/15); coordinates agree with the order, so one km is wrong |
 | IGP S-26/27/28/29/37 (KSRA-IGP UP) | no location_text |
 | NEU S-44, NU-2, NU-4 (NEU-KILLE UP BSU) | no location_text |
@@ -57,7 +57,9 @@ Per-line progress (counts, source file, notes): `docs/signal_latlong_progress.cs
 | CSMT-KYN DN LOC location_text | most rows empty in master; source csmt_kyn_dn_loc.csv has them all (and differs on PR S-19, DR S-20, L-043, CLA S-8, VVH S-29, VVH S-56, VK S-3, L-089, L-3511 where master says 'PF-1 STR' etc.) — fill from source |
 | CSMT S-3/4/5/6 DN TH vs DN LOC | same magnet_id; DN TH (earlier load) and DN LOC (csmt_kyn_dn_loc.csv) coords differ 3–10 m — pick one |
 
-## C. Source-file quirks (for whoever prepares the sheets)
+## C. Source-file quirks
+
+- `igp_mmr_dn.csv` / `igp_mmr_dn_new.csv` predate the 2026-10-02 NR-KBSN-KW-ODHA automatic change (retired distants, old KBSN numbers); `_new` has LS IBS DIST/INN DIST behind LS station (wrong) — older file used for those. (for whoever prepares the sheets)
 
 - Generic names (`S-2`, `DIST`, `IBS DIST`, `Gate Distant`) instead of master names — matched by location; keep a location column in every file.
 - `bsr_dw_up.csv` first arrived holding the DN direction (renamed `bsr_dw_dn.csv`).
