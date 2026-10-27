@@ -18,7 +18,6 @@ Per-line progress (counts of ACTIVE signals, source file, notes): `docs/signal_l
 | KSRA-IGP UP NE (+ MID copies) | IGP S-36, S-38 | blank in source |
 | KSRA-IGP UP NE (+ MID copies) | IGP S-45, S-26..S-29, S-31, S-37 | not in source — yard signals, to fill later |
 | PNVL-ROHA DN KR | PEN S-7/8/9, NGTN S-7 | blank in source |
-| PNVL-ROHA DN KR | ROHA S-3 | not in source |
 | PNVL-ROHA UP KR | GATE-4 REP (76/29) | blank in source |
 | PNVL-DCC DIVA DN | DCC S-20, DCC S-4 (DCC chord) | not in source |
 | KOPAR-BSR BSR DN | BSR S-44/46/56/58/60/62/66, loop/UDL starters at BIRD/KHBV/KARD (14 total) | not in source |
@@ -29,7 +28,13 @@ Per-line progress (counts of ACTIVE signals, source file, notes): `docs/signal_l
 | CSMT-KYN UP LOC | KYN S-35/14/16/36, TNA S-58/31/44/8, VVH S-55, CLA S-27 | blank in source |
 | CSMT-KYN UP LOC | KLVA S-22 | not in source |
 | KJT-LNL (all lines) | KJT station signals (S-16, 21, 22, 28, 38/39, 42, 61/62) | not in any source yet |
-| IGP-MMR DN, MMR-IGP UP | whole line | source names did not match master — user to redo with proper signal numbers |
+| IGP-MMR DN NE | LT IBS DIST, LT IBS INN DIST, LT IBS S-16 | source has 'GATE 84' signals there instead — user collecting data |
+| IGP-MMR DN NE | ODHA DIST, ODHA INN DIST | left blank by user |
+| IGP-MMR DN NE | IGP S-69 (PF-4 STR) | not in source |
+| IGP-MMR DN NE | S-20401/20813/21013/21423/21625 | coords taken from the retired inner distant at the same spot (user OK) — verify on site |
+| IGP-MMR UP NE | LS DIST, DVL IBS DIST, DVL IBS INN DIST, DVL IBS S-16 | blank in source |
+| IGP-MMR UP NE | S-20414/20804/20906/21502/21706 | coords from the retired distant at the same spot (S-21502 loosest: KBSN INN DIST 214/18 vs 214/28) — verify on site |
+| ROHA-RN DN KR | UKC DIST, UKC INN DIST, BOKE DIST, BOKE INN DIST | blank in source |
 
 ## B. Master data (div_signals) to correct
 
@@ -59,8 +64,9 @@ Per-line progress (counts of ACTIVE signals, source file, notes): `docs/signal_l
 
 ## C. Source-file quirks
 
-- `igp_mmr_dn.csv` / `igp_mmr_dn_new.csv` predate the 2026-10-02 NR-KBSN-KW-ODHA automatic change (retired distants, old KBSN numbers); `_new` has LS IBS DIST/INN DIST behind LS station (wrong) — older file used for those. (for whoever prepares the sheets)
+(for whoever prepares the sheets)
 
+- `igp_mmr_dn.csv` / `igp_mmr_dn_new.csv` / `igp_mmr_up_new.csv` predate the 2026-10-02 NR-KBSN-KW-ODHA automatic change (retired distants, old KBSN/KW numbers); `igp_mmr_dn_new.csv` has LS IBS DIST/INN DIST behind LS station (wrong) — older file used for those.
 - Generic names (`S-2`, `DIST`, `IBS DIST`, `Gate Distant`) instead of master names — matched by location; keep a location column in every file.
 - `bsr_dw_up.csv` first arrived holding the DN direction (renamed `bsr_dw_dn.csv`).
 - Stale rows: LX 20 on PNVL-ROHA UP (gate removed); "LX2" label for GATE-4.
