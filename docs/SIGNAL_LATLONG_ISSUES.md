@@ -35,6 +35,7 @@ Per-line progress (counts of ACTIVE signals, source file, notes): `docs/signal_l
 | IGP-MMR UP NE | LS DIST, DVL IBS DIST, DVL IBS INN DIST, DVL IBS S-16 | blank in source |
 | IGP-MMR UP NE | S-20414/20804/20906/21502/21706 | coords from the retired distant at the same spot (S-21502 loosest: KBSN INN DIST 214/18 vs 214/28) — verify on site |
 | ROHA-RN DN KR | UKC DIST, UKC INN DIST, BOKE DIST, BOKE INN DIST | blank in source |
+| PNVL-KJT UP KJT | KJT S-130, S-131, S-132, S-134, S-137, S-141; CHOK DIST | blank in source |
 
 ## B. Master data (div_signals) to correct
 
@@ -45,6 +46,7 @@ Per-line progress (counts of ACTIVE signals, source file, notes): `docs/signal_l
 | LP-37 location (LNL-PUNE DN) | source 160/44, master 160/42 |
 | DP-1 location (PNVL-DCC DN) | source 45/24, master 45/22 |
 | NILJ S-3 location (PNVL-DCC DN) | source 47/18, master 47/22 |
+| CHOK locations (PNVL-KJT) | DN CHOK S-4 source 84/02 vs master 83/20; DN CHOK S-16 85/33 vs 86/01; UP CHOK DIST 86/17 vs 87/07 |
 | KHBV DIST (KOPAR-BSR UP) | source 61/28, master 61/20 |
 | KHBV S-2 (KOPAR-BSR UP) | source 63/24, master 63/34 |
 | GATE INN DIST (IGP-MMR DN, 214/29) | retired 2026-10-02 (automatic block) — moot |
@@ -73,4 +75,5 @@ Per-line progress (counts of ACTIVE signals, source file, notes): `docs/signal_l
 - `kjt-lnl-ml-DN.csv` was dropped in `data/trip-shed/` (moved).
 - `tuh_vsh_dn.csv`: old signal numbers — VSH S-4 is now S-29, VSH S-19 is now S-21 (renumbered; sheets should be updated).
 - `tuh_vsh_up.csv`: old numbers alongside new — old S-11/S-12/S-16 are now VSH S-3/S-4/S-8.
+- `pnvl_kjt_up.csv`: CHOK/PYJE UP numbered S-11..S-17 (clashing with DN numbers); master has S-42/45/46/47/50 — mapped by location + function.
 - `csmt_kyn_dn_loc.csv`: L-025 lat typed 8.99111 (corrected to 18.99111); names 'L 057', 'L -4401', 'KLV' for KLVA (also in csmt_kyn_up_loc.csv).

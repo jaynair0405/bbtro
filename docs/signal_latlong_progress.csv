@@ -55,12 +55,12 @@ NEU-KILLE,UP BSU,UP,3,3,0,complete,data/NEU-KILLE/kille_neu_up.csv,no location_t
 PEN-TVSG,DN TVSG,DN,19,1,18,partial,,
 PEN-TVSG,UP TVSG,UP,18,3,15,partial,,
 PNVL-DCC,DIVA DN,DN,36,34,2,partial,data/PNVL_DVA/pnvl_diva_dn.csv,DCC chord signals missing
-PNVL-DCC,DIVA UP,UP,37,8,29,partial,,
+PNVL-DCC,DIVA UP,UP,37,13,24,partial,,
 PNVL-DW,DN ML,DN,1,1,0,complete,,
 PNVL-JNPT,JNPT DN,DN,26,5,21,partial,,
-PNVL-JNPT,JNPT UP,UP,30,0,30,not started,,
-PNVL-KJT,DN KJT,DN,20,5,15,partial,,
-PNVL-KJT,UP KJT,UP,28,2,26,partial,,
+PNVL-JNPT,JNPT UP,UP,30,6,24,partial,,
+PNVL-KJT,DN KJT,DN,20,20,0,complete,data/PNVL_KJT/pnvl_kjt_dn.csv,
+PNVL-KJT,UP KJT,UP,28,21,7,partial,data/PNVL_KJT/pnvl_kjt_up.csv,CHOK/PYJE renumbered in source; KJT end blank
 PNVL-ROHA,DN KR,DN,60,56,4,partial,data/PNVL_ROHA/pnvl_roha_dn.csv,
 PNVL-ROHA,UP KR,UP,62,61,1,partial,data/PNVL_ROHA/pnvl_roha_up.csv,
 ROHA-RN,DN KR,DN,108,104,4,partial,data/ROHA_RN/roha_rn_dn.csv,UKC/BOKE distants blank in source
