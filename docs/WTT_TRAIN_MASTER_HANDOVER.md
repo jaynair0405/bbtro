@@ -23,6 +23,22 @@ memory `bbtro_local_prod_sync_trap.md`.
   stops get entered in full through the WTT edit UI (add/edit/delete, every field), which is the next build.
   Supersedes §4.1 and §4.4.
 
+### Halts given by the user, to enter once the WTT edit UI exists (29 Oct)
+
+Station order only — times still to come.
+
+| Train | Halts |
+|---|---|
+| 01107 CSMT-BD One Way SPL | TNA, KYN, NK |
+| 05557 RXL-LTT H/SPL | MMR, KYN, LTT |
+| 05558 LTT-RXL H/SPL | LTT, KYN, MMR |
+| 01463 LTT-TVCN H/SPL | LTT, TNA, PNVL, PEN, ROHA, KHED, CHI, SGMR, RN |
+
+- **No halts needed:** 00199 Deccan Odyssey, E/COG (empty coaching).
+- **Parcel trains, running:** 00111, 00112, 01149.
+- **Finished holiday specials** are not coming back; a new holiday special is added fresh by the LPC as a
+  new train. So specials with no recent run get ended (link row + `is_active=0`), not given a timetable.
+
 ## 1. The two tables
 
 | Table | Grain | Holds | Filled by |
