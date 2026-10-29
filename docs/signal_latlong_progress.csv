@@ -1,7 +1,7 @@
 section,line,direction,total,with_latlong,left,status,source_file,notes
 BEPR-KILLE,DN BSU,DN,4,4,0,complete,data/BEPR-KILLE/bepr_kille_dn.csv,
 BEPR-KILLE,UP BSU,UP,2,2,0,complete,data/BEPR-KILLE/kille_bepr_up.csv,
-CLA-KYN,5TH,DN,65,1,64,partial,,
+CLA-KYN,5TH,DN,65,65,0,complete,data/5th_6th/5th_dn.csv,VVH S-11 given in chat
 CLA-KYN,6TH,UP,59,0,59,not started,,
 CLA-TMBY,DN TMBY,DN,19,0,19,not started,,
 CLA-TMBY,UP TMBY,UP,17,0,17,not started,,
@@ -18,9 +18,9 @@ DAT-DCC,DIVA UP,UP,3,1,2,partial,,
 DCC-DIVA,DIVA DN,DN,7,0,7,not started,,
 DCC-DIVA,DIVA UP,UP,5,0,5,not started,,
 DCC-KOPAR,BSR UP,UP,2,2,0,complete,,
-DCC-KYN,DIVA DN,DN,9,0,9,not started,,
-DCC-KYN,DIVA UP,UP,10,0,10,not started,,
-DW-DCC,BSR UP,UP,8,6,2,partial,,
+DCC-KYN,DIVA DN,DN,9,8,1,partial,,
+DCC-KYN,DIVA UP,UP,10,10,0,complete,,
+DW-DCC,BSR UP,UP,8,7,1,partial,,
 IGP-MMR,DN NE,DN,108,98,10,partial,data/IGP_MMR/igp_mmr_dn_new.csv (+ igp_mmr_dn.csv),automatics from retired inner distants; LT IBS x3 + ODHA DIST/INN pending
 IGP-MMR,UP NE,UP,102,98,4,partial,data/IGP_MMR/igp_mmr_up_new.csv,automatics from retired distants; LS DIST + DVL IBS x3 blank
 JNPN-MPRN,WDFC DN,DN,236,0,236,not started,,
