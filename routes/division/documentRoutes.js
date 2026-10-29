@@ -694,12 +694,13 @@ router.get('/:id/view', async (req, res) => {
         return res.status(403).json({ success: false, error: 'This draft is not yours to view.' });
       }
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
-      // Cadre letters and SSE-HQ reports are filed as COMPLETE pages (their own
+      // Cadre letters, SSE-HQ reports and CLI (HQ) notes/letters are filed as COMPLETE pages (their own
       // letterhead/proforma, tables and print CSS, rendered by
       // utils/cadreLetterHtml.js and utils/ssehqReportHtml.js) — serve them
       // as-is. renderInstructionPage() is the Sr.DEE/CEE-OP instruction format
       // and would wrap them in the wrong document.
-      if (row.category === 'CADRE_LETTER' || row.category === 'SSE_HQ_REPORT') {
+      if (row.category === 'CADRE_LETTER' || row.category === 'SSE_HQ_REPORT' ||
+          row.category === 'CLI_HQ_NOTE') {
         return res.send(row.body_html || '');
       }
       return res.send(renderInstructionPage(row));
