@@ -62,7 +62,6 @@ Per-line progress (counts of ACTIVE signals, source file, notes): `docs/signal_l
 | URAN S-7/SH-7, S-8/SH-8 (PF-1/PF-2 STR, DN BSU) | in source uran_dn.csv with coords (18.87828/72.95087, 18.87844/72.95087) but not in div_signals — add as signals |
 | DW S-16 / DW S-19 | 2 m apart (PF-7 / PF-8 starters) — verify |
 | CSMT-KYN DN LOC location_text | most rows empty in master; source csmt_kyn_dn_loc.csv has them all (and differs on PR S-19, DR S-20, L-043, CLA S-8, VVH S-29, VVH S-56, VK S-3, L-089, L-3511 where master says 'PF-1 STR' etc.) — fill from source |
-| DCC S-11 (DAT-DCC DIVA UP) | user-confirmed point 19.17126/73.07468 is ~3 km S of DCC, ~35 m from PNVL-DCC DP-3 (46/20); master location_text says 43/21 — one of them is wrong |
 | CLA-KYN 5TH location_text | 63 of 65 rows empty in master; data/5th_6th/5th_dn.csv has them all (20/505A, 21/504, LTT PF-1 STR, ...) — fill from source |
 | CSMT S-3/4/5/6 DN TH vs DN LOC | same magnet_id; DN TH (earlier load) and DN LOC (csmt_kyn_dn_loc.csv) coords differ 3–10 m — pick one |
 
