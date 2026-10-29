@@ -72,6 +72,7 @@ const ALLOWED = new Set(['ssehq', 'division_admin']);
  * accounts today — see the user-access review noted 2026-09-15 — so the role
  * check is admin and the DESK, not the role, is what separates them. */
 const CLIHQ_ALLOWED = new Set(['division_admin']);
+const CLIHQ_SHARED = /^\/(search-staff|search-cli)\/|^\/next-number$/;
 
 function requireSsehq(req, res, next) {
     const u = req.session?.user;
@@ -82,7 +83,10 @@ function requireSsehq(req, res, next) {
     }
     /* A CLI-HQ desk account is an admin only by accident of how it was
      * created; it has no business in the SSE-HQ desk's reports. Until the
-     * role review separates them, the desk column is the fence. */
+     * role review separates them, the desk column is the fence. The pickers
+     * and the number suggester are shared with the CLI-HQ editors, so a desk
+     * must get through to those or its save gate can never be satisfied. */
+    if (u.clihq_desk && CLIHQ_SHARED.test(req.path)) return next();
     if (u.clihq_desk) return res.status(403).json({ error: 'Not available to a CLI (HQ) desk' });
     if (!ALLOWED.has(u.div_role)) return res.status(403).json({ error: 'SSE-HQ access required' });
     next();
