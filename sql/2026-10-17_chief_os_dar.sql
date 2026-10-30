@@ -33,7 +33,7 @@ ALTER TABLE users
 INSERT INTO users
   (username, password, role, full_name, office, realm, div_role, div_office_code,
    training_center_id, can_access_rtis, can_access_sub_spm, must_change_password)
-SELECT 'chiefostro', '$2b$12$4AhphGrgCwCG.SNnBl2hA.zrva0Is5ypDk2aCbh7TmUsAzMTx96pK',
+SELECT 'chiefostro', '$2b$12$WplAA441DyYN5BMPFKhaVecn.ouVItuNntAnNc4GM8.uVgYZdbF8G',
        'user', 'Chief OS, Sr. DEE (TRO) BB', 'HQ', 'division', 'chiefos', 'CSMT-HQ',
        NULL, 0, 0, 1
  WHERE NOT EXISTS (SELECT 1 FROM users WHERE username = 'chiefostro');
