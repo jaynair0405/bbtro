@@ -63,7 +63,7 @@ table.reg .sub2 { color:var(--text-dim); font-size:12px; }
                 <div class="filters2">
                     <input id="fQ" placeholder="Search by name, HRMS, PF or subject">
                     <select id="fStatus"><option value="open">Open cases</option><option value="closed">Closed cases</option><option value="">All</option></select>
-                    <select id="fDesk"><option value="">All desks</option><option value="ML">Mainline</option><option value="DSL">Diesel</option><option value="SUB">Suburban</option></select>
+                    <select id="fDesk"><option value="">All desks</option><option value="ML">Mainline</option><option value="SUB">Suburban</option></select>
                 </div>
                 <table class="reg"><thead><tr><th>Opened</th><th>Staff</th><th>Subject</th><th>Desk</th><th>Letters</th><th>Last</th><th></th></tr></thead>
                 <tbody id="rows"><tr><td colspan="7" class="none2">Loading&hellip;</td></tr></tbody></table>
@@ -78,7 +78,6 @@ table.reg .sub2 { color:var(--text-dim); font-size:12px; }
     <div class="fld"><label>Desk</label>
         <div class="deskbtns" id="deskBtns">
             <button type="button" data-desk="ML">Mainline</button>
-            <button type="button" data-desk="DSL">Diesel</button>
             <button type="button" data-desk="SUB">Suburban</button>
         </div></div>
     <div class="fld search-wrap"><label>Staff (charged official)</label>
@@ -110,7 +109,7 @@ const STAFF = { hrms_id: '', is_cli: false, state: '' };   // 'yes' | 'temp' | '
 
 function tiles(d) {
     const t = [
-        { n: d.open_cases || 0, l: 'Open cases', x: `ML ${d.open_ml || 0} · DSL ${d.open_dsl || 0} · SUB ${d.open_sub || 0}` },
+        { n: d.open_cases || 0, l: 'Open cases', x: `ML ${d.open_ml || 0} · SUB ${d.open_sub || 0}` },
         { n: d.under_suspension || 0, l: 'Under suspension', x: 'SF-1 filed, no SF-4 yet', cls: d.under_suspension ? 'warn' : '' },
         { n: d.drafts || 0, l: 'Draft letters', x: 'not yet filed', cls: d.drafts ? 'warn' : '' },
         { n: d.this_month || 0, l: 'Filed this month', x: 'all forms' },

@@ -41,7 +41,6 @@
     // ── Reference data ──────────────────────────────────────────────────────
     var DESKS = {
         ML:  { label: 'Mainline', series: 'BB.TRSO.DAR.ML.',  copy_to: 'C/- DRM (P) Loco & Sr. CC (ML) CSMT for inf. & necessary action.' },
-        DSL: { label: 'Diesel',   series: 'BB.TRSO.DAR.DSL.', copy_to: 'C/- DRM (P) Loco & Sr. CC (DSL) for inf. & necessary action.' },
         SUB: { label: 'Suburban', series: 'BB.TRSO.DAR.SUB.', copy_to: 'C/- DRM (P) Loco & Sr. CC (SUB) CSMT for inf. & necessary action.' },
     };
     /* "Name / Designation". Picked from a list on the letter; the list is a

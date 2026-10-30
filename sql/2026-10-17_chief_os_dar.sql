@@ -15,7 +15,7 @@
 -- WHO
 -- One account, chiefostro, div_role 'chiefos'. Confined by allowlist in
 -- server.js (its own pages, the Documents repository it files into, and the
--- read-only Staff Bio-Profile report). The desk (ML/DSL/SUB) is chosen per
+-- read-only Staff Bio-Profile report). The desk (ML/SUB) is chosen per
 -- case — one person holds the post for all three — and drives the number
 -- series BB.TRSO.DAR.<desk>.<yy>.<serial> seen on the samples.
 --
@@ -51,7 +51,7 @@ ALTER TABLE div_documents
 -- 4. Cases.
 CREATE TABLE IF NOT EXISTS div_dar_cases (
   id                INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-  desk              ENUM('ML','DSL','SUB') NOT NULL,
+  desk              ENUM('ML','SUB') NOT NULL,
   -- The charged official: from div_staff_master or div_cli_master (hrms_id is
   -- one key space across both); a copy of the name/designation/PF as they
   -- stood when the case opened, because letters quote them as of that date.

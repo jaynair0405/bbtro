@@ -86,7 +86,7 @@ router.get('/dashboard', async (req, res) => {
         const p = pool(req);
         const [[c]] = await p.query(
             `SELECT SUM(status='open') open_cases, SUM(status='closed') closed_cases,
-                    SUM(status='open' AND desk='ML') open_ml, SUM(status='open' AND desk='DSL') open_dsl,
+                    SUM(status='open' AND desk='ML') open_ml,
                     SUM(status='open' AND desk='SUB') open_sub
                FROM div_dar_cases`);
         const [[l]] = await p.query(
@@ -157,7 +157,7 @@ router.get('/cases', async (req, res) => {
 
 router.post('/cases', async (req, res) => {
     const c = normaliseCase(req.body);
-    if (!c.desk) return res.status(400).json({ error: 'Choose the desk (ML / DSL / SUB).' });
+    if (!c.desk) return res.status(400).json({ error: 'Choose the desk (ML / SUB).' });
     if (!c.staff_name) return res.status(400).json({ error: 'Pick the staff member from the master.' });
     if (!c.subject_text) return res.status(400).json({ error: 'A subject is required.' });
     try {
