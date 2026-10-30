@@ -369,6 +369,12 @@
                                 CLI (HQ) — Notes Desk
                             </a>
                         </li>
+                        <li class="sidebar-nav-item chiefos-link" style="display:none;">
+                            <a href="/div/chiefos.html" class="sidebar-nav-link">
+                                <span class="icon">⚖️</span>
+                                Chief OS — D&amp;AR Desk
+                            </a>
+                        </li>
                         <li class="sidebar-nav-item">
                             <a href="#" class="sidebar-nav-link">
                                 <span class="icon">🎓</span>
@@ -1055,6 +1061,10 @@
                     // may open it and pick a desk.
                     if (user.div_role === 'division_admin') {
                         document.querySelectorAll('.clihq-link')
+                            .forEach(el => { el.style.display = ''; });
+                        // Chief OS D&AR desk — admins see every desk's pages
+                        // (chiefOsRoutes.js admits division_admin).
+                        document.querySelectorAll('.chiefos-link')
                             .forEach(el => { el.style.display = ''; });
                     }
                 }
