@@ -484,8 +484,9 @@ router.get('/letter/:id/word', async (req, res) => {
         const rec = await loadLetter(req, req.params.id);
         if (!rec) return res.status(404).send('Letter not found');
         const name = R.darTitle(rec).replace(/[\\/:*?"<>|]+/g, '-');
+        const ascii = name.replace(/[^\x20-\x7E]+/g, '-').replace(/-+/g, '-');
         res.setHeader('Content-Type', 'application/msword; charset=utf-8');
-        res.setHeader('Content-Disposition', `attachment; filename="${name}.doc"; filename*=UTF-8''${encodeURIComponent(name)}.doc`);
+        res.setHeader('Content-Disposition', `attachment; filename="${ascii}.doc"; filename*=UTF-8''${encodeURIComponent(name)}.doc`);
         res.send(renderWord(rec));
     } catch (e) { console.error('chiefos word:', e); res.status(500).send('Failed to build the Word file'); }
 });
