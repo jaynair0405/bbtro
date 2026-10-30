@@ -139,7 +139,7 @@ async function loadCases() {
             <td>${esc(c.desk)}</td>
             <td>${c.letters}${c.drafts ? ` <span class="pill amber">${c.drafts} draft</span>` : ''}</td>
             <td>${lastCell(c.last_letter)}</td>
-            <td><a class="btn-tiny primary" href="/div/chiefos-case.html?id=${c.id}">Open &rarr;</a></td></tr>`).join('');
+            <td style="white-space:nowrap"><a class="btn-tiny primary" href="/div/chiefos-case.html?id=${c.id}">Open &rarr;</a></td></tr>`).join('');
     } catch (e) { $('rows').innerHTML = `<tr><td colspan="7" class="none2">${esc(e.message)}</td></tr>`; }
 }
 
